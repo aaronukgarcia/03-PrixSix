@@ -147,44 +147,61 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
             {isLocked ? "Your submitted grid for this race." : "Select drivers from the list to fill your grid. Your previous prediction is pre-loaded."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {predictions.map((driver, index) => (
-            <div key={index} className="relative group flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-dashed bg-card-foreground/5 transition-colors">
-              <div className="absolute top-2 left-2 font-bold text-muted-foreground">P{index + 1}</div>
-               {!isLocked && (
-                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleMove(index, 'up')} disabled={index === 0}>
-                        <ArrowUp className="h-4 w-4" />
-                    </Button>
-                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleMove(index, 'down')} disabled={index === 5}>
-                        <ArrowDown className="h-4 w-4" />
-                    </Button>
-                </div>
-               )}
-
-              {driver ? (
-                <>
-                  {!isLocked && (
-                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveDriver(index)}>
-                        <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Avatar className="w-20 h-20 border-4 border-primary">
-                    <AvatarImage src={getDriverImage(driver.id)} data-ai-hint="driver portrait"/>
-                    <AvatarFallback>{driver.name.substring(0, 2)}</AvatarFallback>
-                  </Avatar>
-                  <div className="text-center">
-                    <p className="font-bold text-lg">{driver.name}</p>
-                    <p className="text-sm text-muted-foreground">{driver.team}</p>
-                  </div>
-                </>
-              ) : (
-                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-8">
-                    <p className="text-sm">Select a driver</p>
-                 </div>
-              )}
-            </div>
-          ))}
+        <CardContent>
+          {/* F1-style staggered grid: 2 lanes x 3 rows */}
+          <div className="flex flex-col gap-2 max-w-md mx-auto">
+            {[0, 1, 2].map((row) => (
+              <div key={row} className="grid grid-cols-2 gap-4">
+                {[0, 1].map((col) => {
+                  const index = row * 2 + col;
+                  const driver = predictions[index];
+                  const isRightLane = col === 1;
+                  return (
+                    <div
+                      key={index}
+                      className={cn(
+                        "relative group flex flex-col items-center gap-2 p-3 rounded-lg border-2 border-dashed bg-card-foreground/5 transition-colors",
+                        isRightLane && "mt-6" // Stagger right lane back
+                      )}
+                    >
+                      <div className="absolute top-1 left-2 font-bold text-muted-foreground text-sm">P{index + 1}</div>
+                      {!isLocked && (
+                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMove(index, 'up')} disabled={index === 0}>
+                            <ArrowUp className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMove(index, 'down')} disabled={index === 5}>
+                            <ArrowDown className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {driver ? (
+                        <>
+                          {!isLocked && (
+                            <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveDriver(index)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
+                          <Avatar className="w-16 h-16 border-4 border-primary">
+                            <AvatarImage src={getDriverImage(driver.id)} data-ai-hint="driver portrait"/>
+                            <AvatarFallback>{driver.name.substring(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          <div className="text-center">
+                            <p className="font-bold text-sm">{driver.name}</p>
+                            <p className="text-xs text-muted-foreground">{driver.team}</p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-6">
+                          <p className="text-xs">Select driver</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </CardContent>
         <CardFooter>
             <Button onClick={handleSubmit} disabled={isLocked || isSubmitting}>
