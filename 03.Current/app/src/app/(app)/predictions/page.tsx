@@ -4,6 +4,7 @@
 import { findNextRace, F1Drivers, Driver } from "@/lib/data";
 import { PredictionEditor } from "./_components/PredictionEditor";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AlertCircle, Users } from "lucide-react";
 import { useAuth, useDoc, useFirestore } from "@/firebase";
 import { useState, useMemo, useEffect } from "react";
