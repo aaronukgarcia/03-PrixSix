@@ -1,0 +1,49 @@
+{
+  "firestore": {
+    "reasoning": "Prix Six uses Firebase Firestore as a real-time NoSQL database. This allows instant updates across all connected clients when predictions are submitted or results are entered. The schema is designed for scalability and efficient querying of race predictions and standings.",
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "description": "Stores user profile data including team name, email, admin status, and authentication metadata. Each user document is keyed by their Firebase Auth UID."
+        }
+      },
+      {
+        "path": "/users/{userId}/predictions/{predictionId}",
+        "definition": {
+          "description": "Subcollection storing each user's race predictions. Contains the 6 selected drivers in order, submission timestamp, and race identifier."
+        }
+      },
+      {
+        "path": "/scores/{scoreId}",
+        "definition": {
+          "description": "Stores calculated points for each user per race. Updated when admin enters official race results."
+        }
+      },
+      {
+        "path": "/admin_configuration/scoring",
+        "definition": {
+          "description": "Global scoring rules configuration. Defines points for exact matches, partial matches, and bonus points."
+        }
+      },
+      {
+        "path": "/presence/{userId}",
+        "definition": {
+          "description": "Real-time presence tracking. Stores active session information to show online user count."
+        }
+      },
+      {
+        "path": "/mail/{mailId}",
+        "definition": {
+          "description": "Email queue for Firebase Email Extension. Documents here trigger automated email sending for welcome messages and PIN resets."
+        }
+      },
+      {
+        "path": "/audit_logs/{logId}",
+        "definition": {
+          "description": "Security and activity audit trail. Logs significant events like logins, prediction submissions, and admin actions."
+        }
+      }
+    ]
+  }
+}
