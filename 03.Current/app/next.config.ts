@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'media.formula1.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };
