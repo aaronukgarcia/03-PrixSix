@@ -1,4 +1,36 @@
+# Ignore everything by default
 *
+
+# Only include the app code
 !03.Current/
-!03.Current/*
+!03.Current/app/
+!03.Current/app/**
+!03.Current/LICENSE
+!03.Current/README.md
 !.gitignore
+
+# But always ignore these even if in 03.Current/app
+03.Current/app/.env
+03.Current/app/.env.*
+!03.Current/app/.env.example
+03.Current/app/node_modules/
+03.Current/app/.next/
+03.Current/app/.firebase/
+03.Current/app/*.log
+03.Current/app/.DS_Store
+
+# Never commit these anywhere
+*.env
+*.env.local
+*.env.*.local
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+*.pem
+*.key
+*.cert
+serviceAccountKey*.json
+*-credentials.json
+firebase-debug.log

@@ -1,0 +1,240 @@
+
+/**
+ * Core Philosophy: This ruleset enforces a dual security model. User-specific data
+ * (like profiles and predictions) is governed by a strict ownership model, where users
+ * can only access documents linked to their own user ID. Global application data
+ * (such as races, drivers, and results) is publicly readable but can only be
+ * managed by designated administrators.
+ *
+ * Data Structure: The data is organized into two main categories:
+ * 1. User-Scoped Data: Stored under `/users/{userId}`, this structure ensures all
+ *    data private to a user is logically and securely grouped.
+ * 2. Global Collections: Top-level collections like `/races`, `/drivers`, and
+ *    `/race_results` store shared data accessible to all users.
+ * 3. Administrative Collections: Collections like `/roles_admin` and `/admin_configuration`
+ *    are used for managing application access and settings, accessible only to admins.
+ *
+ * Key Security Decisions:
+ * - Admin Roles: A user is granted administrative privileges if a document corresponding
+ *   to their UID exists in the `/roles_admin` collection. This provides a centralized
+ *   and secure way to manage roles without relying on potentially insecure flags on
+ *   user documents.
+ * - User Privacy: Listing the entire `/users` collection is explicitly disallowed to
+ *   protect user privacy and prevent data scraping.
+ * - Secure Writes: All write operations are protected. User data writes are restricted
+ *   to the document owner, and global data writes are restricted to administrators.
+ *   There are no open write rules.
+ * - Read-Only Data: Race, driver, and result data is read-only for regular users,
+ *   ensuring data integrity is maintained by administrators.
+ * - Audit Logs: The `/audit_logs` collection is write-only for admins and completely
+ *   inaccessible to regular clients, ensuring logs cannot be read or tampered with.
+ *
+ * Denormalization for Authorization: The rules heavily rely on the `/roles_admin/{userId}`
+ * collection to perform a fast, efficient check for admin privileges (`isAdmin()`) without
+ * needing to read a user's profile document. For user-specific subcollections like
+ * predictions, we validate the denormalized `userId` field within the document to ensure
+ * relational integrity without extra `get()` calls.
+ *
+ * Structural Segregation: User-specific, private data (e.g., `/users/{userId}/predictions`)
+ * is stored in a separate path from publicly queryable data (e.g., `/races`). This
+ * separation simplifies security rules for list operations and improves query performance.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper Functions
+    // -------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the authenticated user's ID matches the provided userId.
+     * Used to verify ownership of a document or data path.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if a document exists.
+     * Used to prevent updates or deletes on non-existent documents.
+     */
+    function isExistingDoc() {
+      return resource != null;
+    }
+
+    /**
+     * Checks if the authenticated user is the owner of an existing document.
+     * A robust check for all state-changing operations (update, delete).
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && isExistingDoc();
+    }
+
+    /**
+     * Checks if the user has administrative privileges.
+     * Admin status is granted by the existence of a document for the user
+     * in the /roles_admin collection.
+     */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    // -------------------------------------------------------------------------
+    // User Data Collections
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (get) A user can read their own profile document.
+     * @deny (list) No user can list all documents in the `/users` collection.
+     * @principle Restricts access to a user's own data tree and ensures user privacy.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Controls access to a user's race predictions.
+       * @path /users/{userId}/predictions/{predictionId}
+       * @allow (create) A user can create a new prediction for themselves.
+       * @deny (update) An authenticated user cannot update another user's prediction.
+       * @principle Enforces document ownership for all operations within a user's private subcollection.
+       */
+      match /predictions/{predictionId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Public Read / Admin Write Collections
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to race information. Publicly readable, admin-only writes.
+     * @path /races/{raceId}
+     * @allow (get, list) Any client, authenticated or not, can read race data.
+     * @deny (create) A regular authenticated user cannot create a new race document.
+     * @principle Segregates public read access from privileged write access using roles.
+     */
+    match /races/{raceId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Controls access to official race results. Publicly readable, admin-only writes.
+     * @path /race_results/{raceId}
+     * @allow (get, list) Any client can read the results for a race.
+     * @deny (update) A regular authenticated user cannot modify race results.
+     * @principle Segregates public read access from privileged write access using roles.
+     */
+    match /race_results/{raceId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Controls access to F1 driver information. Publicly readable, admin-only writes.
+     * @path /drivers/{driverId}
+     * @allow (get, list) Any client can read the list of drivers.
+     * @deny (create) A regular authenticated user cannot add a new driver.
+     * @principle Segregates public read access from privileged write access using roles.
+     */
+    match /drivers/{driverId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    
+    /**
+     * @description Controls access to application-wide settings like the Hot News feed.
+     * @path /app-settings/{settingId}
+     * @allow (get, list) All users can read settings.
+     * @allow (create, update, delete) Admins can modify settings.
+     * @principle Restricts modification of critical app settings to admin users, while allowing public read.
+     */
+    match /app-settings/{settingId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Admin-Only Collections
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to global application settings. Only admins can read or write.
+     * @path /admin_configuration/{configId}
+     * @allow (get, list) An admin can read the global configuration.
+     * @deny (get) A regular authenticated user cannot read the global configuration.
+     * @principle Restricts access to sensitive configuration data to authorized administrators.
+     */
+    match /admin_configuration/{configId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Controls access to audit logs. Writeable by admins, but unreadable by all clients.
+     * @path /audit_logs/{logId}
+     * @allow (create) An admin (or trusted server process) can create a new audit log entry.
+     * @deny (get, list) No client, including admins, can read audit logs to prevent tampering or exposure.
+     * @principle Enforces a write-only pattern for sensitive log data from the client-side.
+     */
+    match /audit_logs/{logId} {
+      allow get, list: if false;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Controls access to the admin role assignments. Only admins can manage other admins.
+     * @path /roles_admin/{userId}
+     * @allow (create) An admin can grant another user admin privileges.
+     * @deny (delete) A regular authenticated user cannot revoke admin privileges.
+     * @principle Restricts the management of administrative roles to existing administrators.
+     */
+    match /roles_admin/{userId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    /**
+     * @description Manages user presence.
+     * @path /presence/{userId}
+     * @allow (list) Any signed-in user can list the collection to see who is online.
+     * @allow (get) Any signed-in user can check a specific user's presence.
+     * @allow (write, delete) A user can only manage their own presence status.
+     * @principle Allows for a real-time online user count while preventing users from manipulating others' online status.
+     */
+    match /presence/{userId} {
+      allow list, get: if isSignedIn();
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    /**
+     * @description Mail collection for the Trigger Email extension.
+     * @path /mail/{mailId}
+     * @allow (create) Any signed-in user can create an email document to be sent.
+     * @deny (read, update, delete) No client can read, update, or delete emails to protect privacy.
+     * @principle Enables a secure "write-only" mailbox for triggering emails.
+     */
+    match /mail/{mailId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,82 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId);
+
+      match /predictions/{predictionId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /races/{raceId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /race_results/{raceId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /scores/{scoreId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /drivers/{driverId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /app-settings/{settingId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /admin_configuration/{configId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if (isSignedIn() && isOwner(request.resource.data.userId)) || request.resource.data.action == 'signup_email_queued';
+      allow update, delete: if false;
+    }
+
+    match /email_logs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if true;
+      allow update, delete: if false;
+    }
+
+    match /presence/{userId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    match /mail/{mailId} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,137 @@
+
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import Link from "next/link";
+import { Frown } from 'lucide-react';
+import React, { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth, useFirebase } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+
+
+const formSchema = z.object({
+  email: z.string().email({ message: "Invalid email address." }),
+  pin: z.string().min(6, { message: "PIN must be 6 digits." }).max(6),
+});
+
+export default function LoginPage() {
+    const { login, isUserLoading } = useAuth();
+    const { toast } = useToast();
+    const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
+
+    const form = useForm<z.infer<typeof formSchema>>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            email: "",
+            pin: "",
+        },
+    });
+
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+        setError(null);
+        try {
+            const result = await login(values.email, values.pin);
+            if (result.success) {
+                router.push('/dashboard');
+            } else {
+                 setError(result.message); // Use the message from the login function
+                 toast({
+                     variant: "destructive",
+                     title: "Login Failed",
+                     description: result.message,
+                 });
+            }
+        } catch (e: any) {
+             setError(e.message);
+             toast({
+                variant: "destructive",
+                title: "Login Failed",
+                description: e.message,
+            });
+        }
+    }
+
+  return (
+    <main className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="w-full max-w-md mx-4">
+            <CardHeader className="text-center">
+                 <div className="flex justify-center items-center mb-4">
+                    <svg role="img" viewBox="0 0 24 24" className="h-12 w-12 text-primary" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><title>Prix Six</title><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 22C6.486 22 2 17.514 2 12S6.486 2 12 2s10 4.486 10 10-4.486 10-10 10zm-1-16h2v6h-2V6zm0 8h2v2h-2v-2z"/></svg>
+                </div>
+                <CardTitle className="text-3xl font-headline">Welcome to Prix Six</CardTitle>
+                <CardDescription>Enter your credentials to access your team.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="toto.wolff@mercedes.com" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="pin"
+                            render={({ field }) => (
+                                <FormItem>
+                                <div className="flex justify-between items-center">
+                                    <FormLabel>PIN</FormLabel>
+                                    <Link href="/forgot-pin" className="text-xs text-accent underline">
+                                        Forgot my PIN
+                                    </Link>
+                                </div>
+                                <FormControl>
+                                    <Input type="password" placeholder="••••••" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {error && (
+                            <div className="flex items-center gap-x-2 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                                <Frown className="h-4 w-4" />
+                                <p>{error}</p>
+                            </div>
+                        )}
+
+                        <Button type="submit" className="w-full" disabled={isUserLoading}>
+                            {isUserLoading ? "Signing In..." : "Sign In"}
+                        </Button>
+                    </form>
+                </Form>
+                <div className="mt-4 text-center text-sm">
+                    Don&apos;t have an account?{" "}
+                    <Link href="/signup" className="underline text-accent">
+                        Sign up
+                    </Link>
+                </div>
+            </CardContent>
+        </Card>
+    </main>
+  );
+}
