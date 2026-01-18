@@ -8,6 +8,7 @@
 !03.Current/LICENSE
 !03.Current/README.md
 !.gitignore
+!README.md
 
 # But always ignore these even if in 03.Current/app
 03.Current/app/.env
