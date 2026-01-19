@@ -15,7 +15,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import * as path from 'path';
 
 // Initialize Firebase Admin
-const serviceAccountPath = path.join(__dirname, '..', 'service-account.json');
+const serviceAccountPath = path.join(__dirname, '..', '..', 'service-account.json');
 
 if (getApps().length === 0) {
   initializeApp({
@@ -188,6 +188,11 @@ async function recalculateAllScores() {
         continue;
       }
 
+      if (!submission.oduserId) {
+        console.log(`  Skipping ${submission.teamName}: no oduserId`);
+        continue;
+      }
+
       const { totalPoints, breakdown } = calculateScore(predictions, actualTop6);
 
       // Check if score document exists
@@ -215,7 +220,6 @@ async function recalculateAllScores() {
         // Create new score document
         const newScoreRef = db.collection('scores').doc();
         batch.set(newScoreRef, {
-          oduserId: submission.oduserId,
           oduserId: submission.oduserId,
           teamName: submission.teamName,
           raceId: result.id,
