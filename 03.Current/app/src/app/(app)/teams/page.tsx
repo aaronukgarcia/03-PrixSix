@@ -68,6 +68,7 @@ export default function TeamsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch total count once (using aggregation - no document download)
   useEffect(() => {
@@ -106,6 +107,7 @@ export default function TeamsPage() {
       setIsLoading(true);
       setTeams([]);
       setLastDoc(null);
+      setError(null);
     }
 
     try {
@@ -113,7 +115,7 @@ export default function TeamsPage() {
       let usersQuery = query(
         collection(firestore, "users"),
         orderBy("teamName"),
-        limit(PAGE_SIZE)
+        limit(PAGE_SIZE * 2) // Fetch extra to account for filtering
       );
 
       if (isLoadMore && lastDoc) {
@@ -121,25 +123,46 @@ export default function TeamsPage() {
           collection(firestore, "users"),
           orderBy("teamName"),
           startAfter(lastDoc),
-          limit(PAGE_SIZE)
+          limit(PAGE_SIZE * 2)
         );
       }
 
       const usersSnapshot = await getDocs(usersQuery);
+      console.log(`[Teams] Fetched ${usersSnapshot.size} users from Firestore`);
 
-      if (usersSnapshot.empty) {
+      // Filter to only users with valid teamName
+      const validUserDocs = usersSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        return data.teamName && typeof data.teamName === 'string' && data.teamName.trim() !== '';
+      });
+
+      console.log(`[Teams] ${validUserDocs.length} users have valid teamName`);
+
+      if (validUserDocs.length === 0 && usersSnapshot.size === 0) {
         setHasMore(false);
+        if (!isLoadMore) {
+          setError("No teams found in the database.");
+        }
         return;
       }
 
-      // Update last doc for next pagination
-      setLastDoc(usersSnapshot.docs[usersSnapshot.docs.length - 1]);
-      setHasMore(usersSnapshot.docs.length === PAGE_SIZE);
+      if (validUserDocs.length === 0) {
+        // We got results but none had valid teamName - might be more pages
+        setHasMore(usersSnapshot.size >= PAGE_SIZE * 2);
+        if (!isLoadMore) {
+          setError("No teams with valid names found. Users may not have completed registration.");
+        }
+        return;
+      }
 
-      // Fetch predictions for just these users
+      // Update last doc for next pagination (use the last doc from original query for correct pagination)
+      setLastDoc(usersSnapshot.docs[usersSnapshot.docs.length - 1]);
+      setHasMore(usersSnapshot.docs.length >= PAGE_SIZE);
+
+      // Fetch predictions for valid users only
       const newTeams: TeamWithPrediction[] = [];
 
-      for (const userDoc of usersSnapshot.docs) {
+      for (const userDoc of validUserDocs) {
         const userData = userDoc.data() as User;
 
         // Get prediction for this user and race
@@ -179,8 +202,14 @@ export default function TeamsPage() {
       }
 
       setLastUpdated(new Date());
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching teams:", error);
+      const errorMsg = error?.code === 'failed-precondition'
+        ? "Database index required. Please contact an administrator."
+        : error?.code === 'permission-denied'
+        ? "Permission denied. Please sign in again."
+        : `Error loading teams: ${error?.message || 'Unknown error'}`;
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -290,6 +319,10 @@ export default function TeamsPage() {
                   </AccordionContent>
                 </AccordionItem>
               ))
+            ) : error ? (
+              <div className="text-center py-8 text-destructive">
+                {error}
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No teams found.
