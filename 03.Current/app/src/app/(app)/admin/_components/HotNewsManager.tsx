@@ -62,8 +62,12 @@ export function HotNewsManager() {
     if (!firestore) return;
     setIsSaving(true);
     try {
-      // We only save the manual edits and the enabled toggle here.
-      await updateHotNewsContent(firestore, { content, hotNewsFeedEnabled });
+      // Save the manual edits, enabled toggle, and update the timestamp
+      await updateHotNewsContent(firestore, {
+        content,
+        hotNewsFeedEnabled,
+        lastUpdated: serverTimestamp() as any // Update timestamp on every save
+      });
       toast({
         title: "Success",
         description: "Hot News settings have been updated.",
