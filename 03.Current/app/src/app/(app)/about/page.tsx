@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Code, Server, Mail, Database, Waypoints, Tag } from "lucide-react";
+import { Users, Code, Server, Mail, Database, Waypoints } from "lucide-react";
 import { useFirestore, useCollection } from '@/firebase';
 import backendData from '@/../docs/backend.json';
 import { collection, query } from 'firebase/firestore';
@@ -52,21 +52,14 @@ const AboutPageClient = () => {
     return (
         <div className="space-y-6">
             <div className="space-y-1">
-                <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">About Prix Six</h1>
+                <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight flex items-center gap-3">
+                    About Prix Six
+                    <span className="text-sm font-mono font-normal bg-primary/10 text-primary px-2 py-1 rounded-md">v{APP_VERSION}</span>
+                </h1>
                 <p className="text-muted-foreground">System architecture, documentation, and support.</p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Version</CardTitle>
-                        <Tag className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold font-mono">v{APP_VERSION}</div>
-                        <p className="text-xs text-muted-foreground">Current release version.</p>
-                    </CardContent>
-                </Card>
+            <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">Registered Teams</CardTitle>
