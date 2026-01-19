@@ -85,6 +85,7 @@ export default function ResultsPage() {
 
     // Scores cache for current race (fetched once)
     const [scoresMap, setScoresMap] = useState<Map<string, Score>>(new Map());
+    const [scoresLoaded, setScoresLoaded] = useState(false);
 
     // Fetch race result when selection changes
     useEffect(() => {
@@ -140,55 +141,6 @@ export default function ResultsPage() {
         }).join(' | ');
     };
 
-    // Fetch count for selected race
-    useEffect(() => {
-        if (!firestore || !selectedRaceId) return;
-
-        const fetchCount = async () => {
-            try {
-                const countQuery = query(
-                    collection(firestore, "prediction_submissions"),
-                    where("raceId", "==", selectedRaceId)
-                );
-                const countSnapshot = await getCountFromServer(countQuery);
-                setTotalCount(countSnapshot.data().count);
-            } catch (error) {
-                console.error("Error fetching count:", error);
-                setTotalCount(null);
-            }
-        };
-        fetchCount();
-    }, [firestore, selectedRaceId]);
-
-    // Fetch all scores for selected race (one-time, smaller dataset)
-    useEffect(() => {
-        if (!firestore || !selectedRaceId) return;
-
-        const fetchScores = async () => {
-            try {
-                const scoresQuery = query(
-                    collection(firestore, "scores"),
-                    where("raceId", "==", selectedRaceId)
-                );
-                const scoresSnapshot = await getDocs(scoresQuery);
-                const newScoresMap = new Map<string, Score>();
-                scoresSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    // Map by oduserId for lookup
-                    newScoresMap.set(data.oduserId, {
-                        id: doc.id,
-                        ...data,
-                    } as Score);
-                });
-                setScoresMap(newScoresMap);
-            } catch (error) {
-                console.error("Error fetching scores:", error);
-                setScoresMap(new Map());
-            }
-        };
-        fetchScores();
-    }, [firestore, selectedRaceId]);
-
     // Format predictions for display
     const formatPrediction = useCallback((predictions: any) => {
         if (!predictions) return "N/A";
@@ -203,53 +155,112 @@ export default function ResultsPage() {
         return String(predictions);
     }, []);
 
-    // Fetch teams with pagination
-    const fetchTeams = useCallback(async (isLoadMore = false) => {
-        if (!firestore) return;
+    // Fetch all data for selected race in one effect
+    useEffect(() => {
+        if (!firestore || !selectedRaceId) return;
 
-        if (isLoadMore) {
-            setIsLoadingMore(true);
-        } else {
+        const fetchAllData = async () => {
             setIsLoading(true);
             setTeams([]);
             setLastDoc(null);
-        }
+            setScoresLoaded(false);
+
+            try {
+                // Fetch count, scores, and first page of submissions in parallel
+                const [countResult, scoresResult, submissionsResult] = await Promise.all([
+                    // Count query
+                    getCountFromServer(query(
+                        collection(firestore, "prediction_submissions"),
+                        where("raceId", "==", selectedRaceId)
+                    )),
+                    // Scores query
+                    getDocs(query(
+                        collection(firestore, "scores"),
+                        where("raceId", "==", selectedRaceId)
+                    )),
+                    // First page of submissions
+                    getDocs(query(
+                        collection(firestore, "prediction_submissions"),
+                        where("raceId", "==", selectedRaceId),
+                        orderBy("teamName"),
+                        limit(PAGE_SIZE)
+                    ))
+                ]);
+
+                // Process count
+                setTotalCount(countResult.data().count);
+
+                // Process scores into map
+                const newScoresMap = new Map<string, Score>();
+                scoresResult.forEach(doc => {
+                    const data = doc.data();
+                    newScoresMap.set(data.oduserId, {
+                        id: doc.id,
+                        ...data,
+                    } as Score);
+                });
+                setScoresMap(newScoresMap);
+                setScoresLoaded(true);
+
+                // Process submissions
+                if (submissionsResult.empty) {
+                    setHasMore(false);
+                    setTeams([]);
+                } else {
+                    setLastDoc(submissionsResult.docs[submissionsResult.docs.length - 1]);
+                    setHasMore(submissionsResult.docs.length === PAGE_SIZE);
+
+                    const newTeams: TeamResult[] = submissionsResult.docs.map((doc) => {
+                        const data = doc.data();
+                        const score = newScoresMap.get(data.oduserId);
+                        return {
+                            teamName: data.teamName || "Unknown Team",
+                            oduserId: data.oduserId,
+                            prediction: formatPrediction(data.predictions),
+                            totalPoints: score?.totalPoints ?? null,
+                            breakdown: score?.breakdown || '',
+                            hasScore: !!score,
+                        };
+                    });
+                    setTeams(newTeams);
+                }
+
+                setLastUpdated(new Date());
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                setTotalCount(null);
+                setScoresMap(new Map());
+                setTeams([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchAllData();
+    }, [firestore, selectedRaceId, formatPrediction]);
+
+    // Load more function for pagination
+    const loadMore = useCallback(async () => {
+        if (!firestore || !lastDoc || isLoadingMore) return;
+
+        setIsLoadingMore(true);
 
         try {
-            // Query prediction_submissions for selected race
-            let submissionsQuery = query(
+            const submissionsQuery = query(
                 collection(firestore, "prediction_submissions"),
                 where("raceId", "==", selectedRaceId),
                 orderBy("teamName"),
+                startAfter(lastDoc),
                 limit(PAGE_SIZE)
             );
 
-            if (isLoadMore && lastDoc) {
-                submissionsQuery = query(
-                    collection(firestore, "prediction_submissions"),
-                    where("raceId", "==", selectedRaceId),
-                    orderBy("teamName"),
-                    startAfter(lastDoc),
-                    limit(PAGE_SIZE)
-                );
-            }
-
             const snapshot = await getDocs(submissionsQuery);
 
-            if (snapshot.empty && !isLoadMore) {
-                setHasMore(false);
-                setTeams([]);
-                setLastUpdated(new Date());
-                return;
-            }
-
-            // Update pagination state
             if (snapshot.docs.length > 0) {
                 setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
             }
             setHasMore(snapshot.docs.length === PAGE_SIZE);
 
-            // Map to display format
             const newTeams: TeamResult[] = snapshot.docs.map((doc) => {
                 const data = doc.data();
                 const score = scoresMap.get(data.oduserId);
@@ -263,29 +274,14 @@ export default function ResultsPage() {
                 };
             });
 
-            if (isLoadMore) {
-                setTeams((prev) => [...prev, ...newTeams]);
-            } else {
-                setTeams(newTeams);
-            }
-
+            setTeams((prev) => [...prev, ...newTeams]);
             setLastUpdated(new Date());
         } catch (error) {
-            console.error("Error fetching teams:", error);
+            console.error("Error loading more:", error);
         } finally {
-            setIsLoading(false);
             setIsLoadingMore(false);
         }
-    }, [firestore, selectedRaceId, lastDoc, scoresMap, formatPrediction]);
-
-    // Initial load and race change
-    useEffect(() => {
-        fetchTeams(false);
-    }, [firestore, selectedRaceId, scoresMap]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const loadMore = () => {
-        fetchTeams(true);
-    };
+    }, [firestore, selectedRaceId, lastDoc, isLoadingMore, scoresMap, formatPrediction]);
 
     const progressPercent = totalCount && totalCount > 0
         ? Math.round((teams.length / totalCount) * 100)
