@@ -10,9 +10,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from "firebase/firestore";
 import { useAuditNavigation } from "@/lib/audit";
 import { SessionProvider } from "@/contexts/session-context";
+import { logAuditEvent } from "@/lib/audit";
 
 function generateGuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -23,7 +24,7 @@ function generateGuid() {
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, firebaseUser, isUserLoading } = useAuth();
+  const { user, firebaseUser, isUserLoading, logout } = useAuth();
   const router = useRouter();
   const firestore = useFirestore();
   const sessionIdRef = useRef<string | null>(null);
@@ -41,6 +42,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user, isUserLoading, router]);
 
+  // Check for single user mode and force logout if not the designated admin
+  useEffect(() => {
+    if (!firestore || !user || !firebaseUser) return;
+
+    const checkSingleUserMode = async () => {
+      try {
+        const configRef = doc(firestore, "admin_configuration", "global");
+        const configSnap = await getDoc(configRef);
+
+        if (configSnap.exists()) {
+          const config = configSnap.data();
+          if (config.singleUserModeEnabled && config.singleUserAdminId !== user.id) {
+            // Log the forced disconnect
+            logAuditEvent(firestore, user.id, 'SINGLE_USER_MODE_BLOCKED', {
+              blockedUser: user.teamName,
+              singleUserAdminId: config.singleUserAdminId,
+            });
+
+            // Force logout
+            logout();
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check single user mode:", error);
+      }
+    };
+
+    checkSingleUserMode();
+  }, [firestore, user, firebaseUser, logout]);
+
   useEffect(() => {
     if (firebaseUser && firestore) {
       if (!sessionIdRef.current) {
@@ -50,15 +81,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const presenceRef = doc(firestore, "presence", firebaseUser.uid);
 
       const handleConnection = async () => {
-         await updateDoc(presenceRef, { 
+         await updateDoc(presenceRef, {
             online: true, // Keep for quick checks
-            sessions: arrayUnion(sessionId) 
+            sessions: arrayUnion(sessionId)
         });
       };
 
       const handleDisconnection = async () => {
         if (sessionId) {
-            await updateDoc(presenceRef, { 
+            await updateDoc(presenceRef, {
                 sessions: arrayRemove(sessionId)
             });
         }
