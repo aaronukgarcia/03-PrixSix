@@ -2,9 +2,9 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { useCollection, useFirestore, useAuth } from '@/firebase';
+import { useCollection, useFirestore, useAuth, addDocumentNonBlocking } from '@/firebase';
 import type { User } from '@/firebase/provider';
-import { collection, query, doc, getDoc, setDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, query, doc, getDoc, setDoc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,8 +13,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { logAuditEvent } from '@/lib/audit';
+import { logAuditEvent, getCorrelationId } from '@/lib/audit';
 import { ShieldAlert, ShieldOff } from 'lucide-react';
+import { useSession } from '@/contexts/session-context';
+import { usePathname } from 'next/navigation';
 
 interface Presence {
   id: string; // This is the Firebase Auth UID
@@ -33,10 +35,38 @@ interface SingleUserModeConfig {
   singleUserModeActivatedAt: string | null;
 }
 
+// Helper to log errors to error_logs collection
+function logErrorToFirestore(
+  firestore: any,
+  userId: string | undefined,
+  errorType: string,
+  error: any,
+  context: { page?: string; action?: string; [key: string]: any }
+) {
+  const errorLogsRef = collection(firestore, 'error_logs');
+  const errorData = {
+    correlationId: getCorrelationId(),
+    userId: userId || 'unknown',
+    errorType,
+    message: error?.message || String(error),
+    code: error?.code || null,
+    stack: error?.stack?.substring(0, 500) || null,
+    context: {
+      ...context,
+      userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : null,
+      url: typeof window !== 'undefined' ? window.location.href : null,
+    },
+    timestamp: serverTimestamp(),
+  };
+  addDocumentNonBlocking(errorLogsRef, errorData);
+}
+
 export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManagerProps) {
   const firestore = useFirestore();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { sessionId: currentSessionId } = useSession();
+  const pathname = usePathname();
   const [singleUserMode, setSingleUserMode] = useState<SingleUserModeConfig | null>(null);
   const [isActivating, setIsActivating] = useState(false);
 
@@ -64,28 +94,55 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
     fetchSingleUserMode();
   }, [firestore]);
 
-  // Activate single user mode - purge all sessions except current admin
+  // Activate single user mode - purge all sessions except current admin's session
   const activateSingleUserMode = async () => {
     if (!firestore || !user) return;
     setIsActivating(true);
+
+    const correlationId = getCorrelationId();
 
     try {
       // Get all presence documents
       const presenceSnapshot = await getDocs(collection(firestore, 'presence'));
 
-      // Batch update to purge all sessions
+      // Batch update to purge all sessions EXCEPT the current admin's session
       const batch = writeBatch(firestore);
       let purgedCount = 0;
+      let preservedAdminSession = false;
 
       presenceSnapshot.docs.forEach((presenceDoc) => {
         const presenceData = presenceDoc.data();
-        // Purge sessions for everyone (including the admin - their session will be re-added on next action)
+        const isCurrentAdmin = presenceDoc.id === user.id;
+
         if (presenceData.sessions && presenceData.sessions.length > 0) {
-          batch.update(presenceDoc.ref, {
-            sessions: [],
-            online: false
-          });
-          purgedCount += presenceData.sessions.length;
+          if (isCurrentAdmin && currentSessionId) {
+            // For the current admin, preserve only their current session
+            const hasCurrentSession = presenceData.sessions.includes(currentSessionId);
+            if (hasCurrentSession) {
+              // Keep only the current session, purge others
+              const otherSessions = presenceData.sessions.filter((s: string) => s !== currentSessionId);
+              purgedCount += otherSessions.length;
+              batch.update(presenceDoc.ref, {
+                sessions: [currentSessionId],
+                online: true
+              });
+              preservedAdminSession = true;
+            } else {
+              // Current session not found, purge all (shouldn't happen)
+              purgedCount += presenceData.sessions.length;
+              batch.update(presenceDoc.ref, {
+                sessions: [],
+                online: false
+              });
+            }
+          } else {
+            // For all other users, purge all sessions
+            purgedCount += presenceData.sessions.length;
+            batch.update(presenceDoc.ref, {
+              sessions: [],
+              online: false
+            });
+          }
         }
       });
 
@@ -109,6 +166,8 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
       // Log audit event
       logAuditEvent(firestore, user.id, 'SINGLE_USER_MODE_ACTIVATED', {
         purgedSessionCount: purgedCount,
+        preservedAdminSession,
+        adminSessionId: currentSessionId,
         activatedBy: user.teamName,
       });
 
@@ -119,10 +178,18 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
 
     } catch (error: any) {
       console.error('Failed to activate single user mode:', error);
+
+      // Log error to error_logs collection
+      logErrorToFirestore(firestore, user.id, 'SINGLE_USER_MODE_ACTIVATION_FAILED', error, {
+        page: pathname,
+        action: 'activateSingleUserMode',
+        adminSessionId: currentSessionId,
+      });
+
       toast({
         variant: "destructive",
         title: "Activation Failed",
-        description: error.message,
+        description: `${error.message} (Correlation ID: ${correlationId})`,
       });
     }
 
@@ -133,6 +200,8 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
   const deactivateSingleUserMode = async () => {
     if (!firestore || !user) return;
     setIsActivating(true);
+
+    const correlationId = getCorrelationId();
 
     try {
       const configRef = doc(firestore, 'admin_configuration', 'global');
@@ -158,10 +227,16 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
       });
 
     } catch (error: any) {
+      // Log error to error_logs collection
+      logErrorToFirestore(firestore, user.id, 'SINGLE_USER_MODE_DEACTIVATION_FAILED', error, {
+        page: pathname,
+        action: 'deactivateSingleUserMode',
+      });
+
       toast({
         variant: "destructive",
         title: "Deactivation Failed",
-        description: error.message,
+        description: `${error.message} (Correlation ID: ${correlationId})`,
       });
     }
 

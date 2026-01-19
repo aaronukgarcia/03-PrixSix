@@ -91,7 +91,9 @@ service cloud.firestore {
     match /presence/{userId} {
       allow list: if isSignedIn();
       allow get: if isSignedIn();
-      allow create, update, delete: if isOwner(userId);
+      // Owners can manage their own presence; admins can update any (for single user mode)
+      allow create, delete: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
     }
 
     // Collection group query support for predictions (used on Results page)
