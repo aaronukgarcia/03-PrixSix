@@ -14,9 +14,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { getHotNewsSettings, updateHotNewsContent } from '@/firebase/firestore/settings';
+import { getHotNewsSettings } from '@/firebase/firestore/settings';
 import { firestore } from '@/firebase/server';
-import { Timestamp } from 'firebase/firestore';
 
 
 const HotNewsFeedOutputSchema = z.object({
@@ -35,36 +34,9 @@ export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
         return timestamp.toDate().toISOString();
     };
 
-    // If the feed is disabled by admin, return the static content.
-    if (!settings.hotNewsFeedEnabled) {
-        console.log('AI Hot News Feed is disabled by admin. Serving static content.');
-        return { newsFeed: settings.content, lastUpdated: formatLastUpdated(settings.lastUpdated) };
-    }
-
-    const now = new Date().getTime();
-    // lastUpdated can be null on first run, so we check for it.
-    const lastUpdatedMs = settings.lastUpdated ? settings.lastUpdated.toMillis() : 0;
-    const oneHour = 60 * 60 * 1000;
-
-    // If not locked and cache is older than 1 hour, fetch new data.
-    if (!settings.isLocked && (now - lastUpdatedMs > oneHour)) {
-        console.log('Cache expired or not present. Fetching new hot news...');
-        try {
-            // The flow itself now handles the update.
-            const output = await hotNewsFeedFlow();
-            const newTimestamp = new Date();
-            // Update firestore with a proper Timestamp (serverTimestamp doesn't work in server context)
-            await updateHotNewsContent(firestore, { content: output.newsFeed, lastUpdated: Timestamp.fromDate(newTimestamp) as any });
-            return { ...output, lastUpdated: newTimestamp.toISOString() };
-        } catch (error) {
-            console.error("Error fetching new hot news, serving stale data:", error);
-            // Fallback to serving stale data if the flow fails
-            return { newsFeed: settings.content, lastUpdated: formatLastUpdated(settings.lastUpdated) };
-        }
-    }
-
-    // Otherwise, return cached content from Firestore
-    console.log('Serving cached hot news from Firestore.');
+    // Always return the content from Firestore - admin controls the content
+    // The AI refresh is only triggered manually via the admin "Refresh Now" button
+    console.log('Serving hot news from Firestore.');
     return { newsFeed: settings.content, lastUpdated: formatLastUpdated(settings.lastUpdated) };
 }
 
