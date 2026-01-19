@@ -21,7 +21,8 @@ import {
   LayoutDashboard,
   Info,
   FileCheck,
-  History
+  History,
+  Calendar
 } from "lucide-react";
 import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -33,6 +34,7 @@ import { logAuditEvent } from "@/lib/audit";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/predictions", label: "Predictions", icon: Rocket },
   { href: "/standings", label: "Standings", icon: Trophy },
   { href: "/results", label: "Results", icon: BarChart2 },
