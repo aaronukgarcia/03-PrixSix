@@ -335,7 +335,7 @@ export default function ResultsPage() {
         } finally {
             setIsLoadingMore(false);
         }
-    }, [firestore, selectedRaceId, lastDoc, isLoadingMore, scoresMap, formatPrediction]);
+    }, [firestore, selectedRaceId, lastDoc, isLoadingMore, scoresMap, parsePredictions, raceResult]);
 
     const progressPercent = totalCount && totalCount > 0
         ? Math.round((teams.length / totalCount) * 100)
@@ -459,12 +459,33 @@ export default function ResultsPage() {
                 sortedTeams.map((team, index) => (
                     <TableRow key={`${team.teamName}-${team.oduserId}-${index}`}>
                         <TableCell className="font-semibold">{team.teamName}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground font-mono">
-                            {team.prediction}
+                        <TableCell className="text-xs font-mono">
+                            <div className="flex flex-wrap gap-1">
+                                {team.predictions.map((pred, i) => (
+                                    <span key={i} className="inline-flex items-center">
+                                        <span className={pred.isCorrect ? "text-foreground" : "text-muted-foreground"}>
+                                            P{pred.position}: {pred.driverName}
+                                        </span>
+                                        {pred.isCorrect && (
+                                            <span className="text-yellow-500 font-bold ml-0.5">+1</span>
+                                        )}
+                                        {i < team.predictions.length - 1 && <span className="text-muted-foreground mr-1">,</span>}
+                                    </span>
+                                ))}
+                                {team.bonusPoints > 0 && (
+                                    <span className="text-yellow-500 font-bold ml-1">
+                                        ({team.predictions.filter(p => p.isCorrect).length}/6 bonus +{team.bonusPoints})
+                                    </span>
+                                )}
+                            </div>
                         </TableCell>
                         <TableCell className="text-center">
                             {team.hasScore ? (
                                 <span className="font-bold text-lg text-accent">{team.totalPoints}</span>
+                            ) : raceResult ? (
+                                <span className="font-bold text-lg text-accent">
+                                    {team.predictions.reduce((sum, p) => sum + p.points, 0) + team.bonusPoints}
+                                </span>
                             ) : (
                                 <Badge variant="outline" className="text-muted-foreground">
                                     Waiting for results

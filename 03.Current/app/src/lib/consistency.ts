@@ -758,8 +758,43 @@ export function checkRaceResults(results: RaceResultData[]): CheckResult {
   };
 }
 
+// Scoring constants (Wacky Racers rules)
+const SCORING = {
+  perCorrectDriver: 1,  // +1 for each driver appearing anywhere in Top 6
+  bonus5Correct: 3,     // +3 bonus if exactly 5 of 6 correct
+  bonus6Correct: 5,     // +5 bonus if all 6 correct
+  maxPoints: 11,        // Max possible: 6 + 5 = 11
+};
+
+/**
+ * Calculate expected score based on Wacky Racers rules
+ */
+function calculateExpectedScore(predictedDrivers: string[], actualTop6: string[]): { points: number; correctCount: number } {
+  let correctCount = 0;
+
+  // Normalize to lowercase for comparison
+  const normalizedActual = actualTop6.map(d => d?.toLowerCase());
+
+  for (const driver of predictedDrivers) {
+    if (driver && normalizedActual.includes(driver.toLowerCase())) {
+      correctCount++;
+    }
+  }
+
+  let points = correctCount * SCORING.perCorrectDriver;
+
+  if (correctCount === 5) {
+    points += SCORING.bonus5Correct;
+  } else if (correctCount === 6) {
+    points += SCORING.bonus6Correct;
+  }
+
+  return { points, correctCount };
+}
+
 /**
  * Validate scores against race results and predictions
+ * Includes verification that score calculation is correct per Wacky Racers rules
  */
 export function checkScores(
   scores: ScoreData[],
@@ -778,6 +813,15 @@ export function checkScores(
     const userId = pred.userId || pred.teamId;
     const key = `${pred.raceId}_${userId}`;
     predictionMap.set(key, pred);
+  }
+
+  // Build race results map (by normalized raceId)
+  const resultsMap = new Map<string, RaceResultData>();
+  for (const result of raceResults) {
+    const normalizedId = normalizeRaceId(result.raceId || result.id || '');
+    resultsMap.set(normalizedId, result);
+    // Also map by document ID (lowercase)
+    resultsMap.set(result.id.toLowerCase(), result);
   }
 
   for (const score of scores) {
@@ -857,14 +901,61 @@ export function checkScores(
         message: 'Missing totalPoints',
       });
       isValid = false;
-    } else if (score.totalPoints < 0 || score.totalPoints > 11) {
+    } else if (score.totalPoints < 0 || score.totalPoints > SCORING.maxPoints) {
       issues.push({
         severity: 'warning',
         entity: entityName,
         field: 'totalPoints',
-        message: `Unusual totalPoints value: ${score.totalPoints} (expected 0-11)`,
+        message: `Unusual totalPoints value: ${score.totalPoints} (expected 0-${SCORING.maxPoints})`,
         details: { totalPoints: score.totalPoints },
       });
+    }
+
+    // Verify score calculation is correct
+    if (score.raceId && score.userId && score.totalPoints !== undefined) {
+      const predKey = `${score.raceId}_${score.userId}`;
+      const prediction = predictionMap.get(predKey);
+      const raceResult = resultsMap.get(score.raceId) || resultsMap.get(score.raceId.toLowerCase());
+
+      if (prediction && raceResult) {
+        // Extract predicted drivers
+        let predictedDrivers: string[] = [];
+        if (Array.isArray(prediction.predictions)) {
+          predictedDrivers = prediction.predictions;
+        } else if (prediction.predictions && typeof prediction.predictions === 'object') {
+          const preds = prediction.predictions as Record<string, string>;
+          predictedDrivers = [
+            preds.P1, preds.P2, preds.P3, preds.P4, preds.P5, preds.P6
+          ].filter(Boolean);
+        }
+
+        // Extract actual top 6
+        const actualTop6 = [
+          raceResult.driver1, raceResult.driver2, raceResult.driver3,
+          raceResult.driver4, raceResult.driver5, raceResult.driver6
+        ].filter(Boolean);
+
+        if (predictedDrivers.length === 6 && actualTop6.length === 6) {
+          const expected = calculateExpectedScore(predictedDrivers, actualTop6);
+
+          if (expected.points !== score.totalPoints) {
+            issues.push({
+              severity: 'error',
+              entity: entityName,
+              field: 'totalPoints',
+              message: `Score calculation mismatch: stored ${score.totalPoints}, expected ${expected.points} (${expected.correctCount}/6 correct)`,
+              details: {
+                stored: score.totalPoints,
+                expected: expected.points,
+                correctCount: expected.correctCount,
+                predictedDrivers,
+                actualTop6,
+              },
+            });
+            isValid = false;
+          }
+        }
+      }
     }
 
     if (isValid) {
