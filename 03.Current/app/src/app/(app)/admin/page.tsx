@@ -7,7 +7,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -17,6 +17,7 @@ import { OnlineUsersManager } from "./_components/OnlineUsersManager";
 import { EmailLogManager } from "./_components/EmailLogManager";
 import { AuditManager } from "./_components/AuditManager";
 import { AuditLogViewer } from "./_components/AuditLogViewer";
+import { ConsistencyChecker } from "./_components/ConsistencyChecker";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
@@ -74,7 +75,7 @@ export default function AdminPage() {
                 <p className="text-muted-foreground">Manage the Prix Six league.</p>
             </div>
             <Tabs defaultValue="functions" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8">
+                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-9">
                     <TabsTrigger value="functions"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
                     <TabsTrigger value="teams"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
                     <TabsTrigger value="results"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
@@ -83,6 +84,7 @@ export default function AdminPage() {
                     <TabsTrigger value="online"><Wifi className="w-4 h-4 mr-2"/>Online</TabsTrigger>
                     <TabsTrigger value="emails"><Mail className="w-4 h-4 mr-2"/>Email Logs</TabsTrigger>
                     <TabsTrigger value="audit"><BookUser className="w-4 h-4 mr-2"/>Audit</TabsTrigger>
+                    <TabsTrigger value="consistency"><ClipboardCheck className="w-4 h-4 mr-2"/>CC</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
@@ -108,6 +110,9 @@ export default function AdminPage() {
                 <TabsContent value="audit" className="space-y-4">
                     <AuditManager />
                     <AuditLogViewer allUsers={allUsers} isUserLoading={isUserLoading} />
+                </TabsContent>
+                <TabsContent value="consistency">
+                    <ConsistencyChecker allUsers={allUsers} isUserLoading={isUserLoading} />
                 </TabsContent>
             </Tabs>
       </div>
