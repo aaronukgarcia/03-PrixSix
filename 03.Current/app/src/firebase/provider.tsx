@@ -10,6 +10,14 @@ import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
 import { logAuditEvent } from '@/lib/audit';
 
+// Email notification preferences
+export interface EmailPreferences {
+  rankingChanges?: boolean;
+  raceReminders?: boolean;
+  newsFeed?: boolean;
+  resultsNotifications?: boolean;
+}
+
 // Extended user profile information
 export interface User {
   id: string; // This is the Firebase Auth UID
@@ -19,6 +27,7 @@ export interface User {
   secondaryTeamName?: string;
   mustChangePin?: boolean;
   badLoginAttempts?: number;
+  emailPreferences?: EmailPreferences;
 }
 
 interface AuthResult {

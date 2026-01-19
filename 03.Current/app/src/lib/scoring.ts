@@ -98,6 +98,24 @@ export async function calculateRaceScores(
   return scores;
 }
 
+interface ScoreWithTeam {
+  teamName: string;
+  prediction: string;
+  points: number;
+}
+
+interface StandingEntry {
+  rank: number;
+  teamName: string;
+  totalPoints: number;
+}
+
+interface UpdateScoresResult {
+  scoresUpdated: number;
+  scores: ScoreWithTeam[];
+  standings: StandingEntry[];
+}
+
 /**
  * Update scores collection for a race
  */
@@ -105,7 +123,7 @@ export async function updateRaceScores(
   firestore: any,
   raceId: string,
   raceResult: RaceResult
-): Promise<number> {
+): Promise<UpdateScoresResult> {
   // Get scoring rules
   const scoringDocRef = doc(firestore, 'admin_configuration', 'scoring');
   const scoringDoc = await getDoc(scoringDocRef);
@@ -114,10 +132,18 @@ export async function updateRaceScores(
     : { exact: 5, inTop6: 3, bonus: 10 };
 
   // Calculate scores
-  const scores = await calculateRaceScores(firestore, raceResult, scoringRules);
+  const calculatedScores = await calculateRaceScores(firestore, raceResult, scoringRules);
 
-  // Write scores to Firestore
-  for (const score of scores) {
+  // Get all users to map userId to teamName
+  const usersSnapshot = await getDocs(collection(firestore, 'users'));
+  const userMap = new Map<string, string>();
+  usersSnapshot.forEach(doc => {
+    userMap.set(doc.id, doc.data().teamName || 'Unknown');
+  });
+
+  // Write scores to Firestore and build scores list for email
+  const scores: ScoreWithTeam[] = [];
+  for (const score of calculatedScores) {
     const scoreDocRef = doc(firestore, 'scores', `${raceId}_${score.userId}`);
     await setDoc(scoreDocRef, {
       userId: score.userId,
@@ -125,9 +151,40 @@ export async function updateRaceScores(
       totalPoints: score.totalPoints,
       breakdown: score.breakdown
     });
+
+    scores.push({
+      teamName: userMap.get(score.userId) || 'Unknown',
+      prediction: score.breakdown,
+      points: score.totalPoints,
+    });
   }
 
-  return scores.length;
+  // Calculate overall standings
+  const allScoresSnapshot = await getDocs(collection(firestore, 'scores'));
+  const userTotals = new Map<string, number>();
+
+  allScoresSnapshot.forEach(doc => {
+    const data = doc.data();
+    const userId = data.userId;
+    const points = data.totalPoints || 0;
+    userTotals.set(userId, (userTotals.get(userId) || 0) + points);
+  });
+
+  // Build standings array
+  const standings: StandingEntry[] = Array.from(userTotals.entries())
+    .map(([userId, totalPoints]) => ({
+      teamName: userMap.get(userId) || 'Unknown',
+      totalPoints,
+      rank: 0,
+    }))
+    .sort((a, b) => b.totalPoints - a.totalPoints)
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+
+  return {
+    scoresUpdated: calculatedScores.length,
+    scores,
+    standings,
+  };
 }
 
 /**

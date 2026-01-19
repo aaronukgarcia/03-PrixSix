@@ -46,11 +46,21 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
         if (!userDetail || !presence.sessions || presence.sessions.length === 0) {
             return [];
         }
-        // Create a row for each active session (GUID)
-        return presence.sessions.map(sessionId => ({
-            ...userDetail,
-            sessionId: sessionId,
-        }));
+
+        // For admins: show all sessions
+        // For regular users: show only the first session (one entry per user)
+        if (userDetail.isAdmin) {
+            return presence.sessions.map(sessionId => ({
+                ...userDetail,
+                sessionId: sessionId,
+            }));
+        } else {
+            // Only show the first session for non-admin users
+            return [{
+                ...userDetail,
+                sessionId: presence.sessions[0],
+            }];
+        }
     });
 
   }, [allPresence, allUsers]);

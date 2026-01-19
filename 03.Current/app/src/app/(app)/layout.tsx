@@ -12,6 +12,7 @@ import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { useAuditNavigation } from "@/lib/audit";
+import { SessionProvider } from "@/contexts/session-context";
 
 function generateGuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -95,22 +96,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // If we get here, we have a user. Render the app.
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-            <SidebarTrigger className="md:hidden"/>
-             <div className="ml-auto">
-              <Link href="/profile">
-                  <Button variant="ghost" size="icon">
-                      <Settings className="h-5 w-5"/>
-                      <span className="sr-only">Settings</span>
-                  </Button>
-              </Link>
-            </div>
-        </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
-      </SidebarInset>
-    </SidebarProvider>
+    <SessionProvider sessionId={sessionIdRef.current}>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+              <SidebarTrigger className="md:hidden"/>
+               <div className="ml-auto">
+                <Link href="/profile">
+                    <Button variant="ghost" size="icon">
+                        <Settings className="h-5 w-5"/>
+                        <span className="sr-only">Settings</span>
+                    </Button>
+                </Link>
+              </div>
+          </header>
+          <main className="flex-1 p-4 md:p-6">{children}</main>
+        </SidebarInset>
+      </SidebarProvider>
+    </SessionProvider>
   );
 }

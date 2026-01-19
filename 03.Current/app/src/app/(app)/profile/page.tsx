@@ -33,16 +33,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { generateTeamName } from "@/ai/flows/team-name-generator";
-import { Frown, Wand2, AlertTriangle } from "lucide-react";
+import { Frown, Wand2, AlertTriangle, User, Mail, Key } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, deleteDoc, doc } from "firebase/firestore";
+import { collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { useSession } from "@/contexts/session-context";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const profileFormSchema = z.object({
   rankingChanges: z.boolean().default(false).optional(),
   raceReminders: z.boolean().default(true).optional(),
   newsFeed: z.boolean().default(false).optional(),
+  resultsNotifications: z.boolean().default(true).optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -66,6 +69,7 @@ export default function ProfilePage() {
   const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { sessionId } = useSession();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isChangingPin, setIsChangingPin] = useState(false);
@@ -73,11 +77,24 @@ export default function ProfilePage() {
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      rankingChanges: true,
-      raceReminders: true,
-      newsFeed: false,
+      rankingChanges: user?.emailPreferences?.rankingChanges ?? true,
+      raceReminders: user?.emailPreferences?.raceReminders ?? true,
+      newsFeed: user?.emailPreferences?.newsFeed ?? false,
+      resultsNotifications: user?.emailPreferences?.resultsNotifications ?? true,
     },
   });
+
+  // Update form when user data loads
+  useEffect(() => {
+    if (user?.emailPreferences) {
+      profileForm.reset({
+        rankingChanges: user.emailPreferences.rankingChanges ?? true,
+        raceReminders: user.emailPreferences.raceReminders ?? true,
+        newsFeed: user.emailPreferences.newsFeed ?? false,
+        resultsNotifications: user.emailPreferences.resultsNotifications ?? true,
+      });
+    }
+  }, [user, profileForm]);
 
   const secondTeamForm = useForm<SecondTeamValues>({
     resolver: zodResolver(secondTeamSchema),
@@ -101,11 +118,31 @@ export default function ProfilePage() {
   }, [user, secondTeamForm]);
 
 
-  function onProfileSubmit(data: ProfileFormValues) {
-    toast({
-      title: "Preferences Updated",
-      description: "Your notification settings have been saved.",
-    });
+  async function onProfileSubmit(data: ProfileFormValues) {
+    if (!firebaseUser || !firestore) return;
+
+    try {
+      const userRef = doc(firestore, "users", firebaseUser.uid);
+      await updateDoc(userRef, {
+        emailPreferences: {
+          rankingChanges: data.rankingChanges ?? true,
+          raceReminders: data.raceReminders ?? true,
+          newsFeed: data.newsFeed ?? false,
+          resultsNotifications: data.resultsNotifications ?? true,
+        },
+      });
+      toast({
+        title: "Preferences Updated",
+        description: "Your notification settings have been saved.",
+      });
+    } catch (error) {
+      console.error("Error saving preferences:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not save preferences. Please try again.",
+      });
+    }
   }
   
   async function handleRequestPin() {
@@ -233,6 +270,56 @@ export default function ProfilePage() {
             <p className="text-muted-foreground">Manage your account and notification preferences.</p>
         </div>
 
+        {/* Personal Information Card */}
+        <Card>
+            <CardHeader>
+                <CardTitle>Your Profile</CardTitle>
+                <CardDescription>Your account information and current session details.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-start gap-6">
+                    <Avatar className="h-20 w-20">
+                        <AvatarImage src={`https://picsum.photos/seed/${user?.id}/200/200`} data-ai-hint="person avatar"/>
+                        <AvatarFallback className="text-2xl">{user?.teamName?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1">
+                                <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    Team Name
+                                </p>
+                                <p className="text-lg font-semibold">{user?.teamName}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                    <Mail className="h-4 w-4" />
+                                    Email Address
+                                </p>
+                                <p className="text-lg font-semibold">{user?.email}</p>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <Key className="h-4 w-4" />
+                                Session ID
+                            </p>
+                            <p className="font-mono text-sm text-muted-foreground bg-muted px-2 py-1 rounded inline-block">
+                                {sessionId || 'Loading...'}
+                            </p>
+                        </div>
+                        {user?.isAdmin && (
+                            <div className="pt-2">
+                                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                                    Administrator
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+
         {user?.mustChangePin && (
             <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -300,6 +387,26 @@ export default function ProfilePage() {
                       <FormLabel className="text-base">Hot News Feed</FormLabel>
                       <FormDescription>
                         Get the AI Hot News feed emailed to you before each race weekend.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={profileForm.control}
+                name="resultsNotifications"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Race Results</FormLabel>
+                      <FormDescription>
+                        Receive an email when race results are submitted with your score.
                       </FormDescription>
                     </div>
                     <FormControl>

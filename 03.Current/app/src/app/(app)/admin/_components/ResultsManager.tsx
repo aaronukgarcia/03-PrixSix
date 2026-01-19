@@ -97,7 +97,7 @@ export function ResultsManager() {
             await setDoc(resultDocRef, raceResultData);
 
             // Calculate and update scores
-            const scoresUpdated = await updateRaceScores(firestore, raceId, raceResultData as RaceResult);
+            const { scoresUpdated, scores, standings } = await updateRaceScores(firestore, raceId, raceResultData as RaceResult);
 
             // Log to audit
             const resultSummary = formatRaceResultSummary(raceResultData as RaceResult);
@@ -109,9 +109,30 @@ export function ResultsManager() {
                 submittedAt: new Date().toISOString(),
             });
 
+            // Send email notifications to users who opted in
+            try {
+                const officialResult = [podium[0], podium[1], podium[2], podium[3], podium[4], podium[5]]
+                    .map(driverId => F1Drivers.find(d => d.id === driverId)?.name || driverId || 'Unknown');
+
+                await fetch('/api/send-results-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        raceId,
+                        raceName: selectedRace,
+                        officialResult,
+                        scores,
+                        standings,
+                    }),
+                });
+            } catch (emailError) {
+                console.error('Failed to send results emails:', emailError);
+                // Don't fail the whole operation if emails fail
+            }
+
             toast({
                 title: "Results Submitted!",
-                description: `Results for ${selectedRace} recorded. ${scoresUpdated} scores calculated.`
+                description: `Results for ${selectedRace} recorded. ${scoresUpdated} scores calculated. Email notifications sent.`
             });
             setPodium(Array(6).fill(undefined));
             setSelectedRace(undefined);
