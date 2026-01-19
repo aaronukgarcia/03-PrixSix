@@ -7,20 +7,6 @@
         { "fieldPath": "raceId", "order": "ASCENDING" },
         { "fieldPath": "teamName", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "scores",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "raceId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "teamName", "order": "ASCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []
