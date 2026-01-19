@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RaceSchedule } from '@/lib/data';
 
+// Force dynamic to skip static analysis at build time
+export const dynamic = 'force-dynamic';
+
 // Dynamic import to avoid build-time errors with firebase-admin
 async function getFirebaseAdmin() {
   const { initializeApp, getApps, cert } = await import('firebase-admin/app');

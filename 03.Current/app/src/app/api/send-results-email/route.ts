@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { canSendEmail, recordSentEmail } from '@/lib/email-tracking';
 
+// Force dynamic to skip static analysis at build time
+export const dynamic = 'force-dynamic';
+
 // Dynamic import to avoid build-time errors with firebase-admin
 async function getAdminDb() {
   const { initializeApp, getApps, cert } = await import('firebase-admin/app');
