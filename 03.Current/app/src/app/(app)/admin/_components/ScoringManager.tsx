@@ -2,136 +2,67 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
-import { useFirestore } from "@/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Trophy, Target, Award } from "lucide-react";
 
-interface ScoringRules {
-    exact: number;
-    inTop6: number;
-    bonus: number;
-}
+// Wacky Racers scoring rules are fixed - no admin configuration needed
+const WACKY_RACERS_RULES = {
+    perCorrectDriver: 1,
+    bonus5Correct: 3,
+    bonus6Correct: 5,
+    maxPossible: 11,
+};
 
 export function ScoringManager() {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    const [scoring, setScoring] = useState<ScoringRules | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-
-    useEffect(() => {
-        if (!firestore) return;
-        const fetchScoring = async () => {
-            const docRef = doc(firestore, "admin_configuration", "scoring");
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                setScoring(docSnap.data() as ScoringRules);
-            } else {
-                setScoring({ exact: 5, inTop6: 3, bonus: 10 }); // Default values
-            }
-            setIsLoading(false);
-        }
-        fetchScoring();
-    }, [firestore]);
-
-
-    const handleSave = async () => {
-        if (!firestore || !scoring) return;
-        setIsSaving(true);
-        try {
-            const docRef = doc(firestore, "admin_configuration", "scoring");
-            await setDoc(docRef, scoring, { merge: true });
-            toast({
-                title: "Scoring Rules Updated",
-                description: "Points have been adjusted for future races."
-            });
-        } catch (e: any) {
-             toast({
-                variant: "destructive",
-                title: "Save Failed",
-                description: e.message,
-            });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setScoring(prev => prev ? { ...prev, [name]: Number(value) } : null);
-    }
-
-    if (isLoading) {
-        return (
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-48" />
-                    <Skeleton className="h-4 w-full" />
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-10 w-32" />
-                </CardContent>
-            </Card>
-        )
-    }
-
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Global Scoring</CardTitle>
-                <CardDescription>Adjust the points awarded for predictions.</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-5 w-5" />
+                    Wacky Racers Scoring
+                </CardTitle>
+                <CardDescription>Fixed scoring rules for the season. Position does not matter - only whether the driver finishes in the Top 6.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="exact">Correct Position</Label>
-                        <Input 
-                            id="exact"
-                            name="exact" 
-                            type="number"
-                            value={scoring?.exact}
-                            onChange={handleChange}
-                            placeholder="Points for exact position" 
-                        />
-                        <p className="text-sm text-muted-foreground">Points for each driver predicted in their exact finishing position.</p>
+                <div className="grid gap-4">
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                        <div className="flex items-center gap-3">
+                            <Target className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                                <p className="font-medium">Per Correct Driver</p>
+                                <p className="text-sm text-muted-foreground">Each predicted driver appearing anywhere in Top 6</p>
+                            </div>
+                        </div>
+                        <Badge variant="secondary" className="text-lg px-3 py-1">+{WACKY_RACERS_RULES.perCorrectDriver}</Badge>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="inTop6">Correct Driver, Wrong Position</Label>
-                        <Input 
-                            id="inTop6"
-                            name="inTop6"
-                            type="number" 
-                            value={scoring?.inTop6}
-                            onChange={handleChange}
-                            placeholder="Points for correct driver" 
-                        />
-                        <p className="text-sm text-muted-foreground">Points for each driver in the top 6, but in the wrong position.</p>
+
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                        <div className="flex items-center gap-3">
+                            <Award className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                                <p className="font-medium">5 of 6 Bonus</p>
+                                <p className="text-sm text-muted-foreground">Bonus if exactly 5 predictions are correct</p>
+                            </div>
+                        </div>
+                        <Badge variant="secondary" className="text-lg px-3 py-1">+{WACKY_RACERS_RULES.bonus5Correct}</Badge>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="bonus">All 6 Drivers Bonus</Label>
-                        <Input 
-                            id="bonus"
-                            name="bonus" 
-                            type="number" 
-                            value={scoring?.bonus}
-                            onChange={handleChange}
-                            placeholder="Bonus points" 
-                        />
-                        <p className="text-sm text-muted-foreground">Bonus points for correctly predicting all 6 drivers in the top 6.</p>
+
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                        <div className="flex items-center gap-3">
+                            <Trophy className="h-5 w-5 text-yellow-500" />
+                            <div>
+                                <p className="font-medium">Perfect 6 Bonus</p>
+                                <p className="text-sm text-muted-foreground">Bonus if all 6 predictions are correct</p>
+                            </div>
+                        </div>
+                        <Badge variant="secondary" className="text-lg px-3 py-1">+{WACKY_RACERS_RULES.bonus6Correct}</Badge>
                     </div>
                 </div>
 
-                <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? "Saving..." : "Update Scoring Rules"}
-                </Button>
+                <div className="p-4 rounded-lg bg-muted">
+                    <p className="text-sm font-medium">Maximum Possible Score: <span className="text-primary">{WACKY_RACERS_RULES.maxPossible} points</span></p>
+                    <p className="text-xs text-muted-foreground mt-1">6 correct drivers (6 pts) + perfect bonus (5 pts) = 11 pts</p>
+                </div>
             </CardContent>
         </Card>
     );

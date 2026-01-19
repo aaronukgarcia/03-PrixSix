@@ -7,9 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useAuth } from "@/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { logAuditEvent } from "@/lib/audit";
 
 interface SiteSettings {
     userLoginEnabled: boolean;
@@ -18,6 +19,7 @@ interface SiteSettings {
 
 export function SiteFunctionsManager() {
     const firestore = useFirestore();
+    const { user } = useAuth();
     const { toast } = useToast();
     const [settings, setSettings] = useState<SiteSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -40,11 +42,21 @@ export function SiteFunctionsManager() {
 
 
     const handleSave = async () => {
-        if (!firestore || !settings) return;
+        if (!firestore || !settings || !user) return;
         setIsSaving(true);
         try {
             const docRef = doc(firestore, "admin_configuration", "global");
             await setDoc(docRef, settings, { merge: true });
+
+            // Log SYSTEM_INIT audit event when admin settings are saved
+            logAuditEvent(firestore, user.id, 'SYSTEM_INIT', {
+                action: 'site_settings_updated',
+                settings: {
+                    userLoginEnabled: settings.userLoginEnabled,
+                    newUserSignupEnabled: settings.newUserSignupEnabled,
+                },
+            });
+
             toast({
                 title: "Settings Saved",
                 description: "Site functions have been updated."

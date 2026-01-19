@@ -1,11 +1,13 @@
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc, collectionGroup } from 'firebase/firestore';
 import { F1Drivers } from './data';
 
-interface ScoringRules {
-  exact: number;
-  inTop6: number;
-  bonus: number;
-}
+// Wacky Racers scoring: fixed rules, no admin configuration needed
+const WACKY_RACERS_SCORING = {
+  perCorrectDriver: 1,    // +1 for each driver appearing anywhere in Top 6
+  bonus5Correct: 3,       // +3 bonus if exactly 5 of 6 predictions correct
+  bonus6Correct: 5,       // +5 bonus if all 6 predictions correct
+  // Max possible: 6 + 5 = 11 points
+};
 
 interface RaceResult {
   id: string;
@@ -26,12 +28,15 @@ interface Prediction {
 }
 
 /**
- * Calculate scores for a specific race based on results and predictions
+ * Calculate scores for a specific race based on Wacky Racers rules:
+ * - +1 point per driver appearing anywhere in Top 6 (position doesn't matter)
+ * - +3 bonus if exactly 5 of 6 predictions are correct
+ * - +5 bonus if all 6 predictions are correct
+ * - Max possible: 6 + 5 = 11 points
  */
 export async function calculateRaceScores(
   firestore: any,
-  raceResult: RaceResult,
-  scoringRules: ScoringRules
+  raceResult: RaceResult
 ): Promise<{ userId: string; totalPoints: number; breakdown: string }[]> {
   const actualResults = [
     raceResult.driver1,
@@ -59,33 +64,31 @@ export async function calculateRaceScores(
     const pathParts = predDoc.ref.path.split('/');
     const userId = pathParts[1]; // users/[userId]/predictions/...
 
-    let exactMatches = 0;
-    let inTop6Matches = 0;
+    let correctCount = 0;
     const breakdownParts: string[] = [];
 
+    // Wacky Racers: +1 for each driver that appears anywhere in Top 6
     userPredictions.forEach((driverId, index) => {
       const driverName = F1Drivers.find(d => d.id === driverId)?.name || driverId;
 
-      if (driverId === actualResults[index]) {
-        // Exact position match
-        exactMatches++;
-        breakdownParts.push(`P${index + 1}: ${driverName} (exact +${scoringRules.exact})`);
-      } else if (actualResults.includes(driverId)) {
-        // Driver in top 6 but wrong position
-        inTop6Matches++;
-        breakdownParts.push(`P${index + 1}: ${driverName} (in top 6 +${scoringRules.inTop6})`);
+      if (actualResults.includes(driverId)) {
+        correctCount++;
+        breakdownParts.push(`${driverName} (+${WACKY_RACERS_SCORING.perCorrectDriver})`);
       } else {
-        breakdownParts.push(`P${index + 1}: ${driverName} (miss)`);
+        breakdownParts.push(`${driverName} (miss)`);
       }
     });
 
-    let totalPoints = (exactMatches * scoringRules.exact) + (inTop6Matches * scoringRules.inTop6);
+    // Base points: +1 per correct driver
+    let totalPoints = correctCount * WACKY_RACERS_SCORING.perCorrectDriver;
 
-    // Bonus for all 6 drivers correct (regardless of position)
-    const allDriversCorrect = userPredictions.every(d => actualResults.includes(d));
-    if (allDriversCorrect && userPredictions.length === 6) {
-      totalPoints += scoringRules.bonus;
-      breakdownParts.push(`All 6 bonus +${scoringRules.bonus}`);
+    // Bonus points based on how many correct
+    if (correctCount === 5) {
+      totalPoints += WACKY_RACERS_SCORING.bonus5Correct;
+      breakdownParts.push(`5/6 bonus +${WACKY_RACERS_SCORING.bonus5Correct}`);
+    } else if (correctCount === 6) {
+      totalPoints += WACKY_RACERS_SCORING.bonus6Correct;
+      breakdownParts.push(`6/6 bonus +${WACKY_RACERS_SCORING.bonus6Correct}`);
     }
 
     scores.push({
@@ -124,15 +127,8 @@ export async function updateRaceScores(
   raceId: string,
   raceResult: RaceResult
 ): Promise<UpdateScoresResult> {
-  // Get scoring rules
-  const scoringDocRef = doc(firestore, 'admin_configuration', 'scoring');
-  const scoringDoc = await getDoc(scoringDocRef);
-  const scoringRules: ScoringRules = scoringDoc.exists()
-    ? scoringDoc.data() as ScoringRules
-    : { exact: 5, inTop6: 3, bonus: 10 };
-
-  // Calculate scores
-  const calculatedScores = await calculateRaceScores(firestore, raceResult, scoringRules);
+  // Calculate scores using Wacky Racers rules (no admin config needed)
+  const calculatedScores = await calculateRaceScores(firestore, raceResult);
 
   // Get all users to map userId to teamName
   const usersSnapshot = await getDocs(collection(firestore, 'users'));
@@ -170,15 +166,23 @@ export async function updateRaceScores(
     userTotals.set(userId, (userTotals.get(userId) || 0) + points);
   });
 
-  // Build standings array
-  const standings: StandingEntry[] = Array.from(userTotals.entries())
+  // Build standings array with proper tie-breaking (shared ranks)
+  const sortedStandings = Array.from(userTotals.entries())
     .map(([userId, totalPoints]) => ({
       teamName: userMap.get(userId) || 'Unknown',
       totalPoints,
       rank: 0,
     }))
-    .sort((a, b) => b.totalPoints - a.totalPoints)
-    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+    .sort((a, b) => b.totalPoints - a.totalPoints);
+
+  // Assign ranks with ties: equal points = same rank, next rank skips
+  let currentRank = 1;
+  const standings: StandingEntry[] = sortedStandings.map((entry, index) => {
+    if (index > 0 && entry.totalPoints < sortedStandings[index - 1].totalPoints) {
+      currentRank = index + 1; // Skip ranks for ties
+    }
+    return { ...entry, rank: currentRank };
+  });
 
   return {
     scoresUpdated: calculatedScores.length,

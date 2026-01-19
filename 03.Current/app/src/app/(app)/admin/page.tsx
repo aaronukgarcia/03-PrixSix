@@ -19,9 +19,10 @@ import { AuditManager } from "./_components/AuditManager";
 import { AuditLogViewer } from "./_components/AuditLogViewer";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { collection, query } from "firebase/firestore";
 import type { User } from "@/firebase/provider";
+import { logAuditEvent } from "@/lib/audit";
   
 export default function AdminPage() {
     const { user, isUserLoading: isAuthLoading } = useAuth();
@@ -37,13 +38,22 @@ export default function AdminPage() {
 
     const { data: allUsers, isLoading: isUsersLoading } = useCollection<User>(allUsersQuery);
     const isUserLoading = isAuthLoading || isUsersLoading;
+    const accessDeniedLogged = useRef(false);
 
     useEffect(() => {
         // If loading is done and the user is not an admin, redirect them.
         if (!isAuthLoading && user && !user.isAdmin) {
+            // Log ACCESS_DENIED audit event (only once)
+            if (firestore && !accessDeniedLogged.current) {
+                accessDeniedLogged.current = true;
+                logAuditEvent(firestore, user.id, 'ACCESS_DENIED', {
+                    attemptedResource: '/admin',
+                    reason: 'User is not an admin',
+                });
+            }
             router.push('/dashboard');
         }
-    }, [user, isAuthLoading, router]);
+    }, [user, isAuthLoading, router, firestore]);
 
     // Render a loading state or nothing while checking permissions
     if (isAuthLoading || !user?.isAdmin) {

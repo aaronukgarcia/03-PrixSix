@@ -101,7 +101,7 @@ export function ResultsManager() {
 
             // Log to audit
             const resultSummary = formatRaceResultSummary(raceResultData as RaceResult);
-            logAuditEvent(firestore, user.id, 'race_result_entered', {
+            logAuditEvent(firestore, user.id, 'RACE_RESULTS_SUBMITTED', {
                 raceId,
                 raceName: selectedRace,
                 result: resultSummary,
@@ -161,7 +161,7 @@ export function ResultsManager() {
 
             // Log to audit
             const resultSummary = formatRaceResultSummary(result);
-            logAuditEvent(firestore, user.id, 'race_result_deleted', {
+            logAuditEvent(firestore, user.id, 'RACE_RESULTS_DELETED', {
                 raceId: result.id,
                 raceName: result.raceId,
                 result: resultSummary,

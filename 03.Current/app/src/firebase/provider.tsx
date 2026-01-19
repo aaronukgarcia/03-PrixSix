@@ -157,6 +157,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   };
 
   const signup = async (email: string, teamName: string, pin?: string): Promise<AuthResult> => {
+    // Check if new user signups are enabled
+    try {
+      const settingsRef = doc(firestore, 'admin_configuration', 'site_settings');
+      const settingsSnap = await getDoc(settingsRef);
+      if (settingsSnap.exists()) {
+        const settings = settingsSnap.data();
+        if (settings.newUserSignupEnabled === false) {
+          return { success: false, message: "New user registration is currently disabled." };
+        }
+      }
+    } catch (e) {
+      console.error("Failed to check signup settings:", e);
+      // Continue with signup if settings check fails
+    }
+
     // Check if email already exists in Firestore
     const usersRef = collection(firestore, "users");
     const q = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
@@ -222,6 +237,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           timestamp: serverTimestamp()
         });
       }
+
+      // Log USER_REGISTERED audit event
+      logAuditEvent(firestore, uid, 'USER_REGISTERED', {
+        email,
+        teamName,
+        registeredAt: new Date().toISOString(),
+      });
 
       return { success: true, message: "Registration successful!" };
 

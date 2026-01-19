@@ -38,18 +38,10 @@ function PredictionsContent() {
   const { data: predictionData, isLoading: isPredictionLoading } = useDoc(predictionRef);
 
   const initialPredictions: (Driver | null)[] = useMemo(() => {
-    const filledPredictions = Array(6).fill(null);
-    if (predictionData) {
-      const predictionIds = [
-        predictionData.driver1,
-        predictionData.driver2,
-        predictionData.driver3,
-        predictionData.driver4,
-        predictionData.driver5,
-        predictionData.driver6,
-      ];
-      predictionIds.forEach((driverId, index) => {
-        if (driverId) {
+    const filledPredictions: (Driver | null)[] = Array(6).fill(null);
+    if (predictionData?.predictions && Array.isArray(predictionData.predictions)) {
+      predictionData.predictions.forEach((driverId: string, index: number) => {
+        if (driverId && index < 6) {
           filledPredictions[index] = F1Drivers.find(d => d.id === driverId) || null;
         }
       });

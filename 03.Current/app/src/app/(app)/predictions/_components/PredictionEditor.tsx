@@ -18,10 +18,8 @@ import { getDriverImage } from "@/lib/data";
 import { ArrowDown, ArrowUp, X, Check, ListCollapse, Timer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useAuth, useFirestore, setDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
-import { doc, serverTimestamp, collection } from "firebase/firestore";
+import { useAuth } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
-import { logAuditEvent } from "@/lib/audit";
 
 interface PredictionEditorProps {
   allDrivers: Driver[];
@@ -34,7 +32,6 @@ interface PredictionEditorProps {
 
 export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime }: PredictionEditorProps) {
   const { user } = useAuth();
-  const firestore = useFirestore();
   const [predictions, setPredictions] = useState<(Driver | null)[]>(initialPredictions);
   const [history, setHistory] = useState<string[]>([]);
   const { toast } = useToast();
@@ -119,7 +116,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
   };
 
   const handleSubmit = async () => {
-    if (!user || !firestore || !teamName) {
+    if (!user || !teamName) {
         toast({ variant: "destructive", title: "Error", description: "User or team not identified." });
         return;
     }
@@ -137,60 +134,27 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     try {
         const teamId = teamName === user.secondaryTeamName ? `${user.id}-secondary` : user.id;
         const raceId = raceName.replace(/\s+/g, '-');
-        const predictionId = `${teamId}_${raceId}`;
-        const predictionRef = doc(firestore, "users", user.id, "predictions", predictionId);
+        const predictionIds = predictions.map(p => p?.id).filter(Boolean) as string[];
 
-        const predictionData = {
-            id: predictionId,
-            userId: user.id, // The auth user
-            teamId: teamId, // The ID of the team making the prediction
-            teamName: teamName,
-            raceId: raceId,
-            raceName: raceName,
-            driver1: predictions[0]?.id,
-            driver2: predictions[1]?.id,
-            driver3: predictions[2]?.id,
-            driver4: predictions[3]?.id,
-            driver5: predictions[4]?.id,
-            driver6: predictions[5]?.id,
-            submissionTimestamp: serverTimestamp(),
-        };
-
-        setDocumentNonBlocking(predictionRef, predictionData, { merge: true });
-
-        // Log to audit trail with full prediction details
-        logAuditEvent(firestore, user.id, 'prediction_submitted', {
-            teamName: teamName,
-            raceName: raceName,
-            raceId: raceId,
-            predictions: {
-                P1: predictions[0]?.name,
-                P2: predictions[1]?.name,
-                P3: predictions[2]?.name,
-                P4: predictions[3]?.name,
-                P5: predictions[4]?.name,
-                P6: predictions[5]?.name,
-            },
-            submittedAt: new Date().toISOString(),
+        // Use server-side API for lockout enforcement
+        const response = await fetch('/api/submit-prediction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: user.id,
+                teamId,
+                teamName,
+                raceId,
+                raceName,
+                predictions: predictionIds,
+            }),
         });
 
-        // Write to public prediction_submissions collection for the submissions page
-        const submissionsRef = collection(firestore, 'prediction_submissions');
-        addDocumentNonBlocking(submissionsRef, {
-            userId: user.id,
-            teamName: teamName,
-            raceName: raceName,
-            raceId: raceId,
-            predictions: {
-                P1: predictions[0]?.name,
-                P2: predictions[1]?.name,
-                P3: predictions[2]?.name,
-                P4: predictions[3]?.name,
-                P5: predictions[4]?.name,
-                P6: predictions[5]?.name,
-            },
-            submittedAt: serverTimestamp(),
-        });
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Submission failed');
+        }
 
         // Add submission to changelog with timestamp
         addChangeToHistory(`Submitted prediction`, true);
