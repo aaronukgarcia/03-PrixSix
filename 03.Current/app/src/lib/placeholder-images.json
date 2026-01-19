@@ -7,22 +7,10 @@
       "imageHint": "Max Verstappen"
     },
     {
-      "id": "sergio-perez",
-      "description": "Sergio Perez",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/S/SERPER01_Sergio_Perez/serper01.png.transform/1col/image.png",
-      "imageHint": "Sergio Perez"
-    },
-    {
-      "id": "lewis-hamilton",
-      "description": "Lewis Hamilton",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png.transform/1col/image.png",
-      "imageHint": "Lewis Hamilton"
-    },
-    {
-      "id": "george-russell",
-      "description": "George Russell",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png.transform/1col/image.png",
-      "imageHint": "George Russell"
+      "id": "isack-hadjar",
+      "description": "Isack Hadjar",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/I/ISAHAD01_Isack_Hadjar/isahad01.png.transform/1col/image.png",
+      "imageHint": "Isack Hadjar"
     },
     {
       "id": "charles-leclerc",
@@ -31,10 +19,10 @@
       "imageHint": "Charles Leclerc"
     },
     {
-      "id": "carlos-sainz",
-      "description": "Carlos Sainz",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png.transform/1col/image.png",
-      "imageHint": "Carlos Sainz"
+      "id": "lewis-hamilton",
+      "description": "Lewis Hamilton",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png.transform/1col/image.png",
+      "imageHint": "Lewis Hamilton"
     },
     {
       "id": "lando-norris",
@@ -47,6 +35,18 @@
       "description": "Oscar Piastri",
       "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png.transform/1col/image.png",
       "imageHint": "Oscar Piastri"
+    },
+    {
+      "id": "george-russell",
+      "description": "George Russell",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png.transform/1col/image.png",
+      "imageHint": "George Russell"
+    },
+    {
+      "id": "kimi-antonelli",
+      "description": "Kimi Antonelli",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ANDANT01_Andrea_Kimi_Antonelli/andant01.png.transform/1col/image.png",
+      "imageHint": "Kimi Antonelli"
     },
     {
       "id": "fernando-alonso",
@@ -67,10 +67,10 @@
       "imageHint": "Pierre Gasly"
     },
     {
-      "id": "esteban-ocon",
-      "description": "Esteban Ocon",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/E/ESTOCO01_Esteban_Ocon/estoco01.png.transform/1col/image.png",
-      "imageHint": "Esteban Ocon"
+      "id": "franco-colapinto",
+      "description": "Franco Colapinto",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FRACOL01_Franco_Colapinto/fracol01.png.transform/1col/image.png",
+      "imageHint": "Franco Colapinto"
     },
     {
       "id": "alexander-albon",
@@ -79,34 +79,22 @@
       "imageHint": "Alexander Albon"
     },
     {
-      "id": "logan-sargeant",
-      "description": "Logan Sargeant",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LOGSAR01_Logan_Sargeant/logsar01.png.transform/1col/image.png",
-      "imageHint": "Logan Sargeant"
+      "id": "carlos-sainz",
+      "description": "Carlos Sainz",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png.transform/1col/image.png",
+      "imageHint": "Carlos Sainz"
     },
     {
-      "id": "yuki-tsunoda",
-      "description": "Yuki Tsunoda",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/Y/YUKTSU01_Yuki_Tsunoda/yuktsu01.png.transform/1col/image.png",
-      "imageHint": "Yuki Tsunoda"
+      "id": "liam-lawson",
+      "description": "Liam Lawson",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LIALAW01_Liam_Lawson/lialaw01.png.transform/1col/image.png",
+      "imageHint": "Liam Lawson"
     },
     {
-      "id": "daniel-ricciardo",
-      "description": "Daniel Ricciardo",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/D/DANRIC01_Daniel_Ricciardo/danric01.png.transform/1col/image.png",
-      "imageHint": "Daniel Ricciardo"
-    },
-    {
-      "id": "valtteri-bottas",
-      "description": "Valtteri Bottas",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/V/VALBOT01_Valtteri_Bottas/valbot01.png.transform/1col/image.png",
-      "imageHint": "Valtteri Bottas"
-    },
-    {
-      "id": "zhou-guanyu",
-      "description": "Zhou Guanyu",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GUAZHO01_Guanyu_Zhou/guazho01.png.transform/1col/image.png",
-      "imageHint": "Zhou Guanyu"
+      "id": "arvid-lindblad",
+      "description": "Arvid Lindblad",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ARVLIN01_Arvid_Lindblad/arvlin01.png.transform/1col/image.png",
+      "imageHint": "Arvid Lindblad"
     },
     {
       "id": "nico-hulkenberg",
@@ -115,10 +103,34 @@
       "imageHint": "Nico Hulkenberg"
     },
     {
-      "id": "kevin-magnussen",
-      "description": "Kevin Magnussen",
-      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/K/KEVMAG01_Kevin_Magnussen/kevmag01.png.transform/1col/image.png",
-      "imageHint": "Kevin Magnussen"
+      "id": "gabriel-bortoleto",
+      "description": "Gabriel Bortoleto",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GABBOR01_Gabriel_Bortoleto/gabbor01.png.transform/1col/image.png",
+      "imageHint": "Gabriel Bortoleto"
+    },
+    {
+      "id": "esteban-ocon",
+      "description": "Esteban Ocon",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/E/ESTOCO01_Esteban_Ocon/estoco01.png.transform/1col/image.png",
+      "imageHint": "Esteban Ocon"
+    },
+    {
+      "id": "oliver-bearman",
+      "description": "Oliver Bearman",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OLIBEA01_Oliver_Bearman/olibea01.png.transform/1col/image.png",
+      "imageHint": "Oliver Bearman"
+    },
+    {
+      "id": "sergio-perez",
+      "description": "Sergio Perez",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/S/SERPER01_Sergio_Perez/serper01.png.transform/1col/image.png",
+      "imageHint": "Sergio Perez"
+    },
+    {
+      "id": "valtteri-bottas",
+      "description": "Valtteri Bottas",
+      "imageUrl": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/V/VALBOT01_Valtteri_Bottas/valbot01.png.transform/1col/image.png",
+      "imageHint": "Valtteri Bottas"
     }
   ]
 }

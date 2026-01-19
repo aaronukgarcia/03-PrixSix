@@ -19,7 +19,9 @@ import {
   Shield,
   LogOut,
   LayoutDashboard,
-  Info
+  Info,
+  FileCheck,
+  History
 } from "lucide-react";
 import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -34,6 +36,8 @@ const menuItems = [
   { href: "/predictions", label: "Predictions", icon: Rocket },
   { href: "/standings", label: "Standings", icon: Trophy },
   { href: "/results", label: "Results", icon: BarChart2 },
+  { href: "/submissions", label: "Submissions", icon: FileCheck },
+  { href: "/audit", label: "Audit", icon: History },
   { href: "/teams", label: "Teams", icon: Users },
   { href: "/rules", label: "Rules", icon: ScrollText },
   { href: "/about", label: "About", icon: Info },

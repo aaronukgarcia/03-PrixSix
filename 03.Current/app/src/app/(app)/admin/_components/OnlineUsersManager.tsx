@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
 import type { User } from '@/firebase/provider';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -25,18 +25,22 @@ interface OnlineUsersManagerProps {
 export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManagerProps) {
   const firestore = useFirestore();
   
+  // Query all presence documents and filter client-side
   const presenceQuery = useMemo(() => {
     if (!firestore) return null;
-    const q = query(collection(firestore, 'presence'), where('sessions', '!=', []));
+    const q = query(collection(firestore, 'presence'));
     (q as any).__memo = true;
     return q;
   }, [firestore]);
 
-  const { data: onlineUsers, isLoading: isPresenceLoading } = useCollection<Presence>(presenceQuery);
+  const { data: allPresence, isLoading: isPresenceLoading } = useCollection<Presence>(presenceQuery);
 
   const usersWithSessions = useMemo(() => {
-    if (!onlineUsers || !allUsers) return [];
-    
+    if (!allPresence || !allUsers) return [];
+
+    // Filter presence docs with active sessions
+    const onlineUsers = allPresence.filter(p => p.sessions && p.sessions.length > 0);
+
     return onlineUsers.flatMap(presence => {
         const userDetail = allUsers.find(u => u.id === presence.id);
         if (!userDetail || !presence.sessions || presence.sessions.length === 0) {
@@ -49,7 +53,7 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
         }));
     });
 
-  }, [onlineUsers, allUsers]);
+  }, [allPresence, allUsers]);
   
   const isLoading = isUserLoading || isPresenceLoading;
 

@@ -124,12 +124,13 @@ function PredictionsContent() {
             </Card>
         </div>
       ) : (
-        <PredictionEditor 
+        <PredictionEditor
           allDrivers={F1Drivers}
           isLocked={!isPitlaneOpen}
           initialPredictions={initialPredictions}
           raceName={nextRace.name}
           teamName={selectedTeam}
+          qualifyingTime={nextRace.qualifyingTime}
         />
       )}
     </div>

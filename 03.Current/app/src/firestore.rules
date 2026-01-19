@@ -17,13 +17,16 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      // All signed-in users can list users (to see team names on teams page)
+      allow list: if isSignedIn();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId);
 
       match /predictions/{predictionId} {
-        allow read, write: if isOwner(userId) || isAdmin();
+        // All signed-in users can read predictions (league members can see each other's picks)
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId) || isAdmin();
       }
     }
 
@@ -57,9 +60,26 @@ service cloud.firestore {
     }
 
     match /audit_logs/{logId} {
+      // Admins can read all audit logs
       allow get, list: if isAdmin();
       allow create: if (isSignedIn() && isOwner(request.resource.data.userId)) || request.resource.data.action == 'signup_email_queued';
       allow update, delete: if false;
+    }
+
+    // Separate collection for prediction submissions - visible to all signed-in users
+    match /prediction_submissions/{submissionId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // Email tracking collections
+    match /email_daily_stats/{dateId} {
+      allow read, write: if true; // Server-side only, but allow for API routes
+    }
+
+    match /email_queue/{emailId} {
+      allow read, write: if true; // Server-side only
     }
 
     match /email_logs/{logId} {
@@ -72,6 +92,11 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow get: if isSignedIn();
       allow create, update, delete: if isOwner(userId);
+    }
+
+    // Collection group query support for predictions (used on Results page)
+    match /{path=**}/predictions/{predictionId} {
+      allow read: if isSignedIn();
     }
 
     match /mail/{mailId} {

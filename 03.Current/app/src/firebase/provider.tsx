@@ -39,7 +39,7 @@ export interface FirebaseContextState {
   updateUser: (userId: string, data: Partial<User>) => Promise<AuthResult>;
   deleteUser: (userId: string) => Promise<AuthResult>;
   login: (email: string, pin: string) => Promise<AuthResult>;
-  signup: (email: string, teamName: string) => Promise<AuthResult>;
+  signup: (email: string, teamName: string, pin?: string) => Promise<AuthResult>;
   logout: () => void;
   addSecondaryTeam: (teamName: string) => Promise<AuthResult>;
   resetPin: (email: string) => Promise<AuthResult>;
@@ -147,7 +147,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  const signup = async (email: string, teamName: string): Promise<AuthResult> => {
+  const signup = async (email: string, teamName: string, pin?: string): Promise<AuthResult> => {
     // Check if email already exists in Firestore
     const usersRef = collection(firestore, "users");
     const q = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
@@ -157,10 +157,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return { success: false, message: "A team with this email address already exists." };
     }
 
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    
+    // Use provided PIN or generate random one (for backward compatibility)
+    const userPin = pin || Math.floor(100000 + Math.random() * 900000).toString();
+
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pin);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, userPin);
       const { uid } = userCredential.user;
 
       const newUser: User = {
@@ -174,19 +175,46 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       await setDoc(doc(firestore, 'users', uid), newUser);
       await setDoc(doc(firestore, "presence", uid), { online: false, sessions: [] });
 
-      const mailRef = collection(firestore, 'mail');
-      const mailHtml = `Hello ${teamName},<br><br>Welcome to the league! Your PIN is: <strong>${pin}</strong><br><br>Good luck for the next race!`;
-      const mailSubject = "Welcome to Prix Six!";
-      
-      const mailPayload = { to: email, message: { subject: mailSubject, html: mailHtml } };
-      addDocumentNonBlocking(mailRef, mailPayload);
+      // Send welcome email via Microsoft Graph API
+      try {
+        const emailResponse = await fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toEmail: email, teamName, pin: userPin })
+        });
+        const emailResult = await emailResponse.json();
 
-      const emailLogPayload = { to: email, subject: mailSubject, html: mailHtml, pin: pin, status: 'queued', timestamp: serverTimestamp() };
-      addDocumentNonBlocking(collection(firestore, 'email_logs'), emailLogPayload);
+        // Log to email_logs collection for audit trail
+        const emailLogPayload = {
+          to: email,
+          subject: "Welcome to Prix Six - Your Account is Ready!",
+          pin: "[user-created]",
+          status: emailResult.success ? 'sent' : 'failed',
+          emailGuid: emailResult.emailGuid || null,
+          error: emailResult.error || null,
+          timestamp: serverTimestamp()
+        };
+        addDocumentNonBlocking(collection(firestore, 'email_logs'), emailLogPayload);
 
-      logAuditEvent(firestore, uid, 'signup_email_queued', { email, teamName });
+        logAuditEvent(firestore, uid, 'signup_email_sent', {
+          email,
+          teamName,
+          emailGuid: emailResult.emailGuid,
+          success: emailResult.success
+        });
+      } catch (emailError: any) {
+        console.error('Failed to send welcome email:', emailError);
+        // Don't fail signup if email fails - log the error
+        addDocumentNonBlocking(collection(firestore, 'email_logs'), {
+          to: email,
+          subject: "Welcome to Prix Six",
+          status: 'error',
+          error: emailError.message,
+          timestamp: serverTimestamp()
+        });
+      }
 
-      return { success: true, message: "Registration successful!", pin };
+      return { success: true, message: "Registration successful!" };
 
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {

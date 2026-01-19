@@ -94,16 +94,18 @@ export function useAuditNavigation() {
 
 /**
  * Logs a Firestore permission error to the audit log.
+ * Note: We don't log permission errors to Firestore to avoid circular errors.
+ * Instead, we just log to console.
  * @param firestore - The Firestore instance.
  * @param userId - The ID of the user who encountered the error.
  * @param error - The FirestorePermissionError object.
  */
 export function logPermissionError(firestore: any, userId: string | undefined, error: FirestorePermissionError) {
-    logAuditEvent(firestore, userId, 'permission_error', {
+    // Only log to console to avoid circular permission errors
+    console.error('Permission error:', {
+        userId,
         message: error.message,
-        path: error.request.path,
-        method: error.request.method,
-        request_auth: error.request.auth,
-        request_resource: error.request.resource,
+        path: error.request?.path,
+        method: error.request?.method,
     });
 }

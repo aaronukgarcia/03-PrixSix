@@ -33,9 +33,26 @@ const funnyNames = [
     "Max Power",
 ];
 
+// Weak PINs that should be rejected
+const weakPins = [
+    "123456", "654321", "111111", "222222", "333333", "444444",
+    "555555", "666666", "777777", "888888", "999999", "000000",
+    "123123", "121212", "112233", "001122", "102030", "112211",
+];
+
 const formSchema = z.object({
   teamName: z.string().min(3, { message: "Team name must be at least 3 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
+  pin: z.string()
+    .length(6, { message: "PIN must be exactly 6 digits." })
+    .regex(/^\d{6}$/, { message: "PIN must contain only digits." })
+    .refine((pin) => !weakPins.includes(pin), {
+      message: "This PIN is too easy to guess. Please choose a stronger one.",
+    }),
+  confirmPin: z.string().length(6, { message: "Please confirm your PIN." }),
+}).refine((data) => data.pin === data.confirmPin, {
+  message: "PINs don't match.",
+  path: ["confirmPin"],
 });
 
 export default function SignupPage() {
@@ -49,6 +66,8 @@ export default function SignupPage() {
         defaultValues: {
             teamName: "",
             email: "",
+            pin: "",
+            confirmPin: "",
         },
     });
 
@@ -67,12 +86,12 @@ export default function SignupPage() {
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setLoading(true);
         try {
-            const result = await signup(values.email, values.teamName);
+            const result = await signup(values.email, values.teamName, values.pin);
             if (result.success) {
                 toast({
                     title: "Registration Complete!",
-                    description: `Your PIN is ${result.pin}. Please use it to log in. An email has also been sent to you.`,
-                    duration: 10000, // Keep toast open longer
+                    description: "Your account has been created. Please use your PIN to log in.",
+                    duration: 5000,
                 });
                 router.push("/login");
             } else {
@@ -137,7 +156,47 @@ export default function SignupPage() {
                                 </FormItem>
                             )}
                         />
-                        
+                        <FormField
+                            control={form.control}
+                            name="pin"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Choose Your PIN</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="password"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        maxLength={6}
+                                        placeholder="6-digit PIN"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="confirmPin"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Confirm PIN</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="password"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        maxLength={6}
+                                        placeholder="Confirm your PIN"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
                         <Button type="submit" className="w-full" disabled={loading}>
                             {loading ? "Registering..." : "Sign Up"}
                         </Button>

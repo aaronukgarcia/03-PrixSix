@@ -1,7 +1,7 @@
 import { getHotNewsFeed } from "@/ai/flows/hot-news-feed";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { findNextRace } from "@/lib/data";
-import { AlertCircle, CheckCircle2, Newspaper, Flag, Calendar } from "lucide-react";
+import { AlertCircle, CheckCircle2, Newspaper, Flag, Calendar, Clock } from "lucide-react";
 import { DashboardClient } from "./_components/DashboardClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -9,7 +9,20 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 export const revalidate = 3600; // Revalidate every hour
 
 export default async function DashboardPage() {
-    const { newsFeed } = await getHotNewsFeed();
+    const { newsFeed, lastUpdated } = await getHotNewsFeed();
+
+    // Format the lastUpdated timestamp for display
+    const formatNewsTimestamp = (isoString?: string) => {
+        if (!isoString) return null;
+        const date = new Date(isoString);
+        return date.toLocaleString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
     const nextRace = findNextRace();
     
     const isPitlaneOpen = new Date(nextRace.qualifyingTime) > new Date();
@@ -89,7 +102,15 @@ export default async function DashboardPage() {
                          <Newspaper className="h-6 w-6 text-primary"/>
                         <CardTitle>Hot News Feed</CardTitle>
                     </div>
-                    <CardDescription>Hourly updates from the paddock.</CardDescription>
+                    <CardDescription className="flex items-center justify-between">
+                        <span>Hourly updates from the paddock.</span>
+                        {lastUpdated && (
+                            <span className="flex items-center gap-1 text-xs">
+                                <Clock className="h-3 w-3" />
+                                Last updated: {formatNewsTimestamp(lastUpdated)}
+                            </span>
+                        )}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">{newsFeed}</p>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -15,11 +15,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Driver } from "@/lib/data";
 import { getDriverImage } from "@/lib/data";
-import { ArrowDown, ArrowUp, X, Check, ListCollapse } from "lucide-react";
+import { ArrowDown, ArrowUp, X, Check, ListCollapse, Timer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
-import { doc, serverTimestamp } from "firebase/firestore";
+import { useAuth, useFirestore, setDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
+import { doc, serverTimestamp, collection } from "firebase/firestore";
+import { Badge } from "@/components/ui/badge";
+import { logAuditEvent } from "@/lib/audit";
 
 interface PredictionEditorProps {
   allDrivers: Driver[];
@@ -27,22 +29,56 @@ interface PredictionEditorProps {
   initialPredictions: (Driver | null)[];
   raceName: string;
   teamName?: string;
+  qualifyingTime: string;
 }
 
-export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName }: PredictionEditorProps) {
+export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime }: PredictionEditorProps) {
   const { user } = useAuth();
   const firestore = useFirestore();
   const [predictions, setPredictions] = useState<(Driver | null)[]>(initialPredictions);
   const [history, setHistory] = useState<string[]>([]);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [countdown, setCountdown] = useState<string>("");
+
+  // Countdown timer
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const qualifyingDate = new Date(qualifyingTime);
+      const diff = qualifyingDate.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setCountdown("CLOSED");
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        setCountdown(`${days}d ${hours}h ${minutes}m`);
+      } else if (hours > 0) {
+        setCountdown(`${hours}h ${minutes}m ${seconds}s`);
+      } else {
+        setCountdown(`${minutes}m ${seconds}s`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [qualifyingTime]);
 
   const availableDrivers = allDrivers.filter(
     (d) => !predictions.some((p) => p?.id === d.id)
   );
 
-  const addChangeToHistory = (change: string) => {
-    setHistory(prev => [change, ...prev].slice(0, 5));
+  const addChangeToHistory = (change: string, includeTimestamp = false) => {
+    const timestamp = includeTimestamp ? ` [${new Date().toLocaleString()}]` : "";
+    setHistory(prev => [change + timestamp, ...prev].slice(0, 5));
   }
 
   const handleAddDriver = (driver: Driver) => {
@@ -122,6 +158,43 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
 
         setDocumentNonBlocking(predictionRef, predictionData, { merge: true });
 
+        // Log to audit trail with full prediction details
+        logAuditEvent(firestore, user.id, 'prediction_submitted', {
+            teamName: teamName,
+            raceName: raceName,
+            raceId: raceId,
+            predictions: {
+                P1: predictions[0]?.name,
+                P2: predictions[1]?.name,
+                P3: predictions[2]?.name,
+                P4: predictions[3]?.name,
+                P5: predictions[4]?.name,
+                P6: predictions[5]?.name,
+            },
+            submittedAt: new Date().toISOString(),
+        });
+
+        // Write to public prediction_submissions collection for the submissions page
+        const submissionsRef = collection(firestore, 'prediction_submissions');
+        addDocumentNonBlocking(submissionsRef, {
+            userId: user.id,
+            teamName: teamName,
+            raceName: raceName,
+            raceId: raceId,
+            predictions: {
+                P1: predictions[0]?.name,
+                P2: predictions[1]?.name,
+                P3: predictions[2]?.name,
+                P4: predictions[3]?.name,
+                P5: predictions[4]?.name,
+                P6: predictions[5]?.name,
+            },
+            submittedAt: serverTimestamp(),
+        });
+
+        // Add submission to changelog with timestamp
+        addChangeToHistory(`Submitted prediction`, true);
+
         toast({
             title: "Prediction Submitted!",
             description: `Your grid for ${teamName} is locked in. Good luck!`,
@@ -142,9 +215,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Your Prediction Grid for <span className="text-accent">{teamName}</span></CardTitle>
-          <CardDescription>
-            {isLocked ? "Your submitted grid for this race." : "Select drivers from the list to fill your grid. Your previous prediction is pre-loaded."}
+          <CardTitle className="text-xl">{raceName}</CardTitle>
+          <CardDescription className="text-base">
+            Prediction for <span className="font-semibold text-accent">{teamName}</span>
+            {isLocked ? " - Grid locked" : " - Select drivers from the list to fill your grid"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -203,11 +277,32 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
             ))}
           </div>
         </CardContent>
-        <CardFooter>
-            <Button onClick={handleSubmit} disabled={isLocked || isSubmitting}>
-                <Check className="mr-2 h-4 w-4"/>
-                {isSubmitting ? "Submitting..." : "Submit Predictions"}
-            </Button>
+        <CardFooter className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full">
+                <Button onClick={handleSubmit} disabled={isLocked || isSubmitting}>
+                    <Check className="mr-2 h-4 w-4"/>
+                    {isSubmitting ? "Submitting..." : "Submit Predictions"}
+                </Button>
+                <Badge
+                  variant={isLocked ? "destructive" : "default"}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 text-sm",
+                    !isLocked && "bg-green-600 hover:bg-green-700"
+                  )}
+                >
+                  <Timer className="h-4 w-4" />
+                  {isLocked ? (
+                    <span>PIT CLOSED</span>
+                  ) : (
+                    <span>PIT OPEN - {countdown}</span>
+                  )}
+                </Badge>
+            </div>
+            {!isLocked && (
+                <p className="text-xs text-muted-foreground">
+                    Your prediction will stand until you edit it. You can change your picks anytime before the pit closes.
+                </p>
+            )}
         </CardFooter>
       </Card>
       

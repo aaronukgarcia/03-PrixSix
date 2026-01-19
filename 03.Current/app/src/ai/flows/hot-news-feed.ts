@@ -20,6 +20,7 @@ import { firestore } from '@/firebase/server';
 
 const HotNewsFeedOutputSchema = z.object({
   newsFeed: z.string().describe('A concise summary of the latest F1 news, including weather, track conditions, and driver updates.'),
+  lastUpdated: z.string().optional().describe('ISO timestamp of when the news was last updated.'),
 });
 export type HotNewsFeedOutput = z.infer<typeof HotNewsFeedOutputSchema>;
 
@@ -27,36 +28,43 @@ export type HotNewsFeedOutput = z.infer<typeof HotNewsFeedOutputSchema>;
 export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
     const settings = await getHotNewsSettings(firestore);
 
+    // Format lastUpdated timestamp
+    const formatLastUpdated = (timestamp: any) => {
+        if (!timestamp || !timestamp.toDate) return undefined;
+        return timestamp.toDate().toISOString();
+    };
+
     // If the feed is disabled by admin, return the static content.
     if (!settings.hotNewsFeedEnabled) {
         console.log('AI Hot News Feed is disabled by admin. Serving static content.');
-        return { newsFeed: settings.content };
+        return { newsFeed: settings.content, lastUpdated: formatLastUpdated(settings.lastUpdated) };
     }
 
     const now = new Date().getTime();
     // lastUpdated can be null on first run, so we check for it.
-    const lastUpdated = settings.lastUpdated ? settings.lastUpdated.toMillis() : 0;
+    const lastUpdatedMs = settings.lastUpdated ? settings.lastUpdated.toMillis() : 0;
     const oneHour = 60 * 60 * 1000;
 
     // If not locked and cache is older than 1 hour, fetch new data.
-    if (!settings.isLocked && (now - lastUpdated > oneHour)) {
+    if (!settings.isLocked && (now - lastUpdatedMs > oneHour)) {
         console.log('Cache expired or not present. Fetching new hot news...');
         try {
             // The flow itself now handles the update.
             const output = await hotNewsFeedFlow();
+            const newTimestamp = new Date();
             // Also update firestore
-            await updateHotNewsContent(firestore, { content: output.newsFeed, lastUpdated: new Date() });
-            return output;
+            await updateHotNewsContent(firestore, { content: output.newsFeed, lastUpdated: newTimestamp });
+            return { ...output, lastUpdated: newTimestamp.toISOString() };
         } catch (error) {
             console.error("Error fetching new hot news, serving stale data:", error);
             // Fallback to serving stale data if the flow fails
-            return { newsFeed: settings.content };
+            return { newsFeed: settings.content, lastUpdated: formatLastUpdated(settings.lastUpdated) };
         }
     }
-    
+
     // Otherwise, return cached content from Firestore
     console.log('Serving cached hot news from Firestore.');
-    return { newsFeed: settings.content };
+    return { newsFeed: settings.content, lastUpdated: formatLastUpdated(settings.lastUpdated) };
 }
 
 const mockNewsFeed = `

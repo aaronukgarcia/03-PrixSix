@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useCollection, useFirestore } from "@/firebase";
 import type { User } from "@/firebase/provider";
 import {
@@ -17,6 +17,7 @@ import {
   import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus } from "lucide-react";
   import { Skeleton } from "@/components/ui/skeleton";
 import { collection, query } from "firebase/firestore";
+import { LastUpdated } from "@/components/ui/last-updated";
   
   const RankChangeIndicator = ({ change }: { change: number }) => {
     if (change === 0) {
@@ -60,6 +61,14 @@ export default function StandingsPage() {
     const { data: scores, isLoading: isLoadingScores } = useCollection<Score>(scoresQuery);
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
+    // Track when data was last loaded
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    useEffect(() => {
+        if (scores && users && !isLoadingScores && !isLoadingUsers) {
+            setLastUpdated(new Date());
+        }
+    }, [scores, users, isLoadingScores, isLoadingUsers]);
+
     const standingsData = useMemo(() => {
         if (!scores || !users) return [];
         
@@ -94,10 +103,15 @@ export default function StandingsPage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-headline">Season Standings</CardTitle>
-          <CardDescription>
-            Overall leaderboard after the {currentRace.name}.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle className="text-2xl font-headline">Season Standings</CardTitle>
+              <CardDescription>
+                Overall leaderboard after the {currentRace.name}.
+              </CardDescription>
+            </div>
+            <LastUpdated timestamp={lastUpdated} />
+          </div>
         </CardHeader>
         <CardContent>
           <Table>

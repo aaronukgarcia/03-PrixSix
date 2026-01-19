@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useCollection, useFirestore } from "@/firebase";
 import type { User } from "@/firebase/provider";
 import {
@@ -25,9 +25,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { RaceSchedule, getDriverImage, F1Drivers, Driver } from "@/lib/data";
-import { collection, query, where, collectionGroup } from "firebase/firestore";
+import { RaceSchedule, getDriverImage, F1Drivers, Driver, findNextRace } from "@/lib/data";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LastUpdated } from "@/components/ui/last-updated";
 
 interface Prediction {
     id: string;
@@ -45,7 +46,8 @@ interface Prediction {
 export default function TeamsPage() {
   const firestore = useFirestore();
   const races = RaceSchedule.map((r) => r.name);
-  const [selectedRace, setSelectedRace] = useState(races[races.length - 1]);
+  const nextRace = findNextRace();
+  const [selectedRace, setSelectedRace] = useState(nextRace.name);
   const selectedRaceId = selectedRace.replace(/\s+/g, '-');
 
   const usersQuery = useMemo(() => {
@@ -55,18 +57,52 @@ export default function TeamsPage() {
     return q;
   }, [firestore]);
 
-  const predictionsQuery = useMemo(() => {
-    if (!firestore) return null;
-    const q = query(
-      collectionGroup(firestore, "predictions"),
-      where("raceId", "==", selectedRaceId)
-    );
-    (q as any).__memo = true;
-    return q;
-  }, [firestore, selectedRaceId]);
-  
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-  const { data: predictions, isLoading: isLoadingPredictions } = useCollection<Prediction>(predictionsQuery);
+
+  // Fetch predictions for all users for this race (avoiding collectionGroup query)
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (!firestore || !users || users.length === 0 || !selectedRaceId) {
+      setPredictions([]);
+      return;
+    }
+
+    const fetchPredictions = async () => {
+      setIsLoadingPredictions(true);
+      try {
+        const allPredictions: Prediction[] = [];
+
+        for (const user of users) {
+          const predQuery = query(
+            collection(firestore, `users/${user.id}/predictions`),
+            where("raceId", "==", selectedRaceId)
+          );
+          const predSnapshot = await getDocs(predQuery);
+          predSnapshot.forEach(predDoc => {
+            allPredictions.push({
+              id: predDoc.id,
+              ...predDoc.data(),
+              userId: user.id,
+              teamName: (predDoc.data() as any).teamName || user.teamName,
+            } as Prediction);
+          });
+        }
+
+        setPredictions(allPredictions);
+        setLastUpdated(new Date());
+      } catch (error) {
+        console.error("Error fetching predictions:", error);
+        setPredictions([]);
+      } finally {
+        setIsLoadingPredictions(false);
+      }
+    };
+
+    fetchPredictions();
+  }, [firestore, users, selectedRaceId]);
 
   const teamsWithPredictions = useMemo(() => {
     if (!users) return [];
@@ -120,7 +156,10 @@ export default function TeamsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">
               <CardTitle>All Team Submissions</CardTitle>
-              <CardDescription>Select a race to view predictions.</CardDescription>
+              <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <span>Select a race to view predictions.</span>
+                <LastUpdated timestamp={lastUpdated} />
+              </CardDescription>
             </div>
             <Select value={selectedRace} onValueChange={setSelectedRace}>
               <SelectTrigger className="w-full sm:w-[220px]">

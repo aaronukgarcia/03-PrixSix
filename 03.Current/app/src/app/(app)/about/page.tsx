@@ -6,7 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users, Code, Server, Mail, Database, Waypoints } from "lucide-react";
 import { useFirestore, useCollection } from '@/firebase';
 import backendData from '@/../docs/backend.json';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
+
+interface Presence {
+  id: string;
+  online: boolean;
+  sessions?: string[];
+}
 
 const AboutPageClient = () => {
     const firestore = useFirestore();
@@ -20,20 +26,23 @@ const AboutPageClient = () => {
 
     const { data: allUsers } = useCollection(allUsersQuery);
     
-    // Query for all documents that have at least one active session.
+    // Query all presence documents
     const presenceQuery = useMemo(() => {
         if (!firestore) return null;
-        const q = query(collection(firestore, 'presence'), where('sessions', '!=', []));
+        const q = query(collection(firestore, 'presence'));
         (q as any).__memo = true;
         return q;
     }, [firestore]);
 
-    const { data: presenceDocs, isLoading } = useCollection(presenceQuery);
+    const { data: presenceDocs, isLoading } = useCollection<Presence>(presenceQuery);
 
     // Calculate total online sessions by summing the length of the 'sessions' array in each document.
+    // Filter client-side for docs with non-empty sessions arrays.
     const onlineUserCount = useMemo(() => {
         if (!presenceDocs) return 0;
-        return presenceDocs.reduce((acc, doc) => acc + (doc.sessions?.length || 0), 0);
+        return presenceDocs
+            .filter(doc => doc.sessions && doc.sessions.length > 0)
+            .reduce((acc, doc) => acc + (doc.sessions?.length || 0), 0);
     }, [presenceDocs]);
 
     const hld = backendData.firestore.reasoning;
