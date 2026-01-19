@@ -923,9 +923,14 @@ export function checkScores(
 
     // Verify score calculation is correct
     if (score.raceId && score.userId && score.totalPoints !== undefined) {
-      const predKey = `${score.raceId}_${score.userId}`;
-      const prediction = predictionMap.get(predKey);
-      const raceResult = resultsMap.get(score.raceId) || resultsMap.get(score.raceId.toLowerCase());
+      // Normalize raceId to match prediction format (remove -GP or -Sprint suffix)
+      const normalizedScoreRaceId = normalizeRaceId(score.raceId);
+
+      // Try multiple key formats to find the prediction
+      const predKey = `${normalizedScoreRaceId}_${score.userId}`;
+      const predKeyAlt = `${score.raceId}_${score.userId}`;
+      const prediction = predictionMap.get(predKey) || predictionMap.get(predKeyAlt);
+      const raceResult = resultsMap.get(score.raceId) || resultsMap.get(score.raceId.toLowerCase()) || resultsMap.get(normalizedScoreRaceId);
 
       if (prediction && raceResult) {
         // Extract predicted drivers
