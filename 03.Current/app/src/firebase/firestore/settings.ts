@@ -1,6 +1,4 @@
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp, Firestore, FieldValue } from "firebase/firestore";
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 export interface HotNewsSettings {
     isLocked: boolean;
@@ -37,15 +35,8 @@ export async function getHotNewsSettings(db: Firestore): Promise<HotNewsSettings
         }
     } catch (error) {
         console.error("Error getting hot news settings: ", error);
-        
-        const contextualError = new FirestorePermissionError({
-          operation: 'get',
-          path: settingsRef.path,
-        });
-
-        errorEmitter.emit('permission-error', contextualError);
-
         // Return default settings on error to ensure app functionality
+        // Note: FirestorePermissionError is client-only, can't use in server context
         return defaultSettings;
     }
 }
