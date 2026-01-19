@@ -14,8 +14,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { getHotNewsSettings } from '@/firebase/firestore/settings';
-import { firestore } from '@/firebase/server';
+import { getFirebaseAdmin } from '@/lib/firebase-admin';
 
 
 const HotNewsFeedOutputSchema = z.object({
@@ -25,19 +24,38 @@ const HotNewsFeedOutputSchema = z.object({
 export type HotNewsFeedOutput = z.infer<typeof HotNewsFeedOutputSchema>;
 
 
+const defaultHotNews = {
+    content: "Welcome to the Hot News Feed! The AI is warming up its engines...",
+    lastUpdated: null as any,
+};
+
 export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
-    const settings = await getHotNewsSettings(firestore);
+    try {
+        const { db } = await getFirebaseAdmin();
+        const docSnap = await db.collection('app-settings').doc('hot-news').get();
 
-    // Format lastUpdated timestamp
-    const formatLastUpdated = (timestamp: any) => {
-        if (!timestamp || !timestamp.toDate) return undefined;
-        return timestamp.toDate().toISOString();
-    };
+        if (!docSnap.exists) {
+            console.log('Hot news document not found, returning defaults.');
+            return { newsFeed: defaultHotNews.content, lastUpdated: undefined };
+        }
 
-    // Always return the content from Firestore - admin controls the content
-    // The AI refresh is only triggered manually via the admin "Refresh Now" button
-    console.log('Serving hot news from Firestore.');
-    return { newsFeed: settings.content, lastUpdated: formatLastUpdated(settings.lastUpdated) };
+        const data = docSnap.data();
+        const content = data?.content || defaultHotNews.content;
+
+        // Format lastUpdated timestamp (Admin SDK returns Timestamp directly)
+        let lastUpdated: string | undefined;
+        if (data?.lastUpdated && typeof data.lastUpdated.toDate === 'function') {
+            lastUpdated = data.lastUpdated.toDate().toISOString();
+        }
+
+        // Always return the content from Firestore - admin controls the content
+        // The AI refresh is only triggered manually via the admin "Refresh Now" button
+        console.log('Serving hot news from Firestore via Admin SDK.');
+        return { newsFeed: content, lastUpdated };
+    } catch (error) {
+        console.error('Error fetching hot news:', error);
+        return { newsFeed: defaultHotNews.content, lastUpdated: undefined };
+    }
 }
 
 const mockNewsFeed = `
