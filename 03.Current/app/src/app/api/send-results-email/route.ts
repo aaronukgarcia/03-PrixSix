@@ -1,27 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { canSendEmail, recordSentEmail } from '@/lib/email-tracking';
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
-// Lazy initialization to avoid build-time errors
-let adminApp: App | null = null;
-let adminDb: Firestore | null = null;
+// Dynamic import to avoid build-time errors with firebase-admin
+async function getAdminDb() {
+  const { initializeApp, getApps, cert } = await import('firebase-admin/app');
+  const { getFirestore } = await import('firebase-admin/firestore');
 
-function getAdminDb(): Firestore {
-  if (!adminDb) {
-    if (!getApps().length) {
-      adminApp = initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-      });
-    }
-    adminDb = getFirestore();
+  if (!getApps().length) {
+    initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID!,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      }),
+    });
   }
-  return adminDb;
+  return getFirestore();
 }
 
 interface ResultsEmailRequest {
@@ -46,7 +41,7 @@ export async function POST(request: NextRequest) {
     const { raceId, raceName, officialResult, scores, standings } = data;
 
     // Get all users who have opted in to results notifications
-    const db = getAdminDb();
+    const db = await getAdminDb();
     const usersSnapshot = await db.collection('users').get();
     const usersToNotify = usersSnapshot.docs.filter(doc => {
       const userData = doc.data();

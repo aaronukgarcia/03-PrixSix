@@ -1,26 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 import { RaceSchedule } from '@/lib/data';
 
-// Lazy initialization to avoid build-time errors
-let adminApp: App | null = null;
-let adminDb: Firestore | null = null;
+// Dynamic import to avoid build-time errors with firebase-admin
+async function getFirebaseAdmin() {
+  const { initializeApp, getApps, cert } = await import('firebase-admin/app');
+  const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
 
-function getAdminDb(): Firestore {
-  if (!adminDb) {
-    if (!getApps().length) {
-      adminApp = initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-      });
-    }
-    adminDb = getFirestore();
+  if (!getApps().length) {
+    initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID!,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      }),
+    });
   }
-  return adminDb;
+  return { db: getFirestore(), FieldValue };
 }
 
 interface PredictionRequest {
@@ -66,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Write prediction to Firestore
-    const db = getAdminDb();
+    const { db, FieldValue } = await getFirebaseAdmin();
     const predictionId = `${teamId}_${raceId}`;
     const predictionRef = db.collection('users').doc(userId).collection('predictions').doc(predictionId);
 
