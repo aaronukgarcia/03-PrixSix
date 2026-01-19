@@ -21,6 +21,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 const RankChangeIndicator = ({ change }: { change: number }) => {
   if (change === 0) {
@@ -281,6 +282,71 @@ export default function StandingsPage() {
     return standingsData;
   }, [allScores, completedRaceWeekends, selectedRaceIndex, userNames]);
 
+  // Calculate chart data for season progression
+  const chartData = useMemo(() => {
+    if (completedRaceWeekends.length === 0 || !userNames.size) return [];
+
+    // Get all unique user IDs
+    const userIds = new Set<string>();
+    allScores.forEach(s => userIds.add(s.userId));
+
+    // Build data points: Start (0) + each race weekend
+    const data: Record<string, any>[] = [];
+
+    // Pre-season: everyone at 0
+    const startPoint: Record<string, any> = { race: "Start" };
+    userIds.forEach(userId => {
+      const teamName = userNames.get(userId) || userId;
+      startPoint[teamName] = 0;
+    });
+    data.push(startPoint);
+
+    // Calculate cumulative totals after each race weekend
+    const cumulativeTotals = new Map<string, number>();
+    userIds.forEach(userId => cumulativeTotals.set(userId, 0));
+
+    completedRaceWeekends.forEach((race, raceIndex) => {
+      // Add scores from this race weekend
+      allScores.forEach(score => {
+        if (
+          score.raceId === race.gpRaceId ||
+          score.raceId === race.baseRaceId ||
+          (race.sprintRaceId && score.raceId === race.sprintRaceId)
+        ) {
+          const current = cumulativeTotals.get(score.userId) || 0;
+          cumulativeTotals.set(score.userId, current + score.totalPoints);
+        }
+      });
+
+      // Create data point for this race
+      const racePoint: Record<string, any> = { race: `R${raceIndex + 1}` };
+      userIds.forEach(userId => {
+        const teamName = userNames.get(userId) || userId;
+        racePoint[teamName] = cumulativeTotals.get(userId) || 0;
+      });
+      data.push(racePoint);
+    });
+
+    return data;
+  }, [completedRaceWeekends, allScores, userNames]);
+
+  // Get team names for chart lines (sorted by final position)
+  const chartTeams = useMemo(() => {
+    if (standings.length === 0) return [];
+    return standings.map(s => s.teamName);
+  }, [standings]);
+
+  // Generate colors for teams (top 3 get distinct colors, rest are grey)
+  const getTeamColor = (index: number) => {
+    if (index === 0) return "hsl(45, 100%, 50%)";  // Gold
+    if (index === 1) return "hsl(0, 0%, 75%)";     // Silver
+    if (index === 2) return "hsl(30, 60%, 50%)";   // Bronze
+    return "hsl(0, 0%, 40%)";                       // Grey for others
+  };
+
+  // Get max points for Y-axis
+  const maxPoints = standings.length > 0 ? standings[0].newOverall : 100;
+
   // Pagination
   const totalItems = standings.length;
   const displayedStandings = standings.slice(0, displayCount);
@@ -387,6 +453,49 @@ export default function StandingsPage() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Season progression chart */}
+        {!isLoading && chartData.length > 1 && chartTeams.length > 0 && (
+          <div className="w-full h-48 mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <XAxis
+                  dataKey="race"
+                  tick={{ fontSize: 10 }}
+                  axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                  tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                />
+                <YAxis
+                  domain={[0, maxPoints]}
+                  tick={{ fontSize: 10 }}
+                  axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                  tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                  width={35}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                  }}
+                  labelStyle={{ fontWeight: 'bold' }}
+                />
+                {chartTeams.map((teamName, index) => (
+                  <Line
+                    key={teamName}
+                    type="monotone"
+                    dataKey={teamName}
+                    stroke={getTeamColor(index)}
+                    strokeWidth={index < 3 ? 2 : 1}
+                    dot={false}
+                    opacity={index < 3 ? 1 : 0.4}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
         {/* Progress indicator */}
         {!isLoading && totalItems > PAGE_SIZE && (
           <div className="space-y-2">
