@@ -132,7 +132,8 @@ export function ResultsManager() {
 
             toast({
                 title: "Results Submitted!",
-                description: `Results for ${selectedRace} recorded. ${scoresUpdated} scores calculated. Email notifications sent.`
+                description: `Results for ${selectedRace} recorded. ${scoresUpdated} scores calculated. Email notifications sent.`,
+                duration: 10000, // Show for 10 seconds
             });
             setPodium(Array(6).fill(undefined));
             setSelectedRace(undefined);

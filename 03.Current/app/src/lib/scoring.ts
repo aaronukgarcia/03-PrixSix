@@ -28,6 +28,21 @@ interface Prediction {
 }
 
 /**
+ * Normalize raceId to match the format used by predictions.
+ * Predictions use: raceName.replace(/\s+/g, '-') e.g., "Australian-Grand-Prix"
+ * Admin results use: "Australian Grand Prix - GP" which needs to be converted
+ */
+function normalizeRaceId(raceId: string): string {
+  // Remove " - GP" or " - Sprint" suffix if present
+  let baseName = raceId
+    .replace(/\s*-\s*GP$/i, '')
+    .replace(/\s*-\s*Sprint$/i, '');
+
+  // Convert to dash-separated format (no lowercase - predictions don't use lowercase)
+  return baseName.replace(/\s+/g, '-');
+}
+
+/**
  * Calculate scores for a specific race based on Wacky Racers rules:
  * - +1 point per driver appearing anywhere in Top 6 (position doesn't matter)
  * - +3 bonus if exactly 5 of 6 predictions are correct
@@ -47,12 +62,19 @@ export async function calculateRaceScores(
     raceResult.driver6
   ];
 
+  // Normalize the raceId to match prediction format
+  const normalizedRaceId = normalizeRaceId(raceResult.raceId);
+
+  console.log(`[Scoring] Looking for predictions with raceId: "${normalizedRaceId}" (original: "${raceResult.raceId}")`);
+
   // Get all predictions for this race using collectionGroup query
   const predictionsQuery = query(
     collectionGroup(firestore, 'predictions'),
-    where('raceId', '==', raceResult.raceId)
+    where('raceId', '==', normalizedRaceId)
   );
   const predictionsSnapshot = await getDocs(predictionsQuery);
+
+  console.log(`[Scoring] Found ${predictionsSnapshot.size} predictions`);
 
   const scores: { userId: string; totalPoints: number; breakdown: string }[] = [];
 
@@ -130,6 +152,9 @@ export async function updateRaceScores(
   // Calculate scores using Wacky Racers rules (no admin config needed)
   const calculatedScores = await calculateRaceScores(firestore, raceResult);
 
+  // Use normalized raceId for storing scores (consistent with predictions)
+  const normalizedRaceId = normalizeRaceId(raceResult.raceId);
+
   // Get all users to map userId to teamName
   const usersSnapshot = await getDocs(collection(firestore, 'users'));
   const userMap = new Map<string, string>();
@@ -140,10 +165,11 @@ export async function updateRaceScores(
   // Write scores to Firestore and build scores list for email
   const scores: ScoreWithTeam[] = [];
   for (const score of calculatedScores) {
-    const scoreDocRef = doc(firestore, 'scores', `${raceId}_${score.userId}`);
+    const scoreDocRef = doc(firestore, 'scores', `${normalizedRaceId}_${score.userId}`);
     await setDoc(scoreDocRef, {
+      oduserId: score.userId,
       userId: score.userId,
-      raceId: raceId,
+      raceId: normalizedRaceId,
       totalPoints: score.totalPoints,
       breakdown: score.breakdown
     });
@@ -195,9 +221,12 @@ export async function updateRaceScores(
  * Delete all scores for a race
  */
 export async function deleteRaceScores(firestore: any, raceId: string): Promise<number> {
+  // Normalize the raceId to match how scores are stored
+  const normalizedRaceId = normalizeRaceId(raceId);
+
   const scoresQuery = query(
     collection(firestore, 'scores'),
-    where('raceId', '==', raceId)
+    where('raceId', '==', normalizedRaceId)
   );
   const scoresSnapshot = await getDocs(scoresQuery);
 
