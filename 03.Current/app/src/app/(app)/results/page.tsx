@@ -22,7 +22,7 @@ import {
 import { collection, query, where, doc, getDoc, getDocs, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, Trophy, ChevronDown, Loader2 } from "lucide-react";
+import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,9 @@ export default function ResultsPage() {
     // Scores cache for current race (fetched once)
     const [scoresMap, setScoresMap] = useState<Map<string, Score>>(new Map());
     const [scoresLoaded, setScoresLoaded] = useState(false);
+
+    // Sort state
+    const [sortBy, setSortBy] = useState<'teamName' | 'points'>('points');
 
     // Fetch race result when selection changes
     useEffect(() => {
@@ -287,6 +290,23 @@ export default function ResultsPage() {
         ? Math.round((teams.length / totalCount) * 100)
         : 0;
 
+    // Sort teams based on sortBy state
+    const sortedTeams = [...teams].sort((a, b) => {
+        if (sortBy === 'points') {
+            // Sort by points descending (nulls/waiting at bottom)
+            const aPoints = a.totalPoints ?? -1;
+            const bPoints = b.totalPoints ?? -1;
+            return bPoints - aPoints;
+        } else {
+            // Sort by team name ascending
+            return a.teamName.localeCompare(b.teamName);
+        }
+    });
+
+    const toggleSort = () => {
+        setSortBy(prev => prev === 'teamName' ? 'points' : 'teamName');
+    };
+
     return (
       <div className="space-y-6">
         <div className="space-y-1">
@@ -359,6 +379,14 @@ export default function ResultsPage() {
             </div>
           )}
 
+          {/* Sort toggle */}
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={toggleSort} className="gap-2">
+              <ArrowUpDown className="h-4 w-4" />
+              Sort by: {sortBy === 'points' ? 'Points' : 'Team Name'}
+            </Button>
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -376,9 +404,9 @@ export default function ResultsPage() {
                         <TableCell><Skeleton className="h-5 w-20 mx-auto"/></TableCell>
                     </TableRow>
                 ))
-              ) : teams.length > 0 ? (
-                teams.map((team, index) => (
-                    <TableRow key={`${team.teamName}-${index}`}>
+              ) : sortedTeams.length > 0 ? (
+                sortedTeams.map((team, index) => (
+                    <TableRow key={`${team.teamName}-${team.oduserId}-${index}`}>
                         <TableCell className="font-semibold">{team.teamName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground font-mono">
                             {team.prediction}

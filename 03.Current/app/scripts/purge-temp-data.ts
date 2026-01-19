@@ -136,6 +136,45 @@ async function purge() {
   console.log(`\nDeleted ${submissionsDeleted} prediction_submissions`);
   console.log(`Kept ${submissionsKept} prediction_submissions (protected users)`);
 
+  // Step 5: Delete ALL race_results (will be re-created by seed)
+  console.log('Deleting race_results...');
+  const resultsSnapshot = await db.collection('race_results').get();
+  let resultsDeleted = 0;
+  for (let i = 0; i < resultsSnapshot.docs.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const slice = resultsSnapshot.docs.slice(i, i + BATCH_SIZE);
+    slice.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    resultsDeleted += slice.length;
+  }
+  console.log(`Deleted ${resultsDeleted} race_results`);
+
+  // Step 6: Delete scores not belonging to protected users
+  console.log('Deleting scores...');
+  const scoresSnapshot = await db.collection('scores').get();
+  const scoresToDelete: admin.firestore.DocumentReference[] = [];
+  let scoresKept = 0;
+
+  scoresSnapshot.forEach(doc => {
+    const data = doc.data();
+    const userId = data.oduserId || data.userId;
+    if (protectedUserIds.includes(userId)) {
+      scoresKept++;
+    } else {
+      scoresToDelete.push(doc.ref);
+    }
+  });
+
+  let scoresDeleted = 0;
+  for (let i = 0; i < scoresToDelete.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const slice = scoresToDelete.slice(i, i + BATCH_SIZE);
+    slice.forEach(ref => batch.delete(ref));
+    await batch.commit();
+    scoresDeleted += slice.length;
+  }
+  console.log(`Deleted ${scoresDeleted} scores, kept ${scoresKept}`);
+
   console.log('');
   console.log('=== PURGE COMPLETE ===');
 }

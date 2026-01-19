@@ -41,15 +41,23 @@ async function debug() {
   console.log(`--- Query: raceId == "${testRaceId}" ---`);
   const queryResult = await db.collection('prediction_submissions')
     .where('raceId', '==', testRaceId)
-    .limit(5)
     .get();
-  console.log(`Found: ${queryResult.size} docs`);
+  console.log(`Found: ${queryResult.size} docs total`);
 
-  if (queryResult.size > 0) {
-    queryResult.docs.forEach(doc => {
-      console.log(`  - ${doc.data().teamName}`);
-    });
-  }
+  // Show seeded teams (team_ prefix)
+  const seededTeams = queryResult.docs.filter(d => d.data().userId?.startsWith('team_'));
+  console.log(`Seeded teams (team_*): ${seededTeams.length}`);
+  seededTeams.slice(0, 5).forEach(doc => {
+    const data = doc.data();
+    console.log(`  - ${data.teamName} (${data.userId})`);
+  });
+
+  // Show protected teams
+  const protectedTeams = queryResult.docs.filter(d => !d.data().userId?.startsWith('team_'));
+  console.log(`Protected/other: ${protectedTeams.length}`);
+  protectedTeams.forEach(doc => {
+    console.log(`  - ${doc.data().teamName}`);
+  });
 
   // Check all unique raceIds
   console.log('\n--- All unique raceIds in prediction_submissions ---');
