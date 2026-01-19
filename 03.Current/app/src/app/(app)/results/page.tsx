@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useFirestore } from "@/firebase";
 import {
     Table,
@@ -22,7 +23,7 @@ import {
 import { collection, query, where, doc, getDoc, getDocs, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown } from "lucide-react";
+import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -68,16 +69,48 @@ interface TeamResult {
 
 const PAGE_SIZE = 25;
 
+// Build list of all race events (GP + Sprint where applicable)
+function buildRaceEvents() {
+    return RaceSchedule.flatMap(race => {
+        const events = [];
+        if (race.hasSprint) {
+            events.push({
+                id: `${race.name.replace(/\s+/g, '-')}-Sprint`,
+                label: `${race.name} - Sprint`,
+                baseName: race.name,
+                isSprint: true,
+                raceTime: race.qualifyingTime, // Sprint happens before GP
+            });
+        }
+        events.push({
+            id: `${race.name.replace(/\s+/g, '-')}-GP`,
+            label: `${race.name} - GP`,
+            baseName: race.name,
+            isSprint: false,
+            raceTime: race.raceTime,
+        });
+        return events;
+    });
+}
+
+const allRaceEvents = buildRaceEvents();
+
 export default function ResultsPage() {
     const firestore = useFirestore();
-    const pastRaces = RaceSchedule.filter(race => new Date(race.raceTime) < new Date());
-    // Use first race if no past races yet (season hasn't started)
-    const defaultRaceId = pastRaces.length > 0
-        ? pastRaces[pastRaces.length - 1].name.replace(/\s+/g, '-')
-        : RaceSchedule[0].name.replace(/\s+/g, '-');
+    const searchParams = useSearchParams();
+    const pastEvents = allRaceEvents.filter(event => new Date(event.raceTime) < new Date());
+
+    // Check for race query parameter from URL (e.g., from Standings page navigation)
+    const raceFromUrl = searchParams.get('race');
+
+    // Use most recent past event, or first event if season hasn't started
+    const defaultRaceId = raceFromUrl || (pastEvents.length > 0
+        ? pastEvents[pastEvents.length - 1].id
+        : allRaceEvents[0].id);
     const [selectedRaceId, setSelectedRaceId] = useState(defaultRaceId);
-    const selectedRaceName = RaceSchedule.find(r => r.name.replace(/\s+/g, '-') === selectedRaceId)?.name;
-    const hasSeasonStarted = pastRaces.length > 0;
+    const selectedEvent = allRaceEvents.find(e => e.id === selectedRaceId);
+    const selectedRaceName = selectedEvent?.label || selectedRaceId;
+    const hasSeasonStarted = pastEvents.length > 0;
 
     // Race result state
     const [raceResult, setRaceResult] = useState<RaceResult | null>(null);
@@ -99,6 +132,18 @@ export default function ResultsPage() {
     // Sort state
     const [sortBy, setSortBy] = useState<'teamName' | 'points'>('points');
 
+    // Update selected race when URL parameter changes
+    useEffect(() => {
+        if (raceFromUrl && raceFromUrl !== selectedRaceId) {
+            setSelectedRaceId(raceFromUrl);
+        }
+    }, [raceFromUrl]);
+
+    // Get base race ID for prediction lookups (without -GP or -Sprint suffix)
+    const getBaseRaceId = (eventId: string) => {
+        return eventId.replace(/-GP$/, '').replace(/-Sprint$/, '');
+    };
+
     // Fetch race result when selection changes
     useEffect(() => {
         if (!firestore || !selectedRaceId) return;
@@ -106,6 +151,7 @@ export default function ResultsPage() {
         const fetchRaceResult = async () => {
             setIsLoadingResult(true);
             try {
+                // Race results are stored with lowercase ID matching the event ID format
                 const resultId = selectedRaceId.toLowerCase();
                 const resultDocRef = doc(firestore, "race_results", resultId);
                 const resultDoc = await getDoc(resultDocRef);
@@ -201,23 +247,27 @@ export default function ResultsPage() {
             setLastDoc(null);
             setScoresLoaded(false);
 
+            // Predictions are stored by base race ID, scores by full event ID (with -GP/-Sprint)
+            const baseRaceId = getBaseRaceId(selectedRaceId);
+            const scoreRaceId = selectedRaceId; // Scores use full ID with suffix
+
             try {
                 // Fetch count, scores, and first page of submissions in parallel
                 const [countResult, scoresResult, submissionsResult] = await Promise.all([
-                    // Count query
+                    // Count query - uses base race ID
                     getCountFromServer(query(
                         collection(firestore, "prediction_submissions"),
-                        where("raceId", "==", selectedRaceId)
+                        where("raceId", "==", baseRaceId)
                     )),
-                    // Scores query
+                    // Scores query - uses full event ID (GP or Sprint)
                     getDocs(query(
                         collection(firestore, "scores"),
-                        where("raceId", "==", selectedRaceId)
+                        where("raceId", "==", scoreRaceId)
                     )),
-                    // First page of submissions
+                    // First page of submissions - uses base race ID
                     getDocs(query(
                         collection(firestore, "prediction_submissions"),
-                        where("raceId", "==", selectedRaceId),
+                        where("raceId", "==", baseRaceId),
                         orderBy("teamName"),
                         limit(PAGE_SIZE)
                     ))
@@ -282,18 +332,19 @@ export default function ResultsPage() {
         };
 
         fetchAllData();
-    }, [firestore, selectedRaceId, formatPrediction]);
+    }, [firestore, selectedRaceId, raceResult, parsePredictions]);
 
     // Load more function for pagination
     const loadMore = useCallback(async () => {
         if (!firestore || !lastDoc || isLoadingMore) return;
 
         setIsLoadingMore(true);
+        const baseRaceId = getBaseRaceId(selectedRaceId);
 
         try {
             const submissionsQuery = query(
                 collection(firestore, "prediction_submissions"),
-                where("raceId", "==", selectedRaceId),
+                where("raceId", "==", baseRaceId),
                 orderBy("teamName"),
                 startAfter(lastDoc),
                 limit(PAGE_SIZE)
@@ -372,23 +423,41 @@ export default function ResultsPage() {
           <CardHeader>
              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="space-y-1.5">
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 flex-wrap">
                     <Trophy className="w-5 h-5" />
-                    {selectedRaceName}
+                    {selectedEvent?.baseName || selectedRaceName}
+                    {selectedEvent?.isSprint ? (
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Zap className="h-3 w-3" />
+                        Sprint
+                      </Badge>
+                    ) : (
+                      <Badge variant="default" className="flex items-center gap-1">
+                        <Flag className="h-3 w-3" />
+                        Grand Prix
+                      </Badge>
+                    )}
                   </CardTitle>
                   <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <span>{hasSeasonStarted ? "Points breakdown for this race." : "Season has not started yet."}</span>
+                    <span>{hasSeasonStarted ? "Points breakdown for this event." : "Season has not started yet."}</span>
                     <LastUpdated timestamp={lastUpdated} />
                   </CardDescription>
                 </div>
                  <Select value={selectedRaceId} onValueChange={setSelectedRaceId}>
-                  <SelectTrigger className="w-full sm:w-[220px]">
-                    <SelectValue placeholder="Select a race" />
+                  <SelectTrigger className="w-full sm:w-[280px]">
+                    <SelectValue placeholder="Select a race or sprint" />
                   </SelectTrigger>
                   <SelectContent>
-                    {RaceSchedule.map((race) => (
-                      <SelectItem key={race.name} value={race.name.replace(/\s+/g, '-')}>
-                        {race.name}
+                    {allRaceEvents.map((event) => (
+                      <SelectItem key={event.id} value={event.id}>
+                        <span className="flex items-center gap-2">
+                          {event.isSprint ? (
+                            <Zap className="h-3 w-3 text-amber-500" />
+                          ) : (
+                            <Flag className="h-3 w-3 text-primary" />
+                          )}
+                          {event.label}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

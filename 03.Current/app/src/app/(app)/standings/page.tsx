@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useFirestore } from "@/firebase";
 import {
   Table,
@@ -11,13 +12,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { findNextRace } from "@/lib/data";
-import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2 } from "lucide-react";
+import { RaceSchedule } from "@/lib/data";
+import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 const RankChangeIndicator = ({ change }: { change: number }) => {
   if (change === 0) {
@@ -35,83 +38,120 @@ const RankChangeIndicator = ({ change }: { change: number }) => {
   return <ArrowDown className="h-4 w-4 text-red-500" />;
 };
 
+interface ScoreData {
+  oduserId?: string;
+  userId: string;
+  raceId: string;
+  totalPoints: number;
+}
+
 interface StandingEntry {
   rank: number;
   userId: string;
   teamName: string;
-  totalPoints: number;
-  gap: number;
+  oldOverall: number; // Previous cumulative total (before selected race)
+  racePoints: number; // Points from the selected race
+  newOverall: number; // New cumulative total (after selected race)
+  gap: number; // Gap to position above (not leader)
   rankChange: number;
+}
+
+interface CompletedRace {
+  name: string;
+  raceId: string;
+  shortName: string;
+  index: number;
 }
 
 const PAGE_SIZE = 25;
 
 export default function StandingsPage() {
   const firestore = useFirestore();
-  const currentRace = findNextRace();
+  const router = useRouter();
 
-  const [standings, setStandings] = useState<StandingEntry[]>([]);
+  const [allScores, setAllScores] = useState<ScoreData[]>([]);
+  const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
+  const [completedRaces, setCompletedRaces] = useState<CompletedRace[]>([]);
+  const [selectedRaceIndex, setSelectedRaceIndex] = useState<number>(-1); // -1 = latest
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Fetch and compute standings
+  // Fetch all scores and determine completed races
   useEffect(() => {
     if (!firestore) return;
 
-    const fetchStandings = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
 
       try {
-        // Step 1: Fetch all scores (much smaller than users - just points per race)
+        // Fetch all scores
         const scoresSnapshot = await getDocs(collection(firestore, "scores"));
+        const scores: ScoreData[] = [];
+        const raceIdsWithScores = new Set<string>();
 
-        // Step 2: Aggregate scores by userId
-        const userTotals = new Map<string, number>();
         scoresSnapshot.forEach((doc) => {
           const data = doc.data();
-          const current = userTotals.get(data.userId) || 0;
-          userTotals.set(data.userId, current + (data.totalPoints || 0));
+          const userId = data.oduserId || data.userId;
+          scores.push({
+            userId,
+            raceId: data.raceId,
+            totalPoints: data.totalPoints || 0,
+          });
+          raceIdsWithScores.add(data.raceId);
         });
 
-        // Step 3: Sort by total points
-        const sortedEntries = Array.from(userTotals.entries())
-          .sort((a, b) => b[1] - a[1]);
+        setAllScores(scores);
 
-        const leaderPoints = sortedEntries.length > 0 ? sortedEntries[0][1] : 0;
+        // Determine completed races (races that have scores)
+        const completed: CompletedRace[] = [];
+        RaceSchedule.forEach((race, index) => {
+          const raceId = race.name.replace(/\s+/g, '-');
+          if (raceIdsWithScores.has(raceId)) {
+            // Short name: first letters of each word
+            const shortName = race.name
+              .split(' ')
+              .filter(w => w.toLowerCase() !== 'grand' && w.toLowerCase() !== 'prix')
+              .map(w => w.substring(0, 3))
+              .join('')
+              .toUpperCase()
+              .substring(0, 3);
 
-        // Step 4: Fetch team names for all users (we need this for display)
-        // Use a batch approach - fetch user docs in parallel
-        const userIds = sortedEntries.map(([userId]) => userId);
-        const userNames = new Map<string, string>();
+            completed.push({
+              name: race.name,
+              raceId,
+              shortName,
+              index,
+            });
+          }
+        });
 
-        // Fetch in batches of 10 to avoid too many parallel requests
+        setCompletedRaces(completed);
+        setSelectedRaceIndex(completed.length - 1); // Default to latest
+
+        // Get unique user IDs and fetch team names
+        const userIds = new Set<string>();
+        scores.forEach(s => userIds.add(s.userId));
+
+        const names = new Map<string, string>();
         const batchSize = 10;
-        for (let i = 0; i < userIds.length; i += batchSize) {
-          const batch = userIds.slice(i, i + batchSize);
+        const userIdArray = Array.from(userIds);
+
+        for (let i = 0; i < userIdArray.length; i += batchSize) {
+          const batch = userIdArray.slice(i, i + batchSize);
           const promises = batch.map(async (userId) => {
             const userDoc = await getDoc(doc(firestore, "users", userId));
             if (userDoc.exists()) {
-              userNames.set(userId, userDoc.data().teamName || "Unknown");
+              names.set(userId, userDoc.data().teamName || "Unknown");
             } else {
-              userNames.set(userId, "Unknown Team");
+              names.set(userId, "Unknown Team");
             }
           });
           await Promise.all(promises);
         }
 
-        // Step 5: Build standings array
-        const standingsData: StandingEntry[] = sortedEntries.map(([userId, totalPoints], index) => ({
-          rank: index + 1,
-          userId,
-          teamName: userNames.get(userId) || "Unknown",
-          totalPoints,
-          gap: index > 0 ? leaderPoints - totalPoints : 0,
-          rankChange: 0, // TODO: implement rank change tracking
-        }));
-
-        setStandings(standingsData);
+        setUserNames(names);
         setLastUpdated(new Date());
       } catch (error) {
         console.error("Error fetching standings:", error);
@@ -120,8 +160,92 @@ export default function StandingsPage() {
       }
     };
 
-    fetchStandings();
+    fetchData();
   }, [firestore]);
+
+  // Calculate standings up to selected race
+  const standings = useMemo(() => {
+    if (completedRaces.length === 0 || selectedRaceIndex < 0) return [];
+
+    const selectedRace = completedRaces[selectedRaceIndex];
+
+    // Get race IDs up to and including selected race (for new overall)
+    const includedRaceIds = new Set(
+      completedRaces.slice(0, selectedRaceIndex + 1).map(r => r.raceId)
+    );
+
+    // Get race IDs before selected race (for old overall)
+    const previousRaceIds = new Set(
+      completedRaces.slice(0, selectedRaceIndex).map(r => r.raceId)
+    );
+
+    // Calculate totals for each user
+    const userTotals = new Map<string, { oldOverall: number; racePoints: number; newOverall: number }>();
+
+    allScores.forEach((score) => {
+      if (includedRaceIds.has(score.raceId)) {
+        const existing = userTotals.get(score.userId) || {
+          oldOverall: 0,
+          racePoints: 0,
+          newOverall: 0,
+        };
+
+        if (previousRaceIds.has(score.raceId)) {
+          existing.oldOverall += score.totalPoints;
+        }
+        if (score.raceId === selectedRace.raceId) {
+          existing.racePoints = score.totalPoints;
+        }
+        existing.newOverall += score.totalPoints;
+
+        userTotals.set(score.userId, existing);
+      }
+    });
+
+    // Sort by new overall points (descending)
+    const sorted = Array.from(userTotals.entries())
+      .sort((a, b) => b[1].newOverall - a[1].newOverall);
+
+    // Calculate previous standings for rank change (if not on first race)
+    let previousRanks = new Map<string, number>();
+    if (selectedRaceIndex > 0) {
+      const prevTotals = new Map<string, number>();
+      allScores.forEach((score) => {
+        if (previousRaceIds.has(score.raceId)) {
+          prevTotals.set(score.userId, (prevTotals.get(score.userId) || 0) + score.totalPoints);
+        }
+      });
+      const prevSorted = Array.from(prevTotals.entries())
+        .sort((a, b) => b[1] - a[1]);
+      prevSorted.forEach(([userId], index) => {
+        previousRanks.set(userId, index + 1);
+      });
+    }
+
+    // Build standings array with gap to position above
+    const standingsData: StandingEntry[] = sorted.map(([userId, data], index) => {
+      const currentRank = index + 1;
+      const prevRank = previousRanks.get(userId) || currentRank;
+      const rankChange = prevRank - currentRank; // Positive = moved up
+
+      // Gap to position above (not leader)
+      const positionAbovePoints = index > 0 ? sorted[index - 1][1].newOverall : data.newOverall;
+      const gap = positionAbovePoints - data.newOverall;
+
+      return {
+        rank: currentRank,
+        userId,
+        teamName: userNames.get(userId) || "Unknown",
+        oldOverall: data.oldOverall,
+        racePoints: data.racePoints,
+        newOverall: data.newOverall,
+        gap,
+        rankChange,
+      };
+    });
+
+    return standingsData;
+  }, [allScores, completedRaces, selectedRaceIndex, userNames]);
 
   // Pagination
   const totalItems = standings.length;
@@ -137,17 +261,79 @@ export default function StandingsPage() {
     }, 150);
   }, [totalItems]);
 
+  // Navigate to results page for a specific race
+  const navigateToResults = (raceId: string) => {
+    router.push(`/results?race=${raceId}`);
+  };
+
+  const selectedRace = completedRaces[selectedRaceIndex];
+  const racesCompleted = selectedRaceIndex + 1;
+
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <CardTitle className="text-2xl font-headline">Season Standings</CardTitle>
-            <CardDescription>
-              Overall leaderboard after the {currentRace.name}.
-            </CardDescription>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle className="text-2xl font-headline">Season Standings</CardTitle>
+              <CardDescription>
+                {completedRaces.length > 0 ? (
+                  <>
+                    After {racesCompleted} of {RaceSchedule.length} races
+                    {selectedRace && (
+                      <span className="ml-1 text-foreground">({selectedRace.name})</span>
+                    )}
+                  </>
+                ) : (
+                  "No races completed yet"
+                )}
+              </CardDescription>
+            </div>
+            <LastUpdated timestamp={lastUpdated} />
           </div>
-          <LastUpdated timestamp={lastUpdated} />
+
+          {/* Race selector tabs */}
+          {completedRaces.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Select race to view cumulative standings:</p>
+              <ScrollArea className="w-full whitespace-nowrap">
+                <div className="flex gap-1 pb-2">
+                  {completedRaces.map((race, index) => (
+                    <Button
+                      key={race.raceId}
+                      variant={index === selectedRaceIndex ? "default" : "outline"}
+                      size="sm"
+                      className="flex-shrink-0 text-xs px-2 py-1 h-7"
+                      onClick={() => {
+                        setSelectedRaceIndex(index);
+                        setDisplayCount(PAGE_SIZE);
+                      }}
+                      title={race.name}
+                    >
+                      R{index + 1}
+                    </Button>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+              {selectedRace && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {selectedRace.name}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs gap-1"
+                    onClick={() => navigateToResults(selectedRace.raceId)}
+                  >
+                    View Results
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -165,10 +351,11 @@ export default function StandingsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px] text-center">Rank</TableHead>
-              <TableHead className="w-[50px] text-center">Move</TableHead>
+              <TableHead className="w-[50px] text-center">Rank</TableHead>
               <TableHead>Team Name</TableHead>
-              <TableHead className="text-right">Total Points</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Old Overall</TableHead>
+              <TableHead className="text-right">{selectedRace ? `R${selectedRaceIndex + 1}` : 'Race'}</TableHead>
+              <TableHead className="text-right">New Overall</TableHead>
               <TableHead className="text-right">Gap</TableHead>
             </TableRow>
           </TableHeader>
@@ -176,30 +363,49 @@ export default function StandingsPage() {
             {isLoading ? (
               Array.from({ length: 7 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell><Skeleton className="h-5 w-10 mx-auto" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-5 mx-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-8 mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
+                  <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-10 ml-auto" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-10 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : displayedStandings.length > 0 ? (
               displayedStandings.map((team) => (
                 <TableRow key={team.userId}>
-                  <TableCell className="text-center font-medium">{team.rank}</TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex justify-center">
+                  <TableCell className="text-center font-medium">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{team.rank}</span>
                       <RankChangeIndicator change={team.rankChange} />
                     </div>
                   </TableCell>
                   <TableCell className="font-semibold">{team.teamName}</TableCell>
-                  <TableCell className="text-right font-bold text-lg">{team.totalPoints}</TableCell>
-                  <TableCell className="text-right">{team.gap > 0 ? `-${team.gap}` : '-'}</TableCell>
+                  <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
+                    {selectedRaceIndex > 0 ? team.oldOverall : '-'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs font-mono text-accent"
+                      onClick={() => selectedRace && navigateToResults(selectedRace.raceId)}
+                      title={`View ${selectedRace?.name} results`}
+                    >
+                      +{team.racePoints}
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-lg text-accent">
+                    {team.newOverall}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {team.gap > 0 ? team.gap : '-'}
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                   No standings data available yet.
                 </TableCell>
               </TableRow>
