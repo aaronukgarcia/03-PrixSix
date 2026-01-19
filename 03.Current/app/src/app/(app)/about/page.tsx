@@ -7,7 +7,7 @@ import { Users, Code, Server, Mail, Database, Waypoints, Tag } from "lucide-reac
 import { useFirestore, useCollection } from '@/firebase';
 import backendData from '@/../docs/backend.json';
 import { collection, query } from 'firebase/firestore';
-import packageJson from '@/../package.json';
+import { APP_VERSION } from '@/lib/version';
 
 interface Presence {
   id: string;
@@ -63,7 +63,7 @@ const AboutPageClient = () => {
                         <Tag className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold font-mono">v{packageJson.version}</div>
+                        <div className="text-2xl font-bold font-mono">v{APP_VERSION}</div>
                         <p className="text-xs text-muted-foreground">Current release version.</p>
                     </CardContent>
                 </Card>
