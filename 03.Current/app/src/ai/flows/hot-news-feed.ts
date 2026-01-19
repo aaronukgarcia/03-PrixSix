@@ -16,7 +16,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 import { getHotNewsSettings, updateHotNewsContent } from '@/firebase/firestore/settings';
 import { firestore } from '@/firebase/server';
-import { serverTimestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 
 const HotNewsFeedOutputSchema = z.object({
@@ -53,8 +53,8 @@ export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
             // The flow itself now handles the update.
             const output = await hotNewsFeedFlow();
             const newTimestamp = new Date();
-            // Also update firestore with serverTimestamp for consistency
-            await updateHotNewsContent(firestore, { content: output.newsFeed, lastUpdated: serverTimestamp() as any });
+            // Update firestore with a proper Timestamp (serverTimestamp doesn't work in server context)
+            await updateHotNewsContent(firestore, { content: output.newsFeed, lastUpdated: Timestamp.fromDate(newTimestamp) as any });
             return { ...output, lastUpdated: newTimestamp.toISOString() };
         } catch (error) {
             console.error("Error fetching new hot news, serving stale data:", error);
