@@ -6,15 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { F1Drivers, RaceSchedule } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { useFirestore, useCollection, useAuth } from "@/firebase";
-import { collection, serverTimestamp, doc, setDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { collection, serverTimestamp, doc, setDoc, deleteDoc, query, orderBy, where, getCountFromServer } from "firebase/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Trophy } from "lucide-react";
+import { Trash2, Trophy, Users, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { logAuditEvent } from "@/lib/audit";
 import { updateRaceScores, deleteRaceScores, formatRaceResultSummary } from "@/lib/scoring";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+// Helper to normalize raceId to match prediction format
+function normalizeRaceId(raceId: string): string {
+    let baseName = raceId
+        .replace(/\s*-\s*GP$/i, '')
+        .replace(/\s*-\s*Sprint$/i, '');
+    return baseName.replace(/\s+/g, '-');
+}
 
 interface RaceResult {
     id: string;
@@ -36,6 +45,38 @@ export function ResultsManager() {
     const [podium, setPodium] = useState<(string | undefined)[]>(Array(6).fill(undefined));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    // Submission count for selected race
+    const [submissionCount, setSubmissionCount] = useState<number | null>(null);
+    const [isLoadingCount, setIsLoadingCount] = useState(false);
+
+    // Fetch submission count when race is selected
+    useEffect(() => {
+        if (!firestore || !selectedRace) {
+            setSubmissionCount(null);
+            return;
+        }
+
+        const fetchSubmissionCount = async () => {
+            setIsLoadingCount(true);
+            try {
+                const normalizedId = normalizeRaceId(selectedRace);
+                const countQuery = query(
+                    collection(firestore, "prediction_submissions"),
+                    where("raceId", "==", normalizedId)
+                );
+                const countSnapshot = await getCountFromServer(countQuery);
+                setSubmissionCount(countSnapshot.data().count);
+            } catch (error) {
+                console.error("Error fetching submission count:", error);
+                setSubmissionCount(null);
+            } finally {
+                setIsLoadingCount(false);
+            }
+        };
+
+        fetchSubmissionCount();
+    }, [firestore, selectedRace]);
 
     // Fetch existing race results
     const resultsQuery = useMemo(() => {
@@ -230,6 +271,35 @@ export function ResultsManager() {
                             </SelectContent>
                         </Select>
                     </div>
+
+                    {/* Submission count alert */}
+                    {selectedRace && (
+                        <Alert variant={submissionCount === 0 ? "destructive" : "default"} className={submissionCount && submissionCount > 0 ? "border-green-500 bg-green-50 dark:bg-green-950" : ""}>
+                            {isLoadingCount ? (
+                                <Skeleton className="h-4 w-48" />
+                            ) : submissionCount === 0 ? (
+                                <>
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertTitle>No Submissions Found</AlertTitle>
+                                    <AlertDescription>
+                                        No teams have submitted predictions for this race yet.
+                                        Check that the race name matches: <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{normalizeRaceId(selectedRace)}</code>
+                                    </AlertDescription>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                    <AlertTitle className="text-green-700 dark:text-green-400">
+                                        <Users className="inline h-4 w-4 mr-1" />
+                                        {submissionCount} Team{submissionCount !== 1 ? 's' : ''} Submitted
+                                    </AlertTitle>
+                                    <AlertDescription className="text-green-600 dark:text-green-400">
+                                        Predictions found for raceId: <code className="font-mono text-xs bg-green-100 dark:bg-green-900 px-1 py-0.5 rounded">{normalizeRaceId(selectedRace)}</code>
+                                    </AlertDescription>
+                                </>
+                            )}
+                        </Alert>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {podium.map((_, index) => {
