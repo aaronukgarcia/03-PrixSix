@@ -170,7 +170,7 @@ async function recalculateAllScores() {
     console.log(`Found ${submissions.length} submissions`);
 
     // Process each submission
-    const batch = db.batch();
+    let batch = db.batch();
     let batchCount = 0;
 
     for (const submission of submissions) {
@@ -195,19 +195,17 @@ async function recalculateAllScores() {
 
       const { totalPoints, breakdown } = calculateScore(predictions, actualTop6);
 
-      // Check if score document exists
-      const scoreQuery = await db.collection('scores')
-        .where('oduserId', '==', submission.oduserId)
-        .where('raceId', '==', result.id)
-        .get();
+      // Use deterministic document ID format: {raceId}_{userId}
+      const scoreDocId = `${result.id}_${submission.oduserId}`;
+      const scoreRef = db.collection('scores').doc(scoreDocId);
+      const scoreDoc = await scoreRef.get();
 
-      if (!scoreQuery.empty) {
+      if (scoreDoc.exists) {
         // Update existing score
-        const scoreDoc = scoreQuery.docs[0];
-        const oldScore = scoreDoc.data().totalPoints;
+        const oldScore = scoreDoc.data()?.totalPoints;
 
         if (oldScore !== totalPoints) {
-          batch.update(scoreDoc.ref, {
+          batch.update(scoreRef, {
             totalPoints,
             breakdown,
             updatedAt: new Date(),
@@ -217,12 +215,11 @@ async function recalculateAllScores() {
           batchCount++;
         }
       } else {
-        // Create new score document
-        const newScoreRef = db.collection('scores').doc();
-        batch.set(newScoreRef, {
-          oduserId: submission.oduserId,
-          teamName: submission.teamName,
+        // Create new score document with proper format
+        batch.set(scoreRef, {
+          userId: submission.oduserId,  // CC expects userId
           raceId: result.id,
+          teamName: submission.teamName,
           totalPoints,
           breakdown,
           createdAt: new Date(),
@@ -236,6 +233,7 @@ async function recalculateAllScores() {
       if (batchCount >= 400) {
         await batch.commit();
         console.log(`  Committed batch of ${batchCount} operations`);
+        batch = db.batch();  // Create new batch
         batchCount = 0;
       }
     }
