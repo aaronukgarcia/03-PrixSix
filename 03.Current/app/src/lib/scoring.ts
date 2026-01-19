@@ -75,15 +75,21 @@ export async function calculateRaceScores(
       where('raceId', '==', normalizedRaceId)
     );
     predictionsSnapshot = await getDocs(predictionsQuery);
+    console.log(`[Scoring] CollectionGroup query returned ${predictionsSnapshot.size} results`);
   } catch (error: any) {
     console.error(`[Scoring] CollectionGroup query failed:`, error);
-    // If the collectionGroup index doesn't exist, fall back to prediction_submissions
+    predictionsSnapshot = { size: 0, docs: [], forEach: () => {} } as any;
+  }
+
+  // If collectionGroup returned no results, fall back to prediction_submissions
+  if (predictionsSnapshot.size === 0) {
     console.log(`[Scoring] Falling back to prediction_submissions collection`);
     const fallbackQuery = query(
       collection(firestore, 'prediction_submissions'),
       where('raceId', '==', normalizedRaceId)
     );
     predictionsSnapshot = await getDocs(fallbackQuery);
+    console.log(`[Scoring] Fallback query returned ${predictionsSnapshot.size} results`);
   }
 
   console.log(`[Scoring] Found ${predictionsSnapshot.size} predictions`);
