@@ -90,13 +90,14 @@ export function generateConsistencyCorrelationId(): string {
 }
 
 /**
- * Normalize a race name to the ID format used in predictions
+ * Normalize a race name to the ID format (lowercase with hyphens)
  */
 export function normalizeRaceId(raceName: string): string {
   return raceName
     .replace(/\s*-\s*GP$/i, '')
     .replace(/\s*-\s*Sprint$/i, '')
-    .replace(/\s+/g, '-');
+    .replace(/\s+/g, '-')
+    .toLowerCase();
 }
 
 /**
@@ -817,11 +818,12 @@ export function checkScores(
   const resultsRaceIds = new Set(raceResults.map(r => normalizeRaceId(r.raceId || '')));
   let validCount = 0;
 
-  // Build prediction map
+  // Build prediction map (normalize raceId to lowercase for consistent lookups)
   const predictionMap = new Map<string, PredictionData>();
   for (const pred of predictions) {
     const userId = pred.userId || pred.teamId;
-    const key = `${pred.raceId}_${userId}`;
+    const normalizedRaceId = normalizeRaceId(pred.raceId || '');
+    const key = `${normalizedRaceId}_${userId}`;
     predictionMap.set(key, pred);
   }
 
@@ -879,19 +881,23 @@ export function checkScores(
         message: 'Missing raceId',
       });
       isValid = false;
-    } else if (!resultsRaceIds.has(score.raceId)) {
-      issues.push({
-        severity: 'warning',
-        entity: entityName,
-        field: 'raceId',
-        message: `Orphan score: no race result exists for ${score.raceId}`,
-        details: { raceId: score.raceId },
-      });
+    } else {
+      const normalizedScoreRaceId = normalizeRaceId(score.raceId);
+      if (!resultsRaceIds.has(normalizedScoreRaceId)) {
+        issues.push({
+          severity: 'warning',
+          entity: entityName,
+          field: 'raceId',
+          message: `Orphan score: no race result exists for ${score.raceId}`,
+          details: { raceId: score.raceId },
+        });
+      }
     }
 
     // Check for corresponding prediction
     if (score.raceId && score.userId) {
-      const predKey = `${score.raceId}_${score.userId}`;
+      const normalizedScoreRaceId = normalizeRaceId(score.raceId);
+      const predKey = `${normalizedScoreRaceId}_${score.userId}`;
       if (!predictionMap.has(predKey)) {
         issues.push({
           severity: 'warning',
@@ -981,9 +987,9 @@ export function checkScores(
   // Check for missing scores (predictions with results but no score)
   for (const pred of predictions) {
     const userId = pred.userId || pred.teamId;
-    if (pred.raceId && userId && resultsRaceIds.has(pred.raceId)) {
-      const scoreKey = `${pred.raceId}_${userId}`;
-      const hasScore = scores.some(s => s.raceId === pred.raceId && s.userId === userId);
+    const normalizedPredRaceId = normalizeRaceId(pred.raceId || '');
+    if (pred.raceId && userId && resultsRaceIds.has(normalizedPredRaceId)) {
+      const hasScore = scores.some(s => normalizeRaceId(s.raceId || '') === normalizedPredRaceId && s.userId === userId);
       if (!hasScore) {
         issues.push({
           severity: 'warning',
