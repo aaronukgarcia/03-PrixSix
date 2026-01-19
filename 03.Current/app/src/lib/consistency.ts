@@ -758,35 +758,45 @@ export function checkRaceResults(results: RaceResultData[]): CheckResult {
   };
 }
 
-// Scoring constants (Wacky Racers rules)
+// Scoring constants (Prix Six rules)
 const SCORING = {
-  perCorrectDriver: 1,  // +1 for each driver appearing anywhere in Top 6
-  bonus5Correct: 3,     // +3 bonus if exactly 5 of 6 correct
-  bonus6Correct: 5,     // +5 bonus if all 6 correct
-  maxPoints: 11,        // Max possible: 6 + 5 = 11
+  exactPosition: 5,    // +5 for each driver in exact predicted position
+  wrongPosition: 3,    // +3 for each driver in top 6 but wrong position
+  bonusAll6: 10,       // +10 bonus if all 6 predictions are correct
+  maxPoints: 40,       // Max possible: 30 (all exact) + 10 (bonus) = 40
 };
 
 /**
- * Calculate expected score based on Wacky Racers rules
+ * Calculate expected score based on Prix Six rules
  */
 function calculateExpectedScore(predictedDrivers: string[], actualTop6: string[]): { points: number; correctCount: number } {
+  let points = 0;
   let correctCount = 0;
 
   // Normalize to lowercase for comparison
   const normalizedActual = actualTop6.map(d => d?.toLowerCase());
 
-  for (const driver of predictedDrivers) {
-    if (driver && normalizedActual.includes(driver.toLowerCase())) {
+  for (let i = 0; i < predictedDrivers.length; i++) {
+    const driver = predictedDrivers[i];
+    if (!driver) continue;
+
+    const normalizedDriver = driver.toLowerCase();
+    const actualIndex = normalizedActual.indexOf(normalizedDriver);
+
+    if (actualIndex === i) {
+      // Exact position match
+      points += SCORING.exactPosition;
+      correctCount++;
+    } else if (actualIndex !== -1) {
+      // In top 6 but wrong position
+      points += SCORING.wrongPosition;
       correctCount++;
     }
   }
 
-  let points = correctCount * SCORING.perCorrectDriver;
-
-  if (correctCount === 5) {
-    points += SCORING.bonus5Correct;
-  } else if (correctCount === 6) {
-    points += SCORING.bonus6Correct;
+  // Bonus for all 6 correct
+  if (correctCount === 6) {
+    points += SCORING.bonusAll6;
   }
 
   return { points, correctCount };
@@ -794,7 +804,7 @@ function calculateExpectedScore(predictedDrivers: string[], actualTop6: string[]
 
 /**
  * Validate scores against race results and predictions
- * Includes verification that score calculation is correct per Wacky Racers rules
+ * Includes verification that score calculation is correct per Prix Six rules
  */
 export function checkScores(
   scores: ScoreData[],

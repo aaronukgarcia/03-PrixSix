@@ -54,7 +54,8 @@ interface DriverPrediction {
     driverName: string;
     position: number; // P1, P2, etc.
     isCorrect: boolean;
-    points: number; // 0 or 1
+    isExactPosition: boolean;
+    points: number; // 0, 3, or 5
 }
 
 interface TeamResult {
@@ -64,7 +65,7 @@ interface TeamResult {
     totalPoints: number | null;
     breakdown: string;
     hasScore: boolean;
-    bonusPoints: number; // 0, 3, or 5
+    bonusPoints: number; // 0 or 10 (all 6 correct)
 }
 
 const PAGE_SIZE = 25;
@@ -199,7 +200,14 @@ export default function ResultsPage() {
         }).join(' | ');
     };
 
-    // Parse predictions and calculate per-driver scoring
+    // Prix Six scoring constants
+    const SCORING = {
+        exactPosition: 5,  // +5 for exact position match
+        wrongPosition: 3,  // +3 for correct driver but wrong position
+        bonusAll6: 10,     // +10 bonus if all 6 correct
+    };
+
+    // Parse predictions and calculate per-driver scoring (Prix Six rules)
     const parsePredictions = useCallback((predictions: any, actualTop6: string[] | null): DriverPrediction[] => {
         if (!predictions) return [];
 
@@ -219,21 +227,31 @@ export default function ResultsPage() {
 
         return driverIds.map((driverId, index) => {
             const driver = F1Drivers.find(d => d.id === driverId);
-            const isCorrect = actualTop6 ? actualTop6.includes(driverId) : false;
+            const actualIndex = actualTop6 ? actualTop6.indexOf(driverId) : -1;
+            const isCorrect = actualIndex !== -1;
+            const isExactPosition = actualIndex === index;
+
+            let points = 0;
+            if (isExactPosition) {
+                points = SCORING.exactPosition; // +5 for exact
+            } else if (isCorrect) {
+                points = SCORING.wrongPosition; // +3 for wrong position
+            }
+
             return {
                 driverId,
                 driverName: driver?.name || driverId,
                 position: index + 1,
                 isCorrect,
-                points: isCorrect ? 1 : 0,
+                isExactPosition,
+                points,
             };
         });
     }, []);
 
-    // Calculate bonus points
+    // Calculate bonus points (only if all 6 correct)
     const calculateBonus = (correctCount: number): number => {
-        if (correctCount === 6) return 5;
-        if (correctCount === 5) return 3;
+        if (correctCount === 6) return SCORING.bonusAll6;
         return 0;
     };
 
@@ -535,15 +553,20 @@ export default function ResultsPage() {
                                         <span className={pred.isCorrect ? "text-foreground" : "text-muted-foreground"}>
                                             P{pred.position}: {pred.driverName}
                                         </span>
-                                        {pred.isCorrect && (
-                                            <span className="text-yellow-500 font-bold ml-0.5">+1</span>
+                                        {pred.points > 0 && (
+                                            <span className={`font-bold ml-0.5 ${pred.isExactPosition ? "text-green-500" : "text-yellow-500"}`}>
+                                                +{pred.points}
+                                            </span>
+                                        )}
+                                        {!pred.isCorrect && (
+                                            <span className="text-red-400 font-bold ml-0.5">+0</span>
                                         )}
                                         {i < team.predictions.length - 1 && <span className="text-muted-foreground mr-1">,</span>}
                                     </span>
                                 ))}
                                 {team.bonusPoints > 0 && (
-                                    <span className="text-yellow-500 font-bold ml-1">
-                                        ({team.predictions.filter(p => p.isCorrect).length}/6 bonus +{team.bonusPoints})
+                                    <span className="text-green-500 font-bold ml-1">
+                                        BonusAll6+{team.bonusPoints}
                                     </span>
                                 )}
                             </div>

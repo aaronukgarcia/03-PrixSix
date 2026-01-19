@@ -1,12 +1,12 @@
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc, collectionGroup } from 'firebase/firestore';
 import { F1Drivers } from './data';
 
-// Wacky Racers scoring: fixed rules, no admin configuration needed
-const WACKY_RACERS_SCORING = {
-  perCorrectDriver: 1,    // +1 for each driver appearing anywhere in Top 6
-  bonus5Correct: 3,       // +3 bonus if exactly 5 of 6 predictions correct
-  bonus6Correct: 5,       // +5 bonus if all 6 predictions correct
-  // Max possible: 6 + 5 = 11 points
+// Prix Six scoring: position-based scoring with bonus
+const PRIX_SIX_SCORING = {
+  exactPosition: 5,       // +5 for each driver in their exact predicted position
+  wrongPosition: 3,       // +3 for each driver in top 6 but wrong position
+  bonusAll6: 10,          // +10 bonus if all 6 predictions are correct (any position)
+  // Max possible: 30 (all exact) + 10 (bonus) = 40 points
 };
 
 interface RaceResult {
@@ -43,11 +43,11 @@ function normalizeRaceId(raceId: string): string {
 }
 
 /**
- * Calculate scores for a specific race based on Wacky Racers rules:
- * - +1 point per driver appearing anywhere in Top 6 (position doesn't matter)
- * - +3 bonus if exactly 5 of 6 predictions are correct
- * - +5 bonus if all 6 predictions are correct
- * - Max possible: 6 + 5 = 11 points
+ * Calculate scores for a specific race based on Prix Six rules:
+ * - +5 points for each driver in their exact predicted position
+ * - +3 points for each driver in top 6 but in wrong position
+ * - +10 bonus if all 6 predictions are in the top 6 (regardless of position)
+ * - Max possible: 30 (all exact) + 10 (bonus) = 40 points
  */
 export async function calculateRaceScores(
   firestore: any,
@@ -132,31 +132,35 @@ export async function calculateRaceScores(
       return;
     }
 
+    let totalPoints = 0;
     let correctCount = 0;
     const breakdownParts: string[] = [];
 
-    // Wacky Racers: +1 for each driver that appears anywhere in Top 6
+    // Prix Six scoring: check each prediction position
     userPredictions.forEach((driverId, index) => {
       const driverName = F1Drivers.find(d => d.id === driverId)?.name || driverId;
+      const actualPosition = actualResults.indexOf(driverId);
 
-      if (actualResults.includes(driverId)) {
+      if (actualPosition === index) {
+        // Exact position match: +5
+        totalPoints += PRIX_SIX_SCORING.exactPosition;
         correctCount++;
-        breakdownParts.push(`${driverName} (+${WACKY_RACERS_SCORING.perCorrectDriver})`);
+        breakdownParts.push(`${driverName}+${PRIX_SIX_SCORING.exactPosition}`);
+      } else if (actualPosition !== -1) {
+        // In top 6 but wrong position: +3
+        totalPoints += PRIX_SIX_SCORING.wrongPosition;
+        correctCount++;
+        breakdownParts.push(`${driverName}+${PRIX_SIX_SCORING.wrongPosition}`);
       } else {
-        breakdownParts.push(`${driverName} (miss)`);
+        // Not in top 6: 0 points
+        breakdownParts.push(`${driverName}+0`);
       }
     });
 
-    // Base points: +1 per correct driver
-    let totalPoints = correctCount * WACKY_RACERS_SCORING.perCorrectDriver;
-
-    // Bonus points based on how many correct
-    if (correctCount === 5) {
-      totalPoints += WACKY_RACERS_SCORING.bonus5Correct;
-      breakdownParts.push(`5/6 bonus +${WACKY_RACERS_SCORING.bonus5Correct}`);
-    } else if (correctCount === 6) {
-      totalPoints += WACKY_RACERS_SCORING.bonus6Correct;
-      breakdownParts.push(`6/6 bonus +${WACKY_RACERS_SCORING.bonus6Correct}`);
+    // Bonus: +10 if all 6 predictions are in the top 6
+    if (correctCount === 6) {
+      totalPoints += PRIX_SIX_SCORING.bonusAll6;
+      breakdownParts.push(`BonusAll6+${PRIX_SIX_SCORING.bonusAll6}`);
     }
 
     scores.push({
@@ -195,7 +199,7 @@ export async function updateRaceScores(
   raceId: string,
   raceResult: RaceResult
 ): Promise<UpdateScoresResult> {
-  // Calculate scores using Wacky Racers rules (no admin config needed)
+  // Calculate scores using Prix Six rules
   const calculatedScores = await calculateRaceScores(firestore, raceResult);
 
   // Use normalized raceId for storing scores (consistent with predictions)
