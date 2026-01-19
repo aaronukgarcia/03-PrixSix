@@ -3,10 +3,11 @@
 
 import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Code, Server, Mail, Database, Waypoints } from "lucide-react";
+import { Users, Code, Server, Mail, Database, Waypoints, Tag } from "lucide-react";
 import { useFirestore, useCollection } from '@/firebase';
 import backendData from '@/../docs/backend.json';
 import { collection, query } from 'firebase/firestore';
+import packageJson from '@/../package.json';
 
 interface Presence {
   id: string;
@@ -55,7 +56,17 @@ const AboutPageClient = () => {
                 <p className="text-muted-foreground">System architecture, documentation, and support.</p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-3">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium">Version</CardTitle>
+                        <Tag className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold font-mono">v{packageJson.version}</div>
+                        <p className="text-xs text-muted-foreground">Current release version.</p>
+                    </CardContent>
+                </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">Registered Teams</CardTitle>
