@@ -1,8 +1,7 @@
-
 'use client';
 
-import { useMemo, useState, useEffect } from "react";
-import { useCollection, useFirestore } from "@/firebase";
+import { useState, useEffect, useCallback } from "react";
+import { useFirestore } from "@/firebase";
 import type { User } from "@/firebase/provider";
 import {
   Card,
@@ -25,23 +24,34 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { RaceSchedule, getDriverImage, F1Drivers, Driver, findNextRace } from "@/lib/data";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { RaceSchedule, getDriverImage, F1Drivers, findNextRace } from "@/lib/data";
+import { collection, query, orderBy, limit, startAfter, getDocs, where, DocumentSnapshot, getCountFromServer } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LastUpdated } from "@/components/ui/last-updated";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, Loader2 } from "lucide-react";
 
 interface Prediction {
-    id: string;
-    userId: string;
-    teamName: string;
-    raceId: string;
-    driver1: string;
-    driver2: string;
-    driver3: string;
-    driver4: string;
-    driver5: string;
-    driver6: string;
+  id: string;
+  oduserId: string;
+  teamName: string;
+  raceId: string;
+  driver1: string;
+  driver2: string;
+  driver3: string;
+  driver4: string;
+  driver5: string;
+  driver6: string;
 }
+
+interface TeamWithPrediction {
+  teamName: string;
+  oduserId: string;
+  predictions: (typeof F1Drivers[number] | null)[];
+}
+
+const PAGE_SIZE = 25;
 
 export default function TeamsPage() {
   const firestore = useFirestore();
@@ -50,95 +60,145 @@ export default function TeamsPage() {
   const [selectedRace, setSelectedRace] = useState(nextRace.name);
   const selectedRaceId = selectedRace.replace(/\s+/g, '-');
 
-  const usersQuery = useMemo(() => {
-    if (!firestore) return null;
-    const q = query(collection(firestore, "users"));
-    (q as any).__memo = true;
-    return q;
-  }, [firestore]);
-
-  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-
-  // Fetch predictions for all users for this race (avoiding collectionGroup query)
-  const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
+  // Pagination state
+  const [teams, setTeams] = useState<TeamWithPrediction[]>([]);
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // Fetch total count once (using aggregation - no document download)
   useEffect(() => {
-    if (!firestore || !users || users.length === 0 || !selectedRaceId) {
-      setPredictions([]);
-      return;
-    }
+    if (!firestore) return;
 
-    const fetchPredictions = async () => {
-      setIsLoadingPredictions(true);
+    const fetchCount = async () => {
       try {
-        const allPredictions: Prediction[] = [];
-
-        for (const user of users) {
-          const predQuery = query(
-            collection(firestore, `users/${user.id}/predictions`),
-            where("raceId", "==", selectedRaceId)
-          );
-          const predSnapshot = await getDocs(predQuery);
-          predSnapshot.forEach(predDoc => {
-            allPredictions.push({
-              id: predDoc.id,
-              ...predDoc.data(),
-              userId: user.id,
-              teamName: (predDoc.data() as any).teamName || user.teamName,
-            } as Prediction);
-          });
-        }
-
-        setPredictions(allPredictions);
-        setLastUpdated(new Date());
+        const countSnapshot = await getCountFromServer(collection(firestore, "users"));
+        setTotalCount(countSnapshot.data().count);
       } catch (error) {
-        console.error("Error fetching predictions:", error);
-        setPredictions([]);
-      } finally {
-        setIsLoadingPredictions(false);
+        console.error("Error fetching count:", error);
+        // Fallback: don't show total count
+        setTotalCount(null);
       }
     };
+    fetchCount();
+  }, [firestore]);
 
-    fetchPredictions();
-  }, [firestore, users, selectedRaceId]);
+  // Format prediction data
+  const formatPrediction = useCallback((predData: any) => {
+    if (!predData) return Array(6).fill(null);
+    const driverIds = [
+      predData.driver1, predData.driver2, predData.driver3,
+      predData.driver4, predData.driver5, predData.driver6
+    ];
+    return driverIds.map(id => F1Drivers.find(d => d.id === id) || null);
+  }, []);
 
-  const teamsWithPredictions = useMemo(() => {
-    if (!users) return [];
+  // Fetch users and their predictions with pagination
+  const fetchTeams = useCallback(async (isLoadMore = false) => {
+    if (!firestore) return;
 
-    return users.map(user => {
-      const allUserPredictions = predictions?.filter(p => p.userId === user.id) || [];
-      
-      const mainTeamPrediction = allUserPredictions.find(p => p.teamName === user.teamName);
-      const secondaryTeamPrediction = user.secondaryTeamName ? allUserPredictions.find(p => p.teamName === user.secondaryTeamName) : undefined;
+    if (isLoadMore) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoading(true);
+      setTeams([]);
+      setLastDoc(null);
+    }
 
-      const formatPrediction = (predictionDoc: Prediction | undefined) => {
-        if (!predictionDoc) return Array(6).fill(null);
-        const driverIds = [
-            predictionDoc.driver1, predictionDoc.driver2, predictionDoc.driver3,
-            predictionDoc.driver4, predictionDoc.driver5, predictionDoc.driver6
-        ];
-        return driverIds.map(id => F1Drivers.find(d => d.id === id) || null);
+    try {
+      // Build paginated query for users
+      let usersQuery = query(
+        collection(firestore, "users"),
+        orderBy("teamName"),
+        limit(PAGE_SIZE)
+      );
+
+      if (isLoadMore && lastDoc) {
+        usersQuery = query(
+          collection(firestore, "users"),
+          orderBy("teamName"),
+          startAfter(lastDoc),
+          limit(PAGE_SIZE)
+        );
       }
-      
-      const result = [{
-        teamName: user.teamName,
-        predictions: formatPrediction(mainTeamPrediction),
-      }];
 
-      if (user.secondaryTeamName) {
-        result.push({
-            teamName: user.secondaryTeamName,
-            predictions: formatPrediction(secondaryTeamPrediction),
+      const usersSnapshot = await getDocs(usersQuery);
+
+      if (usersSnapshot.empty) {
+        setHasMore(false);
+        return;
+      }
+
+      // Update last doc for next pagination
+      setLastDoc(usersSnapshot.docs[usersSnapshot.docs.length - 1]);
+      setHasMore(usersSnapshot.docs.length === PAGE_SIZE);
+
+      // Fetch predictions for just these users
+      const newTeams: TeamWithPrediction[] = [];
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data() as User;
+
+        // Get prediction for this user and race
+        const predQuery = query(
+          collection(firestore, `users/${userDoc.id}/predictions`),
+          where("raceId", "==", selectedRaceId)
+        );
+        const predSnapshot = await getDocs(predQuery);
+
+        // Main team
+        const mainPred = predSnapshot.docs.find(d =>
+          d.data().teamName === userData.teamName || !d.data().teamName
+        );
+        newTeams.push({
+          teamName: userData.teamName,
+          oduserId: userDoc.id,
+          predictions: formatPrediction(mainPred?.data()),
         });
+
+        // Secondary team if exists
+        if (userData.secondaryTeamName) {
+          const secondaryPred = predSnapshot.docs.find(d =>
+            d.data().teamName === userData.secondaryTeamName
+          );
+          newTeams.push({
+            teamName: userData.secondaryTeamName,
+            oduserId: userDoc.id,
+            predictions: formatPrediction(secondaryPred?.data()),
+          });
+        }
       }
 
-      return result;
-    }).flat();
-  }, [users, predictions]);
+      if (isLoadMore) {
+        setTeams(prev => [...prev, ...newTeams]);
+      } else {
+        setTeams(newTeams);
+      }
 
-  const isLoading = isLoadingUsers || isLoadingPredictions;
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Error fetching teams:", error);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, [firestore, selectedRaceId, lastDoc, formatPrediction]);
+
+  // Initial load and race change
+  useEffect(() => {
+    fetchTeams(false);
+  }, [firestore, selectedRaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadMore = () => {
+    fetchTeams(true);
+  };
+
+  const progressPercent = totalCount && totalCount > 0
+    ? Math.round((teams.length / totalCount) * 100)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -175,48 +235,84 @@ export default function TeamsPage() {
             </Select>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Progress indicator */}
+          {!isLoading && totalCount && totalCount > PAGE_SIZE && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>Showing {teams.length} of {totalCount} teams</span>
+                <span>{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+            </div>
+          )}
+
           <Accordion type="single" collapsible className="w-full">
             {isLoading ? (
-                Array.from({length: 5}).map((_, i) => <Skeleton key={i} className="h-14 w-full mb-2"/>)
-            ) : teamsWithPredictions.map((team) => (
-              <AccordionItem value={team.teamName} key={team.teamName}>
-                <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+              Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full mb-2" />
+              ))
+            ) : teams.length > 0 ? (
+              teams.map((team, index) => (
+                <AccordionItem value={`${team.teamName}-${index}`} key={`${team.teamName}-${index}`}>
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
                     {team.teamName}
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pt-4">
-                    {team.predictions.map((driver, index) => (
-                      <div key={driver?.id || index} className="flex flex-col items-center gap-2 p-2 rounded-lg border bg-card-foreground/5">
-                        <div className="font-bold text-accent text-2xl">P{index + 1}</div>
-                        {driver ? (
-                          <>
-                            <Avatar className="w-16 h-16 border-2 border-primary">
-                              <AvatarImage src={getDriverImage(driver.id)} data-ai-hint="driver portrait"/>
-                              <AvatarFallback>{driver.name.substring(0, 2)}</AvatarFallback>
-                            </Avatar>
-                            <div className="text-center">
-                              <p className="font-semibold">{driver.name}</p>
-                              <p className="text-xs text-muted-foreground">{driver.team}</p>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pt-4">
+                      {team.predictions.map((driver, idx) => (
+                        <div key={idx} className="flex flex-col items-center gap-2 p-2 rounded-lg border bg-card-foreground/5">
+                          <div className="font-bold text-accent text-2xl">P{idx + 1}</div>
+                          {driver ? (
+                            <>
+                              <Avatar className="w-16 h-16 border-2 border-primary">
+                                <AvatarImage src={getDriverImage(driver.id)} data-ai-hint="driver portrait" />
+                                <AvatarFallback>{driver.name.substring(0, 2)}</AvatarFallback>
+                              </Avatar>
+                              <div className="text-center">
+                                <p className="font-semibold">{driver.name}</p>
+                                <p className="text-xs text-muted-foreground">{driver.team}</p>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2">
+                              <Avatar className="w-16 h-16 border-2 border-dashed">
+                                <AvatarFallback>?</AvatarFallback>
+                              </Avatar>
+                              <div className="text-center">
+                                <p className="font-semibold text-muted-foreground">Empty</p>
+                              </div>
                             </div>
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-center gap-2">
-                            <Avatar className="w-16 h-16 border-2 border-dashed">
-                               <AvatarFallback>?</AvatarFallback>
-                            </Avatar>
-                             <div className="text-center">
-                              <p className="font-semibold text-muted-foreground">Empty</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No teams found.
+              </div>
+            )}
           </Accordion>
+
+          {/* Load more button */}
+          {hasMore && !isLoading && teams.length > 0 && (
+            <div className="flex justify-center pt-4">
+              {isLoadingMore ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading more teams...</span>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={loadMore} className="gap-2">
+                  <ChevronDown className="h-4 w-4" />
+                  Load More Teams
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

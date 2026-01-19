@@ -6,11 +6,12 @@
     "dev": "next dev --turbopack -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "NODE_ENV=production next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "seed:big-shakedown": "npx ts-node --project tsconfig.scripts.json scripts/seed-big-shakedown.ts"
+    "seed:big-shakedown": "npx ts-node --project tsconfig.scripts.json scripts/seed-big-shakedown.ts",
+    "verify:admin": "npx ts-node --project tsconfig.scripts.json scripts/verify-admin.ts"
   },
   "dependencies": {
     "@azure/identity": "^4.13.0",

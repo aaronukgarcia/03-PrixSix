@@ -18,8 +18,16 @@ function FirebaseServicesTracker() {
         getAnalytics(app);
       }
     });
-    // Initialize Performance
-    getPerformance(app);
+    // Initialize Performance with error handling
+    // Firebase Performance can throw errors when attribute values (like Tailwind class names) exceed 100 chars
+    try {
+      const perf = getPerformance(app);
+      // Disable automatic data collection for DOM interactions to avoid class name issues
+      perf.dataCollectionEnabled = true;
+      perf.instrumentationEnabled = false; // Disable auto-instrumentation (captures class names)
+    } catch (error) {
+      console.warn('Firebase Performance initialization skipped:', error);
+    }
   }, [app]);
   return null;
 }

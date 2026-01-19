@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { canSendEmail, recordSentEmail } from '@/lib/email-tracking';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
-// Initialize Firebase Admin if not already initialized
-if (!getApps().length) {
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
+// Lazy initialization to avoid build-time errors
+let adminApp: App | null = null;
+let adminDb: Firestore | null = null;
+
+function getAdminDb(): Firestore {
+  if (!adminDb) {
+    if (!getApps().length) {
+      adminApp = initializeApp({
+        credential: cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        }),
+      });
+    }
+    adminDb = getFirestore();
+  }
+  return adminDb;
 }
-
-const adminDb = getFirestore();
 
 interface ResultsEmailRequest {
   raceId: string;
@@ -39,7 +46,8 @@ export async function POST(request: NextRequest) {
     const { raceId, raceName, officialResult, scores, standings } = data;
 
     // Get all users who have opted in to results notifications
-    const usersSnapshot = await adminDb.collection('users').get();
+    const db = getAdminDb();
+    const usersSnapshot = await db.collection('users').get();
     const usersToNotify = usersSnapshot.docs.filter(doc => {
       const userData = doc.data();
       // Default to true if no preference set
@@ -54,7 +62,7 @@ export async function POST(request: NextRequest) {
       const userTeamName = userData.teamName;
 
       // Check rate limiting
-      const rateCheck = await canSendEmail(adminDb as any, userEmail);
+      const rateCheck = await canSendEmail(db as any, userEmail);
       if (!rateCheck.canSend) {
         results.push({ email: userEmail, success: false, error: rateCheck.reason });
         continue;
@@ -84,7 +92,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (emailResult.success) {
-          await recordSentEmail(adminDb as any, {
+          await recordSentEmail(db as any, {
             toEmail: userEmail,
             subject: `Prix Six: ${raceName} Results`,
             type: 'results_notification',

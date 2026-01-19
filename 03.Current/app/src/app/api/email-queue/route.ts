@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 import { sendEmail } from '@/lib/email';
 
-// Initialize Firebase Admin if not already initialized
-if (!getApps().length) {
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
+// Lazy initialization to avoid build-time errors
+let adminApp: App | null = null;
+let adminDb: Firestore | null = null;
 
-const adminDb = getFirestore();
+function getAdminDb(): Firestore {
+  if (!adminDb) {
+    if (!getApps().length) {
+      adminApp = initializeApp({
+        credential: cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        }),
+      });
+    }
+    adminDb = getFirestore();
+  }
+  return adminDb;
+}
 
 interface QueuedEmail {
   id: string;
@@ -30,7 +37,7 @@ interface QueuedEmail {
 // GET - Fetch all queued emails
 export async function GET() {
   try {
-    const queueSnapshot = await adminDb.collection('email_queue')
+    const queueSnapshot = await getAdminDb().collection('email_queue')
       .where('status', '==', 'pending')
       .orderBy('queuedAt', 'desc')
       .get();
@@ -62,14 +69,14 @@ export async function POST(request: NextRequest) {
       if (emailIds && emailIds.length > 0) {
         // Get specific emails by ID
         for (const id of emailIds) {
-          const doc = await adminDb.collection('email_queue').doc(id).get();
+          const doc = await getAdminDb().collection('email_queue').doc(id).get();
           if (doc.exists && doc.data()?.status === 'pending') {
             emailsToProcess.push({ id: doc.id, ...doc.data() } as QueuedEmail);
           }
         }
       } else {
         // Get all pending emails
-        const snapshot = await adminDb.collection('email_queue')
+        const snapshot = await getAdminDb().collection('email_queue')
           .where('status', '==', 'pending')
           .get();
         emailsToProcess = snapshot.docs.map(doc => ({
@@ -90,7 +97,7 @@ export async function POST(request: NextRequest) {
 
           if (emailResult.success) {
             // Update the queue document to 'sent'
-            await adminDb.collection('email_queue').doc(email.id).update({
+            await getAdminDb().collection('email_queue').doc(email.id).update({
               status: 'sent',
               processedAt: FieldValue.serverTimestamp(),
               emailGuid: emailResult.emailGuid,
@@ -98,7 +105,7 @@ export async function POST(request: NextRequest) {
 
             // Record in email daily stats
             const today = new Date().toISOString().split('T')[0];
-            const statsRef = adminDb.collection('email_daily_stats').doc(today);
+            const statsRef = getAdminDb().collection('email_daily_stats').doc(today);
             await statsRef.set({
               totalSent: FieldValue.increment(1),
               emailsSent: FieldValue.arrayUnion({
@@ -114,7 +121,7 @@ export async function POST(request: NextRequest) {
 
             results.push({ id: email.id, success: true });
           } else {
-            await adminDb.collection('email_queue').doc(email.id).update({
+            await getAdminDb().collection('email_queue').doc(email.id).update({
               status: 'failed',
               processedAt: FieldValue.serverTimestamp(),
               error: emailResult.error,
@@ -122,7 +129,7 @@ export async function POST(request: NextRequest) {
             results.push({ id: email.id, success: false, error: emailResult.error });
           }
         } catch (error: any) {
-          await adminDb.collection('email_queue').doc(email.id).update({
+          await getAdminDb().collection('email_queue').doc(email.id).update({
             status: 'failed',
             processedAt: FieldValue.serverTimestamp(),
             error: error.message,
@@ -162,12 +169,12 @@ export async function DELETE(request: NextRequest) {
     if (emailIds && emailIds.length > 0) {
       // Delete specific emails
       for (const id of emailIds) {
-        await adminDb.collection('email_queue').doc(id).delete();
+        await getAdminDb().collection('email_queue').doc(id).delete();
         deletedCount++;
       }
     } else {
       // Delete all pending emails
-      const snapshot = await adminDb.collection('email_queue')
+      const snapshot = await getAdminDb().collection('email_queue')
         .where('status', '==', 'pending')
         .get();
 

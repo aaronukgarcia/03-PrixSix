@@ -1,9 +1,7 @@
-
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import { useCollection, useFirestore } from "@/firebase";
-import type { User } from "@/firebase/provider";
+import { useState, useEffect, useCallback } from "react";
+import { useFirestore } from "@/firebase";
 import {
     Table,
     TableBody,
@@ -21,31 +19,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collection, query, where, doc, getDoc, getDocs } from "firebase/firestore";
+import { collection, query, where, doc, getDoc, getDocs, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, Trophy } from "lucide-react";
+import { CalendarClock, Trophy, ChevronDown, Loader2 } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 
 interface Score {
     id: string;
-    userId: string;
+    oduserId: string;
+    teamName: string;
     raceId: string;
     totalPoints: number;
     breakdown: string;
-}
-
-interface Prediction {
-    id: string;
-    userId: string;
-    teamName: string;
-    raceId: string;
-    driver1: string;
-    driver2: string;
-    driver3: string;
-    driver4: string;
-    driver5: string;
-    driver6: string;
 }
 
 interface RaceResult {
@@ -60,6 +48,17 @@ interface RaceResult {
     submittedAt: any;
 }
 
+interface TeamResult {
+    teamName: string;
+    oduserId: string;
+    prediction: string;
+    totalPoints: number | null;
+    breakdown: string;
+    hasScore: boolean;
+}
+
+const PAGE_SIZE = 25;
+
 export default function ResultsPage() {
     const firestore = useFirestore();
     const pastRaces = RaceSchedule.filter(race => new Date(race.raceTime) < new Date());
@@ -70,8 +69,22 @@ export default function ResultsPage() {
     const [selectedRaceId, setSelectedRaceId] = useState(defaultRaceId);
     const selectedRaceName = RaceSchedule.find(r => r.name.replace(/\s+/g, '-') === selectedRaceId)?.name;
     const hasSeasonStarted = pastRaces.length > 0;
+
+    // Race result state
     const [raceResult, setRaceResult] = useState<RaceResult | null>(null);
     const [isLoadingResult, setIsLoadingResult] = useState(false);
+
+    // Pagination state
+    const [teams, setTeams] = useState<TeamResult[]>([]);
+    const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [totalCount, setTotalCount] = useState<number | null>(null);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+    // Scores cache for current race (fetched once)
+    const [scoresMap, setScoresMap] = useState<Map<string, Score>>(new Map());
 
     // Fetch race result when selection changes
     useEffect(() => {
@@ -127,119 +140,156 @@ export default function ResultsPage() {
         }).join(' | ');
     };
 
-    const scoresQuery = useMemo(() => {
-        if (!firestore) return null;
-        const q = query(
-            collection(firestore, "scores"),
-            where("raceId", "==", selectedRaceId)
-        );
-        (q as any).__memo = true;
-        return q;
-    }, [firestore, selectedRaceId]);
-
-    const usersQuery = useMemo(() => {
-        if (!firestore) return null;
-        const q = query(collection(firestore, "users"));
-        (q as any).__memo = true;
-        return q;
-    }, [firestore]);
-
-    const { data: scores, isLoading: isLoadingScores } = useCollection<Score>(scoresQuery);
-    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-
-    // Fetch predictions for all users for this race (avoiding collectionGroup query)
-    const [predictions, setPredictions] = useState<Prediction[]>([]);
-    const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
+    // Fetch count for selected race
     useEffect(() => {
-        if (!firestore || !users || users.length === 0 || !selectedRaceId) {
-            setPredictions([]);
-            return;
-        }
+        if (!firestore || !selectedRaceId) return;
 
-        const fetchPredictions = async () => {
-            setIsLoadingPredictions(true);
+        const fetchCount = async () => {
             try {
-                const allPredictions: Prediction[] = [];
-
-                // Fetch each user's prediction for this race
-                for (const user of users) {
-                    const predQuery = query(
-                        collection(firestore, `users/${user.id}/predictions`),
-                        where("raceId", "==", selectedRaceId)
-                    );
-                    const predSnapshot = await getDocs(predQuery);
-                    predSnapshot.forEach(predDoc => {
-                        allPredictions.push({
-                            id: predDoc.id,
-                            ...predDoc.data(),
-                            userId: user.id,
-                            teamName: (predDoc.data() as any).teamName || user.teamName,
-                        } as Prediction);
-                    });
-                }
-
-                setPredictions(allPredictions);
-                setLastUpdated(new Date());
+                const countQuery = query(
+                    collection(firestore, "prediction_submissions"),
+                    where("raceId", "==", selectedRaceId)
+                );
+                const countSnapshot = await getCountFromServer(countQuery);
+                setTotalCount(countSnapshot.data().count);
             } catch (error) {
-                console.error("Error fetching predictions:", error);
-                setPredictions([]);
-            } finally {
-                setIsLoadingPredictions(false);
+                console.error("Error fetching count:", error);
+                setTotalCount(null);
             }
         };
+        fetchCount();
+    }, [firestore, selectedRaceId]);
 
-        fetchPredictions();
-    }, [firestore, users, selectedRaceId]);
+    // Fetch all scores for selected race (one-time, smaller dataset)
+    useEffect(() => {
+        if (!firestore || !selectedRaceId) return;
+
+        const fetchScores = async () => {
+            try {
+                const scoresQuery = query(
+                    collection(firestore, "scores"),
+                    where("raceId", "==", selectedRaceId)
+                );
+                const scoresSnapshot = await getDocs(scoresQuery);
+                const newScoresMap = new Map<string, Score>();
+                scoresSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    // Map by oduserId for lookup
+                    newScoresMap.set(data.oduserId, {
+                        id: doc.id,
+                        ...data,
+                    } as Score);
+                });
+                setScoresMap(newScoresMap);
+            } catch (error) {
+                console.error("Error fetching scores:", error);
+                setScoresMap(new Map());
+            }
+        };
+        fetchScores();
+    }, [firestore, selectedRaceId]);
 
     // Format predictions for display
-    const formatPrediction = (pred: Prediction) => {
-        const drivers = [pred.driver1, pred.driver2, pred.driver3, pred.driver4, pred.driver5, pred.driver6];
-        return drivers.map((driverId, i) => {
-            const driver = F1Drivers.find(d => d.id === driverId);
-            return `P${i + 1}: ${driver?.name || 'N/A'}`;
-        }).join(', ');
+    const formatPrediction = useCallback((predictions: any) => {
+        if (!predictions) return "N/A";
+        // Handle object format {P1, P2, ...}
+        if (predictions.P1 !== undefined) {
+            return `P1: ${predictions.P1 || '?'}, P2: ${predictions.P2 || '?'}, P3: ${predictions.P3 || '?'}, P4: ${predictions.P4 || '?'}, P5: ${predictions.P5 || '?'}, P6: ${predictions.P6 || '?'}`;
+        }
+        // Handle array format
+        if (Array.isArray(predictions)) {
+            return predictions.map((d, i) => `P${i + 1}: ${d}`).join(', ');
+        }
+        return String(predictions);
+    }, []);
+
+    // Fetch teams with pagination
+    const fetchTeams = useCallback(async (isLoadMore = false) => {
+        if (!firestore) return;
+
+        if (isLoadMore) {
+            setIsLoadingMore(true);
+        } else {
+            setIsLoading(true);
+            setTeams([]);
+            setLastDoc(null);
+        }
+
+        try {
+            // Query prediction_submissions for selected race
+            let submissionsQuery = query(
+                collection(firestore, "prediction_submissions"),
+                where("raceId", "==", selectedRaceId),
+                orderBy("teamName"),
+                limit(PAGE_SIZE)
+            );
+
+            if (isLoadMore && lastDoc) {
+                submissionsQuery = query(
+                    collection(firestore, "prediction_submissions"),
+                    where("raceId", "==", selectedRaceId),
+                    orderBy("teamName"),
+                    startAfter(lastDoc),
+                    limit(PAGE_SIZE)
+                );
+            }
+
+            const snapshot = await getDocs(submissionsQuery);
+
+            if (snapshot.empty && !isLoadMore) {
+                setHasMore(false);
+                setTeams([]);
+                setLastUpdated(new Date());
+                return;
+            }
+
+            // Update pagination state
+            if (snapshot.docs.length > 0) {
+                setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+            }
+            setHasMore(snapshot.docs.length === PAGE_SIZE);
+
+            // Map to display format
+            const newTeams: TeamResult[] = snapshot.docs.map((doc) => {
+                const data = doc.data();
+                const score = scoresMap.get(data.oduserId);
+                return {
+                    teamName: data.teamName || "Unknown Team",
+                    oduserId: data.oduserId,
+                    prediction: formatPrediction(data.predictions),
+                    totalPoints: score?.totalPoints ?? null,
+                    breakdown: score?.breakdown || '',
+                    hasScore: !!score,
+                };
+            });
+
+            if (isLoadMore) {
+                setTeams((prev) => [...prev, ...newTeams]);
+            } else {
+                setTeams(newTeams);
+            }
+
+            setLastUpdated(new Date());
+        } catch (error) {
+            console.error("Error fetching teams:", error);
+        } finally {
+            setIsLoading(false);
+            setIsLoadingMore(false);
+        }
+    }, [firestore, selectedRaceId, lastDoc, scoresMap, formatPrediction]);
+
+    // Initial load and race change
+    useEffect(() => {
+        fetchTeams(false);
+    }, [firestore, selectedRaceId, scoresMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const loadMore = () => {
+        fetchTeams(true);
     };
 
-    // Combine predictions with scores to show all teams
-    const teamsWithResults = useMemo(() => {
-        if (!users) return [];
-
-        const teamData: {
-            teamName: string;
-            prediction: string;
-            totalPoints: number | null;
-            breakdown: string;
-            hasScore: boolean;
-        }[] = [];
-
-        // Go through all predictions for this race
-        predictions?.forEach(pred => {
-            const score = scores?.find(s => s.userId === pred.userId);
-            const user = users.find(u => u.id === pred.userId);
-
-            teamData.push({
-                teamName: pred.teamName || user?.teamName || 'Unknown',
-                prediction: formatPrediction(pred),
-                totalPoints: score?.totalPoints ?? null,
-                breakdown: score?.breakdown || '',
-                hasScore: !!score,
-            });
-        });
-
-        // Sort: scored teams first (by points desc), then unscored teams
-        return teamData.sort((a, b) => {
-            if (a.hasScore && !b.hasScore) return -1;
-            if (!a.hasScore && b.hasScore) return 1;
-            if (a.hasScore && b.hasScore) {
-                return (b.totalPoints || 0) - (a.totalPoints || 0);
-            }
-            return a.teamName.localeCompare(b.teamName);
-        });
-    }, [predictions, scores, users]);
-
-    const isLoading = isLoadingScores || isLoadingUsers || (users && users.length > 0 && isLoadingPredictions);
+    const progressPercent = totalCount && totalCount > 0
+        ? Math.round((teams.length / totalCount) * 100)
+        : 0;
 
     return (
       <div className="space-y-6">
@@ -301,7 +351,18 @@ export default function ResultsPage() {
                </div>
              )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+          {/* Progress indicator */}
+          {!isLoading && totalCount && totalCount > PAGE_SIZE && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>Showing {teams.length} of {totalCount} teams</span>
+                <span>{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+            </div>
+          )}
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -319,8 +380,8 @@ export default function ResultsPage() {
                         <TableCell><Skeleton className="h-5 w-20 mx-auto"/></TableCell>
                     </TableRow>
                 ))
-              ) : teamsWithResults.length > 0 ? (
-                teamsWithResults.map((team, index) => (
+              ) : teams.length > 0 ? (
+                teams.map((team, index) => (
                     <TableRow key={`${team.teamName}-${index}`}>
                         <TableCell className="font-semibold">{team.teamName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground font-mono">
@@ -346,6 +407,23 @@ export default function ResultsPage() {
               )}
             </TableBody>
             </Table>
+
+          {/* Load more button */}
+          {hasMore && !isLoading && teams.length > 0 && (
+            <div className="flex justify-center pt-4">
+              {isLoadingMore ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading...</span>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={loadMore} className="gap-2">
+                  <ChevronDown className="h-4 w-4" />
+                  Load More Teams
+                </Button>
+              )}
+            </div>
+          )}
           </CardContent>
         </Card>
       </div>
