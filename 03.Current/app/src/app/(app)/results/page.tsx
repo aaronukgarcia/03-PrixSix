@@ -225,9 +225,14 @@ export default function ResultsPage() {
             driverIds = predictions;
         }
 
+        // Normalize actual results to lowercase for comparison
+        const normalizedActual = actualTop6 ? actualTop6.map(d => d?.toLowerCase()) : null;
+
         return driverIds.map((driverId, index) => {
-            const driver = F1Drivers.find(d => d.id === driverId);
-            const actualIndex = actualTop6 ? actualTop6.indexOf(driverId) : -1;
+            // Normalize prediction driver ID to lowercase for comparison
+            const normalizedDriverId = driverId?.toLowerCase();
+            const driver = F1Drivers.find(d => d.id === normalizedDriverId);
+            const actualIndex = normalizedActual ? normalizedActual.indexOf(normalizedDriverId) : -1;
             const isCorrect = actualIndex !== -1;
             const isExactPosition = actualIndex === index;
 
@@ -239,7 +244,7 @@ export default function ResultsPage() {
             }
 
             return {
-                driverId,
+                driverId: normalizedDriverId,
                 driverName: driver?.name || driverId,
                 position: index + 1,
                 isCorrect,
