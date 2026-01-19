@@ -67,10 +67,18 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
   
   const isLoading = isUserLoading || isPresenceLoading;
 
+  // Total session count (for display in title)
+  const totalSessionCount = useMemo(() => {
+    if (!allPresence) return 0;
+    return allPresence
+      .filter(p => p.sessions && p.sessions.length > 0)
+      .reduce((acc, p) => acc + (p.sessions?.length || 0), 0);
+  }, [allPresence]);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Online User Sessions</CardTitle>
+        <CardTitle>Online User Sessions ({isLoading ? '...' : totalSessionCount})</CardTitle>
         <CardDescription>A real-time list of active user sessions (GUIDs).</CardDescription>
       </CardHeader>
       <CardContent>

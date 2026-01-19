@@ -1,25 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RaceSchedule } from '@/lib/data';
+import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
-
-// Dynamic import to avoid build-time errors with firebase-admin
-async function getFirebaseAdmin() {
-  const { initializeApp, getApps, cert } = await import('firebase-admin/app');
-  const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
-
-  if (!getApps().length) {
-    initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID!,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
-    });
-  }
-  return { db: getFirestore(), FieldValue };
-}
 
 interface PredictionRequest {
   userId: string;
@@ -112,9 +96,23 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: 'Prediction submitted successfully' });
   } catch (error: any) {
-    console.error('Error submitting prediction:', error);
+    const correlationId = generateCorrelationId();
+    const data: PredictionRequest = await request.clone().json().catch(() => ({}));
+
+    await logError({
+      correlationId,
+      error,
+      context: {
+        route: '/api/submit-prediction',
+        action: 'POST',
+        userId: data.userId,
+        requestData: { teamName: data.teamName, raceId: data.raceId, raceName: data.raceName },
+        userAgent: request.headers.get('user-agent') || undefined,
+      },
+    });
+
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message, correlationId },
       { status: 500 }
     );
   }

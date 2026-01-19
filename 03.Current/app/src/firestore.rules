@@ -103,5 +103,12 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if false;
     }
+
+    // Error logs - server-side creates, admin reads
+    match /error_logs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if true; // Server-side API routes
+      allow update, delete: if false;
+    }
   }
 }

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWelcomeEmail } from '@/lib/email';
+import { generateCorrelationId, logError } from '@/lib/firebase-admin';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,9 +29,20 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error: any) {
-    console.error('Error in send-welcome-email API:', error);
+    const correlationId = generateCorrelationId();
+
+    await logError({
+      correlationId,
+      error,
+      context: {
+        route: '/api/send-welcome-email',
+        action: 'POST',
+        userAgent: request.headers.get('user-agent') || undefined,
+      },
+    });
+
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message, correlationId },
       { status: 500 }
     );
   }
