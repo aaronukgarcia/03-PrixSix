@@ -48,13 +48,22 @@ interface RaceResult {
     submittedAt: any;
 }
 
+interface DriverPrediction {
+    driverId: string;
+    driverName: string;
+    position: number; // P1, P2, etc.
+    isCorrect: boolean;
+    points: number; // 0 or 1
+}
+
 interface TeamResult {
     teamName: string;
     oduserId: string;
-    prediction: string;
+    predictions: DriverPrediction[];
     totalPoints: number | null;
     breakdown: string;
     hasScore: boolean;
+    bonusPoints: number; // 0, 3, or 5
 }
 
 const PAGE_SIZE = 25;
@@ -144,19 +153,43 @@ export default function ResultsPage() {
         }).join(' | ');
     };
 
-    // Format predictions for display
-    const formatPrediction = useCallback((predictions: any) => {
-        if (!predictions) return "N/A";
+    // Parse predictions and calculate per-driver scoring
+    const parsePredictions = useCallback((predictions: any, actualTop6: string[] | null): DriverPrediction[] => {
+        if (!predictions) return [];
+
+        let driverIds: string[] = [];
+
         // Handle object format {P1, P2, ...}
         if (predictions.P1 !== undefined) {
-            return `P1: ${predictions.P1 || '?'}, P2: ${predictions.P2 || '?'}, P3: ${predictions.P3 || '?'}, P4: ${predictions.P4 || '?'}, P5: ${predictions.P5 || '?'}, P6: ${predictions.P6 || '?'}`;
+            driverIds = [
+                predictions.P1, predictions.P2, predictions.P3,
+                predictions.P4, predictions.P5, predictions.P6
+            ].filter(Boolean);
         }
         // Handle array format
-        if (Array.isArray(predictions)) {
-            return predictions.map((d, i) => `P${i + 1}: ${d}`).join(', ');
+        else if (Array.isArray(predictions)) {
+            driverIds = predictions;
         }
-        return String(predictions);
+
+        return driverIds.map((driverId, index) => {
+            const driver = F1Drivers.find(d => d.id === driverId);
+            const isCorrect = actualTop6 ? actualTop6.includes(driverId) : false;
+            return {
+                driverId,
+                driverName: driver?.name || driverId,
+                position: index + 1,
+                isCorrect,
+                points: isCorrect ? 1 : 0,
+            };
+        });
     }, []);
+
+    // Calculate bonus points
+    const calculateBonus = (correctCount: number): number => {
+        if (correctCount === 6) return 5;
+        if (correctCount === 5) return 3;
+        return 0;
+    };
 
     // Fetch all data for selected race in one effect
     useEffect(() => {
@@ -213,16 +246,25 @@ export default function ResultsPage() {
                     setLastDoc(submissionsResult.docs[submissionsResult.docs.length - 1]);
                     setHasMore(submissionsResult.docs.length === PAGE_SIZE);
 
+                    // Get actual top 6 from race result for scoring display
+                    const actualTop6 = raceResult ? [
+                        raceResult.driver1, raceResult.driver2, raceResult.driver3,
+                        raceResult.driver4, raceResult.driver5, raceResult.driver6
+                    ] : null;
+
                     const newTeams: TeamResult[] = submissionsResult.docs.map((doc) => {
                         const data = doc.data();
                         const score = newScoresMap.get(data.oduserId);
+                        const predictions = parsePredictions(data.predictions, actualTop6);
+                        const correctCount = predictions.filter(p => p.isCorrect).length;
                         return {
                             teamName: data.teamName || "Unknown Team",
                             oduserId: data.oduserId,
-                            prediction: formatPrediction(data.predictions),
+                            predictions,
                             totalPoints: score?.totalPoints ?? null,
                             breakdown: score?.breakdown || '',
                             hasScore: !!score,
+                            bonusPoints: calculateBonus(correctCount),
                         };
                     });
                     setTeams(newTeams);
@@ -264,16 +306,25 @@ export default function ResultsPage() {
             }
             setHasMore(snapshot.docs.length === PAGE_SIZE);
 
+            // Get actual top 6 from race result for scoring display
+            const actualTop6 = raceResult ? [
+                raceResult.driver1, raceResult.driver2, raceResult.driver3,
+                raceResult.driver4, raceResult.driver5, raceResult.driver6
+            ] : null;
+
             const newTeams: TeamResult[] = snapshot.docs.map((doc) => {
                 const data = doc.data();
                 const score = scoresMap.get(data.oduserId);
+                const predictions = parsePredictions(data.predictions, actualTop6);
+                const correctCount = predictions.filter(p => p.isCorrect).length;
                 return {
                     teamName: data.teamName || "Unknown Team",
                     oduserId: data.oduserId,
-                    prediction: formatPrediction(data.predictions),
+                    predictions,
                     totalPoints: score?.totalPoints ?? null,
                     breakdown: score?.breakdown || '',
                     hasScore: !!score,
+                    bonusPoints: calculateBonus(correctCount),
                 };
             });
 

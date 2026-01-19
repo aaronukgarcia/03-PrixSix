@@ -1,53 +1,50 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Flag, Zap } from "lucide-react";
+import { Calendar, Flag, Zap, Lock, Unlock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { RaceSchedule, findNextRace } from "@/lib/data";
 
-interface Race {
-  round: number;
-  name: string;
-  country: string;
-  dates: string;
-  hasSprint?: boolean;
+function formatDateTime(isoString: string) {
+  const date = new Date(isoString);
+  return {
+    date: date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+    time: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    dayOfWeek: date.toLocaleDateString('en-GB', { weekday: 'short' }),
+  };
 }
 
-const races2026: Race[] = [
-  { round: 1, name: "Australian Grand Prix", country: "Australia", dates: "6-8 Mar" },
-  { round: 2, name: "Chinese Grand Prix", country: "China", dates: "13-15 Mar", hasSprint: true },
-  { round: 3, name: "Japanese Grand Prix", country: "Japan", dates: "27-29 Mar" },
-  { round: 4, name: "Bahrain Grand Prix", country: "Bahrain", dates: "10-12 Apr" },
-  { round: 5, name: "Saudi Arabian Grand Prix", country: "Saudi Arabia", dates: "17-19 Apr", hasSprint: true },
-  { round: 6, name: "Miami Grand Prix", country: "USA", dates: "1-3 May", hasSprint: true },
-  { round: 7, name: "Canadian Grand Prix", country: "Canada", dates: "22-24 May" },
-  { round: 8, name: "Monaco Grand Prix", country: "Monaco", dates: "5-7 Jun" },
-  { round: 9, name: "Barcelona-Catalunya Grand Prix", country: "Spain", dates: "12-14 Jun" },
-  { round: 10, name: "Austrian Grand Prix", country: "Austria", dates: "26-28 Jun", hasSprint: true },
-  { round: 11, name: "British Grand Prix", country: "Great Britain", dates: "3-5 Jul" },
-  { round: 12, name: "Belgian Grand Prix", country: "Belgium", dates: "17-19 Jul", hasSprint: true },
-  { round: 13, name: "Hungarian Grand Prix", country: "Hungary", dates: "24-26 Jul" },
-  { round: 14, name: "Dutch Grand Prix", country: "Netherlands", dates: "21-23 Aug" },
-  { round: 15, name: "Italian Grand Prix", country: "Italy", dates: "4-6 Sep" },
-  { round: 16, name: "Spanish Grand Prix", country: "Spain", dates: "11-13 Sep" },
-  { round: 17, name: "Azerbaijan Grand Prix", country: "Azerbaijan", dates: "24-26 Sep" },
-  { round: 18, name: "Singapore Grand Prix", country: "Singapore", dates: "9-11 Oct" },
-  { round: 19, name: "United States Grand Prix", country: "USA", dates: "23-25 Oct", hasSprint: true },
-  { round: 20, name: "Mexican Grand Prix", country: "Mexico", dates: "30 Oct-1 Nov" },
-  { round: 21, name: "Brazilian Grand Prix", country: "Brazil", dates: "6-8 Nov", hasSprint: true },
-  { round: 22, name: "Las Vegas Grand Prix", country: "USA", dates: "19-21 Nov" },
-  { round: 23, name: "Qatar Grand Prix", country: "Qatar", dates: "27-29 Nov", hasSprint: true },
-  { round: 24, name: "Abu Dhabi Grand Prix", country: "UAE", dates: "4-6 Dec" },
-];
+function getGridOpenTime(raceTime: string) {
+  const raceDate = new Date(raceTime);
+  // Grid opens 2 hours after race finishes (assuming ~2hr race = 4hrs after race start)
+  const gridOpenDate = new Date(raceDate.getTime() + 4 * 60 * 60 * 1000);
+  return gridOpenDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
 
 export default function SchedulePage() {
-  const sprintCount = races2026.filter(r => r.hasSprint).length;
+  const sprintCount = RaceSchedule.filter(r => r.hasSprint).length;
+  const nextRace = findNextRace();
+  const now = new Date();
 
   return (
     <div className="grid gap-6">
       <div className="space-y-1">
         <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">2026 Race Schedule</h1>
         <p className="text-muted-foreground">
-          {races2026.length} races · {sprintCount} sprint weekends
+          {RaceSchedule.length} races · {sprintCount} sprint weekends
         </p>
       </div>
+
+      <Card className="border-primary/50 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Lock className="h-4 w-4 text-destructive" />
+            Pit Lane Rules
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm space-y-1">
+          <p><strong>Grid Locks:</strong> When qualifying starts (predictions are locked for the weekend)</p>
+          <p><strong>Grid Opens:</strong> 2 hours after the race finishes</p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -56,36 +53,95 @@ export default function SchedulePage() {
             Full Calendar
           </CardTitle>
           <CardDescription>
-            All Grand Prix and Sprint events for the 2026 season
+            All Grand Prix and Sprint events with qualifying cutoff times
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-1">
-            {races2026.map((race) => (
-              <div
-                key={race.round}
-                className="flex items-center gap-4 py-3 border-b last:border-0"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-bold flex-shrink-0">
-                  {race.round}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium truncate">{race.name}</h3>
-                    {race.hasSprint && (
-                      <Badge variant="secondary" className="flex items-center gap-1 flex-shrink-0">
-                        <Zap className="h-3 w-3" />
-                        Sprint
-                      </Badge>
-                    )}
+            {RaceSchedule.map((race, index) => {
+              const quali = formatDateTime(race.qualifyingTime);
+              const raceInfo = formatDateTime(race.raceTime);
+              const gridOpen = getGridOpenTime(race.raceTime);
+              const isNextRace = race.name === nextRace.name;
+              const isPast = new Date(race.raceTime) < now;
+
+              return (
+                <div
+                  key={race.name}
+                  className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 py-3 border-b last:border-0 ${
+                    isNextRace ? 'bg-primary/10 -mx-4 px-4 rounded-lg border-primary/30' : ''
+                  } ${isPast ? 'opacity-50' : ''}`}
+                >
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold flex-shrink-0 ${
+                    isNextRace ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                  }`}>
+                    {index + 1}
+                  </span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-medium">{race.name}</h3>
+                      {race.hasSprint && (
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                          <Zap className="h-3 w-3" />
+                          Sprint
+                        </Badge>
+                      )}
+                      {isNextRace && (
+                        <Badge variant="default" className="flex items-center gap-1">
+                          <Flag className="h-3 w-3" />
+                          Next Race
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{race.location}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{race.country}</p>
+
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-3 w-3 text-destructive flex-shrink-0" />
+                      <span className="text-muted-foreground">
+                        {quali.dayOfWeek} {quali.date} · <span className="font-medium text-foreground">{quali.time}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Flag className="h-3 w-3 text-primary flex-shrink-0" />
+                      <span className="text-muted-foreground">
+                        {raceInfo.dayOfWeek} {raceInfo.date} · <span className="font-medium text-foreground">{raceInfo.time}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Unlock className="h-3 w-3 text-green-500 flex-shrink-0" />
+                      <span className="font-medium text-green-600">{gridOpen}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-medium">{race.dates}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Legend</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4 text-destructive" />
+            <span>Quali Start (Grid Locks)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Flag className="h-4 w-4 text-primary" />
+            <span>Race Start</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Unlock className="h-4 w-4 text-green-500" />
+            <span>Grid Opens</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            <span>Sprint Weekend</span>
           </div>
         </CardContent>
       </Card>
