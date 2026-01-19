@@ -68,23 +68,63 @@ export async function calculateRaceScores(
   console.log(`[Scoring] Looking for predictions with raceId: "${normalizedRaceId}" (original: "${raceResult.raceId}")`);
 
   // Get all predictions for this race using collectionGroup query
-  const predictionsQuery = query(
-    collectionGroup(firestore, 'predictions'),
-    where('raceId', '==', normalizedRaceId)
-  );
-  const predictionsSnapshot = await getDocs(predictionsQuery);
+  let predictionsSnapshot;
+  try {
+    const predictionsQuery = query(
+      collectionGroup(firestore, 'predictions'),
+      where('raceId', '==', normalizedRaceId)
+    );
+    predictionsSnapshot = await getDocs(predictionsQuery);
+  } catch (error: any) {
+    console.error(`[Scoring] CollectionGroup query failed:`, error);
+    // If the collectionGroup index doesn't exist, fall back to prediction_submissions
+    console.log(`[Scoring] Falling back to prediction_submissions collection`);
+    const fallbackQuery = query(
+      collection(firestore, 'prediction_submissions'),
+      where('raceId', '==', normalizedRaceId)
+    );
+    predictionsSnapshot = await getDocs(fallbackQuery);
+  }
 
   console.log(`[Scoring] Found ${predictionsSnapshot.size} predictions`);
 
   const scores: { userId: string; totalPoints: number; breakdown: string }[] = [];
 
   predictionsSnapshot.forEach((predDoc) => {
-    const prediction = predDoc.data() as Prediction;
-    const userPredictions = prediction.predictions || [];
+    const data = predDoc.data();
 
-    // Extract userId from the document path (users/{userId}/predictions/{predId})
-    const pathParts = predDoc.ref.path.split('/');
-    const userId = pathParts[1]; // users/[userId]/predictions/...
+    // Handle both data structures:
+    // - users/{userId}/predictions: { predictions: [driverId1, driverId2, ...], userId: string }
+    // - prediction_submissions: { predictions: { P1: id, P2: id, ... }, userId: string }
+    let userPredictions: string[] = [];
+    let userId: string;
+
+    if (Array.isArray(data.predictions)) {
+      // Standard predictions collection format
+      userPredictions = data.predictions;
+      // Extract userId from path for subcollection, or use field
+      const pathParts = predDoc.ref.path.split('/');
+      userId = pathParts.length > 2 ? pathParts[1] : data.userId;
+    } else if (data.predictions && typeof data.predictions === 'object') {
+      // prediction_submissions format: { P1: id, P2: id, ... }
+      userPredictions = [
+        data.predictions.P1,
+        data.predictions.P2,
+        data.predictions.P3,
+        data.predictions.P4,
+        data.predictions.P5,
+        data.predictions.P6,
+      ].filter(Boolean);
+      userId = data.userId;
+    } else {
+      console.warn(`[Scoring] Unknown prediction format for doc ${predDoc.id}`);
+      return; // Skip this document
+    }
+
+    if (!userId) {
+      console.warn(`[Scoring] No userId found for prediction ${predDoc.id}`);
+      return;
+    }
 
     let correctCount = 0;
     const breakdownParts: string[] = [];
