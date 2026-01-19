@@ -53,8 +53,9 @@ export const getDriverImage = (driverId: string) => {
 
 export interface Race {
   name: string;
-  qualifyingTime: string; // UTC ISO string
-  raceTime: string; // UTC ISO string
+  qualifyingTime: string; // UTC ISO string - when predictions lock
+  sprintTime?: string; // UTC ISO string - sprint race time (only for sprint weekends)
+  raceTime: string; // UTC ISO string - main GP time
   location: string;
   hasSprint: boolean;
   results: (string | null)[];
@@ -63,23 +64,23 @@ export interface Race {
 export const RaceSchedule: Race[] = [
     // 2026 Official F1 Calendar (24 races)
     { name: "Australian Grand Prix", location: "Melbourne", raceTime: "2026-03-08T05:00:00Z", qualifyingTime: "2026-03-07T06:00:00Z", hasSprint: false, results: [] },
-    { name: "Chinese Grand Prix", location: "Shanghai", raceTime: "2026-03-15T07:00:00Z", qualifyingTime: "2026-03-13T07:00:00Z", hasSprint: true, results: [] },
+    { name: "Chinese Grand Prix", location: "Shanghai", raceTime: "2026-03-15T07:00:00Z", qualifyingTime: "2026-03-13T07:00:00Z", sprintTime: "2026-03-14T07:00:00Z", hasSprint: true, results: [] },
     { name: "Japanese Grand Prix", location: "Suzuka", raceTime: "2026-03-29T06:00:00Z", qualifyingTime: "2026-03-28T07:00:00Z", hasSprint: false, results: [] },
     { name: "Bahrain Grand Prix", location: "Sakhir", raceTime: "2026-04-12T15:00:00Z", qualifyingTime: "2026-04-11T16:00:00Z", hasSprint: false, results: [] },
     { name: "Saudi Arabian Grand Prix", location: "Jeddah", raceTime: "2026-04-19T17:00:00Z", qualifyingTime: "2026-04-18T17:00:00Z", hasSprint: false, results: [] },
-    { name: "Miami Grand Prix", location: "Miami", raceTime: "2026-05-03T20:00:00Z", qualifyingTime: "2026-05-01T21:00:00Z", hasSprint: true, results: [] },
-    { name: "Canadian Grand Prix", location: "Montreal", raceTime: "2026-05-24T18:00:00Z", qualifyingTime: "2026-05-22T20:00:00Z", hasSprint: true, results: [] },
+    { name: "Miami Grand Prix", location: "Miami", raceTime: "2026-05-03T20:00:00Z", qualifyingTime: "2026-05-01T21:00:00Z", sprintTime: "2026-05-02T20:00:00Z", hasSprint: true, results: [] },
+    { name: "Canadian Grand Prix", location: "Montreal", raceTime: "2026-05-24T18:00:00Z", qualifyingTime: "2026-05-22T20:00:00Z", sprintTime: "2026-05-23T18:00:00Z", hasSprint: true, results: [] },
     { name: "Monaco Grand Prix", location: "Monaco", raceTime: "2026-06-07T13:00:00Z", qualifyingTime: "2026-06-06T14:00:00Z", hasSprint: false, results: [] },
     { name: "Spanish Grand Prix", location: "Barcelona", raceTime: "2026-06-14T13:00:00Z", qualifyingTime: "2026-06-13T14:00:00Z", hasSprint: false, results: [] },
     { name: "Austrian Grand Prix", location: "Spielberg", raceTime: "2026-06-28T13:00:00Z", qualifyingTime: "2026-06-27T14:00:00Z", hasSprint: false, results: [] },
-    { name: "British Grand Prix", location: "Silverstone", raceTime: "2026-07-05T14:00:00Z", qualifyingTime: "2026-07-03T15:00:00Z", hasSprint: true, results: [] },
+    { name: "British Grand Prix", location: "Silverstone", raceTime: "2026-07-05T14:00:00Z", qualifyingTime: "2026-07-03T15:00:00Z", sprintTime: "2026-07-04T14:00:00Z", hasSprint: true, results: [] },
     { name: "Belgian Grand Prix", location: "Spa-Francorchamps", raceTime: "2026-07-19T13:00:00Z", qualifyingTime: "2026-07-18T14:00:00Z", hasSprint: false, results: [] },
     { name: "Hungarian Grand Prix", location: "Budapest", raceTime: "2026-07-26T13:00:00Z", qualifyingTime: "2026-07-25T14:00:00Z", hasSprint: false, results: [] },
-    { name: "Dutch Grand Prix", location: "Zandvoort", raceTime: "2026-08-23T13:00:00Z", qualifyingTime: "2026-08-21T14:00:00Z", hasSprint: true, results: [] },
+    { name: "Dutch Grand Prix", location: "Zandvoort", raceTime: "2026-08-23T13:00:00Z", qualifyingTime: "2026-08-21T14:00:00Z", sprintTime: "2026-08-22T13:00:00Z", hasSprint: true, results: [] },
     { name: "Italian Grand Prix", location: "Monza", raceTime: "2026-09-06T13:00:00Z", qualifyingTime: "2026-09-05T14:00:00Z", hasSprint: false, results: [] },
     { name: "Spanish Grand Prix II", location: "Madrid", raceTime: "2026-09-13T13:00:00Z", qualifyingTime: "2026-09-12T14:00:00Z", hasSprint: false, results: [] },
     { name: "Azerbaijan Grand Prix", location: "Baku", raceTime: "2026-09-26T11:00:00Z", qualifyingTime: "2026-09-25T12:00:00Z", hasSprint: false, results: [] },
-    { name: "Singapore Grand Prix", location: "Singapore", raceTime: "2026-10-11T12:00:00Z", qualifyingTime: "2026-10-09T13:00:00Z", hasSprint: true, results: [] },
+    { name: "Singapore Grand Prix", location: "Singapore", raceTime: "2026-10-11T12:00:00Z", qualifyingTime: "2026-10-09T13:00:00Z", sprintTime: "2026-10-10T12:00:00Z", hasSprint: true, results: [] },
     { name: "United States Grand Prix", location: "Austin", raceTime: "2026-10-25T19:00:00Z", qualifyingTime: "2026-10-24T20:00:00Z", hasSprint: false, results: [] },
     { name: "Mexican Grand Prix", location: "Mexico City", raceTime: "2026-11-01T20:00:00Z", qualifyingTime: "2026-10-31T21:00:00Z", hasSprint: false, results: [] },
     { name: "Brazilian Grand Prix", location: "Sao Paulo", raceTime: "2026-11-08T17:00:00Z", qualifyingTime: "2026-11-07T18:00:00Z", hasSprint: false, results: [] },
