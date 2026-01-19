@@ -172,13 +172,30 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       // Continue with signup if settings check fails
     }
 
-    // Check if email already exists in Firestore
     const usersRef = collection(firestore, "users");
-    const q = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
-    const querySnapshot = await getDocs(q);
 
-    if (!querySnapshot.empty) {
+    // Check if email already exists in Firestore
+    const emailQuery = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
+    const emailSnapshot = await getDocs(emailQuery);
+
+    if (!emailSnapshot.empty) {
       return { success: false, message: "A team with this email address already exists." };
+    }
+
+    // Check if team name already exists (case-insensitive)
+    const allUsersSnapshot = await getDocs(usersRef);
+    const normalizedNewName = teamName.toLowerCase().trim();
+    let teamNameExists = false;
+
+    allUsersSnapshot.forEach(doc => {
+      const existingName = doc.data().teamName?.toLowerCase().trim();
+      if (existingName === normalizedNewName) {
+        teamNameExists = true;
+      }
+    });
+
+    if (teamNameExists) {
+      return { success: false, message: "This team name is already taken. Please choose a unique name." };
     }
 
     // Use provided PIN or generate random one (for backward compatibility)
@@ -260,6 +277,29 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
      if (!user?.isAdmin) {
       return { success: false, message: "You do not have permission to perform this action." };
     }
+
+    // If team name is being changed, check for uniqueness
+    if (data.teamName) {
+      const usersRef = collection(firestore, "users");
+      const allUsersSnapshot = await getDocs(usersRef);
+      const normalizedNewName = data.teamName.toLowerCase().trim();
+      let teamNameExists = false;
+
+      allUsersSnapshot.forEach(docSnap => {
+        // Skip the user being updated
+        if (docSnap.id === userId) return;
+
+        const existingName = docSnap.data().teamName?.toLowerCase().trim();
+        if (existingName === normalizedNewName) {
+          teamNameExists = true;
+        }
+      });
+
+      if (teamNameExists) {
+        return { success: false, message: "This team name is already taken. Please choose a unique name." };
+      }
+    }
+
     try {
       const userDocRef = doc(firestore, 'users', userId);
       await updateDoc(userDocRef, data);
@@ -296,7 +336,26 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     if (!user) {
         return { success: false, message: "You must be logged in to add a team." };
     }
-    
+
+    // Check if team name already exists (case-insensitive)
+    const usersRef = collection(firestore, "users");
+    const allUsersSnapshot = await getDocs(usersRef);
+    const normalizedNewName = teamName.toLowerCase().trim();
+    let teamNameExists = false;
+
+    allUsersSnapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const existingName = data.teamName?.toLowerCase().trim();
+      const existingSecondary = data.secondaryTeamName?.toLowerCase().trim();
+      if (existingName === normalizedNewName || existingSecondary === normalizedNewName) {
+        teamNameExists = true;
+      }
+    });
+
+    if (teamNameExists) {
+      return { success: false, message: "This team name is already taken. Please choose a unique name." };
+    }
+
     const userDocRef = doc(firestore, 'users', user.id);
     await updateDoc(userDocRef, { secondaryTeamName: teamName });
     setUser(prev => prev ? { ...prev, secondaryTeamName: teamName } : null);
