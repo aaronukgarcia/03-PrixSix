@@ -282,15 +282,15 @@ export default function StandingsPage() {
     return standingsData;
   }, [allScores, completedRaceWeekends, selectedRaceIndex, userNames]);
 
-  // Calculate chart data for season progression
+  // Calculate chart data for season progression (only up to selected race)
   const chartData = useMemo(() => {
-    if (completedRaceWeekends.length === 0 || !userNames.size) return [];
+    if (completedRaceWeekends.length === 0 || !userNames.size || selectedRaceIndex < 0) return [];
 
     // Get all unique user IDs
     const userIds = new Set<string>();
     allScores.forEach(s => userIds.add(s.userId));
 
-    // Build data points: Start (0) + each race weekend
+    // Build data points: Start (0) + each race weekend up to selected
     const data: Record<string, any>[] = [];
 
     // Pre-season: everyone at 0
@@ -301,34 +301,68 @@ export default function StandingsPage() {
     });
     data.push(startPoint);
 
-    // Calculate cumulative totals after each race weekend
+    // Calculate cumulative totals after each race weekend (only up to selected)
     const cumulativeTotals = new Map<string, number>();
     userIds.forEach(userId => cumulativeTotals.set(userId, 0));
 
-    completedRaceWeekends.forEach((race, raceIndex) => {
-      // Add scores from this race weekend
-      allScores.forEach(score => {
-        if (
-          score.raceId === race.gpRaceId ||
-          score.raceId === race.baseRaceId ||
-          (race.sprintRaceId && score.raceId === race.sprintRaceId)
-        ) {
-          const current = cumulativeTotals.get(score.userId) || 0;
-          cumulativeTotals.set(score.userId, current + score.totalPoints);
-        }
-      });
+    // Only show races up to and including the selected race
+    const racesToShow = completedRaceWeekends.slice(0, selectedRaceIndex + 1);
 
-      // Create data point for this race
-      const racePoint: Record<string, any> = { race: `R${raceIndex + 1}` };
-      userIds.forEach(userId => {
-        const teamName = userNames.get(userId) || userId;
-        racePoint[teamName] = cumulativeTotals.get(userId) || 0;
-      });
-      data.push(racePoint);
+    racesToShow.forEach((race, raceIndex) => {
+      // For sprint weekends, add Sprint and GP as separate data points
+      if (race.hasSprint && race.hasSprintScores) {
+        // First: Add Sprint scores
+        allScores.forEach(score => {
+          if (race.sprintRaceId && score.raceId === race.sprintRaceId) {
+            const current = cumulativeTotals.get(score.userId) || 0;
+            cumulativeTotals.set(score.userId, current + score.totalPoints);
+          }
+        });
+
+        // Create data point after Sprint
+        const sprintPoint: Record<string, any> = { race: `R${raceIndex + 1}S` };
+        userIds.forEach(userId => {
+          const teamName = userNames.get(userId) || userId;
+          sprintPoint[teamName] = cumulativeTotals.get(userId) || 0;
+        });
+        data.push(sprintPoint);
+
+        // Second: Add GP scores
+        allScores.forEach(score => {
+          if (score.raceId === race.gpRaceId || score.raceId === race.baseRaceId) {
+            const current = cumulativeTotals.get(score.userId) || 0;
+            cumulativeTotals.set(score.userId, current + score.totalPoints);
+          }
+        });
+
+        // Create data point after GP
+        const gpPoint: Record<string, any> = { race: `R${raceIndex + 1}` };
+        userIds.forEach(userId => {
+          const teamName = userNames.get(userId) || userId;
+          gpPoint[teamName] = cumulativeTotals.get(userId) || 0;
+        });
+        data.push(gpPoint);
+      } else {
+        // Non-sprint weekend: just add GP scores
+        allScores.forEach(score => {
+          if (score.raceId === race.gpRaceId || score.raceId === race.baseRaceId) {
+            const current = cumulativeTotals.get(score.userId) || 0;
+            cumulativeTotals.set(score.userId, current + score.totalPoints);
+          }
+        });
+
+        // Create data point for this race
+        const racePoint: Record<string, any> = { race: `R${raceIndex + 1}` };
+        userIds.forEach(userId => {
+          const teamName = userNames.get(userId) || userId;
+          racePoint[teamName] = cumulativeTotals.get(userId) || 0;
+        });
+        data.push(racePoint);
+      }
     });
 
     return data;
-  }, [completedRaceWeekends, allScores, userNames]);
+  }, [completedRaceWeekends, allScores, userNames, selectedRaceIndex]);
 
   // Get team names for chart lines (sorted by final position)
   const chartTeams = useMemo(() => {
@@ -344,8 +378,12 @@ export default function StandingsPage() {
     return "hsl(0, 0%, 40%)";                       // Grey for others
   };
 
-  // Get max points for Y-axis
-  const maxPoints = standings.length > 0 ? standings[0].newOverall : 100;
+  // Get max points for Y-axis (based on selected race standings)
+  const maxPoints = useMemo(() => {
+    if (standings.length === 0) return 100;
+    // Add 10% buffer for better visualization
+    return Math.ceil(standings[0].newOverall * 1.1);
+  }, [standings]);
 
   // Pagination
   const totalItems = standings.length;
