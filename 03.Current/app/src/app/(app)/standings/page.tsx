@@ -448,7 +448,23 @@ export default function StandingsPage() {
                   </TableCell>
                   <TableCell className="font-semibold">{team.teamName}</TableCell>
                   <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
-                    {selectedRaceIndex > 0 ? team.oldOverall : '-'}
+                    {selectedRaceIndex > 0 ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs font-mono text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          // Navigate to previous race's GP results
+                          const prevRace = completedRaceWeekends[selectedRaceIndex - 1];
+                          if (prevRace) {
+                            navigateToResults(prevRace.gpRaceId);
+                          }
+                        }}
+                        title={`View ${completedRaceWeekends[selectedRaceIndex - 1]?.name} results`}
+                      >
+                        {team.oldOverall}
+                      </Button>
+                    ) : '-'}
                   </TableCell>
                   {showSprintColumn && (
                     <TableCell className="text-right">
