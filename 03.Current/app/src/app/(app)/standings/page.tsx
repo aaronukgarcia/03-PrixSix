@@ -337,15 +337,24 @@ export default function StandingsPage() {
                       key={race.baseRaceId}
                       variant={index === selectedRaceIndex ? "default" : "outline"}
                       size="sm"
-                      className="flex-shrink-0 text-xs px-2 py-1 h-7 gap-1"
+                      className={`flex-shrink-0 text-xs px-2 gap-1 ${
+                        race.hasSprint
+                          ? "h-10 py-2 flex-col"
+                          : "h-7 py-1"
+                      }`}
                       onClick={() => {
                         setSelectedRaceIndex(index);
                         setDisplayCount(PAGE_SIZE);
                       }}
                       title={race.name}
                     >
-                      R{index + 1}
-                      {race.hasSprint && <Zap className="h-3 w-3" />}
+                      <span>R{index + 1}</span>
+                      {race.hasSprint && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-amber-500">
+                          <Zap className="h-2.5 w-2.5" />
+                          Sprint
+                        </span>
+                      )}
                     </Button>
                   ))}
                 </div>
