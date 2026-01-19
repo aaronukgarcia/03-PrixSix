@@ -6,7 +6,8 @@ import { DashboardClient } from "./_components/DashboardClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
-export const revalidate = 3600; // Revalidate every hour
+// Force dynamic rendering to avoid build-time Firestore access
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
     const { newsFeed, lastUpdated } = await getHotNewsFeed();
