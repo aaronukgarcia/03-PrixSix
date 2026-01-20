@@ -48,6 +48,7 @@ export interface PredictionData {
   id: string;
   userId?: string;
   teamId?: string;
+  oduserId?: string;  // Used by prediction_submissions
   teamName?: string;
   raceId?: string;
   predictions?: string[] | Record<string, string>;

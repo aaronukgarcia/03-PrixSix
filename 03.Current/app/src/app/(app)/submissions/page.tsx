@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { collection, query, orderBy, where, limit, startAfter, getDocs, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileCheck, CalendarClock, ChevronDown, Loader2 } from "lucide-react";
+import { FileCheck, CalendarClock, ChevronDown, Loader2, ArrowUpDown, Clock, Users } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { RaceSchedule, findNextRace } from "@/lib/data";
 import { Progress } from "@/components/ui/progress";
@@ -41,12 +41,17 @@ interface SubmissionDisplay {
 
 const PAGE_SIZE = 25;
 
+type SortField = "submittedAt" | "teamName";
+
 export default function SubmissionsPage() {
   const firestore = useFirestore();
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
   const [selectedRace, setSelectedRace] = useState(nextRace.name);
   const selectedRaceId = selectedRace.replace(/\s+/g, '-');
+
+  // Sort state - default to date/time (most recent first)
+  const [sortField, setSortField] = useState<SortField>("submittedAt");
 
   // Pagination state
   const [submissions, setSubmissions] = useState<SubmissionDisplay[]>([]);
@@ -111,11 +116,14 @@ export default function SubmissionsPage() {
     }
 
     try {
+      // Determine sort direction: descending for date (newest first), ascending for team name
+      const sortDirection = sortField === "submittedAt" ? "desc" : "asc";
+
       // Query submissions for selected race only
       let submissionsQuery = query(
         collection(firestore, "prediction_submissions"),
         where("raceId", "==", selectedRaceId),
-        orderBy("teamName"),
+        orderBy(sortField, sortDirection),
         limit(PAGE_SIZE)
       );
 
@@ -123,7 +131,7 @@ export default function SubmissionsPage() {
         submissionsQuery = query(
           collection(firestore, "prediction_submissions"),
           where("raceId", "==", selectedRaceId),
-          orderBy("teamName"),
+          orderBy(sortField, sortDirection),
           startAfter(lastDoc),
           limit(PAGE_SIZE)
         );
@@ -168,12 +176,12 @@ export default function SubmissionsPage() {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [firestore, selectedRaceId, lastDoc]);
+  }, [firestore, selectedRaceId, lastDoc, sortField]);
 
-  // Initial load and race change
+  // Initial load and race/sort change
   useEffect(() => {
     fetchSubmissions(false);
-  }, [firestore, selectedRaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [firestore, selectedRaceId, sortField]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMore = () => {
     fetchSubmissions(true);
@@ -206,18 +214,40 @@ export default function SubmissionsPage() {
                 <LastUpdated timestamp={lastUpdated} />
               </CardDescription>
             </div>
-            <Select value={selectedRace} onValueChange={setSelectedRace}>
-              <SelectTrigger className="w-full sm:w-[220px]">
-                <SelectValue placeholder="Select a race" />
-              </SelectTrigger>
-              <SelectContent>
-                {races.map((race) => (
-                  <SelectItem key={race} value={race}>
-                    {race}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Select value={selectedRace} onValueChange={setSelectedRace}>
+                <SelectTrigger className="w-full sm:w-[220px]">
+                  <SelectValue placeholder="Select a race" />
+                </SelectTrigger>
+                <SelectContent>
+                  {races.map((race) => (
+                    <SelectItem key={race} value={race}>
+                      {race}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-1">
+                <Button
+                  variant={sortField === "submittedAt" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => setSortField("submittedAt")}
+                >
+                  <Clock className="h-3 w-3" />
+                  Date
+                </Button>
+                <Button
+                  variant={sortField === "teamName" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => setSortField("teamName")}
+                >
+                  <Users className="h-3 w-3" />
+                  Team
+                </Button>
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -235,9 +265,25 @@ export default function SubmissionsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Team</TableHead>
+                <TableHead
+                  className={`cursor-pointer hover:bg-muted/50 ${sortField === "teamName" ? "text-foreground" : ""}`}
+                  onClick={() => setSortField("teamName")}
+                >
+                  <span className="flex items-center gap-1">
+                    Team
+                    {sortField === "teamName" && <ArrowUpDown className="h-3 w-3" />}
+                  </span>
+                </TableHead>
                 <TableHead>Prediction (P1-P6)</TableHead>
-                <TableHead>Submitted At</TableHead>
+                <TableHead
+                  className={`cursor-pointer hover:bg-muted/50 ${sortField === "submittedAt" ? "text-foreground" : ""}`}
+                  onClick={() => setSortField("submittedAt")}
+                >
+                  <span className="flex items-center gap-1">
+                    Submitted At
+                    {sortField === "submittedAt" && <ArrowUpDown className="h-3 w-3" />}
+                  </span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
