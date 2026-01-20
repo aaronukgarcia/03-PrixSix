@@ -68,3 +68,9 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 app/email/
+
+# WhatsApp Session Data (CRITICAL)
+whatsapp-worker/.wwebjs_auth
+whatsapp-worker/.wwebjs_cache
+.wwebjs_auth
+.wwebjs_cache

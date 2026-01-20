@@ -25,7 +25,10 @@ export function initializeFirebase(): void {
     });
   } else {
     // Local development - use service account file
-    const serviceAccountPath = path.join(__dirname, '..', 'service-account.json');
+    // Use process.cwd() for reliable path resolution with ts-node
+    const serviceAccountPath = path.join(process.cwd(), 'service-account.json');
+    console.log(`📁 Loading service account from: ${serviceAccountPath}`);
+
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const serviceAccount = require(serviceAccountPath);
     admin.initializeApp({

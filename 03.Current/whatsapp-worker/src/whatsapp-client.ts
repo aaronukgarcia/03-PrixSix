@@ -1,19 +1,29 @@
 import { Client, LocalAuth, Message } from 'whatsapp-web.js';
 import * as qrcode from 'qrcode-terminal';
 import { FirebaseSessionStore } from './firebase-store';
+import * as path from 'path';
 
-// Puppeteer args for containerized environments
-const PUPPETEER_ARGS = [
+// Detect if running on Windows
+const isWindows = process.platform === 'win32';
+
+// Puppeteer args - fewer restrictions needed on Windows
+const PUPPETEER_ARGS_DOCKER = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
   '--disable-accelerated-2d-canvas',
   '--no-first-run',
   '--no-zygote',
-  '--single-process', // Important for containers
+  '--single-process',
   '--disable-gpu',
   '--disable-extensions',
   '--disable-software-rasterizer',
+];
+
+const PUPPETEER_ARGS_WINDOWS = [
+  '--disable-gpu',
+  '--disable-extensions',
+  '--no-first-run',
 ];
 
 export class WhatsAppClient {
@@ -25,16 +35,31 @@ export class WhatsAppClient {
   constructor() {
     this.sessionStore = new FirebaseSessionStore();
 
+    // Configure based on platform
+    const authDataPath = isWindows
+      ? path.join(process.cwd(), '.wwebjs_auth')
+      : '/tmp/.wwebjs_auth';
+
+    const puppeteerConfig: any = {
+      headless: true,
+      args: isWindows ? PUPPETEER_ARGS_WINDOWS : PUPPETEER_ARGS_DOCKER,
+    };
+
+    // Only set executablePath on Linux/Docker - let Puppeteer find Chrome on Windows
+    if (!isWindows && process.env.PUPPETEER_EXECUTABLE_PATH) {
+      puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    } else if (!isWindows) {
+      puppeteerConfig.executablePath = '/usr/bin/chromium';
+    }
+
+    console.log(`🖥️ Platform: ${process.platform}, Auth path: ${authDataPath}`);
+
     this.client = new Client({
       authStrategy: new LocalAuth({
         clientId: 'prixsix-whatsapp',
-        dataPath: '/tmp/.wwebjs_auth', // Use /tmp for ephemeral storage
+        dataPath: authDataPath,
       }),
-      puppeteer: {
-        headless: true,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
-        args: PUPPETEER_ARGS,
-      },
+      puppeteer: puppeteerConfig,
     });
 
     this.setupEventHandlers();
@@ -138,11 +163,16 @@ export class WhatsAppClient {
 
       if (!group) {
         console.error(`❌ Group "${groupName}" not found`);
+        // List available groups for debugging
+        const groups = chats.filter(c => c.isGroup).map(c => c.name);
+        console.log(`📋 Available groups: ${groups.join(', ')}`);
         return false;
       }
 
-      await group.sendMessage(message);
-      console.log(`✅ Message sent to group "${group.name}"`);
+      // Use client.sendMessage with chat ID and disable sendSeen to avoid markedUnread error
+      const chatId = group.id._serialized;
+      await this.client.sendMessage(chatId, message, { sendSeen: false });
+      console.log(`✅ Message sent to group "${group.name}" (${chatId})`);
       return true;
     } catch (error) {
       console.error(`❌ Failed to send message to group "${groupName}":`, error);

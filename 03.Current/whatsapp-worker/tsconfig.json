@@ -6,11 +6,13 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
+    "noImplicitAny": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true
+    "declaration": true,
+    "typeRoots": ["./node_modules/@types", "./src"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

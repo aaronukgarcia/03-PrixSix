@@ -5,3 +5,9 @@ dist/
 .wwebjs_auth/
 .wwebjs_cache/
 service-account.json
+
+# WhatsApp Session Data (CRITICAL)
+whatsapp-worker/.wwebjs_auth
+whatsapp-worker/.wwebjs_cache
+.wwebjs_auth
+.wwebjs_cache
