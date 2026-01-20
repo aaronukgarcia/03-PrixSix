@@ -390,16 +390,32 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     // This is a simulation for the demo.
     await updateDoc(userDocRef, { mustChangePin: true });
 
-    const mailHtml = `Hello,<br><br>A PIN reset was requested for your account. Your temporary PIN is: <strong>${newPin}</strong><br><br>You will be required to change this PIN after logging in. If you did not request this, please contact support.`;
-    const mailSubject = "Your Prix Six PIN has been reset";
-    addDocumentNonBlocking(collection(firestore, 'mail'), {
-        to: email, message: { subject: mailSubject, html: mailHtml }
-    });
-    addDocumentNonBlocking(collection(firestore, 'email_logs'), {
-        to: email, subject: mailSubject, html: mailHtml, pin: newPin, status: 'queued', timestamp: serverTimestamp()
-    });
-    logAuditEvent(firestore, querySnapshot.docs[0].id, 'reset_pin_email_queued', { email });
-    return { success: true, message: "A temporary PIN has been sent." };
+    // Send PIN reset email via API (properly tracked)
+    try {
+      const response = await fetch('/api/send-pin-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: email,
+          pin: newPin,
+          type: 'reset'
+        })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        logAuditEvent(firestore, querySnapshot.docs[0].id, 'reset_pin_email_sent', { email, emailGuid: result.emailGuid });
+        return { success: true, message: "A temporary PIN has been sent." };
+      } else {
+        logAuditEvent(firestore, querySnapshot.docs[0].id, 'reset_pin_email_failed', { email, error: result.error });
+        // Still return success for security - don't reveal if email failed
+        return { success: true, message: "If this email exists, a temporary PIN has been sent." };
+      }
+    } catch (emailError: any) {
+      console.error('PIN reset email error:', emailError);
+      logAuditEvent(firestore, querySnapshot.docs[0].id, 'reset_pin_email_error', { email, error: emailError.message });
+      return { success: true, message: "If this email exists, a temporary PIN has been sent." };
+    }
   };
 
   const changePin = async (email: string, newPin: string): Promise<AuthResult> => {
@@ -411,16 +427,29 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         const userDocRef = doc(firestore, 'users', firebaseUser.uid);
         await updateDoc(userDocRef, { mustChangePin: false });
 
-        const mailHtml = `Hello ${user?.teamName},<br><br>Your PIN for Prix Six was just changed. If you did not make this change, please contact support immediately.`;
-        const mailSubject = "Your Prix Six PIN Has Changed";
-        addDocumentNonBlocking(collection(firestore, 'mail'), {
-            to: email, message: { subject: mailSubject, html: mailHtml }
-        });
-        addDocumentNonBlocking(collection(firestore, 'email_logs'), {
-            to: email, subject: mailSubject, html: mailHtml, pin: "N/A", status: 'queued', timestamp: serverTimestamp()
-        });
+        // Send PIN changed notification via API (properly tracked)
+        try {
+          const response = await fetch('/api/send-pin-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: email,
+              teamName: user?.teamName,
+              type: 'changed'
+            })
+          });
+          const result = await response.json();
 
-        logAuditEvent(firestore, firebaseUser.uid, 'pin_changed_email_queued', { email });
+          if (result.success) {
+            logAuditEvent(firestore, firebaseUser.uid, 'pin_changed_email_sent', { email, emailGuid: result.emailGuid });
+          } else {
+            logAuditEvent(firestore, firebaseUser.uid, 'pin_changed_email_failed', { email, error: result.error });
+          }
+        } catch (emailError: any) {
+          console.error('PIN changed email error:', emailError);
+          logAuditEvent(firestore, firebaseUser.uid, 'pin_changed_email_error', { email, error: emailError.message });
+        }
+
         logAuditEvent(firestore, firebaseUser.uid, 'pin_changed', {});
 
         await logout();

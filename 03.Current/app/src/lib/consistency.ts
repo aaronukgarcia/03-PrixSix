@@ -529,12 +529,12 @@ export function checkPredictions(
   const submissionMap = new Map<string, PredictionData>();
 
   for (const pred of predictions) {
-    const key = `${pred.userId || pred.oduserId || pred.teamId}_${pred.raceId}`;
+    const key = `${pred.userId || pred.oduserId || pred.teamId}_${normalizeRaceId(pred.raceId || '')}`;
     predictionMap.set(key, pred);
   }
 
   for (const sub of predictionSubmissions) {
-    const key = `${sub.userId}_${sub.raceId}`;
+    const key = `${sub.userId}_${normalizeRaceId(sub.raceId || '')}`;
     submissionMap.set(key, sub);
   }
 
@@ -572,13 +572,13 @@ export function checkPredictions(
         message: 'Missing raceId',
       });
       isValid = false;
-    } else if (!validRaceIds.has(pred.raceId)) {
+    } else if (!validRaceIds.has(normalizeRaceId(pred.raceId))) {
       issues.push({
         severity: 'warning',
         entity: entityName,
         field: 'raceId',
         message: `Unknown raceId: ${pred.raceId}`,
-        details: { raceId: pred.raceId },
+        details: { raceId: pred.raceId, normalized: normalizeRaceId(pred.raceId) },
       });
     }
 
@@ -969,10 +969,9 @@ export function checkScores(
       // Normalize raceId to match prediction format (remove -GP or -Sprint suffix)
       const normalizedScoreRaceId = normalizeRaceId(score.raceId);
 
-      // Try multiple key formats to find the prediction
+      // Try to find the prediction (map uses normalized raceId keys)
       const predKey = `${normalizedScoreRaceId}_${score.userId}`;
-      const predKeyAlt = `${score.raceId}_${score.userId}`;
-      const prediction = predictionMap.get(predKey) || predictionMap.get(predKeyAlt);
+      const prediction = predictionMap.get(predKey);
       const raceResult = resultsMap.get(score.raceId) || resultsMap.get(score.raceId.toLowerCase()) || resultsMap.get(normalizedScoreRaceId);
 
       if (prediction && raceResult) {
