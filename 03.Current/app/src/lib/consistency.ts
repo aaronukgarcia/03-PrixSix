@@ -823,11 +823,6 @@ export function checkScores(
     if (r.id) resultsRaceIds.add(normalizeRaceId(r.id));
   }
 
-  // DEBUG: Log what we have
-  console.log('[CC DEBUG] resultsRaceIds:', Array.from(resultsRaceIds).slice(0, 5));
-  console.log('[CC DEBUG] predictions count:', predictions.length);
-  console.log('[CC DEBUG] sample prediction:', predictions[0]);
-
   let validCount = 0;
 
   // Build prediction map (normalize raceId to lowercase for consistent lookups)
