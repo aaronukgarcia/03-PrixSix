@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { logAuditEvent } from "@/lib/audit";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -122,15 +123,26 @@ export default function ProfilePage() {
     if (!firebaseUser || !firestore) return;
 
     try {
+      const newPreferences = {
+        rankingChanges: data.rankingChanges ?? true,
+        raceReminders: data.raceReminders ?? true,
+        newsFeed: data.newsFeed ?? false,
+        resultsNotifications: data.resultsNotifications ?? true,
+      };
+
       const userRef = doc(firestore, "users", firebaseUser.uid);
       await updateDoc(userRef, {
-        emailPreferences: {
-          rankingChanges: data.rankingChanges ?? true,
-          raceReminders: data.raceReminders ?? true,
-          newsFeed: data.newsFeed ?? false,
-          resultsNotifications: data.resultsNotifications ?? true,
-        },
+        emailPreferences: newPreferences,
       });
+
+      // Audit log the preference update
+      await logAuditEvent(firestore, firebaseUser.uid, 'UPDATE_EMAIL_PREFERENCES', {
+        email: user?.email,
+        teamName: user?.teamName,
+        preferences: newPreferences,
+        isAdmin: user?.isAdmin || false,
+      });
+
       toast({
         title: "Preferences Updated",
         description: "Your notification settings have been saved.",

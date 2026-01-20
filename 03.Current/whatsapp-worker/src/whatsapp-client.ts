@@ -1,10 +1,13 @@
-import { Client, LocalAuth, Message } from 'whatsapp-web.js';
+import { Client, LocalAuth, RemoteAuth, Message } from 'whatsapp-web.js';
 import * as qrcode from 'qrcode-terminal';
-import { FirebaseSessionStore } from './firebase-store';
+import { AzureBlobStore } from './azure-store';
 import * as path from 'path';
 
-// Detect if running on Windows
+// Detect if running on Windows (local dev) vs Linux (Azure container)
 const isWindows = process.platform === 'win32';
+
+// Use Azure Blob Storage in production (when connection string is set)
+const useAzureStorage = !!process.env.AZURE_STORAGE_CONNECTION_STRING;
 
 // Puppeteer args - fewer restrictions needed on Windows
 const PUPPETEER_ARGS_DOCKER = [
@@ -29,16 +32,17 @@ const PUPPETEER_ARGS_WINDOWS = [
 export class WhatsAppClient {
   private client: Client;
   private isReady: boolean = false;
-  private sessionStore: FirebaseSessionStore;
+  private azureStore: AzureBlobStore | null = null;
   private qrCodeData: string | null = null;
 
   constructor() {
-    this.sessionStore = new FirebaseSessionStore();
-
     // Configure based on platform
     const authDataPath = isWindows
       ? path.join(process.cwd(), '.wwebjs_auth')
       : '/tmp/.wwebjs_auth';
+
+    // Set env var for azure store to find the zip files
+    process.env.REMOTE_AUTH_DATA_PATH = authDataPath;
 
     const puppeteerConfig: any = {
       headless: true,
@@ -52,13 +56,34 @@ export class WhatsAppClient {
       puppeteerConfig.executablePath = '/usr/bin/chromium';
     }
 
-    console.log(`🖥️ Platform: ${process.platform}, Auth path: ${authDataPath}`);
+    console.log(`🖥️ Platform: ${process.platform}`);
+    console.log(`💾 Storage: ${useAzureStorage ? 'Azure Blob Storage' : 'Local filesystem'}`);
+    console.log(`📁 Auth path: ${authDataPath}`);
 
-    this.client = new Client({
-      authStrategy: new LocalAuth({
+    // Choose auth strategy based on environment
+    let authStrategy;
+
+    if (useAzureStorage) {
+      // Production: Use RemoteAuth with Azure Blob Storage
+      this.azureStore = new AzureBlobStore('prixsix-whatsapp');
+      authStrategy = new RemoteAuth({
         clientId: 'prixsix-whatsapp',
         dataPath: authDataPath,
-      }),
+        store: this.azureStore,
+        backupSyncIntervalMs: 300000, // Sync every 5 minutes
+      });
+      console.log('🔐 Using RemoteAuth with Azure Blob Storage');
+    } else {
+      // Local development: Use LocalAuth
+      authStrategy = new LocalAuth({
+        clientId: 'prixsix-whatsapp',
+        dataPath: authDataPath,
+      });
+      console.log('🔐 Using LocalAuth (local development)');
+    }
+
+    this.client = new Client({
+      authStrategy,
       puppeteer: puppeteerConfig,
     });
 
@@ -102,6 +127,11 @@ export class WhatsAppClient {
       this.isReady = false;
     });
 
+    // Remote session saved (Azure backup)
+    this.client.on('remote_session_saved', () => {
+      console.log('☁️ Session backed up to Azure Blob Storage');
+    });
+
     // Disconnection handling
     this.client.on('disconnected', async (reason: string) => {
       console.log('⚠️ WhatsApp disconnected:', reason);
@@ -122,6 +152,16 @@ export class WhatsAppClient {
 
   async initialize(): Promise<void> {
     console.log('🚀 Initializing WhatsApp client...');
+
+    // Ensure Azure container exists if using Azure storage
+    if (this.azureStore) {
+      try {
+        await this.azureStore.ensureContainer();
+      } catch (error) {
+        console.error('⚠️ Failed to ensure Azure container (continuing anyway):', error);
+      }
+    }
+
     try {
       await this.client.initialize();
     } catch (error) {
@@ -180,10 +220,11 @@ export class WhatsAppClient {
     }
   }
 
-  getStatus(): { ready: boolean; qrCode: string | null } {
+  getStatus(): { ready: boolean; qrCode: string | null; storage: string } {
     return {
       ready: this.isReady,
       qrCode: this.qrCodeData,
+      storage: useAzureStorage ? 'azure' : 'local',
     };
   }
 

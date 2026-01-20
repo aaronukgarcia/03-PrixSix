@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useAuth } from "@/firebase";
 import {
   Card,
   CardContent,
@@ -15,17 +15,20 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { HotNewsSettings, updateHotNewsContent, getHotNewsSettings } from "@/firebase/firestore/settings";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, Mail } from "lucide-react";
 import { hotNewsFeedFlow } from "@/ai/flows/hot-news-feed";
 import { serverTimestamp } from "firebase/firestore";
+import { logAuditEvent } from "@/lib/audit";
 
 export function HotNewsManager() {
   const firestore = useFirestore();
-  
+  const { user, firebaseUser } = useAuth();
+
   const [settings, setSettings] = useState<HotNewsSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -34,6 +37,8 @@ export function HotNewsManager() {
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [sendEmails, setSendEmails] = useState(false);
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
 
   const { toast } = useToast();
 
@@ -59,7 +64,7 @@ export function HotNewsManager() {
 
 
   const handleSave = async () => {
-    if (!firestore) return;
+    if (!firestore || !firebaseUser) return;
     setIsSaving(true);
     try {
       // Save the manual edits, enabled toggle, and update the timestamp
@@ -68,10 +73,60 @@ export function HotNewsManager() {
         hotNewsFeedEnabled,
         lastUpdated: serverTimestamp() as any // Update timestamp on every save
       });
+
+      // Audit log the update
+      await logAuditEvent(firestore, firebaseUser.uid, 'UPDATE_HOT_NEWS', {
+        email: user?.email,
+        teamName: user?.teamName,
+        contentPreview: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+        contentLength: content.length,
+        hotNewsFeedEnabled,
+      });
+
       toast({
         title: "Success",
         description: "Hot News settings have been updated.",
       });
+
+      // Send emails to subscribers if checkbox was checked
+      if (sendEmails) {
+        setIsSendingEmails(true);
+        try {
+          const response = await fetch('/api/send-hot-news-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content,
+              updatedBy: firebaseUser.uid,
+              updatedByEmail: user?.email,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            toast({
+              title: "Emails Sent",
+              description: result.message,
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Email Error",
+              description: result.error || "Failed to send emails",
+            });
+          }
+        } catch (emailError: any) {
+          toast({
+            variant: "destructive",
+            title: "Email Error",
+            description: emailError.message,
+          });
+        } finally {
+          setIsSendingEmails(false);
+          setSendEmails(false); // Reset checkbox
+        }
+      }
     } catch (e: any) {
       toast({
         variant: "destructive",
@@ -84,16 +139,26 @@ export function HotNewsManager() {
   };
 
   const handleRefresh = async () => {
-    if (!firestore) return;
+    if (!firestore || !firebaseUser) return;
     setIsRefreshing(true);
     try {
       const output = await hotNewsFeedFlow();
       if (output?.newsFeed) {
         setContent(output.newsFeed);
-        await updateHotNewsContent(firestore, { 
-            content: output.newsFeed, 
+        await updateHotNewsContent(firestore, {
+            content: output.newsFeed,
             lastUpdated: serverTimestamp() as any // Cast because SDK types differ
         });
+
+        // Audit log the AI refresh
+        await logAuditEvent(firestore, firebaseUser.uid, 'REFRESH_HOT_NEWS_AI', {
+          email: user?.email,
+          teamName: user?.teamName,
+          contentPreview: output.newsFeed.substring(0, 200) + (output.newsFeed.length > 200 ? '...' : ''),
+          contentLength: output.newsFeed.length,
+          source: 'ai_generated',
+        });
+
         toast({
           title: "News Refreshed",
           description: "Latest content has been fetched and updated.",
@@ -183,14 +248,31 @@ export function HotNewsManager() {
           </p>
         </div>
       </CardContent>
-      <CardFooter className="gap-2">
-        <Button onClick={handleSave} disabled={isSaving || isRefreshing}>
-          {isSaving ? "Saving..." : "Save Settings"}
-        </Button>
-         <Button onClick={handleRefresh} variant="outline" disabled={isSaving || isRefreshing}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? "Refreshing..." : "Refresh Now"}
-        </Button>
+      <CardFooter className="flex-col items-start gap-4">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="send-emails"
+            checked={sendEmails}
+            onCheckedChange={(checked) => setSendEmails(checked === true)}
+            disabled={isSaving || isRefreshing || isSendingEmails}
+          />
+          <label
+            htmlFor="send-emails"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
+          >
+            <Mail className="h-4 w-4" />
+            Send email to all subscribed users
+          </label>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={isSaving || isRefreshing || isSendingEmails}>
+            {isSaving ? "Saving..." : isSendingEmails ? "Sending Emails..." : "Save Settings"}
+          </Button>
+          <Button onClick={handleRefresh} variant="outline" disabled={isSaving || isRefreshing || isSendingEmails}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? "Refreshing..." : "Refresh Now"}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

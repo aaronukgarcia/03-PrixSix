@@ -73,18 +73,26 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Email tracking collections
+    // Email tracking collections - server-side only (Admin SDK bypasses rules)
     match /email_daily_stats/{dateId} {
-      allow read, write: if true; // Server-side only, but allow for API routes
+      allow read: if isAdmin();
+      allow write: if false; // Server-side only via Admin SDK
     }
 
     match /email_queue/{emailId} {
-      allow read, write: if true; // Server-side only
+      allow read: if isAdmin();
+      allow write: if false; // Server-side only via Admin SDK
+    }
+
+    // WhatsApp message queue - server-side only (Admin SDK bypasses rules)
+    match /whatsapp_queue/{messageId} {
+      allow read: if isAdmin();
+      allow write: if false; // Server-side only via Admin SDK
     }
 
     match /email_logs/{logId} {
       allow get, list: if isAdmin();
-      allow create: if true;
+      allow create: if false; // Server-side only via Admin SDK
       allow update, delete: if false;
     }
 
@@ -102,14 +110,14 @@ service cloud.firestore {
     }
 
     match /mail/{mailId} {
-      allow create: if true;
+      allow create: if false; // Server-side only via Admin SDK
       allow read, update, delete: if false;
     }
 
     // Error logs - server-side creates, admin reads
     match /error_logs/{logId} {
       allow get, list: if isAdmin();
-      allow create: if true; // Server-side API routes
+      allow create: if isSignedIn(); // Allow signed-in users for client-side error logging
       allow update, delete: if false;
     }
   }
