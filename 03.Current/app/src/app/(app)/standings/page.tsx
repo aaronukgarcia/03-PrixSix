@@ -71,6 +71,11 @@ interface RaceWeekend {
 
 const PAGE_SIZE = 25;
 
+// Helper for case-insensitive raceId matching
+const matchesRaceId = (scoreRaceId: string, targetRaceId: string): boolean => {
+  return scoreRaceId.toLowerCase() === targetRaceId.toLowerCase();
+};
+
 export default function StandingsPage() {
   const firestore = useFirestore();
   const router = useRouter();
@@ -97,40 +102,91 @@ export default function StandingsPage() {
         const scores: ScoreData[] = [];
         const raceIdsWithScores = new Set<string>();
 
+        // Store all raceIds in lowercase for case-insensitive matching
+        const raceIdsLowercase = new Set<string>();
+
         scoresSnapshot.forEach((doc) => {
           const data = doc.data();
           const userId = data.oduserId || data.userId;
+          const raceId = data.raceId || '';
           scores.push({
             userId,
-            raceId: data.raceId,
+            raceId,
             totalPoints: data.totalPoints || 0,
           });
-          raceIdsWithScores.add(data.raceId);
+          raceIdsWithScores.add(raceId);
+          raceIdsLowercase.add(raceId.toLowerCase());
         });
 
         setAllScores(scores);
+
+        // Helper to check if a raceId exists (case-insensitive)
+        const hasScoresFor = (raceId: string): boolean => {
+          return raceIdsWithScores.has(raceId) || raceIdsLowercase.has(raceId.toLowerCase());
+        };
 
         // Determine completed race weekends (races that have at least GP scores)
         const completed: RaceWeekend[] = [];
         RaceSchedule.forEach((race, index) => {
           const baseRaceId = race.name.replace(/\s+/g, '-');
+          const baseRaceIdLower = baseRaceId.toLowerCase();
           const sprintRaceId = race.hasSprint ? `${baseRaceId}-Sprint` : null;
           const gpRaceId = `${baseRaceId}-GP`;
 
-          // Check if we have scores for this race weekend
-          // A race weekend is "completed" if it has GP scores
-          const hasGpScores = raceIdsWithScores.has(gpRaceId);
-          const hasSprintScores = sprintRaceId ? raceIdsWithScores.has(sprintRaceId) : false;
+          // Check if we have scores for this race weekend (case-insensitive)
+          // A race weekend is "completed" if it has GP scores or legacy scores
+          const hasGpScores = hasScoresFor(gpRaceId);
+          const hasSprintScores = sprintRaceId ? hasScoresFor(sprintRaceId) : false;
 
           // Also check for legacy format (without -GP suffix)
-          const hasLegacyScores = raceIdsWithScores.has(baseRaceId);
+          const hasLegacyScores = hasScoresFor(baseRaceId);
 
           if (hasGpScores || hasLegacyScores) {
+            // Determine the actual raceId format used in the scores
+            let actualGpRaceId = baseRaceId;
+            if (raceIdsWithScores.has(gpRaceId)) {
+              actualGpRaceId = gpRaceId;
+            } else if (raceIdsWithScores.has(baseRaceId)) {
+              actualGpRaceId = baseRaceId;
+            } else if (raceIdsLowercase.has(gpRaceId.toLowerCase())) {
+              // Find the actual cased version in the scores
+              for (const id of raceIdsWithScores) {
+                if (id.toLowerCase() === gpRaceId.toLowerCase()) {
+                  actualGpRaceId = id;
+                  break;
+                }
+              }
+            } else if (raceIdsLowercase.has(baseRaceIdLower)) {
+              // Find the actual cased version in the scores
+              for (const id of raceIdsWithScores) {
+                if (id.toLowerCase() === baseRaceIdLower) {
+                  actualGpRaceId = id;
+                  break;
+                }
+              }
+            }
+
+            // Determine actual sprint raceId if applicable
+            let actualSprintRaceId: string | null = null;
+            if (sprintRaceId && hasSprintScores) {
+              if (raceIdsWithScores.has(sprintRaceId)) {
+                actualSprintRaceId = sprintRaceId;
+              } else {
+                // Find the actual cased version
+                for (const id of raceIdsWithScores) {
+                  if (id.toLowerCase() === sprintRaceId.toLowerCase()) {
+                    actualSprintRaceId = id;
+                    break;
+                  }
+                }
+              }
+            }
+
             completed.push({
               name: race.name,
               baseRaceId,
-              sprintRaceId,
-              gpRaceId: hasGpScores ? gpRaceId : baseRaceId, // Use legacy if no GP suffix
+              sprintRaceId: actualSprintRaceId || sprintRaceId,
+              gpRaceId: actualGpRaceId,
               hasSprint: race.hasSprint,
               index,
               hasSprintScores,
@@ -181,26 +237,18 @@ export default function StandingsPage() {
 
     const selectedRace = completedRaceWeekends[selectedRaceIndex];
 
-    // Build set of all event IDs up to and including selected race weekend
+    // Build set of all event IDs up to and including selected race weekend (lowercase for matching)
     const allPriorEventIds = new Set<string>();
-    const currentWeekendEventIds = new Set<string>();
 
     // Add all events from previous race weekends
     completedRaceWeekends.slice(0, selectedRaceIndex).forEach(race => {
       if (race.sprintRaceId && race.hasSprintScores) {
-        allPriorEventIds.add(race.sprintRaceId);
+        allPriorEventIds.add(race.sprintRaceId.toLowerCase());
       }
-      allPriorEventIds.add(race.gpRaceId);
+      allPriorEventIds.add(race.gpRaceId.toLowerCase());
       // Also add legacy format
-      allPriorEventIds.add(race.baseRaceId);
+      allPriorEventIds.add(race.baseRaceId.toLowerCase());
     });
-
-    // Add current weekend events
-    if (selectedRace.sprintRaceId && selectedRace.hasSprintScores) {
-      currentWeekendEventIds.add(selectedRace.sprintRaceId);
-    }
-    currentWeekendEventIds.add(selectedRace.gpRaceId);
-    currentWeekendEventIds.add(selectedRace.baseRaceId); // Legacy format
 
     // Calculate totals for each user
     const userTotals = new Map<string, {
@@ -218,18 +266,20 @@ export default function StandingsPage() {
         newOverall: 0,
       };
 
+      const scoreRaceIdLower = score.raceId.toLowerCase();
+
       // Check if score is from prior race weekends
-      if (allPriorEventIds.has(score.raceId)) {
+      if (allPriorEventIds.has(scoreRaceIdLower)) {
         existing.oldOverall += score.totalPoints;
         existing.newOverall += score.totalPoints;
       }
       // Check if score is from current weekend sprint
-      else if (selectedRace.sprintRaceId && score.raceId === selectedRace.sprintRaceId) {
+      else if (selectedRace.sprintRaceId && matchesRaceId(score.raceId, selectedRace.sprintRaceId)) {
         existing.sprintPoints = score.totalPoints;
         existing.newOverall += score.totalPoints;
       }
-      // Check if score is from current weekend GP
-      else if (score.raceId === selectedRace.gpRaceId || score.raceId === selectedRace.baseRaceId) {
+      // Check if score is from current weekend GP (check both gpRaceId and baseRaceId)
+      else if (matchesRaceId(score.raceId, selectedRace.gpRaceId) || matchesRaceId(score.raceId, selectedRace.baseRaceId)) {
         existing.gpPoints = score.totalPoints;
         existing.newOverall += score.totalPoints;
       }
@@ -246,7 +296,8 @@ export default function StandingsPage() {
     if (selectedRaceIndex > 0) {
       const prevTotals = new Map<string, number>();
       allScores.forEach((score) => {
-        if (allPriorEventIds.has(score.raceId)) {
+        const scoreRaceIdLower = score.raceId.toLowerCase();
+        if (allPriorEventIds.has(scoreRaceIdLower)) {
           prevTotals.set(score.userId, (prevTotals.get(score.userId) || 0) + score.totalPoints);
         }
       });
@@ -313,7 +364,7 @@ export default function StandingsPage() {
       if (race.hasSprint && race.hasSprintScores) {
         // First: Add Sprint scores
         allScores.forEach(score => {
-          if (race.sprintRaceId && score.raceId === race.sprintRaceId) {
+          if (race.sprintRaceId && matchesRaceId(score.raceId, race.sprintRaceId)) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
           }
@@ -329,7 +380,7 @@ export default function StandingsPage() {
 
         // Second: Add GP scores
         allScores.forEach(score => {
-          if (score.raceId === race.gpRaceId || score.raceId === race.baseRaceId) {
+          if (matchesRaceId(score.raceId, race.gpRaceId) || matchesRaceId(score.raceId, race.baseRaceId)) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
           }
@@ -345,7 +396,7 @@ export default function StandingsPage() {
       } else {
         // Non-sprint weekend: just add GP scores
         allScores.forEach(score => {
-          if (score.raceId === race.gpRaceId || score.raceId === race.baseRaceId) {
+          if (matchesRaceId(score.raceId, race.gpRaceId) || matchesRaceId(score.raceId, race.baseRaceId)) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
           }
