@@ -2,7 +2,7 @@ import { F1Drivers, RaceSchedule, type Driver, type Race } from './data';
 
 // --- Types ---
 
-export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings';
+export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings' | 'submissions' | 'audit' | 'teams';
 export type IssueSeverity = 'error' | 'warning';
 export type CheckStatus = 'pass' | 'warning' | 'error';
 
@@ -30,6 +30,36 @@ export interface ConsistencyCheckSummary {
   passed: number;
   warnings: number;
   errors: number;
+  version?: string;
+}
+
+// --- Submission Interfaces ---
+
+export interface SubmissionData {
+  id: string;
+  oduserId?: string;
+  teamName?: string;
+  raceId?: string;
+  submittedAt?: Date | { _seconds: number; _nanoseconds: number };
+  predictions?: {
+    P1?: string;
+    P2?: string;
+    P3?: string;
+    P4?: string;
+    P5?: string;
+    P6?: string;
+  };
+}
+
+// --- Audit Interfaces ---
+
+export interface AuditData {
+  id: string;
+  eventType?: string;
+  userId?: string;
+  teamName?: string;
+  timestamp?: Date | { _seconds: number; _nanoseconds: number };
+  details?: Record<string, unknown>;
 }
 
 // --- User Interfaces ---
@@ -961,7 +991,7 @@ export function checkScores(
         const actualTop6 = [
           raceResult.driver1, raceResult.driver2, raceResult.driver3,
           raceResult.driver4, raceResult.driver5, raceResult.driver6
-        ].filter(Boolean);
+        ].filter((d): d is string => Boolean(d));
 
         if (predictedDrivers.length === 6 && actualTop6.length === 6) {
           const expected = calculateExpectedScore(predictedDrivers, actualTop6);
@@ -1083,9 +1113,388 @@ export function checkStandings(
 }
 
 /**
+ * Check submissions for lowercase driver IDs and missing dates
+ */
+export function checkSubmissions(submissions: SubmissionData[]): CheckResult {
+  const issues: Issue[] = [];
+  const validDriverIds = getValidDriverIds();
+  let validCount = 0;
+
+  for (const sub of submissions) {
+    let isValid = true;
+    const entityName = `Submission ${sub.id}`;
+
+    // Check for missing submittedAt date
+    if (!sub.submittedAt) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        field: 'submittedAt',
+        message: 'Missing submission date',
+        details: { teamName: sub.teamName, raceId: sub.raceId },
+      });
+      isValid = false;
+    }
+
+    // Check predictions for lowercase driver IDs
+    if (sub.predictions) {
+      const positions = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] as const;
+      for (const pos of positions) {
+        const driverId = sub.predictions[pos];
+        if (driverId) {
+          // Check if driver ID is lowercase (as it should be)
+          if (driverId !== driverId.toLowerCase()) {
+            issues.push({
+              severity: 'error',
+              entity: entityName,
+              field: pos,
+              message: `Driver ID not lowercase: "${driverId}" should be "${driverId.toLowerCase()}"`,
+              details: { position: pos, driverId, teamName: sub.teamName },
+            });
+            isValid = false;
+          }
+          // Check if driver ID is valid
+          if (!validDriverIds.has(driverId.toLowerCase())) {
+            issues.push({
+              severity: 'error',
+              entity: entityName,
+              field: pos,
+              message: `Invalid driver ID: "${driverId}"`,
+              details: { position: pos, driverId, teamName: sub.teamName },
+            });
+            isValid = false;
+          }
+        }
+      }
+
+      // Check for empty predictions (all positions empty)
+      const filledPositions = positions.filter(p => sub.predictions?.[p]);
+      if (filledPositions.length === 0) {
+        issues.push({
+          severity: 'warning',
+          entity: entityName,
+          field: 'predictions',
+          message: 'All prediction slots are empty',
+          details: { teamName: sub.teamName, raceId: sub.raceId },
+        });
+      } else if (filledPositions.length < 6) {
+        issues.push({
+          severity: 'warning',
+          entity: entityName,
+          field: 'predictions',
+          message: `Only ${filledPositions.length}/6 positions filled`,
+          details: { teamName: sub.teamName, raceId: sub.raceId, filled: filledPositions },
+        });
+      }
+    }
+
+    if (isValid) {
+      validCount++;
+    }
+  }
+
+  const hasErrors = issues.some(i => i.severity === 'error');
+  const hasWarnings = issues.some(i => i.severity === 'warning');
+
+  return {
+    category: 'submissions',
+    status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
+    total: submissions.length,
+    valid: validCount,
+    issues,
+  };
+}
+
+/**
+ * Check audit logs for lowercase driver IDs in prediction events
+ */
+export function checkAuditLogs(auditLogs: AuditData[]): CheckResult {
+  const issues: Issue[] = [];
+  const validDriverIds = getValidDriverIds();
+  let validCount = 0;
+
+  for (const log of auditLogs) {
+    let isValid = true;
+    const entityName = `Audit ${log.id}`;
+
+    // Check if audit log contains driver data (from prediction events)
+    if (log.details) {
+      const details = log.details as Record<string, unknown>;
+
+      // Check predictions object if present
+      if (details.predictions && typeof details.predictions === 'object') {
+        const predictions = details.predictions as Record<string, string>;
+        for (const [pos, driverId] of Object.entries(predictions)) {
+          if (driverId && typeof driverId === 'string') {
+            if (driverId !== driverId.toLowerCase()) {
+              issues.push({
+                severity: 'warning',
+                entity: entityName,
+                field: 'details.predictions',
+                message: `Audit log contains non-lowercase driver: "${driverId}"`,
+                details: { position: pos, driverId, eventType: log.eventType },
+              });
+              isValid = false;
+            }
+          }
+        }
+      }
+
+      // Check driverResults if present
+      if (details.driverResults && Array.isArray(details.driverResults)) {
+        for (const driverId of details.driverResults) {
+          if (driverId && typeof driverId === 'string' && driverId !== driverId.toLowerCase()) {
+            issues.push({
+              severity: 'warning',
+              entity: entityName,
+              field: 'details.driverResults',
+              message: `Audit log contains non-lowercase driver: "${driverId}"`,
+              details: { driverId, eventType: log.eventType },
+            });
+            isValid = false;
+          }
+        }
+      }
+    }
+
+    if (isValid) {
+      validCount++;
+    }
+  }
+
+  const hasErrors = issues.some(i => i.severity === 'error');
+  const hasWarnings = issues.some(i => i.severity === 'warning');
+
+  return {
+    category: 'audit',
+    status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
+    total: auditLogs.length,
+    valid: validCount,
+    issues,
+  };
+}
+
+/**
+ * Check teams are counted exactly once
+ * Validates primary + secondary team names are unique and correctly associated
+ */
+export function checkTeams(users: UserData[]): CheckResult {
+  const issues: Issue[] = [];
+  let validCount = 0;
+
+  // Build maps of all team names
+  const primaryTeams = new Map<string, string>(); // teamName (lower) -> userId
+  const secondaryTeams = new Map<string, string>(); // teamName (lower) -> userId
+  const allTeamNames = new Set<string>(); // all team names (lower)
+
+  // First pass: collect all team names
+  for (const user of users) {
+    if (user.teamName) {
+      const normalizedPrimary = user.teamName.toLowerCase();
+
+      if (primaryTeams.has(normalizedPrimary)) {
+        issues.push({
+          severity: 'error',
+          entity: `Team ${user.teamName}`,
+          field: 'teamName',
+          message: `Duplicate primary team name: "${user.teamName}" used by users ${primaryTeams.get(normalizedPrimary)} and ${user.id}`,
+          details: { existingUser: primaryTeams.get(normalizedPrimary), newUser: user.id },
+        });
+      } else {
+        primaryTeams.set(normalizedPrimary, user.id);
+        allTeamNames.add(normalizedPrimary);
+      }
+    }
+
+    if (user.secondaryTeamName) {
+      const normalizedSecondary = user.secondaryTeamName.toLowerCase();
+
+      // Check if secondary conflicts with any primary
+      if (primaryTeams.has(normalizedSecondary) && primaryTeams.get(normalizedSecondary) !== user.id) {
+        issues.push({
+          severity: 'error',
+          entity: `Team ${user.secondaryTeamName}`,
+          field: 'secondaryTeamName',
+          message: `Secondary team "${user.secondaryTeamName}" conflicts with primary team of user ${primaryTeams.get(normalizedSecondary)}`,
+          details: { conflictingUser: primaryTeams.get(normalizedSecondary), userId: user.id },
+        });
+      }
+
+      // Check if secondary is duplicate of another secondary
+      if (secondaryTeams.has(normalizedSecondary)) {
+        issues.push({
+          severity: 'error',
+          entity: `Team ${user.secondaryTeamName}`,
+          field: 'secondaryTeamName',
+          message: `Duplicate secondary team name: "${user.secondaryTeamName}"`,
+          details: { existingUser: secondaryTeams.get(normalizedSecondary), newUser: user.id },
+        });
+      } else {
+        secondaryTeams.set(normalizedSecondary, user.id);
+        allTeamNames.add(normalizedSecondary);
+      }
+    }
+  }
+
+  // Calculate expected team count
+  const expectedTeamCount = primaryTeams.size + secondaryTeams.size;
+  const actualUniqueTeams = allTeamNames.size;
+
+  if (expectedTeamCount !== actualUniqueTeams) {
+    issues.push({
+      severity: 'error',
+      entity: 'Team Count',
+      message: `Team count mismatch: expected ${expectedTeamCount} unique teams (${primaryTeams.size} primary + ${secondaryTeams.size} secondary), found ${actualUniqueTeams}`,
+      details: {
+        primaryCount: primaryTeams.size,
+        secondaryCount: secondaryTeams.size,
+        uniqueCount: actualUniqueTeams
+      },
+    });
+  }
+
+  // Validate each user
+  for (const user of users) {
+    let isValid = true;
+    const entityName = `User ${user.teamName || user.id}`;
+
+    if (!user.teamName) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        field: 'teamName',
+        message: 'User missing primary team name',
+      });
+      isValid = false;
+    }
+
+    if (isValid) {
+      validCount++;
+    }
+  }
+
+  // Summary info
+  issues.push({
+    severity: 'warning',
+    entity: 'Team Summary',
+    message: `Total teams: ${actualUniqueTeams} (${primaryTeams.size} primary, ${secondaryTeams.size} secondary) from ${users.length} users`,
+    details: { primaryCount: primaryTeams.size, secondaryCount: secondaryTeams.size, userCount: users.length },
+  });
+
+  const hasErrors = issues.some(i => i.severity === 'error');
+
+  return {
+    category: 'teams',
+    status: hasErrors ? 'error' : 'warning', // Always at least warning due to summary
+    total: users.length,
+    valid: validCount,
+    issues,
+  };
+}
+
+/**
+ * Check for submissions with audit records but empty predictions
+ */
+export function checkSubmissionAuditConsistency(
+  submissions: SubmissionData[],
+  auditLogs: AuditData[]
+): CheckResult {
+  const issues: Issue[] = [];
+  let validCount = 0;
+
+  // Build map of audit logs by team/race
+  const auditMap = new Map<string, AuditData[]>();
+  for (const log of auditLogs) {
+    if (log.eventType === 'PREDICTION_SUBMITTED' || log.eventType === 'prediction_submitted') {
+      const details = log.details as Record<string, unknown> | undefined;
+      const teamName = (details?.teamName as string) || log.teamName;
+      const raceId = details?.raceId as string;
+      if (teamName && raceId) {
+        const key = `${teamName.toLowerCase()}_${raceId.toLowerCase()}`;
+        if (!auditMap.has(key)) {
+          auditMap.set(key, []);
+        }
+        auditMap.get(key)!.push(log);
+      }
+    }
+  }
+
+  // Check each submission against audit logs
+  for (const sub of submissions) {
+    let isValid = true;
+    const entityName = `Submission ${sub.teamName || sub.id}`;
+    const key = `${(sub.teamName || '').toLowerCase()}_${(sub.raceId || '').toLowerCase()}`;
+
+    // Check if submission has empty predictions but audit says it was submitted
+    const hasAuditRecord = auditMap.has(key);
+    const predictions = sub.predictions || {};
+    const hasEmptyPredictions = !predictions.P1 && !predictions.P2 && !predictions.P3 &&
+                                 !predictions.P4 && !predictions.P5 && !predictions.P6;
+
+    if (hasAuditRecord && hasEmptyPredictions) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        message: 'Submission has audit record showing it was submitted, but predictions are empty',
+        details: {
+          teamName: sub.teamName,
+          raceId: sub.raceId,
+          auditCount: auditMap.get(key)?.length,
+        },
+      });
+      isValid = false;
+    }
+
+    // Check for audit records without matching submission
+    if (hasAuditRecord && !sub.predictions) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        message: 'Audit record exists but no predictions object found',
+        details: { teamName: sub.teamName, raceId: sub.raceId },
+      });
+      isValid = false;
+    }
+
+    if (isValid) {
+      validCount++;
+    }
+  }
+
+  // Check for audit records without any matching submission
+  for (const [key, logs] of auditMap) {
+    const [teamNameLower, raceIdLower] = key.split('_');
+    const hasSubmission = submissions.some(s =>
+      (s.teamName || '').toLowerCase() === teamNameLower &&
+      (s.raceId || '').toLowerCase() === raceIdLower
+    );
+
+    if (!hasSubmission) {
+      issues.push({
+        severity: 'warning',
+        entity: `Audit ${logs[0]?.id}`,
+        message: 'Audit record for prediction submission exists but no matching submission found',
+        details: { teamName: teamNameLower, raceId: raceIdLower, auditCount: logs.length },
+      });
+    }
+  }
+
+  const hasErrors = issues.some(i => i.severity === 'error');
+  const hasWarnings = issues.some(i => i.severity === 'warning');
+
+  return {
+    category: 'submissions',
+    status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
+    total: submissions.length,
+    valid: validCount,
+    issues,
+  };
+}
+
+/**
  * Generate a summary of all check results
  */
-export function generateSummary(results: CheckResult[]): ConsistencyCheckSummary {
+export function generateSummary(results: CheckResult[], version?: string): ConsistencyCheckSummary {
   let passed = 0;
   let warnings = 0;
   let errors = 0;
@@ -1104,5 +1513,6 @@ export function generateSummary(results: CheckResult[]): ConsistencyCheckSummary
     passed,
     warnings,
     errors,
+    version,
   };
 }

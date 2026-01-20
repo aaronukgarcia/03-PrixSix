@@ -43,6 +43,10 @@ import {
   checkRaceResults,
   checkScores,
   checkStandings,
+  checkSubmissions,
+  checkAuditLogs,
+  checkTeams,
+  checkSubmissionAuditConsistency,
   generateSummary,
   type CheckResult,
   type ConsistencyCheckSummary,
@@ -50,37 +54,48 @@ import {
   type PredictionData,
   type RaceResultData,
   type ScoreData,
+  type SubmissionData,
+  type AuditData,
   type Issue,
 } from '@/lib/consistency';
+import { APP_VERSION } from '@/lib/version';
 
 interface ConsistencyCheckerProps {
   allUsers: User[] | null;
   isUserLoading: boolean;
 }
 
-type CheckPhase = 'idle' | 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings' | 'complete';
+type CheckPhase = 'idle' | 'users' | 'teams' | 'drivers' | 'races' | 'predictions' | 'submissions' | 'audit' | 'results' | 'scores' | 'standings' | 'logging' | 'complete';
 
 const phaseLabels: Record<CheckPhase, string> = {
   idle: 'Ready',
   users: 'Checking users...',
+  teams: 'Checking teams...',
   drivers: 'Checking drivers...',
   races: 'Checking races...',
   predictions: 'Checking predictions...',
+  submissions: 'Checking submissions...',
+  audit: 'Checking audit logs...',
   results: 'Checking race results...',
   scores: 'Checking scores...',
   standings: 'Checking standings...',
+  logging: 'Saving to CC-logs...',
   complete: 'Complete',
 };
 
 const phaseProgress: Record<CheckPhase, number> = {
   idle: 0,
-  users: 14,
-  drivers: 28,
-  races: 42,
-  predictions: 57,
-  results: 71,
-  scores: 85,
-  standings: 100,
+  users: 8,
+  teams: 16,
+  drivers: 24,
+  races: 32,
+  predictions: 40,
+  submissions: 48,
+  audit: 56,
+  results: 64,
+  scores: 72,
+  standings: 80,
+  logging: 90,
   complete: 100,
 };
 
@@ -154,12 +169,20 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     return q;
   }, [firestore]);
 
+  const auditLogsQuery = useMemo(() => {
+    if (!firestore) return null;
+    const q = query(collection(firestore, 'audit_logs'));
+    (q as any).__memo = true;
+    return q;
+  }, [firestore]);
+
   const { data: predictions, isLoading: isPredictionsLoading } = useCollection<PredictionData>(predictionsQuery);
-  const { data: predictionSubmissions, isLoading: isSubmissionsLoading } = useCollection<PredictionData>(predictionSubmissionsQuery);
+  const { data: predictionSubmissions, isLoading: isSubmissionsLoading } = useCollection<SubmissionData>(predictionSubmissionsQuery);
   const { data: raceResults, isLoading: isResultsLoading } = useCollection<RaceResultData>(raceResultsQuery);
   const { data: scores, isLoading: isScoresLoading } = useCollection<ScoreData>(scoresQuery);
+  const { data: auditLogs, isLoading: isAuditLoading } = useCollection<AuditData>(auditLogsQuery);
 
-  const isDataLoading = isUserLoading || isPredictionsLoading || isSubmissionsLoading || isResultsLoading || isScoresLoading;
+  const isDataLoading = isUserLoading || isPredictionsLoading || isSubmissionsLoading || isResultsLoading || isScoresLoading || isAuditLoading;
 
   const runChecks = useCallback(async () => {
     if (!allUsers) return;
@@ -180,6 +203,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         secondaryTeamName: u.secondaryTeamName,
       }));
       results.push(checkUsers(userData));
+
+      // Check Teams (counting validation)
+      setCurrentPhase('teams');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      results.push(checkTeams(userData));
 
       // Check Drivers (static)
       setCurrentPhase('drivers');
@@ -202,19 +230,46 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         raceId: p.raceId,
         predictions: p.predictions,
       }));
-      const subData: PredictionData[] = (predictionSubmissions || []).map(s => ({
+      const subData: SubmissionData[] = (predictionSubmissions || []).map(s => ({
         id: s.id,
-        userId: s.userId,
         oduserId: s.oduserId,
-        teamId: s.teamId,
+        teamName: s.teamName,
+        raceId: s.raceId,
+        submittedAt: s.submittedAt,
+        predictions: s.predictions as SubmissionData['predictions'],
+      }));
+      const subAsPredData: PredictionData[] = subData.map(s => ({
+        id: s.id,
+        oduserId: s.oduserId,
         teamName: s.teamName,
         raceId: s.raceId,
         predictions: s.predictions,
       }));
-      results.push(checkPredictions(predData, userData, subData));
+      results.push(checkPredictions(predData, userData, subAsPredData));
+
+      // Check Submissions (lowercase drivers, missing dates)
+      setCurrentPhase('submissions');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      results.push(checkSubmissions(subData));
+
+      // Check Audit Logs (lowercase drivers)
+      setCurrentPhase('audit');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const auditData: AuditData[] = (auditLogs || []).map(a => ({
+        id: a.id,
+        eventType: a.eventType,
+        userId: a.userId,
+        teamName: a.teamName,
+        timestamp: a.timestamp,
+        details: a.details,
+      }));
+      results.push(checkAuditLogs(auditData));
+
+      // Check Submission-Audit Consistency
+      results.push(checkSubmissionAuditConsistency(subData, auditData));
 
       // Merge predictions from both sources for score checking
-      const allPredictions = [...predData, ...subData];
+      const allPredictions = [...predData, ...subAsPredData];
 
       // Check Race Results
       setCurrentPhase('results');
@@ -248,9 +303,42 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       await new Promise(resolve => setTimeout(resolve, 100));
       results.push(checkStandings(scoreData, userData));
 
-      // Generate summary
+      // Generate summary with version
+      const checkSummary = generateSummary(results, APP_VERSION);
+
+      // Log to CC-logs collection
+      setCurrentPhase('logging');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (firestore) {
+        try {
+          const ccLogEntry = {
+            correlationId: checkSummary.correlationId,
+            timestamp: serverTimestamp(),
+            executedAt: new Date().toISOString(),
+            version: APP_VERSION,
+            executedBy: user?.id || 'unknown',
+            summary: {
+              totalChecks: checkSummary.totalChecks,
+              passed: checkSummary.passed,
+              warnings: checkSummary.warnings,
+              errors: checkSummary.errors,
+            },
+            categoryResults: checkSummary.results.map(r => ({
+              category: r.category,
+              status: r.status,
+              total: r.total,
+              valid: r.valid,
+              issueCount: r.issues.length,
+            })),
+            totalIssues: checkSummary.results.reduce((sum, r) => sum + r.issues.length, 0),
+          };
+          await addDoc(collection(firestore, 'CC-logs'), ccLogEntry);
+        } catch (logError) {
+          console.error('Failed to save CC-logs:', logError);
+        }
+      }
+
       setCurrentPhase('complete');
-      const checkSummary = generateSummary(results);
       setSummary(checkSummary);
 
       toast({
@@ -266,7 +354,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     } finally {
       setIsRunning(false);
     }
-  }, [allUsers, predictions, predictionSubmissions, raceResults, scores, toast]);
+  }, [allUsers, predictions, predictionSubmissions, raceResults, scores, auditLogs, firestore, user, toast]);
 
   const exportToErrorLog = useCallback(async () => {
     if (!firestore || !summary || !user) return;
