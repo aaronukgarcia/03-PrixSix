@@ -499,7 +499,7 @@ export function checkPredictions(
   const submissionMap = new Map<string, PredictionData>();
 
   for (const pred of predictions) {
-    const key = `${pred.userId || pred.teamId}_${pred.raceId}`;
+    const key = `${pred.userId || pred.oduserId || pred.teamId}_${pred.raceId}`;
     predictionMap.set(key, pred);
   }
 
@@ -513,7 +513,7 @@ export function checkPredictions(
     const entityName = `Prediction ${pred.id}`;
 
     // Check user reference
-    const userId = pred.userId || pred.teamId;
+    const userId = pred.userId || pred.oduserId || pred.teamId;
     if (!userId) {
       issues.push({
         severity: 'error',
@@ -822,7 +822,7 @@ export function checkScores(
   // Build prediction map (normalize raceId to lowercase for consistent lookups)
   const predictionMap = new Map<string, PredictionData>();
   for (const pred of predictions) {
-    const userId = pred.userId || pred.teamId;
+    const userId = pred.userId || pred.oduserId || pred.teamId;
     const normalizedRaceId = normalizeRaceId(pred.raceId || '');
     const key = `${normalizedRaceId}_${userId}`;
     predictionMap.set(key, pred);
@@ -987,7 +987,7 @@ export function checkScores(
 
   // Check for missing scores (predictions with results but no score)
   for (const pred of predictions) {
-    const userId = pred.userId || pred.teamId;
+    const userId = pred.userId || pred.oduserId || pred.teamId;
     const normalizedPredRaceId = normalizeRaceId(pred.raceId || '');
     if (pred.raceId && userId && resultsRaceIds.has(normalizedPredRaceId)) {
       const hasScore = scores.some(s => normalizeRaceId(s.raceId || '') === normalizedPredRaceId && s.userId === userId);
