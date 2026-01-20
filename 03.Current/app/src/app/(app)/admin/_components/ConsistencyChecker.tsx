@@ -205,10 +205,16 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       const subData: PredictionData[] = (predictionSubmissions || []).map(s => ({
         id: s.id,
         userId: s.userId,
+        oduserId: s.oduserId,
+        teamId: s.teamId,
+        teamName: s.teamName,
         raceId: s.raceId,
         predictions: s.predictions,
       }));
       results.push(checkPredictions(predData, userData, subData));
+
+      // Merge predictions from both sources for score checking
+      const allPredictions = [...predData, ...subData];
 
       // Check Race Results
       setCurrentPhase('results');
@@ -235,7 +241,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         totalPoints: s.totalPoints,
         breakdown: s.breakdown,
       }));
-      results.push(checkScores(scoreData, resultData, predData, userData));
+      results.push(checkScores(scoreData, resultData, allPredictions, userData));
 
       // Check Standings
       setCurrentPhase('standings');
