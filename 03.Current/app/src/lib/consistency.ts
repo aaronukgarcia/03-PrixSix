@@ -816,7 +816,12 @@ export function checkScores(
 ): CheckResult {
   const issues: Issue[] = [];
   const userIds = new Set(users.map(u => u.id));
-  const resultsRaceIds = new Set(raceResults.map(r => normalizeRaceId(r.raceId || '')));
+  // Build resultsRaceIds from both raceId field and document ID for maximum compatibility
+  const resultsRaceIds = new Set<string>();
+  for (const r of raceResults) {
+    if (r.raceId) resultsRaceIds.add(normalizeRaceId(r.raceId));
+    if (r.id) resultsRaceIds.add(normalizeRaceId(r.id));
+  }
   let validCount = 0;
 
   // Build prediction map (normalize raceId to lowercase for consistent lookups)
