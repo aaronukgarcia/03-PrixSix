@@ -5,8 +5,11 @@
 !03.Current/
 !03.Current/app/
 !03.Current/app/**
+!03.Current/whatsapp-worker/
+!03.Current/whatsapp-worker/**
 !03.Current/LICENSE
 !03.Current/README.md
+!03.Current/Claude-Read-First.md
 !.gitignore
 !README.md
 
@@ -19,6 +22,14 @@
 03.Current/app/.firebase/
 03.Current/app/*.log
 03.Current/app/.DS_Store
+
+# WhatsApp worker ignores
+03.Current/whatsapp-worker/node_modules/
+03.Current/whatsapp-worker/dist/
+03.Current/whatsapp-worker/.env
+03.Current/whatsapp-worker/service-account.json
+03.Current/whatsapp-worker/.wwebjs_auth/
+03.Current/whatsapp-worker/.wwebjs_cache/
 
 # Never commit these anywhere
 *.env

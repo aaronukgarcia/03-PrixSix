@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.env
+*.log
+.wwebjs_auth
+.wwebjs_cache
+service-account.json
