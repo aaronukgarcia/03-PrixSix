@@ -316,7 +316,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         <Card className={cn(isLocked && "hidden")}>
             <CardHeader>
                 <CardTitle>Available Drivers</CardTitle>
-                <CardDescription>Click a driver to add them to your grid.</CardDescription>
+                <CardDescription>Click a driver to add them to your grid. Looking for someone? Scroll down.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-72">
