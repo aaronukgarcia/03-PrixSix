@@ -3,8 +3,8 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, collection, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, increment } from 'firebase/firestore';
-import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword } from 'firebase/auth';
+import { Firestore, collection, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit } from 'firebase/firestore';
+import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
@@ -113,46 +113,36 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const login = async (email: string, pin: string): Promise<AuthResult> => {
     setIsUserLoading(true);
     setUserError(null);
-    
-    try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, pin);
-        const userDocRef = doc(firestore, 'users', userCredential.user.uid);
-        const userDocSnap = await getDoc(userDocRef);
 
-        if(userDocSnap.exists() && (userDocSnap.data()?.badLoginAttempts || 0) > 0) {
-            await updateDoc(userDocRef, { badLoginAttempts: 0 });
+    try {
+        // SECURITY: Use server-side API for brute force protection
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, pin }),
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            setIsUserLoading(false);
+            return {
+                success: false,
+                message: result.error || 'Login failed',
+            };
         }
-        
-        logAuditEvent(firestore, userCredential.user.uid, 'login_success', { method: 'pin' });
+
+        // Use custom token to sign in
+        await signInWithCustomToken(auth, result.customToken);
+
         setIsUserLoading(false);
         return { success: true, message: 'Login successful' };
 
     } catch (signInError: any) {
-        const usersRef = collection(firestore, "users");
-        const q = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-            const userDocSnap = querySnapshot.docs[0];
-            const userDocData = userDocSnap.data() as User;
-
-            if (signInError.code === 'auth/invalid-credential') {
-                if ((userDocData.badLoginAttempts || 0) >= 5) {
-                    logAuditEvent(firestore, userDocData.id, 'login_fail_locked', { email });
-                    setIsUserLoading(false);
-                    return { success: false, message: "This account is locked. Please contact an administrator." };
-                }
-                await updateDoc(userDocSnap.ref, { badLoginAttempts: increment(1) });
-                logAuditEvent(firestore, userDocData.id, 'login_fail_pin', { email });
-                setIsUserLoading(false);
-                return { success: false, message: "Invalid email or PIN. Please try again." };
-            }
-        }
-        
          console.error("Error signing in:", signInError);
          setUserError(signInError);
          setIsUserLoading(false);
-         return { success: false, message: signInError.message };
+         return { success: false, message: signInError.message || 'An error occurred during login' };
     }
   };
 

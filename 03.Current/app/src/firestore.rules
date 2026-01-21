@@ -56,14 +56,14 @@ service cloud.firestore {
 
     match /race_results/{raceId} {
       allow get, list: if true;
-      allow write: if isAdmin();
+      // SECURITY: Race results are written by server-side API only (Admin SDK bypasses rules)
+      allow write: if false;
     }
-    
+
     match /scores/{scoreId} {
       allow get, list: if true;
-      // SECURITY: Scores should be written by server-side Cloud Function, not client
-      // TODO: Move to allow write: if false once server-side scoring is implemented
-      allow write: if isAdmin();
+      // SECURITY: Scores are calculated and written by server-side API only (Admin SDK bypasses rules)
+      allow write: if false;
     }
 
     match /drivers/{driverId} {

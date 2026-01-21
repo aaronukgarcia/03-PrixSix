@@ -9,12 +9,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useMemo, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { useFirestore, useCollection, useAuth } from "@/firebase";
-import { collection, serverTimestamp, doc, setDoc, deleteDoc, query, orderBy, where, getCountFromServer } from "firebase/firestore";
+import { collection, query, orderBy, where, getCountFromServer } from "firebase/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Trophy, Users, AlertCircle, CheckCircle2, ArrowUp, ArrowDown, X, ChevronLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { logAuditEvent } from "@/lib/audit";
-import { updateRaceScores, deleteRaceScores, formatRaceResultSummary } from "@/lib/scoring";
+import { formatRaceResultSummary } from "@/lib/scoring";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -54,7 +53,7 @@ type Step = 'select-race' | 'enter-results';
 
 export function ResultsManager() {
     const firestore = useFirestore();
-    const { user } = useAuth();
+    const { user, firebaseUser } = useAuth();
     const { toast } = useToast();
 
     // Step-based flow
@@ -168,41 +167,43 @@ export function ResultsManager() {
     };
 
     const handleConfirmedSubmit = async () => {
-        if (!firestore || !user || !selectedRace) return;
+        if (!firestore || !user || !firebaseUser || !selectedRace) return;
 
         setShowConfirmDialog(false);
         setIsSubmitting(true);
 
         try {
             const raceId = selectedRace.replace(/\s+/g, '-').toLowerCase();
-            const resultDocRef = doc(firestore, "race_results", raceId);
 
-            const raceResultData = {
-                id: raceId,
-                raceId: selectedRace,
-                driver1: predictions[0]?.id,
-                driver2: predictions[1]?.id,
-                driver3: predictions[2]?.id,
-                driver4: predictions[3]?.id,
-                driver5: predictions[4]?.id,
-                driver6: predictions[5]?.id,
-                submittedAt: serverTimestamp(),
-            };
+            // SECURITY: Get Firebase ID token for server-side verification
+            const idToken = await firebaseUser.getIdToken();
 
-            await setDoc(resultDocRef, raceResultData);
-
-            // Calculate and update scores
-            const { scoresUpdated, scores, standings } = await updateRaceScores(firestore, raceId, raceResultData as RaceResult);
-
-            // Log to audit
-            const resultSummary = formatRaceResultSummary(raceResultData as RaceResult);
-            logAuditEvent(firestore, user.id, 'RACE_RESULTS_SUBMITTED', {
-                raceId,
-                raceName: selectedRace,
-                result: resultSummary,
-                scoresUpdated,
-                submittedAt: new Date().toISOString(),
+            // Call server-side API for secure score calculation
+            const response = await fetch('/api/calculate-scores', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    raceId,
+                    raceName: selectedRace,
+                    driver1: predictions[0]?.id,
+                    driver2: predictions[1]?.id,
+                    driver3: predictions[2]?.id,
+                    driver4: predictions[3]?.id,
+                    driver5: predictions[4]?.id,
+                    driver6: predictions[5]?.id,
+                }),
             });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Score calculation failed');
+            }
+
+            const { scoresUpdated, scores, standings } = result;
 
             // Send email notifications to users who opted in
             try {
@@ -247,27 +248,35 @@ export function ResultsManager() {
     };
 
     const handleDelete = async (result: RaceResult) => {
-        if (!firestore || !user) return;
+        if (!firestore || !user || !firebaseUser) return;
 
         setDeletingId(result.id);
         try {
-            const resultDocRef = doc(firestore, "race_results", result.id);
-            await deleteDoc(resultDocRef);
+            // SECURITY: Get Firebase ID token for server-side verification
+            const idToken = await firebaseUser.getIdToken();
 
-            const deletedScores = await deleteRaceScores(firestore, result.id);
-
-            const resultSummary = formatRaceResultSummary(result);
-            logAuditEvent(firestore, user.id, 'RACE_RESULTS_DELETED', {
-                raceId: result.id,
-                raceName: result.raceId,
-                result: resultSummary,
-                scoresDeleted: deletedScores,
-                deletedAt: new Date().toISOString(),
+            // Call server-side API for secure score deletion
+            const response = await fetch('/api/delete-scores', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    raceId: result.id,
+                    raceName: result.raceId,
+                }),
             });
+
+            const deleteResult = await response.json();
+
+            if (!deleteResult.success) {
+                throw new Error(deleteResult.error || 'Delete failed');
+            }
 
             toast({
                 title: "Result Deleted",
-                description: `Results for ${result.raceId} have been removed. ${deletedScores} scores deleted.`
+                description: `Results for ${result.raceId} have been removed. ${deleteResult.scoresDeleted} scores deleted.`
             });
         } catch (e: any) {
             toast({
