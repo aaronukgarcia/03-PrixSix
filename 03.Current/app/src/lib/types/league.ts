@@ -36,3 +36,4 @@ export interface LeagueWithMemberCount extends League {
 export const GLOBAL_LEAGUE_ID = 'global';
 export const SYSTEM_OWNER_ID = 'system';
 export const INVITE_CODE_LENGTH = 6;
+export const MAX_LEAGUES_PER_USER = 5;  // Including global league

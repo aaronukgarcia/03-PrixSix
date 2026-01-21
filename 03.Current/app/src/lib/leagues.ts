@@ -14,7 +14,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import type { League, CreateLeagueData } from './types/league';
-import { GLOBAL_LEAGUE_ID, SYSTEM_OWNER_ID, INVITE_CODE_LENGTH } from './types/league';
+import { GLOBAL_LEAGUE_ID, SYSTEM_OWNER_ID, INVITE_CODE_LENGTH, MAX_LEAGUES_PER_USER } from './types/league';
 import { getCorrelationId } from './audit';
 
 /**
@@ -37,6 +37,12 @@ export async function createLeague(
   data: CreateLeagueData
 ): Promise<{ success: boolean; leagueId?: string; error?: string }> {
   try {
+    // Check if user has reached the max league limit
+    const userLeagues = await getUserLeagues(firestore, data.ownerId);
+    if (userLeagues.length >= MAX_LEAGUES_PER_USER) {
+      return { success: false, error: `You can only be a member of ${MAX_LEAGUES_PER_USER} leagues. Please leave a league before creating a new one.` };
+    }
+
     const leagueRef = doc(collection(firestore, 'leagues'));
     const inviteCode = generateInviteCode();
 
@@ -69,6 +75,12 @@ export async function joinLeagueByCode(
   userId: string
 ): Promise<{ success: boolean; leagueId?: string; leagueName?: string; error?: string }> {
   try {
+    // Check if user has reached the max league limit
+    const userLeagues = await getUserLeagues(firestore, userId);
+    if (userLeagues.length >= MAX_LEAGUES_PER_USER) {
+      return { success: false, error: `You can only be a member of ${MAX_LEAGUES_PER_USER} leagues. Please leave a league before joining a new one.` };
+    }
+
     const normalizedCode = code.toUpperCase().trim();
 
     // Find league with matching invite code
