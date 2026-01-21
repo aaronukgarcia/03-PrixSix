@@ -97,11 +97,12 @@ A fantasy Formula 1 league application built on Firebase. Approximately 20 playe
 - **Node:** `C:\Program Files\nodejs\node.exe`
 - **NPM:** `C:\Program Files\nodejs\npm.cmd`
 - **gcloud CLI:** `"C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd"`
+- **Azure CLI:** `"C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"`
 - **Project root:** `E:\GoogleDrive\Papers\03-PrixSix\03.Current`
 - **Firebase service account:** `E:\GoogleDrive\Papers\03-PrixSix\03.Current\service-account.json`
 - **Firebase Project ID:** `studio-6033436327-281b1`
 
-**Note:** gcloud is NOT in PATH. Use the full path above when running gcloud commands.
+**Note:** gcloud and Azure CLI are NOT in PATH. Use the full paths above when running these commands.
 
 **Terminal clarification:** "Console" means PowerShell or CMD. "Firebase" refers to the GUI unless explicitly using Firebase CLI or SDK.
 
