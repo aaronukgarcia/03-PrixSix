@@ -1,6 +1,6 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-01-21  19:30
+> **Last updated:** 2026-01-21  21:30
 > **Current production version:** Check `package.json` and verify at https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about  
 > **Read this entire file at the start of every session.**
 
@@ -315,7 +315,16 @@ Required for local development:
 
 Required for production (Firebase App Hosting):
 - NEXT_PUBLIC_FIREBASE_* vars are in `apphosting.yaml` (public, OK to commit)
-- GRAPH_* secrets must be set via `firebase apphosting:secrets:set` (currently disabled)
+- GRAPH_* secrets are configured via `firebase apphosting:secrets:set`:
+  - `GRAPH_TENANT_ID` - Azure AD tenant ID
+  - `GRAPH_CLIENT_ID` - Azure app registration client ID
+  - `GRAPH_CLIENT_SECRET` - Azure app client secret
+  - `GRAPH_SENDER_EMAIL` - Email address to send from (aaron@garcia.ltd)
+
+**Important:** After creating secrets, grant App Hosting backend access:
+```bash
+firebase apphosting:secrets:grantaccess SECRET_NAME --backend prixsix
+```
 
 ---
 
@@ -393,10 +402,51 @@ The continue URL in email verification is configured in `firebase/provider.tsx`.
 
 1. ✅ Run tests (if applicable)
 2. ✅ Check no console errors
-3. ✅ Bump version in `package.json` AND `src/lib/version.ts`
-4. ✅ Update `CHANGELOG.md` if user-facing change
-5. ✅ Update `CLAUDE.md` if architectural change or new branch
-6. ✅ Run `node claude-sync.js write "summary"` to log your work
+3. ✅ Run `npm run build` locally to verify build succeeds
+4. ✅ Bump version in `package.json` AND `src/lib/version.ts`
+5. ✅ Update `CHANGELOG.md` if user-facing change
+6. ✅ Update `CLAUDE.md` if architectural change or new branch
+7. ✅ Run `node claude-sync.js write "summary"` to log your work
+
+---
+
+## After Pushing to Main - MANDATORY Build Verification
+
+**Every push to `main` triggers a Firebase App Hosting build.** You MUST verify the build succeeds.
+
+### Check Build Status
+
+Run this command after pushing to main:
+```powershell
+powershell -Command "& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' logging read 'resource.type=\"build\"' --project=studio-6033436327-281b1 --limit=20 --freshness=15m --format='value(textPayload)'"
+```
+
+### What to Look For
+
+**Success indicators:**
+- `DONE` at the end of the build
+- New revision created (e.g., `build-2026-01-21-043`)
+
+**Failure indicators:**
+- `ERROR` or `failed` in the output
+- `fah/misconfigured-secret` - Secret permission issue
+- `step exited with non-zero status` - Build step failed
+
+### Common Build Failures & Fixes
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `useSearchParams() should be wrapped in a suspense boundary` | Next.js 15 requirement | Wrap component using `useSearchParams()` in `<Suspense>` |
+| `fah/misconfigured-secret` | Secret access denied | Run `firebase apphosting:secrets:grantaccess SECRET_NAME --backend prixsix` |
+| `Permission denied` on secrets | IAM not configured | Grant access for all 4 GRAPH_* secrets |
+
+### If Build Fails
+
+1. Check the error in build logs
+2. Fix the issue locally
+3. Run `npm run build` to verify fix works
+4. Commit and push the fix
+5. Re-verify the build succeeds
 
 ---
 
