@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import type { League, CreateLeagueData } from './types/league';
 import { GLOBAL_LEAGUE_ID, SYSTEM_OWNER_ID, INVITE_CODE_LENGTH } from './types/league';
+import { getCorrelationId } from './audit';
 
 /**
  * Generate a random 6-character alphanumeric invite code
@@ -53,8 +54,9 @@ export async function createLeague(
 
     return { success: true, leagueId: leagueRef.id };
   } catch (error: any) {
-    console.error('Error creating league:', error);
-    return { success: false, error: error.message };
+    const correlationId = getCorrelationId();
+    console.error(`Error creating league [${correlationId}]:`, error);
+    return { success: false, error: `${error.message} (ID: ${correlationId})` };
   }
 }
 
@@ -94,8 +96,9 @@ export async function joinLeagueByCode(
 
     return { success: true, leagueId: leagueDoc.id, leagueName: leagueData.name };
   } catch (error: any) {
-    console.error('Error joining league:', error);
-    return { success: false, error: error.message };
+    const correlationId = getCorrelationId();
+    console.error(`Error joining league [${correlationId}]:`, error);
+    return { success: false, error: `${error.message} (ID: ${correlationId})` };
   }
 }
 
@@ -140,8 +143,9 @@ export async function leaveLeague(
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error leaving league:', error);
-    return { success: false, error: error.message };
+    const correlationId = getCorrelationId();
+    console.error(`Error leaving league [${correlationId}]:`, error);
+    return { success: false, error: `${error.message} (ID: ${correlationId})` };
   }
 }
 
@@ -335,7 +339,8 @@ export async function deleteLeague(
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting league:', error);
-    return { success: false, error: error.message };
+    const correlationId = getCorrelationId();
+    console.error(`Error deleting league [${correlationId}]:`, error);
+    return { success: false, error: `${error.message} (ID: ${correlationId})` };
   }
 }

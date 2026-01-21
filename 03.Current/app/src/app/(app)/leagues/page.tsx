@@ -182,7 +182,13 @@ export default function LeaguesPage() {
                   Enter the 6-character invite code to join a league.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (joinCode.length === 6 && !isJoining) handleJoin();
+                }}
+                className="space-y-4 py-4"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="join-code">Invite Code</Label>
                   <Input
@@ -194,13 +200,13 @@ export default function LeaguesPage() {
                     className="font-mono text-lg tracking-widest"
                   />
                 </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleJoin} disabled={isJoining || joinCode.length !== 6}>
-                  {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Join
-                </Button>
-              </DialogFooter>
+                <DialogFooter>
+                  <Button type="submit" disabled={isJoining || joinCode.length !== 6}>
+                    {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Join
+                  </Button>
+                </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
 
@@ -218,7 +224,13 @@ export default function LeaguesPage() {
                   Create a private league and invite your friends to compete.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (createName.trim() && !isCreating) handleCreate();
+                }}
+                className="space-y-4 py-4"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="league-name">League Name</Label>
                   <Input
@@ -229,13 +241,13 @@ export default function LeaguesPage() {
                     maxLength={50}
                   />
                 </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreate} disabled={isCreating || !createName.trim()}>
-                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create
-                </Button>
-              </DialogFooter>
+                <DialogFooter>
+                  <Button type="submit" disabled={isCreating || !createName.trim()}>
+                    {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create
+                  </Button>
+                </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
