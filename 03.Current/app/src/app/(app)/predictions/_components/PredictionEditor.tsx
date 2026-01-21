@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { Driver } from "@/lib/data";
 import { getDriverImage } from "@/lib/data";
 import { ArrowDown, ArrowUp, X, Check, ListCollapse, Timer } from "lucide-react";
@@ -288,7 +288,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-72">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2 pr-4">
                     {availableDrivers.map(driver => (
                         <Button key={driver.id} variant="secondary" className="h-auto p-2 flex items-center gap-2 justify-start" onClick={() => handleAddDriver(driver)}>
                             <Avatar className="w-8 h-8">
@@ -299,6 +299,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                         </Button>
                     ))}
                     </div>
+                    <ScrollBar className="bg-muted" />
                 </ScrollArea>
             </CardContent>
         </Card>
