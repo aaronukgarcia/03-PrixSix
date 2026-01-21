@@ -72,10 +72,9 @@ export async function POST(request: NextRequest) {
 
     const predictionId = `${teamId}_${raceId}`;
     const predictionRef = db.collection('users').doc(userId).collection('predictions').doc(predictionId);
-    const submissionRef = db.collection('prediction_submissions').doc();
     const auditRef = db.collection('audit_logs').doc();
 
-    // 1. Write prediction to user's subcollection
+    // 1. Write prediction to user's subcollection (single source of truth)
     batch.set(predictionRef, {
       id: predictionId,
       userId,
@@ -84,27 +83,10 @@ export async function POST(request: NextRequest) {
       raceId,
       raceName,
       predictions,
-      submissionTimestamp: FieldValue.serverTimestamp(),
+      submittedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    // 2. Write to public prediction_submissions for audit trail
-    batch.set(submissionRef, {
-      userId,
-      teamName,
-      raceName,
-      raceId,
-      predictions: {
-        P1: predictions[0],
-        P2: predictions[1],
-        P3: predictions[2],
-        P4: predictions[3],
-        P5: predictions[4],
-        P6: predictions[5],
-      },
-      submittedAt: FieldValue.serverTimestamp(),
-    });
-
-    // 3. Log audit event
+    // 2. Log audit event
     batch.set(auditRef, {
       userId,
       action: 'prediction_submitted',

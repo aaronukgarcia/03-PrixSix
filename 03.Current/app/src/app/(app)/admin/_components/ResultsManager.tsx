@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useMemo, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { useFirestore, useCollection, useAuth } from "@/firebase";
-import { collection, query, orderBy, where, getCountFromServer } from "firebase/firestore";
+import { collection, collectionGroup, query, orderBy, where, getCountFromServer } from "firebase/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Trophy, Users, AlertCircle, CheckCircle2, ArrowUp, ArrowDown, X, ChevronLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,7 +80,7 @@ export function ResultsManager() {
             try {
                 const normalizedId = normalizeRaceId(selectedRace);
                 const countQuery = query(
-                    collection(firestore, "prediction_submissions"),
+                    collectionGroup(firestore, "predictions"),
                     where("raceId", "==", normalizedId)
                 );
                 const countSnapshot = await getCountFromServer(countQuery);

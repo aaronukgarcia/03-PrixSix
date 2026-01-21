@@ -49,10 +49,9 @@ export interface PredictionData {
   id: string;
   userId?: string;
   teamId?: string;
-  oduserId?: string;  // Used by prediction_submissions
   teamName?: string;
   raceId?: string;
-  predictions?: string[] | Record<string, string>;
+  predictions?: string[];
 }
 
 // --- Race Result Interfaces ---
@@ -486,8 +485,7 @@ export function checkRaces(): CheckResult {
  */
 export function checkPredictions(
   predictions: PredictionData[],
-  users: UserData[],
-  predictionSubmissions: PredictionData[] = []
+  users: UserData[]
 ): CheckResult {
   const issues: Issue[] = [];
   const validDriverIds = getValidDriverIds();
@@ -495,26 +493,12 @@ export function checkPredictions(
   const userIds = new Set(users.map(u => u.id));
   let validCount = 0;
 
-  // Build a map of predictions for cross-checking
-  const predictionMap = new Map<string, PredictionData>();
-  const submissionMap = new Map<string, PredictionData>();
-
-  for (const pred of predictions) {
-    const key = `${pred.userId || pred.oduserId || pred.teamId}_${pred.raceId}`;
-    predictionMap.set(key, pred);
-  }
-
-  for (const sub of predictionSubmissions) {
-    const key = `${sub.userId}_${sub.raceId}`;
-    submissionMap.set(key, sub);
-  }
-
   for (const pred of predictions) {
     let isValid = true;
     const entityName = `Prediction ${pred.id}`;
 
     // Check user reference
-    const userId = pred.userId || pred.oduserId || pred.teamId;
+    const userId = pred.userId || pred.teamId;
     if (!userId) {
       issues.push({
         severity: 'error',
@@ -553,7 +537,7 @@ export function checkPredictions(
       });
     }
 
-    // Check predictions array/object
+    // Check predictions array
     if (!pred.predictions) {
       issues.push({
         severity: 'error',
@@ -563,20 +547,7 @@ export function checkPredictions(
       });
       isValid = false;
     } else {
-      // Normalize predictions to array
-      let driversArray: string[] = [];
-      if (Array.isArray(pred.predictions)) {
-        driversArray = pred.predictions;
-      } else if (typeof pred.predictions === 'object') {
-        driversArray = [
-          pred.predictions.P1,
-          pred.predictions.P2,
-          pred.predictions.P3,
-          pred.predictions.P4,
-          pred.predictions.P5,
-          pred.predictions.P6,
-        ].filter(Boolean) as string[];
-      }
+      const driversArray = pred.predictions;
 
       // Check count
       if (driversArray.length !== 6) {
@@ -620,31 +591,6 @@ export function checkPredictions(
 
     if (isValid) {
       validCount++;
-    }
-  }
-
-  // Cross-check: predictions vs prediction_submissions
-  if (predictionSubmissions.length > 0) {
-    for (const [key, pred] of predictionMap) {
-      if (!submissionMap.has(key)) {
-        issues.push({
-          severity: 'warning',
-          entity: `Prediction ${pred.id}`,
-          message: 'Prediction exists in subcollection but not in prediction_submissions',
-          details: { key },
-        });
-      }
-    }
-
-    for (const [key, sub] of submissionMap) {
-      if (!predictionMap.has(key)) {
-        issues.push({
-          severity: 'warning',
-          entity: `Submission ${sub.id}`,
-          message: 'Submission exists in prediction_submissions but not in user subcollection',
-          details: { key },
-        });
-      }
     }
   }
 
@@ -828,7 +774,7 @@ export function checkScores(
   // Build prediction map (normalize raceId to lowercase for consistent lookups)
   const predictionMap = new Map<string, PredictionData>();
   for (const pred of predictions) {
-    const userId = pred.userId || pred.oduserId || pred.teamId;
+    const userId = pred.userId || pred.teamId;
     const normalizedRaceId = normalizeRaceId(pred.raceId || '');
     const key = `${normalizedRaceId}_${userId}`;
     predictionMap.set(key, pred);
@@ -993,7 +939,7 @@ export function checkScores(
 
   // Check for missing scores (predictions with results but no score)
   for (const pred of predictions) {
-    const userId = pred.userId || pred.oduserId || pred.teamId;
+    const userId = pred.userId || pred.teamId;
     const normalizedPredRaceId = normalizeRaceId(pred.raceId || '');
     if (pred.raceId && userId && resultsRaceIds.has(normalizedPredRaceId)) {
       const hasScore = scores.some(s => normalizeRaceId(s.raceId || '') === normalizedPredRaceId && s.userId === userId);

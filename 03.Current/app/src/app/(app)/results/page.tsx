@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collection, query, where, doc, getDoc, getDocs, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
+import { collectionGroup, collection, query, where, doc, getDoc, getDocs, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag } from "lucide-react";
@@ -275,11 +275,11 @@ export default function ResultsPage() {
             const scoreRaceId = selectedRaceId; // Scores use full ID with suffix
 
             try {
-                // Fetch count, scores, and first page of submissions in parallel
+                // Fetch count, scores, and first page of predictions in parallel
                 const [countResult, scoresResult, submissionsResult] = await Promise.all([
                     // Count query - uses base race ID
                     getCountFromServer(query(
-                        collection(firestore, "prediction_submissions"),
+                        collectionGroup(firestore, "predictions"),
                         where("raceId", "==", baseRaceId)
                     )),
                     // Scores query - uses full event ID (GP or Sprint)
@@ -287,9 +287,9 @@ export default function ResultsPage() {
                         collection(firestore, "scores"),
                         where("raceId", "==", scoreRaceId)
                     )),
-                    // First page of submissions - uses base race ID
+                    // First page of predictions from user subcollections
                     getDocs(query(
-                        collection(firestore, "prediction_submissions"),
+                        collectionGroup(firestore, "predictions"),
                         where("raceId", "==", baseRaceId),
                         orderBy("teamName"),
                         limit(PAGE_SIZE)
@@ -327,12 +327,13 @@ export default function ResultsPage() {
 
                     const newTeams: TeamResult[] = submissionsResult.docs.map((doc) => {
                         const data = doc.data();
-                        const score = newScoresMap.get(data.oduserId);
+                        const oduserId = data.userId || data.oduserId; // Support both formats
+                        const score = newScoresMap.get(oduserId);
                         const predictions = parsePredictions(data.predictions, actualTop6);
                         const correctCount = predictions.filter(p => p.isCorrect).length;
                         return {
                             teamName: data.teamName || "Unknown Team",
-                            oduserId: data.oduserId,
+                            oduserId,
                             predictions,
                             totalPoints: score?.totalPoints ?? null,
                             breakdown: score?.breakdown || '',
@@ -366,7 +367,7 @@ export default function ResultsPage() {
 
         try {
             const submissionsQuery = query(
-                collection(firestore, "prediction_submissions"),
+                collectionGroup(firestore, "predictions"),
                 where("raceId", "==", baseRaceId),
                 orderBy("teamName"),
                 startAfter(lastDoc),
@@ -388,12 +389,13 @@ export default function ResultsPage() {
 
             const newTeams: TeamResult[] = snapshot.docs.map((doc) => {
                 const data = doc.data();
-                const score = scoresMap.get(data.oduserId);
+                const oduserId = data.userId || data.oduserId; // Support both formats
+                const score = scoresMap.get(oduserId);
                 const predictions = parsePredictions(data.predictions, actualTop6);
                 const correctCount = predictions.filter(p => p.isCorrect).length;
                 return {
                     teamName: data.teamName || "Unknown Team",
-                    oduserId: data.oduserId,
+                    oduserId,
                     predictions,
                     totalPoints: score?.totalPoints ?? null,
                     breakdown: score?.breakdown || '',

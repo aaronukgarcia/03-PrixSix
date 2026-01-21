@@ -133,13 +133,6 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     return q;
   }, [firestore]);
 
-  const predictionSubmissionsQuery = useMemo(() => {
-    if (!firestore) return null;
-    const q = query(collection(firestore, 'prediction_submissions'));
-    (q as any).__memo = true;
-    return q;
-  }, [firestore]);
-
   const raceResultsQuery = useMemo(() => {
     if (!firestore) return null;
     const q = query(collection(firestore, 'race_results'));
@@ -155,11 +148,10 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
   }, [firestore]);
 
   const { data: predictions, isLoading: isPredictionsLoading } = useCollection<PredictionData>(predictionsQuery);
-  const { data: predictionSubmissions, isLoading: isSubmissionsLoading } = useCollection<PredictionData>(predictionSubmissionsQuery);
   const { data: raceResults, isLoading: isResultsLoading } = useCollection<RaceResultData>(raceResultsQuery);
   const { data: scores, isLoading: isScoresLoading } = useCollection<ScoreData>(scoresQuery);
 
-  const isDataLoading = isUserLoading || isPredictionsLoading || isSubmissionsLoading || isResultsLoading || isScoresLoading;
+  const isDataLoading = isUserLoading || isPredictionsLoading || isResultsLoading || isScoresLoading;
 
   const runChecks = useCallback(async () => {
     if (!allUsers) return;
@@ -202,19 +194,10 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         raceId: p.raceId,
         predictions: p.predictions,
       }));
-      const subData: PredictionData[] = (predictionSubmissions || []).map(s => ({
-        id: s.id,
-        userId: s.userId,
-        oduserId: s.oduserId,
-        teamId: s.teamId,
-        teamName: s.teamName,
-        raceId: s.raceId,
-        predictions: s.predictions,
-      }));
-      results.push(checkPredictions(predData, userData, subData));
+      results.push(checkPredictions(predData, userData));
 
-      // Merge predictions from both sources for score checking
-      const allPredictions = [...predData, ...subData];
+      // Use predictions for score checking
+      const allPredictions = predData;
 
       // Check Race Results
       setCurrentPhase('results');
@@ -266,7 +249,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     } finally {
       setIsRunning(false);
     }
-  }, [allUsers, predictions, predictionSubmissions, raceResults, scores, toast]);
+  }, [allUsers, predictions, raceResults, scores, toast]);
 
   const exportToErrorLog = useCallback(async () => {
     if (!firestore || !summary || !user) return;

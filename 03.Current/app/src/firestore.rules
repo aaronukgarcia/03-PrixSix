@@ -81,16 +81,10 @@ service cloud.firestore {
     }
 
     match /audit_logs/{logId} {
+      // All signed-in users can read prediction submission audit logs (for audit page)
       // Admins can read all audit logs
-      allow get, list: if isAdmin();
-      allow create: if (isSignedIn() && isOwner(request.resource.data.userId)) || request.resource.data.action == 'signup_email_queued';
-      allow update, delete: if false;
-    }
-
-    // Separate collection for prediction submissions - visible to all signed-in users
-    match /prediction_submissions/{submissionId} {
       allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if (isSignedIn() && isOwner(request.resource.data.userId)) || request.resource.data.action == 'signup_email_queued';
       allow update, delete: if false;
     }
 

@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collection, query, orderBy, where, limit, startAfter, getDocs, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
+import { collectionGroup, query, orderBy, where, limit, startAfter, getDocs, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileCheck, CalendarClock, ChevronDown, Loader2, ArrowUpDown, Clock, Users } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
@@ -76,11 +76,11 @@ export default function SubmissionsPage() {
 
   const formatPredictions = (predictions: any) => {
     if (!predictions) return "N/A";
-    // Handle both object format {P1, P2, ...} and array format
+    // User subcollection uses array format
     if (Array.isArray(predictions)) {
       return predictions.join(", ");
     }
-    return `${predictions.P1 || '?'}, ${predictions.P2 || '?'}, ${predictions.P3 || '?'}, ${predictions.P4 || '?'}, ${predictions.P5 || '?'}, ${predictions.P6 || '?'}`;
+    return "N/A";
   };
 
   // Fetch count for selected race
@@ -90,7 +90,7 @@ export default function SubmissionsPage() {
     const fetchCount = async () => {
       try {
         const countQuery = query(
-          collection(firestore, "prediction_submissions"),
+          collectionGroup(firestore, "predictions"),
           where("raceId", "==", selectedRaceId)
         );
         const countSnapshot = await getCountFromServer(countQuery);
@@ -119,9 +119,9 @@ export default function SubmissionsPage() {
       // Determine sort direction: descending for date (newest first), ascending for team name
       const sortDirection = sortField === "submittedAt" ? "desc" : "asc";
 
-      // Query submissions for selected race only
+      // Query predictions from user subcollections using collectionGroup
       let submissionsQuery = query(
-        collection(firestore, "prediction_submissions"),
+        collectionGroup(firestore, "predictions"),
         where("raceId", "==", selectedRaceId),
         orderBy(sortField, sortDirection),
         limit(PAGE_SIZE)
@@ -129,7 +129,7 @@ export default function SubmissionsPage() {
 
       if (isLoadMore && lastDoc) {
         submissionsQuery = query(
-          collection(firestore, "prediction_submissions"),
+          collectionGroup(firestore, "predictions"),
           where("raceId", "==", selectedRaceId),
           orderBy(sortField, sortDirection),
           startAfter(lastDoc),

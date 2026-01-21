@@ -18,37 +18,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { collection, query, orderBy } from "firebase/firestore";
+import { collection, query, orderBy, where } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { History, CalendarClock } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 
-interface PredictionSubmission {
+interface AuditLogEntry {
   id: string;
   userId: string;
-  teamName: string;
-  raceName: string;
-  raceId: string;
-  predictions: {
-    P1: string;
-    P2: string;
-    P3: string;
-    P4: string;
-    P5: string;
-    P6: string;
+  action: string;
+  details: {
+    teamName?: string;
+    raceName?: string;
+    raceId?: string;
+    predictions?: string[];
+    submittedAt?: string;
   };
-  submittedAt: any;
+  timestamp: any;
 }
 
 export default function AuditPage() {
   const firestore = useFirestore();
 
-  // Query all prediction_submissions (full history)
-  const submissionsQuery = useMemo(() => {
+  // Query audit_logs for prediction submissions (full history)
+  const auditQuery = useMemo(() => {
     if (!firestore) return null;
     const q = query(
-      collection(firestore, "prediction_submissions"),
-      orderBy("submittedAt", "desc")
+      collection(firestore, "audit_logs"),
+      where("action", "==", "prediction_submitted"),
+      orderBy("timestamp", "desc")
     );
     (q as any).__memo = true;
     return q;
@@ -61,17 +59,17 @@ export default function AuditPage() {
     return q;
   }, [firestore]);
 
-  const { data: submissions, isLoading: isLoadingSubmissions } =
-    useCollection<PredictionSubmission>(submissionsQuery);
+  const { data: auditLogs, isLoading: isLoadingAudit } =
+    useCollection<AuditLogEntry>(auditQuery);
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   // Track when data was last loaded
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   useEffect(() => {
-    if (submissions && !isLoadingSubmissions) {
+    if (auditLogs && !isLoadingAudit) {
       setLastUpdated(new Date());
     }
-  }, [submissions, isLoadingSubmissions]);
+  }, [auditLogs, isLoadingAudit]);
 
   const formatTimestamp = (timestamp: any) => {
     if (!timestamp) return "N/A";
@@ -85,23 +83,27 @@ export default function AuditPage() {
     });
   };
 
-  const formatPredictions = (predictions: PredictionSubmission["predictions"]) => {
-    if (!predictions) return "N/A";
-    return `${predictions.P1}, ${predictions.P2}, ${predictions.P3}, ${predictions.P4}, ${predictions.P5}, ${predictions.P6}`;
+  const formatPredictions = (predictions: string[] | undefined) => {
+    if (!predictions || !Array.isArray(predictions)) return "N/A";
+    return predictions.join(", ");
   };
 
   const submissionsWithTeamNames = useMemo(() => {
-    if (!submissions) return [];
-    return submissions.map((submission) => {
-      const user = users?.find((u) => u.id === submission.userId);
+    if (!auditLogs) return [];
+    return auditLogs.map((log) => {
+      const user = users?.find((u) => u.id === log.userId);
       return {
-        ...submission,
-        displayTeamName: submission.teamName || user?.teamName || "Unknown Team",
+        id: log.id,
+        userId: log.userId,
+        displayTeamName: log.details.teamName || user?.teamName || "Unknown Team",
+        raceName: log.details.raceName || "N/A",
+        predictions: log.details.predictions,
+        timestamp: log.timestamp,
       };
     });
-  }, [submissions, users]);
+  }, [auditLogs, users]);
 
-  const isLoading = isLoadingSubmissions || isLoadingUsers;
+  const isLoading = isLoadingAudit || isLoadingUsers;
 
   return (
     <div className="space-y-6">
@@ -162,14 +164,14 @@ export default function AuditPage() {
                     <TableCell className="font-semibold">
                       {submission.displayTeamName}
                     </TableCell>
-                    <TableCell>{submission.raceName || "N/A"}</TableCell>
+                    <TableCell>{submission.raceName}</TableCell>
                     <TableCell className="text-sm font-mono">
                       {formatPredictions(submission.predictions)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       <div className="flex items-center gap-1">
                         <CalendarClock className="w-3 h-3" />
-                        {formatTimestamp(submission.submittedAt)}
+                        {formatTimestamp(submission.timestamp)}
                       </div>
                     </TableCell>
                   </TableRow>

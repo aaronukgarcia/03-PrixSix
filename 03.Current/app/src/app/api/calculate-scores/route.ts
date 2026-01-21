@@ -103,15 +103,6 @@ export async function POST(request: NextRequest) {
       predictionsSnapshot = { size: 0, docs: [] } as any;
     }
 
-    // Fallback to prediction_submissions if no results
-    if (predictionsSnapshot.size === 0) {
-      console.log(`[Scoring] Falling back to prediction_submissions collection`);
-      predictionsSnapshot = await db.collection('prediction_submissions')
-        .where('raceId', '==', normalizedRaceId)
-        .get();
-      console.log(`[Scoring] Fallback query returned ${predictionsSnapshot.size} results`);
-    }
-
     // Get all users to map userId to teamName
     const usersSnapshot = await db.collection('users').get();
     const userMap = new Map<string, string>();
@@ -127,24 +118,15 @@ export async function POST(request: NextRequest) {
     predictionsSnapshot.forEach((predDoc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const predData = predDoc.data();
 
-      // Handle both data structures
+      // Data structure: users/{userId}/predictions with array format
       let userPredictions: string[] = [];
       let userId: string;
 
       if (Array.isArray(predData.predictions)) {
         userPredictions = predData.predictions;
+        // Extract userId from path for subcollection, or use field
         const pathParts = predDoc.ref.path.split('/');
         userId = pathParts.length > 2 ? pathParts[1] : predData.userId;
-      } else if (predData.predictions && typeof predData.predictions === 'object') {
-        userPredictions = [
-          predData.predictions.P1,
-          predData.predictions.P2,
-          predData.predictions.P3,
-          predData.predictions.P4,
-          predData.predictions.P5,
-          predData.predictions.P6,
-        ].filter(Boolean);
-        userId = predData.userId;
       } else {
         console.warn(`[Scoring] Unknown prediction format for doc ${predDoc.id}`);
         return;
