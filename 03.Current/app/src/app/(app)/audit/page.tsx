@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/card";
 import { collection, query, orderBy, where } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
-import { History, CalendarClock } from "lucide-react";
+import { History, CalendarClock, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LastUpdated } from "@/components/ui/last-updated";
 
 interface AuditLogEntry {
@@ -59,7 +60,7 @@ export default function AuditPage() {
     return q;
   }, [firestore]);
 
-  const { data: auditLogs, isLoading: isLoadingAudit } =
+  const { data: auditLogs, isLoading: isLoadingAudit, error: auditError } =
     useCollection<AuditLogEntry>(auditQuery);
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
@@ -131,6 +132,20 @@ export default function AuditPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {auditError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error Loading Audit Logs</AlertTitle>
+              <AlertDescription>
+                {auditError.message}
+                {auditError.message?.includes('index') && (
+                  <span className="block mt-2 text-sm">
+                    This query requires a Firestore composite index. Please check the Firebase console.
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
