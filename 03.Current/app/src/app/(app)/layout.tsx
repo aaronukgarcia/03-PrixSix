@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, serverTimestamp } from "firebase/firestore";
 import { useAuditNavigation } from "@/lib/audit";
 import { SessionProvider } from "@/contexts/session-context";
 import { LeagueProvider } from "@/contexts/league-context";
@@ -74,6 +74,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     checkSingleUserMode();
   }, [firestore, user, firebaseUser, logout]);
 
+  // Session timeout constants
+  const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+
   useEffect(() => {
     if (firebaseUser && firestore) {
       if (!sessionIdRef.current) {
@@ -84,25 +88,55 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       const handleConnection = async () => {
          await updateDoc(presenceRef, {
-            online: true, // Keep for quick checks
-            sessions: arrayUnion(sessionId)
+            online: true,
+            sessions: arrayUnion(sessionId),
+            // Store session timestamps in a separate map for tracking activity
+            [`sessionActivity.${sessionId}`]: Date.now(),
+            lastActivity: serverTimestamp(),
+        }).catch(async () => {
+          // If document doesn't exist, create it (first login scenario)
+          const { setDoc } = await import("firebase/firestore");
+          await setDoc(presenceRef, {
+            online: true,
+            sessions: [sessionId],
+            sessionActivity: { [sessionId]: Date.now() },
+            lastActivity: serverTimestamp(),
+          });
         });
       };
 
       const handleDisconnection = async () => {
         if (sessionId) {
-            await updateDoc(presenceRef, {
-                sessions: arrayRemove(sessionId)
-            });
+          const { deleteField } = await import("firebase/firestore");
+          await updateDoc(presenceRef, {
+            sessions: arrayRemove(sessionId),
+            [`sessionActivity.${sessionId}`]: deleteField(),
+          }).catch(() => {}); // Ignore errors on disconnect
+        }
+      };
+
+      // Heartbeat to update lastActivity periodically
+      const heartbeat = async () => {
+        try {
+          await updateDoc(presenceRef, {
+            [`sessionActivity.${sessionId}`]: Date.now(),
+            lastActivity: serverTimestamp(),
+          });
+        } catch (e) {
+          // Ignore heartbeat errors
         }
       };
 
       handleConnection();
 
+      // Start heartbeat interval
+      const heartbeatInterval = setInterval(heartbeat, SESSION_HEARTBEAT_INTERVAL);
+
       window.addEventListener('beforeunload', handleDisconnection);
 
       return () => {
-        handleDisconnection(); // Clean up on component unmount
+        handleDisconnection();
+        clearInterval(heartbeatInterval);
         window.removeEventListener('beforeunload', handleDisconnection);
       };
     }

@@ -18,10 +18,15 @@ import { ShieldAlert, ShieldOff } from 'lucide-react';
 import { useSession } from '@/contexts/session-context';
 import { usePathname } from 'next/navigation';
 
+// Session timeout constant - must match layout.tsx
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+
 interface Presence {
   id: string; // This is the Firebase Auth UID
   online: boolean;
   sessions?: string[]; // Array of unique session GUIDs
+  sessionActivity?: Record<string, number>; // Map of sessionId -> lastActivity timestamp
+  lastActivity?: any; // Firestore Timestamp
 }
 
 interface OnlineUsersManagerProps {
@@ -256,8 +261,23 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
   const usersWithSessions = useMemo(() => {
     if (!allPresence || !allUsers) return [];
 
-    // Filter presence docs with active sessions
-    const onlineUsers = allPresence.filter(p => p.sessions && p.sessions.length > 0);
+    const now = Date.now();
+
+    // Filter presence docs with active sessions within the timeout window
+    const onlineUsers = allPresence.filter(p => {
+      if (!p.sessions || p.sessions.length === 0) return false;
+
+      // Check if any session has been active within the timeout
+      if (p.sessionActivity) {
+        return p.sessions.some(sessionId => {
+          const lastActivity = p.sessionActivity?.[sessionId];
+          return lastActivity && (now - lastActivity) < SESSION_TIMEOUT_MS;
+        });
+      }
+
+      // Fallback: if no sessionActivity tracking, consider active (legacy sessions)
+      return true;
+    });
 
     return onlineUsers.flatMap(presence => {
         const userDetail = allUsers.find(u => u.id === presence.id);
@@ -265,18 +285,30 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
             return [];
         }
 
-        // For admins: show all sessions
-        // For regular users: show only the first session (one entry per user)
+        // Filter to only active sessions within timeout
+        const activeSessions = presence.sessions.filter(sessionId => {
+          if (presence.sessionActivity) {
+            const lastActivity = presence.sessionActivity[sessionId];
+            return lastActivity && (now - lastActivity) < SESSION_TIMEOUT_MS;
+          }
+          return true; // Legacy sessions without tracking
+        });
+
+        if (activeSessions.length === 0) return [];
+
+        // For admins: show all active sessions
+        // For regular users: show only the first active session
         if (userDetail.isAdmin) {
-            return presence.sessions.map(sessionId => ({
+            return activeSessions.map(sessionId => ({
                 ...userDetail,
                 sessionId: sessionId,
+                lastActivity: presence.sessionActivity?.[sessionId],
             }));
         } else {
-            // Only show the first session for non-admin users
             return [{
                 ...userDetail,
-                sessionId: presence.sessions[0],
+                sessionId: activeSessions[0],
+                lastActivity: presence.sessionActivity?.[activeSessions[0]],
             }];
         }
     });
@@ -285,12 +317,27 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
   
   const isLoading = isUserLoading || isPresenceLoading;
 
-  // Total session count (for display in title)
+  // Total active session count (for display in title) - only sessions within timeout
   const totalSessionCount = useMemo(() => {
     if (!allPresence) return 0;
+    const now = Date.now();
+
     return allPresence
       .filter(p => p.sessions && p.sessions.length > 0)
-      .reduce((acc, p) => acc + (p.sessions?.length || 0), 0);
+      .reduce((acc, p) => {
+        if (!p.sessions) return acc;
+
+        // Count only sessions active within timeout window
+        const activeSessions = p.sessions.filter(sessionId => {
+          if (p.sessionActivity) {
+            const lastActivity = p.sessionActivity[sessionId];
+            return lastActivity && (now - lastActivity) < SESSION_TIMEOUT_MS;
+          }
+          return true; // Legacy sessions
+        });
+
+        return acc + activeSessions.length;
+      }, 0);
   }, [allPresence]);
 
   // Find admin name for display
@@ -381,6 +428,7 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
             <TableRow>
               <TableHead>Team</TableHead>
               <TableHead>Session GUID</TableHead>
+              <TableHead>Last Active</TableHead>
               <TableHead className="text-right">Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -400,37 +448,51 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
                   <TableCell>
                     <Skeleton className="h-4 w-full" />
                   </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
                   <TableCell className="text-right">
                     <Skeleton className="h-6 w-16 ml-auto" />
                   </TableCell>
                 </TableRow>
               ))
             ) : usersWithSessions.length > 0 ? (
-              usersWithSessions.map((user) => (
-                <TableRow key={user.sessionId}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={`https://picsum.photos/seed/${user.id}/100/100`} data-ai-hint="person avatar"/>
-                        <AvatarFallback>{user.teamName.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{user.teamName}</div>
-                        <div className="text-sm text-muted-foreground">{user.email}</div>
+              usersWithSessions.map((user) => {
+                // Calculate time since last activity
+                const lastActivity = (user as any).lastActivity;
+                const minutesAgo = lastActivity ? Math.floor((Date.now() - lastActivity) / 60000) : null;
+                const lastActiveText = minutesAgo === null ? 'Unknown' :
+                  minutesAgo === 0 ? 'Just now' :
+                  minutesAgo === 1 ? '1 min ago' :
+                  `${minutesAgo} mins ago`;
+
+                return (
+                  <TableRow key={user.sessionId}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage src={`https://picsum.photos/seed/${user.id}/100/100`} data-ai-hint="person avatar"/>
+                          <AvatarFallback>{user.teamName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{user.teamName}</div>
+                          <div className="text-sm text-muted-foreground">{user.email}</div>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs">{user.sessionId}</TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant="secondary" className="text-green-500 border-green-500/50">
-                      Online
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell className="text-muted-foreground font-mono text-xs">{user.sessionId}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{lastActiveText}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="secondary" className="text-green-500 border-green-500/50">
+                        Online
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
                   No active user sessions.
                 </TableCell>
               </TableRow>

@@ -499,15 +499,25 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
 
     try {
-      await sendEmailVerification(firebaseUser, {
-        url: `${typeof window !== 'undefined' ? window.location.origin : ''}/login?verified=true`,
-      });
+      // Use production URL to avoid domain allowlist issues in development
+      const productionUrl = 'https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/login?verified=true';
+      const continueUrl = process.env.NODE_ENV === 'production'
+        ? `${typeof window !== 'undefined' ? window.location.origin : ''}/login?verified=true`
+        : productionUrl;
+
+      await sendEmailVerification(firebaseUser, { url: continueUrl });
       logAuditEvent(firestore, firebaseUser.uid, 'verification_email_resent', { email: firebaseUser.email });
       return { success: true, message: "Verification email sent. Please check your inbox." };
     } catch (e: any) {
       console.error("Send verification email error:", e);
       if (e.code === 'auth/too-many-requests') {
         return { success: false, message: "Too many requests. Please wait a few minutes before trying again." };
+      }
+      if (e.code === 'auth/unauthorized-continue-uri') {
+        return {
+          success: false,
+          message: "Email verification domain not configured. Please contact an administrator. (Error PX-1005)"
+        };
       }
       return { success: false, message: e.message || "Failed to send verification email." };
     }

@@ -213,17 +213,64 @@ Before starting work, check the Consistency Checker and note how it validates ID
 
 ---
 
-## Error Handling Standards
+## Global Error Handling Standard
 
-Always wrap operations in try/catch with:
+**MANDATORY for all user-facing errors.** See `app/src/lib/error-codes.ts` for the error code registry.
 
-- **Unique `error_correlation_id`** (UUID) for every error
-- **Full error details:**
-  - Correlation ID
-  - Stack trace
-  - Browser/client info (page URL, user agent)
-  - Timestamp (ISO 8601)
-- Copy raw error object to error log
+### Requirements
+
+Every error displayed to users MUST include:
+
+1. **Unique Error Type Number**: Use codes from `ERROR_CODES` in `error-codes.ts`
+   - Format: `PX-[CATEGORY][NUMBER]` (e.g., `PX-3001` for email failures)
+   - Categories: 1xxx=Auth, 2xxx=Validation, 3xxx=External, 4xxx=Firestore, 5xxx=Race, 6xxx=Session, 9xxx=Unknown
+
+2. **Correlation ID**: Generate using `generateCorrelationId()` or `generateClientCorrelationId()`
+   - Format: `err_[timestamp-base36]_[random]`
+   - Must be unique per error instance
+
+3. **Selectable Text**: Error popups MUST allow users to copy the error code and correlation ID
+   - Use the `ErrorToast` component or include copyable text
+
+4. **Server-Side Logging**: Call `logError()` to write to `error_logs` collection
+   - Include: correlationId, error message, stack trace, context (route, userId, timestamp)
+
+### Implementation Pattern
+
+```typescript
+import { ERROR_CODES, createAppError, generateClientCorrelationId } from '@/lib/error-codes';
+import { logError } from '@/lib/firebase-admin';
+
+// In API routes:
+const correlationId = generateCorrelationId();
+try {
+  // ... operation
+} catch (error) {
+  await logError({ correlationId, error, context: { route, userId } });
+  return NextResponse.json({
+    success: false,
+    error: ERROR_CODES.EMAIL_SEND_FAILED.message,
+    errorCode: ERROR_CODES.EMAIL_SEND_FAILED.code,
+    correlationId,
+  });
+}
+
+// In React components:
+catch (error) {
+  const correlationId = generateClientCorrelationId();
+  toast({
+    variant: "destructive",
+    title: `Error ${ERROR_CODES.EMAIL_SEND_FAILED.code}`,
+    description: `${error.message} (ID: ${correlationId})`,
+  });
+}
+```
+
+### Adding New Error Codes
+
+1. Add to `ERROR_CODES` in `app/src/lib/error-codes.ts`
+2. Use appropriate category number
+3. Document the error condition
 
 ---
 
@@ -283,6 +330,38 @@ To grant (using full gcloud path):
 ```bash
 "C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd" iam service-accounts add-iam-policy-binding firebase-adminsdk-fbsvc@studio-6033436327-281b1.iam.gserviceaccount.com --member="serviceAccount:firebase-app-hosting-compute@studio-6033436327-281b1.iam.gserviceaccount.com" --role="roles/iam.serviceAccountTokenCreator" --project=studio-6033436327-281b1
 ```
+
+---
+
+## CI/CD Build Throttling
+
+**Problem:** Firebase App Hosting triggers a build on every push to main, causing resource waste when multiple commits happen quickly.
+
+**Solution:** Follow these practices:
+
+1. **Never commit directly to main** - Use feature branches
+2. **Squash merges** - Combine multiple commits into one before merging to main
+3. **Manual build triggers** - For development, consider using `develop` branch
+
+**Future Enhancement:** Consider adding GitHub Actions with build debouncing:
+- Only trigger builds when no commits for 10 minutes
+- Or use manual workflow dispatch for production builds
+
+---
+
+## Firebase Auth Configuration
+
+### Email Verification Domain Setup
+
+If you see error `auth/unauthorized-continue-uri`, add your domains to Firebase:
+
+1. Go to Firebase Console → Authentication → Settings → Authorized domains
+2. Add these domains:
+   - `localhost` (for development)
+   - `prixsix--studio-6033436327-281b1.europe-west4.hosted.app` (production)
+   - Any custom domains in use
+
+The continue URL in email verification is configured in `firebase/provider.tsx`.
 
 ---
 

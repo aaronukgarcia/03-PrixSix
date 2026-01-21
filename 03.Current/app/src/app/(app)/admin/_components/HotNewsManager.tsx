@@ -20,10 +20,11 @@ import { useToast } from "@/hooks/use-toast";
 import { HotNewsSettings, updateHotNewsContent, getHotNewsSettings } from "@/firebase/firestore/settings";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, RefreshCw, Mail } from "lucide-react";
+import { AlertCircle, RefreshCw, Mail, Copy, Check } from "lucide-react";
 import { hotNewsFeedFlow } from "@/ai/flows/hot-news-feed";
 import { serverTimestamp } from "firebase/firestore";
 import { logAuditEvent } from "@/lib/audit";
+import { ERROR_CODES, generateClientCorrelationId } from "@/lib/error-codes";
 
 export function HotNewsManager() {
   const firestore = useFirestore();
@@ -110,17 +111,37 @@ export function HotNewsManager() {
               description: result.message,
             });
           } else {
+            // Use correlation ID from API response or generate client-side
+            const correlationId = result.correlationId || generateClientCorrelationId();
+            const errorCode = result.errorCode || ERROR_CODES.EMAIL_SEND_FAILED.code;
             toast({
               variant: "destructive",
-              title: "Email Error",
-              description: result.error || "Failed to send emails",
+              title: `Error ${errorCode}`,
+              description: (
+                <div className="space-y-2">
+                  <p>{result.error || "Failed to send emails"}</p>
+                  <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
+                    ID: {correlationId}
+                  </p>
+                </div>
+              ),
+              duration: 15000, // Keep visible longer for copying
             });
           }
         } catch (emailError: any) {
+          const correlationId = generateClientCorrelationId();
           toast({
             variant: "destructive",
-            title: "Email Error",
-            description: emailError.message,
+            title: `Error ${ERROR_CODES.EMAIL_SEND_FAILED.code}`,
+            description: (
+              <div className="space-y-2">
+                <p>{emailError.message}</p>
+                <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
+                  ID: {correlationId}
+                </p>
+              </div>
+            ),
+            duration: 15000,
           });
         } finally {
           setIsSendingEmails(false);
@@ -128,10 +149,19 @@ export function HotNewsManager() {
         }
       }
     } catch (e: any) {
+      const correlationId = generateClientCorrelationId();
       toast({
         variant: "destructive",
-        title: "Error updating settings",
-        description: e.message,
+        title: `Error ${ERROR_CODES.FIRESTORE_WRITE_FAILED.code}`,
+        description: (
+          <div className="space-y-2">
+            <p>{e.message}</p>
+            <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
+              ID: {correlationId}
+            </p>
+          </div>
+        ),
+        duration: 15000,
       });
     } finally {
       setIsSaving(false);
@@ -165,10 +195,19 @@ export function HotNewsManager() {
         });
       }
     } catch (e: any) {
+        const correlationId = generateClientCorrelationId();
         toast({
             variant: "destructive",
-            title: "Refresh Failed",
-            description: e.message,
+            title: `Error ${ERROR_CODES.AI_GENERATION_FAILED.code}`,
+            description: (
+              <div className="space-y-2">
+                <p>{e.message}</p>
+                <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
+                  ID: {correlationId}
+                </p>
+              </div>
+            ),
+            duration: 15000,
         });
     } finally {
         setIsRefreshing(false);

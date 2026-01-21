@@ -30,13 +30,28 @@ interface StandingEntry {
 }
 
 /**
- * Normalize raceId to match the format used by predictions.
+ * Normalize raceId to match the format used by predictions (base race name only).
  */
-function normalizeRaceId(raceId: string): string {
+function normalizeRaceIdForPredictions(raceId: string): string {
   let baseName = raceId
     .replace(/\s*-\s*GP$/i, '')
     .replace(/\s*-\s*Sprint$/i, '');
   return baseName.replace(/\s+/g, '-');
+}
+
+/**
+ * Create document ID for race results - preserves GP/Sprint distinction.
+ * Sprint races get "-sprint" suffix, GP races get "-gp" suffix.
+ */
+function createRaceResultDocId(raceName: string): string {
+  const isSprint = /\s*-\s*Sprint$/i.test(raceName);
+  const baseName = raceName
+    .replace(/\s*-\s*GP$/i, '')
+    .replace(/\s*-\s*Sprint$/i, '')
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+
+  return isSprint ? `${baseName}-sprint` : `${baseName}-gp`;
 }
 
 export async function POST(request: NextRequest) {
@@ -87,9 +102,10 @@ export async function POST(request: NextRequest) {
     }
 
     const actualResults = [driver1, driver2, driver3, driver4, driver5, driver6];
-    const normalizedRaceId = normalizeRaceId(raceName);
+    const normalizedRaceId = normalizeRaceIdForPredictions(raceName);
+    const resultDocId = createRaceResultDocId(raceName);
 
-    console.log(`[Scoring] Processing race: ${raceName} (normalized: ${normalizedRaceId})`);
+    console.log(`[Scoring] Processing race: ${raceName} (predictions: ${normalizedRaceId}, result doc: ${resultDocId})`);
 
     // Get all predictions for this race using collectionGroup query
     let predictionsSnapshot;
@@ -166,11 +182,12 @@ export async function POST(request: NextRequest) {
 
       calculatedScores.push({ userId, totalPoints, breakdown: breakdownParts.join(', ') });
 
-      // Add to batch
-      const scoreDocRef = db.collection('scores').doc(`${normalizedRaceId}_${userId}`);
+      // Add to batch - use resultDocId to distinguish Sprint from GP scores
+      const scoreDocRef = db.collection('scores').doc(`${resultDocId}_${userId}`);
       batch.set(scoreDocRef, {
         userId,
-        raceId: normalizedRaceId,
+        raceId: resultDocId, // Store with GP/Sprint distinction
+        raceName: raceName,  // Store original display name
         totalPoints,
         breakdown: breakdownParts.join(', '),
         calculatedAt: FieldValue.serverTimestamp(),
@@ -184,8 +201,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Write race result document
-    // Use normalizedRaceId for consistent document ID (removes " - GP" suffix)
-    const resultDocId = normalizedRaceId.toLowerCase();
+    // Use resultDocId which preserves GP/Sprint distinction
     const resultDocRef = db.collection('race_results').doc(resultDocId);
     batch.set(resultDocRef, {
       id: resultDocId,
