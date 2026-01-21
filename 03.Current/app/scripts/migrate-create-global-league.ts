@@ -5,12 +5,9 @@
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import * as path from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const serviceAccountPath = join(__dirname, '..', '..', 'service-account.json');
+const serviceAccountPath = path.join(__dirname, '..', '..', 'service-account.json');
 if (getApps().length === 0) {
   initializeApp({ credential: cert(serviceAccountPath) });
 }

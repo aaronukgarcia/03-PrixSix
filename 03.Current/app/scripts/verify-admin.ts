@@ -27,7 +27,7 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 const ADMIN_EMAIL = 'aaron@garcia.ltd';
-const ADMIN_PIN = '366663';
+const ADMIN_PIN = process.env.ADMIN_PIN || (() => { throw new Error('ADMIN_PIN environment variable required'); })();
 
 async function verifyAndFixAdmin() {
   console.log('🔍 Checking admin account:', ADMIN_EMAIL);
@@ -115,7 +115,7 @@ async function verifyAndFixAdmin() {
 
   // Step 3: Reset PIN in Firebase Auth
   console.log('');
-  console.log('🔑 Resetting PIN to:', ADMIN_PIN);
+  console.log('🔑 Resetting PIN...');
 
   await auth.updateUser(authUser.uid, {
     password: ADMIN_PIN,
@@ -136,7 +136,7 @@ async function verifyAndFixAdmin() {
   console.log('✅ Admin account verified and fixed!');
   console.log('');
   console.log('   Email:', ADMIN_EMAIL);
-  console.log('   PIN:', ADMIN_PIN);
+  console.log('   PIN: [set from ADMIN_PIN env var]');
   console.log('========================================');
 }
 
