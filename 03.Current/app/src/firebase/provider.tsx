@@ -338,6 +338,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       const userDocRef = doc(firestore, 'users', userId);
       await updateDoc(userDocRef, data);
       logAuditEvent(firestore, user.id, 'admin_update_user', { targetUserId: userId, changes: data });
+
+      // If updating the current user, sync the local state
+      if (userId === user.id) {
+        setUser(prev => prev ? { ...prev, ...data } : null);
+      }
+
       return { success: true, message: "User updated successfully." };
     } catch (e: any) {
       return { success: false, message: e.message };
