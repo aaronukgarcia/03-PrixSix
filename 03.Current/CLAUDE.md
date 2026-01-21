@@ -1,6 +1,6 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-01-21  17:45
+> **Last updated:** 2026-01-21  19:30
 > **Current production version:** Check `package.json` and verify at https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about  
 > **Read this entire file at the start of every session.**
 
@@ -295,6 +295,12 @@ To grant (using full gcloud path):
 - [ ] (add planned work)
 
 ### Recently Completed
+- [x] v1.17.0 - Smart Pit Lane Status (shows Submit/Edit Prediction based on user state)
+- [x] v1.17.0 - Waiting State & Deep Linking (loading spinner, clickable link to /predictions)
+- [x] v1.17.0 - Deadline Visibility Warning (colour-coded banners at 24h/6h/1h)
+- [x] v1.17.0 - Apply to All Teams checkbox (submit same prediction to all teams)
+- [x] v1.17.0 - Email Verification Backend (Firebase email verification, schema update)
+- [x] v1.17.0 - Email Verification Frontend (banner on all pages, profile page controls)
 - [x] Fixed login - added correlation IDs to all errors, granted Service Account Token Creator role
 - [x] Performance fix - lazy load ConsistencyChecker (reduced 4MB Firestore load)
 - [x] Added version display to login and dashboard pages
