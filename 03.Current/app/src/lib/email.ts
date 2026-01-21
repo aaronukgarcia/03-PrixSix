@@ -25,9 +25,10 @@ function generateGuid(): string {
 
 // Get Graph client
 function getGraphClient() {
-  const tenantId = process.env.GRAPH_TENANT_ID;
-  const clientId = process.env.GRAPH_CLIENT_ID;
-  const clientSecret = process.env.GRAPH_CLIENT_SECRET;
+  // Trim secrets to remove any trailing whitespace/newlines from environment
+  const tenantId = process.env.GRAPH_TENANT_ID?.trim();
+  const clientId = process.env.GRAPH_CLIENT_ID?.trim();
+  const clientSecret = process.env.GRAPH_CLIENT_SECRET?.trim();
 
   if (!tenantId || !clientId || !clientSecret) {
     throw new Error("Microsoft Graph credentials not configured");
