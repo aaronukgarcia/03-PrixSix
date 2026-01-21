@@ -15,6 +15,7 @@ import { useAuditNavigation } from "@/lib/audit";
 import { SessionProvider } from "@/contexts/session-context";
 import { LeagueProvider } from "@/contexts/league-context";
 import { logAuditEvent } from "@/lib/audit";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 
 function generateGuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -144,7 +145,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </div>
             </header>
-            <main className="flex-1 p-4 md:p-6">{children}</main>
+            <main className="flex-1 p-4 md:p-6">
+              <EmailVerificationBanner />
+              {children}
+            </main>
           </SidebarInset>
         </SidebarProvider>
       </LeagueProvider>

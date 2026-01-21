@@ -34,7 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { generateTeamName } from "@/ai/flows/team-name-generator";
-import { Frown, Wand2, AlertTriangle, User, Mail, Key } from "lucide-react";
+import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -67,13 +67,15 @@ type ChangePinValues = z.infer<typeof changePinSchema>;
 
 
 export default function ProfilePage() {
-  const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser } = useAuth();
+  const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser, isEmailVerified, sendVerificationEmail, refreshEmailVerificationStatus } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const { sessionId } = useSession();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isChangingPin, setIsChangingPin] = useState(false);
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [isRefreshingVerification, setIsRefreshingVerification] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -275,6 +277,47 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleSendVerificationEmail() {
+    setIsSendingVerification(true);
+    try {
+      const result = await sendVerificationEmail();
+      if (result.success) {
+        toast({
+          title: "Verification Email Sent",
+          description: "Please check your inbox and click the verification link.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to Send",
+          description: result.message,
+        });
+      }
+    } finally {
+      setIsSendingVerification(false);
+    }
+  }
+
+  async function handleRefreshVerificationStatus() {
+    setIsRefreshingVerification(true);
+    try {
+      await refreshEmailVerificationStatus();
+      if (isEmailVerified) {
+        toast({
+          title: "Email Verified!",
+          description: "Your email address has been verified.",
+        });
+      } else {
+        toast({
+          title: "Not Yet Verified",
+          description: "Please click the link in the verification email.",
+        });
+      }
+    } finally {
+      setIsRefreshingVerification(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
         <div className="space-y-1">
@@ -309,6 +352,48 @@ export default function ProfilePage() {
                                     Email Address
                                 </p>
                                 <p className="text-lg font-semibold">{user?.email}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {isEmailVerified ? (
+                                    <span className="flex items-center gap-1 text-sm text-green-600">
+                                      <CheckCircle2 className="h-4 w-4" />
+                                      Verified
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <span className="flex items-center gap-1 text-sm text-yellow-600">
+                                        <XCircle className="h-4 w-4" />
+                                        Not verified
+                                      </span>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleSendVerificationEmail}
+                                        disabled={isSendingVerification}
+                                        className="h-7 text-xs"
+                                      >
+                                        {isSendingVerification ? (
+                                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Mail className="mr-1 h-3 w-3" />
+                                        )}
+                                        Send verification
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleRefreshVerificationStatus}
+                                        disabled={isRefreshingVerification}
+                                        className="h-7 text-xs"
+                                      >
+                                        {isRefreshingVerification ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <RefreshCw className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
                             </div>
                         </div>
                         <div className="space-y-1">
