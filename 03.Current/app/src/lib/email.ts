@@ -1,6 +1,8 @@
 import { ClientSecretCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import {
   canSendEmail,
   recordSentEmail,
@@ -11,6 +13,24 @@ import {
   markSummarySent,
   isSummarySent
 } from "./email-tracking";
+
+// Initialize Firebase Admin for server-side email logging
+function getAdminDb() {
+  if (!getApps().length) {
+    const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (serviceAccountPath) {
+      initializeApp({
+        credential: cert(serviceAccountPath),
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      });
+    } else {
+      initializeApp({
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      });
+    }
+  }
+  return getFirestore();
+}
 
 const ADMIN_EMAIL = 'aaron@garcia.ltd';
 
@@ -164,7 +184,7 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
 
     await client.api(`/users/${senderEmail}/sendMail`).post({ message });
 
-    // Record sent email if firestore is provided
+    // Record sent email if firestore is provided (for rate limiting)
     if (firestore) {
       await recordSentEmail(firestore, {
         toEmail,
@@ -177,9 +197,45 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
       });
     }
 
+    // Log to email_logs collection for the admin UI
+    try {
+      const adminDb = getAdminDb();
+      await adminDb.collection('email_logs').add({
+        to: toEmail,
+        subject,
+        html: htmlContent,
+        pin,
+        status: 'sent',
+        timestamp: Timestamp.now(),
+        emailGuid,
+        teamName,
+      });
+    } catch (logError: any) {
+      console.error("Error logging welcome email to email_logs:", logError.message);
+    }
+
     return { success: true, emailGuid };
   } catch (error: any) {
     console.error("Error sending welcome email:", error.message);
+
+    // Log failed email to email_logs
+    try {
+      const adminDb = getAdminDb();
+      await adminDb.collection('email_logs').add({
+        to: toEmail,
+        subject,
+        html: htmlContent,
+        pin,
+        status: 'failed',
+        timestamp: Timestamp.now(),
+        emailGuid,
+        teamName,
+        error: error.message,
+      });
+    } catch (logError: any) {
+      console.error("Error logging failed welcome email:", logError.message);
+    }
+
     return { success: false, emailGuid, error: error.message };
   }
 }
@@ -224,9 +280,44 @@ ${htmlContent}
 
     await client.api(`/users/${senderEmail}/sendMail`).post({ message });
 
+    // Log to email_logs collection for the admin UI
+    try {
+      const adminDb = getAdminDb();
+      await adminDb.collection('email_logs').add({
+        to: toEmail,
+        subject,
+        html: contentWithFooter,
+        pin: 'N/A',
+        status: 'sent',
+        timestamp: Timestamp.now(),
+        emailGuid,
+      });
+    } catch (logError: any) {
+      console.error("Error logging email to email_logs:", logError.message);
+      // Don't fail the email send if logging fails
+    }
+
     return { success: true, emailGuid };
   } catch (error: any) {
     console.error("Error sending email:", error.message);
+
+    // Log failed email to email_logs
+    try {
+      const adminDb = getAdminDb();
+      await adminDb.collection('email_logs').add({
+        to: toEmail,
+        subject,
+        html: htmlContent,
+        pin: 'N/A',
+        status: 'failed',
+        timestamp: Timestamp.now(),
+        emailGuid,
+        error: error.message,
+      });
+    } catch (logError: any) {
+      console.error("Error logging failed email:", logError.message);
+    }
+
     return { success: false, emailGuid, error: error.message };
   }
 }
