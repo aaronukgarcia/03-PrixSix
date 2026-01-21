@@ -5,7 +5,7 @@ import React, { createContext, useContext, ReactNode, useMemo, useState, useEffe
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, collection, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, arrayUnion } from 'firebase/firestore';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
-import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword, sendEmailVerification } from 'firebase/auth';
+import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
@@ -228,12 +228,23 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       await setDoc(doc(firestore, 'users', uid), newUser);
       await setDoc(doc(firestore, "presence", uid), { online: false, sessions: [] });
 
-      // Send Firebase email verification
+      // Send email verification via Graph API
       try {
-        await sendEmailVerification(userCredential.user, {
-          url: `${typeof window !== 'undefined' ? window.location.origin : ''}/login?verified=true`,
+        const verifyResponse = await fetch('/api/send-verification-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid,
+            email,
+            teamName,
+          }),
         });
-        logAuditEvent(firestore, uid, 'verification_email_sent', { email });
+        const verifyResult = await verifyResponse.json();
+        if (verifyResult.success) {
+          logAuditEvent(firestore, uid, 'verification_email_sent', { email, emailGuid: verifyResult.emailGuid });
+        } else {
+          console.warn('Verification email not sent:', verifyResult.error);
+        }
       } catch (verificationError: any) {
         console.error('Failed to send verification email:', verificationError);
         // Don't fail signup if verification email fails
@@ -494,31 +505,39 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return { success: false, message: "You must be logged in to send a verification email." };
     }
 
-    if (firebaseUser.emailVerified) {
+    if (firebaseUser.emailVerified || user?.emailVerified) {
       return { success: false, message: "Your email is already verified." };
     }
 
     try {
-      // Use production URL to avoid domain allowlist issues in development
-      const productionUrl = 'https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/login?verified=true';
-      const continueUrl = process.env.NODE_ENV === 'production'
-        ? `${typeof window !== 'undefined' ? window.location.origin : ''}/login?verified=true`
-        : productionUrl;
+      // Use our custom Graph API-based email verification
+      const response = await fetch('/api/send-verification-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          teamName: user?.teamName,
+        }),
+      });
 
-      await sendEmailVerification(firebaseUser, { url: continueUrl });
-      logAuditEvent(firestore, firebaseUser.uid, 'verification_email_resent', { email: firebaseUser.email });
-      return { success: true, message: "Verification email sent. Please check your inbox." };
+      const result = await response.json();
+
+      if (result.success) {
+        logAuditEvent(firestore, firebaseUser.uid, 'verification_email_resent', { email: firebaseUser.email });
+        return { success: true, message: "Verification email sent. Please check your inbox." };
+      } else {
+        // Check if Graph API is not configured
+        if (response.status === 503) {
+          return {
+            success: false,
+            message: "Email service not configured. Please contact an administrator. (Error PX-3001)"
+          };
+        }
+        return { success: false, message: result.error || "Failed to send verification email." };
+      }
     } catch (e: any) {
       console.error("Send verification email error:", e);
-      if (e.code === 'auth/too-many-requests') {
-        return { success: false, message: "Too many requests. Please wait a few minutes before trying again." };
-      }
-      if (e.code === 'auth/unauthorized-continue-uri') {
-        return {
-          success: false,
-          message: "Email verification domain not configured. Please contact an administrator. (Error PX-1005)"
-        };
-      }
       return { success: false, message: e.message || "Failed to send verification email." };
     }
   };

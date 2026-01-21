@@ -22,18 +22,11 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     value: 966261161276
   # Microsoft Graph secrets for email functionality
-  # These are optional - email features will be disabled without them
-  # To enable, run:
-  #   firebase apphosting:secrets:set GRAPH_TENANT_ID
-  #   firebase apphosting:secrets:set GRAPH_CLIENT_ID
-  #   firebase apphosting:secrets:set GRAPH_CLIENT_SECRET
-  #   firebase apphosting:secrets:set GRAPH_SENDER_EMAIL
-  # Then uncomment the lines below:
-  # - variable: GRAPH_TENANT_ID
-  #   secret: GRAPH_TENANT_ID
-  # - variable: GRAPH_CLIENT_ID
-  #   secret: GRAPH_CLIENT_ID
-  # - variable: GRAPH_CLIENT_SECRET
-  #   secret: GRAPH_CLIENT_SECRET
-  # - variable: GRAPH_SENDER_EMAIL
-  #   secret: GRAPH_SENDER_EMAIL
+  - variable: GRAPH_TENANT_ID
+    secret: GRAPH_TENANT_ID
+  - variable: GRAPH_CLIENT_ID
+    secret: GRAPH_CLIENT_ID
+  - variable: GRAPH_CLIENT_SECRET
+    secret: GRAPH_CLIENT_SECRET
+  - variable: GRAPH_SENDER_EMAIL
+    secret: GRAPH_SENDER_EMAIL
