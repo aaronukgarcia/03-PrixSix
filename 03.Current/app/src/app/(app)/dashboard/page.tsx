@@ -1,9 +1,8 @@
 import { getHotNewsFeed } from "@/ai/flows/hot-news-feed";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { findNextRace } from "@/lib/data";
-import { AlertCircle, CheckCircle2, Newspaper, Flag, Calendar, Clock } from "lucide-react";
+import { Newspaper, Flag, Calendar, Clock } from "lucide-react";
 import { DashboardClient } from "./_components/DashboardClient";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { APP_VERSION } from '@/lib/version';
 
 
