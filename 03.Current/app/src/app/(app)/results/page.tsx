@@ -481,27 +481,34 @@ export default function ResultsPage() {
                     <LastUpdated timestamp={lastUpdated} />
                   </CardDescription>
                 </div>
-                 <div className="flex flex-col sm:flex-row gap-2">
+                 <div className="flex flex-col sm:flex-row gap-2 items-center">
                    <LeagueSelector className="w-full sm:w-[180px]" />
-                   <Select value={selectedRaceId} onValueChange={setSelectedRaceId}>
-                    <SelectTrigger className="w-full sm:w-[280px]">
-                      <SelectValue placeholder="Select a race or sprint" />
-                    </SelectTrigger>
-                  <SelectContent>
-                    {allRaceEvents.map((event) => (
-                      <SelectItem key={event.id} value={event.id}>
-                        <span className="flex items-center gap-2">
-                          {event.isSprint ? (
-                            <Zap className="h-3 w-3 text-amber-500" />
-                          ) : (
-                            <Flag className="h-3 w-3 text-primary" />
-                          )}
-                          {event.label}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                   <div className="relative w-full sm:w-[280px]">
+                     <Select value={selectedRaceId} onValueChange={setSelectedRaceId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a race or sprint" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allRaceEvents.map((event) => (
+                          <SelectItem key={event.id} value={event.id}>
+                            <span className="flex items-center gap-2">
+                              {event.isSprint ? (
+                                <Zap className="h-3 w-3 text-amber-500" />
+                              ) : (
+                                <Flag className="h-3 w-3 text-primary" />
+                              )}
+                              {event.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isLoading && (
+                      <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                   </div>
                  </div>
              </div>
 

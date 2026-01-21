@@ -227,20 +227,27 @@ export default function SubmissionsPage() {
                 <LastUpdated timestamp={lastUpdated} />
               </CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 items-center">
               <LeagueSelector className="w-full sm:w-[180px]" />
-              <Select value={selectedRace} onValueChange={setSelectedRace}>
-                <SelectTrigger className="w-full sm:w-[220px]">
-                  <SelectValue placeholder="Select a race" />
-                </SelectTrigger>
-                <SelectContent>
-                  {races.map((race) => (
-                    <SelectItem key={race} value={race}>
-                      {race}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative w-full sm:w-[220px]">
+                <Select value={selectedRace} onValueChange={setSelectedRace}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a race" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {races.map((race) => (
+                      <SelectItem key={race} value={race}>
+                        {race}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isLoading && (
+                  <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </div>
               <div className="flex gap-1">
                 <Button
                   variant={sortField === "submittedAt" ? "default" : "outline"}
