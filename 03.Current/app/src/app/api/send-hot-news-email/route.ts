@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
-import { canSendEmail, recordSentEmail } from '@/lib/email-tracking';
-import { getFirebaseAdmin } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
+
+const DAILY_GLOBAL_LIMIT = 30;
+const DAILY_PER_ADDRESS_LIMIT = 5;
+const ADMIN_EMAIL = 'aaron@garcia.ltd';
 
 interface HotNewsEmailRequest {
   content: string;
@@ -12,8 +15,23 @@ interface HotNewsEmailRequest {
   updatedByEmail: string;
 }
 
+interface EmailLogEntry {
+  toEmail: string;
+  subject: string;
+  type: string;
+  teamName?: string;
+  emailGuid: string;
+  sentAt: string;
+  status: 'sent' | 'queued' | 'failed';
+}
+
+function getTodayDateString(): string {
+  const now = new Date();
+  return now.toISOString().split('T')[0];
+}
+
 export async function POST(request: NextRequest) {
-  const correlationId = generateGuid();
+  const correlationId = generateCorrelationId();
 
   try {
     const data: HotNewsEmailRequest = await request.json();
@@ -41,6 +59,28 @@ export async function POST(request: NextRequest) {
       timestamp: FieldValue.serverTimestamp(),
     });
 
+    // Get or create today's email stats using Admin SDK
+    const today = getTodayDateString();
+    const statsRef = db.collection('email_daily_stats').doc(today);
+    const statsDoc = await statsRef.get();
+
+    let dailyStats: { totalSent: number; emailsSent: EmailLogEntry[] };
+    if (statsDoc.exists) {
+      dailyStats = statsDoc.data() as { totalSent: number; emailsSent: EmailLogEntry[] };
+    } else {
+      dailyStats = { totalSent: 0, emailsSent: [] };
+      await statsRef.set({ date: today, totalSent: 0, emailsSent: [], summaryEmailSent: false });
+    }
+
+    // Check global daily limit
+    if (dailyStats.totalSent >= DAILY_GLOBAL_LIMIT) {
+      return NextResponse.json({
+        success: false,
+        error: `Daily global email limit of ${DAILY_GLOBAL_LIMIT} reached`,
+        correlationId,
+      }, { status: 429 });
+    }
+
     // Get all users who have opted in to news feed emails
     const usersSnapshot = await db.collection('users').get();
     const usersToNotify = usersSnapshot.docs.filter(doc => {
@@ -66,10 +106,21 @@ export async function POST(request: NextRequest) {
       const userEmail = userData.email;
       const userTeamName = userData.teamName || 'Team';
 
-      // Check rate limiting
-      const rateCheck = await canSendEmail(db as any, userEmail);
-      if (!rateCheck.canSend) {
-        results.push({ email: userEmail, success: false, error: rateCheck.reason });
+      // Check per-address limit (skip for admin email)
+      if (userEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        const addressCount = dailyStats.emailsSent.filter(
+          e => e.toEmail.toLowerCase() === userEmail.toLowerCase()
+        ).length;
+
+        if (addressCount >= DAILY_PER_ADDRESS_LIMIT) {
+          results.push({ email: userEmail, success: false, error: `Daily limit of ${DAILY_PER_ADDRESS_LIMIT} emails reached` });
+          continue;
+        }
+      }
+
+      // Check global limit hasn't been exceeded during this batch
+      if (dailyStats.totalSent >= DAILY_GLOBAL_LIMIT) {
+        results.push({ email: userEmail, success: false, error: 'Global daily limit reached' });
         continue;
       }
 
@@ -87,15 +138,27 @@ export async function POST(request: NextRequest) {
         });
 
         if (emailResult.success) {
-          await recordSentEmail(db as any, {
+          // Record sent email using Admin SDK
+          const entry: EmailLogEntry = {
             toEmail: userEmail,
             subject: 'Prix Six: Hot News Update',
             type: 'hot_news',
             teamName: userTeamName,
-            emailGuid: emailResult.emailGuid,
+            emailGuid: emailResult.emailGuid || '',
             sentAt: new Date().toISOString(),
             status: 'sent',
+          };
+
+          // Update stats atomically
+          await statsRef.update({
+            totalSent: FieldValue.increment(1),
+            emailsSent: FieldValue.arrayUnion(entry),
           });
+
+          // Update local tracking
+          dailyStats.totalSent++;
+          dailyStats.emailsSent.push(entry);
+
           results.push({ email: userEmail, success: true, emailGuid: emailResult.emailGuid });
         } else {
           results.push({ email: userEmail, success: false, error: emailResult.error });
@@ -129,20 +192,21 @@ export async function POST(request: NextRequest) {
       auditLogged: true,
     });
   } catch (error: any) {
-    console.error('Error sending hot news emails:', error);
+    await logError({
+      correlationId,
+      error,
+      context: {
+        route: '/api/send-hot-news-email',
+        action: 'POST',
+        userAgent: request.headers.get('user-agent') || undefined,
+      },
+    });
+
     return NextResponse.json(
       { success: false, error: error.message, correlationId },
       { status: 500 }
     );
   }
-}
-
-function generateGuid(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
 }
 
 function buildHotNewsEmailHtml(data: { teamName: string; content: string }): string {
