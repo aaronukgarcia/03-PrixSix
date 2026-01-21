@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 
 // Initialize Firebase Admin
@@ -76,11 +77,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mark the user's email as verified
+    // Mark the user's email as verified in Firestore
     const userRef = adminDb.collection('users').doc(uid);
     await userRef.update({
       emailVerified: true,
     });
+
+    // Also mark as verified in Firebase Auth
+    const auth = getAuth();
+    await auth.updateUser(uid, { emailVerified: true });
 
     // Mark the token as used
     await tokenRef.update({
