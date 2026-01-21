@@ -6,8 +6,9 @@ import type { Race } from "@/lib/data";
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
+import Link from "next/link";
 
 interface TimeLeft {
   days: number;
@@ -61,12 +62,6 @@ export function DashboardClient({ nextRace }: { nextRace: Race }) {
 
     return () => clearTimeout(timer);
   });
-
-  // Determine action text based on prediction status
-  const getActionText = () => {
-    if (isPredictionLoading) return "Checking...";
-    return hasPrediction ? "Edit Prediction" : "Submit Prediction";
-  };
 
   return (
     <>
@@ -123,10 +118,23 @@ export function DashboardClient({ nextRace }: { nextRace: Race }) {
         <CardContent>
           {isPitlaneOpen ? (
             <Alert className="border-green-500/50 text-green-500 [&>svg]:text-green-500">
-              <CheckCircle2 className="h-4 w-4" />
+              {isPredictionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
               <AlertTitle className="font-bold">Open</AlertTitle>
               <AlertDescription>
-                {getActionText()}
+                {isPredictionLoading ? (
+                  "Checking your predictions..."
+                ) : (
+                  <Link
+                    href="/predictions"
+                    className="underline hover:text-green-400 transition-colors"
+                  >
+                    {hasPrediction ? "Edit Prediction" : "Submit Prediction"} →
+                  </Link>
+                )}
               </AlertDescription>
             </Alert>
           ) : (
