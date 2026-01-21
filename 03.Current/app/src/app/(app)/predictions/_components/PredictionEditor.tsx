@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/firebase";
 import type { User as FirebaseAuthUser } from 'firebase/auth';
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 interface PredictionEditorProps {
   allDrivers: Driver[];
@@ -29,15 +31,20 @@ interface PredictionEditorProps {
   raceName: string;
   teamName?: string;
   qualifyingTime: string;
+  allTeamNames?: string[];
 }
 
-export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime }: PredictionEditorProps) {
+export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime, allTeamNames = [] }: PredictionEditorProps) {
   const { user, firebaseUser } = useAuth();
   const [predictions, setPredictions] = useState<(Driver | null)[]>(initialPredictions);
   const [history, setHistory] = useState<string[]>([]);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [countdown, setCountdown] = useState<string>("");
+  const [applyToAll, setApplyToAll] = useState(false);
+
+  // Only show "Apply to All" if user has multiple teams
+  const hasMultipleTeams = allTeamNames.length > 1;
 
   // Countdown timer
   useEffect(() => {
@@ -133,45 +140,58 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
 
     setIsSubmitting(true);
     try {
-        const teamId = teamName === user.secondaryTeamName ? `${user.id}-secondary` : user.id;
-        const raceId = raceName.replace(/\s+/g, '-');
-        const predictionIds = predictions.map(p => p?.id).filter(Boolean) as string[];
-
         // SECURITY: Get Firebase ID token for server-side verification
         if (!firebaseUser) {
             throw new Error('Not authenticated');
         }
         const idToken = await firebaseUser.getIdToken();
+        const raceId = raceName.replace(/\s+/g, '-');
+        const predictionIds = predictions.map(p => p?.id).filter(Boolean) as string[];
 
-        // Use server-side API for lockout enforcement
-        const response = await fetch('/api/submit-prediction', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`,
-            },
-            body: JSON.stringify({
-                userId: user.id,
-                teamId,
-                teamName,
-                raceId,
-                raceName,
-                predictions: predictionIds,
-            }),
-        });
+        // Determine which teams to submit for
+        const teamsToSubmit = applyToAll && hasMultipleTeams ? allTeamNames : [teamName];
+        const results: { team: string; success: boolean; error?: string }[] = [];
 
-        const result = await response.json();
+        for (const team of teamsToSubmit) {
+            const teamId = team === user.secondaryTeamName ? `${user.id}-secondary` : user.id;
 
-        if (!result.success) {
-            throw new Error(result.error || 'Submission failed');
+            const response = await fetch('/api/submit-prediction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    userId: user.id,
+                    teamId,
+                    teamName: team,
+                    raceId,
+                    raceName,
+                    predictions: predictionIds,
+                }),
+            });
+
+            const result = await response.json();
+            results.push({ team, success: result.success, error: result.error });
+        }
+
+        // Check results
+        const successfulTeams = results.filter(r => r.success).map(r => r.team);
+        const failedTeams = results.filter(r => !r.success);
+
+        if (failedTeams.length > 0) {
+            throw new Error(`Failed for: ${failedTeams.map(f => `${f.team} (${f.error})`).join(', ')}`);
         }
 
         // Add submission to changelog with timestamp
-        addChangeToHistory(`Submitted prediction`, true);
+        const teamsText = successfulTeams.length > 1 ? `all teams (${successfulTeams.join(', ')})` : teamName;
+        addChangeToHistory(`Submitted prediction for ${teamsText}`, true);
 
         toast({
             title: "Prediction Submitted!",
-            description: `Your grid for ${teamName} is locked in. Good luck!`,
+            description: successfulTeams.length > 1
+                ? `Your grid has been applied to all ${successfulTeams.length} teams. Good luck!`
+                : `Your grid for ${teamName} is locked in. Good luck!`,
         });
 
     } catch (e: any) {
@@ -255,8 +275,20 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full">
                 <Button onClick={handleSubmit} disabled={isLocked || isSubmitting}>
                     <Check className="mr-2 h-4 w-4"/>
-                    {isSubmitting ? "Submitting..." : "Submit Predictions"}
+                    {isSubmitting ? "Submitting..." : (applyToAll && hasMultipleTeams ? "Submit to All Teams" : "Submit Predictions")}
                 </Button>
+                {hasMultipleTeams && !isLocked && (
+                    <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id="applyToAll"
+                            checked={applyToAll}
+                            onCheckedChange={(checked) => setApplyToAll(checked === true)}
+                        />
+                        <Label htmlFor="applyToAll" className="text-sm cursor-pointer">
+                            Apply to all teams ({allTeamNames.length})
+                        </Label>
+                    </div>
+                )}
                 <Badge
                   variant={isLocked ? "destructive" : "default"}
                   className={cn(

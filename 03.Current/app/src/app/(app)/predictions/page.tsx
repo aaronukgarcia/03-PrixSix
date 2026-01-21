@@ -123,6 +123,7 @@ function PredictionsContent() {
           raceName={nextRace.name}
           teamName={selectedTeam}
           qualifyingTime={nextRace.qualifyingTime}
+          allTeamNames={userTeams}
         />
       )}
     </div>
