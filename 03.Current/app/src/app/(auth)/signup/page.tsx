@@ -102,10 +102,12 @@ export default function SignupPage() {
                 });
             }
         } catch (e: any) {
+            const correlationId = crypto.randomUUID().substring(0, 8);
+            console.error(`Signup page error [${correlationId}]:`, e);
             toast({
                 variant: "destructive",
                 title: "Registration Failed",
-                description: e.message,
+                description: e.message ? `${e.message} (ID: ${correlationId})` : `An unexpected error occurred (ID: ${correlationId})`,
             });
         } finally {
             setLoading(false);
