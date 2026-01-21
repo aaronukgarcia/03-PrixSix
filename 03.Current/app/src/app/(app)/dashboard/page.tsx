@@ -4,6 +4,7 @@ import { findNextRace } from "@/lib/data";
 import { AlertCircle, CheckCircle2, Newspaper, Flag, Calendar, Clock } from "lucide-react";
 import { DashboardClient } from "./_components/DashboardClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { APP_VERSION } from '@/lib/version';
 
 
 // Force dynamic rendering to avoid build-time Firestore access
@@ -117,6 +118,10 @@ export default async function DashboardPage() {
                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">{newsFeed}</p>
                 </CardContent>
             </Card>
+
+            <div className="text-center">
+                <span className="text-xs font-mono text-muted-foreground">v{APP_VERSION}</span>
+            </div>
         </div>
     )
 }

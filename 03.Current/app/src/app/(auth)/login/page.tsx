@@ -7,6 +7,7 @@ import * as z from "zod";
 import Link from "next/link";
 import { Frown } from 'lucide-react';
 import React, { useState } from "react";
+import { APP_VERSION } from '@/lib/version';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -129,6 +130,9 @@ export default function LoginPage() {
                     <Link href="/signup" className="underline text-accent">
                         Sign up
                     </Link>
+                </div>
+                <div className="mt-6 text-center">
+                    <span className="text-xs font-mono text-muted-foreground">v{APP_VERSION}</span>
                 </div>
             </CardContent>
         </Card>
