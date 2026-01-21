@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
-import { useFirestore, useCollection, useAuth } from '@/firebase';
-import { collection, query, collectionGroup, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useCallback } from 'react';
+import { useFirestore, useAuth } from '@/firebase';
+import { collection, query, collectionGroup, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -125,36 +124,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
   const [summary, setSummary] = useState<ConsistencyCheckSummary | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Queries for collections
-  const predictionsQuery = useMemo(() => {
-    if (!firestore) return null;
-    const q = collectionGroup(firestore, 'predictions');
-    (q as any).__memo = true;
-    return q;
-  }, [firestore]);
-
-  const raceResultsQuery = useMemo(() => {
-    if (!firestore) return null;
-    const q = query(collection(firestore, 'race_results'));
-    (q as any).__memo = true;
-    return q;
-  }, [firestore]);
-
-  const scoresQuery = useMemo(() => {
-    if (!firestore) return null;
-    const q = query(collection(firestore, 'scores'));
-    (q as any).__memo = true;
-    return q;
-  }, [firestore]);
-
-  const { data: predictions, isLoading: isPredictionsLoading } = useCollection<PredictionData>(predictionsQuery);
-  const { data: raceResults, isLoading: isResultsLoading } = useCollection<RaceResultData>(raceResultsQuery);
-  const { data: scores, isLoading: isScoresLoading } = useCollection<ScoreData>(scoresQuery);
-
-  const isDataLoading = isUserLoading || isPredictionsLoading || isResultsLoading || isScoresLoading;
+  // Data is now fetched ON-DEMAND when running checks, not on component mount
+  // This prevents loading 4+ MB of Firestore data just by viewing the CC tab
 
   const runChecks = useCallback(async () => {
-    if (!allUsers) return;
+    if (!allUsers || !firestore) return;
 
     setIsRunning(true);
     setSummary(null);
@@ -183,47 +157,56 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       await new Promise(resolve => setTimeout(resolve, 100));
       results.push(checkRaces());
 
-      // Check Predictions
+      // Fetch predictions ON-DEMAND
       setCurrentPhase('predictions');
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const predData: PredictionData[] = (predictions || []).map(p => ({
-        id: p.id,
-        userId: p.userId,
-        teamId: p.teamId,
-        teamName: p.teamName,
-        raceId: p.raceId,
-        predictions: p.predictions,
-      }));
+      const predictionsSnap = await getDocs(collectionGroup(firestore, 'predictions'));
+      const predData: PredictionData[] = predictionsSnap.docs.map(doc => {
+        const p = doc.data();
+        return {
+          id: doc.id,
+          userId: p.userId,
+          teamId: p.teamId,
+          teamName: p.teamName,
+          raceId: p.raceId,
+          predictions: p.predictions,
+        };
+      });
       results.push(checkPredictions(predData, userData));
 
       // Use predictions for score checking
       const allPredictions = predData;
 
-      // Check Race Results
+      // Fetch race results ON-DEMAND
       setCurrentPhase('results');
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const resultData: RaceResultData[] = (raceResults || []).map(r => ({
-        id: r.id,
-        raceId: r.raceId,
-        driver1: r.driver1,
-        driver2: r.driver2,
-        driver3: r.driver3,
-        driver4: r.driver4,
-        driver5: r.driver5,
-        driver6: r.driver6,
-      }));
+      const raceResultsSnap = await getDocs(collection(firestore, 'race_results'));
+      const resultData: RaceResultData[] = raceResultsSnap.docs.map(doc => {
+        const r = doc.data();
+        return {
+          id: doc.id,
+          raceId: r.raceId,
+          driver1: r.driver1,
+          driver2: r.driver2,
+          driver3: r.driver3,
+          driver4: r.driver4,
+          driver5: r.driver5,
+          driver6: r.driver6,
+        };
+      });
       results.push(checkRaceResults(resultData));
 
-      // Check Scores
+      // Fetch scores ON-DEMAND
       setCurrentPhase('scores');
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const scoreData: ScoreData[] = (scores || []).map(s => ({
-        id: s.id,
-        userId: s.userId,
-        raceId: s.raceId,
-        totalPoints: s.totalPoints,
-        breakdown: s.breakdown,
-      }));
+      const scoresSnap = await getDocs(collection(firestore, 'scores'));
+      const scoreData: ScoreData[] = scoresSnap.docs.map(doc => {
+        const s = doc.data();
+        return {
+          id: doc.id,
+          userId: s.userId,
+          raceId: s.raceId,
+          totalPoints: s.totalPoints,
+          breakdown: s.breakdown,
+        };
+      });
       results.push(checkScores(scoreData, resultData, allPredictions, userData));
 
       // Check Standings
@@ -249,7 +232,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     } finally {
       setIsRunning(false);
     }
-  }, [allUsers, predictions, raceResults, scores, toast]);
+  }, [allUsers, firestore, toast]);
 
   const exportToErrorLog = useCallback(async () => {
     if (!firestore || !summary || !user) return;
@@ -296,21 +279,6 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
 
   const totalIssues = summary?.results.reduce((sum, r) => sum + r.issues.length, 0) || 0;
 
-  if (isDataLoading && !summary) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-full" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-64 w-full mt-4" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <Card>
@@ -325,7 +293,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
           <div className="flex flex-wrap gap-4">
             <Button
               onClick={runChecks}
-              disabled={isRunning || isDataLoading}
+              disabled={isRunning || isUserLoading || !allUsers}
             >
               {isRunning ? (
                 <>
