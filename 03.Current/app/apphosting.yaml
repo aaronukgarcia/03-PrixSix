@@ -7,27 +7,33 @@ runConfig:
   maxInstances: 1
 
 # Environment variables for the application
-# These must be set up in Firebase Console or via CLI:
-#   firebase apphosting:secrets:set NEXT_PUBLIC_FIREBASE_API_KEY
-#
-# For NEXT_PUBLIC_ variables, they are typically inlined at build time,
-# but the login API route needs the API key at runtime for password verification.
+# NEXT_PUBLIC_ vars are not secrets - they're public Firebase config
+# The sensitive GRAPH_ vars must be set via: firebase apphosting:secrets:set
 env:
+  # Public Firebase config (embedded in client JS anyway)
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    secret: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyA23isMS-Jt60amqI-0XZHoMZeQOawtsSk
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    secret: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: studio-6033436327-281b1
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    secret: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:966261161276:web:4fcca2ea3728fb8448f239
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    secret: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: studio-6033436327-281b1.firebaseapp.com
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    secret: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-  - variable: GRAPH_TENANT_ID
-    secret: GRAPH_TENANT_ID
-  - variable: GRAPH_CLIENT_ID
-    secret: GRAPH_CLIENT_ID
-  - variable: GRAPH_CLIENT_SECRET
-    secret: GRAPH_CLIENT_SECRET
-  - variable: GRAPH_SENDER_EMAIL
-    secret: GRAPH_SENDER_EMAIL
+    value: 966261161276
+  # Microsoft Graph secrets for email functionality
+  # These are optional - email features will be disabled without them
+  # To enable, run:
+  #   firebase apphosting:secrets:set GRAPH_TENANT_ID
+  #   firebase apphosting:secrets:set GRAPH_CLIENT_ID
+  #   firebase apphosting:secrets:set GRAPH_CLIENT_SECRET
+  #   firebase apphosting:secrets:set GRAPH_SENDER_EMAIL
+  # Then uncomment the lines below:
+  # - variable: GRAPH_TENANT_ID
+  #   secret: GRAPH_TENANT_ID
+  # - variable: GRAPH_CLIENT_ID
+  #   secret: GRAPH_CLIENT_ID
+  # - variable: GRAPH_CLIENT_SECRET
+  #   secret: GRAPH_CLIENT_SECRET
+  # - variable: GRAPH_SENDER_EMAIL
+  #   secret: GRAPH_SENDER_EMAIL
