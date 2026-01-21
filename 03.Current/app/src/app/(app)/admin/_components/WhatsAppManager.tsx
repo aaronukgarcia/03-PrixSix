@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useAuth } from "@/firebase";
 import {
   Card,
   CardContent,
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -34,7 +35,17 @@ import {
   Wifi,
   WifiOff,
   Users,
-  Activity
+  Activity,
+  Bell,
+  BellOff,
+  Flag,
+  UserPlus,
+  BarChart3,
+  Megaphone,
+  FlaskConical,
+  Settings2,
+  History,
+  Save,
 } from "lucide-react";
 import {
   collection,
@@ -54,9 +65,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  WhatsAppAlertSettings,
+  WhatsAppAlertToggles,
+  WhatsAppAlertHistoryEntry,
+  getWhatsAppAlertSettings,
+  updateWhatsAppAlertSettings,
+  addWhatsAppAlertHistoryEntry,
+} from "@/firebase/firestore/settings";
+import { logAuditEvent } from "@/lib/audit";
 
 // WhatsApp Worker URL - Azure Container Instance
 const WHATSAPP_WORKER_URL = "https://prixsix-whatsapp.uksouth.azurecontainer.io:3000";
+const MAX_MESSAGE_LENGTH = 500;
 
 interface WorkerStatus {
   connected: boolean;
@@ -78,14 +105,77 @@ interface QueueMessage {
   retryCount?: number;
 }
 
+// Alert category definitions
+const ALERT_CATEGORIES = {
+  raceWeekend: {
+    label: "Race Weekend",
+    icon: Flag,
+    alerts: [
+      { key: 'qualifyingReminder' as const, label: 'Qualifying Reminder', description: 'Sent before qualifying sessions' },
+      { key: 'raceReminder' as const, label: 'Race Reminder', description: 'Sent before race start' },
+      { key: 'resultsPublished' as const, label: 'Results Published', description: 'When race results are entered' },
+    ]
+  },
+  playerActivity: {
+    label: "Player Activity",
+    icon: UserPlus,
+    alerts: [
+      { key: 'newPlayerJoined' as const, label: 'New Player Joined', description: 'When someone joins the league' },
+      { key: 'predictionSubmitted' as const, label: 'Prediction Submitted', description: 'When a prediction is made' },
+      { key: 'latePredictionWarning' as const, label: 'Late Prediction Warning', description: 'Reminder for missing predictions' },
+    ]
+  },
+  leagueSummary: {
+    label: "League Summary",
+    icon: BarChart3,
+    alerts: [
+      { key: 'weeklyStandingsUpdate' as const, label: 'Weekly Standings Update', description: 'Weekly league standings summary' },
+      { key: 'endOfSeasonSummary' as const, label: 'End of Season Summary', description: 'Final standings and awards' },
+    ]
+  },
+  adminManual: {
+    label: "Admin / Manual",
+    icon: Megaphone,
+    alerts: [
+      { key: 'hotNewsPublished' as const, label: 'Hot News Published', description: 'When hot news is updated' },
+      { key: 'adminAnnouncements' as const, label: 'Admin Announcements', description: 'General admin messages' },
+      { key: 'customMessages' as const, label: 'Custom Messages', description: 'Manual messages from this panel' },
+    ]
+  },
+};
+
 export function WhatsAppManager() {
   const firestore = useFirestore();
+  const { user, firebaseUser } = useAuth();
   const { toast } = useToast();
 
   // Worker status state
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Alert settings state
+  const [alertSettings, setAlertSettings] = useState<WhatsAppAlertSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Local settings for editing
+  const [masterEnabled, setMasterEnabled] = useState(false);
+  const [testMode, setTestMode] = useState(true);
+  const [targetGroup, setTargetGroup] = useState("");
+  const [alertToggles, setAlertToggles] = useState<WhatsAppAlertToggles>({
+    qualifyingReminder: true,
+    raceReminder: true,
+    resultsPublished: true,
+    newPlayerJoined: true,
+    predictionSubmitted: false,
+    latePredictionWarning: true,
+    weeklyStandingsUpdate: true,
+    endOfSeasonSummary: true,
+    hotNewsPublished: true,
+    adminAnnouncements: true,
+    customMessages: true,
+  });
 
   // Message form state
   const [message, setMessage] = useState("");
@@ -95,6 +185,10 @@ export function WhatsAppManager() {
   // Queue state
   const [recentMessages, setRecentMessages] = useState<QueueMessage[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
+
+  // Alert history state
+  const [alertHistory, setAlertHistory] = useState<(WhatsAppAlertHistoryEntry & { id: string })[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   // Fetch worker status
   const fetchWorkerStatus = useCallback(async () => {
@@ -121,7 +215,6 @@ export function WhatsAppManager() {
 
       // Auto-select first group if none selected
       if (!selectedGroup && data.whatsapp?.groups?.length > 0) {
-        // Try to find "Prix Six" or "The Six" first
         const prixSix = data.whatsapp.groups.find((g: string) =>
           g.toLowerCase().includes('prix') || g.toLowerCase().includes('six')
         );
@@ -136,12 +229,41 @@ export function WhatsAppManager() {
     }
   }, [selectedGroup]);
 
+  // Fetch alert settings
+  const fetchAlertSettings = useCallback(async () => {
+    if (!firestore) return;
+
+    setSettingsLoading(true);
+    try {
+      const settings = await getWhatsAppAlertSettings(firestore);
+      setAlertSettings(settings);
+      setMasterEnabled(settings.masterEnabled);
+      setTestMode(settings.testMode);
+      setTargetGroup(settings.targetGroup);
+      setAlertToggles(settings.alerts);
+    } catch (error: any) {
+      console.error('Failed to fetch alert settings:', error);
+      toast({
+        variant: "destructive",
+        title: "Error Loading Settings",
+        description: error.message,
+      });
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, [firestore, toast]);
+
   // Fetch status on mount and every 30 seconds
   useEffect(() => {
     fetchWorkerStatus();
     const interval = setInterval(fetchWorkerStatus, 30000);
     return () => clearInterval(interval);
   }, [fetchWorkerStatus]);
+
+  // Fetch alert settings on mount
+  useEffect(() => {
+    fetchAlertSettings();
+  }, [fetchAlertSettings]);
 
   // Listen to recent queue messages
   useEffect(() => {
@@ -165,8 +287,80 @@ export function WhatsAppManager() {
     return () => unsubscribe();
   }, [firestore]);
 
+  // Listen to alert history
+  useEffect(() => {
+    if (!firestore) return;
+
+    const historyRef = collection(firestore, 'whatsapp_alert_history');
+    const q = query(historyRef, orderBy('createdAt', 'desc'), limit(50));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const entries: (WhatsAppAlertHistoryEntry & { id: string })[] = [];
+      snapshot.forEach((doc) => {
+        entries.push({ id: doc.id, ...doc.data() } as WhatsAppAlertHistoryEntry & { id: string });
+      });
+      setAlertHistory(entries);
+      setHistoryLoading(false);
+    }, (error) => {
+      console.error('Error listening to alert history:', error);
+      setHistoryLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [firestore]);
+
+  // Save alert settings
+  const handleSaveSettings = async () => {
+    if (!firestore || !firebaseUser) return;
+
+    setIsSavingSettings(true);
+    try {
+      await updateWhatsAppAlertSettings(firestore, {
+        masterEnabled,
+        testMode,
+        targetGroup,
+        alerts: alertToggles,
+        lastUpdated: serverTimestamp() as any,
+        updatedBy: firebaseUser.uid,
+      });
+
+      await logAuditEvent(firestore, firebaseUser.uid, 'UPDATE_WHATSAPP_ALERT_SETTINGS', {
+        email: user?.email,
+        teamName: user?.teamName,
+        masterEnabled,
+        testMode,
+        targetGroup,
+        alerts: alertToggles,
+      });
+
+      // Update local settings state to match saved values
+      setAlertSettings({
+        masterEnabled,
+        testMode,
+        targetGroup,
+        alerts: alertToggles,
+        lastUpdated: new Timestamp(Date.now() / 1000, 0),
+        updatedBy: firebaseUser.uid,
+      });
+
+      toast({
+        title: "Settings Saved",
+        description: "WhatsApp alert settings have been updated.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error Saving Settings",
+        description: error.message,
+      });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Send custom message
   const handleSend = async () => {
-    if (!firestore || !message.trim() || !selectedGroup) {
+    if (!firestore || !firebaseUser || !message.trim() || !selectedGroup) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -175,8 +369,19 @@ export function WhatsAppManager() {
       return;
     }
 
+    // Check if custom messages are enabled
+    if (masterEnabled && !alertToggles.customMessages) {
+      toast({
+        variant: "destructive",
+        title: "Custom Messages Disabled",
+        description: "Enable 'Custom Messages' in the alert settings to send messages.",
+      });
+      return;
+    }
+
     setIsSending(true);
     try {
+      // Add to main queue
       const queueRef = collection(firestore, 'whatsapp_queue');
       await addDoc(queueRef, {
         groupName: selectedGroup,
@@ -184,11 +389,31 @@ export function WhatsAppManager() {
         status: 'PENDING',
         createdAt: serverTimestamp(),
         retryCount: 0,
+        testMode,
+        sentBy: firebaseUser.uid,
+      });
+
+      // Add to alert history
+      await addWhatsAppAlertHistoryEntry(firestore, {
+        alertType: 'customMessage',
+        message: message.trim(),
+        targetGroup: selectedGroup,
+        status: 'PENDING',
+        testMode,
+        sentBy: firebaseUser.uid,
+      });
+
+      await logAuditEvent(firestore, firebaseUser.uid, 'SEND_WHATSAPP_MESSAGE', {
+        email: user?.email,
+        teamName: user?.teamName,
+        targetGroup: selectedGroup,
+        messagePreview: message.substring(0, 100),
+        testMode,
       });
 
       toast({
-        title: "Message Queued",
-        description: `Message added to queue for "${selectedGroup}".`,
+        title: testMode ? "Test Message Queued" : "Message Queued",
+        description: `Message added to queue for "${selectedGroup}".${testMode ? ' (Test Mode)' : ''}`,
       });
       setMessage("");
     } catch (error: any) {
@@ -200,6 +425,10 @@ export function WhatsAppManager() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleToggleAlert = (key: keyof WhatsAppAlertToggles) => {
+    setAlertToggles(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const getStatusBadge = (status: string) => {
@@ -230,6 +459,13 @@ export function WhatsAppManager() {
       return '-';
     }
   };
+
+  const hasUnsavedChanges = alertSettings && (
+    masterEnabled !== alertSettings.masterEnabled ||
+    testMode !== alertSettings.testMode ||
+    targetGroup !== alertSettings.targetGroup ||
+    JSON.stringify(alertToggles) !== JSON.stringify(alertSettings.alerts)
+  );
 
   return (
     <div className="space-y-4">
@@ -327,15 +563,193 @@ export function WhatsAppManager() {
         </CardContent>
       </Card>
 
-      {/* Send Message Card */}
+      {/* Alert Control Panel */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Settings2 className="w-5 h-5" />
+                Alert Control Panel
+              </CardTitle>
+              <CardDescription>
+                Configure which automated alerts are sent to WhatsApp.
+              </CardDescription>
+            </div>
+            {hasUnsavedChanges && (
+              <Badge variant="outline" className="text-amber-600 border-amber-600">
+                Unsaved Changes
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {settingsLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : (
+            <>
+              {/* Master Switch */}
+              <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/50">
+                <div className="flex items-center gap-3">
+                  {masterEnabled ? (
+                    <Bell className="w-6 h-6 text-green-600" />
+                  ) : (
+                    <BellOff className="w-6 h-6 text-muted-foreground" />
+                  )}
+                  <div>
+                    <Label htmlFor="master-switch" className="text-base font-semibold">
+                      Master Switch
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {masterEnabled ? 'Alerts are enabled' : 'All alerts are disabled'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="master-switch"
+                  checked={masterEnabled}
+                  onCheckedChange={setMasterEnabled}
+                  aria-label="Enable all WhatsApp alerts"
+                />
+              </div>
+
+              {/* Test Mode */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="flex items-center gap-3">
+                  <FlaskConical className={`w-5 h-5 ${testMode ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                  <div>
+                    <Label htmlFor="test-mode" className="text-base">
+                      Test Mode
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {testMode ? 'Messages will be marked as test' : 'Messages are live'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="test-mode"
+                  checked={testMode}
+                  onCheckedChange={setTestMode}
+                  aria-label="Enable test mode"
+                />
+              </div>
+
+              {/* Target Group Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="target-group">Default Target Group</Label>
+                {workerStatus?.groups && workerStatus.groups.length > 0 ? (
+                  <Select value={targetGroup} onValueChange={setTargetGroup}>
+                    <SelectTrigger id="target-group">
+                      <SelectValue placeholder="Select default group for alerts..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workerStatus.groups.map((group) => (
+                        <SelectItem key={group} value={group}>
+                          {group}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
+                    {statusLoading
+                      ? 'Loading groups...'
+                      : statusError
+                      ? 'Could not load groups - worker offline'
+                      : 'No groups available'}
+                  </div>
+                )}
+              </div>
+
+              {/* Alert Categories */}
+              <div className="space-y-2">
+                <Label>Alert Categories</Label>
+                <Accordion type="multiple" defaultValue={['raceWeekend', 'adminManual']} className="w-full">
+                  {Object.entries(ALERT_CATEGORIES).map(([categoryKey, category]) => {
+                    const Icon = category.icon;
+                    const enabledCount = category.alerts.filter(a => alertToggles[a.key]).length;
+
+                    return (
+                      <AccordionItem key={categoryKey} value={categoryKey}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-3">
+                            <Icon className="w-4 h-4" />
+                            <span>{category.label}</span>
+                            <Badge variant="secondary" className="ml-2">
+                              {enabledCount}/{category.alerts.length}
+                            </Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3 pt-2">
+                            {category.alerts.map((alert) => (
+                              <div
+                                key={alert.key}
+                                className="flex items-center justify-between rounded-lg border p-3"
+                              >
+                                <div>
+                                  <Label
+                                    htmlFor={`alert-${alert.key}`}
+                                    className="text-sm font-medium cursor-pointer"
+                                  >
+                                    {alert.label}
+                                  </Label>
+                                  <p className="text-xs text-muted-foreground">
+                                    {alert.description}
+                                  </p>
+                                </div>
+                                <Switch
+                                  id={`alert-${alert.key}`}
+                                  checked={alertToggles[alert.key]}
+                                  onCheckedChange={() => handleToggleAlert(alert.key)}
+                                  disabled={!masterEnabled}
+                                  aria-label={`Enable ${alert.label}`}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </div>
+            </>
+          )}
+        </CardContent>
+        <CardFooter>
+          <Button
+            onClick={handleSaveSettings}
+            disabled={isSavingSettings || settingsLoading || !hasUnsavedChanges}
+          >
+            {isSavingSettings ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save Settings
+              </>
+            )}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {/* Send Custom Message Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5" />
-            Send Message
+            Send Custom Message
           </CardTitle>
           <CardDescription>
-            Send a message to a WhatsApp group. Messages are queued and processed by the worker.
+            Send a manual message to a WhatsApp group. Messages are queued and processed by the worker.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -365,21 +779,38 @@ export function WhatsAppManager() {
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="message">Message</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="message">Message</Label>
+              <span className={`text-xs ${message.length > MAX_MESSAGE_LENGTH ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {message.length}/{MAX_MESSAGE_LENGTH}
+              </span>
+            </div>
             <Textarea
               id="message"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH + 50))}
               placeholder="Enter your message here..."
               rows={4}
               disabled={isSending}
+              className={message.length > MAX_MESSAGE_LENGTH ? 'border-destructive' : ''}
             />
+            {message.length > MAX_MESSAGE_LENGTH && (
+              <p className="text-xs text-destructive">
+                Message exceeds {MAX_MESSAGE_LENGTH} character limit
+              </p>
+            )}
           </div>
+          {testMode && (
+            <div className="flex items-center gap-2 text-amber-600 text-sm">
+              <FlaskConical className="w-4 h-4" />
+              Test Mode is enabled - message will be marked as test
+            </div>
+          )}
         </CardContent>
         <CardFooter>
           <Button
             onClick={handleSend}
-            disabled={isSending || !message.trim() || !selectedGroup || !workerStatus?.connected}
+            disabled={isSending || !message.trim() || !selectedGroup || !workerStatus?.connected || message.length > MAX_MESSAGE_LENGTH}
           >
             {isSending ? (
               <>
@@ -401,7 +832,7 @@ export function WhatsAppManager() {
         </CardFooter>
       </Card>
 
-      {/* Recent Messages Card */}
+      {/* Message Queue Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -447,6 +878,75 @@ export function WhatsAppManager() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {formatTime(msg.createdAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Alert History Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Alert History
+          </CardTitle>
+          <CardDescription>
+            Last 50 alerts sent via the system. Updates in real-time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {historyLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : alertHistory.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">
+              No alert history yet.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-28">Status</TableHead>
+                  <TableHead className="w-32">Type</TableHead>
+                  <TableHead className="w-32">Group</TableHead>
+                  <TableHead>Message</TableHead>
+                  <TableHead className="w-20">Test</TableHead>
+                  <TableHead className="w-28">Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {alertHistory.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell>{getStatusBadge(entry.status)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {entry.alertType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {entry.targetGroup || '-'}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={entry.message}>
+                      {entry.message.length > 40
+                        ? entry.message.substring(0, 40) + '...'
+                        : entry.message}
+                    </TableCell>
+                    <TableCell>
+                      {entry.testMode ? (
+                        <FlaskConical className="w-4 h-4 text-amber-600" />
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatTime(entry.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))}
