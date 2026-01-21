@@ -210,7 +210,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Write race result document
-    const resultDocId = raceName.replace(/\s+/g, '-').toLowerCase();
+    // Use normalizedRaceId for consistent document ID (removes " - GP" suffix)
+    const resultDocId = normalizedRaceId.toLowerCase();
     const resultDocRef = db.collection('race_results').doc(resultDocId);
     batch.set(resultDocRef, {
       id: resultDocId,
