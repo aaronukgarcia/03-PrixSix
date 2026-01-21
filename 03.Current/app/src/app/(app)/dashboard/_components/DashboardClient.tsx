@@ -6,9 +6,28 @@ import type { Race } from "@/lib/data";
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Clock, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Loader2, AlertTriangle } from "lucide-react";
 import { doc } from "firebase/firestore";
 import Link from "next/link";
+
+// Helper to determine deadline urgency
+const getDeadlineWarning = (timeLeft: TimeLeft | null): { message: string; severity: 'critical' | 'warning' | 'notice' } | null => {
+  if (!timeLeft) return null;
+
+  const totalHours = timeLeft.days * 24 + timeLeft.hours;
+  const totalMinutes = totalHours * 60 + timeLeft.minutes;
+
+  if (totalMinutes < 60) {
+    return { message: "Less than 1 hour remaining!", severity: 'critical' };
+  }
+  if (totalHours < 6) {
+    return { message: "Less than 6 hours remaining!", severity: 'warning' };
+  }
+  if (totalHours < 24) {
+    return { message: "Less than 24 hours remaining!", severity: 'notice' };
+  }
+  return null;
+};
 
 interface TimeLeft {
   days: number;
@@ -102,6 +121,24 @@ export function DashboardClient({ nextRace }: { nextRace: Race }) {
               ) : (
                   <div className="text-center text-primary-foreground text-2xl font-bold">Qualifying has started!</div>
               )}
+              {/* Deadline warning */}
+              {timeLeft && (() => {
+                const warning = getDeadlineWarning(timeLeft);
+                if (!warning) return null;
+
+                const severityClasses = {
+                  critical: 'bg-red-500/20 text-red-100 border-red-400',
+                  warning: 'bg-yellow-500/20 text-yellow-100 border-yellow-400',
+                  notice: 'bg-blue-500/20 text-blue-100 border-blue-400',
+                };
+
+                return (
+                  <div className={`mt-3 flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium ${severityClasses[warning.severity]}`}>
+                    <AlertTriangle className="h-4 w-4" />
+                    {warning.message}
+                  </div>
+                );
+              })()}
           </CardContent>
       </Card>
 
