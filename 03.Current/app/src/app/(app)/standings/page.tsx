@@ -328,33 +328,43 @@ export default function StandingsPage() {
   }, [filteredScores, completedRaceWeekends, selectedRaceIndex, userNames]);
 
   // Calculate race winners (highest GP and Sprint points for the selected race)
+  // Returns Sets of userIds to handle ties - all teams with max points get the badge
   const raceWinners = useMemo(() => {
-    if (standings.length === 0) return { gpWinner: null, sprintWinner: null };
+    if (standings.length === 0) return { gpWinners: new Set<string>(), sprintWinners: new Set<string>() };
 
-    // Find highest GP points
+    // Find highest GP points and all teams with that score
     let maxGpPoints = 0;
-    let gpWinnerUserId: string | null = null;
     standings.forEach(team => {
       if (team.gpPoints > maxGpPoints) {
         maxGpPoints = team.gpPoints;
-        gpWinnerUserId = team.userId;
       }
     });
+    const gpWinners = new Set<string>();
+    if (maxGpPoints > 0) {
+      standings.forEach(team => {
+        if (team.gpPoints === maxGpPoints) {
+          gpWinners.add(team.userId);
+        }
+      });
+    }
 
-    // Find highest Sprint points (if applicable)
+    // Find highest Sprint points and all teams with that score
     let maxSprintPoints = 0;
-    let sprintWinnerUserId: string | null = null;
     standings.forEach(team => {
       if (team.sprintPoints !== null && team.sprintPoints > maxSprintPoints) {
         maxSprintPoints = team.sprintPoints;
-        sprintWinnerUserId = team.userId;
       }
     });
+    const sprintWinners = new Set<string>();
+    if (maxSprintPoints > 0) {
+      standings.forEach(team => {
+        if (team.sprintPoints === maxSprintPoints) {
+          sprintWinners.add(team.userId);
+        }
+      });
+    }
 
-    return {
-      gpWinner: maxGpPoints > 0 ? gpWinnerUserId : null,
-      sprintWinner: maxSprintPoints > 0 ? sprintWinnerUserId : null,
-    };
+    return { gpWinners, sprintWinners };
   }, [standings]);
 
   // Calculate chart data for season progression (only up to selected race)
@@ -706,7 +716,7 @@ export default function StandingsPage() {
                         >
                           +{team.sprintPoints ?? 0}
                         </Button>
-                        {raceWinners.sprintWinner === team.userId && <RaceWinnerBadge />}
+                        {raceWinners.sprintWinners.has(team.userId) && <RaceWinnerBadge />}
                       </span>
                     </TableCell>
                   )}
@@ -721,7 +731,7 @@ export default function StandingsPage() {
                       >
                         +{team.gpPoints}
                       </Button>
-                      {raceWinners.gpWinner === team.userId && <RaceWinnerBadge />}
+                      {raceWinners.gpWinners.has(team.userId) && <RaceWinnerBadge />}
                     </span>
                   </TableCell>
                   <TableCell className="text-right font-bold text-lg text-accent">
