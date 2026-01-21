@@ -24,8 +24,17 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!email || !pin) {
+      await logError({
+        correlationId,
+        error: new Error('Email and PIN are required'),
+        context: {
+          route: '/api/auth/login',
+          action: 'validation',
+          requestData: { email: email || 'missing' },
+        },
+      });
       return NextResponse.json(
-        { success: false, error: 'Email and PIN are required' },
+        { success: false, error: 'Email and PIN are required', correlationId },
         { status: 400 }
       );
     }
@@ -75,6 +84,7 @@ export async function POST(request: NextRequest) {
             success: false,
             error: `Account is locked due to too many failed attempts. Try again in ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}.`,
             locked: true,
+            correlationId,
           },
           { status: 429 }
         );
@@ -96,9 +106,18 @@ export async function POST(request: NextRequest) {
       firebaseUserRecord = await auth.getUserByEmail(normalizedEmail);
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
-        // Don't reveal if user exists or not
+        // Don't reveal if user exists or not - but log for debugging
+        await logError({
+          correlationId,
+          error: new Error('Login attempt for non-existent user'),
+          context: {
+            route: '/api/auth/login',
+            action: 'user_lookup',
+            requestData: { email: normalizedEmail },
+          },
+        });
         return NextResponse.json(
-          { success: false, error: 'Invalid email or PIN' },
+          { success: false, error: 'Invalid email or PIN', correlationId },
           { status: 401 }
         );
       }
@@ -111,8 +130,17 @@ export async function POST(request: NextRequest) {
 
     if (!firebaseApiKey) {
       console.error('[Auth] Firebase API key not configured');
+      await logError({
+        correlationId,
+        error: new Error('NEXT_PUBLIC_FIREBASE_API_KEY environment variable is not configured'),
+        context: {
+          route: '/api/auth/login',
+          action: 'config_check',
+          requestData: { email: normalizedEmail },
+        },
+      });
       return NextResponse.json(
-        { success: false, error: 'Server configuration error' },
+        { success: false, error: 'Server configuration error', correlationId },
         { status: 500 }
       );
     }
@@ -164,6 +192,7 @@ export async function POST(request: NextRequest) {
               success: false,
               error: 'Account has been locked due to too many failed attempts. Try again in 30 minutes.',
               locked: true,
+              correlationId,
             },
             { status: 429 }
           );
@@ -171,7 +200,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { success: false, error: 'Invalid email or PIN' },
+        { success: false, error: 'Invalid email or PIN', correlationId },
         { status: 401 }
       );
     }

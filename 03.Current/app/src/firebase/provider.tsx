@@ -126,9 +126,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
         if (!result.success) {
             setIsUserLoading(false);
+            // Include correlation ID in error message for support/debugging
+            const errorMessage = result.correlationId
+                ? `${result.error || 'Login failed'} (Ref: ${result.correlationId})`
+                : result.error || 'Login failed';
             return {
                 success: false,
-                message: result.error || 'Login failed',
+                message: errorMessage,
             };
         }
 

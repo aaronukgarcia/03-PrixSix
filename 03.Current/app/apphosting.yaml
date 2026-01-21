@@ -5,3 +5,29 @@ runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
+
+# Environment variables for the application
+# These must be set up in Firebase Console or via CLI:
+#   firebase apphosting:secrets:set NEXT_PUBLIC_FIREBASE_API_KEY
+#
+# For NEXT_PUBLIC_ variables, they are typically inlined at build time,
+# but the login API route needs the API key at runtime for password verification.
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: NEXT_PUBLIC_FIREBASE_API_KEY
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    secret: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    secret: NEXT_PUBLIC_FIREBASE_APP_ID
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    secret: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    secret: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+  - variable: GRAPH_TENANT_ID
+    secret: GRAPH_TENANT_ID
+  - variable: GRAPH_CLIENT_ID
+    secret: GRAPH_CLIENT_ID
+  - variable: GRAPH_CLIENT_SECRET
+    secret: GRAPH_CLIENT_SECRET
+  - variable: GRAPH_SENDER_EMAIL
+    secret: GRAPH_SENDER_EMAIL
