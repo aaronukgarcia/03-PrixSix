@@ -3,7 +3,8 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, collection, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit } from 'firebase/firestore';
+import { Firestore, collection, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, arrayUnion } from 'firebase/firestore';
+import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
 import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { useRouter } from 'next/navigation';
@@ -126,10 +127,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
         if (!result.success) {
             setIsUserLoading(false);
-            // Include correlation ID in error message for support/debugging
-            const errorMessage = result.correlationId
-                ? `${result.error || 'Login failed'} (Ref: ${result.correlationId})`
-                : result.error || 'Login failed';
+            // Build error message with available details
+            let errorMessage = result.error || 'Login failed';
+            if (result.errorType && result.errorMessage) {
+                errorMessage = `${errorMessage} [${result.errorType}: ${result.errorMessage}]`;
+            }
+            if (result.correlationId) {
+                errorMessage = `${errorMessage} (Ref: ${result.correlationId})`;
+            }
             return {
                 success: false,
                 message: errorMessage,
@@ -209,6 +214,17 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       };
       await setDoc(doc(firestore, 'users', uid), newUser);
       await setDoc(doc(firestore, "presence", uid), { online: false, sessions: [] });
+
+      // Add user to global league
+      try {
+        await updateDoc(doc(firestore, 'leagues', GLOBAL_LEAGUE_ID), {
+          memberUserIds: arrayUnion(uid),
+          updatedAt: serverTimestamp()
+        });
+      } catch (leagueError: any) {
+        // Don't fail signup if global league doesn't exist yet (will be added by migration)
+        console.warn('Could not add user to global league:', leagueError.message);
+      }
 
       // Send welcome email via Microsoft Graph API
       try {

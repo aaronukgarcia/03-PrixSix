@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFirestore } from "@/firebase";
+import { useLeague } from "@/contexts/league-context";
+import { LeagueSelector } from "@/components/league/LeagueSelector";
 import {
     Table,
     TableBody,
@@ -99,6 +101,7 @@ const allRaceEvents = buildRaceEvents();
 export default function ResultsPage() {
     const firestore = useFirestore();
     const searchParams = useSearchParams();
+    const { selectedLeague } = useLeague();
     const pastEvents = allRaceEvents.filter(event => new Date(event.raceTime) < new Date());
 
     // Check for race query parameter from URL (e.g., from Standings page navigation)
@@ -413,22 +416,32 @@ export default function ResultsPage() {
         }
     }, [firestore, selectedRaceId, lastDoc, isLoadingMore, scoresMap, parsePredictions, raceResult]);
 
+    // Filter teams by selected league
+    const filteredTeams = useMemo(() => {
+        if (!selectedLeague || selectedLeague.isGlobal) {
+            return teams;
+        }
+        return teams.filter(team => selectedLeague.memberUserIds.includes(team.oduserId));
+    }, [teams, selectedLeague]);
+
     const progressPercent = totalCount && totalCount > 0
-        ? Math.round((teams.length / totalCount) * 100)
+        ? Math.round((filteredTeams.length / totalCount) * 100)
         : 0;
 
     // Sort teams based on sortBy state
-    const sortedTeams = [...teams].sort((a, b) => {
-        if (sortBy === 'points') {
-            // Sort by points descending (nulls/waiting at bottom)
-            const aPoints = a.totalPoints ?? -1;
-            const bPoints = b.totalPoints ?? -1;
-            return bPoints - aPoints;
-        } else {
-            // Sort by team name ascending
-            return a.teamName.localeCompare(b.teamName);
-        }
-    });
+    const sortedTeams = useMemo(() => {
+        return [...filteredTeams].sort((a, b) => {
+            if (sortBy === 'points') {
+                // Sort by points descending (nulls/waiting at bottom)
+                const aPoints = a.totalPoints ?? -1;
+                const bPoints = b.totalPoints ?? -1;
+                return bPoints - aPoints;
+            } else {
+                // Sort by team name ascending
+                return a.teamName.localeCompare(b.teamName);
+            }
+        });
+    }, [filteredTeams, sortBy]);
 
     const toggleSort = () => {
         setSortBy(prev => prev === 'teamName' ? 'points' : 'teamName');
@@ -468,10 +481,12 @@ export default function ResultsPage() {
                     <LastUpdated timestamp={lastUpdated} />
                   </CardDescription>
                 </div>
-                 <Select value={selectedRaceId} onValueChange={setSelectedRaceId}>
-                  <SelectTrigger className="w-full sm:w-[280px]">
-                    <SelectValue placeholder="Select a race or sprint" />
-                  </SelectTrigger>
+                 <div className="flex flex-col sm:flex-row gap-2">
+                   <LeagueSelector className="w-full sm:w-[180px]" />
+                   <Select value={selectedRaceId} onValueChange={setSelectedRaceId}>
+                    <SelectTrigger className="w-full sm:w-[280px]">
+                      <SelectValue placeholder="Select a race or sprint" />
+                    </SelectTrigger>
                   <SelectContent>
                     {allRaceEvents.map((event) => (
                       <SelectItem key={event.id} value={event.id}>
@@ -487,6 +502,7 @@ export default function ResultsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                 </div>
              </div>
 
              {/* Official Result Display */}
@@ -517,7 +533,7 @@ export default function ResultsPage() {
           {!isLoading && totalCount && totalCount > PAGE_SIZE && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Showing {teams.length} of {totalCount} teams</span>
+                <span>Showing {filteredTeams.length} of {totalCount} teams</span>
                 <span>{progressPercent}%</span>
               </div>
               <Progress value={progressPercent} className="h-2" />
@@ -604,7 +620,7 @@ export default function ResultsPage() {
             </Table>
 
           {/* Load more button */}
-          {hasMore && !isLoading && teams.length > 0 && (
+          {hasMore && !isLoading && filteredTeams.length > 0 && (
             <div className="flex justify-center pt-4">
               {isLoadingMore ? (
                 <div className="flex items-center gap-2 text-muted-foreground">

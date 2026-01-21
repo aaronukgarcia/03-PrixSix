@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from "firebase/firestore";
 import { useAuditNavigation } from "@/lib/audit";
 import { SessionProvider } from "@/contexts/session-context";
+import { LeagueProvider } from "@/contexts/league-context";
 import { logAuditEvent } from "@/lib/audit";
 
 function generateGuid() {

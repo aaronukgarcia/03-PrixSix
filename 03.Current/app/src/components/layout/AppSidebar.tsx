@@ -14,6 +14,7 @@ import {
   BarChart2,
   Trophy,
   Users,
+  Users2,
   ScrollText,
   Rocket,
   Shield,
@@ -41,6 +42,7 @@ const menuItems = [
   { href: "/submissions", label: "Submissions", icon: FileCheck },
   { href: "/audit", label: "Audit", icon: History },
   { href: "/teams", label: "Teams", icon: Users },
+  { href: "/leagues", label: "Leagues", icon: Users2 },
   { href: "/rules", label: "Rules", icon: ScrollText },
   { href: "/about", label: "About", icon: Info },
 ];

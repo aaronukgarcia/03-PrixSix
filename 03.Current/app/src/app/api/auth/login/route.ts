@@ -237,25 +237,39 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
+    console.error('[Login Error]', error);
+
     let requestData: any = {};
     try {
       requestData = await request.clone().json();
       delete requestData.pin; // Don't log the PIN
     } catch {}
 
-    await logError({
-      correlationId,
-      error,
-      context: {
-        route: '/api/auth/login',
-        action: 'POST',
-        requestData: { email: requestData.email },
-        userAgent: request.headers.get('user-agent') || undefined,
-      },
-    });
+    // Try to log error, but don't fail if logging fails
+    try {
+      await logError({
+        correlationId,
+        error,
+        context: {
+          route: '/api/auth/login',
+          action: 'POST',
+          requestData: { email: requestData.email },
+          userAgent: request.headers.get('user-agent') || undefined,
+        },
+      });
+    } catch (logErr) {
+      console.error('[Login Error - Logging failed]', logErr);
+    }
 
     return NextResponse.json(
-      { success: false, error: 'An error occurred during login', correlationId },
+      {
+        success: false,
+        error: 'An error occurred during login',
+        correlationId,
+        // Include error type for debugging (safe - no sensitive data)
+        errorType: error.code || error.name || 'UnknownError',
+        errorMessage: error.message?.substring(0, 200) || 'No message',
+      },
       { status: 500 }
     );
   }

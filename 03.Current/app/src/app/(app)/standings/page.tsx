@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useFirestore } from "@/firebase";
+import { useLeague } from "@/contexts/league-context";
+import { LeagueSelector } from "@/components/league/LeagueSelector";
 import {
   Table,
   TableBody,
@@ -108,6 +110,7 @@ const PAGE_SIZE = 25;
 export default function StandingsPage() {
   const firestore = useFirestore();
   const router = useRouter();
+  const { selectedLeague } = useLeague();
 
   const [allScores, setAllScores] = useState<ScoreData[]>([]);
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
@@ -209,6 +212,14 @@ export default function StandingsPage() {
     fetchData();
   }, [firestore]);
 
+  // Filter scores by selected league
+  const filteredScores = useMemo(() => {
+    if (!selectedLeague || selectedLeague.isGlobal) {
+      return allScores;
+    }
+    return allScores.filter(score => selectedLeague.memberUserIds.includes(score.userId));
+  }, [allScores, selectedLeague]);
+
   // Calculate standings for selected race weekend
   const standings = useMemo(() => {
     if (completedRaceWeekends.length === 0 || selectedRaceIndex < 0) return [];
@@ -244,7 +255,7 @@ export default function StandingsPage() {
       newOverall: number
     }>();
 
-    allScores.forEach((score) => {
+    filteredScores.forEach((score) => {
       const existing = userTotals.get(score.userId) || {
         oldOverall: 0,
         sprintPoints: 0,
@@ -279,7 +290,7 @@ export default function StandingsPage() {
     let previousRanks = new Map<string, number>();
     if (selectedRaceIndex > 0) {
       const prevTotals = new Map<string, number>();
-      allScores.forEach((score) => {
+      filteredScores.forEach((score) => {
         if (allPriorEventIds.has(score.raceId)) {
           prevTotals.set(score.userId, (prevTotals.get(score.userId) || 0) + score.totalPoints);
         }
@@ -314,7 +325,7 @@ export default function StandingsPage() {
     });
 
     return standingsData;
-  }, [allScores, completedRaceWeekends, selectedRaceIndex, userNames]);
+  }, [filteredScores, completedRaceWeekends, selectedRaceIndex, userNames]);
 
   // Calculate race winners (highest GP and Sprint points for the selected race)
   const raceWinners = useMemo(() => {
@@ -350,9 +361,9 @@ export default function StandingsPage() {
   const chartData = useMemo(() => {
     if (completedRaceWeekends.length === 0 || !userNames.size || selectedRaceIndex < 0) return [];
 
-    // Get all unique user IDs
+    // Get all unique user IDs (filtered by league)
     const userIds = new Set<string>();
-    allScores.forEach(s => userIds.add(s.userId));
+    filteredScores.forEach(s => userIds.add(s.userId));
 
     // Build data points: Start (0) + each race weekend up to selected
     const data: Record<string, any>[] = [];
@@ -376,7 +387,7 @@ export default function StandingsPage() {
       // For sprint weekends, add Sprint and GP as separate data points
       if (race.hasSprint && race.hasSprintScores) {
         // First: Add Sprint scores
-        allScores.forEach(score => {
+        filteredScores.forEach(score => {
           if (race.sprintRaceId && score.raceId === race.sprintRaceId) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
@@ -392,7 +403,7 @@ export default function StandingsPage() {
         data.push(sprintPoint);
 
         // Second: Add GP scores
-        allScores.forEach(score => {
+        filteredScores.forEach(score => {
           if (score.raceId === race.gpRaceId || score.raceId === race.baseRaceId) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
@@ -408,7 +419,7 @@ export default function StandingsPage() {
         data.push(gpPoint);
       } else {
         // Non-sprint weekend: just add GP scores
-        allScores.forEach(score => {
+        filteredScores.forEach(score => {
           if (score.raceId === race.gpRaceId || score.raceId === race.baseRaceId) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
@@ -426,7 +437,7 @@ export default function StandingsPage() {
     });
 
     return data;
-  }, [completedRaceWeekends, allScores, userNames, selectedRaceIndex]);
+  }, [completedRaceWeekends, filteredScores, userNames, selectedRaceIndex]);
 
   // Get team names for chart lines (sorted by final position)
   const chartTeams = useMemo(() => {
@@ -478,6 +489,7 @@ export default function StandingsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <CardTitle className="text-2xl font-headline">Season Standings</CardTitle>
+              <LeagueSelector className="w-[200px] mt-2" />
               <CardDescription>
                 {completedRaceWeekends.length > 0 ? (
                   <>

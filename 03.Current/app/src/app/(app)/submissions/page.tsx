@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useFirestore } from "@/firebase";
+import { useLeague } from "@/contexts/league-context";
+import { LeagueSelector } from "@/components/league/LeagueSelector";
 import {
   Table,
   TableBody,
@@ -34,6 +36,7 @@ import { Button } from "@/components/ui/button";
 
 interface SubmissionDisplay {
   id: string;
+  userId: string;
   teamName: string;
   predictions: string;
   submittedAt: any;
@@ -45,6 +48,7 @@ type SortField = "submittedAt" | "teamName";
 
 export default function SubmissionsPage() {
   const firestore = useFirestore();
+  const { selectedLeague } = useLeague();
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
   const [selectedRace, setSelectedRace] = useState(nextRace.name);
@@ -157,6 +161,7 @@ export default function SubmissionsPage() {
         const data = doc.data();
         return {
           id: doc.id,
+          userId: data.userId || data.oduserId || "",
           teamName: data.teamName || "Unknown Team",
           predictions: formatPredictions(data.predictions),
           submittedAt: data.submittedAt,
@@ -187,8 +192,16 @@ export default function SubmissionsPage() {
     fetchSubmissions(true);
   };
 
+  // Filter submissions by selected league
+  const filteredSubmissions = useMemo(() => {
+    if (!selectedLeague || selectedLeague.isGlobal) {
+      return submissions;
+    }
+    return submissions.filter(sub => selectedLeague.memberUserIds.includes(sub.userId));
+  }, [submissions, selectedLeague]);
+
   const progressPercent = totalCount && totalCount > 0
-    ? Math.round((submissions.length / totalCount) * 100)
+    ? Math.round((filteredSubmissions.length / totalCount) * 100)
     : 0;
 
   return (
@@ -215,6 +228,7 @@ export default function SubmissionsPage() {
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
+              <LeagueSelector className="w-full sm:w-[180px]" />
               <Select value={selectedRace} onValueChange={setSelectedRace}>
                 <SelectTrigger className="w-full sm:w-[220px]">
                   <SelectValue placeholder="Select a race" />
@@ -255,7 +269,7 @@ export default function SubmissionsPage() {
           {!isLoading && totalCount && totalCount > PAGE_SIZE && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Showing {submissions.length} of {totalCount} teams</span>
+                <span>Showing {filteredSubmissions.length} of {totalCount} teams</span>
                 <span>{progressPercent}%</span>
               </div>
               <Progress value={progressPercent} className="h-2" />
@@ -301,8 +315,8 @@ export default function SubmissionsPage() {
                     </TableCell>
                   </TableRow>
                 ))
-              ) : submissions.length > 0 ? (
-                submissions.map((submission) => (
+              ) : filteredSubmissions.length > 0 ? (
+                filteredSubmissions.map((submission) => (
                   <TableRow key={submission.id}>
                     <TableCell className="font-semibold">
                       {submission.teamName}
@@ -332,7 +346,7 @@ export default function SubmissionsPage() {
           </Table>
 
           {/* Load more button */}
-          {hasMore && !isLoading && submissions.length > 0 && (
+          {hasMore && !isLoading && filteredSubmissions.length > 0 && (
             <div className="flex justify-center pt-4">
               {isLoadingMore ? (
                 <div className="flex items-center gap-2 text-muted-foreground">

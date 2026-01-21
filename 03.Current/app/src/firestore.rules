@@ -119,6 +119,47 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
     }
 
+    // Leagues - allows users to create private leagues and view standings filtered by membership
+    match /leagues/{leagueId} {
+      function isMember() {
+        return request.auth.uid in resource.data.memberUserIds;
+      }
+      function isLeagueOwner() {
+        return request.auth.uid == resource.data.ownerId;
+      }
+      // Check if update ONLY removes the current user from memberUserIds
+      function onlySelfRemoval() {
+        let oldMembers = resource.data.memberUserIds;
+        let newMembers = request.resource.data.memberUserIds;
+        // New list must be old list minus only the current user
+        return newMembers.size() == oldMembers.size() - 1
+            && !(request.auth.uid in newMembers)
+            && request.auth.uid in oldMembers
+            // Ensure no other fields changed except memberUserIds and updatedAt
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds', 'updatedAt']);
+      }
+
+      // READ: Member OR global league OR admin
+      allow get, list: if isSignedIn() && (
+        isMember() || resource.data.isGlobal == true || isAdmin()
+      );
+
+      // CREATE: Must set self as owner and initial member, cannot create global
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.auth.uid in request.resource.data.memberUserIds
+        && request.resource.data.isGlobal == false;
+
+      // UPDATE: Owner OR member removing only themselves
+      allow update: if isSignedIn() && (
+        isLeagueOwner() ||
+        (isMember() && onlySelfRemoval())
+      );
+
+      // DELETE: Owner only (not global)
+      allow delete: if isSignedIn() && isLeagueOwner() && resource.data.isGlobal != true;
+    }
+
     // Collection group query support for predictions (used on Results page)
     match /{path=**}/predictions/{predictionId} {
       allow read: if isSignedIn();
