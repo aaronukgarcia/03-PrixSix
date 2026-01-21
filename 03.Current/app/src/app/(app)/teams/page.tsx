@@ -71,13 +71,26 @@ export default function TeamsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch total count once (using aggregation - no document download)
+  // Count includes both primary and secondary teams
   useEffect(() => {
     if (!firestore) return;
 
     const fetchCount = async () => {
       try {
-        const countSnapshot = await getCountFromServer(collection(firestore, "users"));
-        setTotalCount(countSnapshot.data().count);
+        // Get user count
+        const userCountSnapshot = await getCountFromServer(collection(firestore, "users"));
+        const userCount = userCountSnapshot.data().count;
+
+        // Get count of users with secondary teams
+        const secondaryTeamsQuery = query(
+          collection(firestore, "users"),
+          where("secondaryTeamName", "!=", null)
+        );
+        const secondaryCountSnapshot = await getCountFromServer(secondaryTeamsQuery);
+        const secondaryCount = secondaryCountSnapshot.data().count;
+
+        // Total teams = users + secondary teams
+        setTotalCount(userCount + secondaryCount);
       } catch (error) {
         console.error("Error fetching count:", error);
         // Fallback: don't show total count
