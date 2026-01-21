@@ -25,8 +25,6 @@ export default async function DashboardPage() {
         });
     };
     const nextRace = findNextRace();
-    
-    const isPitlaneOpen = new Date(nextRace.qualifyingTime) > new Date();
 
     const qualifyingDate = new Date(nextRace.qualifyingTime);
     const raceDate = new Date(nextRace.raceTime);
@@ -35,37 +33,7 @@ export default async function DashboardPage() {
         <div className="grid gap-6">
             <DashboardClient nextRace={nextRace} />
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Pit Lane Status</CardTitle>
-                        {isPitlaneOpen ? (
-                           <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        ) : (
-                            <AlertCircle className="h-4 w-4 text-red-500" />
-                        )}
-                    </CardHeader>
-                    <CardContent>
-                       {isPitlaneOpen ? (
-                            <Alert className="border-green-500/50 text-green-500 [&>svg]:text-green-500">
-                                <CheckCircle2 className="h-4 w-4" />
-                                <AlertTitle className="font-bold">Open</AlertTitle>
-                                <AlertDescription>
-                                    Predictions are open. Submit or edit your picks!
-                                </AlertDescription>
-                            </Alert>
-                       ) : (
-                            <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle className="font-bold">Closed</AlertTitle>
-                                <AlertDescription>
-                                    Qualifying has started. Predictions are locked.
-                                </AlertDescription>
-                            </Alert>
-                       )}
-                    </CardContent>
-                </Card>
-
+            <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">Qualifying</CardTitle>
