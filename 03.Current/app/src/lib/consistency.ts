@@ -1,4 +1,5 @@
 import { F1Drivers, RaceSchedule, type Driver, type Race } from './data';
+import { SCORING_POINTS, SCORING_DERIVED } from './scoring-rules';
 
 // --- Types ---
 
@@ -761,11 +762,10 @@ export function checkRaceResults(results: RaceResultData[]): CheckResult {
 }
 
 // Scoring constants (Prix Six rules)
+// Use shared scoring constants from scoring-rules.ts
 const SCORING = {
-  exactPosition: 5,    // +5 for each driver in exact predicted position
-  wrongPosition: 3,    // +3 for each driver in top 6 but wrong position
-  bonusAll6: 10,       // +10 bonus if all 6 predictions are correct
-  maxPoints: 40,       // Max possible: 30 (all exact) + 10 (bonus) = 40
+  ...SCORING_POINTS,
+  maxPoints: SCORING_DERIVED.maxPointsPerRace,
 };
 
 /**

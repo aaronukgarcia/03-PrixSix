@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { F1Drivers } from '@/lib/data';
+import { SCORING_POINTS } from '@/lib/scoring-rules';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-// Prix Six scoring constants
-const PRIX_SIX_SCORING = {
-  exactPosition: 5,       // +5 for each driver in their exact predicted position
-  wrongPosition: 3,       // +3 for each driver in top 6 but wrong position
-  bonusAll6: 10,          // +10 bonus if all 6 predictions are correct (any position)
-  // Max possible: 30 (all exact) + 10 (bonus) = 40 points
-};
+// Use shared scoring constants
+const PRIX_SIX_SCORING = SCORING_POINTS;
 
 interface RaceResultRequest {
   raceId: string;
