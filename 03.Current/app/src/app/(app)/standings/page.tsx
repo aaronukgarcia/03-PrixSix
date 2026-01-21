@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule } from "@/lib/data";
-import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag } from "lucide-react";
+import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { LastUpdated } from "@/components/ui/last-updated";
@@ -38,6 +38,40 @@ const RankChangeIndicator = ({ change }: { change: number }) => {
   }
   return <ArrowDown className="h-4 w-4 text-red-500" />;
 };
+
+const RankBadge = ({ rank }: { rank: number }) => {
+  if (rank === 1) {
+    return (
+      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700">
+        <Trophy className="h-3 w-3 mr-0.5" />
+        1st
+      </Badge>
+    );
+  }
+  if (rank === 2) {
+    return (
+      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
+        <Medal className="h-3 w-3 mr-0.5" />
+        2nd
+      </Badge>
+    );
+  }
+  if (rank === 3) {
+    return (
+      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700">
+        <Medal className="h-3 w-3 mr-0.5" />
+        3rd
+      </Badge>
+    );
+  }
+  return null;
+};
+
+const RaceWinnerBadge = () => (
+  <Badge variant="outline" className="ml-1 px-1 py-0 text-[9px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">
+    Winner
+  </Badge>
+);
 
 interface ScoreData {
   oduserId?: string;
@@ -281,6 +315,36 @@ export default function StandingsPage() {
 
     return standingsData;
   }, [allScores, completedRaceWeekends, selectedRaceIndex, userNames]);
+
+  // Calculate race winners (highest GP and Sprint points for the selected race)
+  const raceWinners = useMemo(() => {
+    if (standings.length === 0) return { gpWinner: null, sprintWinner: null };
+
+    // Find highest GP points
+    let maxGpPoints = 0;
+    let gpWinnerUserId: string | null = null;
+    standings.forEach(team => {
+      if (team.gpPoints > maxGpPoints) {
+        maxGpPoints = team.gpPoints;
+        gpWinnerUserId = team.userId;
+      }
+    });
+
+    // Find highest Sprint points (if applicable)
+    let maxSprintPoints = 0;
+    let sprintWinnerUserId: string | null = null;
+    standings.forEach(team => {
+      if (team.sprintPoints !== null && team.sprintPoints > maxSprintPoints) {
+        maxSprintPoints = team.sprintPoints;
+        sprintWinnerUserId = team.userId;
+      }
+    });
+
+    return {
+      gpWinner: maxGpPoints > 0 ? gpWinnerUserId : null,
+      sprintWinner: maxSprintPoints > 0 ? sprintWinnerUserId : null,
+    };
+  }, [standings]);
 
   // Calculate chart data for season progression (only up to selected race)
   const chartData = useMemo(() => {
@@ -593,7 +657,12 @@ export default function StandingsPage() {
                       <RankChangeIndicator change={team.rankChange} />
                     </div>
                   </TableCell>
-                  <TableCell className="font-semibold">{team.teamName}</TableCell>
+                  <TableCell className="font-semibold">
+                    <span className="flex items-center flex-wrap gap-y-1">
+                      {team.teamName}
+                      <RankBadge rank={team.rank} />
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
                     {selectedRaceIndex > 0 ? (
                       <Button
@@ -615,27 +684,33 @@ export default function StandingsPage() {
                   </TableCell>
                   {showSprintColumn && (
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs font-mono text-amber-600"
-                        onClick={() => selectedRace?.sprintRaceId && navigateToResults(selectedRace.sprintRaceId)}
-                        title="View Sprint results"
-                      >
-                        +{team.sprintPoints ?? 0}
-                      </Button>
+                      <span className="flex items-center justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs font-mono text-amber-600"
+                          onClick={() => selectedRace?.sprintRaceId && navigateToResults(selectedRace.sprintRaceId)}
+                          title="View Sprint results"
+                        >
+                          +{team.sprintPoints ?? 0}
+                        </Button>
+                        {raceWinners.sprintWinner === team.userId && <RaceWinnerBadge />}
+                      </span>
                     </TableCell>
                   )}
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs font-mono text-accent"
-                      onClick={() => selectedRace && navigateToResults(selectedRace.gpRaceId)}
-                      title="View GP results"
-                    >
-                      +{team.gpPoints}
-                    </Button>
+                    <span className="flex items-center justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs font-mono text-accent"
+                        onClick={() => selectedRace && navigateToResults(selectedRace.gpRaceId)}
+                        title="View GP results"
+                      >
+                        +{team.gpPoints}
+                      </Button>
+                      {raceWinners.gpWinner === team.userId && <RaceWinnerBadge />}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right font-bold text-lg text-accent">
                     {team.newOverall}
