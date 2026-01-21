@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RaceSchedule } from '@/lib/data';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -16,8 +16,27 @@ interface PredictionRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Verify the Firebase Auth token
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorised: Invalid or missing authentication token' },
+        { status: 401 }
+      );
+    }
+
     const data: PredictionRequest = await request.json();
     const { userId, teamId, teamName, raceId, raceName, predictions } = data;
+
+    // SECURITY: Verify the userId in the request matches the authenticated user
+    if (userId !== verifiedUser.uid) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Cannot submit predictions for another user' },
+        { status: 403 }
+      );
+    }
 
     // Validate required fields
     if (!userId || !teamId || !teamName || !raceId || !raceName || !predictions) {
@@ -47,12 +66,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Write prediction to Firestore
+    // SECURITY: Use atomic batch write to prevent partial failures
     const { db, FieldValue } = await getFirebaseAdmin();
+    const batch = db.batch();
+
     const predictionId = `${teamId}_${raceId}`;
     const predictionRef = db.collection('users').doc(userId).collection('predictions').doc(predictionId);
+    const submissionRef = db.collection('prediction_submissions').doc();
+    const auditRef = db.collection('audit_logs').doc();
 
-    await predictionRef.set({
+    // 1. Write prediction to user's subcollection
+    batch.set(predictionRef, {
       id: predictionId,
       userId,
       teamId,
@@ -63,8 +87,8 @@ export async function POST(request: NextRequest) {
       submissionTimestamp: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    // Write to public prediction_submissions for audit
-    await db.collection('prediction_submissions').add({
+    // 2. Write to public prediction_submissions for audit trail
+    batch.set(submissionRef, {
       userId,
       teamName,
       raceName,
@@ -80,8 +104,8 @@ export async function POST(request: NextRequest) {
       submittedAt: FieldValue.serverTimestamp(),
     });
 
-    // Log audit event
-    await db.collection('audit_logs').add({
+    // 3. Log audit event
+    batch.set(auditRef, {
       userId,
       action: 'prediction_submitted',
       details: {
@@ -93,6 +117,9 @@ export async function POST(request: NextRequest) {
       },
       timestamp: FieldValue.serverTimestamp(),
     });
+
+    // Commit all writes atomically
+    await batch.commit();
 
     return NextResponse.json({ success: true, message: 'Prediction submitted successfully' });
   } catch (error: any) {

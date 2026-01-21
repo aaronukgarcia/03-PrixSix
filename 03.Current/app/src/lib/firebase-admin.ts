@@ -57,6 +57,34 @@ export async function getFirebaseAdmin(): Promise<{
 }
 
 /**
+ * Verify a Firebase ID token and return the decoded token
+ * SECURITY: Use this to verify that API requests are from authenticated users
+ */
+export async function verifyAuthToken(authHeader: string | null): Promise<{
+  uid: string;
+  email?: string;
+} | null> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+  try {
+    const { getAuth } = await import('firebase-admin/auth');
+    const auth = getAuth();
+    const decodedToken = await auth.verifyIdToken(token);
+    return {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+    };
+  } catch (error) {
+    console.error('[Auth] Token verification failed:', error);
+    return null;
+  }
+}
+
+/**
  * Generate a correlation ID for error tracking
  */
 export function generateCorrelationId(): string {

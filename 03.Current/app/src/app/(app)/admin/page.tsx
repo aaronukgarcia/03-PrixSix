@@ -7,7 +7,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -19,6 +19,7 @@ import { AuditManager } from "./_components/AuditManager";
 import { AuditLogViewer } from "./_components/AuditLogViewer";
 import { ConsistencyChecker } from "./_components/ConsistencyChecker";
 import { WhatsAppManager } from "./_components/WhatsAppManager";
+import { StandingDataManager } from "./_components/StandingDataManager";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
@@ -76,7 +77,7 @@ export default function AdminPage() {
                 <p className="text-muted-foreground">Manage the Prix Six league.</p>
             </div>
             <Tabs defaultValue="functions" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-5 sm:grid-cols-10">
+                <TabsList className="grid w-full grid-cols-6 sm:grid-cols-11">
                     <TabsTrigger value="functions"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
                     <TabsTrigger value="teams"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
                     <TabsTrigger value="results"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
@@ -86,6 +87,7 @@ export default function AdminPage() {
                     <TabsTrigger value="emails"><Mail className="w-4 h-4 mr-2"/>Email Logs</TabsTrigger>
                     <TabsTrigger value="audit"><BookUser className="w-4 h-4 mr-2"/>Audit</TabsTrigger>
                     <TabsTrigger value="whatsapp"><MessageSquare className="w-4 h-4 mr-2"/>WhatsApp</TabsTrigger>
+                    <TabsTrigger value="standing"><Database className="w-4 h-4 mr-2"/>Standing</TabsTrigger>
                     <TabsTrigger value="consistency"><ClipboardCheck className="w-4 h-4 mr-2"/>CC</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
@@ -115,6 +117,9 @@ export default function AdminPage() {
                 </TabsContent>
                 <TabsContent value="whatsapp">
                     <WhatsAppManager />
+                </TabsContent>
+                <TabsContent value="standing">
+                    <StandingDataManager />
                 </TabsContent>
                 <TabsContent value="consistency">
                     <ConsistencyChecker allUsers={allUsers} isUserLoading={isUserLoading} />

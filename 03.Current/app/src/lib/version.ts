@@ -1,3 +1,3 @@
 // Auto-sync with package.json version
 // Update this when you bump the version in package.json
-export const APP_VERSION = "1.10.0";
+export const APP_VERSION = "1.11.0";

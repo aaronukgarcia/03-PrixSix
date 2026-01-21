@@ -19,6 +19,7 @@ import { ArrowDown, ArrowUp, X, Check, ListCollapse, Timer } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/firebase";
+import type { User as FirebaseAuthUser } from 'firebase/auth';
 import { Badge } from "@/components/ui/badge";
 
 interface PredictionEditorProps {
@@ -31,7 +32,7 @@ interface PredictionEditorProps {
 }
 
 export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime }: PredictionEditorProps) {
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const [predictions, setPredictions] = useState<(Driver | null)[]>(initialPredictions);
   const [history, setHistory] = useState<string[]>([]);
   const { toast } = useToast();
@@ -136,10 +137,19 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         const raceId = raceName.replace(/\s+/g, '-');
         const predictionIds = predictions.map(p => p?.id).filter(Boolean) as string[];
 
+        // SECURITY: Get Firebase ID token for server-side verification
+        if (!firebaseUser) {
+            throw new Error('Not authenticated');
+        }
+        const idToken = await firebaseUser.getIdToken();
+
         // Use server-side API for lockout enforcement
         const response = await fetch('/api/submit-prediction', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
+            },
             body: JSON.stringify({
                 userId: user.id,
                 teamId,

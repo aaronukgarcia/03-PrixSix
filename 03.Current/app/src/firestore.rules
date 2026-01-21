@@ -15,13 +15,32 @@ service cloud.firestore {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    // SECURITY: Prevent users from modifying protected fields (privilege escalation prevention)
+    function userNotChangingProtectedFields() {
+      let protectedFields = ['isAdmin', 'points', 'badLoginAttempts', 'id', 'createdAt'];
+      let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return !affectedKeys.hasAny(protectedFields);
+    }
+
+    // SECURITY: Validate user document structure on create
+    function validUserCreate() {
+      let data = request.resource.data;
+      // New users cannot set themselves as admin or set points
+      return data.get('isAdmin', false) == false
+          && data.get('points', 0) == 0
+          && data.get('badLoginAttempts', 0) == 0;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       // All signed-in users can list users (to see team names on teams page)
       allow list: if isSignedIn();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isOwner(userId);
+      // SECURITY: Users cannot create themselves as admin
+      allow create: if isOwner(userId) && validUserCreate();
+      // SECURITY: Users can only update non-protected fields; admins can update anything
+      allow update: if (isOwner(userId) && userNotChangingProtectedFields()) || isAdmin();
+      // Users should not delete their own accounts (handled by admin or server)
+      allow delete: if isAdmin();
 
       match /predictions/{predictionId} {
         // All signed-in users can read predictions (league members can see each other's picks)
@@ -42,6 +61,8 @@ service cloud.firestore {
     
     match /scores/{scoreId} {
       allow get, list: if true;
+      // SECURITY: Scores should be written by server-side Cloud Function, not client
+      // TODO: Move to allow write: if false once server-side scoring is implemented
       allow write: if isAdmin();
     }
 
