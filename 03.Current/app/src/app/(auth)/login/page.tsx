@@ -114,9 +114,18 @@ export default function LoginPage() {
                         />
 
                         {error && (
-                            <div className="flex items-center gap-x-2 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                                <Frown className="h-4 w-4" />
-                                <p>{error}</p>
+                            <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                                <div className="flex items-center gap-x-2">
+                                    <Frown className="h-4 w-4 flex-shrink-0" />
+                                    <p>{error.includes('(Ref:') ? error.split('(Ref:')[0].trim() : error}</p>
+                                </div>
+                                {error.includes('(Ref:') && (
+                                    <div className="mt-2 pt-2 border-t border-destructive/20">
+                                        <code className="text-xs select-all cursor-pointer bg-destructive/10 px-2 py-1 rounded">
+                                            {error.match(/\(Ref:\s*([^)]+)\)/)?.[1] || ''}
+                                        </code>
+                                    </div>
+                                )}
                             </div>
                         )}
 
