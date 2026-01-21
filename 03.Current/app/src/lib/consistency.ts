@@ -1,5 +1,5 @@
 import { F1Drivers, RaceSchedule, type Driver, type Race } from './data';
-import { SCORING_POINTS, SCORING_DERIVED } from './scoring-rules';
+import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scoring-rules';
 
 // --- Types ---
 
@@ -769,7 +769,8 @@ const SCORING = {
 };
 
 /**
- * Calculate expected score based on Prix Six rules
+ * Calculate expected score based on Prix Six hybrid rules
+ * Uses position-based scoring: exact +6, 1 off +4, 2 off +3, 3+ off +2, not in top 6 = 0
  */
 function calculateExpectedScore(predictedDrivers: string[], actualTop6: string[]): { points: number; correctCount: number } {
   let points = 0;
@@ -778,25 +779,24 @@ function calculateExpectedScore(predictedDrivers: string[], actualTop6: string[]
   // Normalize to lowercase for comparison
   const normalizedActual = actualTop6.map(d => d?.toLowerCase());
 
-  for (let i = 0; i < predictedDrivers.length; i++) {
-    const driver = predictedDrivers[i];
+  for (let predictedPosition = 0; predictedPosition < predictedDrivers.length; predictedPosition++) {
+    const driver = predictedDrivers[predictedPosition];
     if (!driver) continue;
 
     const normalizedDriver = driver.toLowerCase();
-    const actualIndex = normalizedActual.indexOf(normalizedDriver);
+    const actualPosition = normalizedActual.indexOf(normalizedDriver);
 
-    if (actualIndex === i) {
-      // Exact position match
-      points += SCORING.exactPosition;
-      correctCount++;
-    } else if (actualIndex !== -1) {
-      // In top 6 but wrong position
-      points += SCORING.wrongPosition;
+    // Calculate points using hybrid position-based system
+    const driverPoints = calculateDriverPoints(predictedPosition, actualPosition);
+    points += driverPoints;
+
+    if (actualPosition !== -1) {
+      // Driver is in top 6
       correctCount++;
     }
   }
 
-  // Bonus for all 6 correct
+  // Bonus for all 6 in top 6
   if (correctCount === 6) {
     points += SCORING.bonusAll6;
   }
@@ -961,7 +961,7 @@ export function checkScores(
         const actualTop6 = [
           raceResult.driver1, raceResult.driver2, raceResult.driver3,
           raceResult.driver4, raceResult.driver5, raceResult.driver6
-        ].filter(Boolean);
+        ].filter((d): d is string => Boolean(d));
 
         if (predictedDrivers.length === 6 && actualTop6.length === 6) {
           const expected = calculateExpectedScore(predictedDrivers, actualTop6);

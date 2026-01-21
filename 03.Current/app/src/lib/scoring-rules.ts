@@ -8,15 +8,25 @@
  * - Consistency checker validation
  *
  * DO NOT hardcode scoring values elsewhere - import from this file.
+ *
+ * HYBRID SCORING SYSTEM (Updated January 2026):
+ * - Points awarded based on how close prediction is to actual position
+ * - Bonus for getting all 6 drivers in top 6
  */
 
-// Scoring point values
+// Scoring point values - Hybrid position-based system
 export const SCORING_POINTS = {
   /** Points awarded for predicting a driver in their exact finishing position */
-  exactPosition: 5,
+  exactPosition: 6,
 
-  /** Points awarded for predicting a driver who finishes in top 6, but in wrong position */
-  wrongPosition: 3,
+  /** Points awarded for predicting a driver 1 position off */
+  onePositionOff: 4,
+
+  /** Points awarded for predicting a driver 2 positions off */
+  twoPositionsOff: 3,
+
+  /** Points awarded for predicting a driver 3+ positions off (but still in top 6) */
+  threeOrMoreOff: 2,
 
   /** Bonus points if all 6 predicted drivers finish in the top 6 (any position) */
   bonusAll6: 10,
@@ -24,12 +34,38 @@ export const SCORING_POINTS = {
 
 // Derived values
 export const SCORING_DERIVED = {
-  /** Maximum possible points per race: 6 exact (30) + bonus (10) = 40 */
+  /** Maximum possible points per race: 6 exact (36) + bonus (10) = 46 */
   maxPointsPerRace: (SCORING_POINTS.exactPosition * 6) + SCORING_POINTS.bonusAll6,
 
   /** Number of drivers to predict */
   driversToPredict: 6,
 } as const;
+
+/**
+ * Calculate points for a single driver prediction based on position difference
+ * @param predictedPosition - The position where the driver was predicted (0-5)
+ * @param actualPosition - The actual finishing position (0-5), or -1 if not in top 6
+ * @returns Points awarded for this prediction
+ */
+export function calculateDriverPoints(predictedPosition: number, actualPosition: number): number {
+  // Not in top 6 = 0 points
+  if (actualPosition === -1 || actualPosition < 0 || actualPosition > 5) {
+    return 0;
+  }
+
+  const positionDiff = Math.abs(predictedPosition - actualPosition);
+
+  if (positionDiff === 0) {
+    return SCORING_POINTS.exactPosition;
+  } else if (positionDiff === 1) {
+    return SCORING_POINTS.onePositionOff;
+  } else if (positionDiff === 2) {
+    return SCORING_POINTS.twoPositionsOff;
+  } else {
+    // 3+ positions off but still in top 6
+    return SCORING_POINTS.threeOrMoreOff;
+  }
+}
 
 // Rule descriptions for the rules page
 export const SCORING_RULES = [
@@ -40,16 +76,34 @@ export const SCORING_RULES = [
     description: 'For each driver you correctly predict in their exact finishing position.',
   },
   {
-    points: SCORING_POINTS.wrongPosition,
-    pointsDisplay: `+${SCORING_POINTS.wrongPosition}`,
-    title: 'In Top 6',
-    description: 'For each driver you correctly predict who finishes in the top 6, but in a different position than you predicted.',
+    points: SCORING_POINTS.onePositionOff,
+    pointsDisplay: `+${SCORING_POINTS.onePositionOff}`,
+    title: '1 Position Off',
+    description: 'For each driver you predict who finishes 1 position away from your prediction.',
+  },
+  {
+    points: SCORING_POINTS.twoPositionsOff,
+    pointsDisplay: `+${SCORING_POINTS.twoPositionsOff}`,
+    title: '2 Positions Off',
+    description: 'For each driver you predict who finishes 2 positions away from your prediction.',
+  },
+  {
+    points: SCORING_POINTS.threeOrMoreOff,
+    pointsDisplay: `+${SCORING_POINTS.threeOrMoreOff}`,
+    title: '3+ Positions Off',
+    description: 'For each driver you predict who finishes in the top 6, but 3 or more positions away from your prediction.',
+  },
+  {
+    points: 0,
+    pointsDisplay: '0',
+    title: 'Not in Top 6',
+    description: 'If a driver you predicted does not finish in the top 6, you receive no points for that prediction.',
   },
   {
     points: SCORING_POINTS.bonusAll6,
     pointsDisplay: `+${SCORING_POINTS.bonusAll6}`,
     title: 'Perfect 6 Bonus',
-    description: 'BONUS points if you correctly predict all 6 drivers who finish in the top 6, regardless of their position.',
+    description: 'BONUS points if you correctly predict all 6 drivers who finish in the top 6, regardless of their positions.',
   },
 ] as const;
 

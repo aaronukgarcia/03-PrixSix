@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { F1Drivers } from '@/lib/data';
-import { SCORING_POINTS } from '@/lib/scoring-rules';
+import { SCORING_POINTS, calculateDriverPoints } from '@/lib/scoring-rules';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
-
-// Use shared scoring constants
-const PRIX_SIX_SCORING = SCORING_POINTS;
 
 interface RaceResultRequest {
   raceId: string;
@@ -162,28 +159,27 @@ export async function POST(request: NextRequest) {
       let correctCount = 0;
       const breakdownParts: string[] = [];
 
-      // Calculate score using Prix Six rules
-      userPredictions.forEach((driverId, index) => {
+      // Calculate score using Prix Six hybrid rules
+      userPredictions.forEach((driverId, predictedPosition) => {
         const driverName = F1Drivers.find(d => d.id === driverId)?.name || driverId;
         const actualPosition = actualResults.indexOf(driverId);
 
-        if (actualPosition === index) {
-          totalPoints += PRIX_SIX_SCORING.exactPosition;
+        // Calculate points using hybrid position-based system
+        const points = calculateDriverPoints(predictedPosition, actualPosition);
+        totalPoints += points;
+
+        if (actualPosition !== -1) {
+          // Driver is in top 6
           correctCount++;
-          breakdownParts.push(`${driverName}+${PRIX_SIX_SCORING.exactPosition}`);
-        } else if (actualPosition !== -1) {
-          totalPoints += PRIX_SIX_SCORING.wrongPosition;
-          correctCount++;
-          breakdownParts.push(`${driverName}+${PRIX_SIX_SCORING.wrongPosition}`);
-        } else {
-          breakdownParts.push(`${driverName}+0`);
         }
+
+        breakdownParts.push(`${driverName}+${points}`);
       });
 
       // Bonus for all 6 in top 6
       if (correctCount === 6) {
-        totalPoints += PRIX_SIX_SCORING.bonusAll6;
-        breakdownParts.push(`BonusAll6+${PRIX_SIX_SCORING.bonusAll6}`);
+        totalPoints += SCORING_POINTS.bonusAll6;
+        breakdownParts.push(`BonusAll6+${SCORING_POINTS.bonusAll6}`);
       }
 
       calculatedScores.push({ userId, totalPoints, breakdown: breakdownParts.join(', ') });

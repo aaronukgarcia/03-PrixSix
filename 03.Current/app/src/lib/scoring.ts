@@ -1,9 +1,6 @@
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc, collectionGroup, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { F1Drivers } from './data';
-import { SCORING_POINTS } from './scoring-rules';
-
-// Re-export for backwards compatibility
-const PRIX_SIX_SCORING = SCORING_POINTS;
+import { SCORING_POINTS, calculateDriverPoints } from './scoring-rules';
 
 interface RaceResult {
   id: string;
@@ -39,11 +36,14 @@ function normalizeRaceId(raceId: string): string {
 }
 
 /**
- * Calculate scores for a specific race based on Prix Six rules:
- * - +5 points for each driver in their exact predicted position
- * - +3 points for each driver in top 6 but in wrong position
+ * Calculate scores for a specific race based on Prix Six Hybrid rules:
+ * - +6 points for exact position
+ * - +4 points for 1 position off
+ * - +3 points for 2 positions off
+ * - +2 points for 3+ positions off (but in top 6)
+ * - 0 points if driver not in top 6
  * - +10 bonus if all 6 predictions are in the top 6 (regardless of position)
- * - Max possible: 30 (all exact) + 10 (bonus) = 40 points
+ * - Max possible: 36 (all exact) + 10 (bonus) = 46 points
  */
 export async function calculateRaceScores(
   firestore: any,
@@ -92,7 +92,7 @@ export async function calculateRaceScores(
 
   const scores: { userId: string; totalPoints: number; breakdown: string }[] = [];
 
-  predictionsSnapshot.forEach((predDoc) => {
+  predictionsSnapshot.forEach((predDoc: QueryDocumentSnapshot<DocumentData>) => {
     const data = predDoc.data();
 
     // Handle both data structures:
@@ -132,31 +132,27 @@ export async function calculateRaceScores(
     let correctCount = 0;
     const breakdownParts: string[] = [];
 
-    // Prix Six scoring: check each prediction position
-    userPredictions.forEach((driverId, index) => {
+    // Prix Six Hybrid scoring: check each prediction position
+    userPredictions.forEach((driverId, predictedPosition) => {
       const driverName = F1Drivers.find(d => d.id === driverId)?.name || driverId;
       const actualPosition = actualResults.indexOf(driverId);
 
-      if (actualPosition === index) {
-        // Exact position match: +5
-        totalPoints += PRIX_SIX_SCORING.exactPosition;
+      // Calculate points using hybrid position-based system
+      const points = calculateDriverPoints(predictedPosition, actualPosition);
+      totalPoints += points;
+
+      if (actualPosition !== -1) {
+        // Driver is in top 6
         correctCount++;
-        breakdownParts.push(`${driverName}+${PRIX_SIX_SCORING.exactPosition}`);
-      } else if (actualPosition !== -1) {
-        // In top 6 but wrong position: +3
-        totalPoints += PRIX_SIX_SCORING.wrongPosition;
-        correctCount++;
-        breakdownParts.push(`${driverName}+${PRIX_SIX_SCORING.wrongPosition}`);
-      } else {
-        // Not in top 6: 0 points
-        breakdownParts.push(`${driverName}+0`);
       }
+
+      breakdownParts.push(`${driverName}+${points}`);
     });
 
     // Bonus: +10 if all 6 predictions are in the top 6
     if (correctCount === 6) {
-      totalPoints += PRIX_SIX_SCORING.bonusAll6;
-      breakdownParts.push(`BonusAll6+${PRIX_SIX_SCORING.bonusAll6}`);
+      totalPoints += SCORING_POINTS.bonusAll6;
+      breakdownParts.push(`BonusAll6+${SCORING_POINTS.bonusAll6}`);
     }
 
     scores.push({
