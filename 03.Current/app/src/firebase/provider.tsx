@@ -5,7 +5,7 @@ import React, { createContext, useContext, ReactNode, useMemo, useState, useEffe
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, collection, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, arrayUnion } from 'firebase/firestore';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
-import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword } from 'firebase/auth';
+import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword, sendEmailVerification } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
@@ -29,6 +29,7 @@ export interface User {
   mustChangePin?: boolean;
   badLoginAttempts?: number;
   emailPreferences?: EmailPreferences;
+  emailVerified?: boolean; // Synced from Firebase Auth
 }
 
 interface AuthResult {
@@ -46,6 +47,7 @@ export interface FirebaseContextState {
   firebaseUser: FirebaseAuthUser | null;
   isUserLoading: boolean;
   userError: Error | null;
+  isEmailVerified: boolean;
   updateUser: (userId: string, data: Partial<User>) => Promise<AuthResult>;
   deleteUser: (userId: string) => Promise<AuthResult>;
   login: (email: string, pin: string) => Promise<AuthResult>;
@@ -54,6 +56,8 @@ export interface FirebaseContextState {
   addSecondaryTeam: (teamName: string) => Promise<AuthResult>;
   resetPin: (email: string) => Promise<AuthResult>;
   changePin: (email: string, newPin: string) => Promise<AuthResult>;
+  sendVerificationEmail: () => Promise<AuthResult>;
+  refreshEmailVerificationStatus: () => Promise<void>;
 }
 
 // React Context
@@ -90,6 +94,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             const userData = userDoc.data() as User;
+
+            // Sync emailVerified status from Firebase Auth to Firestore
+            if (fbUser.emailVerified && !userData.emailVerified) {
+              await updateDoc(userDocRef, { emailVerified: true });
+              userData.emailVerified = true;
+              logAuditEvent(firestore, fbUser.uid, 'email_verified_synced', { email: fbUser.email });
+            }
+
             setUser(userData);
              if (userData.mustChangePin) {
                 router.push('/profile');
@@ -211,9 +223,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         isAdmin: false, // Default new users to not be admin
         mustChangePin: false,
         badLoginAttempts: 0,
+        emailVerified: false, // Will be updated when user verifies email
       };
       await setDoc(doc(firestore, 'users', uid), newUser);
       await setDoc(doc(firestore, "presence", uid), { online: false, sessions: [] });
+
+      // Send Firebase email verification
+      try {
+        await sendEmailVerification(userCredential.user, {
+          url: `${typeof window !== 'undefined' ? window.location.origin : ''}/login?verified=true`,
+        });
+        logAuditEvent(firestore, uid, 'verification_email_sent', { email });
+      } catch (verificationError: any) {
+        console.error('Failed to send verification email:', verificationError);
+        // Don't fail signup if verification email fails
+      }
 
       // Add user to global league
       try {
@@ -446,6 +470,52 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  const sendVerificationEmail = async (): Promise<AuthResult> => {
+    if (!firebaseUser) {
+      return { success: false, message: "You must be logged in to send a verification email." };
+    }
+
+    if (firebaseUser.emailVerified) {
+      return { success: false, message: "Your email is already verified." };
+    }
+
+    try {
+      await sendEmailVerification(firebaseUser, {
+        url: `${typeof window !== 'undefined' ? window.location.origin : ''}/login?verified=true`,
+      });
+      logAuditEvent(firestore, firebaseUser.uid, 'verification_email_resent', { email: firebaseUser.email });
+      return { success: true, message: "Verification email sent. Please check your inbox." };
+    } catch (e: any) {
+      console.error("Send verification email error:", e);
+      if (e.code === 'auth/too-many-requests') {
+        return { success: false, message: "Too many requests. Please wait a few minutes before trying again." };
+      }
+      return { success: false, message: e.message || "Failed to send verification email." };
+    }
+  };
+
+  const refreshEmailVerificationStatus = async (): Promise<void> => {
+    if (!firebaseUser) return;
+
+    try {
+      // Reload the Firebase user to get the latest emailVerified status
+      await firebaseUser.reload();
+
+      // Update Firestore if email is now verified
+      if (firebaseUser.emailVerified && user && !user.emailVerified) {
+        const userDocRef = doc(firestore, 'users', firebaseUser.uid);
+        await updateDoc(userDocRef, { emailVerified: true });
+        setUser(prev => prev ? { ...prev, emailVerified: true } : null);
+        logAuditEvent(firestore, firebaseUser.uid, 'email_verified', { email: firebaseUser.email });
+      }
+    } catch (e: any) {
+      console.error("Refresh email verification status error:", e);
+    }
+  };
+
+  // Computed property for email verification status
+  const isEmailVerified = firebaseUser?.emailVerified ?? user?.emailVerified ?? false;
+
   const contextValue = useMemo((): FirebaseContextState => ({
     firebaseApp,
     firestore,
@@ -454,6 +524,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     firebaseUser,
     isUserLoading,
     userError,
+    isEmailVerified,
     updateUser,
     deleteUser,
     login,
@@ -461,8 +532,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     logout,
     addSecondaryTeam,
     resetPin,
-    changePin
-  }), [firebaseApp, firestore, auth, user, firebaseUser, isUserLoading, userError]);
+    changePin,
+    sendVerificationEmail,
+    refreshEmailVerificationStatus
+  }), [firebaseApp, firestore, auth, user, firebaseUser, isUserLoading, userError, isEmailVerified]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -487,6 +560,7 @@ export const useAuth = () => {
     firebaseUser: context.firebaseUser,
     isUserLoading: context.isUserLoading,
     userError: context.userError,
+    isEmailVerified: context.isEmailVerified,
     login: context.login,
     signup: context.signup,
     logout: context.logout,
@@ -495,6 +569,8 @@ export const useAuth = () => {
     changePin: context.changePin,
     updateUser: context.updateUser,
     deleteUser: context.deleteUser,
+    sendVerificationEmail: context.sendVerificationEmail,
+    refreshEmailVerificationStatus: context.refreshEmailVerificationStatus,
   };
 };
 
