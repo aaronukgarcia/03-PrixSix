@@ -54,9 +54,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SERVER-SIDE LOCKOUT ENFORCEMENT: Check if qualifying has started
+    // SECURITY: Use atomic batch write to prevent partial failures
+    const { db, FieldValue } = await getFirebaseAdmin();
+
+    // SERVER-SIDE LOCKOUT ENFORCEMENT 1: Check if race results already exist
+    // This locks the race once results are entered (for preseason testing and normal flow)
     const race = RaceSchedule.find(r => r.name === raceName || r.name.replace(/\s+/g, '-') === raceId);
     if (race) {
+      // Check both GP and Sprint result IDs
+      const baseRaceId = race.name.toLowerCase().replace(/\s+/g, '-');
+      const gpResultId = `${baseRaceId}-gp`;
+      const sprintResultId = `${baseRaceId}-sprint`;
+
+      // For sprint weekends, check if sprint results exist (locks sprint predictions)
+      // For GP predictions, check if GP results exist
+      const isSprintPrediction = raceId.toLowerCase().includes('sprint');
+      const resultIdToCheck = isSprintPrediction ? sprintResultId : gpResultId;
+
+      const resultDoc = await db.collection('race_results').doc(resultIdToCheck).get();
+      if (resultDoc.exists) {
+        return NextResponse.json(
+          { success: false, error: 'Pit lane is closed. Race results have already been entered.' },
+          { status: 403 }
+        );
+      }
+
+      // SERVER-SIDE LOCKOUT ENFORCEMENT 2: Check if qualifying has started
       const qualifyingTime = new Date(race.qualifyingTime).getTime();
       if (Date.now() > qualifyingTime) {
         return NextResponse.json(
@@ -65,9 +88,6 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-
-    // SECURITY: Use atomic batch write to prevent partial failures
-    const { db, FieldValue } = await getFirebaseAdmin();
     const batch = db.batch();
 
     const predictionId = `${teamId}_${raceId}`;

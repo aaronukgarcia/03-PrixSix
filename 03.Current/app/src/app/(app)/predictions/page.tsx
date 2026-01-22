@@ -1,15 +1,15 @@
 
 'use client';
 
-import { findNextRace, F1Drivers, Driver } from "@/lib/data";
+import { findNextRace, RaceSchedule, F1Drivers, Driver } from "@/lib/data";
 import { PredictionEditor } from "./_components/PredictionEditor";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AlertCircle, Users } from "lucide-react";
-import { useAuth, useDoc, useFirestore } from "@/firebase";
+import { useAuth, useDoc, useFirestore, useCollection } from "@/firebase";
 import { useState, useMemo, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { doc } from "firebase/firestore";
+import { doc, collection, query } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function PredictionsContent() {
@@ -17,9 +17,42 @@ function PredictionsContent() {
   const firestore = useFirestore();
   const [selectedTeam, setSelectedTeam] = useState(user?.teamName);
 
-  const nextRace = findNextRace();
+  // Fetch all race results to determine which races are closed
+  const raceResultsQuery = useMemo(() => {
+    if (!firestore) return null;
+    const q = query(collection(firestore, 'race_results'));
+    (q as any).__memo = true;
+    return q;
+  }, [firestore]);
+
+  const { data: raceResults, isLoading: isResultsLoading } = useCollection<{ id: string }>(raceResultsQuery);
+
+  // Find the next open race (first race without GP results entered)
+  const nextRace = useMemo(() => {
+    const resultIds = new Set((raceResults || []).map(r => r.id.toLowerCase()));
+
+    // Find first race in schedule without GP results
+    for (const race of RaceSchedule) {
+      const gpResultId = `${race.name.toLowerCase().replace(/\s+/g, '-')}-gp`;
+      if (!resultIds.has(gpResultId)) {
+        return race;
+      }
+    }
+    // If all races have results, fall back to findNextRace logic
+    return findNextRace();
+  }, [raceResults]);
+
   const raceId = nextRace.name.replace(/\s+/g, '-');
-  const isPitlaneOpen = new Date(nextRace.qualifyingTime) > new Date();
+
+  // Check if pitlane is open: no results AND qualifying hasn't started
+  const isPitlaneOpen = useMemo(() => {
+    const resultIds = new Set((raceResults || []).map(r => r.id.toLowerCase()));
+    const gpResultId = `${nextRace.name.toLowerCase().replace(/\s+/g, '-')}-gp`;
+    const hasResults = resultIds.has(gpResultId);
+
+    if (hasResults) return false; // Results entered = closed
+    return new Date(nextRace.qualifyingTime) > new Date(); // Otherwise check qualifying time
+  }, [raceResults, nextRace]);
 
   const predictionDocId = useMemo(() => {
     if (!user || !selectedTeam) return null;
@@ -58,7 +91,16 @@ function PredictionsContent() {
     }
   }, [user, selectedTeam]);
 
-  const isLoading = isUserLoading || (predictionRef && isPredictionLoading);
+  const isLoading = isUserLoading || isResultsLoading || (predictionRef && isPredictionLoading);
+
+  // Determine closure reason for better messaging
+  const closureReason = useMemo(() => {
+    if (isPitlaneOpen) return null;
+    const resultIds = new Set((raceResults || []).map(r => r.id.toLowerCase()));
+    const gpResultId = `${nextRace.name.toLowerCase().replace(/\s+/g, '-')}-gp`;
+    if (resultIds.has(gpResultId)) return 'results';
+    return 'qualifying';
+  }, [isPitlaneOpen, raceResults, nextRace]);
 
   return (
     <div className="space-y-6">
@@ -95,7 +137,9 @@ function PredictionsContent() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Pit Lane Closed!</AlertTitle>
           <AlertDescription>
-            Qualifying has started, and predictions are now locked. You can view your submission below.
+            {closureReason === 'results'
+              ? 'Race results have been entered. Predictions are now locked. You can view your submission below.'
+              : 'Qualifying has started, and predictions are now locked. You can view your submission below.'}
           </AlertDescription>
         </Alert>
       )}
