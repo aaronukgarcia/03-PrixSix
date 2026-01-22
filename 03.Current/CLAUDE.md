@@ -1,6 +1,6 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-01-21  21:30
+> **Last updated:** 2026-01-22  12:00
 > **Current production version:** Check `package.json` and verify at https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about  
 > **Read this entire file at the start of every session.**
 
@@ -340,6 +340,33 @@ To grant (using full gcloud path):
 ```bash
 "C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd" iam service-accounts add-iam-policy-binding firebase-adminsdk-fbsvc@studio-6033436327-281b1.iam.gserviceaccount.com --member="serviceAccount:firebase-app-hosting-compute@studio-6033436327-281b1.iam.gserviceaccount.com" --role="roles/iam.serviceAccountTokenCreator" --project=studio-6033436327-281b1
 ```
+
+---
+
+## API Key Security
+
+The Firebase API key (`AIzaSyA23isMS-Jt60amqI-0XZHoMZeQOawtsSk`) should be restricted in Google Cloud Console.
+
+### To Configure Restrictions
+
+1. Go to https://console.cloud.google.com/apis/credentials?project=studio-6033436327-281b1
+2. Click on the API key
+3. Under **Application restrictions**, select "HTTP referrers (websites)"
+4. Add allowed domains:
+   - `prixsix--studio-6033436327-281b1.europe-west4.hosted.app/*`
+   - `localhost:*` (for development)
+5. Under **API restrictions**, select "Restrict key" and enable only:
+   - Firebase Installations API
+   - Firebase Management API
+   - Identity Toolkit API
+   - Token Service API
+   - Cloud Firestore API
+
+### Why This Matters
+
+- Prevents API key abuse if exposed in client-side code
+- Limits the key to only the APIs needed for the app
+- Restricts usage to your domains only
 
 ---
 
