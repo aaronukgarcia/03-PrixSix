@@ -725,6 +725,8 @@ The Firebase API key (`AIzaSyA23isMS-Jt60amqI-0XZHoMZeQOawtsSk`) should be restr
 3. Under **Application restrictions**, select "HTTP referrers (websites)"
 4. Add allowed domains:
    - `prixsix--studio-6033436327-281b1.europe-west4.hosted.app/*`
+   - `prix6.win/*` (custom domain)
+   - `https://prix6.win/*`
    - `localhost:*` (for development)
 5. Under **API restrictions**, select "Restrict key" and enable only:
    - Firebase Installations API
