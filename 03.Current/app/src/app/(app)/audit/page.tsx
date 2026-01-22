@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { History, CalendarClock, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LastUpdated } from "@/components/ui/last-updated";
+import { formatDriverPredictions } from "@/lib/data";
 
 interface AuditLogEntry {
   id: string;
@@ -84,9 +85,10 @@ export default function AuditPage() {
     });
   };
 
+  // Use centralized driver name formatting from data.ts
+  // This ensures consistent driver name display (e.g., "Hamilton" not "hamilton")
   const formatPredictions = (predictions: string[] | undefined) => {
-    if (!predictions || !Array.isArray(predictions)) return "N/A";
-    return predictions.join(", ");
+    return formatDriverPredictions(predictions);
   };
 
   const submissionsWithTeamNames = useMemo(() => {

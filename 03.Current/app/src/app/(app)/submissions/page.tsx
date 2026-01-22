@@ -30,7 +30,7 @@ import { collectionGroup, query, orderBy, where, limit, startAfter, getDocs, get
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileCheck, CalendarClock, ChevronDown, Loader2, ArrowUpDown, Clock, Users } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
-import { RaceSchedule, findNextRace } from "@/lib/data";
+import { RaceSchedule, findNextRace, formatDriverPredictions } from "@/lib/data";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
@@ -78,13 +78,10 @@ export default function SubmissionsPage() {
     });
   };
 
+  // Use centralized driver name formatting from data.ts
+  // This ensures consistent driver name display (e.g., "Hamilton" not "hamilton")
   const formatPredictions = (predictions: any) => {
-    if (!predictions) return "N/A";
-    // User subcollection uses array format
-    if (Array.isArray(predictions)) {
-      return predictions.join(", ");
-    }
-    return "N/A";
+    return formatDriverPredictions(predictions);
   };
 
   // Fetch count for selected race

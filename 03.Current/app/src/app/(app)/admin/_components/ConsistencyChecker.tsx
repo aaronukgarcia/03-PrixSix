@@ -42,6 +42,7 @@ import {
   checkRaceResults,
   checkScores,
   checkStandings,
+  checkLeagues,
   generateSummary,
   type CheckResult,
   type ConsistencyCheckSummary,
@@ -49,6 +50,7 @@ import {
   type PredictionData,
   type RaceResultData,
   type ScoreData,
+  type LeagueData,
   type Issue,
 } from '@/lib/consistency';
 
@@ -57,7 +59,7 @@ interface ConsistencyCheckerProps {
   isUserLoading: boolean;
 }
 
-type CheckPhase = 'idle' | 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings' | 'complete';
+type CheckPhase = 'idle' | 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings' | 'leagues' | 'complete';
 
 const phaseLabels: Record<CheckPhase, string> = {
   idle: 'Ready',
@@ -68,18 +70,20 @@ const phaseLabels: Record<CheckPhase, string> = {
   results: 'Checking race results...',
   scores: 'Checking scores...',
   standings: 'Checking standings...',
+  leagues: 'Checking leagues...',
   complete: 'Complete',
 };
 
 const phaseProgress: Record<CheckPhase, number> = {
   idle: 0,
-  users: 14,
-  drivers: 28,
-  races: 42,
-  predictions: 57,
-  results: 71,
-  scores: 85,
-  standings: 100,
+  users: 12,
+  drivers: 25,
+  races: 37,
+  predictions: 50,
+  results: 62,
+  scores: 75,
+  standings: 87,
+  leagues: 100,
   complete: 100,
 };
 
@@ -213,6 +217,22 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       setCurrentPhase('standings');
       await new Promise(resolve => setTimeout(resolve, 100));
       results.push(checkStandings(scoreData, userData));
+
+      // Fetch leagues ON-DEMAND and check
+      setCurrentPhase('leagues');
+      const leaguesSnap = await getDocs(collection(firestore, 'leagues'));
+      const leagueData: LeagueData[] = leaguesSnap.docs.map(doc => {
+        const l = doc.data();
+        return {
+          id: doc.id,
+          name: l.name,
+          ownerId: l.ownerId,
+          memberUserIds: l.memberUserIds,
+          isGlobal: l.isGlobal,
+          inviteCode: l.inviteCode,
+        };
+      });
+      results.push(checkLeagues(leagueData, userData));
 
       // Generate summary
       setCurrentPhase('complete');

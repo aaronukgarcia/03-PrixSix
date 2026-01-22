@@ -3,7 +3,7 @@ import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scorin
 
 // --- Types ---
 
-export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings';
+export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings' | 'leagues';
 export type IssueSeverity = 'error' | 'warning';
 export type CheckStatus = 'pass' | 'warning' | 'error';
 
@@ -75,6 +75,17 @@ export interface ScoreData {
   raceId?: string;
   totalPoints?: number;
   breakdown?: string;
+}
+
+// --- League Interfaces ---
+
+export interface LeagueData {
+  id: string;
+  name?: string;
+  ownerId?: string;
+  memberUserIds?: string[];
+  isGlobal?: boolean;
+  inviteCode?: string;
 }
 
 // --- Validation Functions ---
@@ -1023,6 +1034,152 @@ export function checkStandings(
     category: 'standings',
     status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
     total: users.length,
+    valid: validCount,
+    issues,
+  };
+}
+
+/**
+ * Validate leagues collection
+ * Checks that each league has an owner and at least one member
+ */
+export function checkLeagues(
+  leagues: LeagueData[],
+  users: UserData[]
+): CheckResult {
+  const issues: Issue[] = [];
+  const userIds = new Set(users.map(u => u.id));
+  let validCount = 0;
+
+  for (const league of leagues) {
+    let isValid = true;
+    const entityName = `League ${league.name || league.id}`;
+
+    // Check required id
+    if (!league.id) {
+      issues.push({
+        severity: 'error',
+        entity: `League unknown`,
+        field: 'id',
+        message: 'Missing required field: id',
+      });
+      isValid = false;
+    }
+
+    // Check name
+    if (!league.name) {
+      issues.push({
+        severity: 'warning',
+        entity: entityName,
+        field: 'name',
+        message: 'Missing field: name',
+      });
+    }
+
+    // Check ownerId exists
+    if (!league.ownerId) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        field: 'ownerId',
+        message: 'Missing required field: ownerId (league has no owner)',
+      });
+      isValid = false;
+    } else if (league.ownerId !== 'system' && !userIds.has(league.ownerId)) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        field: 'ownerId',
+        message: `Invalid ownerId: ${league.ownerId} (user does not exist)`,
+        details: { ownerId: league.ownerId },
+      });
+      isValid = false;
+    }
+
+    // Check memberUserIds exists and has at least one member
+    if (!league.memberUserIds) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        field: 'memberUserIds',
+        message: 'Missing required field: memberUserIds',
+      });
+      isValid = false;
+    } else if (!Array.isArray(league.memberUserIds)) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        field: 'memberUserIds',
+        message: 'memberUserIds is not an array',
+      });
+      isValid = false;
+    } else if (league.memberUserIds.length === 0) {
+      issues.push({
+        severity: 'error',
+        entity: entityName,
+        field: 'memberUserIds',
+        message: 'League has no members (memberUserIds array is empty)',
+      });
+      isValid = false;
+    } else {
+      // Validate all member IDs reference existing users
+      const invalidMembers = league.memberUserIds.filter(memberId => !userIds.has(memberId));
+      if (invalidMembers.length > 0) {
+        issues.push({
+          severity: 'warning',
+          entity: entityName,
+          field: 'memberUserIds',
+          message: `League contains ${invalidMembers.length} invalid member ID(s) (users do not exist)`,
+          details: { invalidMembers },
+        });
+      }
+
+      // Check that owner is a member (unless system-owned global league)
+      if (league.ownerId && league.ownerId !== 'system' && !league.memberUserIds.includes(league.ownerId)) {
+        issues.push({
+          severity: 'warning',
+          entity: entityName,
+          field: 'memberUserIds',
+          message: `Owner ${league.ownerId} is not in memberUserIds array`,
+        });
+      }
+    }
+
+    // Check for duplicate members
+    if (Array.isArray(league.memberUserIds)) {
+      const uniqueMembers = new Set(league.memberUserIds);
+      if (uniqueMembers.size !== league.memberUserIds.length) {
+        issues.push({
+          severity: 'warning',
+          entity: entityName,
+          field: 'memberUserIds',
+          message: `League has duplicate members (${league.memberUserIds.length} entries, ${uniqueMembers.size} unique)`,
+        });
+      }
+    }
+
+    // Check isGlobal field
+    if (league.isGlobal === undefined) {
+      issues.push({
+        severity: 'warning',
+        entity: entityName,
+        field: 'isGlobal',
+        message: 'Missing field: isGlobal (defaulting to false)',
+      });
+    }
+
+    if (isValid) {
+      validCount++;
+    }
+  }
+
+  const hasErrors = issues.some(i => i.severity === 'error');
+  const hasWarnings = issues.some(i => i.severity === 'warning');
+
+  return {
+    category: 'leagues',
+    status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
+    total: leagues.length,
     valid: validCount,
     issues,
   };

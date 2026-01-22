@@ -51,6 +51,40 @@ export const getDriverImage = (driverId: string) => {
     return image?.imageUrl || 'https://picsum.photos/seed/placeholder/100/100';
 }
 
+/**
+ * Get driver display name from driver ID.
+ * Returns proper case name (e.g., "Hamilton") from lowercase ID (e.g., "hamilton").
+ * Falls back to the ID if driver not found (shouldn't happen with valid data).
+ */
+export const getDriverName = (driverId: string): string => {
+    if (!driverId) return 'N/A';
+    const driver = F1Drivers.find(d => d.id === driverId.toLowerCase());
+    return driver?.name || driverId;
+}
+
+/**
+ * Get driver 3-letter code from driver ID.
+ * Returns uppercase code (e.g., "HAM") from lowercase ID (e.g., "hamilton").
+ */
+export const getDriverCode = (driverId: string): string => {
+    if (!driverId) return 'N/A';
+    const driver = F1Drivers.find(d => d.id === driverId.toLowerCase());
+    if (!driver) return driverId.substring(0, 3).toUpperCase();
+    // Use first 3 letters of name as code
+    return driver.name.substring(0, 3).toUpperCase();
+}
+
+/**
+ * Format an array of driver IDs to display names.
+ * Used by Submissions and Audit pages to show predictions consistently.
+ */
+export const formatDriverPredictions = (predictions: string[] | undefined): string => {
+    if (!predictions || !Array.isArray(predictions) || predictions.length === 0) {
+        return 'N/A';
+    }
+    return predictions.map(id => getDriverName(id)).join(', ');
+}
+
 export interface Race {
   name: string;
   qualifyingTime: string; // UTC ISO string - when predictions lock
