@@ -308,8 +308,13 @@ export default function StandingsPage() {
         newOverall: 0,
       };
 
+      // Late joiner handicap scores should always be included as part of oldOverall
+      if (score.raceId === 'late-joiner-handicap' || score.raceId === 'late-joiner-penalty') {
+        existing.oldOverall += score.totalPoints;
+        existing.newOverall += score.totalPoints;
+      }
       // Check if score is from prior race weekends
-      if (allPriorEventIds.has(score.raceId)) {
+      else if (allPriorEventIds.has(score.raceId)) {
         existing.oldOverall += score.totalPoints;
         existing.newOverall += score.totalPoints;
       }
@@ -336,7 +341,9 @@ export default function StandingsPage() {
     if (selectedRaceIndex > 0) {
       const prevTotals = new Map<string, number>();
       filteredScores.forEach((score) => {
-        if (allPriorEventIds.has(score.raceId)) {
+        // Include late joiner handicaps in previous totals
+        const isHandicap = score.raceId === 'late-joiner-handicap' || score.raceId === 'late-joiner-penalty';
+        if (isHandicap || allPriorEventIds.has(score.raceId)) {
           prevTotals.set(score.userId, (prevTotals.get(score.userId) || 0) + score.totalPoints);
         }
       });
@@ -437,17 +444,30 @@ export default function StandingsPage() {
     // Build data points: Start (0) + each race weekend up to selected
     const data: Record<string, any>[] = [];
 
-    // Pre-season: everyone at 0
+    // Pre-season: show handicap points for late joiners, 0 for others
     const startPoint: Record<string, any> = { race: "Start" };
     userIds.forEach(userId => {
       const teamName = userNames.get(userId) || userId;
-      startPoint[teamName] = 0;
+      // Check for late joiner handicap
+      const handicap = filteredScores.find(s =>
+        s.userId === userId &&
+        (s.raceId === 'late-joiner-handicap' || s.raceId === 'late-joiner-penalty')
+      );
+      startPoint[teamName] = handicap?.totalPoints || 0;
     });
     data.push(startPoint);
 
     // Calculate cumulative totals after each race weekend (only up to selected)
+    // Start with handicap points for late joiners
     const cumulativeTotals = new Map<string, number>();
-    userIds.forEach(userId => cumulativeTotals.set(userId, 0));
+    userIds.forEach(userId => {
+      // Check for late joiner handicap
+      const handicap = filteredScores.find(s =>
+        s.userId === userId &&
+        (s.raceId === 'late-joiner-handicap' || s.raceId === 'late-joiner-penalty')
+      );
+      cumulativeTotals.set(userId, handicap?.totalPoints || 0);
+    });
 
     // Only show races up to and including the selected race
     const racesToShow = completedRaceWeekends.slice(0, selectedRaceIndex + 1);

@@ -132,11 +132,56 @@ function ResultsContent() {
     // Check for race query parameter from URL (e.g., from Standings page navigation)
     const raceFromUrl = searchParams.get('race');
 
-    // Use most recent past event, or first event if season hasn't started
-    const defaultRaceId = raceFromUrl || (pastEvents.length > 0
-        ? pastEvents[pastEvents.length - 1].id
-        : allRaceEvents[0].id);
+    // Track the most recent race with admin-entered results
+    const [mostRecentResultRaceId, setMostRecentResultRaceId] = useState<string | null>(null);
+    const [isLoadingMostRecent, setIsLoadingMostRecent] = useState(!raceFromUrl); // Only load if no URL param
+
+    // Fetch the most recent race result by submittedAt
+    useEffect(() => {
+        if (!firestore || raceFromUrl) return; // Skip if URL param provided
+
+        const fetchMostRecentResult = async () => {
+            try {
+                const resultsQuery = query(
+                    collection(firestore, "race_results"),
+                    orderBy("submittedAt", "desc"),
+                    limit(1)
+                );
+                const snapshot = await getDocs(resultsQuery);
+                if (!snapshot.empty) {
+                    const resultId = snapshot.docs[0].id;
+                    // Convert result ID back to event ID format (e.g., "australian-grand-prix-gp" -> "Australian-Grand-Prix-GP")
+                    const eventId = allRaceEvents.find(e => e.id.toLowerCase() === resultId.toLowerCase())?.id;
+                    if (eventId) {
+                        setMostRecentResultRaceId(eventId);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching most recent result:", error);
+            } finally {
+                setIsLoadingMostRecent(false);
+            }
+        };
+
+        fetchMostRecentResult();
+    }, [firestore, raceFromUrl]);
+
+    // Calculate default race ID: URL param > most recent result > most recent past event > first event
+    const defaultRaceId = useMemo(() => {
+        if (raceFromUrl) return raceFromUrl;
+        if (mostRecentResultRaceId) return mostRecentResultRaceId;
+        if (pastEvents.length > 0) return pastEvents[pastEvents.length - 1].id;
+        return allRaceEvents[0].id;
+    }, [raceFromUrl, mostRecentResultRaceId, pastEvents]);
+
     const [selectedRaceId, setSelectedRaceId] = useState(defaultRaceId);
+
+    // Update selected race when default changes (e.g., after fetching most recent result)
+    useEffect(() => {
+        if (!raceFromUrl && mostRecentResultRaceId && selectedRaceId !== mostRecentResultRaceId) {
+            setSelectedRaceId(mostRecentResultRaceId);
+        }
+    }, [mostRecentResultRaceId, raceFromUrl, selectedRaceId]);
     const selectedEvent = allRaceEvents.find(e => e.id === selectedRaceId);
     const selectedRaceName = selectedEvent?.label || selectedRaceId;
     const hasSeasonStarted = pastEvents.length > 0;

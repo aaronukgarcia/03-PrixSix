@@ -234,43 +234,51 @@ export async function POST(request: NextRequest) {
     }
 
     // LATE JOINER RULE: If season has started, new users start 5 points behind last place
+    // All late joiners get the same handicap: (lowest real score - 5)
     try {
       const scoresSnapshot = await db.collection('scores').get();
       if (!scoresSnapshot.empty) {
+        // Calculate total points per user, excluding adjustment scores
         const userTotals = new Map<string, number>();
         scoresSnapshot.forEach(scoreDoc => {
           const scoreData = scoreDoc.data();
+          // Skip adjustment scores (late joiner handicaps) when calculating base standings
+          if (scoreData.isAdjustment) return;
           const scoreUserId = scoreData.userId;
           const points = scoreData.totalPoints || 0;
           userTotals.set(scoreUserId, (userTotals.get(scoreUserId) || 0) + points);
         });
 
+        // Only apply handicap if there are users with real race scores
         if (userTotals.size > 0) {
           const minScore = Math.min(...Array.from(userTotals.values()));
-          const penaltyPoints = minScore - 5;
+          const handicapPoints = minScore - 5;
 
-          if (penaltyPoints < 0) {
-            await db.collection('scores').doc(`late-joiner-penalty_${uid}`).set({
-              userId: uid,
-              raceId: 'late-joiner-penalty',
-              raceName: 'Late Joiner Penalty',
-              totalPoints: penaltyPoints,
-              breakdown: `Joined after season started (5 pts behind ${minScore} pts)`,
-              calculatedAt: FieldValue.serverTimestamp(),
-              isAdjustment: true,
-            });
+          // Create a handicap score document - this is positive starting points
+          await db.collection('scores').doc(`late-joiner-handicap_${uid}`).set({
+            userId: uid,
+            raceId: 'late-joiner-handicap',
+            raceName: 'Late Joiner Handicap',
+            totalPoints: handicapPoints,
+            breakdown: `Late joiner starting points: ${minScore} (last place) - 5 = ${handicapPoints}`,
+            calculatedAt: FieldValue.serverTimestamp(),
+            isAdjustment: true,
+          });
 
-            await db.collection('audit_logs').add({
-              userId: uid,
-              action: 'LATE_JOINER_PENALTY',
-              details: { minScore, penaltyPoints, reason: 'Season already in progress' },
-              timestamp: FieldValue.serverTimestamp(),
-            });
-          }
+          await db.collection('audit_logs').add({
+            userId: uid,
+            action: 'LATE_JOINER_HANDICAP',
+            details: {
+              minScore,
+              handicapPoints,
+              reason: 'Season already in progress - starts 5 points behind last place'
+            },
+            timestamp: FieldValue.serverTimestamp(),
+          });
         }
       }
-    } catch (penaltyError: any) {
-      console.warn('[Signup] Could not calculate late joiner penalty:', penaltyError.message);
+    } catch (handicapError: any) {
+      console.warn('[Signup] Could not calculate late joiner handicap:', handicapError.message);
     }
 
     // Send welcome email via API

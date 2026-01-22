@@ -84,12 +84,19 @@ function PredictionsContent() {
     return q;
   }, [firestore, user, selectedTeam]);
 
-  const { data: allPredictions, isLoading: isAllPredictionsLoading } = useCollection<{
+  const { data: allPredictions, isLoading: isAllPredictionsLoading, error: allPredictionsError } = useCollection<{
     id: string;
     predictions: string[];
     raceId: string;
     submittedAt: any;
   }>(allPredictionsQuery);
+
+  // Log errors for debugging (index missing, permission issues, etc.)
+  useEffect(() => {
+    if (allPredictionsError) {
+      console.error('[Predictions] Error fetching all predictions:', allPredictionsError);
+    }
+  }, [allPredictionsError]);
 
   // Determine if we have a current prediction or need to carry over
   const hasPredictionForCurrentRace = Boolean(
@@ -97,12 +104,14 @@ function PredictionsContent() {
   );
 
   // Find the previous prediction to carry over (if no current prediction exists)
+  // If there's an error fetching predictions (e.g., missing index), skip carry-over
   const previousPrediction = useMemo(() => {
     if (hasPredictionForCurrentRace) return null;
+    if (allPredictionsError) return null; // Skip if query failed
     if (!allPredictions || allPredictions.length === 0) return null;
     // Find the most recent prediction that's NOT for the current race
     return allPredictions.find(p => p.raceId !== raceId) || null;
-  }, [hasPredictionForCurrentRace, allPredictions, raceId]);
+  }, [hasPredictionForCurrentRace, allPredictions, allPredictionsError, raceId]);
 
   // Track if we're using carried-over predictions
   const isCarriedOver = Boolean(previousPrediction && !hasPredictionForCurrentRace);
@@ -142,7 +151,8 @@ function PredictionsContent() {
     }
   }, [user, selectedTeam]);
 
-  const isLoading = isUserLoading || isResultsLoading || (predictionRef && isPredictionLoading) || isAllPredictionsLoading;
+  // Don't block on allPredictions loading/error - it's only for carry-over which is optional
+  const isLoading = isUserLoading || isResultsLoading || (predictionRef && isPredictionLoading);
 
   // Determine closure reason for better messaging
   const closureReason = useMemo(() => {

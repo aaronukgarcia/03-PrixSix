@@ -335,34 +335,34 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
 
   const addSecondaryTeam = async (teamName: string): Promise<AuthResult> => {
-    if (!user) {
-        return { success: false, message: "You must be logged in to add a team." };
+    if (!user || !firebaseUser) {
+      return { success: false, message: "You must be logged in to add a team." };
     }
 
-    // Check if team name already exists (case-insensitive)
-    const usersRef = collection(firestore, "users");
-    const allUsersSnapshot = await getDocs(usersRef);
-    const normalizedNewName = teamName.toLowerCase().trim();
-    let teamNameExists = false;
+    try {
+      const idToken = await firebaseUser.getIdToken();
+      const response = await fetch('/api/add-secondary-team', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ teamName }),
+      });
 
-    allUsersSnapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      const existingName = data.teamName?.toLowerCase().trim();
-      const existingSecondary = data.secondaryTeamName?.toLowerCase().trim();
-      if (existingName === normalizedNewName || existingSecondary === normalizedNewName) {
-        teamNameExists = true;
+      const result = await response.json();
+
+      if (result.success) {
+        // Update local user state
+        setUser(prev => prev ? { ...prev, secondaryTeamName: teamName } : null);
+        return { success: true, message: result.message || "Team created successfully!" };
+      } else {
+        return { success: false, message: result.error || "Failed to create team." };
       }
-    });
-
-    if (teamNameExists) {
-      return { success: false, message: "This team name is already taken. Please choose a unique name." };
+    } catch (error: any) {
+      console.error('Failed to add secondary team:', error);
+      return { success: false, message: "An error occurred. Please try again." };
     }
-
-    const userDocRef = doc(firestore, 'users', user.id);
-    await updateDoc(userDocRef, { secondaryTeamName: teamName });
-    setUser(prev => prev ? { ...prev, secondaryTeamName: teamName } : null);
-    logAuditEvent(firestore, user.id, 'add_secondary_team', { newTeamName: teamName });
-    return { success: true, message: "Team created successfully!" };
   };
 
   const logout = async () => {
