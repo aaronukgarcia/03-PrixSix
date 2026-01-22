@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule } from "@/lib/data";
-import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal } from "lucide-react";
+import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { LastUpdated } from "@/components/ui/last-updated";
@@ -72,6 +72,16 @@ const RankBadge = ({ rank }: { rank: number }) => {
 const RaceWinnerBadge = () => (
   <Badge variant="outline" className="ml-1 px-1 py-0 text-[9px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">
     Winner
+  </Badge>
+);
+
+// 2025 Season Champion
+const DEFENDING_CHAMPION_TEAM = "Montfleur Motor Racing";
+
+const DefendingChampionBadge = () => (
+  <Badge variant="outline" className="mr-1 px-1.5 py-0 text-[9px] bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700">
+    <Crown className="h-3 w-3 mr-0.5 inline" />
+    2025 Champion
   </Badge>
 );
 
@@ -763,6 +773,7 @@ export default function StandingsPage() {
                   </TableCell>
                   <TableCell className="font-semibold">
                     <span className="flex items-center flex-wrap gap-y-1">
+                      {team.teamName === DEFENDING_CHAMPION_TEAM && <DefendingChampionBadge />}
                       {team.teamName}
                       <RankBadge rank={team.rank} />
                     </span>
