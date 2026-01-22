@@ -11,12 +11,13 @@ interface DeleteScoresRequest {
 
 /**
  * Normalize raceId to match the format used by scores.
+ * Scores are stored with lowercase raceId, so we must lowercase here.
  */
 function normalizeRaceId(raceId: string): string {
   let baseName = raceId
     .replace(/\s*-\s*GP$/i, '')
     .replace(/\s*-\s*Sprint$/i, '');
-  return baseName.replace(/\s+/g, '-');
+  return baseName.replace(/\s+/g, '-').toLowerCase();
 }
 
 export async function POST(request: NextRequest) {

@@ -156,18 +156,20 @@ export default function StandingsPage() {
 
           // Check if we have scores for this race weekend
           // A race weekend is "completed" if it has GP scores
-          const hasGpScores = raceIdsWithScores.has(gpRaceId);
-          const hasSprintScores = sprintRaceId ? raceIdsWithScores.has(sprintRaceId) : false;
+          // Note: Scores are stored with lowercase raceId, so we lowercase for comparison
+          const hasGpScores = raceIdsWithScores.has(gpRaceId.toLowerCase());
+          const hasSprintScores = sprintRaceId ? raceIdsWithScores.has(sprintRaceId.toLowerCase()) : false;
 
           // Also check for legacy format (without -GP suffix)
-          const hasLegacyScores = raceIdsWithScores.has(baseRaceId);
+          const hasLegacyScores = raceIdsWithScores.has(baseRaceId.toLowerCase());
 
           if (hasGpScores || hasLegacyScores) {
+            // Store lowercase IDs to match against score.raceId which is lowercase
             completed.push({
               name: race.name,
-              baseRaceId,
-              sprintRaceId,
-              gpRaceId: hasGpScores ? gpRaceId : baseRaceId, // Use legacy if no GP suffix
+              baseRaceId: baseRaceId.toLowerCase(),
+              sprintRaceId: sprintRaceId?.toLowerCase() || null,
+              gpRaceId: hasGpScores ? gpRaceId.toLowerCase() : baseRaceId.toLowerCase(),
               hasSprint: race.hasSprint,
               index,
               hasSprintScores,
