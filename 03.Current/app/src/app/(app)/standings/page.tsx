@@ -563,8 +563,11 @@ export default function StandingsPage() {
     }, 150);
   }, [totalItems]);
 
-  const navigateToResults = (raceId: string) => {
-    router.push(`/results?race=${raceId}`);
+  const navigateToResults = (raceId: string, teamId?: string) => {
+    const url = teamId
+      ? `/results?race=${raceId}&team=${encodeURIComponent(teamId)}`
+      : `/results?race=${raceId}`;
+    router.push(url);
   };
 
   const selectedRace = completedRaceWeekends[selectedRaceIndex];

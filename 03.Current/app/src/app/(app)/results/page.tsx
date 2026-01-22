@@ -214,8 +214,13 @@ function ResultsContent() {
     }, [raceFromUrl]);
 
     // Get base race ID for prediction lookups (without -GP or -Sprint suffix)
+    // Normalize to title case to match how predictions are stored
     const getBaseRaceId = (eventId: string) => {
-        return eventId.replace(/-GP$/, '').replace(/-Sprint$/, '');
+        const base = eventId.replace(/-GP$/i, '').replace(/-Sprint$/i, '');
+        // Convert to title case: "spanish-grand-prix" -> "Spanish-Grand-Prix"
+        return base.split('-').map(word =>
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join('-');
     };
 
     // Fetch race result when selection changes
