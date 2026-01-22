@@ -76,7 +76,10 @@ service cloud.firestore {
     }
 
     match /admin_configuration/{configId} {
-      allow read, write: if isAdmin();
+      // All signed-in users can read (needed for single user mode check)
+      // Only admins can write
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /audit_logs/{logId} {

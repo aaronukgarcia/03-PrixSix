@@ -1,30 +1,17 @@
-import { getHotNewsFeed } from "@/ai/flows/hot-news-feed";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Suspense } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { findNextRace } from "@/lib/data";
-import { Newspaper, Flag, Calendar, Clock } from "lucide-react";
+import { Flag, Calendar } from "lucide-react";
 import { DashboardClient } from "./_components/DashboardClient";
 import { FeedbackForm } from "./_components/FeedbackForm";
+import { HotNewsFeed, HotNewsFeedSkeleton } from "./_components/HotNewsFeed";
 import { APP_VERSION } from '@/lib/version';
 
 
 // Force dynamic rendering to avoid build-time Firestore access
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardPage() {
-    const { newsFeed, lastUpdated } = await getHotNewsFeed();
-
-    // Format the lastUpdated timestamp for display
-    const formatNewsTimestamp = (isoString?: string) => {
-        if (!isoString) return null;
-        const date = new Date(isoString);
-        return date.toLocaleString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
+export default function DashboardPage() {
     const nextRace = findNextRace();
 
     const qualifyingDate = new Date(nextRace.qualifyingTime);
@@ -65,27 +52,11 @@ export default async function DashboardPage() {
                     </CardContent>
                 </Card>
             </div>
-           
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center gap-2">
-                         <Newspaper className="h-6 w-6 text-primary"/>
-                        <CardTitle>Hot News Feed</CardTitle>
-                    </div>
-                    <CardDescription className="flex items-center justify-between">
-                        <span>Hourly updates from the paddock.</span>
-                        {lastUpdated && (
-                            <span className="flex items-center gap-1 text-xs">
-                                <Clock className="h-3 w-3" />
-                                Last updated: {formatNewsTimestamp(lastUpdated)}
-                            </span>
-                        )}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p className="whitespace-pre-wrap text-sm text-muted-foreground">{newsFeed}</p>
-                </CardContent>
-            </Card>
+
+            {/* Hot News Feed - loads asynchronously via Suspense */}
+            <Suspense fallback={<HotNewsFeedSkeleton />}>
+                <HotNewsFeed />
+            </Suspense>
 
             <FeedbackForm />
 

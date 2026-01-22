@@ -48,10 +48,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [user, firebaseUser, isUserLoading, router]);
 
   // Check for single user mode and force logout if not the designated admin
+  // This runs in the background and doesn't block page rendering
   useEffect(() => {
     if (!firestore || !user || !firebaseUser) return;
 
-    const checkSingleUserMode = async () => {
+    // Use a timeout to ensure this doesn't block initial render
+    const timeoutId = setTimeout(async () => {
       try {
         const configRef = doc(firestore, "admin_configuration", "global");
         const configSnap = await getDoc(configRef);
@@ -69,12 +71,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             logout();
           }
         }
-      } catch (error) {
-        console.error("Failed to check single user mode:", error);
+      } catch (error: any) {
+        // Silently ignore permission errors - these happen for non-admin users
+        // if the rules haven't been deployed yet
+        if (!error?.message?.includes('permission')) {
+          console.error("Failed to check single user mode:", error);
+        }
       }
-    };
+    }, 100); // Small delay to not block render
 
-    checkSingleUserMode();
+    return () => clearTimeout(timeoutId);
   }, [firestore, user, firebaseUser, logout]);
 
   // Session timeout constants

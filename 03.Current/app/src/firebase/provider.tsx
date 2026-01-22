@@ -30,7 +30,8 @@ export interface AnalysisWeights {
   weather: number;
   tyreStrategy: number;
   bettingOdds: number;
-  punditAlignment: number;
+  jackSparrow: number; // Jack Whitehall style pundit
+  rowanHornblower: number; // Bernie Collins style pundit
 }
 
 // Extended user profile information

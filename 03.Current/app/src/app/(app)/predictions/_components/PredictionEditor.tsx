@@ -41,7 +41,8 @@ const ANALYSIS_FACETS = [
   { key: 'weather', label: 'Weather', icon: '🌡️', description: 'Temperature, humidity, rain probability' },
   { key: 'tyreStrategy', label: 'Tyre Strategy', icon: '⚫', description: 'Compound choices, degradation, pit windows' },
   { key: 'bettingOdds', label: 'Betting Odds', icon: '💰', description: 'Current bookmaker predictions' },
-  { key: 'punditAlignment', label: 'Pundit Corner', icon: '🎙️', description: 'Jack Whitehall & Bernie Collins react' },
+  { key: 'jackSparrow', label: 'Jack Sparrow', icon: '🏴‍☠️', description: 'Cheeky British wit, playful teasing' },
+  { key: 'rowanHornblower', label: 'Rowan Hornblower', icon: '📊', description: 'Measured strategist, professional insight' },
 ] as const;
 
 const DEFAULT_WEIGHTS: AnalysisWeights = {
@@ -54,10 +55,11 @@ const DEFAULT_WEIGHTS: AnalysisWeights = {
   weather: 7,
   tyreStrategy: 7,
   bettingOdds: 7,
-  punditAlignment: 7,
+  jackSparrow: 5,
+  rowanHornblower: 5,
 };
 
-const MAX_TOTAL_WEIGHT = 70;
+const MAX_TOTAL_WEIGHT = 77; // 11 facets × 7 default weight
 
 interface PredictionEditorProps {
   allDrivers: Driver[];

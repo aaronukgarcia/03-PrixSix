@@ -26,7 +26,8 @@ interface AnalysisWeights {
   weather: number;
   tyreStrategy: number;
   bettingOdds: number;
-  punditAlignment: number;
+  jackSparrow: number; // Jack Whitehall style pundit - up to 250 words
+  rowanHornblower: number; // Bernie Collins style pundit - up to 250 words
 }
 
 interface AnalysisRequest {
@@ -38,15 +39,25 @@ interface AnalysisRequest {
   totalWeight: number;
 }
 
-// Each active facet gets 50 words - total depends on how many are active
+// Standard facets get 50 words, pundit facets get up to 250 words
 const WORDS_PER_FACET = 50;
+const WORDS_PER_PUNDIT = 250;
+
+const PUNDIT_FACETS = ['jackSparrow', 'rowanHornblower'];
 
 const calculateWordBudgets = (weights: AnalysisWeights): Record<string, number> => {
   const budgets: Record<string, number> = {};
 
   Object.entries(weights).forEach(([key, weight]) => {
-    // Every active facet (weight > 0) gets exactly 50 words
-    budgets[key] = weight > 0 ? WORDS_PER_FACET : 0;
+    if (weight === 0) {
+      budgets[key] = 0;
+    } else if (PUNDIT_FACETS.includes(key)) {
+      // Pundit facets get up to 250 words, scaled by weight (0-10)
+      budgets[key] = Math.round((weight / 10) * WORDS_PER_PUNDIT);
+    } else {
+      // Standard facets get exactly 50 words if active
+      budgets[key] = WORDS_PER_FACET;
+    }
   });
 
   return budgets;
@@ -62,7 +73,7 @@ const buildWeightedPrompt = (
 ): string => {
   const budgets = calculateWordBudgets(weights);
   const activeFacetCount = Object.values(weights).filter(w => w > 0).length;
-  const totalWordBudget = activeFacetCount * WORDS_PER_FACET;
+  const totalWordBudget = Object.values(budgets).reduce((sum, words) => sum + words, 0);
 
   // Filter to only include facets with weight > 0, sorted by weight descending
   const activeFacets = Object.entries(weights)
@@ -79,9 +90,8 @@ const buildWeightedPrompt = (
     weather: `**Weather**: Expected temperature, humidity, wind, rain probability and how conditions might affect the predicted order.`,
     tyreStrategy: `**Tyre Strategy**: Compound choices (hard/medium/soft), expected degradation, optimal pit windows, how strategy might shuffle positions.`,
     bettingOdds: `**Betting Odds**: Current bookmaker predictions for race winner and podium. How does the user's prediction align with the money?`,
-    punditAlignment: `**Pundit Corner**: Write as TWO voices (25 words each):
-• **Jack Whitehall** - Cheeky British wit, playful teasing, warm ribbing about bold picks
-• **Bernie Collins** - Measured strategist, understated scepticism, professionally doubtful`,
+    jackSparrow: `**Jack Sparrow** (${budgets.jackSparrow} words): Write in the style of Jack Whitehall - cheeky British wit, playful teasing, warm ribbing about bold picks, self-deprecating humour. React to the user's prediction with theatrical mock outrage or exaggerated enthusiasm. Use punchy one-liners and comedic observations about specific driver choices.`,
+    rowanHornblower: `**Rowan Hornblower** (${budgets.rowanHornblower} words): Write in the style of Bernie Collins - measured F1 strategist, understated scepticism, professionally doubtful but fair. Offer data-driven tactical observations with dry wit. Question bold picks with statistical context. Provide genuine strategic insight wrapped in gentle sarcasm.`,
   };
 
   const facetInstructions = activeFacets
@@ -101,6 +111,10 @@ const buildWeightedPrompt = (
     ? `\n\nDO NOT include any analysis on: ${excludedFacets.join(', ')} - the user has set these to zero weight.`
     : '';
 
+  // Build word count instructions
+  const standardFacetCount = activeFacets.filter(([key]) => !PUNDIT_FACETS.includes(key)).length;
+  const activePundits = activeFacets.filter(([key]) => PUNDIT_FACETS.includes(key));
+
   return `You are an expert Formula 1 analyst providing race prediction analysis for Prix Six, a fantasy F1 league.
 
 The user has submitted their top 6 prediction for the ${raceName} at ${circuit}.
@@ -108,20 +122,21 @@ The user has submitted their top 6 prediction for the ${raceName} at ${circuit}.
 Their prediction:
 ${predictionList}
 
-Provide analysis covering ALL active facets below. Each facet MUST receive exactly ${WORDS_PER_FACET} words of analysis:
+Provide analysis covering ALL active facets below:
 
 ${facetInstructions}
 ${exclusionNote}
 
 IMPORTANT RULES:
-1. Total response should be approximately ${totalWordBudget} words (${activeFacetCount} facets × ${WORDS_PER_FACET} words each)
-2. Give EACH active facet exactly ${WORDS_PER_FACET} words - no more, no less
-3. Use a clear heading for each facet section (e.g., **Driver Form**, **Track Changes**, etc.)
-4. Skip any facet with 0 weight entirely
-5. Use British English spelling
-6. Be direct and insightful - pack value into every word
-7. Reference specific data points where possible (lap times, previous results, odds)
-8. End with a 20-word verdict on the prediction's overall strength
+1. Total response should be approximately ${totalWordBudget} words
+2. Standard analysis facets get exactly ${WORDS_PER_FACET} words each (${standardFacetCount} active = ${standardFacetCount * WORDS_PER_FACET} words)
+3. Pundit sections get their specified word counts (shown in parentheses above)
+4. Use a clear heading for each facet section
+5. Skip any facet with 0 weight entirely
+6. Use British English spelling
+7. Be direct and insightful - pack value into every word
+8. Reference specific data points where possible (lap times, previous results, odds)
+9. End with a 20-word verdict on the prediction's overall strength
 
 Begin your analysis:`;
 };
@@ -139,11 +154,11 @@ export async function POST(request: NextRequest) {
 
     // Validate weights
     const calculatedTotal = Object.values(weights).reduce((sum, w) => sum + w, 0);
-    if (calculatedTotal > 70) {
+    if (calculatedTotal > 77) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Weight total exceeds maximum of 70',
+          error: 'Weight total exceeds maximum of 77',
           errorCode: ERROR_CODES.VALIDATION_INVALID_FORMAT.code,
           correlationId,
         },
@@ -171,7 +186,7 @@ export async function POST(request: NextRequest) {
       const result = await ai.generate({
         prompt,
         config: {
-          maxOutputTokens: 1000, // ~750 words to cover 10 facets × 50 words + verdict
+          maxOutputTokens: 1500, // ~1000 words: 9 facets × 50 + 2 pundits × 250 + verdict
           temperature: 0.7,
         },
       });
