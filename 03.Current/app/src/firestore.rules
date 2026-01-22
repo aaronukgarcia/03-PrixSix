@@ -43,7 +43,8 @@ service cloud.firestore {
 
       match /predictions/{predictionId} {
         // All signed-in users can read predictions (league members can see each other's picks)
-        allow read: if isSignedIn();
+        // Using explicit get, list instead of read shorthand for clarity
+        allow get, list: if isSignedIn();
         allow write: if isOwner(userId) || isAdmin();
       }
     }
