@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Settings } from "lucide-react";
@@ -16,6 +16,7 @@ import { SessionProvider } from "@/contexts/session-context";
 import { LeagueProvider } from "@/contexts/league-context";
 import { logAuditEvent } from "@/lib/audit";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+import { SplashScreen, useSplashScreen } from "@/components/ui/SplashScreen";
 
 function generateGuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -30,6 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const firestore = useFirestore();
   const sessionIdRef = useRef<string | null>(null);
+  const { showSplash, isChecked, handleComplete } = useSplashScreen();
   useAuditNavigation(); // Add the audit logging hook here.
 
   useEffect(() => {
@@ -164,6 +166,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // If we get here, we have a user. Render the app.
   return (
     <SessionProvider sessionId={sessionIdRef.current}>
+      {/* F1-style splash screen - shows once per session */}
+      {isChecked && showSplash && <SplashScreen onComplete={handleComplete} />}
       <LeagueProvider>
         <SidebarProvider>
           <AppSidebar />

@@ -1,6 +1,6 @@
 {
   "name": "nextn",
-  "version": "1.20.28",
+  "version": "1.20.29",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
@@ -48,6 +48,7 @@
     "embla-carousel-react": "^8.6.0",
     "firebase": "^11.9.1",
     "firebase-admin": "^13.4.0",
+    "framer-motion": "^12.29.0",
     "genkit": "^1.20.0",
     "lucide-react": "^0.475.0",
     "next": "15.5.9",
