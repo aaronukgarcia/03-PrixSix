@@ -395,7 +395,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                     <div
                       key={index}
                       className={cn(
-                        "relative group flex flex-col items-center gap-2 p-3 rounded-lg border-2 border-dashed bg-card-foreground/5 transition-colors",
+                        "relative group flex flex-col items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed bg-card-foreground/5 transition-colors min-h-[140px]",
                         isRightLane && "mt-6" // Stagger right lane back
                       )}
                     >
@@ -427,7 +427,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                           </div>
                         </>
                       ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-6">
+                        <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
                           <p className="text-xs">Select driver</p>
                         </div>
                       )}
