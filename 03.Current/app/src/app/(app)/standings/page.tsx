@@ -299,14 +299,28 @@ export default function StandingsPage() {
       });
       const prevSorted = Array.from(prevTotals.entries())
         .sort((a, b) => b[1] - a[1]);
-      prevSorted.forEach(([userId], index) => {
-        previousRanks.set(userId, index + 1);
+      // Handle ties: teams with equal points get the same rank
+      let prevRank = 1;
+      let prevPoints = -1;
+      prevSorted.forEach(([userId, points], index) => {
+        if (points !== prevPoints) {
+          prevRank = index + 1;
+          prevPoints = points;
+        }
+        previousRanks.set(userId, prevRank);
       });
     }
 
-    // Build standings array
+    // Build standings array with proper tie-breaking
+    // Teams with equal points get the same rank, next team skips to their position
+    let currentRank = 1;
+    let lastPoints = -1;
     const standingsData: StandingEntry[] = sorted.map(([userId, data], index) => {
-      const currentRank = index + 1;
+      // Handle ties: only increment rank if points are different from previous
+      if (data.newOverall !== lastPoints) {
+        currentRank = index + 1;
+        lastPoints = data.newOverall;
+      }
       const prevRank = previousRanks.get(userId) || currentRank;
       const rankChange = prevRank - currentRank;
 
