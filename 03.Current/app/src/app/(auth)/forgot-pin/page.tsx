@@ -7,6 +7,7 @@ import * as z from "zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
+import { Frown } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,7 @@ export default function ForgotPinPage() {
     const router = useRouter();
     const { resetPin } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -41,6 +43,7 @@ export default function ForgotPinPage() {
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setLoading(true);
+        setError(null);
         try {
             const result = await resetPin(values.email);
             if (result.success) {
@@ -50,17 +53,23 @@ export default function ForgotPinPage() {
                 });
                 router.push("/login");
             } else {
-                 toast({
+                setError(result.message);
+                // Extract error code for toast title if present
+                const errorCodeMatch = result.message.match(/\[PX-\d+\]/);
+                toast({
                     variant: "destructive",
-                    title: "Reset Failed",
-                    description: result.message,
+                    title: errorCodeMatch ? `Reset Failed ${errorCodeMatch[0]}` : "Reset Failed",
+                    description: result.message.split('[PX-')[0].trim(),
                 });
             }
         } catch (e: any) {
+            const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+            const errorMessage = `${e.message || 'An unexpected error occurred'} [PX-9001] (Ref: ${correlationId})`;
+            setError(errorMessage);
             toast({
                 variant: "destructive",
-                title: "Reset Failed",
-                description: e.message,
+                title: "Reset Failed [PX-9001]",
+                description: e.message || 'An unexpected error occurred',
             });
         } finally {
             setLoading(false);
@@ -90,7 +99,23 @@ export default function ForgotPinPage() {
                                 </FormItem>
                             )}
                         />
-                        
+
+                        {error && (
+                            <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                                <div className="flex items-center gap-x-2">
+                                    <Frown className="h-4 w-4 flex-shrink-0" />
+                                    <p>{error.includes('(Ref:') ? error.split('(Ref:')[0].trim() : error}</p>
+                                </div>
+                                {error.includes('(Ref:') && (
+                                    <div className="mt-2 pt-2 border-t border-destructive/20">
+                                        <code className="text-xs select-all cursor-pointer bg-destructive/10 px-2 py-1 rounded">
+                                            {error.match(/\(Ref:\s*([^)]+)\)/)?.[1] || ''}
+                                        </code>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <Button type="submit" className="w-full" disabled={loading}>
                             {loading ? "Sending..." : "Send Reset Email"}
                         </Button>

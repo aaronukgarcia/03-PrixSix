@@ -25,6 +25,8 @@ export const ERROR_CODES = {
   AUTH_USER_NOT_FOUND: { code: 'PX-1003', message: 'User not found' },
   AUTH_SESSION_EXPIRED: { code: 'PX-1004', message: 'Session expired - please log in again' },
   AUTH_DOMAIN_NOT_ALLOWED: { code: 'PX-1005', message: 'Domain not allowlisted for email verification' },
+  AUTH_PIN_RESET_FAILED: { code: 'PX-1006', message: 'PIN reset failed' },
+  AUTH_PERMISSION_DENIED: { code: 'PX-1007', message: 'Permission denied' },
 
   // 2xxx - Data Validation
   VALIDATION_MISSING_FIELDS: { code: 'PX-2001', message: 'Missing required fields' },

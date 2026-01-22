@@ -493,30 +493,90 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   };
 
   const resetPin = async (email: string): Promise<AuthResult> => {
-    const usersRef = collection(firestore, "users");
-    const q = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
-    const querySnapshot = await getDocs(q);
+    // Generate correlation ID upfront for error tracking
+    const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
 
-    if (querySnapshot.empty) {
-      return { success: false, message: "No account found with that email." };
+    try {
+      const usersRef = collection(firestore, "users");
+      const q = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        return { success: false, message: `No account found with that email. [PX-1003] (Ref: ${correlationId})` };
+      }
+      const userDoc = querySnapshot.docs[0];
+      const userDocRef = userDoc.ref;
+      const userId = userDoc.id;
+      const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Update user to require PIN change
+      try {
+        await updateDoc(userDocRef, { mustChangePin: true });
+      } catch (updateError: any) {
+        console.error(`[PIN Reset Error ${correlationId}] Failed to update user:`, updateError);
+
+        // Log to error_logs collection
+        addDocumentNonBlocking(collection(firestore, 'error_logs'), {
+          correlationId,
+          errorCode: 'PX-1007',
+          errorType: updateError?.code || 'FirestoreUpdateError',
+          message: updateError?.message || 'Failed to update user document',
+          context: {
+            route: 'provider/resetPin',
+            action: 'updateDoc',
+            email: email.toLowerCase(),
+          },
+          timestamp: serverTimestamp(),
+        });
+
+        return {
+          success: false,
+          message: `PIN reset failed - permission denied. Please contact support. [PX-1007] (Ref: ${correlationId})`,
+        };
+      }
+
+      const mailHtml = `Hello,<br><br>A PIN reset was requested for your account. Your temporary PIN is: <strong>${newPin}</strong><br><br>You will be required to change this PIN after logging in. If you did not request this, please contact support.`;
+      const mailSubject = "Your Prix Six PIN has been reset";
+      addDocumentNonBlocking(collection(firestore, 'mail'), {
+          to: email, message: { subject: mailSubject, html: mailHtml }
+      });
+      addDocumentNonBlocking(collection(firestore, 'email_logs'), {
+          to: email, subject: mailSubject, html: mailHtml, pin: newPin, status: 'queued', timestamp: serverTimestamp()
+      });
+      logAuditEvent(firestore, userId, 'reset_pin_email_queued', { email });
+      return { success: true, message: "A temporary PIN has been sent." };
+
+    } catch (error: any) {
+      console.error(`[PIN Reset Error ${correlationId}]`, error);
+
+      // Log to error_logs collection
+      addDocumentNonBlocking(collection(firestore, 'error_logs'), {
+        correlationId,
+        errorCode: 'PX-1006',
+        errorType: error?.code || error?.name || 'Unknown',
+        message: error?.message || 'Unknown error during PIN reset',
+        context: {
+          route: 'provider/resetPin',
+          action: 'resetPin',
+          email: email.toLowerCase(),
+        },
+        stack: error?.stack,
+        timestamp: serverTimestamp(),
+      });
+
+      // Map permission errors specifically
+      if (error?.code === 'permission-denied' || error?.message?.includes('permission')) {
+        return {
+          success: false,
+          message: `PIN reset failed - permission denied. Please contact support. [PX-1007] (Ref: ${correlationId})`,
+        };
+      }
+
+      return {
+        success: false,
+        message: `PIN reset failed. Please try again later. [PX-1006] (Ref: ${correlationId})`,
+      };
     }
-    const userDocRef = querySnapshot.docs[0].ref;
-    const newPin = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // This is not secure. A Cloud Function should be used to update the Auth user's password.
-    // This is a simulation for the demo.
-    await updateDoc(userDocRef, { mustChangePin: true });
-
-    const mailHtml = `Hello,<br><br>A PIN reset was requested for your account. Your temporary PIN is: <strong>${newPin}</strong><br><br>You will be required to change this PIN after logging in. If you did not request this, please contact support.`;
-    const mailSubject = "Your Prix Six PIN has been reset";
-    addDocumentNonBlocking(collection(firestore, 'mail'), {
-        to: email, message: { subject: mailSubject, html: mailHtml }
-    });
-    addDocumentNonBlocking(collection(firestore, 'email_logs'), {
-        to: email, subject: mailSubject, html: mailHtml, pin: newPin, status: 'queued', timestamp: serverTimestamp()
-    });
-    logAuditEvent(firestore, querySnapshot.docs[0].id, 'reset_pin_email_queued', { email });
-    return { success: true, message: "A temporary PIN has been sent." };
   };
 
   const changePin = async (email: string, newPin: string): Promise<AuthResult> => {
