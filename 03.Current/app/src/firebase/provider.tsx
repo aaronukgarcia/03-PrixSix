@@ -45,6 +45,7 @@ export interface User {
   emailPreferences?: EmailPreferences;
   emailVerified?: boolean; // Synced from Firebase Auth
   aiAnalysisWeights?: AnalysisWeights; // Persisted AI analysis slider settings
+  photoUrl?: string; // User profile photo URL
 }
 
 interface AuthResult {

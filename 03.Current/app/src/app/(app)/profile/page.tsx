@@ -33,8 +33,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { generateTeamName } from "@/ai/flows/team-name-generator";
-import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
+import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -76,6 +85,9 @@ export default function ProfilePage() {
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [isRefreshingVerification, setIsRefreshingVerification] = useState(false);
+  const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -318,6 +330,50 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleSavePhoto() {
+    if (!firebaseUser || !firestore) return;
+    setIsSavingPhoto(true);
+    try {
+      const userRef = doc(firestore, "users", firebaseUser.uid);
+      const newPhotoUrl = photoUrl.trim() || null;
+      await updateDoc(userRef, { photoUrl: newPhotoUrl });
+
+      await logAuditEvent(firestore, firebaseUser.uid, 'UPDATE_PROFILE_PHOTO', {
+        email: user?.email,
+        teamName: user?.teamName,
+        photoUrl: newPhotoUrl,
+      });
+
+      toast({
+        title: "Photo Updated",
+        description: newPhotoUrl ? "Your profile photo has been changed." : "Your profile photo has been removed.",
+      });
+      setIsPhotoDialogOpen(false);
+    } catch (error) {
+      console.error("Error saving photo:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not save photo. Please try again.",
+      });
+    } finally {
+      setIsSavingPhoto(false);
+    }
+  }
+
+  // Preset avatar options
+  const presetAvatars = [
+    `https://picsum.photos/seed/${user?.id}/200/200`,
+    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.teamName || 'User')}`,
+    `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.id}`,
+    `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user?.id}`,
+    `https://api.dicebear.com/7.x/thumbs/svg?seed=${user?.id}`,
+    `https://api.dicebear.com/7.x/shapes/svg?seed=${user?.id}`,
+  ];
+
+  // Get current avatar URL
+  const currentAvatarUrl = user?.photoUrl || `https://picsum.photos/seed/${user?.id}/200/200`;
+
   return (
     <div className="space-y-6">
         <div className="space-y-1">
@@ -333,10 +389,81 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent>
                 <div className="flex items-start gap-6">
-                    <Avatar className="h-20 w-20">
-                        <AvatarImage src={`https://picsum.photos/seed/${user?.id}/200/200`} data-ai-hint="person avatar"/>
-                        <AvatarFallback className="text-2xl">{user?.teamName?.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                    <Dialog open={isPhotoDialogOpen} onOpenChange={(open) => {
+                      setIsPhotoDialogOpen(open);
+                      if (open) setPhotoUrl(user?.photoUrl || "");
+                    }}>
+                      <DialogTrigger asChild>
+                        <button className="relative group cursor-pointer">
+                          <Avatar className="h-20 w-20 transition-opacity group-hover:opacity-75">
+                            <AvatarImage src={currentAvatarUrl} data-ai-hint="person avatar"/>
+                            <AvatarFallback className="text-2xl">{user?.teamName?.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="bg-black/60 rounded-full p-2">
+                              <Camera className="h-5 w-5 text-white" />
+                            </div>
+                          </div>
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Change Profile Photo</DialogTitle>
+                          <DialogDescription>
+                            Enter a URL for your profile photo or choose from a preset.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="flex justify-center">
+                            <Avatar className="h-24 w-24">
+                              <AvatarImage src={photoUrl || currentAvatarUrl} />
+                              <AvatarFallback className="text-3xl">{user?.teamName?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Image URL</label>
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="https://example.com/photo.jpg"
+                                value={photoUrl}
+                                onChange={(e) => setPhotoUrl(e.target.value)}
+                              />
+                              {photoUrl && (
+                                <Button variant="ghost" size="icon" onClick={() => setPhotoUrl("")}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Or choose a preset</label>
+                            <div className="grid grid-cols-6 gap-2">
+                              {presetAvatars.map((url, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => setPhotoUrl(url)}
+                                  className={`rounded-full overflow-hidden border-2 transition-all ${photoUrl === url ? 'border-primary ring-2 ring-primary/20' : 'border-transparent hover:border-muted-foreground/50'}`}
+                                >
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={url} />
+                                    <AvatarFallback>{idx + 1}</AvatarFallback>
+                                  </Avatar>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsPhotoDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleSavePhoto} disabled={isSavingPhoto}>
+                            {isSavingPhoto ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Save Photo
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                     <div className="flex-1 space-y-4">
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1">

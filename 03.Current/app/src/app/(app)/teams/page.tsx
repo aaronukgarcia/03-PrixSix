@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useFirestore } from "@/firebase";
+import { useLeague } from "@/contexts/league-context";
+import { LeagueSelector } from "@/components/league/LeagueSelector";
 import type { User } from "@/firebase/provider";
 import {
   Card,
@@ -55,6 +57,7 @@ const PAGE_SIZE = 25;
 
 export default function TeamsPage() {
   const firestore = useFirestore();
+  const { selectedLeague } = useLeague();
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
   const [selectedRace, setSelectedRace] = useState(nextRace.name);
@@ -94,10 +97,12 @@ export default function TeamsPage() {
   // Format prediction data
   const formatPrediction = useCallback((predData: any) => {
     if (!predData) return Array(6).fill(null);
-    const driverIds = [
+    // Predictions are stored as an array, not individual fields
+    const driverIds = predData.predictions || [
       predData.driver1, predData.driver2, predData.driver3,
       predData.driver4, predData.driver5, predData.driver6
     ];
+    if (!Array.isArray(driverIds)) return Array(6).fill(null);
     return driverIds.map(id => F1Drivers.find(d => d.id === id) || null);
   }, []);
 
@@ -238,6 +243,16 @@ export default function TeamsPage() {
     ? Math.min(100, Math.round((teams.length / totalCount) * 100))
     : 0;
 
+  // Filter teams by selected league
+  const filteredTeams = useMemo(() => {
+    if (!selectedLeague || selectedLeague.isGlobal) {
+      return teams;
+    }
+    return teams.filter(team =>
+      selectedLeague.memberUserIds.includes(team.oduserId)
+    );
+  }, [teams, selectedLeague]);
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -259,18 +274,21 @@ export default function TeamsPage() {
                 <LastUpdated timestamp={lastUpdated} />
               </CardDescription>
             </div>
-            <Select value={selectedRace} onValueChange={setSelectedRace}>
-              <SelectTrigger className="w-full sm:w-[220px]">
-                <SelectValue placeholder="Select a race" />
-              </SelectTrigger>
-              <SelectContent>
-                {races.map((race) => (
-                  <SelectItem key={race} value={race}>
-                    {race}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <LeagueSelector />
+              <Select value={selectedRace} onValueChange={setSelectedRace}>
+                <SelectTrigger className="w-full sm:w-[220px]">
+                  <SelectValue placeholder="Select a race" />
+                </SelectTrigger>
+                <SelectContent>
+                  {races.map((race) => (
+                    <SelectItem key={race} value={race}>
+                      {race}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -278,7 +296,7 @@ export default function TeamsPage() {
           {!isLoading && totalCount && totalCount > PAGE_SIZE && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Showing {teams.length} of {totalCount} teams</span>
+                <span>Showing {filteredTeams.length}{selectedLeague && !selectedLeague.isGlobal ? ` (filtered from ${teams.length})` : ''} of {totalCount} teams</span>
                 <span>{progressPercent}%</span>
               </div>
               <Progress value={progressPercent} className="h-2" />
@@ -290,8 +308,8 @@ export default function TeamsPage() {
               Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-14 w-full mb-2" />
               ))
-            ) : teams.length > 0 ? (
-              teams.map((team, index) => (
+            ) : filteredTeams.length > 0 ? (
+              filteredTeams.map((team, index) => (
                 <AccordionItem value={`${team.teamName}-${index}`} key={`${team.teamName}-${index}`}>
                   <AccordionTrigger className="text-lg font-semibold hover:no-underline">
                     {team.teamName}
@@ -332,6 +350,10 @@ export default function TeamsPage() {
               <div className="text-center py-8 text-destructive">
                 {error}
               </div>
+            ) : teams.length > 0 && filteredTeams.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No teams in this league. Try selecting a different league.
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No teams found.
@@ -340,7 +362,7 @@ export default function TeamsPage() {
           </Accordion>
 
           {/* Load more button */}
-          {hasMore && !isLoading && teams.length > 0 && (
+          {hasMore && !isLoading && filteredTeams.length > 0 && (
             <div className="flex justify-center pt-4">
               {isLoadingMore ? (
                 <div className="flex items-center gap-2 text-muted-foreground">
