@@ -164,11 +164,32 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       // Fetch predictions ON-DEMAND
       setCurrentPhase('predictions');
       const predictionsSnap = await getDocs(collectionGroup(firestore, 'predictions'));
+
+      // Build a map of user's secondary team names for matching
+      const userSecondaryTeams = new Map<string, string>();
+      for (const u of userData) {
+        if (u.secondaryTeamName) {
+          userSecondaryTeams.set(u.id, u.secondaryTeamName);
+        }
+      }
+
       const predData: PredictionData[] = predictionsSnap.docs.map(doc => {
         const p = doc.data();
+        // Extract userId from document path: users/{userId}/predictions/{predId}
+        const pathParts = doc.ref.path.split('/');
+        const extractedUserId = pathParts.length >= 2 ? pathParts[1] : undefined;
+        const userId = p.userId || p.teamId || extractedUserId;
+
+        // Check if this prediction is for a secondary team
+        // If teamName matches the user's secondaryTeamName, use userId-secondary format
+        let effectiveUserId = userId;
+        if (userId && p.teamName && userSecondaryTeams.get(userId) === p.teamName) {
+          effectiveUserId = `${userId}-secondary`;
+        }
+
         return {
           id: doc.id,
-          userId: p.userId,
+          userId: effectiveUserId,
           teamId: p.teamId,
           teamName: p.teamName,
           raceId: p.raceId,

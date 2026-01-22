@@ -492,6 +492,21 @@ export function checkRaces(): CheckResult {
 }
 
 /**
+ * Helper to check if a user/team ID is valid (primary user or secondary team)
+ */
+function isValidUserOrTeamId(id: string, userIds: Set<string>, usersWithSecondary: Set<string>): boolean {
+  // Direct user ID match
+  if (userIds.has(id)) return true;
+  // Secondary team format: userId-secondary
+  if (id.endsWith('-secondary')) {
+    const baseUserId = id.replace(/-secondary$/, '');
+    // User exists AND has a secondary team configured
+    return userIds.has(baseUserId) && usersWithSecondary.has(baseUserId);
+  }
+  return false;
+}
+
+/**
  * Validate predictions
  */
 export function checkPredictions(
@@ -502,13 +517,14 @@ export function checkPredictions(
   const validDriverIds = getValidDriverIds();
   const validRaceIds = getValidRaceIds();
   const userIds = new Set(users.map(u => u.id));
+  const usersWithSecondary = new Set(users.filter(u => u.secondaryTeamName).map(u => u.id));
   let validCount = 0;
 
   for (const pred of predictions) {
     let isValid = true;
     const entityName = `Prediction ${pred.id}`;
 
-    // Check user reference
+    // Check user reference (supports secondary team IDs in format userId-secondary)
     const userId = pred.userId || pred.teamId;
     if (!userId) {
       issues.push({
@@ -518,12 +534,12 @@ export function checkPredictions(
         message: 'Missing userId or teamId',
       });
       isValid = false;
-    } else if (!userIds.has(userId)) {
+    } else if (!isValidUserOrTeamId(userId, userIds, usersWithSecondary)) {
       issues.push({
         severity: 'error',
         entity: entityName,
         field: 'userId',
-        message: `Invalid userId: ${userId} (user does not exist)`,
+        message: `Invalid userId: ${userId} (user does not exist or secondary team not configured)`,
         details: { userId },
       });
       isValid = false;
@@ -773,6 +789,7 @@ export function checkScores(
 ): CheckResult {
   const issues: Issue[] = [];
   const userIds = new Set(users.map(u => u.id));
+  const usersWithSecondary = new Set(users.filter(u => u.secondaryTeamName).map(u => u.id));
   // Build resultsRaceIds from both raceId field and document ID for maximum compatibility
   const resultsRaceIds = new Set<string>();
   for (const r of raceResults) {
@@ -816,7 +833,7 @@ export function checkScores(
       });
     }
 
-    // Check user reference
+    // Check user reference (supports secondary team IDs in format userId-secondary)
     if (!score.userId) {
       issues.push({
         severity: 'error',
@@ -825,12 +842,12 @@ export function checkScores(
         message: 'Missing userId',
       });
       isValid = false;
-    } else if (!userIds.has(score.userId)) {
+    } else if (!isValidUserOrTeamId(score.userId, userIds, usersWithSecondary)) {
       issues.push({
         severity: 'error',
         entity: entityName,
         field: 'userId',
-        message: `Invalid userId: ${score.userId} (user does not exist)`,
+        message: `Invalid userId: ${score.userId} (user does not exist or secondary team not configured)`,
         details: { userId: score.userId },
       });
       isValid = false;
@@ -1049,6 +1066,7 @@ export function checkLeagues(
 ): CheckResult {
   const issues: Issue[] = [];
   const userIds = new Set(users.map(u => u.id));
+  const usersWithSecondary = new Set(users.filter(u => u.secondaryTeamName).map(u => u.id));
   let validCount = 0;
 
   for (const league of leagues) {
@@ -1122,14 +1140,14 @@ export function checkLeagues(
       });
       isValid = false;
     } else {
-      // Validate all member IDs reference existing users
-      const invalidMembers = league.memberUserIds.filter(memberId => !userIds.has(memberId));
+      // Validate all member IDs reference existing users (including secondary teams)
+      const invalidMembers = league.memberUserIds.filter(memberId => !isValidUserOrTeamId(memberId, userIds, usersWithSecondary));
       if (invalidMembers.length > 0) {
         issues.push({
           severity: 'warning',
           entity: entityName,
           field: 'memberUserIds',
-          message: `League contains ${invalidMembers.length} invalid member ID(s) (users do not exist)`,
+          message: `League contains ${invalidMembers.length} invalid member ID(s) (users do not exist or secondary team not configured)`,
           details: { invalidMembers },
         });
       }

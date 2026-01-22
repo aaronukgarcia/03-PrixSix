@@ -50,6 +50,7 @@ interface MemberInfo {
   id: string;
   teamName: string;
   email: string;
+  isSecondaryTeam: boolean;
 }
 
 export default function LeagueDetailPage() {
@@ -72,7 +73,12 @@ export default function LeagueDetailPage() {
 
   const isOwner = league?.ownerId === user?.id;
   const isGlobal = league?.isGlobal;
-  const isMember = league?.memberUserIds.includes(user?.id || '');
+  // Check if user is a member (either primary or secondary team)
+  const isMember = league?.memberUserIds.some(memberId => {
+    if (memberId === user?.id) return true;
+    if (memberId.endsWith('-secondary') && memberId.replace(/-secondary$/, '') === user?.id) return true;
+    return false;
+  }) || false;
 
   // Subscribe to league updates
   useEffect(() => {
@@ -93,16 +99,27 @@ export default function LeagueDetailPage() {
 
         // Fetch member details
         const memberPromises = leagueData.memberUserIds.map(async (memberId) => {
-          const userDoc = await getDoc(doc(firestore, 'users', memberId));
+          // Check if this is a secondary team (format: userId-secondary)
+          const isSecondaryTeam = memberId.endsWith('-secondary');
+          const actualUserId = isSecondaryTeam
+            ? memberId.replace(/-secondary$/, '')
+            : memberId;
+
+          const userDoc = await getDoc(doc(firestore, 'users', actualUserId));
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            // Use secondaryTeamName for secondary teams, teamName for primary
+            const teamName = isSecondaryTeam
+              ? (userData.secondaryTeamName || 'Unknown Secondary Team')
+              : (userData.teamName || 'Unknown');
             return {
               id: memberId,
-              teamName: userData.teamName || 'Unknown',
+              teamName,
               email: userData.email || '',
+              isSecondaryTeam,
             };
           }
-          return { id: memberId, teamName: 'Unknown', email: '' };
+          return { id: memberId, teamName: 'Unknown', email: '', isSecondaryTeam };
         });
 
         const memberData = await Promise.all(memberPromises);
@@ -495,7 +512,11 @@ export default function LeagueDetailPage() {
               <div className="space-y-2">
                 {members.map((member) => {
                   const isMemberOwner = member.id === league.ownerId;
-                  const isCurrentUser = member.id === user?.id;
+                  // Check if this member belongs to the current user (primary or secondary)
+                  const actualUserId = member.isSecondaryTeam
+                    ? member.id.replace(/-secondary$/, '')
+                    : member.id;
+                  const isCurrentUser = actualUserId === user?.id;
 
                   return (
                     <div
@@ -511,6 +532,9 @@ export default function LeagueDetailPage() {
                         <div>
                           <p className="font-medium flex items-center gap-2">
                             {member.teamName}
+                            {member.isSecondaryTeam && (
+                              <Badge variant="outline" className="text-xs">2nd</Badge>
+                            )}
                             {isMemberOwner && !isGlobal && (
                               <Crown className="h-4 w-4 text-yellow-500" />
                             )}
