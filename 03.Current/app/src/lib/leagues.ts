@@ -68,17 +68,26 @@ export async function createLeague(
 
 /**
  * Join a league using an invite code
+ * @param teamId - Optional team ID. If not provided, uses userId (primary team).
+ *                 For secondary teams, pass `${userId}-secondary`
  */
 export async function joinLeagueByCode(
   firestore: Firestore,
   code: string,
-  userId: string
+  userId: string,
+  teamId?: string
 ): Promise<{ success: boolean; leagueId?: string; leagueName?: string; error?: string }> {
   try {
-    // Check if user has reached the max league limit
+    // Use provided teamId or default to userId (primary team)
+    const memberIdToAdd = teamId || userId;
+
+    // Check if user has reached the max league limit (count both primary and secondary memberships)
     const userLeagues = await getUserLeagues(firestore, userId);
-    if (userLeagues.length >= MAX_LEAGUES_PER_USER) {
-      return { success: false, error: `You can only be a member of ${MAX_LEAGUES_PER_USER} leagues. Please leave a league before joining a new one.` };
+    const secondaryLeagues = await getUserLeagues(firestore, `${userId}-secondary`);
+    const totalMemberships = userLeagues.length + secondaryLeagues.length;
+
+    if (totalMemberships >= MAX_LEAGUES_PER_USER * 2) { // Allow double since user can have 2 teams
+      return { success: false, error: `You have reached the maximum number of league memberships.` };
     }
 
     const normalizedCode = code.toUpperCase().trim();
@@ -95,14 +104,14 @@ export async function joinLeagueByCode(
     const leagueDoc = snapshot.docs[0];
     const leagueData = leagueDoc.data() as League;
 
-    // Check if already a member
-    if (leagueData.memberUserIds.includes(userId)) {
-      return { success: false, error: 'You are already a member of this league.' };
+    // Check if this team is already a member
+    if (leagueData.memberUserIds.includes(memberIdToAdd)) {
+      return { success: false, error: 'This team is already a member of this league.' };
     }
 
-    // Add user to league
+    // Add team to league
     await updateDoc(leagueDoc.ref, {
-      memberUserIds: arrayUnion(userId),
+      memberUserIds: arrayUnion(memberIdToAdd),
       updatedAt: serverTimestamp(),
     });
 

@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,10 +45,13 @@ export default function LeaguesPage() {
 
   const [createName, setCreateName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [selectedTeamForJoin, setSelectedTeamForJoin] = useState<'primary' | 'secondary'>('primary');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+
+  const hasSecondaryTeam = !!user?.secondaryTeamName;
 
   const handleCreate = async () => {
     if (!user || !createName.trim()) return;
@@ -83,14 +87,22 @@ export default function LeaguesPage() {
     if (!user || !joinCode.trim()) return;
 
     setIsJoining(true);
-    const result = await joinLeagueByCode(firestore, joinCode.trim(), user.id);
+
+    // Determine team ID based on selection
+    const teamId = selectedTeamForJoin === 'secondary' && hasSecondaryTeam
+      ? `${user.id}-secondary`
+      : user.id;
+
+    const result = await joinLeagueByCode(firestore, joinCode.trim(), user.id, teamId);
 
     if (result.success) {
+      const teamName = selectedTeamForJoin === 'secondary' ? user.secondaryTeamName : user.teamName;
       toast({
         title: 'Joined League',
-        description: `You have joined "${result.leagueName}".`,
+        description: `${teamName} has joined "${result.leagueName}".`,
       });
       setJoinCode('');
+      setSelectedTeamForJoin('primary');
       setJoinDialogOpen(false);
     } else {
       toast({
@@ -200,6 +212,29 @@ export default function LeaguesPage() {
                     className="font-mono text-lg tracking-widest"
                   />
                 </div>
+                {hasSecondaryTeam && (
+                  <div className="space-y-2">
+                    <Label>Join with team</Label>
+                    <RadioGroup
+                      value={selectedTeamForJoin}
+                      onValueChange={(v) => setSelectedTeamForJoin(v as 'primary' | 'secondary')}
+                      className="flex flex-col gap-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="primary" id="team-primary" />
+                        <Label htmlFor="team-primary" className="font-normal cursor-pointer">
+                          {user?.teamName} (Primary)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="secondary" id="team-secondary" />
+                        <Label htmlFor="team-secondary" className="font-normal cursor-pointer">
+                          {user?.secondaryTeamName} (Secondary)
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
                 <DialogFooter>
                   <Button type="submit" disabled={isJoining || joinCode.length !== 6}>
                     {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

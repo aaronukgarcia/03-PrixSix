@@ -41,6 +41,14 @@ const AboutPageClient = () => {
 
     const { data: presenceDocs, isLoading } = useCollection<Presence>(presenceQuery);
 
+    // Calculate total teams: primary teams + secondary teams
+    const totalTeamsCount = useMemo(() => {
+        if (!allUsers) return 0;
+        // Count primary teams (all users) + secondary teams (users with secondaryTeamName)
+        const secondaryTeamCount = allUsers.filter((u: any) => u.secondaryTeamName).length;
+        return allUsers.length + secondaryTeamCount;
+    }, [allUsers]);
+
     // Calculate total ACTIVE online sessions by checking sessionActivity timestamps.
     // Only count sessions that have been active within the timeout window.
     const onlineUserCount = useMemo(() => {
@@ -85,8 +93,8 @@ const AboutPageClient = () => {
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{allUsers?.length ?? 0}</div>
-                        <p className="text-xs text-muted-foreground">Total teams in the league.</p>
+                        <div className="text-2xl font-bold">{totalTeamsCount}</div>
+                        <p className="text-xs text-muted-foreground">Total teams in the league (primary + secondary).</p>
                     </CardContent>
                 </Card>
                 <Card>
