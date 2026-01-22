@@ -598,27 +598,38 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
               </CollapsibleContent>
             </Collapsible>
 
-            {/* Analysis Result */}
-            {showAnalysis && (
-              <div className="p-4 rounded-lg bg-muted/30 border border-purple-500/20">
-                {isAnalysing ? (
-                  <div className="flex flex-col items-center justify-center py-8 gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-                    <p className="text-sm text-muted-foreground">Analysing your prediction...</p>
-                  </div>
-                ) : (
-                  <div className="prose prose-sm prose-invert max-w-none">
-                    <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-                      {analysisText}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
 
+      {/* Full-width AI Analysis Result - shown below the grid */}
+      {showAnalysis && (
+        <Card className="lg:col-span-3 border-purple-500/30 bg-gradient-to-br from-purple-950/20 to-background">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-300">
+              <Sparkles className="h-5 w-5" />
+              Analysis Result
+            </CardTitle>
+            <CardDescription>
+              AI-powered insights for {raceName}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isAnalysing ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="h-10 w-10 animate-spin text-purple-400" />
+                <p className="text-muted-foreground">Analysing your prediction...</p>
+              </div>
+            ) : (
+              <div className="prose prose-sm prose-invert max-w-none">
+                <p className="text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                  {analysisText}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
