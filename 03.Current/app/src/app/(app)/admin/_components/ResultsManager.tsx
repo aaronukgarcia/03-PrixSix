@@ -69,6 +69,7 @@ export function ResultsManager() {
     const [isLoadingCount, setIsLoadingCount] = useState(false);
 
     // Fetch submission count when race is selected
+    // NOTE: Predictions carry forward all season - count ALL teams that have ANY prediction
     useEffect(() => {
         if (!firestore || !selectedRace) {
             setSubmissionCount(null);
@@ -78,13 +79,24 @@ export function ResultsManager() {
         const fetchSubmissionCount = async () => {
             setIsLoadingCount(true);
             try {
-                const normalizedId = normalizeRaceId(selectedRace);
-                const countQuery = query(
-                    collectionGroup(firestore, "predictions"),
-                    where("raceId", "==", normalizedId)
-                );
-                const countSnapshot = await getCountFromServer(countQuery);
-                setSubmissionCount(countSnapshot.data().count);
+                // Count unique users who have at least one prediction (any race)
+                // Their latest prediction will be used for scoring
+                const predictionsQuery = query(collectionGroup(firestore, "predictions"));
+                const { getDocs } = await import("firebase/firestore");
+                const snapshot = await getDocs(predictionsQuery);
+
+                // Count unique user IDs (each user can have primary + secondary team)
+                const uniqueTeams = new Set<string>();
+                snapshot.docs.forEach(doc => {
+                    // Path is users/{userId}/predictions/{predId}
+                    const pathParts = doc.ref.path.split('/');
+                    const userId = pathParts[1];
+                    const teamName = doc.data().teamName;
+                    // Create unique key for each team (primary vs secondary)
+                    uniqueTeams.add(`${userId}_${teamName || 'primary'}`);
+                });
+
+                setSubmissionCount(uniqueTeams.size);
             } catch (error) {
                 console.error("Error fetching submission count:", error);
                 setSubmissionCount(null);
@@ -370,9 +382,9 @@ export function ResultsManager() {
                                 ) : submissionCount === 0 ? (
                                     <>
                                         <AlertCircle className="h-4 w-4" />
-                                        <AlertTitle>No Submissions Found</AlertTitle>
+                                        <AlertTitle>No Predictions Found</AlertTitle>
                                         <AlertDescription>
-                                            No teams have submitted predictions for this race yet.
+                                            No teams have any predictions to score.
                                         </AlertDescription>
                                     </>
                                 ) : (
@@ -380,10 +392,10 @@ export function ResultsManager() {
                                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                                         <AlertTitle className="text-green-700 dark:text-green-400">
                                             <Users className="inline h-4 w-4 mr-1" />
-                                            {submissionCount} Team{submissionCount !== 1 ? 's' : ''} Submitted
+                                            {submissionCount} Team{submissionCount !== 1 ? 's' : ''} Will Be Scored
                                         </AlertTitle>
                                         <AlertDescription className="text-green-600 dark:text-green-400">
-                                            Ready to enter results and calculate scores.
+                                            Each team's current prediction will be used.
                                         </AlertDescription>
                                     </>
                                 )}
@@ -420,10 +432,10 @@ export function ResultsManager() {
                                     <Alert className="mt-4 border-blue-500 bg-blue-50 dark:bg-blue-950">
                                         <Users className="h-4 w-4 text-blue-600" />
                                         <AlertTitle className="text-blue-700 dark:text-blue-400">
-                                            {submissionCount} Team{submissionCount !== 1 ? 's' : ''} Submitted Predictions
+                                            {submissionCount} Team{submissionCount !== 1 ? 's' : ''} Will Be Scored
                                         </AlertTitle>
                                         <AlertDescription className="text-blue-600 dark:text-blue-400">
-                                            Scores will be calculated for all submissions when you confirm.
+                                            Each team's current prediction will be scored when you confirm.
                                         </AlertDescription>
                                     </Alert>
                                 )}
