@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { collection, query, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, Search, X, ChevronDown, ChevronRight, Copy, Check } from 'lucide-react';
+import { AlertCircle, Search, X, ChevronDown, ChevronRight, Copy, Check, CheckCircle2 } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -47,6 +47,9 @@ interface ErrorLog {
     nanoseconds: number;
   };
   createdAt?: string;
+  resolved?: boolean;
+  resolvedAt?: string;
+  resolvedBy?: string;
 }
 
 // Error code categories with colors
@@ -76,6 +79,8 @@ const VIEW_TABS = [
   { id: 'list', label: 'List View', color: 'bg-indigo-500' },
   { id: 'grouped', label: 'Grouped', color: 'bg-pink-500' },
   { id: 'recent', label: 'Last 24h', color: 'bg-orange-500' },
+  { id: 'unresolved', label: 'Unresolved', color: 'bg-red-500' },
+  { id: 'resolved', label: 'Resolved', color: 'bg-green-500' },
 ];
 
 function getErrorCategory(errorCode?: string): keyof typeof ERROR_CATEGORIES {
@@ -155,6 +160,13 @@ export function ErrorLogViewer() {
           const ts = log.timestamp?.seconds ? log.timestamp.seconds * 1000 : 0;
           return ts > oneDayAgo;
         });
+      }
+
+      // Filter by resolved status
+      if (selectedView === 'unresolved') {
+        logs = logs.filter(log => !log.resolved);
+      } else if (selectedView === 'resolved') {
+        logs = logs.filter(log => log.resolved === true);
       }
 
       return logs;
@@ -346,7 +358,7 @@ export function ErrorLogViewer() {
                     {isExpanded && (
                       <div className="border-t bg-muted/30">
                         {logs.map(log => (
-                          <ErrorLogItem key={log.id} log={log} />
+                          <ErrorLogItem key={log.id} log={log} firestore={firestore} />
                         ))}
                       </div>
                     )}
@@ -379,7 +391,14 @@ export function ErrorLogViewer() {
   );
 }
 
-function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }) {
+function ErrorLogItem({ log, accordion, firestore, onResolved }: {
+  log: ErrorLog;
+  accordion?: boolean;
+  firestore?: ReturnType<typeof useFirestore>;
+  onResolved?: () => void;
+}) {
+  const [isResolving, setIsResolving] = useState(false);
+
   // Defensive null checks for all fields
   if (!log) return null;
 
@@ -388,6 +407,24 @@ function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }
   const errorCode = logErrorCode || 'Unknown';
   const correlationId = log.correlationId || log.id || 'N/A';
   const errorMessage = log.error || 'Unknown error';
+  const isResolved = log.resolved === true;
+
+  const handleMarkResolved = async () => {
+    if (!firestore || !log.id) return;
+    setIsResolving(true);
+    try {
+      const logRef = doc(firestore, 'error_logs', log.id);
+      await updateDoc(logRef, {
+        resolved: true,
+        resolvedAt: new Date().toISOString(),
+      });
+      onResolved?.();
+    } catch (err) {
+      console.error('Failed to mark as resolved:', err);
+    } finally {
+      setIsResolving(false);
+    }
+  };
 
   // Safely get timestamp - handle null/undefined timestamp
   const getTimestamp = (): Date | null => {
@@ -447,16 +484,44 @@ function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }
           <code>{contextString}</code>
         </pre>
       </div>
+      {/* Resolution status and button */}
+      <div className="flex items-center justify-between pt-2 border-t">
+        {isResolved ? (
+          <div className="flex items-center gap-2 text-green-600">
+            <CheckCircle2 className="h-4 w-4" />
+            <span className="text-sm font-medium">Resolved</span>
+            {log.resolvedAt && (
+              <span className="text-xs text-muted-foreground">
+                on {format(new Date(log.resolvedAt), "MMM d, yyyy")}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">Not resolved</div>
+        )}
+        {!isResolved && firestore && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-green-600 border-green-600 hover:bg-green-50"
+            onClick={handleMarkResolved}
+            disabled={isResolving}
+          >
+            {isResolving ? 'Resolving...' : 'Mark as Resolved'}
+          </Button>
+        )}
+      </div>
     </div>
   );
 
   if (accordion) {
     return (
-      <AccordionItem value={log.id || correlationId}>
+      <AccordionItem value={log.id || correlationId} className={cn(isResolved && "bg-green-50/50")}>
         <AccordionTrigger className="p-4 hover:no-underline hover:bg-muted/50">
           <div className="flex items-center gap-3 w-full">
-            <Badge className={cn(category.color, "text-white shrink-0")}>{errorCode}</Badge>
-            <span className="flex-1 text-left truncate text-sm">{errorMessage}</span>
+            {isResolved && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+            <Badge className={cn(isResolved ? "bg-green-500" : category.color, "text-white shrink-0")}>{errorCode}</Badge>
+            <span className={cn("flex-1 text-left truncate text-sm", isResolved && "text-muted-foreground")}>{errorMessage}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
