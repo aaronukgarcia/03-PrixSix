@@ -453,20 +453,32 @@ function ResultsContent() {
         ? Math.round((filteredTeams.length / totalCount) * 100)
         : 0;
 
+    // Calculate effective points for a team (uses stored score or calculates from predictions)
+    const getEffectivePoints = useCallback((team: TeamResult): number => {
+        if (team.hasScore && team.totalPoints !== null) {
+            return team.totalPoints;
+        }
+        if (raceResult) {
+            // Calculate points from predictions + bonus
+            return team.predictions.reduce((sum, p) => sum + p.points, 0) + team.bonusPoints;
+        }
+        return -1; // No score and no results yet - sort to bottom
+    }, [raceResult]);
+
     // Sort teams based on sortBy state
     const sortedTeams = useMemo(() => {
         return [...filteredTeams].sort((a, b) => {
             if (sortBy === 'points') {
-                // Sort by points descending (nulls/waiting at bottom)
-                const aPoints = a.totalPoints ?? -1;
-                const bPoints = b.totalPoints ?? -1;
+                // Sort by effective points descending (no results at bottom)
+                const aPoints = getEffectivePoints(a);
+                const bPoints = getEffectivePoints(b);
                 return bPoints - aPoints;
             } else {
                 // Sort by team name ascending
                 return a.teamName.localeCompare(b.teamName);
             }
         });
-    }, [filteredTeams, sortBy]);
+    }, [filteredTeams, sortBy, getEffectivePoints]);
 
     const toggleSort = () => {
         setSortBy(prev => prev === 'teamName' ? 'points' : 'teamName');
