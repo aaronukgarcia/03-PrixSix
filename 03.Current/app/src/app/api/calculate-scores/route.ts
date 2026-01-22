@@ -107,22 +107,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Scoring] Processing race: ${raceName} (predictions: ${normalizedRaceId}, result doc: ${resultDocId})`);
 
-    // Get all predictions for this race using collectionGroup query
-    let predictionsSnapshot;
-    try {
-      predictionsSnapshot = await db.collectionGroup('predictions')
-        .where('raceId', '==', normalizedRaceId)
-        .get();
-      console.log(`[Scoring] CollectionGroup query returned ${predictionsSnapshot.size} results`);
-    } catch (error: any) {
-      console.error(`[Scoring] CollectionGroup query failed:`, error);
-      predictionsSnapshot = { size: 0, docs: [] } as any;
-    }
-
-    // Get all users to map userId/teamId to teamName
-    // Include both primary (userId -> teamName) and secondary (userId-secondary -> secondaryTeamName)
+    // Get all users FIRST to map userId/teamId to teamName
+    // This is needed to identify secondary team predictions
     const usersSnapshot = await db.collection('users').get();
     const userMap = new Map<string, string>();
+    const userSecondaryTeamNames = new Map<string, string>(); // userId -> secondaryTeamName
+
     usersSnapshot.forEach(doc => {
       const data = doc.data();
       // Primary team
@@ -130,8 +120,81 @@ export async function POST(request: NextRequest) {
       // Secondary team (if exists)
       if (data.secondaryTeamName) {
         userMap.set(`${doc.id}-secondary`, data.secondaryTeamName);
+        userSecondaryTeamNames.set(doc.id, data.secondaryTeamName);
       }
     });
+
+    // Get ALL predictions - predictions carry forward all season
+    // Each team's latest prediction will be used for scoring
+    let allPredictionsSnapshot;
+    try {
+      allPredictionsSnapshot = await db.collectionGroup('predictions').get();
+      console.log(`[Scoring] CollectionGroup query returned ${allPredictionsSnapshot.size} total predictions`);
+    } catch (error: any) {
+      console.error(`[Scoring] CollectionGroup query failed:`, error);
+      allPredictionsSnapshot = { size: 0, docs: [] } as any;
+    }
+
+    // Build map of latest prediction per team (userId or userId-secondary)
+    // Key: teamId (e.g., "userId" or "userId-secondary")
+    // Value: { predictions: string[], timestamp: Date, teamName?: string }
+    const latestPredictions = new Map<string, { predictions: string[]; timestamp: Date; teamName?: string }>();
+
+    allPredictionsSnapshot.forEach((predDoc: FirebaseFirestore.QueryDocumentSnapshot) => {
+      const predData = predDoc.data();
+      if (!Array.isArray(predData.predictions) || predData.predictions.length !== 6) {
+        return; // Skip invalid predictions
+      }
+
+      // Path is users/{userId}/predictions/{predId}
+      const pathParts = predDoc.ref.path.split('/');
+      const userId = pathParts[1];
+
+      // Determine teamId - either from teamId field or by checking if teamName matches secondary team
+      let teamId: string;
+      if (predData.teamId) {
+        teamId = predData.teamId;
+      } else {
+        // Check if this prediction's teamName matches the user's secondary team name
+        const userSecondaryTeam = userSecondaryTeamNames.get(userId);
+        if (userSecondaryTeam && predData.teamName === userSecondaryTeam) {
+          teamId = `${userId}-secondary`;
+        } else {
+          teamId = userId;
+        }
+      }
+
+      const timestamp = predData.submittedAt?.toDate?.() || predData.createdAt?.toDate?.() || new Date(0);
+
+      // Keep only the latest prediction for each team
+      const existing = latestPredictions.get(teamId);
+      if (!existing || timestamp > existing.timestamp) {
+        latestPredictions.set(teamId, {
+          predictions: predData.predictions,
+          timestamp,
+          teamName: predData.teamName,
+        });
+      }
+    });
+
+    console.log(`[Scoring] Found ${latestPredictions.size} teams with predictions to score`);
+
+    // Convert to snapshot-like format for compatibility with existing scoring code
+    const predictionsSnapshot = {
+      size: latestPredictions.size,
+      docs: Array.from(latestPredictions.entries()).map(([teamId, data]) => ({
+        id: teamId,
+        data: () => ({
+          predictions: data.predictions,
+          teamId: teamId,
+          teamName: data.teamName,
+        }),
+        ref: { path: `virtual/${teamId}` },
+      })),
+      forEach: function(callback: (doc: any) => void) {
+        this.docs.forEach(callback);
+      },
+    };
 
     // Calculate scores and prepare batch write
     const batch = db.batch();

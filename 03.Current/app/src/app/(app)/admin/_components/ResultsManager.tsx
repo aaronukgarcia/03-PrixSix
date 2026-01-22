@@ -360,18 +360,63 @@ export function ResultsManager() {
                                     <SelectValue placeholder="Select a race or sprint..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {RaceSchedule.flatMap(race => {
-                                        const raceEvents = [];
-                                        if (race.hasSprint) {
-                                            raceEvents.push({ value: `${race.name} - Sprint`, label: `${race.name} - Sprint` });
-                                        }
-                                        raceEvents.push({ value: `${race.name} - GP`, label: `${race.name} - GP` });
-                                        return raceEvents;
-                                    }).map(event => (
-                                        <SelectItem key={event.value} value={event.value}>{event.label}</SelectItem>
-                                    ))}
+                                    {(() => {
+                                        // Build a set of race IDs that have results
+                                        const resultsSet = new Set(
+                                            (existingResults || []).map(r => r.id.toLowerCase())
+                                        );
+
+                                        // Generate all race events with their status
+                                        const raceEvents = RaceSchedule.flatMap(race => {
+                                            const events = [];
+                                            if (race.hasSprint) {
+                                                const sprintId = `${race.name.toLowerCase().replace(/\s+/g, '-')}-sprint`;
+                                                events.push({
+                                                    value: `${race.name} - Sprint`,
+                                                    label: `${race.name} - Sprint`,
+                                                    hasResult: resultsSet.has(sprintId),
+                                                    raceTime: race.qualifyingTime, // Sprint is before GP
+                                                });
+                                            }
+                                            const gpId = `${race.name.toLowerCase().replace(/\s+/g, '-')}-gp`;
+                                            events.push({
+                                                value: `${race.name} - GP`,
+                                                label: `${race.name} - GP`,
+                                                hasResult: resultsSet.has(gpId),
+                                                raceTime: race.raceTime,
+                                            });
+                                            return events;
+                                        });
+
+                                        // Find the first race without results (the "next" race)
+                                        const nextRaceValue = raceEvents.find(e => !e.hasResult)?.value;
+
+                                        return raceEvents.map(event => {
+                                            const isNext = event.value === nextRaceValue;
+                                            const hasResult = event.hasResult;
+
+                                            return (
+                                                <SelectItem
+                                                    key={event.value}
+                                                    value={event.value}
+                                                    className={cn(
+                                                        hasResult && "text-red-600 dark:text-red-400",
+                                                        isNext && "text-green-600 dark:text-green-400 font-semibold"
+                                                    )}
+                                                >
+                                                    {hasResult && "✓ "}
+                                                    {isNext && "→ "}
+                                                    {event.label}
+                                                </SelectItem>
+                                            );
+                                        });
+                                    })()}
                                 </SelectContent>
                             </Select>
+                            <p className="text-xs text-muted-foreground">
+                                <span className="text-green-600 dark:text-green-400">Green</span> = Next race to enter |
+                                <span className="text-red-600 dark:text-red-400 ml-1">Red</span> = Results already entered
+                            </p>
                         </div>
 
                         {/* Submission count alert */}
