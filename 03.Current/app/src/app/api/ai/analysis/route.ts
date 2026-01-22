@@ -82,11 +82,11 @@ const buildWeightedPrompt = (
     weather: `**Weather** (~${budgets.weather} words): Expected temperature, humidity, wind, rain probability and how conditions might affect the predicted order.`,
     tyreStrategy: `**Tyre Strategy** (~${budgets.tyreStrategy} words): Compound choices (hard/medium/soft), expected degradation, optimal pit windows, how strategy might shuffle positions.`,
     bettingOdds: `**Betting Odds** (~${budgets.bettingOdds} words): Current bookmaker predictions for race winner and podium finishers.`,
-    punditAlignment: `**Pundit Corner** (~${budgets.punditAlignment} words): Deliver this section as TWO distinct voices:
+    punditAlignment: `**Pundit Corner** (~${budgets.punditAlignment} words): Deliver this section as TWO distinct comedic commentator voices:
 
-1. **"Jack Whitehall"** - Write 2-3 sentences in Jack Whitehall's dry, insulting, mickey-taking comedy style. Playfully mock the user's bold or questionable picks with witty sarcasm. Be cheeky but not mean-spirited. Example tone: "Oh brilliant, you've put [driver] in P2. Bold choice. Very bold. The sort of bold that suggests you've either got insider information or you've been at the cooking sherry."
+1. **"Jack Whitehall"** (cheeky comedian) - Write 2-3 sentences with dry British wit and playful teasing about the prediction. Use self-deprecating humour and gentle ribbing. Be warm but cheeky. Example: "Ah yes, putting [driver] in P2 - the sort of brave optimism I admire. Reminds me of the time I bet my dad I could beat him at golf. Spoiler: I couldn't."
 
-2. **"Bernie Collins"** - Write 2-3 sentences as former F1 strategist Bernie Collins with her measured, analytical tone but include subtle dismissive undertones. Sound professionally sceptical. Hint that you've seen better predictions. Example tone: "Looking at this from a strategy perspective... it's certainly *a* prediction. The data would suggest otherwise, but I've learned that sometimes people just need to make their own mistakes."`,
+2. **"Bernie Collins"** (F1 strategist) - Write 2-3 sentences as a measured, analytical strategist who is professionally doubtful. Use understated scepticism with a knowing smile. Example: "From a strategy standpoint, this is... ambitious. The numbers tell a different story, but then again, data never won a championship - drivers do."`,
   };
 
   const facetInstructions = activeFacets
@@ -182,24 +182,35 @@ export async function POST(request: NextRequest) {
       });
       analysisText = result.text;
     } catch (aiError: any) {
-      console.error(`[AI Generation Error ${correlationId}]`, aiError);
+      console.error(`[AI Generation Error ${correlationId}]`, JSON.stringify({
+        message: aiError?.message,
+        name: aiError?.name,
+        code: aiError?.code,
+        status: aiError?.status,
+        stack: aiError?.stack?.substring(0, 500),
+      }));
 
-      // Log specific AI error
-      await logError({
-        correlationId,
-        error: aiError instanceof Error ? aiError : String(aiError),
-        context: {
-          route: '/api/ai/analysis',
-          action: 'ai.generate',
-          additionalInfo: {
-            errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
-            errorType: aiError?.name || 'AIGenerationError',
-            aiErrorCode: aiError?.code,
-            aiErrorStatus: aiError?.status,
-            raceName,
+      // Log specific AI error (wrapped in try-catch to prevent silent failures)
+      try {
+        await logError({
+          correlationId,
+          error: aiError instanceof Error ? aiError : String(aiError),
+          context: {
+            route: '/api/ai/analysis',
+            action: 'ai.generate',
+            additionalInfo: {
+              errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
+              errorType: aiError?.name || 'AIGenerationError',
+              aiErrorCode: aiError?.code,
+              aiErrorStatus: aiError?.status,
+              raceName,
+              promptLength: prompt?.length,
+            },
           },
-        },
-      });
+        });
+      } catch (logErr) {
+        console.error(`[Failed to log AI error ${correlationId}]`, logErr);
+      }
 
       return NextResponse.json(
         {
