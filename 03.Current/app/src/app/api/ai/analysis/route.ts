@@ -131,13 +131,13 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
-    // Check if Google AI API key is configured
-    if (!process.env.GOOGLE_GENAI_API_KEY) {
-      console.error(`[AI Analysis Error ${correlationId}] GOOGLE_GENAI_API_KEY not configured`);
+    // Check if Vertex AI credentials are configured
+    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_CLOUD_PROJECT) {
+      console.error(`[AI Analysis Error ${correlationId}] Vertex AI credentials not configured`);
 
       await logError({
         correlationId,
-        error: 'GOOGLE_GENAI_API_KEY environment variable not set',
+        error: 'GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_CLOUD_PROJECT not set',
         context: {
           route: '/api/ai/analysis',
           action: 'config_check',
