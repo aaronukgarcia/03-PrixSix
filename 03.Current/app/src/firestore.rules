@@ -194,11 +194,12 @@ service cloud.firestore {
       allow read, write: if false; // Server-side only via Admin SDK
     }
 
-    // Error logs - server-side creates, admin reads
+    // Error logs - server-side creates, admin reads/updates
     match /error_logs/{logId} {
       allow get, list: if isAdmin();
       allow create: if isSignedIn(); // Allow signed-in users for client-side error logging
-      allow update, delete: if false;
+      allow update: if isAdmin(); // Allow admins to mark errors as resolved
+      allow delete: if false;
     }
 
     // Feedback - users can create, admins can read/update/delete

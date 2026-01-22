@@ -376,7 +376,7 @@ export function ErrorLogViewer() {
             <Accordion type="single" collapsible className="w-full">
               {filteredLogs.length > 0 ? (
                 filteredLogs.map(log => (
-                  <ErrorLogItem key={log.id} log={log} accordion />
+                  <ErrorLogItem key={log.id} log={log} accordion firestore={firestore} />
                 ))
               ) : (
                 <div className="text-center text-muted-foreground p-12">
