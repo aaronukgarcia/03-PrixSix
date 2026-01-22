@@ -187,5 +187,12 @@ service cloud.firestore {
       allow create: if isSignedIn(); // Allow signed-in users for client-side error logging
       allow update, delete: if false;
     }
+
+    // Feedback - users can create, admins can read/update/delete
+    match /feedback/{feedbackId} {
+      allow get, list: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
   }
 }

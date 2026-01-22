@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { Driver } from "@/lib/data";
 import { getDriverImage } from "@/lib/data";
-import { ArrowDown, ArrowUp, X, Check, ListCollapse, Timer } from "lucide-react";
+import { ArrowDown, ArrowUp, X, Check, ListCollapse, Timer, Sparkles, Settings2, RotateCcw, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/firebase";
@@ -23,6 +23,52 @@ import type { User as FirebaseAuthUser } from 'firebase/auth';
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+
+// Analysis weights interface
+interface AnalysisWeights {
+  driverForm: number;
+  trackHistory: number;
+  overtakingCrashes: number;
+  circuitCharacteristics: number;
+  trackSurface: number;
+  layoutChanges: number;
+  weather: number;
+  tyreStrategy: number;
+  bettingOdds: number;
+  punditAlignment: number;
+}
+
+// Analysis facets configuration
+const ANALYSIS_FACETS = [
+  { key: 'driverForm', label: 'Driver Form', icon: '📈', description: 'Recent performance over last 3-4 races' },
+  { key: 'trackHistory', label: 'Track History', icon: '🏆', description: 'Past results at this specific circuit' },
+  { key: 'overtakingCrashes', label: 'Overtakes & Incidents', icon: '⚔️', description: 'Historical overtaking moves and crashes' },
+  { key: 'circuitCharacteristics', label: 'Circuit Layout', icon: '🛣️', description: 'Track features, corners, straights' },
+  { key: 'trackSurface', label: 'Track Surface', icon: '🏁', description: 'Grip levels, resurfacing, bumps' },
+  { key: 'layoutChanges', label: 'Layout Changes', icon: '🔄', description: 'Recent modifications vs previous years' },
+  { key: 'weather', label: 'Weather', icon: '🌡️', description: 'Temperature, humidity, rain probability' },
+  { key: 'tyreStrategy', label: 'Tyre Strategy', icon: '⚫', description: 'Compound choices, degradation, pit windows' },
+  { key: 'bettingOdds', label: 'Betting Odds', icon: '💰', description: 'Current bookmaker predictions' },
+  { key: 'punditAlignment', label: 'Pundit Views', icon: '🎙️', description: 'Expert predictions comparison' },
+] as const;
+
+const DEFAULT_WEIGHTS: AnalysisWeights = {
+  driverForm: 7,
+  trackHistory: 7,
+  overtakingCrashes: 7,
+  circuitCharacteristics: 7,
+  trackSurface: 7,
+  layoutChanges: 7,
+  weather: 7,
+  tyreStrategy: 7,
+  bettingOdds: 7,
+  punditAlignment: 7,
+};
+
+const MAX_TOTAL_WEIGHT = 70;
 
 interface PredictionEditorProps {
   allDrivers: Driver[];
@@ -32,9 +78,10 @@ interface PredictionEditorProps {
   teamName?: string;
   qualifyingTime: string;
   allTeamNames?: string[];
+  circuitName?: string;
 }
 
-export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime, allTeamNames = [] }: PredictionEditorProps) {
+export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime, allTeamNames = [], circuitName }: PredictionEditorProps) {
   const { user, firebaseUser } = useAuth();
   const [predictions, setPredictions] = useState<(Driver | null)[]>(initialPredictions);
   const [history, setHistory] = useState<string[]>([]);
@@ -42,6 +89,20 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [countdown, setCountdown] = useState<string>("");
   const [applyToAll, setApplyToAll] = useState(false);
+
+  // AI Analysis state
+  const [weights, setWeights] = useState<AnalysisWeights>(DEFAULT_WEIGHTS);
+  const [showWeightsPanel, setShowWeightsPanel] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisText, setAnalysisText] = useState('');
+  const [isAnalysing, setIsAnalysing] = useState(false);
+
+  // Calculate total weight
+  const totalWeight = useMemo(() => {
+    return Object.values(weights).reduce((sum, w) => sum + w, 0);
+  }, [weights]);
+
+  const remainingPoints = MAX_TOTAL_WEIGHT - totalWeight;
 
   // Only show "Apply to All" if user has multiple teams
   const hasMultipleTeams = allTeamNames.length > 1;
@@ -205,6 +266,82 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   }
 
+  // Handle weight change with validation
+  const handleWeightChange = (key: keyof AnalysisWeights, value: number) => {
+    const currentValue = weights[key];
+    const difference = value - currentValue;
+
+    // Check if we can make this change
+    if (totalWeight + difference > MAX_TOTAL_WEIGHT) {
+      // Cap the value to what's remaining
+      const maxAllowed = currentValue + remainingPoints;
+      value = Math.min(value, maxAllowed);
+    }
+
+    setWeights(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Reset weights to default
+  const resetWeights = () => {
+    setWeights(DEFAULT_WEIGHTS);
+  };
+
+  // AI Analysis handler
+  const handleAnalysis = async () => {
+    const isComplete = predictions.every(p => p !== null);
+    if (!isComplete) {
+      toast({
+        variant: "destructive",
+        title: "Incomplete Grid",
+        description: "Please fill all 6 positions before requesting analysis."
+      });
+      return;
+    }
+
+    setIsAnalysing(true);
+    setShowAnalysis(true);
+    setAnalysisText('');
+
+    try {
+      const response = await fetch('/api/ai/analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          raceId: raceName.replace(/\s+/g, '-'),
+          raceName,
+          circuit: circuitName || raceName,
+          predictions: predictions.map((driver, idx) => ({
+            position: idx + 1,
+            driverCode: driver?.name.substring(0, 3).toUpperCase() || '',
+            driverName: driver?.name || '',
+            team: driver?.team || '',
+          })),
+          weights,
+          totalWeight,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setAnalysisText(data.analysis);
+        addChangeToHistory('🔮 AI Analysis generated', true);
+      } else {
+        throw new Error(data.error || 'Analysis failed');
+      }
+    } catch (err: any) {
+      console.error('Analysis error:', err);
+      setAnalysisText('Unable to generate analysis at this time. Please try again later.');
+      toast({
+        variant: "destructive",
+        title: "Analysis Failed",
+        description: err.message || "Could not generate analysis"
+      });
+    } finally {
+      setIsAnalysing(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card className="lg:col-span-2">
@@ -354,6 +491,114 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                     <p className="text-sm text-muted-foreground">No changes made in this session yet.</p>
                 )}
             </CardContent>
+        </Card>
+
+        {/* AI Analysis Card */}
+        <Card className="border-purple-500/30 bg-gradient-to-br from-purple-950/20 to-background">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-300">
+              <Sparkles className="h-5 w-5" />
+              AI Race Analysis
+            </CardTitle>
+            <CardDescription>Get AI-powered insights on your prediction</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Analysis Button */}
+            <Button
+              onClick={handleAnalysis}
+              disabled={isAnalysing || predictions.some(p => p === null)}
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500"
+            >
+              {isAnalysing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analysing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Analysis
+                </>
+              )}
+            </Button>
+
+            {/* Weights Panel Toggle */}
+            <Collapsible open={showWeightsPanel} onOpenChange={setShowWeightsPanel}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  {showWeightsPanel ? 'Hide' : 'Show'} Analysis Weights
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4 space-y-4">
+                {/* Weight Budget */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <span className="text-sm text-muted-foreground">Weight Budget:</span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "font-bold",
+                      remainingPoints < 0 ? "text-destructive" :
+                      remainingPoints === 0 ? "text-green-500" : "text-foreground"
+                    )}>
+                      {totalWeight}/{MAX_TOTAL_WEIGHT}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={resetWeights}>
+                      <RotateCcw className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Weight Sliders */}
+                <div className="grid gap-3">
+                  {ANALYSIS_FACETS.map(facet => {
+                    const value = weights[facet.key as keyof AnalysisWeights];
+                    return (
+                      <div key={facet.key} className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="flex items-center gap-2 text-xs">
+                            <span>{facet.icon}</span>
+                            <span>{facet.label}</span>
+                          </Label>
+                          <span className={cn(
+                            "text-xs font-mono",
+                            value === 0 ? "text-muted-foreground" :
+                            value >= 8 ? "text-purple-400" : "text-foreground"
+                          )}>
+                            {value}/10
+                          </span>
+                        </div>
+                        <Slider
+                          value={[value]}
+                          onValueChange={([v]) => handleWeightChange(facet.key as keyof AnalysisWeights, v)}
+                          max={10}
+                          step={1}
+                          className="cursor-pointer"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Analysis Result */}
+            {showAnalysis && (
+              <div className="p-4 rounded-lg bg-muted/30 border border-purple-500/20">
+                {isAnalysing ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                    <p className="text-sm text-muted-foreground">Analysing your prediction...</p>
+                  </div>
+                ) : (
+                  <div className="prose prose-sm prose-invert max-w-none">
+                    <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                      {analysisText}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
 
