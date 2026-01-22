@@ -170,9 +170,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         }
 
         // Use custom token to sign in
+        // Note: Don't set isUserLoading here - let onAuthStateChanged handle it
+        // to avoid race condition where AppLayout sees isUserLoading=false before user is set
         await signInWithCustomToken(auth, result.customToken);
 
-        setIsUserLoading(false);
         return { success: true, message: 'Login successful' };
 
     } catch (signInError: any) {
