@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
     const data: LoginRequest = await request.json();
     const { email, pin } = data;
 
+    // DEBUG: Log what we received (PIN length only, not the actual PIN)
+    console.log('[Login Debug] Email:', email, 'PIN length:', pin?.length, 'PIN chars:', pin?.split('').map(c => c.charCodeAt(0)));
+
     // Validate required fields
     if (!email || !pin) {
       await logError({
@@ -167,6 +170,9 @@ export async function POST(request: NextRequest) {
     );
 
     const authResult = await authResponse.json();
+
+    // DEBUG: Log auth result
+    console.log('[Login Debug] Auth response status:', authResponse.status, 'Error:', authResult.error?.message);
 
     if (!authResponse.ok || authResult.error) {
       // Invalid credentials - increment bad login attempts
