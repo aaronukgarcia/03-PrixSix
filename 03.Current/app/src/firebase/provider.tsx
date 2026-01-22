@@ -264,6 +264,54 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.warn('Could not add user to global league:', leagueError.message);
       }
 
+      // LATE JOINER RULE: If season has started, new users start 5 points behind last place
+      // Per rules: "Any team who joins after the season starts will begin in last place,
+      // 5 points behind the current last-place team."
+      try {
+        const scoresSnapshot = await getDocs(collection(firestore, 'scores'));
+        if (!scoresSnapshot.empty) {
+          // Season has started - calculate late joiner penalty
+          const userTotals = new Map<string, number>();
+          scoresSnapshot.forEach(scoreDoc => {
+            const data = scoreDoc.data();
+            const userId = data.userId;
+            const points = data.totalPoints || 0;
+            userTotals.set(userId, (userTotals.get(userId) || 0) + points);
+          });
+
+          if (userTotals.size > 0) {
+            // Find minimum score among existing users
+            const minScore = Math.min(...Array.from(userTotals.values()));
+            // Calculate penalty: 5 points below the current last place
+            const penaltyPoints = minScore - 5;
+
+            // Only apply penalty if it would result in negative points (actual penalty)
+            if (penaltyPoints < 0) {
+              // Create a "late joiner penalty" score entry
+              const penaltyScoreRef = doc(firestore, 'scores', `late-joiner-penalty_${uid}`);
+              await setDoc(penaltyScoreRef, {
+                userId: uid,
+                raceId: 'late-joiner-penalty',
+                raceName: 'Late Joiner Penalty',
+                totalPoints: penaltyPoints,
+                breakdown: `Joined after season started (5 pts behind ${minScore} pts)`,
+                calculatedAt: serverTimestamp(),
+                isAdjustment: true,
+              });
+
+              logAuditEvent(firestore, uid, 'LATE_JOINER_PENALTY', {
+                minScore,
+                penaltyPoints,
+                reason: 'Season already in progress',
+              });
+            }
+          }
+        }
+      } catch (penaltyError: any) {
+        // Don't fail signup if penalty calculation fails
+        console.warn('Could not calculate late joiner penalty:', penaltyError.message);
+      }
+
       // Send welcome email via Microsoft Graph API
       try {
         const emailResponse = await fetch('/api/send-welcome-email', {
