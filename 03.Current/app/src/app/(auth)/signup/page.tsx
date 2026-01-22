@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
+import { Logo } from "@/components/Logo";
 
 const funnyNames = [
     "Shortcrust Piastri",
@@ -126,7 +127,7 @@ export default function SignupPage() {
         <Card className="w-full max-w-md mx-4">
             <CardHeader className="text-center">
                  <div className="flex justify-center items-center mb-4">
-                    <svg role="img" viewBox="0 0 24 24" className="h-12 w-12 text-primary" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><title>Prix Six</title><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 22C6.486 22 2 17.514 2 12S6.486 2 12 2s10 4.486 10 10-4.486 10-10 10zm-1-16h2v6h-2V6zm0 8h2v2h-2v-2z"/></svg>
+                    <Logo size="md" />
                 </div>
                 <CardTitle className="text-3xl font-headline">Create Your Team</CardTitle>
                 <CardDescription>Join the Prix Six league and start predicting.</CardDescription>
