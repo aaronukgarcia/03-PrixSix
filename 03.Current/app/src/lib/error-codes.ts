@@ -32,6 +32,8 @@ export const ERROR_CODES = {
   VALIDATION_MISSING_FIELDS: { code: 'PX-2001', message: 'Missing required fields' },
   VALIDATION_INVALID_FORMAT: { code: 'PX-2002', message: 'Invalid data format' },
   VALIDATION_DUPLICATE_ENTRY: { code: 'PX-2003', message: 'Duplicate entry detected' },
+  VALIDATION_SECONDARY_EMAIL_SAME: { code: 'PX-2004', message: 'Secondary email cannot be the same as primary email' },
+  VALIDATION_SECONDARY_EMAIL_IN_USE: { code: 'PX-2005', message: 'This email is already in use' },
 
   // 3xxx - External Services
   EMAIL_SEND_FAILED: { code: 'PX-3001', message: 'Failed to send email' },

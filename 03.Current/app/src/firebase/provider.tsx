@@ -46,6 +46,8 @@ export interface User {
   emailVerified?: boolean; // Synced from Firebase Auth
   aiAnalysisWeights?: AnalysisWeights; // Persisted AI analysis slider settings
   photoUrl?: string; // User profile photo URL
+  secondaryEmail?: string; // Secondary email for communications only
+  secondaryEmailVerified?: boolean; // Whether secondary email is verified
 }
 
 interface AuthResult {
@@ -74,6 +76,8 @@ export interface FirebaseContextState {
   changePin: (email: string, newPin: string) => Promise<AuthResult>;
   sendVerificationEmail: () => Promise<AuthResult>;
   refreshEmailVerificationStatus: () => Promise<void>;
+  updateSecondaryEmail: (email: string | null) => Promise<AuthResult>;
+  sendSecondaryVerificationEmail: () => Promise<AuthResult>;
 }
 
 // React Context
