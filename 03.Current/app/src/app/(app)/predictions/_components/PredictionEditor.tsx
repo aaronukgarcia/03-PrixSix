@@ -395,7 +395,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                     <div
                       key={index}
                       className={cn(
-                        "relative group flex flex-col items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed bg-card-foreground/5 transition-colors min-h-[140px]",
+                        "relative group flex flex-col items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed bg-card-foreground/5 transition-colors h-[140px]",
                         isRightLane && "mt-6" // Stagger right lane back
                       )}
                     >
