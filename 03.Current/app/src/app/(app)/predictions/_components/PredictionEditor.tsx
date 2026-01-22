@@ -33,15 +33,15 @@ import { Progress } from "@/components/ui/progress";
 // Analysis facets configuration
 const ANALYSIS_FACETS = [
   { key: 'driverForm', label: 'Driver Form', icon: '📈', description: 'Recent performance over last 3-4 races' },
-  { key: 'trackHistory', label: 'Track History', icon: '🏆', description: 'Past results at this specific circuit' },
+  { key: 'trackHistory', label: 'Track Changes', icon: '🔄', description: 'Circuit evolution, resurfacing, layout mods' },
   { key: 'overtakingCrashes', label: 'Overtakes & Incidents', icon: '⚔️', description: 'Historical overtaking moves and crashes' },
   { key: 'circuitCharacteristics', label: 'Circuit Layout', icon: '🛣️', description: 'Track features, corners, straights' },
   { key: 'trackSurface', label: 'Track Surface', icon: '🏁', description: 'Grip levels, resurfacing, bumps' },
-  { key: 'layoutChanges', label: 'Layout Changes', icon: '🔄', description: 'Recent modifications vs previous years' },
+  { key: 'layoutChanges', label: 'Historical Results', icon: '🏆', description: 'Past driver performance at this circuit' },
   { key: 'weather', label: 'Weather', icon: '🌡️', description: 'Temperature, humidity, rain probability' },
   { key: 'tyreStrategy', label: 'Tyre Strategy', icon: '⚫', description: 'Compound choices, degradation, pit windows' },
   { key: 'bettingOdds', label: 'Betting Odds', icon: '💰', description: 'Current bookmaker predictions' },
-  { key: 'punditAlignment', label: 'Pundit Views', icon: '🎙️', description: 'Expert predictions comparison' },
+  { key: 'punditAlignment', label: 'Pundit Corner', icon: '🎙️', description: 'Jack Whitehall & Bernie Collins react' },
 ] as const;
 
 const DEFAULT_WEIGHTS: AnalysisWeights = {

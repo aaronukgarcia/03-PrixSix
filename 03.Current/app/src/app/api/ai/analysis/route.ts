@@ -74,15 +74,19 @@ const buildWeightedPrompt = (
 
   const facetDescriptions: Record<string, string> = {
     driverForm: `**Driver Form** (~${budgets.driverForm} words): Recent performance over the last 3-4 races. Who's on an upward trajectory? Who's struggling?`,
-    trackHistory: `**Track History** (~${budgets.trackHistory} words): How have these specific drivers performed at ${circuit} in previous years? Win rates, podiums, average finishing positions.`,
+    trackHistory: `**Track Changes** (~${budgets.trackHistory} words): How the circuit has evolved - resurfacing, layout modifications, kerb changes, DRS zones adjustments. How these changes since last year might affect drivers differently.`,
     overtakingCrashes: `**Overtakes & Incidents** (~${budgets.overtakingCrashes} words): Historical overtaking moves and crashes at this circuit. Which drivers have made bold moves here? Who has DNF'd?`,
     circuitCharacteristics: `**Circuit Layout** (~${budgets.circuitCharacteristics} words): Key features of ${circuit} - high-speed sections, technical corners, straights, elevation changes, overtaking opportunities.`,
     trackSurface: `**Track Surface** (~${budgets.trackSurface} words): Grip levels, any recent resurfacing, bumpy sections, how the surface affects tyre wear.`,
-    layoutChanges: `**Layout Changes** (~${budgets.layoutChanges} words): Any modifications to the circuit layout compared to previous years and how this might affect racing.`,
+    layoutChanges: `**Historical Results** (~${budgets.layoutChanges} words): How have these specific drivers performed at ${circuit} in previous years? Win rates, podiums, average finishing positions.`,
     weather: `**Weather** (~${budgets.weather} words): Expected temperature, humidity, wind, rain probability and how conditions might affect the predicted order.`,
     tyreStrategy: `**Tyre Strategy** (~${budgets.tyreStrategy} words): Compound choices (hard/medium/soft), expected degradation, optimal pit windows, how strategy might shuffle positions.`,
     bettingOdds: `**Betting Odds** (~${budgets.bettingOdds} words): Current bookmaker predictions for race winner and podium finishers.`,
-    punditAlignment: `**Pundit Alignment** (~${budgets.punditAlignment} words): How does this prediction compare to expert consensus? Highlight any bold or contrarian picks.`,
+    punditAlignment: `**Pundit Corner** (~${budgets.punditAlignment} words): Deliver this section as TWO distinct voices:
+
+1. **"Jack Whitehall"** - Write 2-3 sentences in Jack Whitehall's dry, insulting, mickey-taking comedy style. Playfully mock the user's bold or questionable picks with witty sarcasm. Be cheeky but not mean-spirited. Example tone: "Oh brilliant, you've put [driver] in P2. Bold choice. Very bold. The sort of bold that suggests you've either got insider information or you've been at the cooking sherry."
+
+2. **"Bernie Collins"** - Write 2-3 sentences as former F1 strategist Bernie Collins with her measured, analytical tone but include subtle dismissive undertones. Sound professionally sceptical. Hint that you've seen better predictions. Example tone: "Looking at this from a strategy perspective... it's certainly *a* prediction. The data would suggest otherwise, but I've learned that sometimes people just need to make their own mistakes."`,
   };
 
   const facetInstructions = activeFacets
