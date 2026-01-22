@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFirestore } from "@/firebase";
 import { useLeague } from "@/contexts/league-context";
@@ -98,7 +98,32 @@ function buildRaceEvents() {
 
 const allRaceEvents = buildRaceEvents();
 
-export default function ResultsPage() {
+// Loading fallback for Suspense boundary
+function ResultsLoadingFallback() {
+    return (
+        <div className="container mx-auto py-6">
+            <div className="flex items-center justify-between mb-6">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-10 w-40" />
+            </div>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-64" />
+                    <Skeleton className="h-4 w-48 mt-2" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-3">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <Skeleton key={i} className="h-12 w-full" />
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+function ResultsContent() {
     const firestore = useFirestore();
     const searchParams = useSearchParams();
     const { selectedLeague } = useLeague();
@@ -647,3 +672,12 @@ export default function ResultsPage() {
       </div>
     );
   }
+
+// Wrap ResultsContent in Suspense to handle useSearchParams
+export default function ResultsPage() {
+    return (
+        <Suspense fallback={<ResultsLoadingFallback />}>
+            <ResultsContent />
+        </Suspense>
+    );
+}

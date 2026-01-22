@@ -163,7 +163,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
          console.error("Error signing in:", signInError);
          setUserError(signInError);
          setIsUserLoading(false);
-         return { success: false, message: signInError.message || 'An error occurred during login' };
+         // Generate client-side correlation ID for network/client errors
+         const clientCorrelationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+         const errorMessage = `${signInError.message || 'An error occurred during login'} (Ref: ${clientCorrelationId})`;
+         return { success: false, message: errorMessage };
     }
   };
 
@@ -310,23 +313,25 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return { success: true, message: "Registration successful!" };
 
     } catch (error: any) {
-        const correlationId = crypto.randomUUID().substring(0, 8);
+        // Generate correlation ID using standard format
+        const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
         console.error(`Signup error [${correlationId}]:`, error);
 
         // Handle specific Firebase Auth errors with user-friendly messages
+        // All errors include correlation ID for support tracking
         switch (error.code) {
             case 'auth/email-already-in-use':
-                return { success: false, message: "A team with this email address already exists." };
+                return { success: false, message: `A team with this email address already exists. (Ref: ${correlationId})` };
             case 'auth/invalid-email':
-                return { success: false, message: "The email address format is invalid." };
+                return { success: false, message: `The email address format is invalid. (Ref: ${correlationId})` };
             case 'auth/weak-password':
-                return { success: false, message: "The PIN is too weak. Please choose a 6-digit PIN." };
+                return { success: false, message: `The PIN is too weak. Please choose a 6-digit PIN. (Ref: ${correlationId})` };
             case 'auth/network-request-failed':
-                return { success: false, message: "Network error. Please check your connection and try again." };
+                return { success: false, message: `Network error. Please check your connection and try again. (Ref: ${correlationId})` };
             case 'auth/too-many-requests':
-                return { success: false, message: "Too many attempts. Please wait a few minutes before trying again." };
+                return { success: false, message: `Too many attempts. Please wait a few minutes before trying again. (Ref: ${correlationId})` };
             default:
-                return { success: false, message: `Registration failed: ${error.message || "Unknown error"} (ID: ${correlationId})` };
+                return { success: false, message: `Registration failed: ${error.message || "Unknown error"} (Ref: ${correlationId})` };
         }
     }
   };
