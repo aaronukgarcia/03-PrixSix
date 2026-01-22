@@ -121,65 +121,87 @@ export function ErrorLogViewer() {
   const filteredLogs = useMemo(() => {
     if (!errorLogs) return [];
 
-    let logs = [...errorLogs];
+    try {
+      // Filter out any null/undefined logs first
+      let logs = errorLogs.filter(log => log && typeof log === 'object');
 
-    // Filter by category
-    if (selectedCategory !== 'all') {
-      logs = logs.filter(log => {
-        const code = log.context?.additionalInfo?.errorCode || (log as any).errorCode || '';
-        // For Unknown (PX-9) category, also include errors with no error code
-        if (selectedCategory === 'PX-9') {
-          return !code || code.startsWith('PX-9');
-        }
-        return code.startsWith(selectedCategory);
-      });
+      // Filter by category
+      if (selectedCategory !== 'all') {
+        logs = logs.filter(log => {
+          const code = log.context?.additionalInfo?.errorCode || (log as any).errorCode || '';
+          // For Unknown (PX-9) category, also include errors with no error code
+          if (selectedCategory === 'PX-9') {
+            return !code || code.startsWith('PX-9');
+          }
+          return code.startsWith(selectedCategory);
+        });
+      }
+
+      // Filter by search term
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        logs = logs.filter(log =>
+          log.correlationId?.toLowerCase()?.includes(term) ||
+          log.error?.toLowerCase()?.includes(term) ||
+          log.context?.route?.toLowerCase()?.includes(term) ||
+          log.context?.additionalInfo?.errorCode?.toLowerCase()?.includes(term)
+        );
+      }
+
+      // Filter by time for "recent" view
+      if (selectedView === 'recent') {
+        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        logs = logs.filter(log => {
+          const ts = log.timestamp?.seconds ? log.timestamp.seconds * 1000 : 0;
+          return ts > oneDayAgo;
+        });
+      }
+
+      return logs;
+    } catch (e) {
+      console.error('Error filtering logs:', e);
+      return [];
     }
-
-    // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      logs = logs.filter(log =>
-        log.correlationId?.toLowerCase().includes(term) ||
-        log.error?.toLowerCase().includes(term) ||
-        log.context?.route?.toLowerCase().includes(term) ||
-        log.context?.additionalInfo?.errorCode?.toLowerCase().includes(term)
-      );
-    }
-
-    // Filter by time for "recent" view
-    if (selectedView === 'recent') {
-      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-      logs = logs.filter(log => log.timestamp?.seconds * 1000 > oneDayAgo);
-    }
-
-    return logs;
   }, [errorLogs, selectedCategory, searchTerm, selectedView]);
-
-  // Group logs by error code
-  const groupedLogs = useMemo(() => {
-    const groups: Record<string, ErrorLog[]> = {};
-    filteredLogs.forEach(log => {
-      const code = getLogErrorCode(log) || 'Unknown';
-      if (!groups[code]) groups[code] = [];
-      groups[code].push(log);
-    });
-    return groups;
-  }, [filteredLogs]);
 
   // Helper to get error code from log (checks multiple locations)
   const getLogErrorCode = (log: ErrorLog): string | undefined => {
+    if (!log) return undefined;
     return log.context?.additionalInfo?.errorCode || (log as any).errorCode;
   };
+
+  // Group logs by error code
+  const groupedLogs = useMemo(() => {
+    try {
+      const groups: Record<string, ErrorLog[]> = {};
+      filteredLogs.forEach(log => {
+        if (!log) return;
+        const code = getLogErrorCode(log) || 'Unknown';
+        if (!groups[code]) groups[code] = [];
+        groups[code].push(log);
+      });
+      return groups;
+    } catch (e) {
+      console.error('Error grouping logs:', e);
+      return {};
+    }
+  }, [filteredLogs]);
 
   // Stats
   const stats = useMemo(() => {
     if (!errorLogs) return { total: 0, categories: {} as Record<string, number> };
-    const categories: Record<string, number> = {};
-    errorLogs.forEach(log => {
-      const cat = getErrorCategory(getLogErrorCode(log));
-      categories[cat] = (categories[cat] || 0) + 1;
-    });
-    return { total: errorLogs.length, categories };
+    try {
+      const categories: Record<string, number> = {};
+      errorLogs.forEach(log => {
+        if (!log) return;
+        const cat = getErrorCategory(getLogErrorCode(log));
+        categories[cat] = (categories[cat] || 0) + 1;
+      });
+      return { total: errorLogs.length, categories };
+    } catch (e) {
+      console.error('Error calculating stats:', e);
+      return { total: 0, categories: {} as Record<string, number> };
+    }
   }, [errorLogs]);
 
   const toggleGroup = (code: string) => {
@@ -358,9 +380,39 @@ export function ErrorLogViewer() {
 }
 
 function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }) {
+  // Defensive null checks for all fields
+  if (!log) return null;
+
   const logErrorCode = log.context?.additionalInfo?.errorCode || (log as any).errorCode;
   const category = ERROR_CATEGORIES[getErrorCategory(logErrorCode)];
   const errorCode = logErrorCode || 'Unknown';
+  const correlationId = log.correlationId || log.id || 'N/A';
+  const errorMessage = log.error || 'Unknown error';
+
+  // Safely get timestamp - handle null/undefined timestamp
+  const getTimestamp = (): Date | null => {
+    try {
+      if (log.timestamp?.seconds) {
+        return new Date(log.timestamp.seconds * 1000);
+      }
+      if (log.createdAt) {
+        return new Date(log.createdAt);
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
+  const timestamp = getTimestamp();
+
+  // Safely stringify context
+  const contextString = (() => {
+    try {
+      return JSON.stringify(log.context || {}, null, 2);
+    } catch {
+      return '{ "error": "Could not serialize context" }';
+    }
+  })();
 
   const content = (
     <div className="p-4 border-t bg-muted/50 space-y-4">
@@ -368,8 +420,8 @@ function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }
         <div>
           <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-1">Correlation ID</h4>
           <div className="flex items-center gap-1">
-            <code className="font-mono text-xs bg-background px-2 py-1 rounded select-all">{log.correlationId}</code>
-            <CopyButton text={log.correlationId} />
+            <code className="font-mono text-xs bg-background px-2 py-1 rounded select-all">{correlationId}</code>
+            <CopyButton text={correlationId} />
           </div>
         </div>
         <div>
@@ -379,7 +431,7 @@ function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }
       </div>
       <div>
         <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-1">Error Message</h4>
-        <p className="text-sm text-destructive">{log.error}</p>
+        <p className="text-sm text-destructive">{errorMessage}</p>
       </div>
       {log.stack && (
         <div>
@@ -392,7 +444,7 @@ function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }
       <div>
         <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-1">Context</h4>
         <pre className="p-2 bg-background rounded-md text-xs overflow-auto max-h-48">
-          <code>{JSON.stringify(log.context, null, 2)}</code>
+          <code>{contextString}</code>
         </pre>
       </div>
     </div>
@@ -400,20 +452,20 @@ function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }
 
   if (accordion) {
     return (
-      <AccordionItem value={log.id}>
+      <AccordionItem value={log.id || correlationId}>
         <AccordionTrigger className="p-4 hover:no-underline hover:bg-muted/50">
           <div className="flex items-center gap-3 w-full">
             <Badge className={cn(category.color, "text-white shrink-0")}>{errorCode}</Badge>
-            <span className="flex-1 text-left truncate text-sm">{log.error}</span>
+            <span className="flex-1 text-left truncate text-sm">{errorMessage}</span>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger asChild>
                   <span className="text-muted-foreground text-xs shrink-0">
-                    {formatDistanceToNow(new Date(log.timestamp.seconds * 1000), { addSuffix: true })}
+                    {timestamp ? formatDistanceToNow(timestamp, { addSuffix: true }) : 'Unknown time'}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{format(new Date(log.timestamp.seconds * 1000), "MMM d, yyyy, h:mm:ss a")}</p>
+                  <p>{timestamp ? format(timestamp, "MMM d, yyyy, h:mm:ss a") : 'No timestamp'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -428,9 +480,9 @@ function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }
     <div className="border-b last:border-b-0">
       <div className="flex items-center gap-3 p-3">
         <Badge className={cn(category.color, "text-white shrink-0")}>{errorCode}</Badge>
-        <span className="flex-1 text-left truncate text-sm">{log.error}</span>
+        <span className="flex-1 text-left truncate text-sm">{errorMessage}</span>
         <span className="text-muted-foreground text-xs shrink-0">
-          {formatDistanceToNow(new Date(log.timestamp.seconds * 1000), { addSuffix: true })}
+          {timestamp ? formatDistanceToNow(timestamp, { addSuffix: true }) : 'Unknown time'}
         </span>
       </div>
     </div>
