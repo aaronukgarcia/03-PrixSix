@@ -113,7 +113,8 @@ export async function POST(request: NextRequest) {
       data.email = normalizedEmail;
     }
 
-    // If team name is being changed, check for duplicates
+    // If team name is being changed, check for duplicates and propagate to predictions
+    let oldTeamName: string | null = null;
     if (data.teamName) {
       const normalizedTeamName = data.teamName.trim();
       const allUsersSnapshot = await db.collection('users').get();
@@ -140,6 +141,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Get the current team name before updating (for propagation)
+      const currentUserDoc = await db.collection('users').doc(userId).get();
+      if (currentUserDoc.exists) {
+        oldTeamName = currentUserDoc.data()?.teamName || null;
+      }
+
       data.teamName = normalizedTeamName;
     }
 
@@ -150,20 +157,57 @@ export async function POST(request: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // Log audit event
+    // If team name changed, propagate to all predictions (Golden Rule #3: Single Source of Truth)
+    let updatedPredictionCount = 0;
+    if (oldTeamName && data.teamName && oldTeamName !== data.teamName) {
+      // Get all predictions for this user with the old team name
+      const predictionsSnapshot = await db.collection('users').doc(userId)
+        .collection('predictions')
+        .where('teamName', '==', oldTeamName)
+        .get();
+
+      // Update each prediction with the new team name
+      const batch = db.batch();
+      predictionsSnapshot.forEach(predDoc => {
+        batch.update(predDoc.ref, { teamName: data.teamName });
+        updatedPredictionCount++;
+      });
+
+      if (updatedPredictionCount > 0) {
+        await batch.commit();
+      }
+
+      // Log specific audit event for team name change
+      await db.collection('audit_logs').add({
+        userId: adminUid,
+        action: 'TEAM_NAME_CHANGED',
+        details: {
+          targetUserId: userId,
+          oldTeamName,
+          newTeamName: data.teamName,
+          predictionsUpdated: updatedPredictionCount,
+        },
+        timestamp: FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Log general audit event
     await db.collection('audit_logs').add({
       userId: adminUid,
       action: 'ADMIN_UPDATE_USER',
       details: {
         targetUserId: userId,
         changes: data,
+        predictionsUpdated: updatedPredictionCount,
       },
       timestamp: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({
       success: true,
-      message: 'User updated successfully.',
+      message: updatedPredictionCount > 0
+        ? `User updated successfully. ${updatedPredictionCount} prediction(s) updated with new team name.`
+        : 'User updated successfully.',
     });
 
   } catch (error: any) {
