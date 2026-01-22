@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth, useFirebase } from "@/firebase";
+import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -32,9 +32,10 @@ const formSchema = z.object({
 });
 
 export default function LoginPage() {
-    const { login, isUserLoading } = useAuth();
+    const { login } = useAuth();
     const { toast } = useToast();
     const [error, setError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -47,6 +48,7 @@ export default function LoginPage() {
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setError(null);
+        setIsSubmitting(true);
         try {
             const result = await login(values.email, values.pin);
             if (result.success) {
@@ -58,6 +60,7 @@ export default function LoginPage() {
                      title: "Login Failed",
                      description: result.message,
                  });
+                 setIsSubmitting(false);
             }
         } catch (e: any) {
              setError(e.message);
@@ -66,6 +69,7 @@ export default function LoginPage() {
                 title: "Login Failed",
                 description: e.message,
             });
+            setIsSubmitting(false);
         }
     }
 
@@ -130,8 +134,8 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        <Button type="submit" className="w-full" disabled={isUserLoading}>
-                            {isUserLoading ? "Signing In..." : "Sign In"}
+                        <Button type="submit" className="w-full" disabled={isSubmitting}>
+                            {isSubmitting ? "Signing In..." : "Sign In"}
                         </Button>
                     </form>
                 </Form>
