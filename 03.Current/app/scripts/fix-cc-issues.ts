@@ -90,6 +90,7 @@ async function fixIssues() {
     { userId: 'Rin8HI7VCMa1C3b18YRiZNlhGjd2', isSecondary: true },
     { userId: 'YwlX0LGd0PeqoXrJxjCxMRrC0R63', isSecondary: false },
     { userId: 'kr8UEJunldOXCbMO3WDk2bLs2X12', isSecondary: false },
+    { userId: 'UjdT59e038XwNM1KyvWKFPVtZDk1', isSecondary: false },
   ];
 
   for (const { userId, isSecondary } of missingScores) {
