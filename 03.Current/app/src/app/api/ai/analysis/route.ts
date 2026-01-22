@@ -38,20 +38,15 @@ interface AnalysisRequest {
   totalWeight: number;
 }
 
-// Map weights to word counts (proportional allocation within 250 word cap)
-const calculateWordBudgets = (weights: AnalysisWeights, totalWeight: number): Record<string, number> => {
-  const maxWords = 250;
-  const facets = Object.entries(weights);
+// Each active facet gets 50 words - total depends on how many are active
+const WORDS_PER_FACET = 50;
 
+const calculateWordBudgets = (weights: AnalysisWeights): Record<string, number> => {
   const budgets: Record<string, number> = {};
 
-  facets.forEach(([key, weight]) => {
-    if (weight === 0) {
-      budgets[key] = 0;
-    } else {
-      // Proportional allocation
-      budgets[key] = Math.round((weight / totalWeight) * maxWords);
-    }
+  Object.entries(weights).forEach(([key, weight]) => {
+    // Every active facet (weight > 0) gets exactly 50 words
+    budgets[key] = weight > 0 ? WORDS_PER_FACET : 0;
   });
 
   return budgets;
@@ -65,7 +60,9 @@ const buildWeightedPrompt = (
   weights: AnalysisWeights,
   totalWeight: number
 ): string => {
-  const budgets = calculateWordBudgets(weights, totalWeight);
+  const budgets = calculateWordBudgets(weights);
+  const activeFacetCount = Object.values(weights).filter(w => w > 0).length;
+  const totalWordBudget = activeFacetCount * WORDS_PER_FACET;
 
   // Filter to only include facets with weight > 0, sorted by weight descending
   const activeFacets = Object.entries(weights)
@@ -73,20 +70,18 @@ const buildWeightedPrompt = (
     .sort((a, b) => b[1] - a[1]);
 
   const facetDescriptions: Record<string, string> = {
-    driverForm: `**Driver Form** (~${budgets.driverForm} words): Recent performance over the last 3-4 races. Who's on an upward trajectory? Who's struggling?`,
-    trackHistory: `**Track Changes** (~${budgets.trackHistory} words): How the circuit has evolved - resurfacing, layout modifications, kerb changes, DRS zones adjustments. How these changes since last year might affect drivers differently.`,
-    overtakingCrashes: `**Overtakes & Incidents** (~${budgets.overtakingCrashes} words): Historical overtaking moves and crashes at this circuit. Which drivers have made bold moves here? Who has DNF'd?`,
-    circuitCharacteristics: `**Circuit Layout** (~${budgets.circuitCharacteristics} words): Key features of ${circuit} - high-speed sections, technical corners, straights, elevation changes, overtaking opportunities.`,
-    trackSurface: `**Track Surface** (~${budgets.trackSurface} words): Grip levels, any recent resurfacing, bumpy sections, how the surface affects tyre wear.`,
-    layoutChanges: `**Historical Results** (~${budgets.layoutChanges} words): How have these specific drivers performed at ${circuit} in previous years? Win rates, podiums, average finishing positions.`,
-    weather: `**Weather** (~${budgets.weather} words): Expected temperature, humidity, wind, rain probability and how conditions might affect the predicted order.`,
-    tyreStrategy: `**Tyre Strategy** (~${budgets.tyreStrategy} words): Compound choices (hard/medium/soft), expected degradation, optimal pit windows, how strategy might shuffle positions.`,
-    bettingOdds: `**Betting Odds** (~${budgets.bettingOdds} words): Current bookmaker predictions for race winner and podium finishers.`,
-    punditAlignment: `**Pundit Corner** (~${budgets.punditAlignment} words): Deliver this section as TWO distinct comedic commentator voices:
-
-1. **"Jack Whitehall"** (cheeky comedian) - Write 2-3 sentences with dry British wit and playful teasing about the prediction. Use self-deprecating humour and gentle ribbing. Be warm but cheeky. Example: "Ah yes, putting [driver] in P2 - the sort of brave optimism I admire. Reminds me of the time I bet my dad I could beat him at golf. Spoiler: I couldn't."
-
-2. **"Bernie Collins"** (F1 strategist) - Write 2-3 sentences as a measured, analytical strategist who is professionally doubtful. Use understated scepticism with a knowing smile. Example: "From a strategy standpoint, this is... ambitious. The numbers tell a different story, but then again, data never won a championship - drivers do."`,
+    driverForm: `**Driver Form**: Recent performance over the last 3-4 races. Who's on an upward trajectory? Who's struggling?`,
+    trackHistory: `**Track Changes**: How the circuit has evolved - resurfacing, layout modifications, kerb changes, DRS zones. How these changes since last year affect the predicted drivers.`,
+    overtakingCrashes: `**Overtakes & Incidents**: Historical overtaking moves and crashes at this circuit. Which predicted drivers have made bold moves here? Who has DNF'd?`,
+    circuitCharacteristics: `**Circuit Layout**: Key features of ${circuit} - high-speed sections, technical corners, straights, elevation changes, overtaking opportunities.`,
+    trackSurface: `**Track Surface**: Grip levels, any recent resurfacing, bumpy sections, how the surface affects tyre wear and the predicted order.`,
+    layoutChanges: `**Historical Results**: How have the predicted drivers performed at ${circuit} in previous years? Win rates, podiums, average finishing positions.`,
+    weather: `**Weather**: Expected temperature, humidity, wind, rain probability and how conditions might affect the predicted order.`,
+    tyreStrategy: `**Tyre Strategy**: Compound choices (hard/medium/soft), expected degradation, optimal pit windows, how strategy might shuffle positions.`,
+    bettingOdds: `**Betting Odds**: Current bookmaker predictions for race winner and podium. How does the user's prediction align with the money?`,
+    punditAlignment: `**Pundit Corner**: Write as TWO voices (25 words each):
+• **Jack Whitehall** - Cheeky British wit, playful teasing, warm ribbing about bold picks
+• **Bernie Collins** - Measured strategist, understated scepticism, professionally doubtful`,
   };
 
   const facetInstructions = activeFacets
@@ -113,20 +108,20 @@ The user has submitted their top 6 prediction for the ${raceName} at ${circuit}.
 Their prediction:
 ${predictionList}
 
-Provide analysis weighted according to the user's preferences. The user has allocated ${totalWeight} points across 10 facets. Focus your analysis proportionally:
+Provide analysis covering ALL active facets below. Each facet MUST receive exactly ${WORDS_PER_FACET} words of analysis:
 
 ${facetInstructions}
 ${exclusionNote}
 
 IMPORTANT RULES:
-1. Total response MUST be 250 words maximum
-2. Allocate word count proportionally to the weights shown
-3. Skip any facet with 0 weight entirely
-4. Prioritise facets with higher weights - give them more depth
+1. Total response should be approximately ${totalWordBudget} words (${activeFacetCount} facets × ${WORDS_PER_FACET} words each)
+2. Give EACH active facet exactly ${WORDS_PER_FACET} words - no more, no less
+3. Use a clear heading for each facet section (e.g., **Driver Form**, **Track Changes**, etc.)
+4. Skip any facet with 0 weight entirely
 5. Use British English spelling
-6. Be direct and insightful - no waffle
+6. Be direct and insightful - pack value into every word
 7. Reference specific data points where possible (lap times, previous results, odds)
-8. End with a brief overall verdict on the prediction's strength
+8. End with a 20-word verdict on the prediction's overall strength
 
 Begin your analysis:`;
 };
@@ -176,7 +171,7 @@ export async function POST(request: NextRequest) {
       const result = await ai.generate({
         prompt,
         config: {
-          maxOutputTokens: 400,
+          maxOutputTokens: 1000, // ~750 words to cover 10 facets × 50 words + verdict
           temperature: 0.7,
         },
       });
