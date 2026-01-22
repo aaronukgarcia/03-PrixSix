@@ -76,7 +76,7 @@ type ChangePinValues = z.infer<typeof changePinSchema>;
 
 
 export default function ProfilePage() {
-  const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser, isEmailVerified, sendVerificationEmail, refreshEmailVerificationStatus } = useAuth();
+  const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser, isEmailVerified, sendVerificationEmail, refreshEmailVerificationStatus, updateSecondaryEmail, sendSecondaryVerificationEmail } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const { sessionId } = useSession();
@@ -88,6 +88,9 @@ export default function ProfilePage() {
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState("");
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [secondaryEmailInput, setSecondaryEmailInput] = useState("");
+  const [isSavingSecondaryEmail, setIsSavingSecondaryEmail] = useState(false);
+  const [isSendingSecondaryVerification, setIsSendingSecondaryVerification] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -131,6 +134,14 @@ export default function ProfilePage() {
       secondTeamForm.setValue("teamName", user.secondaryTeamName);
     }
   }, [user, secondTeamForm]);
+
+  useEffect(() => {
+    if (user?.secondaryEmail) {
+      setSecondaryEmailInput(user.secondaryEmail);
+    } else {
+      setSecondaryEmailInput("");
+    }
+  }, [user?.secondaryEmail]);
 
 
   async function onProfileSubmit(data: ProfileFormValues) {
@@ -327,6 +338,79 @@ export default function ProfilePage() {
       }
     } finally {
       setIsRefreshingVerification(false);
+    }
+  }
+
+  async function handleSaveSecondaryEmail() {
+    if (!secondaryEmailInput.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+      });
+      return;
+    }
+
+    setIsSavingSecondaryEmail(true);
+    try {
+      const result = await updateSecondaryEmail(secondaryEmailInput.trim());
+      if (result.success) {
+        toast({
+          title: "Secondary Email Updated",
+          description: result.message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Update Failed",
+          description: result.message,
+        });
+      }
+    } finally {
+      setIsSavingSecondaryEmail(false);
+    }
+  }
+
+  async function handleRemoveSecondaryEmail() {
+    setIsSavingSecondaryEmail(true);
+    try {
+      const result = await updateSecondaryEmail(null);
+      if (result.success) {
+        setSecondaryEmailInput("");
+        toast({
+          title: "Secondary Email Removed",
+          description: "Your secondary email has been removed.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Removal Failed",
+          description: result.message,
+        });
+      }
+    } finally {
+      setIsSavingSecondaryEmail(false);
+    }
+  }
+
+  async function handleSendSecondaryVerification() {
+    setIsSendingSecondaryVerification(true);
+    try {
+      const result = await sendSecondaryVerificationEmail();
+      if (result.success) {
+        toast({
+          title: "Verification Email Sent",
+          description: "Please check your secondary inbox and click the verification link.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to Send",
+          description: result.message,
+        });
+      }
+    } finally {
+      setIsSendingSecondaryVerification(false);
     }
   }
 
@@ -543,6 +627,79 @@ export default function ProfilePage() {
                 </div>
             </CardContent>
         </Card>
+
+        {/* Secondary Email Card */}
+        {!user?.mustChangePin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Secondary Email</CardTitle>
+              <CardDescription>
+                Add a secondary email to receive communications at both addresses. Secondary email is for notifications only and cannot be used for login.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="secondary@example.com"
+                  value={secondaryEmailInput}
+                  onChange={(e) => setSecondaryEmailInput(e.target.value)}
+                  disabled={isSavingSecondaryEmail}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSaveSecondaryEmail}
+                  disabled={isSavingSecondaryEmail || !secondaryEmailInput.trim() || secondaryEmailInput === user?.secondaryEmail}
+                >
+                  {isSavingSecondaryEmail ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+                {user?.secondaryEmail && (
+                  <Button
+                    variant="outline"
+                    onClick={handleRemoveSecondaryEmail}
+                    disabled={isSavingSecondaryEmail}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+
+              {user?.secondaryEmail && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                  {user.secondaryEmailVerified ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-600">Verified - communications will be sent to both addresses</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4 text-yellow-600" />
+                      <span className="text-sm text-yellow-600">Not verified</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSendSecondaryVerification}
+                        disabled={isSendingSecondaryVerification}
+                        className="h-7 text-xs ml-2"
+                      >
+                        {isSendingSecondaryVerification ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <Mail className="mr-1 h-3 w-3" />
+                        )}
+                        Send verification
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {user?.mustChangePin && (
             <Alert variant="destructive">

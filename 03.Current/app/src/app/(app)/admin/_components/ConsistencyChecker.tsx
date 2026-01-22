@@ -148,6 +148,8 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         teamName: u.teamName,
         isAdmin: u.isAdmin,
         secondaryTeamName: u.secondaryTeamName,
+        secondaryEmail: u.secondaryEmail,
+        secondaryEmailVerified: u.secondaryEmailVerified,
       }));
       results.push(checkUsers(userData));
 

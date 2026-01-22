@@ -106,22 +106,10 @@ export async function POST(request: NextRequest) {
       const userEmail = userData.email;
       const userTeamName = userData.teamName || 'Team';
 
-      // Check per-address limit (skip for admin email)
-      if (userEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-        const addressCount = dailyStats.emailsSent.filter(
-          e => e.toEmail.toLowerCase() === userEmail.toLowerCase()
-        ).length;
-
-        if (addressCount >= DAILY_PER_ADDRESS_LIMIT) {
-          results.push({ email: userEmail, success: false, error: `Daily limit of ${DAILY_PER_ADDRESS_LIMIT} emails reached` });
-          continue;
-        }
-      }
-
-      // Check global limit hasn't been exceeded during this batch
-      if (dailyStats.totalSent >= DAILY_GLOBAL_LIMIT) {
-        results.push({ email: userEmail, success: false, error: 'Global daily limit reached' });
-        continue;
+      // Build recipients array - primary email plus verified secondary email
+      const recipients: string[] = [userEmail];
+      if (userData.secondaryEmail && userData.secondaryEmailVerified) {
+        recipients.push(userData.secondaryEmail);
       }
 
       // Build the email HTML
@@ -130,41 +118,62 @@ export async function POST(request: NextRequest) {
         content,
       });
 
-      try {
-        const emailResult = await sendEmail({
-          toEmail: userEmail,
-          subject: 'Prix Six: Hot News Update 🏎️',
-          htmlContent: emailHtml,
-        });
+      // Send to each recipient
+      for (const recipientEmail of recipients) {
+        // Check per-address limit (skip for admin email)
+        if (recipientEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+          const addressCount = dailyStats.emailsSent.filter(
+            e => e.toEmail.toLowerCase() === recipientEmail.toLowerCase()
+          ).length;
 
-        if (emailResult.success) {
-          // Record sent email using Admin SDK
-          const entry: EmailLogEntry = {
-            toEmail: userEmail,
+          if (addressCount >= DAILY_PER_ADDRESS_LIMIT) {
+            results.push({ email: recipientEmail, success: false, error: `Daily limit of ${DAILY_PER_ADDRESS_LIMIT} emails reached` });
+            continue;
+          }
+        }
+
+        // Check global limit hasn't been exceeded during this batch
+        if (dailyStats.totalSent >= DAILY_GLOBAL_LIMIT) {
+          results.push({ email: recipientEmail, success: false, error: 'Global daily limit reached' });
+          continue;
+        }
+
+        try {
+          const emailResult = await sendEmail({
+            toEmail: recipientEmail,
             subject: 'Prix Six: Hot News Update',
-            type: 'hot_news',
-            teamName: userTeamName,
-            emailGuid: emailResult.emailGuid || '',
-            sentAt: new Date().toISOString(),
-            status: 'sent',
-          };
-
-          // Update stats atomically
-          await statsRef.update({
-            totalSent: FieldValue.increment(1),
-            emailsSent: FieldValue.arrayUnion(entry),
+            htmlContent: emailHtml,
           });
 
-          // Update local tracking
-          dailyStats.totalSent++;
-          dailyStats.emailsSent.push(entry);
+          if (emailResult.success) {
+            // Record sent email using Admin SDK
+            const entry: EmailLogEntry = {
+              toEmail: recipientEmail,
+              subject: 'Prix Six: Hot News Update',
+              type: 'hot_news',
+              teamName: userTeamName,
+              emailGuid: emailResult.emailGuid || '',
+              sentAt: new Date().toISOString(),
+              status: 'sent',
+            };
 
-          results.push({ email: userEmail, success: true, emailGuid: emailResult.emailGuid });
-        } else {
-          results.push({ email: userEmail, success: false, error: emailResult.error });
+            // Update stats atomically
+            await statsRef.update({
+              totalSent: FieldValue.increment(1),
+              emailsSent: FieldValue.arrayUnion(entry),
+            });
+
+            // Update local tracking
+            dailyStats.totalSent++;
+            dailyStats.emailsSent.push(entry);
+
+            results.push({ email: recipientEmail, success: true, emailGuid: emailResult.emailGuid });
+          } else {
+            results.push({ email: recipientEmail, success: false, error: emailResult.error });
+          }
+        } catch (error: any) {
+          results.push({ email: recipientEmail, success: false, error: error.message });
         }
-      } catch (error: any) {
-        results.push({ email: userEmail, success: false, error: error.message });
       }
     }
 

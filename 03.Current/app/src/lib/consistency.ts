@@ -41,6 +41,8 @@ export interface UserData {
   teamName?: string;
   isAdmin?: boolean;
   secondaryTeamName?: string;
+  secondaryEmail?: string;
+  secondaryEmailVerified?: boolean;
 }
 
 // --- Prediction Interfaces ---
@@ -142,7 +144,15 @@ export function checkUsers(users: UserData[]): CheckResult {
   const issues: Issue[] = [];
   const seenTeamNames = new Map<string, string>(); // teamName -> userId
   const seenSecondaryTeamNames = new Map<string, string>();
+  const primaryEmails = new Map<string, string>(); // email -> userId (for checking secondary email conflicts)
   let validCount = 0;
+
+  // First pass: collect all primary emails
+  for (const user of users) {
+    if (user.email) {
+      primaryEmails.set(user.email.toLowerCase(), user.id);
+    }
+  }
 
   for (const user of users) {
     let isValid = true;
@@ -247,6 +257,52 @@ export function checkUsers(users: UserData[]): CheckResult {
       } else {
         seenSecondaryTeamNames.set(normalizedSecondary, user.id);
       }
+    }
+
+    // Check secondary email validations
+    if (user.secondaryEmail) {
+      // Check secondary email format
+      if (!EMAIL_REGEX.test(user.secondaryEmail)) {
+        issues.push({
+          severity: 'warning',
+          entity: `User ${user.id}`,
+          field: 'secondaryEmail',
+          message: `Invalid secondary email format: ${user.secondaryEmail}`,
+        });
+      }
+
+      // Check secondary email is different from primary
+      if (user.email && user.secondaryEmail.toLowerCase() === user.email.toLowerCase()) {
+        issues.push({
+          severity: 'error',
+          entity: `User ${user.id}`,
+          field: 'secondaryEmail',
+          message: 'Secondary email cannot be the same as primary email',
+        });
+        isValid = false;
+      }
+
+      // Check secondary email is not used as another user's primary email
+      const conflictUserId = primaryEmails.get(user.secondaryEmail.toLowerCase());
+      if (conflictUserId && conflictUserId !== user.id) {
+        issues.push({
+          severity: 'error',
+          entity: `User ${user.id}`,
+          field: 'secondaryEmail',
+          message: `Secondary email "${user.secondaryEmail}" is already used as primary email by user ${conflictUserId}`,
+        });
+        isValid = false;
+      }
+    }
+
+    // Check secondaryEmailVerified is false if no secondaryEmail
+    if (!user.secondaryEmail && user.secondaryEmailVerified === true) {
+      issues.push({
+        severity: 'warning',
+        entity: `User ${user.id}`,
+        field: 'secondaryEmailVerified',
+        message: 'secondaryEmailVerified is true but no secondaryEmail is set',
+      });
     }
 
     if (isValid) {

@@ -49,11 +49,10 @@ export async function POST(request: NextRequest) {
       const userEmail = userData.email;
       const userTeamName = userData.teamName;
 
-      // Check rate limiting
-      const rateCheck = await canSendEmail(db as any, userEmail);
-      if (!rateCheck.canSend) {
-        results.push({ email: userEmail, success: false, error: rateCheck.reason });
-        continue;
+      // Build recipients array - primary email plus verified secondary email
+      const recipients: string[] = [userEmail];
+      if (userData.secondaryEmail && userData.secondaryEmailVerified) {
+        recipients.push(userData.secondaryEmail);
       }
 
       // Find the user's score
@@ -72,29 +71,39 @@ export async function POST(request: NextRequest) {
         userRank: userRank?.rank,
       });
 
-      try {
-        const emailResult = await sendEmail({
-          toEmail: userEmail,
-          subject: `Prix Six: ${raceName} Results - You scored ${userScore?.points ?? 0} points!`,
-          htmlContent: emailHtml,
-        });
-
-        if (emailResult.success) {
-          await recordSentEmail(db as any, {
-            toEmail: userEmail,
-            subject: `Prix Six: ${raceName} Results`,
-            type: 'results_notification',
-            teamName: userTeamName,
-            emailGuid: emailResult.emailGuid,
-            sentAt: new Date().toISOString(),
-            status: 'sent',
-          });
-          results.push({ email: userEmail, success: true });
-        } else {
-          results.push({ email: userEmail, success: false, error: emailResult.error });
+      // Send to each recipient
+      for (const recipientEmail of recipients) {
+        // Check rate limiting for each recipient
+        const rateCheck = await canSendEmail(db as any, recipientEmail);
+        if (!rateCheck.canSend) {
+          results.push({ email: recipientEmail, success: false, error: rateCheck.reason });
+          continue;
         }
-      } catch (error: any) {
-        results.push({ email: userEmail, success: false, error: error.message });
+
+        try {
+          const emailResult = await sendEmail({
+            toEmail: recipientEmail,
+            subject: `Prix Six: ${raceName} Results - You scored ${userScore?.points ?? 0} points!`,
+            htmlContent: emailHtml,
+          });
+
+          if (emailResult.success) {
+            await recordSentEmail(db as any, {
+              toEmail: recipientEmail,
+              subject: `Prix Six: ${raceName} Results`,
+              type: 'results_notification',
+              teamName: userTeamName,
+              emailGuid: emailResult.emailGuid,
+              sentAt: new Date().toISOString(),
+              status: 'sent',
+            });
+            results.push({ email: recipientEmail, success: true });
+          } else {
+            results.push({ email: recipientEmail, success: false, error: emailResult.error });
+          }
+        } catch (error: any) {
+          results.push({ email: recipientEmail, success: false, error: error.message });
+        }
       }
     }
 
