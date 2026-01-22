@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RaceSchedule } from "@/lib/data";
 import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -121,16 +121,16 @@ export default function StandingsPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Fetch all scores and determine completed race weekends
+  // Real-time subscription to scores collection
   useEffect(() => {
     if (!firestore) return;
 
-    const fetchData = async () => {
-      setIsLoading(true);
+    setIsLoading(true);
 
-      try {
-        // Fetch all scores
-        const scoresSnapshot = await getDocs(collection(firestore, "scores"));
+    // Subscribe to scores collection for real-time updates
+    const unsubscribe = onSnapshot(
+      collection(firestore, "scores"),
+      async (scoresSnapshot) => {
         const scores: ScoreData[] = [];
         const raceIdsWithScores = new Set<string>();
 
@@ -179,7 +179,12 @@ export default function StandingsPage() {
         });
 
         setCompletedRaceWeekends(completed);
-        setSelectedRaceIndex(completed.length - 1);
+        // Only set selectedRaceIndex if it's not already set or if there are no completed races
+        setSelectedRaceIndex(prev => {
+          if (completed.length === 0) return -1;
+          if (prev < 0 || prev >= completed.length) return completed.length - 1;
+          return prev;
+        });
 
         // Get unique user IDs and fetch team names
         const userIds = new Set<string>();
@@ -204,14 +209,16 @@ export default function StandingsPage() {
 
         setUserNames(names);
         setLastUpdated(new Date());
-      } catch (error) {
+        setIsLoading(false);
+      },
+      (error) => {
         console.error("Error fetching standings:", error);
-      } finally {
         setIsLoading(false);
       }
-    };
+    );
 
-    fetchData();
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, [firestore]);
 
   // Filter scores by selected league

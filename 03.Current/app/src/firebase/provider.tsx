@@ -218,23 +218,24 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     } catch (lookupError: any) {
       console.error(`[Signup Lookup Error ${correlationId}]`, lookupError);
 
-      // Log to error_logs collection
-      addDocumentNonBlocking(collection(firestore, 'error_logs'), {
-        correlationId,
-        errorCode: 'PX-1007',
-        error: lookupError?.message || 'Permission denied during signup lookup',
-        errorType: lookupError?.code || 'FirestoreLookupError',
-        context: {
-          route: 'provider/signup',
-          action: 'user_lookup',
-          email: email.toLowerCase(),
-          additionalInfo: {
-            errorCode: 'PX-1007',
+      // Log via API (since unauthenticated users can't write to Firestore)
+      fetch('/api/log-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          correlationId,
+          errorCode: 'PX-1007',
+          error: lookupError?.message || 'Permission denied during signup lookup',
+          stack: lookupError?.stack,
+          context: {
+            route: 'provider/signup',
+            action: 'user_lookup',
+            email: email.toLowerCase(),
             errorType: lookupError?.code || 'FirestoreLookupError',
           },
-        },
-        stack: lookupError?.stack,
-        timestamp: serverTimestamp(),
+        }),
+      }).catch(() => {
+        // Silently fail - we'll still return error to user
       });
 
       // Check for permission errors
@@ -554,19 +555,23 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       } catch (updateError: any) {
         console.error(`[PIN Reset Error ${correlationId}] Failed to update user:`, updateError);
 
-        // Log to error_logs collection
-        addDocumentNonBlocking(collection(firestore, 'error_logs'), {
-          correlationId,
-          errorCode: 'PX-1007',
-          errorType: updateError?.code || 'FirestoreUpdateError',
-          message: updateError?.message || 'Failed to update user document',
-          context: {
-            route: 'provider/resetPin',
-            action: 'updateDoc',
-            email: email.toLowerCase(),
-          },
-          timestamp: serverTimestamp(),
-        });
+        // Log via API (unauthenticated users can't write to Firestore)
+        fetch('/api/log-client-error', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            correlationId,
+            errorCode: 'PX-1007',
+            error: updateError?.message || 'Failed to update user document',
+            stack: updateError?.stack,
+            context: {
+              route: 'provider/resetPin',
+              action: 'updateDoc',
+              email: email.toLowerCase(),
+              errorType: updateError?.code || 'FirestoreUpdateError',
+            },
+          }),
+        }).catch(() => {});
 
         return {
           success: false,
@@ -588,20 +593,23 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     } catch (error: any) {
       console.error(`[PIN Reset Error ${correlationId}]`, error);
 
-      // Log to error_logs collection
-      addDocumentNonBlocking(collection(firestore, 'error_logs'), {
-        correlationId,
-        errorCode: 'PX-1006',
-        errorType: error?.code || error?.name || 'Unknown',
-        message: error?.message || 'Unknown error during PIN reset',
-        context: {
-          route: 'provider/resetPin',
-          action: 'resetPin',
-          email: email.toLowerCase(),
-        },
-        stack: error?.stack,
-        timestamp: serverTimestamp(),
-      });
+      // Log via API (unauthenticated users can't write to Firestore)
+      fetch('/api/log-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          correlationId,
+          errorCode: 'PX-1006',
+          error: error?.message || 'Unknown error during PIN reset',
+          stack: error?.stack,
+          context: {
+            route: 'provider/resetPin',
+            action: 'resetPin',
+            email: email.toLowerCase(),
+            errorType: error?.code || error?.name || 'Unknown',
+          },
+        }),
+      }).catch(() => {});
 
       // Map permission errors specifically
       if (error?.code === 'permission-denied' || error?.message?.includes('permission')) {
