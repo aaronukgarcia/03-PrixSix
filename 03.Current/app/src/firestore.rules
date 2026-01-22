@@ -32,9 +32,8 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      // All signed-in users can list users (to see team names on teams page)
-      allow list: if isSignedIn();
+      // All signed-in users can read user documents (for standings page team names)
+      allow get, list: if isSignedIn();
       // SECURITY: Users cannot create themselves as admin
       allow create: if isOwner(userId) && validUserCreate();
       // SECURITY: Users can only update non-protected fields; admins can update anything
