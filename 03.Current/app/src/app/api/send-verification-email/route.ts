@@ -61,11 +61,10 @@ export async function POST(request: NextRequest) {
       used: false,
     });
 
-    // Build verification URL
-    // Use production URL if NODE_ENV is production OR if running on Google Cloud (has GOOGLE_CLOUD_PROJECT)
+    // Build verification URL - use the primary domain
     const isProduction = process.env.NODE_ENV === 'production' || !!process.env.GOOGLE_CLOUD_PROJECT;
     const baseUrl = isProduction
-      ? 'https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app'
+      ? 'https://prix6.win'
       : 'http://localhost:9002';
     const verificationUrl = `${baseUrl}/verify-email?token=${token}&uid=${uid}`;
 

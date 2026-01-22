@@ -252,7 +252,7 @@ function buildHotNewsEmailHtml(data: { teamName: string; content: string }): str
     </div>
 
     <div style="text-align:center;margin-top:20px;">
-      <a href="https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/dashboard"
+      <a href="https://prix6.win/dashboard"
          style="display:inline-block;background:#e10600;color:white;padding:12px 30px;text-decoration:none;border-radius:5px;font-weight:bold;">
         View Dashboard
       </a>
@@ -261,7 +261,7 @@ function buildHotNewsEmailHtml(data: { teamName: string; content: string }): str
 
   <div style="background:#1a1a2e;color:white;padding:15px;text-align:center;border-radius:0 0 8px 8px;font-size:12px;">
     <p style="margin:0;">You're receiving this because you opted in to Hot News notifications.</p>
-    <p style="margin:5px 0 0;">Manage your preferences in your <a href="https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/profile" style="color:#e63946;">profile settings</a>.</p>
+    <p style="margin:5px 0 0;">Manage your preferences in your <a href="https://prix6.win/profile" style="color:#e63946;">profile settings</a>.</p>
   </div>
 </body>
 </html>

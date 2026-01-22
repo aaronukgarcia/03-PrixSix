@@ -114,7 +114,7 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
       <div class="pin-box">${pin}</div>
 
       <p style="text-align: center;">
-        <a href="https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/login" class="cta-button">Log In Now</a>
+        <a href="https://prix6.win/login" class="cta-button">Log In Now</a>
       </p>
 
       <div class="preferences">

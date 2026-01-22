@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
 
     // Send welcome email via API
     try {
-      const baseUrl = request.headers.get('origin') || 'https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app';
+      const baseUrl = request.headers.get('origin') || 'https://prix6.win';
       await fetch(`${baseUrl}/api/send-welcome-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
 
     // Send verification email
     try {
-      const baseUrl = request.headers.get('origin') || 'https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app';
+      const baseUrl = request.headers.get('origin') || 'https://prix6.win';
       await fetch(`${baseUrl}/api/send-verification-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

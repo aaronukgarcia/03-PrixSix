@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     // Use Firebase Auth REST API to verify password
     // Note: Must include Referer header to satisfy API key HTTP referrer restrictions
     // Use the request origin/referer or fall back to production URL
-    const requestOrigin = request.headers.get('origin') || request.headers.get('referer') || 'https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/';
+    const requestOrigin = request.headers.get('origin') || request.headers.get('referer') || 'https://prix6.win/';
 
     const authResponse = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`,
