@@ -1,39 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-
-// Initialize Firebase Admin
-if (!getApps().length) {
-  const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (serviceAccountPath) {
-    initializeApp({
-      credential: cert(serviceAccountPath),
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
-  } else {
-    initializeApp({
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
-  }
-}
-
-const adminDb = getFirestore();
+import { Timestamp } from 'firebase-admin/firestore';
+import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { ERROR_CODES } from '@/lib/error-codes';
 
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     const body = await request.json();
     const { token, uid } = body;
 
     if (!token || !uid) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: token and uid' },
+        {
+          success: false,
+          error: 'Missing required fields: token and uid',
+          errorCode: ERROR_CODES.VALIDATION_MISSING_FIELDS.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
 
+    const { db } = await getFirebaseAdmin();
+    const { getAuth } = await import('firebase-admin/auth');
+
     // Get the verification token document
-    const tokenRef = adminDb.collection('email_verification_tokens').doc(uid);
+    const tokenRef = db.collection('email_verification_tokens').doc(uid);
     const tokenDoc = await tokenRef.get();
 
     if (!tokenDoc.exists) {
@@ -78,14 +71,51 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark the user's email as verified in Firestore
-    const userRef = adminDb.collection('users').doc(uid);
-    await userRef.update({
-      emailVerified: true,
-    });
+    const userRef = db.collection('users').doc(uid);
+    try {
+      await userRef.update({
+        emailVerified: true,
+      });
+    } catch (userUpdateError: any) {
+      await logError({
+        correlationId,
+        error: userUpdateError,
+        context: {
+          route: '/api/verify-email',
+          action: 'update_user_document',
+          userId: uid,
+          additionalInfo: { step: 'firestore_user_update' },
+        },
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Failed to update user record',
+          errorCode: ERROR_CODES.FIRESTORE_WRITE_ERROR.code,
+          correlationId,
+        },
+        { status: 500 }
+      );
+    }
 
     // Also mark as verified in Firebase Auth
-    const auth = getAuth();
-    await auth.updateUser(uid, { emailVerified: true });
+    try {
+      const auth = getAuth();
+      await auth.updateUser(uid, { emailVerified: true });
+    } catch (authUpdateError: any) {
+      await logError({
+        correlationId,
+        error: authUpdateError,
+        context: {
+          route: '/api/verify-email',
+          action: 'update_auth_user',
+          userId: uid,
+          additionalInfo: { step: 'firebase_auth_update' },
+        },
+      });
+      // Don't fail completely - Firestore was updated, just log the auth error
+      console.warn('[Verify Email] Firebase Auth update failed, but Firestore was updated:', authUpdateError.message);
+    }
 
     // Mark the token as used
     await tokenRef.update({
@@ -94,10 +124,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Log the verification
-    await adminDb.collection('audit_logs').add({
+    await db.collection('audit_logs').add({
       userId: uid,
       action: 'email_verified_custom',
-      data: { email: tokenData.email },
+      data: { email: tokenData.email, correlationId },
       timestamp: Timestamp.now(),
     });
 
@@ -107,8 +137,22 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error verifying email:', error);
+    await logError({
+      correlationId,
+      error,
+      context: {
+        route: '/api/verify-email',
+        action: 'POST',
+        additionalInfo: { errorType: error.code || error.name || 'UnknownError' },
+      },
+    });
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      {
+        success: false,
+        error: error.message || 'Internal server error',
+        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
+        correlationId,
+      },
       { status: 500 }
     );
   }

@@ -1,25 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { Timestamp } from 'firebase-admin/firestore';
+import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { sendEmail } from '@/lib/email';
-
-// Initialize Firebase Admin
-if (!getApps().length) {
-  const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (serviceAccountPath) {
-    initializeApp({
-      credential: cert(serviceAccountPath),
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
-  } else {
-    initializeApp({
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
-  }
-}
-
-const adminDb = getFirestore();
 
 // Generate a secure verification token
 function generateVerificationToken(): string {
@@ -32,13 +15,20 @@ function generateVerificationToken(): string {
 }
 
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     const body = await request.json();
     const { uid, email, teamName } = body;
 
     if (!uid || !email) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: uid and email' },
+        {
+          success: false,
+          error: 'Missing required fields: uid and email',
+          errorCode: ERROR_CODES.VALIDATION_MISSING_FIELDS.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
@@ -46,17 +36,24 @@ export async function POST(request: NextRequest) {
     // Check if Graph API is configured
     if (!process.env.GRAPH_TENANT_ID || !process.env.GRAPH_CLIENT_ID || !process.env.GRAPH_CLIENT_SECRET) {
       return NextResponse.json(
-        { success: false, error: 'Email service not configured. Graph API credentials missing.' },
+        {
+          success: false,
+          error: 'Email service not configured. Graph API credentials missing.',
+          errorCode: ERROR_CODES.EXTERNAL_SERVICE_ERROR.code,
+          correlationId,
+        },
         { status: 503 }
       );
     }
+
+    const { db } = await getFirebaseAdmin();
 
     // Generate verification token
     const token = generateVerificationToken();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Store token in Firestore
-    await adminDb.collection('email_verification_tokens').doc(uid).set({
+    await db.collection('email_verification_tokens').doc(uid).set({
       token,
       email,
       createdAt: Timestamp.now(),
@@ -127,10 +124,10 @@ export async function POST(request: NextRequest) {
 
     if (emailResult.success) {
       // Log the verification email sent
-      await adminDb.collection('audit_logs').add({
+      await db.collection('audit_logs').add({
         userId: uid,
         action: 'verification_email_sent_graph',
-        data: { email, emailGuid: emailResult.emailGuid },
+        data: { email, emailGuid: emailResult.emailGuid, correlationId },
         timestamp: Timestamp.now(),
       });
 
@@ -140,15 +137,41 @@ export async function POST(request: NextRequest) {
         emailGuid: emailResult.emailGuid,
       });
     } else {
+      await logError({
+        correlationId,
+        error: emailResult.error || 'Failed to send verification email',
+        context: {
+          route: '/api/send-verification-email',
+          action: 'send_email',
+          userId: uid,
+          additionalInfo: { email },
+        },
+      });
       return NextResponse.json({
         success: false,
         error: emailResult.error || 'Failed to send verification email',
+        errorCode: ERROR_CODES.EMAIL_SEND_FAILED.code,
+        correlationId,
       }, { status: 500 });
     }
   } catch (error: any) {
     console.error('Error sending verification email:', error);
+    await logError({
+      correlationId,
+      error,
+      context: {
+        route: '/api/send-verification-email',
+        action: 'POST',
+        additionalInfo: { errorType: error.code || error.name || 'UnknownError' },
+      },
+    });
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      {
+        success: false,
+        error: error.message || 'Internal server error',
+        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
+        correlationId,
+      },
       { status: 500 }
     );
   }
