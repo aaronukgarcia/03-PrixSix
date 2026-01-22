@@ -36,6 +36,7 @@ export default function LoginPage() {
     const { toast } = useToast();
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isRedirecting, setIsRedirecting] = useState(false);
     const router = useRouter();
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -52,7 +53,9 @@ export default function LoginPage() {
         try {
             const result = await login(values.email, values.pin);
             if (result.success) {
+                setIsRedirecting(true);
                 router.push('/dashboard');
+                // Don't reset isSubmitting - keep button disabled during redirect
             } else {
                  setError(result.message); // Use the message from the login function
                  toast({
@@ -134,8 +137,8 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        <Button type="submit" className="w-full" disabled={isSubmitting}>
-                            {isSubmitting ? "Signing In..." : "Sign In"}
+                        <Button type="submit" className="w-full" disabled={isSubmitting || isRedirecting}>
+                            {isRedirecting ? "Welcome! Loading..." : isSubmitting ? "Signing In..." : "Sign In"}
                         </Button>
                     </form>
                 </Form>
