@@ -21,6 +21,9 @@ env:
     value: studio-6033436327-281b1.firebaseapp.com
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     value: 966261161276
+  # Google Cloud project for Vertex AI (Genkit)
+  - variable: GOOGLE_CLOUD_PROJECT
+    value: studio-6033436327-281b1
   # Microsoft Graph secrets for email functionality
   - variable: GRAPH_TENANT_ID
     secret: GRAPH_TENANT_ID

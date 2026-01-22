@@ -7,7 +7,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -21,6 +21,7 @@ import { ConsistencyChecker } from "./_components/ConsistencyChecker";
 import { WhatsAppManager } from "./_components/WhatsAppManager";
 import { StandingDataManager } from "./_components/StandingDataManager";
 import { FeedbackManager } from "./_components/FeedbackManager";
+import { ErrorLogViewer } from "./_components/ErrorLogViewer";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
@@ -78,7 +79,7 @@ export default function AdminPage() {
                 <p className="text-muted-foreground">Manage the Prix Six league.</p>
             </div>
             <Tabs defaultValue="functions" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-6 sm:grid-cols-12">
+                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 lg:grid-cols-13">
                     <TabsTrigger value="functions"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
                     <TabsTrigger value="teams"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
                     <TabsTrigger value="results"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
@@ -91,6 +92,7 @@ export default function AdminPage() {
                     <TabsTrigger value="standing"><Database className="w-4 h-4 mr-2"/>Standing</TabsTrigger>
                     <TabsTrigger value="feedback"><Bug className="w-4 h-4 mr-2"/>Feedback</TabsTrigger>
                     <TabsTrigger value="consistency"><ClipboardCheck className="w-4 h-4 mr-2"/>CC</TabsTrigger>
+                    <TabsTrigger value="errors"><AlertTriangle className="w-4 h-4 mr-2"/>Errors</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
@@ -128,6 +130,9 @@ export default function AdminPage() {
                 </TabsContent>
                 <TabsContent value="consistency">
                     <ConsistencyChecker allUsers={allUsers} isUserLoading={isUserLoading} />
+                </TabsContent>
+                <TabsContent value="errors">
+                    <ErrorLogViewer />
                 </TabsContent>
             </Tabs>
       </div>

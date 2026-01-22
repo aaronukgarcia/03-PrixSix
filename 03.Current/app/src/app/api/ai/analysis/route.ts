@@ -131,33 +131,9 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
-    // Check if Vertex AI credentials are configured
-    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_CLOUD_PROJECT) {
-      console.error(`[AI Analysis Error ${correlationId}] Vertex AI credentials not configured`);
-
-      await logError({
-        correlationId,
-        error: 'GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_CLOUD_PROJECT not set',
-        context: {
-          route: '/api/ai/analysis',
-          action: 'config_check',
-          additionalInfo: {
-            errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
-            errorType: 'ConfigurationError',
-          },
-        },
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'AI service not configured. Please contact administrator.',
-          errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
-          correlationId,
-        },
-        { status: 500 }
-      );
-    }
+    // Note: Firebase App Hosting uses Application Default Credentials (ADC) automatically.
+    // genkit.ts has a fallback projectId, so we don't need to check env vars here.
+    // If credentials are missing, Vertex AI will return a meaningful error.
 
     const body: AnalysisRequest = await request.json();
     const { raceName, circuit, predictions, weights, totalWeight } = body;

@@ -13,7 +13,11 @@ interface Presence {
   id: string;
   online: boolean;
   sessions?: string[];
+  sessionActivity?: { [sessionId: string]: number };
 }
+
+// Sessions older than this are considered stale (matches OnlineUsersManager)
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 const AboutPageClient = () => {
     const firestore = useFirestore();
@@ -37,13 +41,28 @@ const AboutPageClient = () => {
 
     const { data: presenceDocs, isLoading } = useCollection<Presence>(presenceQuery);
 
-    // Calculate total online sessions by summing the length of the 'sessions' array in each document.
-    // Filter client-side for docs with non-empty sessions arrays.
+    // Calculate total ACTIVE online sessions by checking sessionActivity timestamps.
+    // Only count sessions that have been active within the timeout window.
     const onlineUserCount = useMemo(() => {
         if (!presenceDocs) return 0;
+        const now = Date.now();
+
         return presenceDocs
             .filter(doc => doc.sessions && doc.sessions.length > 0)
-            .reduce((acc, doc) => acc + (doc.sessions?.length || 0), 0);
+            .reduce((acc, doc) => {
+                if (!doc.sessions) return acc;
+
+                // Count only sessions active within timeout window
+                const activeSessions = doc.sessions.filter(sessionId => {
+                    if (doc.sessionActivity) {
+                        const lastActivity = doc.sessionActivity[sessionId];
+                        return lastActivity && (now - lastActivity) < SESSION_TIMEOUT_MS;
+                    }
+                    return true; // Legacy sessions without activity tracking
+                });
+
+                return acc + activeSessions.length;
+            }, 0);
     }, [presenceDocs]);
 
     const hld = backendData.firestore.reasoning;
