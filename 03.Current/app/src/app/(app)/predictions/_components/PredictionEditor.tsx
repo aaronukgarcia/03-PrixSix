@@ -396,7 +396,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                       key={index}
                       className={cn(
                         "relative group flex flex-col items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed bg-card-foreground/5 transition-colors h-[140px]",
-                        isRightLane && "mt-6" // Stagger right lane back
+                        isRightLane && "translate-y-6" // Stagger right lane visually without affecting layout
                       )}
                     >
                       <div className="absolute top-1 left-2 font-bold text-muted-foreground text-sm">P{index + 1}</div>
