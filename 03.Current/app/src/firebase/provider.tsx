@@ -171,256 +171,61 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   };
 
   const signup = async (email: string, teamName: string, pin?: string): Promise<AuthResult> => {
-    // Check if new user signups are enabled
+    // Use server-side API for signup (handles permission checks with Admin SDK)
     try {
-      const settingsRef = doc(firestore, 'admin_configuration', 'site_settings');
-      const settingsSnap = await getDoc(settingsRef);
-      if (settingsSnap.exists()) {
-        const settings = settingsSnap.data();
-        if (settings.newUserSignupEnabled === false) {
-          return { success: false, message: "New user registration is currently disabled." };
-        }
-      }
-    } catch (e) {
-      console.error("Failed to check signup settings:", e);
-      // Continue with signup if settings check fails
-    }
-
-    // Generate correlation ID upfront for error tracking
-    const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-
-    const usersRef = collection(firestore, "users");
-
-    // Check if email already exists in Firestore
-    try {
-      const emailQuery = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
-      const emailSnapshot = await getDocs(emailQuery);
-
-      if (!emailSnapshot.empty) {
-        return { success: false, message: "A team with this email address already exists." };
-      }
-
-      // Check if team name already exists (case-insensitive)
-      const allUsersSnapshot = await getDocs(usersRef);
-      const normalizedNewName = teamName.toLowerCase().trim();
-      let teamNameExists = false;
-
-      allUsersSnapshot.forEach(docSnap => {
-        const existingName = docSnap.data().teamName?.toLowerCase().trim();
-        if (existingName === normalizedNewName) {
-          teamNameExists = true;
-        }
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, teamName, pin }),
       });
 
-      if (teamNameExists) {
-        return { success: false, message: "This team name is already taken. Please choose a unique name." };
-      }
-    } catch (lookupError: any) {
-      console.error(`[Signup Lookup Error ${correlationId}]`, lookupError);
+      const result = await response.json();
 
-      // Log via API (since unauthenticated users can't write to Firestore)
+      if (!result.success) {
+        // Build error message with available details
+        let errorMessage = result.error || 'Registration failed';
+        if (result.errorCode) {
+          errorMessage = `${errorMessage} [${result.errorCode}]`;
+        }
+        if (result.correlationId) {
+          errorMessage = `${errorMessage} (Ref: ${result.correlationId})`;
+        }
+        return { success: false, message: errorMessage };
+      }
+
+      // Sign in with the custom token returned by the API
+      if (result.customToken) {
+        await signInWithCustomToken(auth, result.customToken);
+      }
+
+      return { success: true, message: result.message || 'Registration successful!' };
+
+    } catch (error: any) {
+      // Generate client-side correlation ID for network/client errors
+      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      console.error(`[Signup Error ${correlationId}]`, error);
+
+      // Log via API
       fetch('/api/log-client-error', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           correlationId,
-          errorCode: 'PX-1007',
-          error: lookupError?.message || 'Permission denied during signup lookup',
-          stack: lookupError?.stack,
+          errorCode: 'PX-9002',
+          error: error?.message || 'Network error during signup',
+          stack: error?.stack,
           context: {
             route: 'provider/signup',
-            action: 'user_lookup',
-            email: email.toLowerCase(),
-            errorType: lookupError?.code || 'FirestoreLookupError',
+            action: 'api_call',
+            email: email?.toLowerCase(),
           },
         }),
-      }).catch(() => {
-        // Silently fail - we'll still return error to user
-      });
-
-      // Check for permission errors
-      if (lookupError?.code === 'permission-denied' || lookupError?.message?.includes('permission')) {
-        return {
-          success: false,
-          message: `Registration failed - permission denied. Please contact support. [PX-1007] (Ref: ${correlationId})`,
-        };
-      }
+      }).catch(() => {});
 
       return {
         success: false,
-        message: `Registration failed - unable to verify account details. [PX-4001] (Ref: ${correlationId})`,
+        message: `Registration failed - network error. Please check your connection and try again. [PX-9002] (Ref: ${correlationId})`,
       };
-    }
-
-    // Use provided PIN or generate random one (for backward compatibility)
-    const userPin = pin || Math.floor(100000 + Math.random() * 900000).toString();
-
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, userPin);
-      const { uid } = userCredential.user;
-
-      const newUser: User = {
-        id: uid,
-        email,
-        teamName,
-        isAdmin: false, // Default new users to not be admin
-        mustChangePin: false,
-        badLoginAttempts: 0,
-        emailVerified: false, // Will be updated when user verifies email
-      };
-      await setDoc(doc(firestore, 'users', uid), newUser);
-      await setDoc(doc(firestore, "presence", uid), { online: false, sessions: [] });
-
-      // Send email verification via Graph API
-      try {
-        const verifyResponse = await fetch('/api/send-verification-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uid,
-            email,
-            teamName,
-          }),
-        });
-        const verifyResult = await verifyResponse.json();
-        if (verifyResult.success) {
-          logAuditEvent(firestore, uid, 'verification_email_sent', { email, emailGuid: verifyResult.emailGuid });
-        } else {
-          console.warn('Verification email not sent:', verifyResult.error);
-        }
-      } catch (verificationError: any) {
-        console.error('Failed to send verification email:', verificationError);
-        // Don't fail signup if verification email fails
-      }
-
-      // Add user to global league
-      try {
-        await updateDoc(doc(firestore, 'leagues', GLOBAL_LEAGUE_ID), {
-          memberUserIds: arrayUnion(uid),
-          updatedAt: serverTimestamp()
-        });
-      } catch (leagueError: any) {
-        // Don't fail signup if global league doesn't exist yet (will be added by migration)
-        console.warn('Could not add user to global league:', leagueError.message);
-      }
-
-      // LATE JOINER RULE: If season has started, new users start 5 points behind last place
-      // Per rules: "Any team who joins after the season starts will begin in last place,
-      // 5 points behind the current last-place team."
-      try {
-        const scoresSnapshot = await getDocs(collection(firestore, 'scores'));
-        if (!scoresSnapshot.empty) {
-          // Season has started - calculate late joiner penalty
-          const userTotals = new Map<string, number>();
-          scoresSnapshot.forEach(scoreDoc => {
-            const data = scoreDoc.data();
-            const userId = data.userId;
-            const points = data.totalPoints || 0;
-            userTotals.set(userId, (userTotals.get(userId) || 0) + points);
-          });
-
-          if (userTotals.size > 0) {
-            // Find minimum score among existing users
-            const minScore = Math.min(...Array.from(userTotals.values()));
-            // Calculate penalty: 5 points below the current last place
-            const penaltyPoints = minScore - 5;
-
-            // Only apply penalty if it would result in negative points (actual penalty)
-            if (penaltyPoints < 0) {
-              // Create a "late joiner penalty" score entry
-              const penaltyScoreRef = doc(firestore, 'scores', `late-joiner-penalty_${uid}`);
-              await setDoc(penaltyScoreRef, {
-                userId: uid,
-                raceId: 'late-joiner-penalty',
-                raceName: 'Late Joiner Penalty',
-                totalPoints: penaltyPoints,
-                breakdown: `Joined after season started (5 pts behind ${minScore} pts)`,
-                calculatedAt: serverTimestamp(),
-                isAdjustment: true,
-              });
-
-              logAuditEvent(firestore, uid, 'LATE_JOINER_PENALTY', {
-                minScore,
-                penaltyPoints,
-                reason: 'Season already in progress',
-              });
-            }
-          }
-        }
-      } catch (penaltyError: any) {
-        // Don't fail signup if penalty calculation fails
-        console.warn('Could not calculate late joiner penalty:', penaltyError.message);
-      }
-
-      // Send welcome email via Microsoft Graph API
-      try {
-        const emailResponse = await fetch('/api/send-welcome-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ toEmail: email, teamName, pin: userPin })
-        });
-        const emailResult = await emailResponse.json();
-
-        // Log to email_logs collection for audit trail
-        const emailLogPayload = {
-          to: email,
-          subject: "Welcome to Prix Six - Your Account is Ready!",
-          pin: "[user-created]",
-          status: emailResult.success ? 'sent' : 'failed',
-          emailGuid: emailResult.emailGuid || null,
-          error: emailResult.error || null,
-          timestamp: serverTimestamp()
-        };
-        addDocumentNonBlocking(collection(firestore, 'email_logs'), emailLogPayload);
-
-        logAuditEvent(firestore, uid, 'signup_email_sent', {
-          email,
-          teamName,
-          emailGuid: emailResult.emailGuid,
-          success: emailResult.success
-        });
-      } catch (emailError: any) {
-        console.error('Failed to send welcome email:', emailError);
-        // Don't fail signup if email fails - log the error
-        addDocumentNonBlocking(collection(firestore, 'email_logs'), {
-          to: email,
-          subject: "Welcome to Prix Six",
-          status: 'error',
-          error: emailError.message,
-          timestamp: serverTimestamp()
-        });
-      }
-
-      // Log USER_REGISTERED audit event
-      logAuditEvent(firestore, uid, 'USER_REGISTERED', {
-        email,
-        teamName,
-        registeredAt: new Date().toISOString(),
-      });
-
-      return { success: true, message: "Registration successful!" };
-
-    } catch (error: any) {
-        // Generate correlation ID using standard format
-        const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-        console.error(`Signup error [${correlationId}]:`, error);
-
-        // Handle specific Firebase Auth errors with user-friendly messages
-        // All errors include correlation ID for support tracking
-        switch (error.code) {
-            case 'auth/email-already-in-use':
-                return { success: false, message: `A team with this email address already exists. (Ref: ${correlationId})` };
-            case 'auth/invalid-email':
-                return { success: false, message: `The email address format is invalid. (Ref: ${correlationId})` };
-            case 'auth/weak-password':
-                return { success: false, message: `The PIN is too weak. Please choose a 6-digit PIN. (Ref: ${correlationId})` };
-            case 'auth/network-request-failed':
-                return { success: false, message: `Network error. Please check your connection and try again. (Ref: ${correlationId})` };
-            case 'auth/too-many-requests':
-                return { success: false, message: `Too many attempts. Please wait a few minutes before trying again. (Ref: ${correlationId})` };
-            default:
-                return { success: false, message: `Registration failed: ${error.message || "Unknown error"} (Ref: ${correlationId})` };
-        }
     }
   };
   
