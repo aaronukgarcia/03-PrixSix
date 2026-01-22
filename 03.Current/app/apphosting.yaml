@@ -10,6 +10,9 @@ runConfig:
 # NEXT_PUBLIC_ vars are not secrets - they're public Firebase config
 # The sensitive GRAPH_ vars must be set via: firebase apphosting:secrets:set
 env:
+  # Node environment for production detection
+  - variable: NODE_ENV
+    value: production
   # Public Firebase config (embedded in client JS anyway)
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: AIzaSyA23isMS-Jt60amqI-0XZHoMZeQOawtsSk
