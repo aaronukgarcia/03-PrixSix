@@ -139,6 +139,18 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds', 'updatedAt']);
       }
 
+      // Check if update ONLY adds the current user to memberUserIds (joining a league)
+      function onlySelfAddition() {
+        let oldMembers = resource.data.memberUserIds;
+        let newMembers = request.resource.data.memberUserIds;
+        // New list must be old list plus only the current user
+        return newMembers.size() == oldMembers.size() + 1
+            && request.auth.uid in newMembers
+            && !(request.auth.uid in oldMembers)
+            // Ensure no other fields changed except memberUserIds and updatedAt
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds', 'updatedAt']);
+      }
+
       // GET: Single document access - member, global, or admin
       allow get: if isSignedIn() && (
         isMember() || resource.data.isGlobal == true || isAdmin()
@@ -156,10 +168,11 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.memberUserIds
         && request.resource.data.isGlobal == false;
 
-      // UPDATE: Owner OR member removing only themselves
+      // UPDATE: Owner OR member leaving OR non-member joining
       allow update: if isSignedIn() && (
         isLeagueOwner() ||
-        (isMember() && onlySelfRemoval())
+        (isMember() && onlySelfRemoval()) ||
+        onlySelfAddition()
       );
 
       // DELETE: Owner only (not global)

@@ -6,6 +6,268 @@
 
 ---
 
+## ⚠️ GOLDEN RULES — INVIOLABLE, NON-NEGOTIABLE
+
+These rules MUST be followed on every piece of code written and every response given. No exceptions. No shortcuts. Ever.
+
+| Rule | Summary |
+|------|---------|
+| #1 | Aggressive Error Trapping — log, type, correlation ID, selectable display |
+| #2 | Version Discipline — bump on every commit, verify after every push |
+| #3 | Single Source of Truth — no duplication without CC validation |
+| #4 | Identity Prefix — every response starts with `bob>` or `bill>` |
+| #5 | Verbose Confirmations — explicit, timestamped, version-numbered confirmations |
+
+### 🛑 GOLDEN RULE #1: Aggressive Error Trapping
+
+**Every function, API call, database operation, or async action MUST have comprehensive error handling.** This is not optional. This is not "nice to have". This is mandatory.
+
+#### The Four Pillars — ALL FOUR REQUIRED ON EVERY ERROR
+
+| Pillar | Requirement | Implementation |
+|--------|-------------|----------------|
+| **1. Error Log** | Every error MUST be logged to `error_logs` collection | Call `logError()` — no silent failures |
+| **2. Error Type** | Every error MUST map to a defined error code | Use `ERROR_CODES` from `error-codes.ts` |
+| **3. Correlation ID** | Every error MUST have a unique correlation ID | Use `generateCorrelationId()` or `generateClientCorrelationId()` |
+| **4. Selectable Display** | Every error shown to users MUST have copy-pasteable text | User must be able to select and copy the error code + correlation ID |
+
+#### Before You Write ANY Code
+
+Ask yourself:
+- ❓ What can fail here?
+- ❓ What error code will I use?
+- ❓ How will the user copy the error details?
+- ❓ Is the error being logged?
+
+If you cannot answer ALL FOUR questions, **stop and add error handling first**.
+
+#### Minimum Error Handling Template
+
+**For API Routes / Server Actions:**
+```typescript
+import { ERROR_CODES, generateCorrelationId } from '@/lib/error-codes';
+import { logError } from '@/lib/firebase-admin';
+
+const correlationId = generateCorrelationId();
+try {
+  // Your code here
+} catch (error) {
+  await logError({ 
+    correlationId, 
+    error, 
+    errorCode: ERROR_CODES.RELEVANT_CODE.code,
+    context: { route: '/api/your-route', userId, action: 'what-you-were-doing' } 
+  });
+  
+  return NextResponse.json({
+    success: false,
+    error: ERROR_CODES.RELEVANT_CODE.message,
+    errorCode: ERROR_CODES.RELEVANT_CODE.code,
+    correlationId,  // MUST be included for user to copy
+  }, { status: 500 });
+}
+```
+
+**For React Components / Client-Side:**
+```typescript
+import { ERROR_CODES, generateClientCorrelationId } from '@/lib/error-codes';
+
+try {
+  // Your code here
+} catch (error) {
+  const correlationId = generateClientCorrelationId();
+  
+  // Log to server (fire-and-forget is acceptable)
+  fetch('/api/log-error', {
+    method: 'POST',
+    body: JSON.stringify({ correlationId, error: error.message, errorCode: ERROR_CODES.RELEVANT_CODE.code })
+  });
+  
+  // Display with SELECTABLE text — user MUST be able to copy this
+  toast({
+    variant: "destructive",
+    title: `Error ${ERROR_CODES.RELEVANT_CODE.code}`,
+    description: (
+      <span className="select-all cursor-text">
+        {error.message} — Ref: {correlationId}
+      </span>
+    ),
+  });
+}
+```
+
+#### What "Selectable Display" Means
+
+The error message shown to users MUST allow them to:
+1. Click/tap on the error text
+2. Select (highlight) the error code and correlation ID
+3. Copy to clipboard (Ctrl+C / Cmd+C / long-press)
+4. Paste into WhatsApp or email to report the issue
+
+**Acceptable implementations:**
+- `<span className="select-all cursor-text">` — makes entire span selectable on click
+- `<code>` or `<pre>` elements — naturally selectable
+- Copy button next to the error — explicit copy action
+- Toast with selectable description text
+
+**NOT acceptable:**
+- Error codes only in console logs
+- Correlation IDs not shown to user
+- Non-selectable toast messages
+- Screenshots as the only way to report errors
+
+#### Compliance Check
+
+When reviewing code (your own or PRs), verify:
+
+- [ ] Every `try` block has a corresponding `catch` with full error handling
+- [ ] Every `catch` generates or uses a correlation ID
+- [ ] Every `catch` maps to an `ERROR_CODES` entry
+- [ ] Every user-facing error displays selectable text with code + correlation ID
+- [ ] Every error is logged via `logError()` or equivalent API call
+
+**If ANY checkbox fails, the code is not ready for commit.**
+
+---
+
+### 🛑 GOLDEN RULE #2: Version Discipline
+
+**Every commit MUST bump the version number. Every push to main MUST be verified for build success and version consistency.**
+
+#### Version Bump Requirements
+
+| When | Action Required |
+|------|-----------------|
+| **Every commit** | Bump PATCH version minimum (e.g., 1.17.0 → 1.17.1) |
+| **New feature** | Bump MINOR version (e.g., 1.17.1 → 1.18.0) |
+| **Breaking change** | Bump MAJOR version (e.g., 1.18.0 → 2.0.0) |
+
+#### Files That MUST Be Updated Together
+
+Both files MUST show the same version number — always update them as a pair:
+
+1. `app/package.json` — the `"version"` field
+2. `app/src/lib/version.ts` — the `APP_VERSION` constant
+
+**Never update one without the other.**
+
+#### Post-Push Verification — MANDATORY
+
+After every push to `main`, you MUST:
+
+1. **Wait for build completion** (~3-5 minutes)
+2. **Check build logs for success:**
+   ```powershell
+   powershell -Command "& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' logging read 'resource.type=\"build\"' --project=studio-6033436327-281b1 --limit=20 --freshness=15m --format='value(textPayload)'"
+   ```
+3. **Verify version consistency across all pages:**
+
+| Page | URL | What to Check |
+|------|-----|---------------|
+| About | https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about | Version number displayed |
+| Login | https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/login | Version number in footer/corner |
+
+4. **Confirm all pages show IDENTICAL version numbers**
+
+#### If Versions Don't Match
+
+This indicates a build failure or caching issue:
+1. Hard refresh the pages (Ctrl+Shift+R)
+2. Check build logs for errors
+3. If still mismatched, investigate which file wasn't updated
+4. Fix and push a correction commit
+
+#### Version Verification Checklist
+
+Before marking a push as "complete", verify:
+
+- [ ] Build logs show `DONE` status
+- [ ] About page shows correct version
+- [ ] Login page shows correct version
+- [ ] Both pages show IDENTICAL version
+- [ ] Version matches what's in `package.json` and `version.ts`
+
+**A push is NOT complete until all boxes are checked.**
+
+---
+
+### 🛑 GOLDEN RULE #3: Single Source of Truth
+
+**Data MUST have exactly one authoritative source. If technical constraints require duplication, the Consistency Checker MUST validate synchronisation.**
+
+#### The Principle
+
+Every piece of data in the system must have ONE canonical location. All other usages must either:
+- **Reference** the source (preferred), OR
+- **Duplicate with mandatory sync validation** (when technically unavoidable)
+
+#### Prohibited Patterns
+
+| ❌ Don't Do This | ✅ Do This Instead |
+|------------------|-------------------|
+| Store user email in Firestore AND Firebase Auth independently | Firebase Auth is the source; Firestore references or caches with sync check |
+| Store driver names in multiple collections | Single `drivers` collection; other collections reference by ID |
+| Hardcode values that exist in the database | Read from database or use constants file as single source |
+| Store calculated values that can be derived | Calculate on read, or cache with clear invalidation rules |
+
+#### Firebase Auth vs Firestore — CRITICAL
+
+Firebase Auth and Firestore are separate systems. When user data exists in both:
+
+| Data Field | Authoritative Source | Duplication Rules |
+|------------|---------------------|-------------------|
+| Email | Firebase Auth | If cached in Firestore, CC MUST verify match |
+| Display Name | Firebase Auth | If cached in Firestore, CC MUST verify match |
+| UID | Firebase Auth | Firestore documents keyed by UID — this is a reference, not duplication |
+| User preferences | Firestore | NOT in Firebase Auth |
+| Team memberships | Firestore | NOT in Firebase Auth |
+
+#### When Duplication Is Unavoidable
+
+Sometimes technical constraints force duplication (e.g., Firestore queries need denormalised data). In these cases:
+
+1. **Document the duplication** — Add a comment explaining why it's necessary
+2. **Identify the source of truth** — Which system "wins" if they disagree?
+3. **Add a Consistency Checker validation** — The CC MUST flag mismatches
+
+#### Consistency Checker Requirements
+
+The CC (`/app/src/components/admin/ConsistencyChecker.tsx`) MUST include validations for:
+
+| Check | What It Validates |
+|-------|-------------------|
+| `auth-firestore-email-sync` | User email in Firebase Auth matches email in Firestore users collection |
+| `auth-firestore-name-sync` | Display name in Firebase Auth matches name in Firestore (if stored) |
+| `driver-reference-integrity` | All driver IDs referenced in teams/predictions exist in drivers collection |
+| `track-reference-integrity` | All track IDs referenced in races exist in tracks collection |
+
+#### Adding New Data — Decision Tree
+
+Before adding any new data field, ask:
+
+```
+Does this data already exist somewhere?
+├── YES → Reference it, don't duplicate
+│         └── Can't reference due to technical constraint?
+│             └── Add CC validation for sync
+└── NO → Add to ONE location only
+         └── Document where it lives in CLAUDE.md if it's a key entity
+```
+
+#### Compliance Checklist
+
+When reviewing code that involves data:
+
+- [ ] New data fields have exactly one source of truth
+- [ ] Any duplication is documented with justification
+- [ ] Any duplication has a corresponding CC validation
+- [ ] References use IDs, not copied values
+- [ ] Firebase Auth data is not independently stored in Firestore without sync checks
+
+**If ANY checkbox fails, the code violates Single Source of Truth.**
+
+---
+
 ## 🚨 MANDATORY: Session Coordination Protocol
 
 ### Session Start — ALWAYS do this first
@@ -34,13 +296,120 @@ or
 bill> Good morning, I'm Bill on branch feature/xyz. No conflicts detected.
 ```
 
-### Response Prefix — ALWAYS use this
+---
 
-**Prefix ALL your responses with your assigned name:**
-- If you are Bob: `bob> `
-- If you are Bill: `bill> `
+### 🛑 GOLDEN RULE #4: Identity Prefix — EVERY SINGLE RESPONSE
 
-This helps the user know which instance they're talking to.
+> **THIS IS NON-NEGOTIABLE. YOU MUST DO THIS. EVERY. SINGLE. TIME.**
+
+**EVERY response you give MUST start with your assigned name prefix:**
+
+| If you are | Your prefix | Example |
+|------------|-------------|---------|
+| First instance | `bob> ` | `bob> I've updated the file...` |
+| Second instance | `bill> ` | `bill> The build completed...` |
+
+#### Why This Matters
+
+Aaron often has two Claude Code instances running simultaneously. Without the prefix, he cannot tell which instance is responding. This causes confusion, wasted time, and potential conflicts.
+
+#### Correct Examples
+
+```
+bob> I've reviewed the error handling and it follows Golden Rule #1.
+
+bob> Version bumped to 1.30.1 in both package.json and version.ts.
+
+bob> Build 1.30.1 deployed at 20:21 successfully. About page and Login page both show 1.30.1.
+```
+
+#### WRONG — Never Do This
+
+```
+I've reviewed the error handling...     ← WRONG: No prefix
+
+Sure, I can help with that...           ← WRONG: No prefix
+
+The build completed successfully.       ← WRONG: No prefix
+```
+
+#### Self-Check Before Every Response
+
+Before sending ANY response, ask yourself:
+- ❓ Does my response start with `bob> ` or `bill> `?
+- ❓ If NO, add it NOW before sending
+
+**If you forget your assignment, run `node claude-sync.js read` to check.**
+
+#### Mid-Session Self-Check
+
+**Every 5 responses, mentally verify: "Am I still using my prefix?"**
+
+If you catch yourself without it:
+1. Immediately correct by adding the prefix
+2. Apologise: `bob> Apologies — I dropped my prefix. Correcting now. [continue with response]`
+
+This drift is common in long sessions. Stay vigilant.
+
+---
+
+### 🛑 GOLDEN RULE #5: Verbose Confirmations
+
+**When completing key actions, you MUST provide explicit, timestamped confirmations. No vague "done" or "completed" messages.**
+
+#### Required Confirmation Formats
+
+| Action | Required Confirmation Format |
+|--------|------------------------------|
+| Version bump | `bob> Version bumped to 1.30.1 in both package.json and version.ts.` |
+| Commit | `bob> Committed: "feat: add deadline warnings" (1.30.1)` |
+| Push to main | `bob> Pushed 1.30.1 to main. Monitoring build...` |
+| Build success | `bob> Build 1.30.1 deployed at 20:21 successfully.` |
+| Version verified | `bob> Version check: About page = 1.30.1, Login page = 1.30.1. ✓ Match confirmed.` |
+| Build failure | `bob> ⚠️ Build 1.30.1 FAILED at 20:25. Error: [specific error]. Investigating...` |
+| File claimed | `bob> Claimed /app/src/components/Scoring.tsx — now in my NO-TOUCH ZONE.` |
+| File released | `bob> Released /app/src/components/Scoring.tsx — available for others.` |
+
+#### Full Deployment Confirmation Sequence
+
+After pushing to main, provide this full sequence:
+
+```
+bob> Pushed 1.30.1 to main at 20:15. Monitoring build...
+
+[after checking build logs]
+
+bob> Build 1.30.1 completed at 20:21 (6 min build time). Verifying deployment...
+
+[after checking pages]
+
+bob> ✓ Deployment verified:
+     - Build status: SUCCESS
+     - About page: 1.30.1
+     - Login page: 1.30.1
+     - All versions match. Deployment complete.
+```
+
+#### Why Verbose Confirmations Matter
+
+- Aaron can quickly scan responses to confirm actions completed
+- Timestamps help track when things happened
+- Version numbers in every confirmation prevent confusion
+- Explicit "match confirmed" removes ambiguity
+
+#### WRONG — Never Do This
+
+```
+bob> Done.                              ← WRONG: What's done? What version?
+
+bob> Build finished.                    ← WRONG: Success or failure? What version?
+
+bob> I've updated the version.          ← WRONG: To what number? In which files?
+
+bob> Pushed the changes.                ← WRONG: What version? To which branch?
+```
+
+---
 
 ### Polling — Check shared memory regularly
 
@@ -217,6 +586,8 @@ Before starting work, check the Consistency Checker and note how it validates ID
 ## Global Error Handling Standard
 
 **MANDATORY for all user-facing errors.** See `app/src/lib/error-codes.ts` for the error code registry.
+
+> ⚠️ **This section provides implementation details. The Golden Rule above is the authority.**
 
 ### Requirements
 
@@ -430,16 +801,22 @@ The continue URL in email verification is configured in `firebase/provider.tsx`.
 1. ✅ Run tests (if applicable)
 2. ✅ Check no console errors
 3. ✅ Run `npm run build` locally to verify build succeeds
-4. ✅ Bump version in `package.json` AND `src/lib/version.ts`
+4. ✅ **GOLDEN RULE #2:** Bump version in BOTH `package.json` AND `src/lib/version.ts`
 5. ✅ Update `CHANGELOG.md` if user-facing change
 6. ✅ Update `CLAUDE.md` if architectural change or new branch
 7. ✅ Run `node claude-sync.js write "summary"` to log your work
+8. ✅ **GOLDEN RULE #1:** Verify all error handling — no unhandled exceptions
+9. ✅ **GOLDEN RULE #3:** Verify no data duplication without CC sync validation
+10. ✅ **GOLDEN RULE #4:** Prefix your commit confirmation with bob> or bill>
+11. ✅ **GOLDEN RULE #5:** Use verbose confirmation: `bob> Committed: "type: message" (1.x.x)`
 
 ---
 
 ## After Pushing to Main - MANDATORY Build Verification
 
-**Every push to `main` triggers a Firebase App Hosting build.** You MUST verify the build succeeds.
+> ⚠️ **See Golden Rule #2 above for the authoritative version discipline requirements.**
+
+**Every push to `main` triggers a Firebase App Hosting build.** You MUST verify the build succeeds AND version consistency.
 
 ### Check Build Status
 
@@ -447,6 +824,12 @@ Run this command after pushing to main:
 ```powershell
 powershell -Command "& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd' logging read 'resource.type=\"build\"' --project=studio-6033436327-281b1 --limit=20 --freshness=15m --format='value(textPayload)'"
 ```
+
+### Verify Version Consistency
+
+After build completes, check BOTH pages show identical versions:
+- **About:** https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about
+- **Login:** https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/login
 
 ### What to Look For
 
