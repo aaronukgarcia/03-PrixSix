@@ -119,11 +119,18 @@ export async function POST(request: NextRequest) {
       predictionsSnapshot = { size: 0, docs: [] } as any;
     }
 
-    // Get all users to map userId to teamName
+    // Get all users to map userId/teamId to teamName
+    // Include both primary (userId -> teamName) and secondary (userId-secondary -> secondaryTeamName)
     const usersSnapshot = await db.collection('users').get();
     const userMap = new Map<string, string>();
     usersSnapshot.forEach(doc => {
-      userMap.set(doc.id, doc.data().teamName || 'Unknown');
+      const data = doc.data();
+      // Primary team
+      userMap.set(doc.id, data.teamName || 'Unknown');
+      // Secondary team (if exists)
+      if (data.secondaryTeamName) {
+        userMap.set(`${doc.id}-secondary`, data.secondaryTeamName);
+      }
     });
 
     // Calculate scores and prepare batch write
@@ -140,9 +147,15 @@ export async function POST(request: NextRequest) {
 
       if (Array.isArray(predData.predictions)) {
         userPredictions = predData.predictions;
-        // Extract userId from path for subcollection, or use field
-        const pathParts = predDoc.ref.path.split('/');
-        userId = pathParts.length > 2 ? pathParts[1] : predData.userId;
+        // Use teamId to distinguish primary vs secondary teams
+        // teamId is either "userId" (primary) or "userId-secondary" (secondary team)
+        // Fall back to extracting from path if teamId not present (legacy data)
+        if (predData.teamId) {
+          userId = predData.teamId;
+        } else {
+          const pathParts = predDoc.ref.path.split('/');
+          userId = pathParts.length > 2 ? pathParts[1] : predData.userId;
+        }
       } else {
         console.warn(`[Scoring] Unknown prediction format for doc ${predDoc.id}`);
         return;

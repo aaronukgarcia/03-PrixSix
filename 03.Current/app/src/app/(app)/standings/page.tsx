@@ -187,6 +187,7 @@ export default function StandingsPage() {
         });
 
         // Get unique user IDs and fetch team names
+        // Handle secondary teams: userId ends with "-secondary", use secondaryTeamName field
         const userIds = new Set<string>();
         scores.forEach(s => userIds.add(s.userId));
 
@@ -196,12 +197,21 @@ export default function StandingsPage() {
 
         for (let i = 0; i < userIdArray.length; i += batchSize) {
           const batch = userIdArray.slice(i, i + batchSize);
-          const promises = batch.map(async (userId) => {
-            const userDoc = await getDoc(doc(firestore, "users", userId));
+          const promises = batch.map(async (scoreUserId) => {
+            // Check if this is a secondary team
+            const isSecondary = scoreUserId.endsWith('-secondary');
+            const baseUserId = isSecondary ? scoreUserId.replace('-secondary', '') : scoreUserId;
+
+            const userDoc = await getDoc(doc(firestore, "users", baseUserId));
             if (userDoc.exists()) {
-              names.set(userId, userDoc.data().teamName || "Unknown");
+              const userData = userDoc.data();
+              // Use secondaryTeamName for secondary teams, teamName for primary
+              const teamName = isSecondary
+                ? (userData.secondaryTeamName || "Unknown Secondary")
+                : (userData.teamName || "Unknown");
+              names.set(scoreUserId, teamName);
             } else {
-              names.set(userId, "Unknown Team");
+              names.set(scoreUserId, "Unknown Team");
             }
           });
           await Promise.all(promises);
