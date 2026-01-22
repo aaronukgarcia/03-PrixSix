@@ -230,45 +230,46 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   };
   
   const updateUser = async (userId: string, data: Partial<User>): Promise<AuthResult> => {
-     if (!user?.isAdmin) {
+    if (!user?.isAdmin) {
       return { success: false, message: "You do not have permission to perform this action." };
     }
 
-    // If team name is being changed, check for uniqueness
-    if (data.teamName) {
-      const usersRef = collection(firestore, "users");
-      const allUsersSnapshot = await getDocs(usersRef);
-      const normalizedNewName = data.teamName.toLowerCase().trim();
-      let teamNameExists = false;
-
-      allUsersSnapshot.forEach(docSnap => {
-        // Skip the user being updated
-        if (docSnap.id === userId) return;
-
-        const existingName = docSnap.data().teamName?.toLowerCase().trim();
-        if (existingName === normalizedNewName) {
-          teamNameExists = true;
-        }
+    // Use server-side API to update user (handles both Firestore AND Firebase Auth)
+    try {
+      const response = await fetch('/api/admin/update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          adminUid: user.id,
+          data,
+        }),
       });
 
-      if (teamNameExists) {
-        return { success: false, message: "This team name is already taken. Please choose a unique name." };
-      }
-    }
+      const result = await response.json();
 
-    try {
-      const userDocRef = doc(firestore, 'users', userId);
-      await updateDoc(userDocRef, data);
-      logAuditEvent(firestore, user.id, 'admin_update_user', { targetUserId: userId, changes: data });
+      if (!result.success) {
+        let errorMessage = result.error || 'Failed to update user';
+        if (result.errorCode) {
+          errorMessage = `${errorMessage} [${result.errorCode}]`;
+        }
+        if (result.correlationId) {
+          errorMessage = `${errorMessage} (Ref: ${result.correlationId})`;
+        }
+        return { success: false, message: errorMessage };
+      }
 
       // If updating the current user, sync the local state
       if (userId === user.id) {
         setUser(prev => prev ? { ...prev, ...data } : null);
       }
 
-      return { success: true, message: "User updated successfully." };
+      return { success: true, message: result.message || "User updated successfully." };
+
     } catch (e: any) {
-      return { success: false, message: e.message };
+      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      console.error(`[Update User Error ${correlationId}]`, e);
+      return { success: false, message: `Failed to update user. [PX-9002] (Ref: ${correlationId})` };
     }
   }
 
