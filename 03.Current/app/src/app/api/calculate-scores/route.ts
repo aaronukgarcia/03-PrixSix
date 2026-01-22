@@ -191,13 +191,14 @@ export async function POST(request: NextRequest) {
 
     // Now resolve which prediction to use for each team for THIS race
     // Priority: 1) Prediction for this specific race, 2) Latest prediction from any previous race
-    const latestPredictions = new Map<string, { predictions: string[]; timestamp: Date; teamName?: string }>();
+    // Track carry-forwards so we can create prediction documents for them
+    const latestPredictions = new Map<string, { predictions: string[]; timestamp: Date; teamName?: string; isCarryForward: boolean }>();
 
     teamPredictionsByRace.forEach((raceMap, teamId) => {
       // First, check if there's a prediction for the specific race being scored
       if (raceMap.has(normalizedRaceId)) {
         const racePrediction = raceMap.get(normalizedRaceId)!;
-        latestPredictions.set(teamId, racePrediction);
+        latestPredictions.set(teamId, { ...racePrediction, isCarryForward: false });
         console.log(`[Scoring] Team ${teamId}: Using race-specific prediction for ${normalizedRaceId}`);
         return;
       }
@@ -212,12 +213,14 @@ export async function POST(request: NextRequest) {
       });
 
       if (latestPrediction) {
-        latestPredictions.set(teamId, latestPrediction);
+        latestPredictions.set(teamId, { ...latestPrediction, isCarryForward: true });
         console.log(`[Scoring] Team ${teamId}: No prediction for ${normalizedRaceId}, using carry-forward from previous race`);
       }
     });
 
-    console.log(`[Scoring] Found ${latestPredictions.size} teams with predictions to score (including carry-forwards)`);
+    // Count carry-forwards for logging
+    const carryForwardCount = Array.from(latestPredictions.values()).filter(p => p.isCarryForward).length;
+    console.log(`[Scoring] Found ${latestPredictions.size} teams with predictions to score (${carryForwardCount} carry-forwards)`);
 
     // Convert to snapshot-like format for compatibility with existing scoring code
     const predictionsSnapshot = {
@@ -315,6 +318,38 @@ export async function POST(request: NextRequest) {
         points: totalPoints,
       });
     });
+
+    // Create prediction documents for carry-forwards so results page can find them
+    // This ensures every scored race has a corresponding prediction document per team
+    let carryForwardPredictionsCreated = 0;
+    latestPredictions.forEach((predData, teamId) => {
+      if (predData.isCarryForward) {
+        // Extract base userId from teamId (remove "-secondary" suffix if present)
+        const isSecondary = teamId.endsWith('-secondary');
+        const baseUserId = isSecondary ? teamId.replace(/-secondary$/, '') : teamId;
+
+        // Create prediction document in user's subcollection
+        // Document ID format: {teamId}_{normalizedRaceId}
+        const predDocId = `${teamId}_${normalizedRaceId}`;
+        const predDocRef = db.collection('users').doc(baseUserId).collection('predictions').doc(predDocId);
+
+        batch.set(predDocRef, {
+          userId: baseUserId,
+          teamId: teamId,
+          teamName: predData.teamName || userMap.get(teamId) || 'Unknown',
+          raceId: normalizedRaceId,
+          raceName: raceName.replace(/\s*-\s*(GP|Sprint)$/i, ''), // Store base race name
+          predictions: predData.predictions,
+          submittedAt: FieldValue.serverTimestamp(),
+          isCarryForward: true, // Mark as system-created carry-forward
+        });
+        carryForwardPredictionsCreated++;
+      }
+    });
+
+    if (carryForwardPredictionsCreated > 0) {
+      console.log(`[Scoring] Creating ${carryForwardPredictionsCreated} carry-forward prediction documents`);
+    }
 
     // Write race result document
     // Use resultDocId which preserves GP/Sprint distinction
