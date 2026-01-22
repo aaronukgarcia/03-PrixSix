@@ -120,6 +120,7 @@ export default function StandingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Real-time subscription to scores collection
   useEffect(() => {
@@ -221,8 +222,18 @@ export default function StandingsPage() {
         setLastUpdated(new Date());
         setIsLoading(false);
       },
-      (error) => {
+      (error: any) => {
         console.error("Error fetching standings:", error);
+        const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+        let errorMsg: string;
+        if (error?.code === 'failed-precondition') {
+          errorMsg = `Database index required. Please contact an administrator. [PX-4003] (Ref: ${correlationId})`;
+        } else if (error?.code === 'permission-denied') {
+          errorMsg = `Permission denied. Please sign in again. [PX-1001] (Ref: ${correlationId})`;
+        } else {
+          errorMsg = `Error loading standings: ${error?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`;
+        }
+        setError(errorMsg);
         setIsLoading(false);
       }
     );
@@ -775,6 +786,12 @@ export default function StandingsPage() {
                   </TableCell>
                 </TableRow>
               ))
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={showSprintColumn ? 7 : 6} className="text-center h-24 text-destructive">
+                  {error}
+                </TableCell>
+              </TableRow>
             ) : (
               <TableRow>
                 <TableCell colSpan={showSprintColumn ? 7 : 6} className="text-center h-24 text-muted-foreground">

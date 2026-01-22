@@ -68,6 +68,7 @@ export default function LeagueDetailPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const isOwner = league?.ownerId === user?.id;
   const isGlobal = league?.isGlobal;
@@ -108,8 +109,16 @@ export default function LeagueDetailPage() {
         setMembers(memberData);
         setIsLoading(false);
       },
-      (error) => {
+      (error: any) => {
         console.error('Error fetching league:', error);
+        const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+        let errorMsg: string;
+        if (error?.code === 'permission-denied') {
+          errorMsg = `Permission denied. You may not be a member of this league. [PX-1001] (Ref: ${correlationId})`;
+        } else {
+          errorMsg = `Error loading league: ${error?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`;
+        }
+        setLoadError(errorMsg);
         setIsLoading(false);
       }
     );
@@ -242,6 +251,26 @@ export default function LeagueDetailPage() {
           </CardHeader>
           <CardContent>
             <Skeleton className="h-32 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" onClick={() => router.push('/leagues')} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Leagues
+        </Button>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Users className="h-12 w-12 text-destructive mb-4" />
+            <h3 className="text-lg font-semibold text-destructive">Error Loading League</h3>
+            <p className="text-muted-foreground mt-2 select-all">
+              {loadError}
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -77,20 +77,11 @@ export default function TeamsPage() {
 
     const fetchCount = async () => {
       try {
-        // Get user count
+        // Get user count - secondary teams are counted during data fetch
         const userCountSnapshot = await getCountFromServer(collection(firestore, "users"));
         const userCount = userCountSnapshot.data().count;
-
-        // Get count of users with secondary teams
-        const secondaryTeamsQuery = query(
-          collection(firestore, "users"),
-          where("secondaryTeamName", "!=", null)
-        );
-        const secondaryCountSnapshot = await getCountFromServer(secondaryTeamsQuery);
-        const secondaryCount = secondaryCountSnapshot.data().count;
-
-        // Total teams = users + secondary teams
-        setTotalCount(userCount + secondaryCount);
+        // Store just user count - secondary teams counted client-side
+        setTotalCount(userCount);
       } catch (error) {
         console.error("Error fetching count:", error);
         // Fallback: don't show total count
@@ -217,11 +208,16 @@ export default function TeamsPage() {
       setLastUpdated(new Date());
     } catch (error: any) {
       console.error("Error fetching teams:", error);
-      const errorMsg = error?.code === 'failed-precondition'
-        ? "Database index required. Please contact an administrator."
-        : error?.code === 'permission-denied'
-        ? "Permission denied. Please sign in again."
-        : `Error loading teams: ${error?.message || 'Unknown error'}`;
+      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      let errorMsg: string;
+      if (error?.code === 'failed-precondition') {
+        errorMsg = `Database index required. Please contact an administrator. [PX-4003] (Ref: ${correlationId})`;
+        console.error(`[Teams Index Error ${correlationId}]`, error?.message);
+      } else if (error?.code === 'permission-denied') {
+        errorMsg = `Permission denied. Please sign in again. [PX-1001] (Ref: ${correlationId})`;
+      } else {
+        errorMsg = `Error loading teams: ${error?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`;
+      }
       setError(errorMsg);
     } finally {
       setIsLoading(false);
@@ -239,7 +235,7 @@ export default function TeamsPage() {
   };
 
   const progressPercent = totalCount && totalCount > 0
-    ? Math.round((teams.length / totalCount) * 100)
+    ? Math.min(100, Math.round((teams.length / totalCount) * 100))
     : 0;
 
   return (
