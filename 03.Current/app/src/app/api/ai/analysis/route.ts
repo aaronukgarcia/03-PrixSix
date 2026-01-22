@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
+import { generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { ERROR_CODES } from '@/lib/error-codes';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -126,7 +128,37 @@ Begin your analysis:`;
 };
 
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
+    // Check if Google AI API key is configured
+    if (!process.env.GOOGLE_GENAI_API_KEY) {
+      console.error(`[AI Analysis Error ${correlationId}] GOOGLE_GENAI_API_KEY not configured`);
+
+      await logError({
+        correlationId,
+        error: 'GOOGLE_GENAI_API_KEY environment variable not set',
+        context: {
+          route: '/api/ai/analysis',
+          action: 'config_check',
+          additionalInfo: {
+            errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
+            errorType: 'ConfigurationError',
+          },
+        },
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'AI service not configured. Please contact administrator.',
+          errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
+          correlationId,
+        },
+        { status: 500 }
+      );
+    }
+
     const body: AnalysisRequest = await request.json();
     const { raceName, circuit, predictions, weights, totalWeight } = body;
 
@@ -134,7 +166,12 @@ export async function POST(request: NextRequest) {
     const calculatedTotal = Object.values(weights).reduce((sum, w) => sum + w, 0);
     if (calculatedTotal > 70) {
       return NextResponse.json(
-        { success: false, error: 'Weight total exceeds maximum of 70' },
+        {
+          success: false,
+          error: 'Weight total exceeds maximum of 70',
+          errorCode: ERROR_CODES.VALIDATION_INVALID_FORMAT.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
@@ -154,13 +191,47 @@ export async function POST(request: NextRequest) {
     );
 
     // Call Genkit AI
-    const { text: analysisText } = await ai.generate({
-      prompt,
-      config: {
-        maxOutputTokens: 400,
-        temperature: 0.7,
-      },
-    });
+    let analysisText: string;
+    try {
+      const result = await ai.generate({
+        prompt,
+        config: {
+          maxOutputTokens: 400,
+          temperature: 0.7,
+        },
+      });
+      analysisText = result.text;
+    } catch (aiError: any) {
+      console.error(`[AI Generation Error ${correlationId}]`, aiError);
+
+      // Log specific AI error
+      await logError({
+        correlationId,
+        error: aiError instanceof Error ? aiError : String(aiError),
+        context: {
+          route: '/api/ai/analysis',
+          action: 'ai.generate',
+          additionalInfo: {
+            errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
+            errorType: aiError?.name || 'AIGenerationError',
+            aiErrorCode: aiError?.code,
+            aiErrorStatus: aiError?.status,
+            raceName,
+          },
+        },
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: `AI generation failed: ${aiError?.message || 'Unknown AI error'}`,
+          errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
+          correlationId,
+          analysis: 'Unable to generate analysis at this time. Please try again later.',
+        },
+        { status: 500 }
+      );
+    }
 
     // Log for audit
     console.log(`[AI Analysis] Race: ${raceName}, Weights: ${JSON.stringify(weights)}, Total: ${totalWeight}`);
@@ -173,13 +244,29 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
 
-  } catch (error) {
-    console.error('[AI Analysis Error]', error);
+  } catch (error: any) {
+    console.error(`[AI Analysis Error ${correlationId}]`, error);
+
+    // Log error to error_logs collection
+    await logError({
+      correlationId,
+      error: error instanceof Error ? error : String(error),
+      context: {
+        route: '/api/ai/analysis',
+        action: 'POST',
+        additionalInfo: {
+          errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
+          errorType: error?.name || 'Unknown',
+        },
+      },
+    });
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to generate analysis',
+        error: ERROR_CODES.AI_GENERATION_FAILED.message,
+        errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
+        correlationId,
         analysis: 'Unable to generate analysis at this time. Please try again later.',
       },
       { status: 500 }

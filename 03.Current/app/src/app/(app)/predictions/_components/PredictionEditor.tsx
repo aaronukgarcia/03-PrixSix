@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/firebase";
 import type { User as FirebaseAuthUser } from 'firebase/auth';
 import { Badge } from "@/components/ui/badge";
+import { generateClientCorrelationId, ERROR_CODES } from "@/lib/error-codes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -327,15 +328,31 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         setAnalysisText(data.analysis);
         addChangeToHistory('🔮 AI Analysis generated', true);
       } else {
-        throw new Error(data.error || 'Analysis failed');
+        // Use error info from API response, or generate client-side fallback
+        const errorCode = data.errorCode || ERROR_CODES.AI_GENERATION_FAILED.code;
+        const correlationId = data.correlationId || generateClientCorrelationId();
+        throw { message: data.error || 'Analysis failed', errorCode, correlationId };
       }
     } catch (err: any) {
       console.error('Analysis error:', err);
       setAnalysisText('Unable to generate analysis at this time. Please try again later.');
+
+      // Use error info from thrown object or generate client-side
+      const errorCode = err.errorCode || ERROR_CODES.AI_GENERATION_FAILED.code;
+      const correlationId = err.correlationId || generateClientCorrelationId();
+
       toast({
         variant: "destructive",
-        title: "Analysis Failed",
-        description: err.message || "Could not generate analysis"
+        title: `Error ${errorCode}`,
+        description: (
+          <div className="space-y-2">
+            <p>{err.message || "Could not generate analysis"}</p>
+            <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
+              ID: {correlationId}
+            </p>
+          </div>
+        ),
+        duration: 15000,
       });
     } finally {
       setIsAnalysing(false);
