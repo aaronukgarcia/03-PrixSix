@@ -277,20 +277,37 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     if (!user?.isAdmin) {
       return { success: false, message: "You do not have permission to perform this action." };
     }
+
+    // Use server-side API to delete user (handles both Firestore AND Firebase Auth)
     try {
-        const batch = writeBatch(firestore);
-        const userDocRef = doc(firestore, 'users', userId);
-        const presenceDocRef = doc(firestore, 'presence', userId);
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          adminUid: user.id,
+        }),
+      });
 
-        batch.delete(userDocRef);
-        batch.delete(presenceDocRef);
+      const result = await response.json();
 
-        await batch.commit();
+      if (!result.success) {
+        let errorMessage = result.error || 'Failed to delete user';
+        if (result.errorCode) {
+          errorMessage = `${errorMessage} [${result.errorCode}]`;
+        }
+        if (result.correlationId) {
+          errorMessage = `${errorMessage} (Ref: ${result.correlationId})`;
+        }
+        return { success: false, message: errorMessage };
+      }
 
-        logAuditEvent(firestore, user.id, 'admin_delete_user', { targetUserId: userId });
-        return { success: true, message: "User deleted successfully." };
+      return { success: true, message: result.message || "User deleted successfully." };
+
     } catch (e: any) {
-      return { success: false, message: e.message };
+      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      console.error(`[Delete User Error ${correlationId}]`, e);
+      return { success: false, message: `Failed to delete user. [PX-9002] (Ref: ${correlationId})` };
     }
   }
 
