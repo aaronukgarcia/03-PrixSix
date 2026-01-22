@@ -132,19 +132,28 @@ export default function StandingsPage() {
     const unsubscribe = onSnapshot(
       collection(firestore, "scores"),
       async (scoresSnapshot) => {
-        const scores: ScoreData[] = [];
-        const raceIdsWithScores = new Set<string>();
+        try {
+          const scores: ScoreData[] = [];
+          const raceIdsWithScores = new Set<string>();
 
-        scoresSnapshot.forEach((doc) => {
-          const data = doc.data();
-          const userId = data.oduserId || data.userId;
-          scores.push({
-            userId,
-            raceId: data.raceId,
-            totalPoints: data.totalPoints || 0,
+          scoresSnapshot.forEach((doc) => {
+            try {
+              const data = doc.data();
+              if (!data) return;
+              const userId = data.oduserId || data.userId;
+              if (!userId) return; // Skip invalid scores
+              scores.push({
+                userId,
+                raceId: data.raceId || '',
+                totalPoints: data.totalPoints || 0,
+              });
+              if (data.raceId) {
+                raceIdsWithScores.add(data.raceId);
+              }
+            } catch (docErr) {
+              console.error('Error processing score doc:', doc.id, docErr);
+            }
           });
-          raceIdsWithScores.add(data.raceId);
-        });
 
         setAllScores(scores);
 
@@ -221,6 +230,12 @@ export default function StandingsPage() {
         setUserNames(names);
         setLastUpdated(new Date());
         setIsLoading(false);
+        } catch (err: any) {
+          console.error('Error in scores snapshot handler:', err);
+          const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+          setError(`Error processing standings data: ${err?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`);
+          setIsLoading(false);
+        }
       },
       (error: any) => {
         console.error("Error fetching standings:", error);
