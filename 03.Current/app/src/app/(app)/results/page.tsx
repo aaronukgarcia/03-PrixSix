@@ -275,7 +275,7 @@ export default function ResultsPage() {
 
             // Predictions are stored by base race ID, scores by full event ID (with -GP/-Sprint)
             const baseRaceId = getBaseRaceId(selectedRaceId);
-            const scoreRaceId = selectedRaceId; // Scores use full ID with suffix
+            const scoreRaceId = selectedRaceId.toLowerCase(); // Scores stored with lowercase raceId
 
             try {
                 // Fetch count, scores, and first page of predictions in parallel
