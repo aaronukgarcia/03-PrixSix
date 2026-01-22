@@ -80,19 +80,19 @@ export default function AdminPage() {
             </div>
             <Tabs defaultValue="functions" className="space-y-4">
                 <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 lg:grid-cols-13">
-                    <TabsTrigger value="functions"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
-                    <TabsTrigger value="teams"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
-                    <TabsTrigger value="results"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
-                    <TabsTrigger value="scoring"><SlidersHorizontal className="w-4 h-4 mr-2"/>Scoring</TabsTrigger>
-                    <TabsTrigger value="news"><Newspaper className="w-4 h-4 mr-2"/>Hot News</TabsTrigger>
-                    <TabsTrigger value="online"><Wifi className="w-4 h-4 mr-2"/>Online</TabsTrigger>
-                    <TabsTrigger value="emails"><Mail className="w-4 h-4 mr-2"/>Email Logs</TabsTrigger>
-                    <TabsTrigger value="audit"><BookUser className="w-4 h-4 mr-2"/>Audit</TabsTrigger>
-                    <TabsTrigger value="whatsapp"><MessageSquare className="w-4 h-4 mr-2"/>WhatsApp</TabsTrigger>
-                    <TabsTrigger value="standing"><Database className="w-4 h-4 mr-2"/>Standing</TabsTrigger>
-                    <TabsTrigger value="feedback"><Bug className="w-4 h-4 mr-2"/>Feedback</TabsTrigger>
-                    <TabsTrigger value="consistency"><ClipboardCheck className="w-4 h-4 mr-2"/>CC</TabsTrigger>
-                    <TabsTrigger value="errors"><AlertTriangle className="w-4 h-4 mr-2"/>Errors</TabsTrigger>
+                    <TabsTrigger value="functions" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
+                    <TabsTrigger value="teams" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
+                    <TabsTrigger value="results" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
+                    <TabsTrigger value="scoring" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"><SlidersHorizontal className="w-4 h-4 mr-2"/>Scoring</TabsTrigger>
+                    <TabsTrigger value="news" className="data-[state=active]:bg-pink-500 data-[state=active]:text-white"><Newspaper className="w-4 h-4 mr-2"/>Hot News</TabsTrigger>
+                    <TabsTrigger value="online" className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white"><Wifi className="w-4 h-4 mr-2"/>Online</TabsTrigger>
+                    <TabsTrigger value="emails" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"><Mail className="w-4 h-4 mr-2"/>Email Logs</TabsTrigger>
+                    <TabsTrigger value="audit" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white"><BookUser className="w-4 h-4 mr-2"/>Audit</TabsTrigger>
+                    <TabsTrigger value="whatsapp" className="data-[state=active]:bg-green-600 data-[state=active]:text-white"><MessageSquare className="w-4 h-4 mr-2"/>WhatsApp</TabsTrigger>
+                    <TabsTrigger value="standing" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white"><Database className="w-4 h-4 mr-2"/>Standing</TabsTrigger>
+                    <TabsTrigger value="feedback" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white"><Bug className="w-4 h-4 mr-2"/>Feedback</TabsTrigger>
+                    <TabsTrigger value="consistency" className="data-[state=active]:bg-teal-500 data-[state=active]:text-white"><ClipboardCheck className="w-4 h-4 mr-2"/>CC</TabsTrigger>
+                    <TabsTrigger value="errors" className="data-[state=active]:bg-red-600 data-[state=active]:text-white"><AlertTriangle className="w-4 h-4 mr-2"/>Errors</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />

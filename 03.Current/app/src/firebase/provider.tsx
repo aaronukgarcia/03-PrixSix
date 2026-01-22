@@ -186,30 +186,69 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       // Continue with signup if settings check fails
     }
 
+    // Generate correlation ID upfront for error tracking
+    const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+
     const usersRef = collection(firestore, "users");
 
     // Check if email already exists in Firestore
-    const emailQuery = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
-    const emailSnapshot = await getDocs(emailQuery);
+    try {
+      const emailQuery = query(usersRef, where("email", "==", email.toLowerCase()), limit(1));
+      const emailSnapshot = await getDocs(emailQuery);
 
-    if (!emailSnapshot.empty) {
-      return { success: false, message: "A team with this email address already exists." };
-    }
-
-    // Check if team name already exists (case-insensitive)
-    const allUsersSnapshot = await getDocs(usersRef);
-    const normalizedNewName = teamName.toLowerCase().trim();
-    let teamNameExists = false;
-
-    allUsersSnapshot.forEach(doc => {
-      const existingName = doc.data().teamName?.toLowerCase().trim();
-      if (existingName === normalizedNewName) {
-        teamNameExists = true;
+      if (!emailSnapshot.empty) {
+        return { success: false, message: "A team with this email address already exists." };
       }
-    });
 
-    if (teamNameExists) {
-      return { success: false, message: "This team name is already taken. Please choose a unique name." };
+      // Check if team name already exists (case-insensitive)
+      const allUsersSnapshot = await getDocs(usersRef);
+      const normalizedNewName = teamName.toLowerCase().trim();
+      let teamNameExists = false;
+
+      allUsersSnapshot.forEach(docSnap => {
+        const existingName = docSnap.data().teamName?.toLowerCase().trim();
+        if (existingName === normalizedNewName) {
+          teamNameExists = true;
+        }
+      });
+
+      if (teamNameExists) {
+        return { success: false, message: "This team name is already taken. Please choose a unique name." };
+      }
+    } catch (lookupError: any) {
+      console.error(`[Signup Lookup Error ${correlationId}]`, lookupError);
+
+      // Log to error_logs collection
+      addDocumentNonBlocking(collection(firestore, 'error_logs'), {
+        correlationId,
+        errorCode: 'PX-1007',
+        error: lookupError?.message || 'Permission denied during signup lookup',
+        errorType: lookupError?.code || 'FirestoreLookupError',
+        context: {
+          route: 'provider/signup',
+          action: 'user_lookup',
+          email: email.toLowerCase(),
+          additionalInfo: {
+            errorCode: 'PX-1007',
+            errorType: lookupError?.code || 'FirestoreLookupError',
+          },
+        },
+        stack: lookupError?.stack,
+        timestamp: serverTimestamp(),
+      });
+
+      // Check for permission errors
+      if (lookupError?.code === 'permission-denied' || lookupError?.message?.includes('permission')) {
+        return {
+          success: false,
+          message: `Registration failed - permission denied. Please contact support. [PX-1007] (Ref: ${correlationId})`,
+        };
+      }
+
+      return {
+        success: false,
+        message: `Registration failed - unable to verify account details. [PX-4001] (Ref: ${correlationId})`,
+      };
     }
 
     // Use provided PIN or generate random one (for backward compatibility)

@@ -126,7 +126,11 @@ export function ErrorLogViewer() {
     // Filter by category
     if (selectedCategory !== 'all') {
       logs = logs.filter(log => {
-        const code = log.context?.additionalInfo?.errorCode || '';
+        const code = log.context?.additionalInfo?.errorCode || (log as any).errorCode || '';
+        // For Unknown (PX-9) category, also include errors with no error code
+        if (selectedCategory === 'PX-9') {
+          return !code || code.startsWith('PX-9');
+        }
         return code.startsWith(selectedCategory);
       });
     }
@@ -155,19 +159,24 @@ export function ErrorLogViewer() {
   const groupedLogs = useMemo(() => {
     const groups: Record<string, ErrorLog[]> = {};
     filteredLogs.forEach(log => {
-      const code = log.context?.additionalInfo?.errorCode || 'Unknown';
+      const code = getLogErrorCode(log) || 'Unknown';
       if (!groups[code]) groups[code] = [];
       groups[code].push(log);
     });
     return groups;
   }, [filteredLogs]);
 
+  // Helper to get error code from log (checks multiple locations)
+  const getLogErrorCode = (log: ErrorLog): string | undefined => {
+    return log.context?.additionalInfo?.errorCode || (log as any).errorCode;
+  };
+
   // Stats
   const stats = useMemo(() => {
     if (!errorLogs) return { total: 0, categories: {} as Record<string, number> };
     const categories: Record<string, number> = {};
     errorLogs.forEach(log => {
-      const cat = getErrorCategory(log.context?.additionalInfo?.errorCode);
+      const cat = getErrorCategory(getLogErrorCode(log));
       categories[cat] = (categories[cat] || 0) + 1;
     });
     return { total: errorLogs.length, categories };
@@ -349,8 +358,9 @@ export function ErrorLogViewer() {
 }
 
 function ErrorLogItem({ log, accordion }: { log: ErrorLog; accordion?: boolean }) {
-  const category = ERROR_CATEGORIES[getErrorCategory(log.context?.additionalInfo?.errorCode)];
-  const errorCode = log.context?.additionalInfo?.errorCode || 'Unknown';
+  const logErrorCode = log.context?.additionalInfo?.errorCode || (log as any).errorCode;
+  const category = ERROR_CATEGORIES[getErrorCategory(logErrorCode)];
+  const errorCode = logErrorCode || 'Unknown';
 
   const content = (
     <div className="p-4 border-t bg-muted/50 space-y-4">
