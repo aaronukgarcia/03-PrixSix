@@ -18,8 +18,10 @@ import { getDriverImage } from "@/lib/data";
 import { ArrowDown, ArrowUp, X, Check, ListCollapse, Timer, Sparkles, Settings2, RotateCcw, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/firebase";
+import { useAuth, useFirestore } from "@/firebase";
+import type { AnalysisWeights } from "@/firebase/provider";
 import type { User as FirebaseAuthUser } from 'firebase/auth';
+import { doc, updateDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { generateClientCorrelationId, ERROR_CODES } from "@/lib/error-codes";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,20 +29,6 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
-
-// Analysis weights interface
-interface AnalysisWeights {
-  driverForm: number;
-  trackHistory: number;
-  overtakingCrashes: number;
-  circuitCharacteristics: number;
-  trackSurface: number;
-  layoutChanges: number;
-  weather: number;
-  tyreStrategy: number;
-  bettingOdds: number;
-  punditAlignment: number;
-}
 
 // Analysis facets configuration
 const ANALYSIS_FACETS = [
@@ -84,6 +72,7 @@ interface PredictionEditorProps {
 
 export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime, allTeamNames = [], circuitName }: PredictionEditorProps) {
   const { user, firebaseUser } = useAuth();
+  const firestore = useFirestore();
   const [predictions, setPredictions] = useState<(Driver | null)[]>(initialPredictions);
   const [history, setHistory] = useState<string[]>([]);
   const { toast } = useToast();
@@ -97,6 +86,13 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisText, setAnalysisText] = useState('');
   const [isAnalysing, setIsAnalysing] = useState(false);
+
+  // Load saved weights from user preferences on mount
+  useEffect(() => {
+    if (user?.aiAnalysisWeights) {
+      setWeights(user.aiAnalysisWeights);
+    }
+  }, [user?.aiAnalysisWeights]);
 
   // Calculate total weight
   const totalWeight = useMemo(() => {
@@ -287,6 +283,18 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     setWeights(DEFAULT_WEIGHTS);
   };
 
+  // Save weights to user preferences
+  const saveWeights = async () => {
+    if (!firestore || !user) return;
+    try {
+      const userDocRef = doc(firestore, 'users', user.id);
+      await updateDoc(userDocRef, { aiAnalysisWeights: weights });
+    } catch (err) {
+      console.error('Failed to save AI weights:', err);
+      // Non-critical, don't show error to user
+    }
+  };
+
   // AI Analysis handler
   const handleAnalysis = async () => {
     const isComplete = predictions.every(p => p !== null);
@@ -302,6 +310,9 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     setIsAnalysing(true);
     setShowAnalysis(true);
     setAnalysisText('');
+
+    // Save weights to user preferences (fire-and-forget)
+    saveWeights();
 
     try {
       const response = await fetch('/api/ai/analysis', {

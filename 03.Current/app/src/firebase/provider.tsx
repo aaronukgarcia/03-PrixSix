@@ -19,6 +19,20 @@ export interface EmailPreferences {
   resultsNotifications?: boolean;
 }
 
+// AI Analysis weights for race predictions
+export interface AnalysisWeights {
+  driverForm: number;
+  trackHistory: number;
+  overtakingCrashes: number;
+  circuitCharacteristics: number;
+  trackSurface: number;
+  layoutChanges: number;
+  weather: number;
+  tyreStrategy: number;
+  bettingOdds: number;
+  punditAlignment: number;
+}
+
 // Extended user profile information
 export interface User {
   id: string; // This is the Firebase Auth UID
@@ -30,6 +44,7 @@ export interface User {
   badLoginAttempts?: number;
   emailPreferences?: EmailPreferences;
   emailVerified?: boolean; // Synced from Firebase Auth
+  aiAnalysisWeights?: AnalysisWeights; // Persisted AI analysis slider settings
 }
 
 interface AuthResult {
