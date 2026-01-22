@@ -523,6 +523,92 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  const updateSecondaryEmail = async (email: string | null): Promise<AuthResult> => {
+    if (!firebaseUser) {
+      return { success: false, message: "You must be logged in to update your secondary email." };
+    }
+
+    try {
+      const response = await fetch('/api/update-secondary-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: firebaseUser.uid,
+          secondaryEmail: email,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update local state
+        if (email === null || email === '') {
+          setUser(prev => prev ? { ...prev, secondaryEmail: undefined, secondaryEmailVerified: undefined } : null);
+        } else {
+          setUser(prev => prev ? { ...prev, secondaryEmail: email.toLowerCase(), secondaryEmailVerified: false } : null);
+        }
+        return { success: true, message: result.message };
+      } else {
+        let errorMessage = result.error || 'Failed to update secondary email';
+        if (result.errorCode) {
+          errorMessage = `${errorMessage} [${result.errorCode}]`;
+        }
+        if (result.correlationId) {
+          errorMessage = `${errorMessage} (Ref: ${result.correlationId})`;
+        }
+        return { success: false, message: errorMessage };
+      }
+    } catch (e: any) {
+      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      console.error(`[Update Secondary Email Error ${correlationId}]`, e);
+      return { success: false, message: `Failed to update secondary email. [PX-9002] (Ref: ${correlationId})` };
+    }
+  };
+
+  const sendSecondaryVerificationEmail = async (): Promise<AuthResult> => {
+    if (!firebaseUser || !user) {
+      return { success: false, message: "You must be logged in to send a verification email." };
+    }
+
+    if (!user.secondaryEmail) {
+      return { success: false, message: "No secondary email address set." };
+    }
+
+    if (user.secondaryEmailVerified) {
+      return { success: false, message: "Your secondary email is already verified." };
+    }
+
+    try {
+      const response = await fetch('/api/send-secondary-email-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: firebaseUser.uid,
+          secondaryEmail: user.secondaryEmail,
+          teamName: user.teamName,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        logAuditEvent(firestore, firebaseUser.uid, 'secondary_verification_email_requested', { secondaryEmail: user.secondaryEmail });
+        return { success: true, message: "Verification email sent to your secondary address." };
+      } else {
+        if (response.status === 503) {
+          return {
+            success: false,
+            message: "Email service not configured. Please contact an administrator. (Error PX-3004)"
+          };
+        }
+        return { success: false, message: result.error || "Failed to send verification email." };
+      }
+    } catch (e: any) {
+      console.error("Send secondary verification email error:", e);
+      return { success: false, message: e.message || "Failed to send verification email." };
+    }
+  };
+
   // Computed property for email verification status
   const isEmailVerified = firebaseUser?.emailVerified ?? user?.emailVerified ?? false;
 
@@ -544,7 +630,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     resetPin,
     changePin,
     sendVerificationEmail,
-    refreshEmailVerificationStatus
+    refreshEmailVerificationStatus,
+    updateSecondaryEmail,
+    sendSecondaryVerificationEmail
   }), [firebaseApp, firestore, auth, user, firebaseUser, isUserLoading, userError, isEmailVerified]);
 
   return (
@@ -581,6 +669,8 @@ export const useAuth = () => {
     deleteUser: context.deleteUser,
     sendVerificationEmail: context.sendVerificationEmail,
     refreshEmailVerificationStatus: context.refreshEmailVerificationStatus,
+    updateSecondaryEmail: context.updateSecondaryEmail,
+    sendSecondaryVerificationEmail: context.sendSecondaryVerificationEmail,
   };
 };
 
