@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Get ALL predictions - predictions carry forward all season
-    // Each team's latest prediction will be used for scoring
+    // For each team: use race-specific prediction if exists, otherwise latest previous prediction
     let allPredictionsSnapshot;
     try {
       allPredictionsSnapshot = await db.collectionGroup('predictions').get();
@@ -135,10 +135,10 @@ export async function POST(request: NextRequest) {
       allPredictionsSnapshot = { size: 0, docs: [] } as any;
     }
 
-    // Build map of latest prediction per team (userId or userId-secondary)
+    // Build map of all predictions per team, organised by race
     // Key: teamId (e.g., "userId" or "userId-secondary")
-    // Value: { predictions: string[], timestamp: Date, teamName?: string }
-    const latestPredictions = new Map<string, { predictions: string[]; timestamp: Date; teamName?: string }>();
+    // Value: Map of raceId -> { predictions, timestamp, teamName }
+    const teamPredictionsByRace = new Map<string, Map<string, { predictions: string[]; timestamp: Date; teamName?: string }>>();
 
     allPredictionsSnapshot.forEach((predDoc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const predData = predDoc.data();
@@ -166,10 +166,22 @@ export async function POST(request: NextRequest) {
 
       const timestamp = predData.submittedAt?.toDate?.() || predData.createdAt?.toDate?.() || new Date(0);
 
-      // Keep only the latest prediction for each team
-      const existing = latestPredictions.get(teamId);
+      // Normalise the prediction's raceId for comparison
+      const predRaceId = predData.raceId ? normalizeRaceIdForPredictions(predData.raceId) : null;
+
+      // Get or create the team's prediction map
+      if (!teamPredictionsByRace.has(teamId)) {
+        teamPredictionsByRace.set(teamId, new Map());
+      }
+      const teamRaces = teamPredictionsByRace.get(teamId)!;
+
+      // Store prediction keyed by normalised raceId (or 'unknown' if missing)
+      const raceKey = predRaceId || 'unknown';
+      const existing = teamRaces.get(raceKey);
+
+      // Keep only the latest prediction for each team+race combination
       if (!existing || timestamp > existing.timestamp) {
-        latestPredictions.set(teamId, {
+        teamRaces.set(raceKey, {
           predictions: predData.predictions,
           timestamp,
           teamName: predData.teamName,
@@ -177,7 +189,35 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`[Scoring] Found ${latestPredictions.size} teams with predictions to score`);
+    // Now resolve which prediction to use for each team for THIS race
+    // Priority: 1) Prediction for this specific race, 2) Latest prediction from any previous race
+    const latestPredictions = new Map<string, { predictions: string[]; timestamp: Date; teamName?: string }>();
+
+    teamPredictionsByRace.forEach((raceMap, teamId) => {
+      // First, check if there's a prediction for the specific race being scored
+      if (raceMap.has(normalizedRaceId)) {
+        const racePrediction = raceMap.get(normalizedRaceId)!;
+        latestPredictions.set(teamId, racePrediction);
+        console.log(`[Scoring] Team ${teamId}: Using race-specific prediction for ${normalizedRaceId}`);
+        return;
+      }
+
+      // No race-specific prediction - fall back to the latest prediction from any race
+      let latestPrediction: { predictions: string[]; timestamp: Date; teamName?: string } | null = null;
+
+      raceMap.forEach((pred, predRaceId) => {
+        if (!latestPrediction || pred.timestamp > latestPrediction.timestamp) {
+          latestPrediction = pred;
+        }
+      });
+
+      if (latestPrediction) {
+        latestPredictions.set(teamId, latestPrediction);
+        console.log(`[Scoring] Team ${teamId}: No prediction for ${normalizedRaceId}, using carry-forward from previous race`);
+      }
+    });
+
+    console.log(`[Scoring] Found ${latestPredictions.size} teams with predictions to score (including carry-forwards)`);
 
     // Convert to snapshot-like format for compatibility with existing scoring code
     const predictionsSnapshot = {
