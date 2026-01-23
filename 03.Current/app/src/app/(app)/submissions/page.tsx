@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/select";
 import { collectionGroup, query, orderBy, where, limit, startAfter, getDocs, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileCheck, CalendarClock, ChevronDown, Loader2, ArrowUpDown, Clock, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileCheck, CalendarClock, ChevronDown, Loader2, ArrowUpDown, Clock, Users, RotateCcw, PenLine } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { RaceSchedule, findNextRace, formatDriverPredictions } from "@/lib/data";
 import { Progress } from "@/components/ui/progress";
@@ -40,6 +41,7 @@ interface SubmissionDisplay {
   teamName: string;
   predictions: string;
   submittedAt: any;
+  isCarryForward: boolean;
 }
 
 const PAGE_SIZE = 25;
@@ -165,6 +167,7 @@ export default function SubmissionsPage() {
           teamName: data.teamName || "Unknown Team",
           predictions: formatPredictions(data.predictions),
           submittedAt: data.submittedAt,
+          isCarryForward: data.isCarryForward === true,
         };
       });
 
@@ -344,7 +347,20 @@ export default function SubmissionsPage() {
                 filteredSubmissions.map((submission) => (
                   <TableRow key={submission.id}>
                     <TableCell className="font-semibold">
-                      {submission.teamName}
+                      <div className="flex items-center gap-2">
+                        {submission.teamName}
+                        {submission.isCarryForward ? (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700">
+                            <RotateCcw className="h-2.5 w-2.5 mr-0.5" />
+                            Auto
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700">
+                            <PenLine className="h-2.5 w-2.5 mr-0.5" />
+                            Manual
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm font-mono">
                       {submission.predictions}
