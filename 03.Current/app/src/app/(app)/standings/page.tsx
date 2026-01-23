@@ -252,7 +252,7 @@ export default function StandingsPage() {
         const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
         let errorMsg: string;
         if (error?.code === 'failed-precondition') {
-          errorMsg = `Database index required. Please contact an administrator. [PX-4003] (Ref: ${correlationId})`;
+          errorMsg = `Database index required. Please contact an administrator. [PX-4004] (Ref: ${correlationId})`;
         } else if (error?.code === 'permission-denied') {
           errorMsg = `Permission denied. Please sign in again. [PX-1001] (Ref: ${correlationId})`;
         } else {

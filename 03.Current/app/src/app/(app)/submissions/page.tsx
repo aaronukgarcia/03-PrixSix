@@ -65,6 +65,7 @@ export default function SubmissionsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const formatTimestamp = (timestamp: any) => {
     if (!timestamp) return "N/A";
@@ -96,9 +97,10 @@ export default function SubmissionsPage() {
         );
         const countSnapshot = await getCountFromServer(countQuery);
         setTotalCount(countSnapshot.data().count);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching count:", error);
         setTotalCount(null);
+        // Count errors are non-critical, don't show to user
       }
     };
     fetchCount();
@@ -114,6 +116,7 @@ export default function SubmissionsPage() {
       setIsLoading(true);
       setSubmissions([]);
       setLastDoc(null);
+      setError(null); // Clear any previous errors
     }
 
     try {
@@ -172,8 +175,19 @@ export default function SubmissionsPage() {
       }
 
       setLastUpdated(new Date());
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching submissions:", error);
+      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      let errorMsg: string;
+      if (error?.code === 'failed-precondition') {
+        errorMsg = `Database index required. Please contact an administrator. [PX-4004] (Ref: ${correlationId})`;
+        console.error(`[Submissions Index Error ${correlationId}]`, error?.message);
+      } else if (error?.code === 'permission-denied') {
+        errorMsg = `Permission denied. Please sign in again. [PX-1007] (Ref: ${correlationId})`;
+      } else {
+        errorMsg = `Error loading submissions: ${error?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`;
+      }
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -269,8 +283,15 @@ export default function SubmissionsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Error display */}
+          {error && (
+            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+              <p className="text-destructive text-sm select-all cursor-text">{error}</p>
+            </div>
+          )}
+
           {/* Progress indicator */}
-          {!isLoading && totalCount && totalCount > PAGE_SIZE && (
+          {!isLoading && !error && totalCount && totalCount > PAGE_SIZE && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>Showing {filteredSubmissions.length} of {totalCount} teams</span>
