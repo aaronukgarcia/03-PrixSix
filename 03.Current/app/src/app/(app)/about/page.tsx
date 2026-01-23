@@ -1,9 +1,10 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Users,
   Mail,
@@ -30,12 +31,14 @@ import {
   Play,
   Book,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Film
 } from "lucide-react";
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { APP_VERSION } from '@/lib/version';
 import { SCORING_POINTS, SCORING_DERIVED } from '@/lib/scoring-rules';
+import CinematicIntro from './_components/CinematicIntro';
 
 interface Presence {
   id: string;
@@ -46,8 +49,30 @@ interface Presence {
 
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 
+const INTRO_STORAGE_KEY = 'prix-six-about-intro-seen';
+
 const AboutPageClient = () => {
     const firestore = useFirestore();
+    const [showIntro, setShowIntro] = useState(false);
+    const [hasCheckedStorage, setHasCheckedStorage] = useState(false);
+
+    // Check localStorage on mount to determine if intro should play
+    useEffect(() => {
+        const hasSeenIntro = localStorage.getItem(INTRO_STORAGE_KEY);
+        if (!hasSeenIntro) {
+            setShowIntro(true);
+        }
+        setHasCheckedStorage(true);
+    }, []);
+
+    const handleIntroComplete = () => {
+        localStorage.setItem(INTRO_STORAGE_KEY, 'true');
+        setShowIntro(false);
+    };
+
+    const handleReplayIntro = () => {
+        setShowIntro(true);
+    };
 
     const allUsersQuery = useMemo(() => {
         if (!firestore) return null;
@@ -91,15 +116,42 @@ const AboutPageClient = () => {
             }, 0);
     }, [presenceDocs]);
 
+    // Don't render anything until we've checked storage to prevent flash
+    if (!hasCheckedStorage) {
+        return null;
+    }
+
+    // Show cinematic intro if needed
+    if (showIntro) {
+        return (
+            <CinematicIntro
+                totalTeams={totalTeamsCount}
+                onlineUsers={onlineUserCount}
+                onComplete={handleIntroComplete}
+            />
+        );
+    }
+
     return (
         <div className="space-y-8">
             {/* Hero Section */}
             <div className="space-y-4">
-                <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">
-                        Welcome to Prix Six
-                    </h1>
-                    <Badge variant="secondary" className="font-mono">v{APP_VERSION}</Badge>
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">
+                            Welcome to Prix Six
+                        </h1>
+                        <Badge variant="secondary" className="font-mono">v{APP_VERSION}</Badge>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleReplayIntro}
+                        className="gap-2"
+                    >
+                        <Film className="h-4 w-4" />
+                        Watch Intro
+                    </Button>
                 </div>
                 <p className="text-lg text-muted-foreground max-w-2xl">
                     Prix Six is a friendly prediction game where you compete against friends to guess
