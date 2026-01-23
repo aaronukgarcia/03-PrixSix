@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useCollection, useFirestore } from "@/firebase";
 import type { User } from "@/firebase/provider";
 import {
@@ -18,12 +18,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { collection, query, orderBy, where } from "firebase/firestore";
+import { Button } from "@/components/ui/button";
+import { collection, query, orderBy, where, limit, startAfter, getDocs, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
-import { History, CalendarClock, AlertCircle } from "lucide-react";
+import { History, CalendarClock, AlertCircle, ChevronRight, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { formatDriverPredictions } from "@/lib/data";
+
+const PAGE_SIZE = 100;
 
 interface AuditLogEntry {
   id: string;
@@ -42,18 +45,16 @@ interface AuditLogEntry {
 export default function AuditPage() {
   const firestore = useFirestore();
 
-  // Query audit_logs for prediction submissions (full history)
-  const auditQuery = useMemo(() => {
-    if (!firestore) return null;
-    const q = query(
-      collection(firestore, "audit_logs"),
-      where("action", "==", "prediction_submitted"),
-      orderBy("timestamp", "desc")
-    );
-    (q as any).__memo = true;
-    return q;
-  }, [firestore]);
+  // Pagination state
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // Users query (still uses real-time for quick lookups)
   const usersQuery = useMemo(() => {
     if (!firestore) return null;
     const q = query(collection(firestore, "users"));
@@ -61,17 +62,81 @@ export default function AuditPage() {
     return q;
   }, [firestore]);
 
-  const { data: auditLogs, isLoading: isLoadingAudit, error: auditError } =
-    useCollection<AuditLogEntry>(auditQuery);
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
-  // Track when data was last loaded
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  useEffect(() => {
-    if (auditLogs && !isLoadingAudit) {
+  // Fetch audit logs with pagination
+  const fetchAuditLogs = useCallback(async (loadMore = false) => {
+    if (!firestore) return;
+
+    try {
+      if (loadMore) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+        setAuditLogs([]);
+        setLastDoc(null);
+        setError(null);
+      }
+
+      let q = query(
+        collection(firestore, "audit_logs"),
+        where("action", "==", "prediction_submitted"),
+        orderBy("timestamp", "desc"),
+        limit(PAGE_SIZE)
+      );
+
+      // If loading more, start after the last document
+      if (loadMore && lastDoc) {
+        q = query(
+          collection(firestore, "audit_logs"),
+          where("action", "==", "prediction_submitted"),
+          orderBy("timestamp", "desc"),
+          startAfter(lastDoc),
+          limit(PAGE_SIZE)
+        );
+      }
+
+      const snapshot = await getDocs(q);
+
+      const newLogs: AuditLogEntry[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as AuditLogEntry));
+
+      if (loadMore) {
+        setAuditLogs(prev => [...prev, ...newLogs]);
+      } else {
+        setAuditLogs(newLogs);
+      }
+
+      // Update last document for next page
+      if (snapshot.docs.length > 0) {
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      }
+
+      // Check if there are more results
+      setHasMore(snapshot.docs.length === PAGE_SIZE);
       setLastUpdated(new Date());
+
+    } catch (err: any) {
+      console.error("Error fetching audit logs:", err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  }, [auditLogs, isLoadingAudit]);
+  }, [firestore, lastDoc]);
+
+  // Initial load
+  useEffect(() => {
+    if (firestore) {
+      fetchAuditLogs(false);
+    }
+  }, [firestore]); // Only run on mount and when firestore changes
+
+  const handleLoadMore = () => {
+    fetchAuditLogs(true);
+  };
 
   const formatTimestamp = (timestamp: any) => {
     if (!timestamp) return "N/A";
@@ -85,8 +150,6 @@ export default function AuditPage() {
     });
   };
 
-  // Use centralized driver name formatting from data.ts
-  // This ensures consistent driver name display (e.g., "Hamilton" not "hamilton")
   const formatPredictions = (predictions: string[] | undefined) => {
     return formatDriverPredictions(predictions);
   };
@@ -106,7 +169,7 @@ export default function AuditPage() {
     });
   }, [auditLogs, users]);
 
-  const isLoading = isLoadingAudit || isLoadingUsers;
+  const showLoading = isLoading || isLoadingUsers;
 
   return (
     <div className="space-y-6">
@@ -128,19 +191,24 @@ export default function AuditPage() {
               </CardTitle>
               <CardDescription>
                 All predictions ever submitted, including edits and updates.
+                {auditLogs.length > 0 && (
+                  <span className="ml-1">
+                    Showing {auditLogs.length} entries.
+                  </span>
+                )}
               </CardDescription>
             </div>
             <LastUpdated timestamp={lastUpdated} />
           </div>
         </CardHeader>
-        <CardContent>
-          {auditError && (
+        <CardContent className="space-y-4">
+          {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error Loading Audit Logs</AlertTitle>
               <AlertDescription>
-                {auditError.message}
-                {auditError.message?.includes('index') && (
+                <span className="select-all cursor-text">{error.message}</span>
+                {error.message?.includes('index') && (
                   <span className="block mt-2 text-sm">
                     This query requires a Firestore composite index. Please check the Firebase console.
                   </span>
@@ -158,7 +226,7 @@ export default function AuditPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {showLoading ? (
                 Array.from({ length: 10 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell>
@@ -205,6 +273,37 @@ export default function AuditPage() {
               )}
             </TableBody>
           </Table>
+
+          {/* Load More Button */}
+          {!showLoading && hasMore && submissionsWithTeamNames.length > 0 && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="outline"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="gap-2"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    Load Next {PAGE_SIZE}
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* End of results message */}
+          {!showLoading && !hasMore && submissionsWithTeamNames.length > 0 && (
+            <p className="text-center text-sm text-muted-foreground pt-4">
+              All {auditLogs.length} entries loaded.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
