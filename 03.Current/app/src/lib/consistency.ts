@@ -873,9 +873,54 @@ export function checkScores(
     resultsMap.set(result.id.toLowerCase(), result);
   }
 
+  // Track late-joiner handicap scores separately
+  const lateJoinerHandicapScores: ScoreData[] = [];
+
   for (const score of scores) {
     let isValid = true;
     const entityName = `Score ${score.id}`;
+
+    // Special handling for late-joiner-handicap scores
+    // These are manual adjustments per the rule: "Late joiners begin 5 points behind last place"
+    if (score.raceId === 'late-joiner-handicap') {
+      lateJoinerHandicapScores.push(score);
+
+      // Only validate that userId exists and is valid
+      if (!score.userId) {
+        issues.push({
+          severity: 'error',
+          entity: entityName,
+          field: 'userId',
+          message: 'Late-joiner handicap missing userId',
+        });
+        isValid = false;
+      } else if (!isValidUserOrTeamId(score.userId, userIds, usersWithSecondary)) {
+        issues.push({
+          severity: 'error',
+          entity: entityName,
+          field: 'userId',
+          message: `Late-joiner handicap has invalid userId: ${score.userId}`,
+          details: { userId: score.userId },
+        });
+        isValid = false;
+      }
+
+      // Validate totalPoints exists (can be any value for handicaps)
+      if (score.totalPoints === undefined || score.totalPoints === null) {
+        issues.push({
+          severity: 'error',
+          entity: entityName,
+          field: 'totalPoints',
+          message: 'Late-joiner handicap missing totalPoints',
+        });
+        isValid = false;
+      }
+
+      if (isValid) {
+        validCount++;
+      }
+      continue; // Skip normal race score validation
+    }
 
     // Check ID format
     const expectedIdPattern = /^.+_.+$/;
