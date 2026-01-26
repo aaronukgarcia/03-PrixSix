@@ -12,13 +12,22 @@ let queueProcessor: QueueProcessor;
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
-  const status = whatsappClient?.getStatus() || { ready: false, qrCode: null };
+  const status = whatsappClient?.getStatus() || {
+    ready: false,
+    qrCode: null,
+    storage: 'unknown',
+    lastSuccessfulPing: null,
+    consecutiveFailures: 0,
+  };
 
   res.json({
     status: 'ok',
     whatsapp: {
       connected: status.ready,
       awaitingQR: !!status.qrCode,
+      storage: status.storage,
+      lastSuccessfulPing: status.lastSuccessfulPing,
+      consecutiveFailures: status.consecutiveFailures,
     },
     timestamp: new Date().toISOString(),
   });
@@ -26,7 +35,13 @@ app.get('/health', (req: Request, res: Response) => {
 
 // Status endpoint with more details
 app.get('/status', async (req: Request, res: Response) => {
-  const status = whatsappClient?.getStatus() || { ready: false, qrCode: null };
+  const status = whatsappClient?.getStatus() || {
+    ready: false,
+    qrCode: null,
+    storage: 'unknown',
+    lastSuccessfulPing: null,
+    consecutiveFailures: 0,
+  };
 
   let groups: Array<{ id: string; name: string }> = [];
   if (status.ready) {
@@ -37,12 +52,23 @@ app.get('/status', async (req: Request, res: Response) => {
     }
   }
 
+  // Calculate time since last ping
+  const lastPingAgo = status.lastSuccessfulPing
+    ? Math.round((Date.now() - new Date(status.lastSuccessfulPing).getTime()) / 1000)
+    : null;
+
   res.json({
     status: 'ok',
     whatsapp: {
       connected: status.ready,
       awaitingQR: !!status.qrCode,
+      storage: status.storage,
       groups: groups.map(g => g.name),
+      keepAlive: {
+        lastSuccessfulPing: status.lastSuccessfulPing,
+        lastPingSecondsAgo: lastPingAgo,
+        consecutiveFailures: status.consecutiveFailures,
+      },
     },
     timestamp: new Date().toISOString(),
   });
@@ -62,6 +88,32 @@ app.get('/qr', (req: Request, res: Response) => {
 
   // Return QR code as text (can be scanned from logs or rendered)
   res.type('text/plain').send(status.qrCode);
+});
+
+// Manual ping endpoint (for testing keep-alive)
+app.post('/ping', async (req: Request, res: Response) => {
+  const status = whatsappClient?.getStatus();
+
+  if (!status?.ready) {
+    res.status(503).json({ error: 'WhatsApp not ready' });
+    return;
+  }
+
+  try {
+    const pingResult = await whatsappClient.forceKeepAlivePing();
+    res.json({
+      success: pingResult.success,
+      state: pingResult.state,
+      error: pingResult.error,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // Manual trigger endpoint (for testing)

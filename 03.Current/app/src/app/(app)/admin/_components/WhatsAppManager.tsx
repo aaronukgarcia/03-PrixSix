@@ -91,6 +91,20 @@ interface WorkerStatus {
   groups: string[];
   timestamp: string;
   error?: string;
+  storage?: string;
+  keepAlive?: {
+    lastSuccessfulPing: string | null;
+    lastPingSecondsAgo: number | null;
+    consecutiveFailures: number;
+  };
+}
+
+interface StatusLogEntry {
+  id: string;
+  status: string;
+  timestamp: Timestamp;
+  details?: Record<string, any>;
+  consecutiveFailures?: number;
 }
 
 interface QueueMessage {
@@ -190,6 +204,10 @@ export function WhatsAppManager() {
   const [alertHistory, setAlertHistory] = useState<(WhatsAppAlertHistoryEntry & { id: string })[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  // Status log state
+  const [statusLog, setStatusLog] = useState<StatusLogEntry[]>([]);
+  const [statusLogLoading, setStatusLogLoading] = useState(true);
+
   // Fetch worker status
   const fetchWorkerStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -211,6 +229,8 @@ export function WhatsAppManager() {
         awaitingQR: data.whatsapp?.awaitingQR || false,
         groups: data.whatsapp?.groups || [],
         timestamp: data.timestamp,
+        storage: data.whatsapp?.storage,
+        keepAlive: data.whatsapp?.keepAlive,
       });
 
       // Auto-select first group if none selected
@@ -304,6 +324,28 @@ export function WhatsAppManager() {
     }, (error) => {
       console.error('Error listening to alert history:', error);
       setHistoryLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [firestore]);
+
+  // Listen to WhatsApp status log
+  useEffect(() => {
+    if (!firestore) return;
+
+    const statusRef = collection(firestore, 'whatsapp_status_log');
+    const q = query(statusRef, orderBy('timestamp', 'desc'), limit(25));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const entries: StatusLogEntry[] = [];
+      snapshot.forEach((doc) => {
+        entries.push({ id: doc.id, ...doc.data() } as StatusLogEntry);
+      });
+      setStatusLog(entries);
+      setStatusLogLoading(false);
+    }, (error) => {
+      console.error('Error listening to status log:', error);
+      setStatusLogLoading(false);
     });
 
     return () => unsubscribe();
@@ -557,9 +599,119 @@ export function WhatsAppManager() {
                       : '-'}
                   </TableCell>
                 </TableRow>
+                {workerStatus.keepAlive && (
+                  <>
+                    <TableRow>
+                      <TableCell className="font-medium">Keep-Alive</TableCell>
+                      <TableCell>
+                        {workerStatus.keepAlive.consecutiveFailures === 0 ? (
+                          <span className="flex items-center gap-2 text-green-600">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Healthy</span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2 text-amber-600">
+                            <XCircle className="w-4 h-4" />
+                            <span>{workerStatus.keepAlive.consecutiveFailures} failures</span>
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Last Ping</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {workerStatus.keepAlive.lastPingSecondsAgo !== null
+                          ? `${workerStatus.keepAlive.lastPingSecondsAgo}s ago`
+                          : 'Never'}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
               </TableBody>
             </Table>
           ) : null}
+        </CardContent>
+      </Card>
+
+      {/* Connection Status Log */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Connection Status Log
+          </CardTitle>
+          <CardDescription>
+            Recent status changes from the WhatsApp worker. Shows when connection drops or recovers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {statusLogLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : statusLog.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">
+              No status logs yet. Logs will appear when the worker reports status changes.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-32">Status</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead className="w-32">Time</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {statusLog.map((entry) => (
+                  <TableRow key={entry.id} className={
+                    entry.status === 'disconnected' || entry.status === 'auth_failure' || entry.status === 'keep_alive_fail'
+                      ? 'bg-destructive/5'
+                      : entry.status === 'ready'
+                      ? 'bg-green-500/5'
+                      : ''
+                  }>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          entry.status === 'ready' || entry.status === 'authenticated'
+                            ? 'default'
+                            : entry.status === 'disconnected' || entry.status === 'auth_failure' || entry.status === 'keep_alive_fail'
+                            ? 'destructive'
+                            : 'secondary'
+                        }
+                        className={
+                          entry.status === 'ready' ? 'bg-green-600' : ''
+                        }
+                      >
+                        {entry.status === 'keep_alive_ping' ? 'ping' : entry.status.replace(/_/g, ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {entry.details ? (
+                        <span className="font-mono text-xs">
+                          {Object.entries(entry.details)
+                            .filter(([k]) => k !== 'timestamp')
+                            .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                            .join(', ')
+                            .substring(0, 80) || '-'}
+                        </span>
+                      ) : entry.consecutiveFailures ? (
+                        <span>Failures: {entry.consecutiveFailures}</span>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatTime(entry.timestamp)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
