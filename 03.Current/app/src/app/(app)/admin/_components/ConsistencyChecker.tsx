@@ -463,44 +463,44 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
                         return (
                           <>
                             <TableRow>
-                              <TableCell className="font-mono">A</TableCell>
-                              <TableCell>+6</TableCell>
+                              <TableCell className="font-mono font-bold text-green-500">A</TableCell>
+                              <TableCell className="text-green-500">+6</TableCell>
                               <TableCell>Exact Position</TableCell>
                               <TableCell className="text-right font-medium">{counts.typeA}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-mono">B</TableCell>
-                              <TableCell>+4</TableCell>
+                              <TableCell className="font-mono font-bold text-lime-500">B</TableCell>
+                              <TableCell className="text-lime-500">+4</TableCell>
                               <TableCell>1 Position Off</TableCell>
                               <TableCell className="text-right font-medium">{counts.typeB}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-mono">C</TableCell>
-                              <TableCell>+3</TableCell>
+                              <TableCell className="font-mono font-bold text-yellow-500">C</TableCell>
+                              <TableCell className="text-yellow-500">+3</TableCell>
                               <TableCell>2 Positions Off</TableCell>
                               <TableCell className="text-right font-medium">{counts.typeC}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-mono">D</TableCell>
-                              <TableCell>+2</TableCell>
+                              <TableCell className="font-mono font-bold text-orange-500">D</TableCell>
+                              <TableCell className="text-orange-500">+2</TableCell>
                               <TableCell>3+ Positions Off</TableCell>
                               <TableCell className="text-right font-medium">{counts.typeD}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-mono">E</TableCell>
-                              <TableCell>0</TableCell>
+                              <TableCell className="font-mono font-bold text-red-400">E</TableCell>
+                              <TableCell className="text-red-400">0</TableCell>
                               <TableCell>Not in Top 6</TableCell>
                               <TableCell className="text-right font-medium">{counts.typeE}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-mono">F</TableCell>
-                              <TableCell>+10</TableCell>
+                              <TableCell className="font-mono font-bold text-amber-400">F</TableCell>
+                              <TableCell className="text-amber-400">+10</TableCell>
                               <TableCell>Perfect 6 Bonus</TableCell>
                               <TableCell className="text-right font-medium">{counts.typeF}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-mono">G</TableCell>
-                              <TableCell>var</TableCell>
+                              <TableCell className="font-mono font-bold text-purple-400">G</TableCell>
+                              <TableCell className="text-purple-400">var</TableCell>
                               <TableCell>Late Joiner Handicap</TableCell>
                               <TableCell className="text-right font-medium">{counts.typeG}</TableCell>
                             </TableRow>

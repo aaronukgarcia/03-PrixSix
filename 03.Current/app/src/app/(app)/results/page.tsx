@@ -15,6 +15,7 @@ import {
   } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule, F1Drivers } from "@/lib/data";
+import { calculateDriverPoints, SCORING_POINTS } from "@/lib/scoring-rules";
 import {
   Select,
   SelectContent,
@@ -51,13 +52,18 @@ interface RaceResult {
     submittedAt: any;
 }
 
+// Score types for color coding
+type ScoreType = 'A' | 'B' | 'C' | 'D' | 'E';  // A=exact(+6), B=1off(+4), C=2off(+3), D=3+off(+2), E=notInTop6(0)
+
 interface DriverPrediction {
     driverId: string;
     driverName: string;
     position: number; // P1, P2, etc.
+    actualPosition: number; // -1 if not in top 6
     isCorrect: boolean;
     isExactPosition: boolean;
-    points: number; // 0, 3, or 5
+    points: number;
+    scoreType: ScoreType;
 }
 
 interface TeamResult {
@@ -134,37 +140,52 @@ function ResultsContent() {
 
     // Track the most recent race with admin-entered results
     const [mostRecentResultRaceId, setMostRecentResultRaceId] = useState<string | null>(null);
+    const [racesWithResults, setRacesWithResults] = useState<Set<string>>(new Set());
     const [isLoadingMostRecent, setIsLoadingMostRecent] = useState(!raceFromUrl); // Only load if no URL param
 
-    // Fetch the most recent race result by submittedAt
+    // Fetch all race results to know which races to show in dropdown
     useEffect(() => {
-        if (!firestore || raceFromUrl) return; // Skip if URL param provided
+        if (!firestore) return;
 
-        const fetchMostRecentResult = async () => {
+        const fetchRacesWithResults = async () => {
             try {
-                const resultsQuery = query(
-                    collection(firestore, "race_results"),
-                    orderBy("submittedAt", "desc"),
-                    limit(1)
-                );
-                const snapshot = await getDocs(resultsQuery);
-                if (!snapshot.empty) {
-                    const resultId = snapshot.docs[0].id;
-                    // Convert result ID back to event ID format (e.g., "australian-grand-prix-gp" -> "Australian-Grand-Prix-GP")
-                    const eventId = allRaceEvents.find(e => e.id.toLowerCase() === resultId.toLowerCase())?.id;
+                const resultsSnapshot = await getDocs(collection(firestore, "race_results"));
+                const resultIds = new Set<string>();
+                let mostRecentId: string | null = null;
+                let mostRecentTime: any = null;
+
+                resultsSnapshot.forEach(doc => {
+                    // Convert result ID to event ID format
+                    const eventId = allRaceEvents.find(e => e.id.toLowerCase() === doc.id.toLowerCase())?.id;
                     if (eventId) {
-                        setMostRecentResultRaceId(eventId);
+                        resultIds.add(eventId);
+                        // Track most recent by submittedAt
+                        const data = doc.data();
+                        if (!mostRecentTime || (data.submittedAt && data.submittedAt > mostRecentTime)) {
+                            mostRecentTime = data.submittedAt;
+                            mostRecentId = eventId;
+                        }
                     }
+                });
+
+                setRacesWithResults(resultIds);
+                if (!raceFromUrl && mostRecentId) {
+                    setMostRecentResultRaceId(mostRecentId);
                 }
             } catch (error) {
-                console.error("Error fetching most recent result:", error);
+                console.error("Error fetching races with results:", error);
             } finally {
                 setIsLoadingMostRecent(false);
             }
         };
 
-        fetchMostRecentResult();
+        fetchRacesWithResults();
     }, [firestore, raceFromUrl]);
+
+    // Filter events to only show those with results
+    const eventsWithResults = useMemo(() => {
+        return allRaceEvents.filter(event => racesWithResults.has(event.id));
+    }, [racesWithResults]);
 
     // Calculate default race ID: URL param > most recent result > most recent past event > first event
     const defaultRaceId = useMemo(() => {
@@ -278,11 +299,14 @@ function ResultsContent() {
         }).join(' | ');
     };
 
-    // Prix Six scoring constants
-    const SCORING = {
-        exactPosition: 5,  // +5 for exact position match
-        wrongPosition: 3,  // +3 for correct driver but wrong position
-        bonusAll6: 10,     // +10 bonus if all 6 correct
+    // Helper to get score type based on position difference
+    const getScoreType = (predictedPosition: number, actualPosition: number): ScoreType => {
+        if (actualPosition === -1) return 'E';  // Not in top 6
+        const diff = Math.abs(predictedPosition - actualPosition);
+        if (diff === 0) return 'A';  // Exact
+        if (diff === 1) return 'B';  // 1 off
+        if (diff === 2) return 'C';  // 2 off
+        return 'D';  // 3+ off
     };
 
     // Parse predictions and calculate per-driver scoring (Prix Six rules)
@@ -314,28 +338,39 @@ function ResultsContent() {
             const isCorrect = actualIndex !== -1;
             const isExactPosition = actualIndex === index;
 
-            let points = 0;
-            if (isExactPosition) {
-                points = SCORING.exactPosition; // +5 for exact
-            } else if (isCorrect) {
-                points = SCORING.wrongPosition; // +3 for wrong position
-            }
+            // Use the correct position-based scoring from scoring-rules.ts
+            const points = calculateDriverPoints(index, actualIndex);
+            const scoreType = getScoreType(index, actualIndex);
 
             return {
                 driverId: normalizedDriverId,
                 driverName: driver?.name || driverId,
                 position: index + 1,
+                actualPosition: actualIndex,
                 isCorrect,
                 isExactPosition,
                 points,
+                scoreType,
             };
         });
     }, []);
 
     // Calculate bonus points (only if all 6 correct)
     const calculateBonus = (correctCount: number): number => {
-        if (correctCount === 6) return SCORING.bonusAll6;
+        if (correctCount === 6) return SCORING_POINTS.bonusAll6;
         return 0;
+    };
+
+    // Get color class for score type
+    const getScoreTypeColor = (scoreType: ScoreType): string => {
+        switch (scoreType) {
+            case 'A': return 'text-green-500';      // Exact (+6)
+            case 'B': return 'text-lime-500';       // 1 off (+4)
+            case 'C': return 'text-yellow-500';     // 2 off (+3)
+            case 'D': return 'text-orange-500';     // 3+ off (+2)
+            case 'E': return 'text-red-400';        // Not in top 6 (0)
+            default: return 'text-muted-foreground';
+        }
     };
 
     // Fetch all data for selected race in one effect
@@ -576,18 +611,24 @@ function ResultsContent() {
                         <SelectValue placeholder="Select a race or sprint" />
                       </SelectTrigger>
                       <SelectContent>
-                        {allRaceEvents.map((event) => (
-                          <SelectItem key={event.id} value={event.id}>
-                            <span className="flex items-center gap-2">
-                              {event.isSprint ? (
-                                <Zap className="h-3 w-3 text-amber-500" />
-                              ) : (
-                                <Flag className="h-3 w-3 text-primary" />
-                              )}
-                              {event.label}
-                            </span>
+                        {eventsWithResults.length > 0 ? (
+                          eventsWithResults.map((event) => (
+                            <SelectItem key={event.id} value={event.id}>
+                              <span className="flex items-center gap-2">
+                                {event.isSprint ? (
+                                  <Zap className="h-3 w-3 text-amber-500" />
+                                ) : (
+                                  <Flag className="h-3 w-3 text-primary" />
+                                )}
+                                {event.label}
+                              </span>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>
+                            No results available yet
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                     {isLoading && (
@@ -670,20 +711,15 @@ function ResultsContent() {
                                         <span className={pred.isCorrect ? "text-foreground" : "text-muted-foreground"}>
                                             P{pred.position}: {pred.driverName}
                                         </span>
-                                        {pred.points > 0 && (
-                                            <span className={`font-bold ml-0.5 ${pred.isExactPosition ? "text-green-500" : "text-yellow-500"}`}>
-                                                +{pred.points}
-                                            </span>
-                                        )}
-                                        {!pred.isCorrect && (
-                                            <span className="text-red-400 font-bold ml-0.5">+0</span>
-                                        )}
+                                        <span className={`font-bold ml-0.5 ${getScoreTypeColor(pred.scoreType)}`}>
+                                            +{pred.points}
+                                        </span>
                                         {i < team.predictions.length - 1 && <span className="text-muted-foreground mr-1">,</span>}
                                     </span>
                                 ))}
                                 {team.bonusPoints > 0 && (
-                                    <span className="text-green-500 font-bold ml-1">
-                                        BonusAll6+{team.bonusPoints}
+                                    <span className="text-amber-400 font-bold ml-1">
+                                        Bonus+{team.bonusPoints}
                                     </span>
                                 )}
                             </div>
