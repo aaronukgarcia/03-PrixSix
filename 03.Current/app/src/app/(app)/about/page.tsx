@@ -142,8 +142,9 @@ const AboutPageClient = () => {
                         <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">
                             Welcome to Prix Six
                         </h1>
-                        <Link href="/about/dev">
-                            <Badge variant="secondary" className="font-mono cursor-pointer hover:bg-secondary/80">v{APP_VERSION}</Badge>
+                        <Link href="/about/dev" className="flex items-center gap-1.5 group">
+                            <Badge variant="secondary" className="font-mono cursor-pointer group-hover:bg-secondary/80">v{APP_VERSION}</Badge>
+                            <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Dev Info →</span>
                         </Link>
                     </div>
                     <Button
