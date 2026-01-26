@@ -46,7 +46,10 @@ import {
   Settings2,
   History,
   Save,
+  QrCode,
+  Smartphone,
 } from "lucide-react";
+import QRCode from "react-qr-code";
 import {
   collection,
   addDoc,
@@ -207,6 +210,37 @@ export function WhatsAppManager() {
   // Status log state
   const [statusLog, setStatusLog] = useState<StatusLogEntry[]>([]);
   const [statusLogLoading, setStatusLogLoading] = useState(true);
+
+  // QR code state
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+
+  // Fetch QR code from worker
+  const fetchQRCode = useCallback(async () => {
+    setQrLoading(true);
+    setQrError(null);
+
+    try {
+      const response = await fetch(`${WHATSAPP_WORKER_URL}/qr`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || data.reason || `HTTP ${response.status}`);
+      }
+
+      const qrData = await response.text();
+      setQrCodeData(qrData);
+    } catch (error: any) {
+      console.error('Failed to fetch QR code:', error);
+      setQrError(error.message || 'Failed to fetch QR code');
+      setQrCodeData(null);
+    } finally {
+      setQrLoading(false);
+    }
+  }, []);
 
   // Fetch worker status
   const fetchWorkerStatus = useCallback(async () => {
@@ -554,6 +588,7 @@ export function WhatsAppManager() {
               </p>
             </div>
           ) : workerStatus ? (
+            <div className="space-y-4">
             <Table>
               <TableBody>
                 <TableRow>
@@ -576,7 +611,18 @@ export function WhatsAppManager() {
                   <TableCell className="font-medium">Awaiting QR</TableCell>
                   <TableCell>
                     {workerStatus.awaitingQR ? (
-                      <Badge variant="secondary">Yes - Scan Required</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">Yes - Scan Required</Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={fetchQRCode}
+                          disabled={qrLoading}
+                        >
+                          <QrCode className={`w-4 h-4 mr-1 ${qrLoading ? 'animate-pulse' : ''}`} />
+                          {qrLoading ? 'Loading...' : 'Show QR Code'}
+                        </Button>
+                      </div>
                     ) : (
                       <span className="text-muted-foreground">No</span>
                     )}
@@ -629,6 +675,40 @@ export function WhatsAppManager() {
                 )}
               </TableBody>
             </Table>
+
+            {/* QR Code Display */}
+            {workerStatus.awaitingQR && (qrCodeData || qrError) && (
+              <div className="rounded-lg border p-6 bg-white">
+                {qrError ? (
+                  <div className="text-center space-y-2">
+                    <XCircle className="w-12 h-12 mx-auto text-destructive" />
+                    <p className="text-destructive font-medium">Failed to load QR code</p>
+                    <p className="text-sm text-muted-foreground">{qrError}</p>
+                    <Button variant="outline" size="sm" onClick={fetchQRCode}>
+                      Try Again
+                    </Button>
+                  </div>
+                ) : qrCodeData ? (
+                  <div className="text-center space-y-4">
+                    <div className="flex items-center justify-center gap-2 text-green-600">
+                      <Smartphone className="w-5 h-5" />
+                      <span className="font-semibold">Scan with WhatsApp</span>
+                    </div>
+                    <div className="inline-block p-4 bg-white rounded-lg shadow-lg">
+                      <QRCode value={qrCodeData} size={256} level="M" />
+                    </div>
+                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                      Open WhatsApp on your phone, go to Settings → Linked Devices → Link a Device, then scan this QR code.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={fetchQRCode}>
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      Refresh QR Code
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+            </div>
           ) : null}
         </CardContent>
       </Card>

@@ -5,22 +5,24 @@
  */
 
 import type { App } from 'firebase-admin/app';
-import type { Firestore, FieldValue as FieldValueType } from 'firebase-admin/firestore';
+import type { Firestore, FieldValue as FieldValueType, Timestamp as TimestampType } from 'firebase-admin/firestore';
 
 let adminApp: App | null = null;
 let adminDb: Firestore | null = null;
 let adminFieldValue: typeof FieldValueType | null = null;
+let adminTimestamp: typeof TimestampType | null = null;
 
 export async function getFirebaseAdmin(): Promise<{
   db: Firestore;
   FieldValue: typeof FieldValueType;
+  Timestamp: typeof TimestampType;
 }> {
-  if (adminDb && adminFieldValue) {
-    return { db: adminDb, FieldValue: adminFieldValue };
+  if (adminDb && adminFieldValue && adminTimestamp) {
+    return { db: adminDb, FieldValue: adminFieldValue, Timestamp: adminTimestamp };
   }
 
   const { initializeApp, getApps, cert, applicationDefault } = await import('firebase-admin/app');
-  const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
+  const { getFirestore, FieldValue, Timestamp } = await import('firebase-admin/firestore');
 
   if (!getApps().length) {
     // Try Application Default Credentials first (works on Google Cloud/Firebase App Hosting)
@@ -52,8 +54,9 @@ export async function getFirebaseAdmin(): Promise<{
 
   adminDb = getFirestore();
   adminFieldValue = FieldValue;
+  adminTimestamp = Timestamp;
 
-  return { db: adminDb, FieldValue: adminFieldValue };
+  return { db: adminDb, FieldValue: adminFieldValue, Timestamp: adminTimestamp };
 }
 
 /**
