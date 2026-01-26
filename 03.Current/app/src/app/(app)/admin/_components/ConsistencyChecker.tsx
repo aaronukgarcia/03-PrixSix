@@ -52,6 +52,7 @@ import {
   type ScoreData,
   type LeagueData,
   type Issue,
+  type ScoreTypeCounts,
 } from '@/lib/consistency';
 
 interface ConsistencyCheckerProps {
@@ -441,6 +442,83 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
                   <span className="font-medium">{summary.errors} Errors</span>
                 </div>
               </div>
+
+              {/* Score Type Breakdown */}
+              {summary.results.find(r => r.category === 'scores')?.scoreTypeCounts && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Score Type Breakdown</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Points</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Count</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(() => {
+                        const counts = summary.results.find(r => r.category === 'scores')?.scoreTypeCounts;
+                        if (!counts) return null;
+                        return (
+                          <>
+                            <TableRow>
+                              <TableCell className="font-mono">A</TableCell>
+                              <TableCell>+6</TableCell>
+                              <TableCell>Exact Position</TableCell>
+                              <TableCell className="text-right font-medium">{counts.typeA}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell className="font-mono">B</TableCell>
+                              <TableCell>+4</TableCell>
+                              <TableCell>1 Position Off</TableCell>
+                              <TableCell className="text-right font-medium">{counts.typeB}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell className="font-mono">C</TableCell>
+                              <TableCell>+3</TableCell>
+                              <TableCell>2 Positions Off</TableCell>
+                              <TableCell className="text-right font-medium">{counts.typeC}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell className="font-mono">D</TableCell>
+                              <TableCell>+2</TableCell>
+                              <TableCell>3+ Positions Off</TableCell>
+                              <TableCell className="text-right font-medium">{counts.typeD}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell className="font-mono">E</TableCell>
+                              <TableCell>0</TableCell>
+                              <TableCell>Not in Top 6</TableCell>
+                              <TableCell className="text-right font-medium">{counts.typeE}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell className="font-mono">F</TableCell>
+                              <TableCell>+10</TableCell>
+                              <TableCell>Perfect 6 Bonus</TableCell>
+                              <TableCell className="text-right font-medium">{counts.typeF}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell className="font-mono">G</TableCell>
+                              <TableCell>var</TableCell>
+                              <TableCell>Late Joiner Handicap</TableCell>
+                              <TableCell className="text-right font-medium">{counts.typeG}</TableCell>
+                            </TableRow>
+                            <TableRow className="border-t-2">
+                              <TableCell colSpan={3} className="font-medium">Total Race Scores</TableCell>
+                              <TableCell className="text-right font-medium">{counts.totalRaceScores}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell colSpan={3} className="font-medium">Total Driver Predictions</TableCell>
+                              <TableCell className="text-right font-medium">{counts.totalDriverPredictions}</TableCell>
+                            </TableRow>
+                          </>
+                        );
+                      })()}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

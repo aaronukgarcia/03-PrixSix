@@ -15,12 +15,25 @@ export interface Issue {
   details?: Record<string, unknown>;
 }
 
+export interface ScoreTypeCounts {
+  typeA: number;  // +6 Exact Position
+  typeB: number;  // +4 One Position Off
+  typeC: number;  // +3 Two Positions Off
+  typeD: number;  // +2 Three+ Positions Off
+  typeE: number;  // 0 Not in Top 6
+  typeF: number;  // +10 Perfect 6 Bonus
+  typeG: number;  // Late Joiner Handicap
+  totalRaceScores: number;
+  totalDriverPredictions: number;
+}
+
 export interface CheckResult {
   category: CheckCategory;
   status: CheckStatus;
   total: number;
   valid: number;
   issues: Issue[];
+  scoreTypeCounts?: ScoreTypeCounts;  // Only present for 'scores' category
 }
 
 export interface ConsistencyCheckSummary {
@@ -1066,6 +1079,47 @@ export function checkScores(
     }
   }
 
+  // Count score types from breakdown strings
+  const scoreTypeCounts: ScoreTypeCounts = {
+    typeA: 0,  // +6 Exact Position
+    typeB: 0,  // +4 One Position Off
+    typeC: 0,  // +3 Two Positions Off
+    typeD: 0,  // +2 Three+ Positions Off
+    typeE: 0,  // 0 Not in Top 6
+    typeF: 0,  // +10 Perfect 6 Bonus
+    typeG: lateJoinerHandicapScores.length,  // Late Joiner Handicap
+    totalRaceScores: 0,
+    totalDriverPredictions: 0,
+  };
+
+  for (const score of scores) {
+    if (score.raceId === 'late-joiner-handicap') continue;
+
+    scoreTypeCounts.totalRaceScores++;
+    const breakdown = score.breakdown || '';
+    const parts = breakdown.split(',').map(p => p.trim());
+
+    for (const part of parts) {
+      if (part.includes('BonusAll6') || part.includes('Bonus')) {
+        scoreTypeCounts.typeF++;
+      } else if (part.includes('+6')) {
+        scoreTypeCounts.typeA++;
+      } else if (part.includes('+4')) {
+        scoreTypeCounts.typeB++;
+      } else if (part.includes('+3')) {
+        scoreTypeCounts.typeC++;
+      } else if (part.includes('+2')) {
+        scoreTypeCounts.typeD++;
+      } else if (part.includes('+0')) {
+        scoreTypeCounts.typeE++;
+      }
+    }
+  }
+
+  scoreTypeCounts.totalDriverPredictions =
+    scoreTypeCounts.typeA + scoreTypeCounts.typeB + scoreTypeCounts.typeC +
+    scoreTypeCounts.typeD + scoreTypeCounts.typeE;
+
   // Check for missing scores (predictions with results but no score)
   for (const pred of predictions) {
     const userId = pred.userId || pred.teamId;
@@ -1092,6 +1146,7 @@ export function checkScores(
     total: scores.length,
     valid: validCount,
     issues,
+    scoreTypeCounts,
   };
 }
 
