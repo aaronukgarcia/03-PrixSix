@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, Mail, Send, Trash2, RefreshCw } from 'lucide-react';
+import { AlertCircle, Mail, Send, Trash2, RefreshCw, RotateCcw, Clock, XCircle } from 'lucide-react';
 import {
     Accordion,
     AccordionContent,
@@ -20,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface EmailLog {
     id: string;
@@ -44,6 +45,9 @@ interface QueuedEmail {
     status: 'pending' | 'sent' | 'failed';
     reason: string;
     queuedAt?: any;
+    retryCount?: number;
+    nextRetryAt?: { seconds: number; nanoseconds: number } | null;
+    lastError?: string;
 }
 
 export function EmailLogManager() {
@@ -55,11 +59,13 @@ export function EmailLogManager() {
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [isProcessingAll, setIsProcessingAll] = useState(false);
     const [isDeletingAll, setIsDeletingAll] = useState(false);
+    const [isResendingAll, setIsResendingAll] = useState(false);
 
+    // Fetch all emails including failed ones
     const fetchQueuedEmails = useCallback(async () => {
         setIsLoadingQueue(true);
         try {
-            const response = await fetch('/api/email-queue');
+            const response = await fetch('/api/email-queue?includeAll=true');
             const data = await response.json();
             if (data.success) {
                 setQueuedEmails(data.emails);
@@ -88,6 +94,32 @@ export function EmailLogManager() {
             const data = await response.json();
             if (data.success) {
                 toast({ title: 'Email Sent', description: 'The queued email has been sent.' });
+                fetchQueuedEmails();
+            } else {
+                toast({ variant: 'destructive', title: 'Failed', description: data.error });
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setProcessingIds(prev => {
+                const next = new Set(prev);
+                next.delete(emailId);
+                return next;
+            });
+        }
+    };
+
+    const handleResendEmail = async (emailId: string) => {
+        setProcessingIds(prev => new Set(prev).add(emailId));
+        try {
+            const response = await fetch('/api/email-queue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'resend', emailIds: [emailId] }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                toast({ title: 'Email Re-queued', description: 'The failed email has been re-queued for sending.' });
                 fetchQueuedEmails();
             } else {
                 toast({ variant: 'destructive', title: 'Failed', description: data.error });
@@ -151,6 +183,31 @@ export function EmailLogManager() {
         }
     };
 
+    const handleResendAllFailed = async () => {
+        const failedIds = queuedEmails.filter(e => e.status === 'failed').map(e => e.id);
+        if (failedIds.length === 0) return;
+
+        setIsResendingAll(true);
+        try {
+            const response = await fetch('/api/email-queue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'resend', emailIds: failedIds }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                toast({ title: 'Emails Re-queued', description: data.message });
+                fetchQueuedEmails();
+            } else {
+                toast({ variant: 'destructive', title: 'Failed', description: data.error });
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsResendingAll(false);
+        }
+    };
+
     const handleDeleteAll = async () => {
         setIsDeletingAll(true);
         try {
@@ -197,6 +254,25 @@ export function EmailLogManager() {
         }
     }
 
+    const getQueueStatusBadge = (email: QueuedEmail) => {
+        if (email.status === 'failed') {
+            return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />Failed</Badge>;
+        }
+        if (email.status === 'pending' && email.retryCount && email.retryCount > 0) {
+            return (
+                <Badge variant="secondary" className="gap-1">
+                    <Clock className="h-3 w-3" />
+                    Retry {email.retryCount}/3
+                </Badge>
+            );
+        }
+        return <Badge variant="outline">Pending</Badge>;
+    };
+
+    // Count emails by status
+    const pendingCount = queuedEmails.filter(e => e.status === 'pending').length;
+    const failedCount = queuedEmails.filter(e => e.status === 'failed').length;
+
     if (!user?.isAdmin) {
         return (
              <Alert variant="destructive">
@@ -222,6 +298,7 @@ export function EmailLogManager() {
     }
 
     return (
+        <TooltipProvider>
         <div className="space-y-6">
             {/* Email Queue Management */}
             <Card>
@@ -231,10 +308,17 @@ export function EmailLogManager() {
                             <CardTitle className="flex items-center gap-2">
                                 <Mail className="h-5 w-5" />
                                 Email Queue
+                                {(pendingCount > 0 || failedCount > 0) && (
+                                    <span className="text-sm font-normal text-muted-foreground">
+                                        ({pendingCount} pending, {failedCount} failed)
+                                    </span>
+                                )}
                             </CardTitle>
-                            <CardDescription>Manage emails waiting to be sent due to rate limiting.</CardDescription>
+                            <CardDescription>
+                                Manage emails waiting to be sent. Failed emails can be re-queued for another 3 attempts.
+                            </CardDescription>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap justify-end">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -248,10 +332,19 @@ export function EmailLogManager() {
                                 variant="default"
                                 size="sm"
                                 onClick={handlePushAll}
-                                disabled={isProcessingAll || queuedEmails.length === 0}
+                                disabled={isProcessingAll || pendingCount === 0}
                             >
                                 <Send className="h-4 w-4 mr-1" />
-                                {isProcessingAll ? 'Sending...' : 'Push All'}
+                                {isProcessingAll ? 'Sending...' : `Push All (${pendingCount})`}
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleResendAllFailed}
+                                disabled={isResendingAll || failedCount === 0}
+                            >
+                                <RotateCcw className="h-4 w-4 mr-1" />
+                                {isResendingAll ? 'Re-queuing...' : `Resend Failed (${failedCount})`}
                             </Button>
                             <Button
                                 variant="destructive"
@@ -269,10 +362,11 @@ export function EmailLogManager() {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead>Status</TableHead>
                                 <TableHead>Recipient</TableHead>
                                 <TableHead>Type</TableHead>
                                 <TableHead>Team</TableHead>
-                                <TableHead>Reason</TableHead>
+                                <TableHead>Error / Reason</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -280,6 +374,7 @@ export function EmailLogManager() {
                             {isLoadingQueue ? (
                                 Array.from({ length: 3 }).map((_, i) => (
                                     <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -289,42 +384,83 @@ export function EmailLogManager() {
                                 ))
                             ) : queuedEmails.length > 0 ? (
                                 queuedEmails.map((email) => (
-                                    <TableRow key={email.id}>
+                                    <TableRow key={email.id} className={email.status === 'failed' ? 'bg-destructive/5' : ''}>
+                                        <TableCell>{getQueueStatusBadge(email)}</TableCell>
                                         <TableCell className="font-mono text-sm">{email.toEmail}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline">{email.type}</Badge>
                                         </TableCell>
                                         <TableCell>{email.teamName || '-'}</TableCell>
-                                        <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
-                                            {email.reason}
+                                        <TableCell className="text-muted-foreground text-sm max-w-[200px]">
+                                            {email.status === 'failed' && email.lastError ? (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className="text-destructive truncate block cursor-help">
+                                                            {email.lastError}
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" className="max-w-sm">
+                                                        <p>{email.lastError}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            ) : (
+                                                <span className="truncate block">{email.reason}</span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handlePushEmail(email.id)}
-                                                    disabled={processingIds.has(email.id)}
-                                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                >
-                                                    <Send className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handleDeleteEmail(email.id)}
-                                                    disabled={processingIds.has(email.id)}
-                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                {email.status === 'failed' ? (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleResendEmail(email.id)}
+                                                                disabled={processingIds.has(email.id)}
+                                                                className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                                            >
+                                                                <RotateCcw className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Re-queue for sending</TooltipContent>
+                                                    </Tooltip>
+                                                ) : (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handlePushEmail(email.id)}
+                                                                disabled={processingIds.has(email.id)}
+                                                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                            >
+                                                                <Send className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Send now</TooltipContent>
+                                                    </Tooltip>
+                                                )}
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => handleDeleteEmail(email.id)}
+                                                            disabled={processingIds.has(email.id)}
+                                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Delete</TooltipContent>
+                                                </Tooltip>
                                             </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                         No emails in queue.
                                     </TableCell>
                                 </TableRow>
@@ -380,7 +516,7 @@ export function EmailLogManager() {
                                             </div>
                                             <div>
                                                 <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-1">Email Body Preview</h4>
-                                                <div 
+                                                <div
                                                     className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-4 bg-background overflow-auto"
                                                     dangerouslySetInnerHTML={{ __html: log.html }}
                                                 />
@@ -399,5 +535,6 @@ export function EmailLogManager() {
             </CardContent>
             </Card>
         </div>
+        </TooltipProvider>
     );
 }
