@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Email service not configured. Graph API credentials missing.',
-          errorCode: ERROR_CODES.EXTERNAL_SERVICE_ERROR.code,
+          errorCode: ERROR_CODES.EMAIL_CONFIG_MISSING.code,
           correlationId,
         },
         { status: 503 }

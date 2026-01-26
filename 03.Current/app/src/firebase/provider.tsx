@@ -111,24 +111,38 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       async (fbUser) => {
         setFirebaseUser(fbUser);
         if (fbUser) {
-          const userDocRef = doc(firestore, 'users', fbUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data() as User;
+          try {
+            const userDocRef = doc(firestore, 'users', fbUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              const userData = userDoc.data() as User;
 
-            // Sync emailVerified status from Firebase Auth to Firestore
-            if (fbUser.emailVerified && !userData.emailVerified) {
-              await updateDoc(userDocRef, { emailVerified: true });
-              userData.emailVerified = true;
-              logAuditEvent(firestore, fbUser.uid, 'email_verified_synced', { email: fbUser.email });
-            }
+              // Sync emailVerified status from Firebase Auth to Firestore
+              if (fbUser.emailVerified && !userData.emailVerified) {
+                try {
+                  await updateDoc(userDocRef, { emailVerified: true });
+                  userData.emailVerified = true;
+                  logAuditEvent(firestore, fbUser.uid, 'email_verified_synced', { email: fbUser.email });
+                } catch (syncError) {
+                  // Non-critical - continue with login even if sync fails
+                  console.warn("Failed to sync email verification status:", syncError);
+                }
+              }
 
-            setUser(userData);
-             if (userData.mustChangePin) {
+              setUser(userData);
+              if (userData.mustChangePin) {
                 router.push('/profile');
+              }
+            } else {
+              // User doc doesn't exist - this shouldn't happen for valid users
+              console.error("FirebaseProvider: User document not found for uid:", fbUser.uid);
+              setUser(null);
+              setUserError(new Error('User profile not found. Please contact support.'));
             }
-          } else {
-             setUser(null);
+          } catch (docError: any) {
+            console.error("FirebaseProvider: Error fetching user document:", docError);
+            setUser(null);
+            setUserError(docError);
           }
         } else {
           setUser(null);
@@ -148,13 +162,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     setIsUserLoading(true);
     setUserError(null);
 
+    // Timeout for API call (15 seconds)
+    const LOGIN_TIMEOUT = 15000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), LOGIN_TIMEOUT);
+
     try {
         // SECURITY: Use server-side API for brute force protection
         const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, pin }),
+            signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         const result = await response.json();
 
@@ -175,18 +196,65 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         }
 
         // Use custom token to sign in
-        // Note: Don't set isUserLoading here - let onAuthStateChanged handle it
-        // to avoid race condition where AppLayout sees isUserLoading=false before user is set
         await signInWithCustomToken(auth, result.customToken);
+
+        // Verify sign-in actually succeeded by checking currentUser
+        if (!auth.currentUser) {
+            setIsUserLoading(false);
+            const clientCorrelationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+            return {
+                success: false,
+                message: `Sign-in verification failed. Please try again. [PX-1008] (Ref: ${clientCorrelationId})`,
+            };
+        }
+
+        // Wait for onAuthStateChanged to process before returning success
+        // This prevents the race condition where navigation happens before user state is set
+        await new Promise<void>((resolve, reject) => {
+            const maxWait = 5000; // 5 second max wait for auth state to settle
+            const startTime = Date.now();
+
+            const checkAuthState = () => {
+                // Check if user state has been set (onAuthStateChanged has processed)
+                if (auth.currentUser) {
+                    resolve();
+                } else if (Date.now() - startTime > maxWait) {
+                    reject(new Error('Auth state timeout'));
+                } else {
+                    setTimeout(checkAuthState, 50);
+                }
+            };
+
+            // Small delay to allow onAuthStateChanged to start processing
+            setTimeout(checkAuthState, 100);
+        });
 
         return { success: true, message: 'Login successful' };
 
     } catch (signInError: any) {
+         clearTimeout(timeoutId);
          console.error("Error signing in:", signInError);
          setUserError(signInError);
          setIsUserLoading(false);
+
          // Generate client-side correlation ID for network/client errors
          const clientCorrelationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+
+         // Handle specific error cases
+         if (signInError.name === 'AbortError') {
+             return {
+                 success: false,
+                 message: `Login timed out. Please check your connection and try again. [PX-1007] (Ref: ${clientCorrelationId})`,
+             };
+         }
+
+         if (signInError.message === 'Auth state timeout') {
+             return {
+                 success: false,
+                 message: `Login verification timed out. Please refresh and try again. [PX-1009] (Ref: ${clientCorrelationId})`,
+             };
+         }
+
          const errorMessage = `${signInError.message || 'An error occurred during login'} (Ref: ${clientCorrelationId})`;
          return { success: false, message: errorMessage };
     }

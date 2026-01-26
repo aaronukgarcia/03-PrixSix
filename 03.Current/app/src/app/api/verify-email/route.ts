@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Failed to update user record',
-          errorCode: ERROR_CODES.FIRESTORE_WRITE_ERROR.code,
+          errorCode: ERROR_CODES.FIRESTORE_WRITE_FAILED.code,
           correlationId,
         },
         { status: 500 }

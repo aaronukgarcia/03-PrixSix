@@ -212,8 +212,15 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      if (latestPrediction) {
-        latestPredictions.set(teamId, { ...latestPrediction, isCarryForward: true });
+      if (latestPrediction !== null) {
+        // Type assertion needed because TypeScript doesn't track assignments inside forEach
+        const pred = latestPrediction as { predictions: string[]; timestamp: Date; teamName?: string };
+        latestPredictions.set(teamId, {
+          predictions: pred.predictions,
+          timestamp: pred.timestamp,
+          teamName: pred.teamName,
+          isCarryForward: true,
+        });
         console.log(`[Scoring] Team ${teamId}: No prediction for ${normalizedRaceId}, using carry-forward from previous race`);
       }
     });

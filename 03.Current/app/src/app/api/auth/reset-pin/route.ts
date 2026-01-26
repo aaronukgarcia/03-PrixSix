@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         context: {
           route: '/api/auth/reset-pin',
           action: 'updateUser',
-          email: normalizedEmail,
+          additionalInfo: { email: normalizedEmail },
         },
       });
       return NextResponse.json(

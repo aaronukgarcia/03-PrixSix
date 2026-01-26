@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { Settings, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, serverTimestamp } from "firebase/firestore";
 import { useAuditNavigation } from "@/lib/audit";
@@ -27,7 +27,7 @@ function generateGuid() {
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, firebaseUser, isUserLoading, logout } = useAuth();
+  const { user, firebaseUser, isUserLoading, userError, logout } = useAuth();
   const router = useRouter();
   const firestore = useFirestore();
   const sessionIdRef = useRef<string | null>(null);
@@ -171,7 +171,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   // If firebaseUser exists but user doc is still loading, show skeleton
-  if (!user && firebaseUser) {
+  if (!user && firebaseUser && !userError) {
     return (
        <div className="flex items-center justify-center min-h-screen">
           <div className="w-full max-w-md space-y-4 p-4">
@@ -183,6 +183,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // If there's an error loading user data, show error state with retry option
+  if (userError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-full max-w-md p-6 space-y-4 text-center">
+          <div className="flex justify-center">
+            <AlertTriangle className="h-12 w-12 text-destructive" />
+          </div>
+          <h2 className="text-xl font-semibold">Unable to Load Profile</h2>
+          <p className="text-muted-foreground">
+            {userError.message || 'There was an error loading your profile. Please try again.'}
+          </p>
+          <div className="flex flex-col gap-2 pt-4">
+            <Button
+              onClick={() => window.location.reload()}
+              variant="default"
+            >
+              Refresh Page
+            </Button>
+            <Button
+              onClick={() => {
+                logout();
+                router.push('/login');
+              }}
+              variant="outline"
+            >
+              Return to Login
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If we get here, we have a user. Render the app.
   return (
