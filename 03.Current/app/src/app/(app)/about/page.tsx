@@ -2,6 +2,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,7 +142,9 @@ const AboutPageClient = () => {
                         <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">
                             Welcome to Prix Six
                         </h1>
-                        <Badge variant="secondary" className="font-mono">v{APP_VERSION}</Badge>
+                        <Link href="/about/dev">
+                            <Badge variant="secondary" className="font-mono cursor-pointer hover:bg-secondary/80">v{APP_VERSION}</Badge>
+                        </Link>
                     </div>
                     <Button
                         variant="outline"
