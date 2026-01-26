@@ -12,7 +12,8 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      let userDoc = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isSignedIn() && exists(userDoc) && get(userDoc).data.isAdmin == true;
     }
 
     // SECURITY: Prevent users from modifying protected fields (privilege escalation prevention)
