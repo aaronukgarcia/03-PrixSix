@@ -658,18 +658,59 @@ export function WhatsAppManager() {
               <Skeleton className="h-8 w-full" />
             </div>
           ) : statusError ? (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
               <div className="flex items-center gap-2 text-destructive">
                 <WifiOff className="w-5 h-5" />
                 <span className="font-medium">Connection Failed</span>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">{statusError}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Check that the WhatsApp worker container is running.
-              </p>
+              <p className="text-sm text-muted-foreground">{statusError}</p>
+
+              <div className="rounded-md bg-zinc-900 p-3 space-y-2">
+                <p className="text-xs text-zinc-400 font-medium">To restart the WhatsApp worker:</p>
+                <code className="block text-xs text-green-400 font-mono bg-black/50 p-2 rounded overflow-x-auto">
+                  az container restart --resource-group garcia --name prixsix-whatsapp-worker
+                </code>
+                <p className="text-xs text-zinc-500">
+                  Run this in Azure CLI, or ask Bob/Bill to restart it for you.
+                </p>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchWorkerStatus}
+                disabled={statusLoading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${statusLoading ? 'animate-spin' : ''}`} />
+                Check Again
+              </Button>
             </div>
           ) : workerStatus ? (
             <div className="space-y-4">
+            {/* Warning if worker running but WhatsApp not connected */}
+            {!workerStatus.connected && !workerStatus.awaitingQR && (
+              <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+                <div className="flex items-center gap-2 text-amber-600">
+                  <AlertTriangle className="w-5 h-5" />
+                  <span className="font-medium">WhatsApp Not Authenticated</span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  The worker is running but hasn&apos;t connected to WhatsApp yet.
+                  Wait for the QR code to appear, or the worker may be initializing.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={fetchWorkerStatus}
+                  disabled={statusLoading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${statusLoading ? 'animate-spin' : ''}`} />
+                  Check Status
+                </Button>
+              </div>
+            )}
+
             <Table>
               <TableBody>
                 <TableRow>
