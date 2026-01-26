@@ -84,8 +84,8 @@ import {
 } from "@/firebase/firestore/settings";
 import { logAuditEvent } from "@/lib/audit";
 
-// WhatsApp Worker URL - Azure Container Instance
-const WHATSAPP_WORKER_URL = "https://prixsix-whatsapp.uksouth.azurecontainer.io:3000";
+// WhatsApp proxy API (handles HTTP->HTTPS and auth)
+const WHATSAPP_PROXY_URL = "/api/whatsapp-proxy";
 const MAX_MESSAGE_LENGTH = 500;
 
 interface WorkerStatus {
@@ -216,14 +216,30 @@ export function WhatsAppManager() {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
 
-  // Fetch QR code from worker
+  // Get auth token for API requests
+  const getAuthToken = useCallback(async () => {
+    if (!firebaseUser) return null;
+    try {
+      return await firebaseUser.getIdToken();
+    } catch {
+      return null;
+    }
+  }, [firebaseUser]);
+
+  // Fetch QR code from worker via proxy
   const fetchQRCode = useCallback(async () => {
     setQrLoading(true);
     setQrError(null);
 
     try {
-      const response = await fetch(`${WHATSAPP_WORKER_URL}/qr`, {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not authenticated');
+
+      const response = await fetch(`${WHATSAPP_PROXY_URL}?endpoint=qr`, {
         method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
@@ -240,17 +256,27 @@ export function WhatsAppManager() {
     } finally {
       setQrLoading(false);
     }
-  }, []);
+  }, [getAuthToken]);
 
-  // Fetch worker status
+  // Fetch worker status via proxy
   const fetchWorkerStatus = useCallback(async () => {
     setStatusLoading(true);
     setStatusError(null);
 
     try {
-      const response = await fetch(`${WHATSAPP_WORKER_URL}/status`, {
+      const token = await getAuthToken();
+      if (!token) {
+        // Not logged in yet, skip silently
+        setStatusLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${WHATSAPP_PROXY_URL}?endpoint=status`, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
@@ -281,7 +307,7 @@ export function WhatsAppManager() {
     } finally {
       setStatusLoading(false);
     }
-  }, [selectedGroup]);
+  }, [selectedGroup, getAuthToken]);
 
   // Fetch alert settings
   const fetchAlertSettings = useCallback(async () => {
@@ -584,7 +610,7 @@ export function WhatsAppManager() {
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{statusError}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Worker URL: {WHATSAPP_WORKER_URL}
+                Check that the WhatsApp worker container is running.
               </p>
             </div>
           ) : workerStatus ? (
