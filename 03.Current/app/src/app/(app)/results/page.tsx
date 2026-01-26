@@ -26,7 +26,7 @@ import {
 import { collectionGroup, collection, query, where, doc, getDoc, getDocs, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag } from "lucide-react";
+import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag, Medal } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -74,9 +74,39 @@ interface TeamResult {
     breakdown: string;
     hasScore: boolean;
     bonusPoints: number; // 0 or 10 (all 6 correct)
+    rank?: number; // Rank for this race (1st, 2nd, 3rd get badges)
 }
 
 const PAGE_SIZE = 25;
+
+// Race Result Rank Badge Component (1st, 2nd, 3rd place badges)
+const RaceRankBadge = ({ rank }: { rank: number }) => {
+  if (rank === 1) {
+    return (
+      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700">
+        <Trophy className="h-3 w-3 mr-0.5" />
+        1st
+      </Badge>
+    );
+  }
+  if (rank === 2) {
+    return (
+      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
+        <Medal className="h-3 w-3 mr-0.5" />
+        2nd
+      </Badge>
+    );
+  }
+  if (rank === 3) {
+    return (
+      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700">
+        <Medal className="h-3 w-3 mr-0.5" />
+        3rd
+      </Badge>
+    );
+  }
+  return null;
+};
 
 // Build list of all race events (GP + Sprint where applicable)
 function buildRaceEvents() {
@@ -550,9 +580,9 @@ function ResultsContent() {
         return -1; // No score and no results yet - sort to bottom
     }, [raceResult]);
 
-    // Sort teams based on sortBy state
+    // Sort teams based on sortBy state and assign ranks (for badges)
     const sortedTeams = useMemo(() => {
-        return [...filteredTeams].sort((a, b) => {
+        const sorted = [...filteredTeams].sort((a, b) => {
             if (sortBy === 'points') {
                 // Sort by effective points descending (no results at bottom)
                 const aPoints = getEffectivePoints(a);
@@ -563,6 +593,24 @@ function ResultsContent() {
                 return a.teamName.localeCompare(b.teamName);
             }
         });
+
+        // Assign ranks with proper tie handling (only when sorted by points)
+        if (sortBy === 'points') {
+            let currentRank = 1;
+            let lastPoints = -Infinity;
+            return sorted.map((team, index) => {
+                const teamPoints = getEffectivePoints(team);
+                // Only increment rank if points are different from previous
+                if (teamPoints !== lastPoints) {
+                    currentRank = index + 1;
+                    lastPoints = teamPoints;
+                }
+                return { ...team, rank: teamPoints >= 0 ? currentRank : undefined };
+            });
+        }
+
+        // When sorted by name, no ranks
+        return sorted.map(team => ({ ...team, rank: undefined }));
     }, [filteredTeams, sortBy, getEffectivePoints]);
 
     const toggleSort = () => {
@@ -703,7 +751,12 @@ function ResultsContent() {
               ) : sortedTeams.length > 0 ? (
                 sortedTeams.map((team, index) => (
                     <TableRow key={`${team.teamName}-${team.oduserId}-${index}`}>
-                        <TableCell className="font-semibold">{team.teamName}</TableCell>
+                        <TableCell className="font-semibold">
+                            <span className="flex items-center">
+                                {team.teamName}
+                                {team.rank && <RaceRankBadge rank={team.rank} />}
+                            </span>
+                        </TableCell>
                         <TableCell className="text-xs font-mono">
                             <div className="flex flex-wrap gap-1">
                                 {team.predictions.map((pred, i) => (

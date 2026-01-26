@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-01-26",
   "commits": [
+    {"id": "1614435", "date": "2026-01-26", "version": "1.23.28", "author": "aaron garcia", "message": "feat: Add 1st/2nd/3rd place badges to Results page", "major": false},
     {"id": "2332274", "date": "2026-01-26", "version": "1.23.24", "author": "aaron garcia", "message": "fix: Auto-refresh WhatsApp QR code every 30s with age indicator", "major": false},
     {"id": "e37f3db", "date": "2026-01-26", "version": "1.23.23", "author": "aaron garcia", "message": "feat: Make version badge on About page link to /about/dev", "major": false},
     {"id": "57efa41", "date": "2026-01-26", "version": "1.23.22", "author": "aaron garcia", "message": "feat: Add /about/dev page with version history timeline", "major": true},
