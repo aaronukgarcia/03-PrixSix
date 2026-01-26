@@ -33,24 +33,17 @@ import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Loader2 } from "lucide-react";
+import { useGlobalLoading } from "@/components/ui/loading-overlay";
 
-interface Prediction {
-  id: string;
-  oduserId: string;
+interface TeamBasic {
   teamName: string;
-  raceId: string;
-  driver1: string;
-  driver2: string;
-  driver3: string;
-  driver4: string;
-  driver5: string;
-  driver6: string;
+  oduserId: string;
+  isSecondary?: boolean;
 }
 
-interface TeamWithPrediction {
-  teamName: string;
-  oduserId: string;
-  predictions: (typeof F1Drivers[number] | null)[];
+interface TeamWithPrediction extends TeamBasic {
+  predictions: (typeof F1Drivers[number] | null)[] | null; // null = not loaded, array = loaded
+  isLoadingPredictions?: boolean;
 }
 
 const PAGE_SIZE = 25;
@@ -58,6 +51,7 @@ const PAGE_SIZE = 25;
 export default function TeamsPage() {
   const firestore = useFirestore();
   const { selectedLeague } = useLeague();
+  const { startLoading, stopLoading } = useGlobalLoading();
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
   const [selectedRace, setSelectedRace] = useState(nextRace.name);
@@ -73,21 +67,23 @@ export default function TeamsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Track which accordion item is open
+  const [openAccordion, setOpenAccordion] = useState<string | undefined>(undefined);
+
+  // Cache for predictions by race
+  const [predictionCache, setPredictionCache] = useState<Record<string, Record<string, (typeof F1Drivers[number] | null)[]>>>({});
+
   // Fetch total count once (using aggregation - no document download)
-  // Count includes both primary and secondary teams
   useEffect(() => {
     if (!firestore) return;
 
     const fetchCount = async () => {
       try {
-        // Get user count - secondary teams are counted during data fetch
         const userCountSnapshot = await getCountFromServer(collection(firestore, "users"));
         const userCount = userCountSnapshot.data().count;
-        // Store just user count - secondary teams counted client-side
         setTotalCount(userCount);
       } catch (error) {
         console.error("Error fetching count:", error);
-        // Fallback: don't show total count
         setTotalCount(null);
       }
     };
@@ -97,7 +93,6 @@ export default function TeamsPage() {
   // Format prediction data
   const formatPrediction = useCallback((predData: any) => {
     if (!predData) return Array(6).fill(null);
-    // Predictions are stored as an array, not individual fields
     const driverIds = predData.predictions || [
       predData.driver1, predData.driver2, predData.driver3,
       predData.driver4, predData.driver5, predData.driver6
@@ -106,7 +101,7 @@ export default function TeamsPage() {
     return driverIds.map(id => F1Drivers.find(d => d.id === id) || null);
   }, []);
 
-  // Fetch users and their predictions with pagination
+  // Fetch just the teams (no predictions) - FAST
   const fetchTeams = useCallback(async (isLoadMore = false) => {
     if (!firestore) return;
 
@@ -114,6 +109,7 @@ export default function TeamsPage() {
       setIsLoadingMore(true);
     } else {
       setIsLoading(true);
+      startLoading('teams-initial');
       setTeams([]);
       setLastDoc(null);
       setError(null);
@@ -124,7 +120,7 @@ export default function TeamsPage() {
       let usersQuery = query(
         collection(firestore, "users"),
         orderBy("teamName"),
-        limit(PAGE_SIZE * 2) // Fetch extra to account for filtering
+        limit(PAGE_SIZE * 2)
       );
 
       if (isLoadMore && lastDoc) {
@@ -156,7 +152,6 @@ export default function TeamsPage() {
       }
 
       if (validUserDocs.length === 0) {
-        // We got results but none had valid teamName - might be more pages
         setHasMore(usersSnapshot.size >= PAGE_SIZE * 2);
         if (!isLoadMore) {
           setError("No teams with valid names found. Users may not have completed registration.");
@@ -164,42 +159,30 @@ export default function TeamsPage() {
         return;
       }
 
-      // Update last doc for next pagination (use the last doc from original query for correct pagination)
+      // Update last doc for pagination
       setLastDoc(usersSnapshot.docs[usersSnapshot.docs.length - 1]);
       setHasMore(usersSnapshot.docs.length >= PAGE_SIZE);
 
-      // Fetch predictions for valid users only
+      // Build team list WITHOUT predictions (fast)
       const newTeams: TeamWithPrediction[] = [];
 
       for (const userDoc of validUserDocs) {
         const userData = userDoc.data() as User;
 
-        // Get prediction for this user and race
-        const predQuery = query(
-          collection(firestore, `users/${userDoc.id}/predictions`),
-          where("raceId", "==", selectedRaceId)
-        );
-        const predSnapshot = await getDocs(predQuery);
-
-        // Main team
-        const mainPred = predSnapshot.docs.find(d =>
-          d.data().teamName === userData.teamName || !d.data().teamName
-        );
+        // Main team - predictions loaded on-demand
         newTeams.push({
           teamName: userData.teamName,
           oduserId: userDoc.id,
-          predictions: formatPrediction(mainPred?.data()),
+          predictions: null, // Not loaded yet
         });
 
         // Secondary team if exists
         if (userData.secondaryTeamName) {
-          const secondaryPred = predSnapshot.docs.find(d =>
-            d.data().teamName === userData.secondaryTeamName
-          );
           newTeams.push({
             teamName: userData.secondaryTeamName,
             oduserId: userDoc.id,
-            predictions: formatPrediction(secondaryPred?.data()),
+            isSecondary: true,
+            predictions: null, // Not loaded yet
           });
         }
       }
@@ -227,13 +210,103 @@ export default function TeamsPage() {
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
+      stopLoading('teams-initial');
     }
-  }, [firestore, selectedRaceId, lastDoc, formatPrediction]);
+  }, [firestore, lastDoc, startLoading, stopLoading]);
 
-  // Initial load and race change
+  // Fetch prediction for a specific team on-demand
+  const fetchPredictionForTeam = useCallback(async (teamKey: string, team: TeamWithPrediction) => {
+    if (!firestore) return;
+
+    // Check cache first
+    const cacheKey = `${team.oduserId}_${team.teamName}`;
+    if (predictionCache[selectedRaceId]?.[cacheKey]) {
+      setTeams(prev => prev.map(t =>
+        `${t.teamName}-${prev.indexOf(t)}` === teamKey
+          ? { ...t, predictions: predictionCache[selectedRaceId][cacheKey] }
+          : t
+      ));
+      return;
+    }
+
+    // Mark as loading
+    setTeams(prev => prev.map(t =>
+      `${t.teamName}-${prev.indexOf(t)}` === teamKey
+        ? { ...t, isLoadingPredictions: true }
+        : t
+    ));
+
+    try {
+      const predQuery = query(
+        collection(firestore, `users/${team.oduserId}/predictions`),
+        where("raceId", "==", selectedRaceId)
+      );
+      const predSnapshot = await getDocs(predQuery);
+
+      // Find the right prediction
+      let pred;
+      if (team.isSecondary) {
+        pred = predSnapshot.docs.find(d => d.data().teamName === team.teamName);
+      } else {
+        pred = predSnapshot.docs.find(d =>
+          d.data().teamName === team.teamName || !d.data().teamName
+        );
+      }
+
+      const predictions = formatPrediction(pred?.data());
+
+      // Update cache
+      setPredictionCache(prev => ({
+        ...prev,
+        [selectedRaceId]: {
+          ...(prev[selectedRaceId] || {}),
+          [cacheKey]: predictions
+        }
+      }));
+
+      // Update team with predictions
+      setTeams(prev => prev.map(t =>
+        `${t.teamName}-${prev.indexOf(t)}` === teamKey
+          ? { ...t, predictions, isLoadingPredictions: false }
+          : t
+      ));
+    } catch (error) {
+      console.error(`Error fetching prediction for ${team.teamName}:`, error);
+      // Set empty predictions on error
+      setTeams(prev => prev.map(t =>
+        `${t.teamName}-${prev.indexOf(t)}` === teamKey
+          ? { ...t, predictions: Array(6).fill(null), isLoadingPredictions: false }
+          : t
+      ));
+    }
+  }, [firestore, selectedRaceId, predictionCache, formatPrediction]);
+
+  // Handle accordion open - fetch prediction on-demand
+  const handleAccordionChange = useCallback((value: string | undefined) => {
+    setOpenAccordion(value);
+
+    if (value) {
+      // Find the team and check if we need to load predictions
+      const teamIndex = teams.findIndex((t, i) => `${t.teamName}-${i}` === value);
+      if (teamIndex >= 0) {
+        const team = teams[teamIndex];
+        if (team.predictions === null && !team.isLoadingPredictions) {
+          fetchPredictionForTeam(value, team);
+        }
+      }
+    }
+  }, [teams, fetchPredictionForTeam]);
+
+  // Initial load
   useEffect(() => {
     fetchTeams(false);
-  }, [firestore, selectedRaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [firestore]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear predictions when race changes (they'll be loaded on-demand)
+  useEffect(() => {
+    setTeams(prev => prev.map(t => ({ ...t, predictions: null, isLoadingPredictions: false })));
+    setOpenAccordion(undefined);
+  }, [selectedRaceId]);
 
   const loadMore = () => {
     fetchTeams(true);
@@ -303,7 +376,13 @@ export default function TeamsPage() {
             </div>
           )}
 
-          <Accordion type="single" collapsible className="w-full">
+          <Accordion
+            type="single"
+            collapsible
+            className="w-full"
+            value={openAccordion}
+            onValueChange={handleAccordionChange}
+          >
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-14 w-full mb-2" />
@@ -315,34 +394,45 @@ export default function TeamsPage() {
                     {team.teamName}
                   </AccordionTrigger>
                   <AccordionContent>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pt-4">
-                      {team.predictions.map((driver, idx) => (
-                        <div key={idx} className="flex flex-col items-center gap-2 p-2 rounded-lg border bg-card-foreground/5">
-                          <div className="font-bold text-accent text-2xl">P{idx + 1}</div>
-                          {driver ? (
-                            <>
-                              <Avatar className="w-16 h-16 border-2 border-primary">
-                                <AvatarImage src={getDriverImage(driver.id)} data-ai-hint="driver portrait" />
-                                <AvatarFallback>{driver.name.substring(0, 2)}</AvatarFallback>
-                              </Avatar>
-                              <div className="text-center">
-                                <p className="font-semibold">{driver.name}</p>
-                                <p className="text-xs text-muted-foreground">{driver.team}</p>
+                    {team.isLoadingPredictions ? (
+                      <div className="flex items-center justify-center py-8 gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <span className="text-muted-foreground">Loading predictions...</span>
+                      </div>
+                    ) : team.predictions === null ? (
+                      <div className="flex items-center justify-center py-8 text-muted-foreground">
+                        Click to load predictions
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pt-4">
+                        {team.predictions.map((driver, idx) => (
+                          <div key={idx} className="flex flex-col items-center gap-2 p-2 rounded-lg border bg-card-foreground/5">
+                            <div className="font-bold text-accent text-2xl">P{idx + 1}</div>
+                            {driver ? (
+                              <>
+                                <Avatar className="w-16 h-16 border-2 border-primary">
+                                  <AvatarImage src={getDriverImage(driver.id)} data-ai-hint="driver portrait" />
+                                  <AvatarFallback>{driver.name.substring(0, 2)}</AvatarFallback>
+                                </Avatar>
+                                <div className="text-center">
+                                  <p className="font-semibold">{driver.name}</p>
+                                  <p className="text-xs text-muted-foreground">{driver.team}</p>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <Avatar className="w-16 h-16 border-2 border-dashed">
+                                  <AvatarFallback>?</AvatarFallback>
+                                </Avatar>
+                                <div className="text-center">
+                                  <p className="font-semibold text-muted-foreground">Empty</p>
+                                </div>
                               </div>
-                            </>
-                          ) : (
-                            <div className="flex flex-col items-center gap-2">
-                              <Avatar className="w-16 h-16 border-2 border-dashed">
-                                <AvatarFallback>?</AvatarFallback>
-                              </Avatar>
-                              <div className="text-center">
-                                <p className="font-semibold text-muted-foreground">Empty</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               ))
