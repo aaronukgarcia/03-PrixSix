@@ -67,6 +67,11 @@ export function AttackMonitor() {
 
   const { data: alerts, isLoading, error } = useCollection<AttackAlert>(alertsQuery);
 
+  // Log errors but don't crash - this component is non-critical
+  if (error) {
+    console.error('[AttackMonitor] Firestore error:', error);
+  }
+
   const handleAcknowledge = async (alertId: string) => {
     if (!firestore || !user) return;
     setAcknowledging(alertId);
