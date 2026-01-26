@@ -233,6 +233,13 @@ export function WhatsAppManager() {
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrFetchedAt, setQrFetchedAt] = useState<Date | null>(null);
+  const [qrAgeSeconds, setQrAgeSeconds] = useState<number>(0);
+
+  // QR code expiry settings
+  const QR_REFRESH_INTERVAL_MS = 30000; // Auto-refresh every 30 seconds
+  const QR_WARN_AGE_SECONDS = 60; // Warn if QR is older than 60 seconds
+  const QR_STALE_AGE_SECONDS = 120; // Consider stale after 2 minutes
 
   // Get auth token for API requests
   const getAuthToken = useCallback(async () => {
@@ -267,10 +274,13 @@ export function WhatsAppManager() {
 
       const qrData = await response.text();
       setQrCodeData(qrData);
+      setQrFetchedAt(new Date());
+      setQrAgeSeconds(0);
     } catch (error: any) {
       console.error('Failed to fetch QR code:', error);
       setQrError(error.message || 'Failed to fetch QR code');
       setQrCodeData(null);
+      setQrFetchedAt(null);
     } finally {
       setQrLoading(false);
     }
@@ -357,6 +367,32 @@ export function WhatsAppManager() {
     const interval = setInterval(fetchWorkerStatus, 30000);
     return () => clearInterval(interval);
   }, [fetchWorkerStatus]);
+
+  // Auto-refresh QR code when displayed and awaitingQR
+  useEffect(() => {
+    if (!workerStatus?.awaitingQR || !qrCodeData) return;
+
+    // Set up auto-refresh interval
+    const refreshInterval = setInterval(() => {
+      if (!qrLoading) {
+        fetchQRCode();
+      }
+    }, QR_REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(refreshInterval);
+  }, [workerStatus?.awaitingQR, qrCodeData, qrLoading, fetchQRCode]);
+
+  // Track QR code age every second
+  useEffect(() => {
+    if (!qrFetchedAt) return;
+
+    const ageInterval = setInterval(() => {
+      const ageMs = Date.now() - qrFetchedAt.getTime();
+      setQrAgeSeconds(Math.floor(ageMs / 1000));
+    }, 1000);
+
+    return () => clearInterval(ageInterval);
+  }, [qrFetchedAt]);
 
   // Fetch alert settings on mount
   useEffect(() => {
@@ -738,15 +774,34 @@ export function WhatsAppManager() {
                       <Smartphone className="w-5 h-5" />
                       <span className="font-semibold">Scan with WhatsApp</span>
                     </div>
-                    <div className="inline-block p-4 bg-white rounded-lg shadow-lg">
+
+                    {/* QR Age Warning */}
+                    {qrAgeSeconds >= QR_STALE_AGE_SECONDS ? (
+                      <div className="flex items-center justify-center gap-2 text-destructive bg-destructive/10 rounded-lg p-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-sm font-medium">QR code expired - refreshing...</span>
+                      </div>
+                    ) : qrAgeSeconds >= QR_WARN_AGE_SECONDS ? (
+                      <div className="flex items-center justify-center gap-2 text-amber-600 bg-amber-500/10 rounded-lg p-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-sm">QR code is {qrAgeSeconds}s old - scan quickly!</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <Clock className="w-4 h-4" />
+                        <span className="text-sm">Fresh QR code ({qrAgeSeconds}s) - auto-refreshes every 30s</span>
+                      </div>
+                    )}
+
+                    <div className={`inline-block p-4 bg-white rounded-lg shadow-lg ${qrAgeSeconds >= QR_STALE_AGE_SECONDS ? 'opacity-50' : ''}`}>
                       <QRCodeComponent value={qrCodeData} size={256} level="M" />
                     </div>
                     <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                       Open WhatsApp on your phone, go to Settings → Linked Devices → Link a Device, then scan this QR code.
                     </p>
-                    <Button variant="outline" size="sm" onClick={fetchQRCode}>
-                      <RefreshCw className="w-4 h-4 mr-1" />
-                      Refresh QR Code
+                    <Button variant="outline" size="sm" onClick={fetchQRCode} disabled={qrLoading}>
+                      <RefreshCw className={`w-4 h-4 mr-1 ${qrLoading ? 'animate-spin' : ''}`} />
+                      {qrLoading ? 'Refreshing...' : 'Refresh Now'}
                     </Button>
                   </div>
                 ) : null}
