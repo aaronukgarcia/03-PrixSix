@@ -321,12 +321,13 @@ export function WhatsAppManager() {
         keepAlive: data.whatsapp?.keepAlive,
       });
 
-      // Auto-select first group if none selected
-      if (!selectedGroup && data.whatsapp?.groups?.length > 0) {
-        const prixSix = data.whatsapp.groups.find((g: string) =>
+      // Auto-select first group if none selected (filter out empty strings)
+      const validGroups = (data.whatsapp?.groups || []).filter((g: string) => g && g.trim());
+      if (!selectedGroup && validGroups.length > 0) {
+        const prixSix = validGroups.find((g: string) =>
           g.toLowerCase().includes('prix') || g.toLowerCase().includes('six')
         );
-        setSelectedGroup(prixSix || data.whatsapp.groups[0]);
+        setSelectedGroup(prixSix || validGroups[0]);
       }
     } catch (error: any) {
       console.error('Failed to fetch worker status:', error);
@@ -978,7 +979,7 @@ export function WhatsAppManager() {
                       <SelectValue placeholder="Select default group for alerts..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {workerStatus.groups.map((group) => (
+                      {workerStatus.groups.filter(g => g && g.trim()).map((group) => (
                         <SelectItem key={group} value={group}>
                           {group}
                         </SelectItem>
@@ -1092,7 +1093,7 @@ export function WhatsAppManager() {
                   <SelectValue placeholder="Select a group..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {workerStatus.groups.map((group) => (
+                  {workerStatus.groups.filter(g => g && g.trim()).map((group) => (
                     <SelectItem key={group} value={group}>
                       {group}
                     </SelectItem>
