@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useFirestore, useAuth } from "@/firebase";
 import {
   Card,
@@ -48,8 +49,14 @@ import {
   Save,
   QrCode,
   Smartphone,
+  AlertTriangle,
 } from "lucide-react";
-import QRCode from "react-qr-code";
+
+// Dynamic import QRCode to avoid SSR issues
+const QRCodeComponent = dynamic(() => import("react-qr-code"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-64" />
+});
 import {
   collection,
   addDoc,
@@ -721,7 +728,7 @@ export function WhatsAppManager() {
                       <span className="font-semibold">Scan with WhatsApp</span>
                     </div>
                     <div className="inline-block p-4 bg-white rounded-lg shadow-lg">
-                      <QRCode value={qrCodeData} size={256} level="M" />
+                      <QRCodeComponent value={qrCodeData} size={256} level="M" />
                     </div>
                     <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                       Open WhatsApp on your phone, go to Settings → Linked Devices → Link a Device, then scan this QR code.
