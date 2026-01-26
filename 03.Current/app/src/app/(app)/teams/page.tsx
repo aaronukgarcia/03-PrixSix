@@ -33,7 +33,7 @@ import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Loader2 } from "lucide-react";
-import { useGlobalLoading } from "@/components/ui/loading-overlay";
+import { useSmartLoader } from "@/components/ui/smart-loader";
 
 interface TeamBasic {
   teamName: string;
@@ -51,7 +51,7 @@ const PAGE_SIZE = 25;
 export default function TeamsPage() {
   const firestore = useFirestore();
   const { selectedLeague } = useLeague();
-  const { startLoading, stopLoading } = useGlobalLoading();
+  const { startLoading, stopLoading } = useSmartLoader();
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
   const [selectedRace, setSelectedRace] = useState(nextRace.name);

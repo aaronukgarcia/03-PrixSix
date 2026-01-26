@@ -17,7 +17,7 @@ import { LeagueProvider } from "@/contexts/league-context";
 import { logAuditEvent } from "@/lib/audit";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { SplashScreen, useSplashScreen } from "@/components/ui/SplashScreen";
-import { LoadingOverlayProvider } from "@/components/ui/loading-overlay";
+import { SmartLoaderProvider } from "@/components/ui/smart-loader";
 
 function generateGuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -238,12 +238,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </div>
             </header>
-            <LoadingOverlayProvider>
+            <SmartLoaderProvider>
               <main className="flex-1 p-4 md:p-6">
                 <EmailVerificationBanner />
                 {children}
               </main>
-            </LoadingOverlayProvider>
+            </SmartLoaderProvider>
           </SidebarInset>
         </SidebarProvider>
       </LeagueProvider>
