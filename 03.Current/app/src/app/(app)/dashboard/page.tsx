@@ -1,11 +1,15 @@
 import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { findNextRace } from "@/lib/data";
-import { Flag, Calendar } from "lucide-react";
+import { Flag, Calendar, FlaskConical } from "lucide-react";
 import { DashboardClient } from "./_components/DashboardClient";
 import { FeedbackForm } from "./_components/FeedbackForm";
 import { HotNewsFeed, HotNewsFeedSkeleton } from "./_components/HotNewsFeed";
 import { APP_VERSION } from '@/lib/version';
+
+// Set to false when the season officially starts to hide the pre-season banner
+const IS_PRE_SEASON = true;
 
 
 // Force dynamic rendering to avoid build-time Firestore access
@@ -20,6 +24,15 @@ export default function DashboardPage() {
     return (
         <div className="grid gap-6">
             <DashboardClient nextRace={nextRace} />
+
+            {IS_PRE_SEASON && (
+                <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+                    <FlaskConical className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-amber-800 dark:text-amber-200">
+                        <strong>Pre-Season Testing</strong> — Predictions and scores with test results will be purged prior to the first race. Have fun experimenting!
+                    </AlertDescription>
+                </Alert>
+            )}
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

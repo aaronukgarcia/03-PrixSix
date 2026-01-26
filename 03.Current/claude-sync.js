@@ -10,8 +10,13 @@
  *   release /path/          - Release file ownership
  *   register "description"  - Register current branch
  *   init                    - Initialise fresh state
+ *   gc                      - Garbage collect stale sessions (auto-runs on checkin)
  *
  * Uses Firestore document at: coordination/claude-state
+ *
+ * STALE SESSION POLICY:
+ *   Sessions inactive for 2+ hours are marked stale and auto-cleaned on next checkin.
+ *   This prevents ghost sessions from blocking bob/bill assignment.
  */
 
 const admin = require('firebase-admin');
@@ -23,6 +28,7 @@ const PROJECT_ID = 'studio-6033436327-281b1';
 const SERVICE_ACCOUNT_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS
   || path.join(__dirname, 'service-account.json');
 const DOCUMENT_PATH = 'coordination/claude-state';
+const STALE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours - sessions inactive longer are stale
 
 // Initialise Firebase Admin
 let db;
@@ -113,6 +119,88 @@ function assignName(sessions, mySessionId) {
 }
 
 /**
+ * Garbage collect stale sessions
+ * Sessions inactive for STALE_TIMEOUT_MS are marked as stale and cleaned up
+ * Returns: { cleaned: number, details: string[] }
+ */
+function garbageCollectSessions(state) {
+  const now = Date.now();
+  const cleaned = [];
+  const releasedFiles = [];
+
+  state.sessions = state.sessions || {};
+  state.claimedFiles = state.claimedFiles || {};
+
+  for (const [sessionId, session] of Object.entries(state.sessions)) {
+    if (session.status !== 'active') continue;
+
+    const lastActivity = new Date(session.lastActivity || session.startedAt).getTime();
+    const inactiveMs = now - lastActivity;
+
+    if (inactiveMs > STALE_TIMEOUT_MS) {
+      const inactiveHours = Math.round(inactiveMs / (60 * 60 * 1000) * 10) / 10;
+      cleaned.push(`${session.name} (inactive ${inactiveHours}h)`);
+
+      // Mark as stale
+      state.sessions[sessionId].status = 'stale';
+      state.sessions[sessionId].markedStaleAt = new Date().toISOString();
+
+      // Release any files claimed by this session
+      for (const [filePath, claim] of Object.entries(state.claimedFiles)) {
+        if (claim.sessionId === sessionId || claim.name === session.name) {
+          releasedFiles.push(filePath);
+          delete state.claimedFiles[filePath];
+        }
+      }
+    }
+  }
+
+  // Log cleanup if anything was cleaned
+  if (cleaned.length > 0) {
+    state.activityLog = state.activityLog || [];
+    state.activityLog.push({
+      sessionId: 'system',
+      name: 'GC',
+      branch: 'system',
+      message: `Garbage collected ${cleaned.length} stale session(s): ${cleaned.join(', ')}`,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  return { cleaned: cleaned.length, details: cleaned, releasedFiles };
+}
+
+/**
+ * COMMAND: gc - Garbage collect stale sessions
+ */
+async function cmdGc() {
+  const state = await getState();
+  const result = garbageCollectSessions(state);
+
+  if (result.cleaned > 0) {
+    await saveState(state);
+    console.log('');
+    console.log('='.repeat(60));
+    console.log('GARBAGE COLLECTION COMPLETE');
+    console.log('='.repeat(60));
+    console.log(`Cleaned ${result.cleaned} stale session(s):`);
+    for (const detail of result.details) {
+      console.log(`  - ${detail}`);
+    }
+    if (result.releasedFiles.length > 0) {
+      console.log(`Released ${result.releasedFiles.length} file(s):`);
+      for (const file of result.releasedFiles) {
+        console.log(`  - ${file}`);
+      }
+    }
+    console.log('='.repeat(60));
+    console.log('');
+  } else {
+    console.log('No stale sessions to clean up.');
+  }
+}
+
+/**
  * COMMAND: init - Initialise fresh state
  */
 async function cmdInit() {
@@ -136,6 +224,12 @@ async function cmdCheckin() {
   const state = await getState();
   const branch = getCurrentBranch();
   const now = new Date().toISOString();
+
+  // Run garbage collection first to clean up stale sessions
+  const gcResult = garbageCollectSessions(state);
+  if (gcResult.cleaned > 0) {
+    console.log(`[GC] Cleaned ${gcResult.cleaned} stale session(s): ${gcResult.details.join(', ')}`);
+  }
 
   // Generate a unique session ID based on timestamp only (allows multiple on same branch)
   const sessionId = `session-${Date.now()}`;
@@ -573,6 +667,9 @@ async function main() {
       case 'register':
         await cmdRegister(param);
         break;
+      case 'gc':
+        await cmdGc();
+        break;
       default:
         console.log('claude-sync.js - Claude Code session coordination');
         console.log('');
@@ -580,6 +677,7 @@ async function main() {
         console.log('  checkin                 - Register and get assigned Bob or Bill');
         console.log('  checkout                - End your session');
         console.log('  checkout --force        - Force end all sessions on branch');
+        console.log('  gc                      - Garbage collect stale sessions (2h+ inactive)');
         console.log('  init                    - Initialise fresh state');
         console.log('  read                    - Display current coordination state');
         console.log('  write "message"         - Log activity');
@@ -590,9 +688,12 @@ async function main() {
         console.log('Examples:');
         console.log('  node claude-sync.js checkin');
         console.log('  node claude-sync.js read');
+        console.log('  node claude-sync.js gc');
         console.log('  node claude-sync.js write "Fixed login bug"');
         console.log('  node claude-sync.js claim /src/auth/login.js');
         console.log('  node claude-sync.js checkout');
+        console.log('');
+        console.log('Note: Stale sessions (2h+ inactive) are auto-cleaned on checkin.');
         break;
     }
   } catch (error) {
