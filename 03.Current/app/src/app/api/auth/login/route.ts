@@ -1,8 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { logLoginAttempt, checkForAttack } from '@/lib/attack-detection';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
+
+/**
+ * Extract client IP from request headers
+ * Checks multiple headers in order of preference for proxy/CDN setups
+ */
+function getClientIP(request: NextRequest): string {
+  // Cloudflare
+  const cfIP = request.headers.get('cf-connecting-ip');
+  if (cfIP) return cfIP;
+
+  // X-Forwarded-For (most common proxy header)
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    // May contain multiple IPs, take the first one (client IP)
+    return forwardedFor.split(',')[0].trim();
+  }
+
+  // X-Real-IP (Nginx)
+  const realIP = request.headers.get('x-real-ip');
+  if (realIP) return realIP;
+
+  // Vercel
+  const vercelIP = request.headers.get('x-vercel-forwarded-for');
+  if (vercelIP) return vercelIP.split(',')[0].trim();
+
+  // Fallback - likely localhost or direct connection
+  return 'unknown';
+}
 
 // Maximum login attempts before lockout
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -17,6 +46,8 @@ interface LoginRequest {
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
+  const clientIP = getClientIP(request);
+  const userAgent = request.headers.get('user-agent') || undefined;
 
   try {
     const data: LoginRequest = await request.json();
@@ -70,6 +101,19 @@ export async function POST(request: NextRequest) {
       if (badAttempts >= MAX_LOGIN_ATTEMPTS && timeSinceLastAttempt < LOCKOUT_DURATION_MS) {
         const remainingMinutes = Math.ceil((LOCKOUT_DURATION_MS - timeSinceLastAttempt) / 60000);
 
+        // Log the failed attempt for attack detection
+        await logLoginAttempt(db, FieldValue, {
+          ip: clientIP,
+          email: normalizedEmail,
+          userId,
+          success: false,
+          reason: 'locked_out',
+          userAgent,
+        });
+
+        // Check for attacks after failed login
+        await checkForAttack(db, FieldValue, clientIP, normalizedEmail);
+
         // Log the locked out attempt
         await db.collection('audit_logs').add({
           userId,
@@ -78,6 +122,7 @@ export async function POST(request: NextRequest) {
             email: normalizedEmail,
             badAttempts,
             remainingMinutes,
+            ip: clientIP,
           },
           timestamp: FieldValue.serverTimestamp(),
         });
@@ -109,6 +154,18 @@ export async function POST(request: NextRequest) {
       firebaseUserRecord = await auth.getUserByEmail(normalizedEmail);
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
+        // Log the failed attempt for attack detection
+        await logLoginAttempt(db, FieldValue, {
+          ip: clientIP,
+          email: normalizedEmail,
+          success: false,
+          reason: 'user_not_found',
+          userAgent,
+        });
+
+        // Check for attacks after failed login
+        await checkForAttack(db, FieldValue, clientIP, normalizedEmail);
+
         // Don't reveal if user exists or not - but log for debugging
         await logError({
           correlationId,
@@ -117,6 +174,7 @@ export async function POST(request: NextRequest) {
             route: '/api/auth/login',
             action: 'user_lookup',
             requestData: { email: normalizedEmail },
+            ip: clientIP,
           },
         });
         return NextResponse.json(
@@ -176,11 +234,24 @@ export async function POST(request: NextRequest) {
 
     if (!authResponse.ok || authResult.error) {
       // Invalid credentials - increment bad login attempts
-      if (!usersQuery.empty) {
-        const userDoc = usersQuery.docs[0];
-        const userId = userDoc.id;
-        const currentAttempts = userDoc.data().badLoginAttempts || 0;
+      const userDoc = usersQuery.empty ? null : usersQuery.docs[0];
+      const userId = userDoc?.id;
+      const currentAttempts = userDoc?.data()?.badLoginAttempts || 0;
 
+      // Log the failed attempt for attack detection
+      await logLoginAttempt(db, FieldValue, {
+        ip: clientIP,
+        email: normalizedEmail,
+        userId,
+        success: false,
+        reason: 'invalid_pin',
+        userAgent,
+      });
+
+      // Check for attacks after failed login
+      await checkForAttack(db, FieldValue, clientIP, normalizedEmail);
+
+      if (userDoc) {
         await userDoc.ref.update({
           badLoginAttempts: currentAttempts + 1,
           lastFailedLoginAt: FieldValue.serverTimestamp(),
@@ -194,6 +265,7 @@ export async function POST(request: NextRequest) {
             email: normalizedEmail,
             attempt: currentAttempts + 1,
             reason: 'invalid_pin',
+            ip: clientIP,
           },
           timestamp: FieldValue.serverTimestamp(),
         });
@@ -226,6 +298,15 @@ export async function POST(request: NextRequest) {
       const userDoc = usersQuery.docs[0];
       const userId = userDoc.id;
 
+      // Log successful login attempt for analytics
+      await logLoginAttempt(db, FieldValue, {
+        ip: clientIP,
+        email: normalizedEmail,
+        userId,
+        success: true,
+        userAgent,
+      });
+
       await userDoc.ref.update({
         badLoginAttempts: 0,
         lastFailedLoginAt: null,
@@ -238,6 +319,7 @@ export async function POST(request: NextRequest) {
         details: {
           email: normalizedEmail,
           method: 'server_verified',
+          ip: clientIP,
         },
         timestamp: FieldValue.serverTimestamp(),
       });

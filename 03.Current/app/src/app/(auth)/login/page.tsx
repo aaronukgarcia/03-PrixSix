@@ -114,7 +114,14 @@ export default function LoginPage() {
                                     </Link>
                                 </div>
                                 <FormControl>
-                                    <Input type="password" placeholder="••••••" {...field} />
+                                    <Input
+                                      type="password"
+                                      placeholder="••••••"
+                                      maxLength={6}
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>

@@ -870,7 +870,14 @@ export default function ProfilePage() {
                             <FormItem>
                                 <FormLabel>New 6-Digit PIN</FormLabel>
                                 <FormControl>
-                                    <Input type="password" placeholder="••••••" {...field} />
+                                    <Input
+                                      type="password"
+                                      placeholder="••••••"
+                                      maxLength={6}
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -883,7 +890,14 @@ export default function ProfilePage() {
                             <FormItem>
                                 <FormLabel>Confirm New PIN</FormLabel>
                                 <FormControl>
-                                    <Input type="password" placeholder="••••••" {...field} />
+                                    <Input
+                                      type="password"
+                                      placeholder="••••••"
+                                      maxLength={6}
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

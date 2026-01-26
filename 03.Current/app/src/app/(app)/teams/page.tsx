@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RaceSchedule, getDriverImage, F1Drivers, findNextRace } from "@/lib/data";
-import { collection, query, orderBy, limit, startAfter, getDocs, where, DocumentSnapshot, getCountFromServer } from "firebase/firestore";
+import { collection, query, orderBy, limit, startAfter, getDocs, where, DocumentSnapshot, getCountFromServer, Timestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
@@ -39,14 +39,35 @@ interface TeamBasic {
   teamName: string;
   oduserId: string;
   isSecondary?: boolean;
+  createdAt?: any; // Firestore timestamp of when user joined
 }
 
 interface TeamWithPrediction extends TeamBasic {
   predictions: (typeof F1Drivers[number] | null)[] | null; // null = not loaded, array = loaded
   isLoadingPredictions?: boolean;
+  joinedAfterRace?: boolean; // true if team joined after this race
 }
 
 const PAGE_SIZE = 25;
+
+// Helper to find the most recent race that has results
+function findMostRecentRaceWithResults(raceResults: { raceId: string }[]): string | null {
+  if (!raceResults || raceResults.length === 0) return null;
+
+  // Get unique raceIds that have results
+  const racesWithResults = new Set(raceResults.map(r => r.raceId));
+
+  // Find the most recent race in the schedule that has results
+  // Go through schedule in reverse order (most recent first)
+  for (let i = RaceSchedule.length - 1; i >= 0; i--) {
+    const race = RaceSchedule[i];
+    const raceId = race.name.replace(/\s+/g, '-');
+    if (racesWithResults.has(raceId)) {
+      return race.name;
+    }
+  }
+  return null;
+}
 
 export default function TeamsPage() {
   const firestore = useFirestore();
@@ -54,8 +75,9 @@ export default function TeamsPage() {
   const { startLoading, stopLoading } = useSmartLoader();
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
-  const [selectedRace, setSelectedRace] = useState(nextRace.name);
-  const selectedRaceId = selectedRace.replace(/\s+/g, '-');
+  const [selectedRace, setSelectedRace] = useState<string | null>(null); // Will be set after loading results
+  const [defaultRaceLoaded, setDefaultRaceLoaded] = useState(false);
+  const selectedRaceId = selectedRace?.replace(/\s+/g, '-') || '';
 
   // Pagination state
   const [teams, setTeams] = useState<TeamWithPrediction[]>([]);
@@ -72,6 +94,33 @@ export default function TeamsPage() {
 
   // Cache for predictions by race
   const [predictionCache, setPredictionCache] = useState<Record<string, Record<string, (typeof F1Drivers[number] | null)[]>>>({});
+
+  // Fetch race results to determine default race selection
+  useEffect(() => {
+    if (!firestore || defaultRaceLoaded) return;
+
+    const fetchDefaultRace = async () => {
+      try {
+        const resultsQuery = query(collection(firestore, "race_results"), orderBy("submittedAt", "desc"));
+        const resultsSnapshot = await getDocs(resultsQuery);
+        const raceResults = resultsSnapshot.docs.map(doc => ({ raceId: doc.data().raceId }));
+
+        const mostRecentWithResults = findMostRecentRaceWithResults(raceResults);
+        if (mostRecentWithResults) {
+          setSelectedRace(mostRecentWithResults);
+        } else {
+          // No results yet, default to next race
+          setSelectedRace(nextRace.name);
+        }
+      } catch (error) {
+        console.error("Error fetching race results:", error);
+        setSelectedRace(nextRace.name);
+      } finally {
+        setDefaultRaceLoaded(true);
+      }
+    };
+    fetchDefaultRace();
+  }, [firestore, defaultRaceLoaded, nextRace.name]);
 
   // Fetch total count once (using aggregation - no document download)
   useEffect(() => {
@@ -167,12 +216,13 @@ export default function TeamsPage() {
       const newTeams: TeamWithPrediction[] = [];
 
       for (const userDoc of validUserDocs) {
-        const userData = userDoc.data() as User;
+        const userData = userDoc.data() as User & { createdAt?: any };
 
         // Main team - predictions loaded on-demand
         newTeams.push({
           teamName: userData.teamName,
           oduserId: userDoc.id,
+          createdAt: userData.createdAt,
           predictions: null, // Not loaded yet
         });
 
@@ -182,6 +232,7 @@ export default function TeamsPage() {
             teamName: userData.secondaryTeamName,
             oduserId: userDoc.id,
             isSecondary: true,
+            createdAt: userData.createdAt,
             predictions: null, // Not loaded yet
           });
         }
@@ -214,16 +265,40 @@ export default function TeamsPage() {
     }
   }, [firestore, lastDoc, startLoading, stopLoading]);
 
+  // Check if team joined after the selected race
+  const didTeamJoinAfterRace = useCallback((team: TeamWithPrediction): boolean => {
+    if (!team.createdAt || !selectedRace) return false;
+
+    const race = RaceSchedule.find(r => r.name === selectedRace);
+    if (!race) return false;
+
+    const raceQualifyingTime = new Date(race.qualifyingTime);
+    const teamCreatedAt = team.createdAt.toDate ? team.createdAt.toDate() : new Date(team.createdAt);
+
+    return teamCreatedAt > raceQualifyingTime;
+  }, [selectedRace]);
+
   // Fetch prediction for a specific team on-demand
   const fetchPredictionForTeam = useCallback(async (teamKey: string, team: TeamWithPrediction) => {
-    if (!firestore) return;
+    if (!firestore || !selectedRaceId) return;
+
+    // Check if team joined after this race
+    const joinedAfterRace = didTeamJoinAfterRace(team);
+    if (joinedAfterRace) {
+      setTeams(prev => prev.map(t =>
+        `${t.teamName}-${prev.indexOf(t)}` === teamKey
+          ? { ...t, predictions: [], joinedAfterRace: true, isLoadingPredictions: false }
+          : t
+      ));
+      return;
+    }
 
     // Check cache first
     const cacheKey = `${team.oduserId}_${team.teamName}`;
     if (predictionCache[selectedRaceId]?.[cacheKey]) {
       setTeams(prev => prev.map(t =>
         `${t.teamName}-${prev.indexOf(t)}` === teamKey
-          ? { ...t, predictions: predictionCache[selectedRaceId][cacheKey] }
+          ? { ...t, predictions: predictionCache[selectedRaceId][cacheKey], joinedAfterRace: false }
           : t
       ));
       return;
@@ -267,7 +342,7 @@ export default function TeamsPage() {
       // Update team with predictions
       setTeams(prev => prev.map(t =>
         `${t.teamName}-${prev.indexOf(t)}` === teamKey
-          ? { ...t, predictions, isLoadingPredictions: false }
+          ? { ...t, predictions, joinedAfterRace: false, isLoadingPredictions: false }
           : t
       ));
     } catch (error) {
@@ -275,11 +350,11 @@ export default function TeamsPage() {
       // Set empty predictions on error
       setTeams(prev => prev.map(t =>
         `${t.teamName}-${prev.indexOf(t)}` === teamKey
-          ? { ...t, predictions: Array(6).fill(null), isLoadingPredictions: false }
+          ? { ...t, predictions: Array(6).fill(null), joinedAfterRace: false, isLoadingPredictions: false }
           : t
       ));
     }
-  }, [firestore, selectedRaceId, predictionCache, formatPrediction]);
+  }, [firestore, selectedRaceId, predictionCache, formatPrediction, didTeamJoinAfterRace]);
 
   // Handle accordion open - fetch prediction on-demand
   const handleAccordionChange = useCallback((value: string | undefined) => {
@@ -297,15 +372,19 @@ export default function TeamsPage() {
     }
   }, [teams, fetchPredictionForTeam]);
 
-  // Initial load
+  // Initial load - wait for default race to be determined first
   useEffect(() => {
-    fetchTeams(false);
-  }, [firestore]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (defaultRaceLoaded && selectedRace) {
+      fetchTeams(false);
+    }
+  }, [firestore, defaultRaceLoaded, selectedRace]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clear predictions when race changes (they'll be loaded on-demand)
   useEffect(() => {
-    setTeams(prev => prev.map(t => ({ ...t, predictions: null, isLoadingPredictions: false })));
-    setOpenAccordion(undefined);
+    if (selectedRaceId) {
+      setTeams(prev => prev.map(t => ({ ...t, predictions: null, joinedAfterRace: undefined, isLoadingPredictions: false })));
+      setOpenAccordion(undefined);
+    }
   }, [selectedRaceId]);
 
   const loadMore = () => {
@@ -349,9 +428,9 @@ export default function TeamsPage() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <LeagueSelector />
-              <Select value={selectedRace} onValueChange={setSelectedRace}>
+              <Select value={selectedRace || ""} onValueChange={setSelectedRace}>
                 <SelectTrigger className="w-full sm:w-[220px]">
-                  <SelectValue placeholder="Select a race" />
+                  <SelectValue placeholder={defaultRaceLoaded ? "Select a race" : "Loading..."} />
                 </SelectTrigger>
                 <SelectContent>
                   {races.map((race) => (
@@ -383,7 +462,7 @@ export default function TeamsPage() {
             value={openAccordion}
             onValueChange={handleAccordionChange}
           >
-            {isLoading ? (
+            {!defaultRaceLoaded || isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-14 w-full mb-2" />
               ))
@@ -398,6 +477,10 @@ export default function TeamsPage() {
                       <div className="flex items-center justify-center py-8 gap-2">
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                         <span className="text-muted-foreground">Loading predictions...</span>
+                      </div>
+                    ) : team.joinedAfterRace ? (
+                      <div className="flex items-center justify-center py-8 text-muted-foreground italic">
+                        Team {team.teamName} joined after this race
                       </div>
                     ) : team.predictions === null ? (
                       <div className="flex items-center justify-center py-8 text-muted-foreground">

@@ -211,5 +211,20 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isAdmin();
     }
+
+    // Login attempts - server-side only (Admin SDK bypasses rules)
+    // Used for attack detection
+    match /login_attempts/{attemptId} {
+      allow read: if isAdmin();
+      allow write: if false; // Server-side only via Admin SDK
+    }
+
+    // Attack alerts - admins can read and acknowledge
+    match /attack_alerts/{alertId} {
+      allow get, list: if isAdmin();
+      allow create: if false; // Server-side only via Admin SDK
+      allow update: if isAdmin(); // Allow admins to acknowledge alerts
+      allow delete: if false;
+    }
   }
 }

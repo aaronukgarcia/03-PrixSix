@@ -107,7 +107,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <Link href="/profile" className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={`https://picsum.photos/seed/${user?.id}/100/100`} data-ai-hint="person avatar"/>
+              <AvatarImage src={user?.photoUrl || `https://picsum.photos/seed/${user?.id}/100/100`} data-ai-hint="person avatar"/>
               <AvatarFallback>{user?.teamName?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col overflow-hidden">

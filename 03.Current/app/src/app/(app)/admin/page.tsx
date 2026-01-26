@@ -22,6 +22,7 @@ import { WhatsAppManager } from "./_components/WhatsAppManager";
 import { StandingDataManager } from "./_components/StandingDataManager";
 import { FeedbackManager } from "./_components/FeedbackManager";
 import { ErrorLogViewer } from "./_components/ErrorLogViewer";
+import { AttackMonitor } from "./_components/AttackMonitor";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
@@ -78,6 +79,7 @@ export default function AdminPage() {
                 <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">Admin Panel</h1>
                 <p className="text-muted-foreground">Manage the Prix Six league.</p>
             </div>
+            <AttackMonitor />
             <Tabs defaultValue="functions" className="space-y-4">
                 <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 lg:grid-cols-13">
                     <TabsTrigger value="functions" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>

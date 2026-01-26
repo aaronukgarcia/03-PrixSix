@@ -489,8 +489,8 @@ const AboutPageClient = () => {
                         <div className="p-4 rounded-lg bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20">
                             <p className="text-muted-foreground">
                                 Formula 1 (or F1) is the world's most exciting motor racing championship.
-                                Twenty drivers from ten teams race super-fast single-seater cars around circuits
-                                all over the world - from Monaco's glamorous streets to Singapore's night race.
+                                Drivers race super-fast single-seater cars around circuits all over the world -
+                                from Monaco's glamorous streets to Singapore's night race.
                             </p>
                             <p className="text-muted-foreground mt-3">
                                 The cars can reach speeds over <span className="font-semibold text-foreground">350 km/h (220 mph)</span> and
@@ -626,8 +626,8 @@ const AboutPageClient = () => {
                                 <div className="text-3xl mb-2">⚡</div>
                                 <h4 className="font-medium text-sm">Fastest Lap</h4>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    The driver who sets the quickest single lap during the race gets
-                                    a bonus point (if they finish top 10)
+                                    The quickest single lap set during a race - a badge of honour
+                                    but no longer awards bonus points (rule removed in 2025)
                                 </p>
                             </div>
                             <div className="p-4 rounded-lg border text-center">
@@ -658,8 +658,8 @@ const AboutPageClient = () => {
                             <div className="flex gap-3 p-3 rounded-lg border">
                                 <CircleDot className="h-5 w-5 text-primary flex-shrink-0 mt-0.5"/>
                                 <div>
-                                    <span className="font-medium">DRS</span>
-                                    <p className="text-muted-foreground">Drag Reduction System - a flap that opens on the rear wing to help cars go faster on straights for overtaking</p>
+                                    <span className="font-medium">Active Aero (2026)</span>
+                                    <p className="text-muted-foreground">Cars have adjustable wings - 'Straight Mode' (low drag) and 'Corner Mode' (high downforce), replacing the old DRS system</p>
                                 </div>
                             </div>
                             <div className="flex gap-3 p-3 rounded-lg border">
@@ -761,7 +761,11 @@ const AboutPageClient = () => {
                 </CardHeader>
                 <CardContent>
                     <p className="text-muted-foreground">
-                        Got questions, spotted a bug, or have a suggestion? Drop us a message at{' '}
+                        Got questions, spotted a bug, or have a suggestion? Use the{' '}
+                        <a href="/dashboard" className="text-primary underline hover:no-underline">
+                            Bug Report / Feature Request
+                        </a>
+                        {' '}form on the Dashboard or drop us a message at{' '}
                         <a href="mailto:aaron@garcia.ltd" className="text-primary underline hover:no-underline">
                             aaron@garcia.ltd
                         </a>
