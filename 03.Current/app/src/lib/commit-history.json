@@ -1,7 +1,7 @@
 {
   "lastUpdated": "2026-01-26",
   "commits": [
-    {"id": "ee6f490", "date": "2026-01-26", "version": "1.23.22", "author": "aaron garcia", "message": "feat: Add /about/dev page with version history timeline", "major": true},
+    {"id": "57efa41", "date": "2026-01-26", "version": "1.23.22", "author": "aaron garcia", "message": "feat: Add /about/dev page with version history timeline", "major": true},
     {"id": "c4c4831", "date": "2026-01-26", "version": "1.23.21", "author": "aaron garcia", "message": "feat: Add pre-season testing banner and claude-sync garbage collection", "major": false},
     {"id": "344c79f", "date": "2026-01-26", "version": "1.23.20", "author": "aaron garcia", "message": "feat: add complete error boundary coverage for all routes", "major": false},
     {"id": "aba2c82", "date": "2026-01-26", "version": "1.23.19", "author": "aaron garcia", "message": "fix: add error boundary and fix QRCode SSR issue in admin panel", "major": false},
