@@ -52,11 +52,22 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-// Dynamic import QRCode to avoid SSR issues
-const QRCodeComponent = dynamic(() => import("react-qr-code"), {
-  ssr: false,
-  loading: () => <Skeleton className="h-64 w-64" />
-});
+// Dynamic import QRCode to avoid SSR issues - with error handling
+const QRCodeComponent = dynamic(
+  () => import("react-qr-code").then((mod) => mod.default).catch((err) => {
+    console.error("Failed to load QRCode component:", err);
+    // Return a fallback component on error
+    return () => (
+      <div className="h-64 w-64 flex items-center justify-center border rounded bg-muted">
+        <span className="text-sm text-muted-foreground">QR Code unavailable</span>
+      </div>
+    );
+  }),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-64 w-64" />
+  }
+);
 import {
   collection,
   addDoc,
