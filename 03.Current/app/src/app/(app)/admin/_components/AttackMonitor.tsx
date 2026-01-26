@@ -52,9 +52,10 @@ export function AttackMonitor() {
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
 
-  // Query unacknowledged attack alerts
+  // Query unacknowledged attack alerts - only if user is admin
   const alertsQuery = useMemo(() => {
-    if (!firestore) return null;
+    // Don't query until we confirm user is admin to avoid permission errors
+    if (!firestore || !user?.isAdmin) return null;
     const q = query(
       collection(firestore, 'attack_alerts'),
       where('acknowledged', '==', false),
@@ -62,7 +63,7 @@ export function AttackMonitor() {
     );
     (q as any).__memo = true;
     return q;
-  }, [firestore]);
+  }, [firestore, user?.isAdmin]);
 
   const { data: alerts, isLoading, error } = useCollection<AttackAlert>(alertsQuery);
 
