@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Bug, Lightbulb, Send, CheckCircle2, Frown, Copy, Check } from 'lucide-react';
+import { Bug, Lightbulb, Send, CheckCircle2, Frown, Copy, Check, Bell } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 export function FeedbackForm() {
@@ -17,6 +19,7 @@ export function FeedbackForm() {
 
   const [type, setType] = useState<'bug' | 'feature'>('bug');
   const [text, setText] = useState('');
+  const [notifyOnFix, setNotifyOnFix] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,14 +50,19 @@ export function FeedbackForm() {
         teamName: user.teamName || 'Unknown',
         createdAt: serverTimestamp(),
         status: 'new',
+        notifyOnFix,
       });
 
+      const wantsNotification = notifyOnFix;
       setSubmitted(true);
       setText('');
+      setNotifyOnFix(false);
 
       toast({
         title: 'Feedback Submitted',
-        description: 'Thank you for your feedback!',
+        description: wantsNotification
+          ? "Thank you! We'll notify you when this is addressed."
+          : 'Thank you for your feedback!',
       });
 
       // Reset after 3 seconds
@@ -160,6 +168,23 @@ export function FeedbackForm() {
             maxLength={1000}
             disabled={submitting}
           />
+
+          {/* Notify on Fix Checkbox */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="notify-on-fix"
+              checked={notifyOnFix}
+              onCheckedChange={(checked) => setNotifyOnFix(checked === true)}
+              disabled={submitting}
+            />
+            <Label
+              htmlFor="notify-on-fix"
+              className="text-sm text-muted-foreground cursor-pointer flex items-center gap-1.5"
+            >
+              <Bell className="h-3.5 w-3.5" />
+              Notify me when this is {type === 'bug' ? 'fixed' : 'implemented'}
+            </Label>
+          </div>
 
           {/* Error Display */}
           {error && (
