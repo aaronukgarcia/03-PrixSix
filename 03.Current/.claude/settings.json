@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo MANDATORY SESSION STARTUP: You are one of THREE Claude Code instances (Bob, Bill, Ben). Run 'node claude-sync.js checkin' NOW to get your identity. Prefix EVERY response with your assigned name (bob>, bill>, or ben>). Read CLAUDE.md for full Golden Rules. If you have Vestige memory, recall 'who am I, identity, session startup' for additional context."
+            "command": "node claude-startup.js"
           }
         ]
       }
@@ -20,5 +20,9 @@
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node claude-statusline.js"
   }
 }
