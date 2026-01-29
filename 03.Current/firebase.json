@@ -1,0 +1,24 @@
+{
+  "apphosting": {
+    "backendId": "prixsix",
+    "rootDir": "app",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "functions"
+    ]
+  },
+  "firestore": {
+    "rules": "app/src/firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "prix6-backup",
+      "runtime": "nodejs20"
+    }
+  ]
+}

@@ -12,6 +12,12 @@
 !03.Current/Claude-Read-First.md
 !03.Current/CLAUDE.md
 !03.Current/claude-sync.js
+!03.Current/firebase.json
+!03.Current/provision_recovery_env.sh
+!03.Current/functions/
+!03.Current/functions/**
+!03.Current/docs/
+!03.Current/docs/**
 !.gitignore
 !README.md
 

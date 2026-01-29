@@ -60,6 +60,7 @@ const ERROR_CATEGORIES = {
   'PX-4': { label: 'Firestore', color: 'bg-blue-500', textColor: 'text-blue-500', bgLight: 'bg-blue-500/10', border: 'border-blue-500/30' },
   'PX-5': { label: 'Racing', color: 'bg-emerald-500', textColor: 'text-emerald-500', bgLight: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
   'PX-6': { label: 'Session', color: 'bg-cyan-500', textColor: 'text-cyan-500', bgLight: 'bg-cyan-500/10', border: 'border-cyan-500/30' },
+  'PX-7': { label: 'Backup', color: 'bg-sky-500', textColor: 'text-sky-500', bgLight: 'bg-sky-500/10', border: 'border-sky-500/30' },
   'PX-9': { label: 'Unknown', color: 'bg-zinc-500', textColor: 'text-zinc-500', bgLight: 'bg-zinc-500/10', border: 'border-zinc-500/30' },
 } as const;
 
@@ -72,6 +73,7 @@ const CATEGORY_TABS = [
   { id: 'PX-4', label: 'Firestore', color: 'bg-blue-500' },
   { id: 'PX-5', label: 'Racing', color: 'bg-emerald-500' },
   { id: 'PX-6', label: 'Session', color: 'bg-cyan-500' },
+  { id: 'PX-7', label: 'Backup', color: 'bg-sky-500' },
   { id: 'PX-9', label: 'Unknown', color: 'bg-zinc-500' },
 ];
 

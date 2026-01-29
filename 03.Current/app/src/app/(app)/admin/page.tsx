@@ -7,7 +7,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -22,6 +22,7 @@ import { WhatsAppManager } from "./_components/WhatsAppManager";
 import { StandingDataManager } from "./_components/StandingDataManager";
 import { FeedbackManager } from "./_components/FeedbackManager";
 import { ErrorLogViewer } from "./_components/ErrorLogViewer";
+import { BackupHealthDashboard } from "./_components/BackupHealthDashboard";
 import { AttackMonitor } from "./_components/AttackMonitor";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
@@ -81,7 +82,7 @@ export default function AdminPage() {
             </div>
             <AttackMonitor />
             <Tabs defaultValue="functions" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 lg:grid-cols-13">
+                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 lg:grid-cols-14">
                     <TabsTrigger value="functions" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
                     <TabsTrigger value="teams" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
                     <TabsTrigger value="results" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
@@ -95,6 +96,7 @@ export default function AdminPage() {
                     <TabsTrigger value="feedback" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white"><Bug className="w-4 h-4 mr-2"/>Feedback</TabsTrigger>
                     <TabsTrigger value="consistency" className="data-[state=active]:bg-teal-500 data-[state=active]:text-white"><ClipboardCheck className="w-4 h-4 mr-2"/>CC</TabsTrigger>
                     <TabsTrigger value="errors" className="data-[state=active]:bg-red-600 data-[state=active]:text-white"><AlertTriangle className="w-4 h-4 mr-2"/>Errors</TabsTrigger>
+                    <TabsTrigger value="backups" className="data-[state=active]:bg-sky-600 data-[state=active]:text-white"><HardDrive className="w-4 h-4 mr-2"/>Backups</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
@@ -135,6 +137,9 @@ export default function AdminPage() {
                 </TabsContent>
                 <TabsContent value="errors">
                     <ErrorLogViewer />
+                </TabsContent>
+                <TabsContent value="backups">
+                    <BackupHealthDashboard />
                 </TabsContent>
             </Tabs>
       </div>

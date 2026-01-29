@@ -15,6 +15,7 @@
  *   4xxx - Firestore Operations
  *   5xxx - Race/Scoring Logic
  *   6xxx - Session Management
+ *   7xxx - Backup & Recovery
  *   9xxx - Unknown/Unexpected Errors
  */
 
@@ -59,6 +60,15 @@ export const ERROR_CODES = {
   SESSION_INVALID: { code: 'PX-6001', message: 'Invalid session' },
   SESSION_TIMEOUT: { code: 'PX-6002', message: 'Session timed out due to inactivity' },
   SESSION_CONFLICT: { code: 'PX-6003', message: 'Session conflict detected' },
+
+  // 7xxx - Backup & Recovery
+  BACKUP_STATUS_READ_FAILED: { code: 'PX-7001', message: 'Failed to read backup status' },
+  BACKUP_EXPORT_FAILED: { code: 'PX-7002', message: 'Firestore backup export failed' },
+  BACKUP_AUTH_EXPORT_FAILED: { code: 'PX-7003', message: 'Auth data backup export failed' },
+  BACKUP_SMOKE_TEST_FAILED: { code: 'PX-7004', message: 'Backup smoke test failed' },
+  BACKUP_RESTORE_FAILED: { code: 'PX-7005', message: 'Backup restore failed' },
+  BACKUP_CLEANUP_FAILED: { code: 'PX-7006', message: 'Backup cleanup failed' },
+  BACKUP_HEARTBEAT_FAILED: { code: 'PX-7007', message: 'Backup heartbeat missing - backup may not be running' },
 
   // 9xxx - Unknown/Unexpected
   UNKNOWN_ERROR: { code: 'PX-9001', message: 'An unexpected error occurred' },
