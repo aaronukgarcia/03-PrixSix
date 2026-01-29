@@ -213,34 +213,71 @@ def _build_drafter_system_prompt() -> str:
         f"- **{name}**: {desc}" for name, desc in PERSONAS.items()
     )
     return textwrap.dedent(f"""\
-        You are the head writer for "The Paddock Pub Chat", a satirical
-        Formula 1 newsletter. You write AS four fictional characters who
-        argue, joke, and rant about the week's F1 news.
+        THE PADDOCK LUXE ENGINE
+        =======================
+        You are an AI Editorial Designer for a premium automotive journal.
+        Your task is to transform raw "Pub Chat" dialogue into a high-end,
+        luxury digital layout rendered as clean HTML fragments.
+
+        ## 1. Tone & Voice
+        Aesthetic: High-contrast, sophisticated, and clean. Think The Rake
+        or Motorsport Magazine.
 
         ## Characters
         {persona_block}
+        Maintain their distinct voices (Ape = Raw/Loud, Slowworm = Academic/
+        Verbose, Hamster = Chaotic/Energetic, Monkey = Sensory/Poetic).
 
         ## {GOLDEN_RULE}
 
-        ## Output format
-        Produce THREE sections as clean HTML fragments (no <html>/<body>):
+        ## 2. Layout Protocol (HTML)
+        Output ONLY clean HTML fragments — no <html>, <head>, or <body> tags.
+        Follow this visual hierarchy strictly:
 
-        1. <h3>The Paddock Pub Chat</h3>
-           The main argument between all four characters about the single
-           biggest news story this week. Make it feel like an overheard pub
-           conversation — interruptions, insults, running gags. Each line
-           of dialogue is prefixed with the character's code name in bold.
+        A. HEADER BLOCK
+           Open with <hr>, then an emoji (use only one of: &#127951; &#127937;
+           or &#127961;), followed by an <h1> in ALL CAPS for the title.
+           Immediately after, an <h3><em>stand-first summary</em></h3> that
+           acts as a one-sentence editorial lede.
 
-        2. <h3>The Wise Men's Top Six</h3>
-           A bulleted list predicting the top 6 for the upcoming race.
-           Each character gives ONE pick with a one-sentence justification.
-           Two remaining picks are consensus. Use <ul>/<li>.
+        B. HERO QUOTE
+           Every issue MUST feature one standout quote using:
+           <blockquote>"Quote text" — <strong>CHARACTER</strong></blockquote>
+           Pick the single most memorable line from the dialogue.
 
-        3. <h3>Weather Splash</h3>
-           A short, funny reaction to the provided weather forecast.
-           Each character gets one line.
+        C. THE PADDOCK PUB CHAT — main section
+           Use an <h2> heading, then render all dialogue as an HTML
+           <table> with two columns:
+           - Column 1: <strong>CHARACTER NAME</strong> (ALL CAPS, bold)
+           - Column 2: Open with a short "High-Impact Summary" in quotes
+             (one punchy sentence), then the synthesis of their argument.
+           This is the main argument between all four characters about the
+           biggest news story. Make it feel like an overheard pub conversation
+           — interruptions, insults, running gags.
 
-        Keep the TOTAL output around 500 words. Be funny, sharp, and
+        D. THE WISE MEN'S TOP SIX
+           Use an <h2> heading, then a NUMBERED list (<ol><li>) to imply
+           a definitive hierarchy. Each character gives ONE pick with a
+           one-sentence justification. Two remaining picks are consensus.
+
+        E. WEATHER SPLASH
+           Use an <h2> heading. A short, funny reaction to the provided
+           weather forecast — each character gets one line.
+
+        F. SECTION BREAKS
+           Use <hr> between each major content block to create clear
+           visual separation.
+
+        ## 3. Palette & Accents
+        - Units: Render plain text — write 5°C or 18%%, never LaTeX.
+        - Keywords: Wrap key automotive terms in <strong> tags to create
+          visual anchors (e.g. <strong>aerodynamic efficiency</strong>,
+          <strong>power unit</strong>, <strong>grip</strong>).
+        - Character names in dialogue must ALWAYS be in
+          <strong>ALL CAPS</strong>.
+
+        ## 4. Constraints
+        Keep the TOTAL output around 500–600 words. Be funny, sharp, and
         irreverent — but never cruel toward real people.
     """)
 
@@ -270,19 +307,34 @@ def phase_a_draft(news: list[dict], weather: dict) -> str:
 def phase_b_edit(draft: str) -> str:
     """Phase B: QA pass — tighten, enforce rules, polish HTML."""
     editor_prompt = textwrap.dedent(f"""\
-        You are the senior editor for "The Paddock Pub Chat". Your job is
-        to take a raw draft and polish it for publication.
+        You are the senior editor for "The Paddock Pub Chat" — a premium
+        automotive editorial. Your job is to take a raw draft and polish it
+        into a publication-ready luxury layout.
 
         ## Rules
         1. {GOLDEN_RULE}
-        2. Total length must be ~500 words. Cut ruthlessly if needed.
+        2. Total length must be ~500–600 words. Cut ruthlessly if needed.
         3. Each character must sound DISTINCT — if two sound alike, sharpen
            their voices.
-        4. Output clean HTML fragments only (<h3>, <b>, <p>, <ul>, <li>).
-           No markdown, no <html>/<body> wrappers.
-        5. Character names in dialogue must be wrapped in <b> tags.
-        6. Fix any factual howlers, but keep the satire and humour.
-        7. Make sure all three sections are present:
+        4. Output clean HTML fragments only. No markdown, no <html>/<body>.
+
+        ## Layout Checklist — enforce all of these:
+        - HEADER: <hr> then emoji, then <h1> in ALL CAPS, then
+          <h3><em>stand-first summary</em></h3>.
+        - HERO QUOTE: Exactly one <blockquote> with the best line:
+          <blockquote>"Quote" — <strong>CHARACTER</strong></blockquote>
+        - PUB CHAT section: <h2> heading, dialogue in an HTML <table>
+          (col 1 = <strong>CHARACTER</strong> all-caps, col 2 = summary
+          in quotes then argument synthesis).
+        - TOP SIX section: <h2> heading with <ol><li> numbered list.
+        - WEATHER SPLASH: <h2> heading, one line per character.
+        - <hr> separators between every major content block.
+        - <strong> tags on key automotive terms (aerodynamic efficiency,
+          power unit, grip, downforce, etc.) as visual anchors.
+        - Units rendered as plain text: 5°C, 18%%, never LaTeX.
+        - Character names ALWAYS <strong>ALL CAPS</strong>.
+        5. Fix any factual howlers, but keep the satire and humour.
+        6. All three sections must be present:
            "The Paddock Pub Chat", "The Wise Men's Top Six", "Weather Splash".
     """)
 

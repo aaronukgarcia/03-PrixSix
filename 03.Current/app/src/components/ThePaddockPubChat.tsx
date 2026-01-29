@@ -41,16 +41,7 @@ const ThePaddockPubChat = () => {
   // Shared braking curve
   const brakingEase = [0.22, 1, 0.36, 1] as const;
 
-  // 1. CAR — heavy-braking cubic-bezier
-  const carVariants = {
-    hidden: { x: "120%", opacity: 0, scale: 0.95 },
-    visible: {
-      x: "10%",
-      opacity: 1,
-      scale: 1,
-      transition: { duration: 1.8, ease: brakingEase, delay: 0.2 },
-    },
-  };
+  // 1. CAR — handled by CSS @keyframes heavyBrake (see <style> block)
 
   // 2. CONTAINER — staggered cascade (waits for car to park)
   const containerVariants = {
@@ -145,21 +136,135 @@ const ThePaddockPubChat = () => {
         <div className="absolute inset-0 h-px bg-gradient-to-r from-transparent via-blue-400/20 to-transparent blur-sm" />
       </div>
 
-      {/* ── F1 car asset ── */}
-      <motion.div
-        className="absolute top-[-10px] right-[-60px] z-0 w-[280px] pointer-events-none"
-        variants={carVariants}
-        initial="hidden"
-        animate="visible"
+      {/* ── CSS keyframes for car arrival + tire smoke ── */}
+      <style>{`
+        @keyframes heavyBrake {
+          0%   { opacity: 0; transform: translateX(120%) skewX(-12deg); filter: blur(12px); }
+          100% { opacity: 1; transform: translateX(0)    skewX(0);      filter: blur(0);    }
+        }
+        @keyframes smokePuff {
+          0%   { opacity: 0.6; transform: scale(0.5) translateY(0); }
+          100% { opacity: 0;   transform: scale(2.5) translateY(-15px); }
+        }
+      `}</style>
+
+      {/* ── F1 car asset — cinematic arrival ── */}
+      <div
+        className="absolute top-[-10px] right-[-60px] z-[5] w-[280px] pointer-events-none"
+        style={{
+          opacity: 0,
+          animation: 'heavyBrake 1.2s cubic-bezier(0.22,1,0.36,1) forwards',
+        }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="http://googleusercontent.com/image_collection/image_retrieval/10376826321747691252_0"
-          alt="Red Bull F1 Car"
-          className="w-full object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.6)]"
-          draggable={false}
+        {/* inline SVG — Red Bull RB side-profile silhouette */}
+        <svg
+          viewBox="0 0 440 140"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-full h-full drop-shadow-[0_20px_30px_rgba(0,0,0,0.6)]"
+          aria-label="Red Bull F1 Car"
+        >
+          <defs>
+            <linearGradient id="rbBody" x1="0" y1="0" x2="440" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#1B3A5C" />
+              <stop offset="100%" stopColor="#0D1F3C" />
+            </linearGradient>
+          </defs>
+
+          {/* ground shadow */}
+          <ellipse cx="220" cy="128" rx="190" ry="8" fill="black" opacity="0.25" />
+
+          {/* main body */}
+          <path
+            d="M18,88 L10,94 L6,100 L14,106 L50,106 C55,92 68,84 82,84
+               C96,84 108,92 112,106 L300,106 C305,92 318,84 332,84
+               C346,84 358,92 362,106 L378,106 L384,98 L386,86 L380,72
+               L360,48 L300,44 L258,48 L240,56 L232,48 Q218,34 206,48
+               L200,56 L190,62 L140,68 L90,76 L50,84 Z"
+            fill="url(#rbBody)"
+          />
+
+          {/* red accent stripe */}
+          <path
+            d="M100,92 L160,84 L260,82 L340,88 L260,90 L160,90 Z"
+            fill="#DC2626" opacity="0.85"
+          />
+
+          {/* cockpit opening */}
+          <path d="M200,56 L210,48 L226,48 L232,54 L224,60 L206,62 Z" fill="#050D1A" />
+
+          {/* halo */}
+          <path
+            d="M202,57 Q206,38 218,36 Q230,38 228,54"
+            stroke="#3B6B8C" strokeWidth="3.5" fill="none" strokeLinecap="round"
+          />
+
+          {/* air intake */}
+          <path d="M240,50 L248,40 L260,40 L254,52 Z" fill="#050D1A" />
+
+          {/* engine cover / shark fin */}
+          <path
+            d="M268,48 L300,36 L358,36 L378,48 L374,62 L340,56 L280,50 Z"
+            fill="#132D4A" stroke="#1B3A5C" strokeWidth="0.5"
+          />
+
+          {/* rear wing pillar */}
+          <rect x="380" y="26" width="5" height="52" rx="2" fill="#1B3A5C" />
+          {/* rear wing main plane */}
+          <rect x="368" y="20" width="32" height="7" rx="2" fill="#DC2626" />
+          {/* rear wing flap */}
+          <rect x="372" y="32" width="26" height="4" rx="1" fill="#2B4A6C" />
+          {/* rear wing endplate */}
+          <rect x="398" y="18" width="4" height="62" rx="2" fill="#1B3A5C" />
+
+          {/* front wing */}
+          <path d="M14,100 L4,108 L0,114 L6,118 L36,116 L52,108 L40,100 Z" fill="#1B3A5C" />
+          <rect x="0" y="114" width="38" height="3" rx="1" fill="#DC2626" />
+          <rect x="0" y="104" width="4" height="16" rx="1" fill="#2B4A6C" />
+
+          {/* rear diffuser */}
+          <path d="M368,100 L386,104 L392,112 L382,116 L362,112 Z" fill="#1B3A5C" />
+
+          {/* front wheel */}
+          <circle cx="82" cy="106" r="20" fill="#111827" />
+          <circle cx="82" cy="106" r="16" fill="#1F2937" />
+          <circle cx="82" cy="106" r="5"  fill="#374151" />
+          <circle cx="82" cy="106" r="18" fill="none" stroke="#374151" strokeWidth="1" />
+
+          {/* rear wheel */}
+          <circle cx="332" cy="106" r="22" fill="#111827" />
+          <circle cx="332" cy="106" r="18" fill="#1F2937" />
+          <circle cx="332" cy="106" r="6"  fill="#374151" />
+          <circle cx="332" cy="106" r="20" fill="none" stroke="#374151" strokeWidth="1" />
+
+          {/* number 1 */}
+          <text x="172" y="92" fontSize="14" fontWeight="bold" fill="#DC2626" fontFamily="Arial,sans-serif">1</text>
+
+          {/* nose highlight */}
+          <path d="M100,78 L180,70 L200,66 L180,73 L100,80 Z" fill="white" opacity="0.06" />
+        </svg>
+
+        {/* tire smoke — puffs at rear wheel on lock-up */}
+        <div
+          className="absolute bottom-[10px] right-[70px] w-[50px] h-[25px] rounded-full pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%)',
+            opacity: 0,
+            transform: 'scale(0.5)',
+            animation: 'smokePuff 0.8s ease-out 0.9s forwards',
+          }}
         />
-      </motion.div>
+        {/* secondary smoke puff — slightly offset */}
+        <div
+          className="absolute bottom-[14px] right-[85px] w-[35px] h-[18px] rounded-full pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(200,200,220,0.3) 0%, rgba(255,255,255,0) 70%)',
+            opacity: 0,
+            transform: 'scale(0.3)',
+            animation: 'smokePuff 0.6s ease-out 1.0s forwards',
+          }}
+        />
+      </div>
 
       {/* ── timing data ── */}
       <motion.div
