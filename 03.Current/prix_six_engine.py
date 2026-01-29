@@ -208,20 +208,30 @@ def call_llm(system_prompt: str, user_content: str, *, model: str = "gemini-2.5-
 # ---------------------------------------------------------------------------
 
 
+MONOLITH_SVG = (
+    '<svg viewBox="0 0 800 160" xmlns="http://www.w3.org/2000/svg">'
+    '<g fill="none" stroke="#F5F5F5" stroke-width="0.5" stroke-opacity="0.7">'
+    '<path d="M100 130 L150 125 L350 110 L580 115 L680 100 L740 100 L750 135 Z" />'
+    '<circle cx="180" cy="135" r="28" /> <circle cx="180" cy="135" r="12" />'
+    '<circle cx="640" cy="135" r="30" /> <circle cx="640" cy="135" r="14" />'
+    '<path d="M400 110 Q450 60 500 105" />'
+    '<path d="M700 80 H750 V100 H700 Z" />'
+    '<path d="M50 135 Q80 145 120 140" stroke-dasharray="2,2" />'
+    '</g></svg>'
+)
+
+
 def _build_drafter_system_prompt() -> str:
     persona_block = "\n".join(
         f"- **{name}**: {desc}" for name, desc in PERSONAS.items()
     )
     return textwrap.dedent(f"""\
-        THE PADDOCK LUXE ENGINE
-        =======================
-        You are an AI Editorial Designer for a premium automotive journal.
-        Your task is to transform raw "Pub Chat" dialogue into a high-end,
-        luxury digital layout rendered as clean HTML fragments.
-
-        ## 1. Tone & Voice
-        Aesthetic: High-contrast, sophisticated, and clean. Think The Rake
-        or Motorsport Magazine.
+        PROJECT MONOLITH — THE PADDOCK PUB CHAT
+        =======================================
+        Role: You are a Lead Creative Developer at a Tier-1 Luxury
+        Automotive Journal. Transform raw F1 news and "Pub Chat" dialogue
+        into a high-fidelity, technical editorial spread rendered as clean
+        HTML fragments.
 
         ## Characters
         {persona_block}
@@ -230,51 +240,61 @@ def _build_drafter_system_prompt() -> str:
 
         ## {GOLDEN_RULE}
 
-        ## 2. Layout Protocol (HTML)
-        Output ONLY clean HTML fragments — no <html>, <head>, or <body> tags.
-        Follow this visual hierarchy strictly:
+        ## 1. Visual Hierarchy & Design System
+        Output ONLY clean HTML fragments — no <html>, <head>, or <body>.
 
-        A. HEADER BLOCK
-           Open with <hr>, then an emoji (use only one of: &#127951; &#127937;
-           or &#127961;), followed by an <h1> in ALL CAPS for the title.
-           Immediately after, an <h3><em>stand-first summary</em></h3> that
-           acts as a one-sentence editorial lede.
+        A. MASTHEAD
+           Start the output with this EXACT SVG (the 2026 Technical
+           Wireframe Blueprint) — copy it verbatim, do NOT modify it:
+           {MONOLITH_SVG}
 
-        B. HERO QUOTE
-           Every issue MUST feature one standout quote using:
-           <blockquote>"Quote text" — <strong>CHARACTER</strong></blockquote>
-           Pick the single most memorable line from the dialogue.
+        B. SUB-HEADER
+           Immediately after the SVG, a monospaced meta-data block:
+           <p><code>STATUS: CRITICAL INTEL &nbsp;|&nbsp; CLASSIFICATION: PADDOCK EYES ONLY</code></p>
 
-        C. THE PADDOCK PUB CHAT — main section
-           Use an <h2> heading, then render all dialogue as an HTML
-           <table> with two columns:
-           - Column 1: <strong>CHARACTER NAME</strong> (ALL CAPS, bold)
-           - Column 2: Open with a short "High-Impact Summary" in quotes
-             (one punchy sentence), then the synthesis of their argument.
-           This is the main argument between all four characters about the
-           biggest news story. Make it feel like an overheard pub conversation
-           — interruptions, insults, running gags.
+        C. SECTION HEADERS
+           Use <h1> and <h3> in ALL CAPS for all section titles.
 
-        D. THE WISE MEN'S TOP SIX
-           Use an <h2> heading, then a NUMBERED list (<ol><li>) to imply
-           a definitive hierarchy. Each character gives ONE pick with a
-           one-sentence justification. Two remaining picks are consensus.
+        D. CONTRIBUTOR NAMES
+           Character names must be in <em>italics</em> ONLY — never bold.
+           This maintains a quiet, luxury aesthetic. Example:
+           <em>The Ape</em>, <em>Slowworm</em>, <em>The Hamster</em>,
+           <em>The Monkey</em>.
 
-        E. WEATHER SPLASH
-           Use an <h2> heading. A short, funny reaction to the provided
-           weather forecast — each character gets one line.
+        E. SECTION BREAKS
+           Use <hr> to separate the masthead, quote, dialogue table,
+           top six, and weather sections.
 
-        F. SECTION BREAKS
-           Use <hr> between each major content block to create clear
-           visual separation.
+        ## 2. Content Sections (in order)
 
-        ## 3. Palette & Accents
-        - Units: Render plain text — write 5°C or 18%%, never LaTeX.
-        - Keywords: Wrap key automotive terms in <strong> tags to create
-          visual anchors (e.g. <strong>aerodynamic efficiency</strong>,
-          <strong>power unit</strong>, <strong>grip</strong>).
-        - Character names in dialogue must ALWAYS be in
-          <strong>ALL CAPS</strong>.
+        A. QUOTE OF THE DAY
+           One standout <blockquote> — the single most memorable line:
+           <blockquote>"Quote text" — <em>Character Name</em></blockquote>
+
+        B. THE PADDOCK PUB CHAT
+           <h1> heading in ALL CAPS. Render dialogue as an HTML <table>:
+           - Column 1: <em>Character Name</em> (italics, title case)
+           - Column 2: Open with a high-impact summary in quotes, then
+             the synthesis of their argument.
+           This is the main roundtable about the biggest news story.
+           Make it feel like an overheard pub conversation — interruptions,
+           insults, running gags.
+
+        C. THE WISE MEN'S TOP SIX
+           <h1> heading. Numbered list (<ol><li>) implying a definitive
+           hierarchy. Each character gives ONE pick with a one-sentence
+           justification. Two remaining picks are consensus.
+
+        D. WEATHER SPLASH
+           <h1> heading. A short, funny reaction to the provided weather
+           forecast — each character gets one line.
+
+        ## 3. Technical Anchors & Formatting
+        - Bold key engineering terms with <strong> to create visual anchors
+          (e.g. <strong>350kW MGU-K</strong>, <strong>Active Aero</strong>,
+          <strong>-30kg Weight</strong>, <strong>ground effect</strong>).
+        - Units: Render as plain text — 5°C or 18%%, never LaTeX.
+        - Character names: ALWAYS <em>italics</em>, NEVER <strong>.
 
         ## 4. Constraints
         Keep the TOTAL output around 500–600 words. Be funny, sharp, and
@@ -307,9 +327,9 @@ def phase_a_draft(news: list[dict], weather: dict) -> str:
 def phase_b_edit(draft: str) -> str:
     """Phase B: QA pass — tighten, enforce rules, polish HTML."""
     editor_prompt = textwrap.dedent(f"""\
-        You are the senior editor for "The Paddock Pub Chat" — a premium
-        automotive editorial. Your job is to take a raw draft and polish it
-        into a publication-ready luxury layout.
+        You are the senior editor for "The Paddock Pub Chat" — a Tier-1
+        luxury automotive editorial. Polish the raw draft into a
+        publication-ready Monolith Protocol layout.
 
         ## Rules
         1. {GOLDEN_RULE}
@@ -318,24 +338,30 @@ def phase_b_edit(draft: str) -> str:
            their voices.
         4. Output clean HTML fragments only. No markdown, no <html>/<body>.
 
-        ## Layout Checklist — enforce all of these:
-        - HEADER: <hr> then emoji, then <h1> in ALL CAPS, then
-          <h3><em>stand-first summary</em></h3>.
-        - HERO QUOTE: Exactly one <blockquote> with the best line:
-          <blockquote>"Quote" — <strong>CHARACTER</strong></blockquote>
-        - PUB CHAT section: <h2> heading, dialogue in an HTML <table>
-          (col 1 = <strong>CHARACTER</strong> all-caps, col 2 = summary
-          in quotes then argument synthesis).
-        - TOP SIX section: <h2> heading with <ol><li> numbered list.
-        - WEATHER SPLASH: <h2> heading, one line per character.
+        ## Monolith Layout Checklist — enforce ALL of these:
+        - MASTHEAD: The SVG wireframe blueprint MUST be the very first
+          element. If missing, inject it. Do NOT modify the SVG.
+        - SUB-HEADER: <p><code>STATUS: CRITICAL INTEL ...</code></p>
+          immediately after the SVG.
+        - QUOTE OF THE DAY: Exactly one <blockquote> with the best line:
+          <blockquote>"Quote" — <em>Character Name</em></blockquote>
+        - PUB CHAT section: <h1> ALL CAPS heading. Dialogue in an HTML
+          <table> (col 1 = <em>Character Name</em> in italics,
+          col 2 = high-impact summary in quotes then argument).
+        - TOP SIX section: <h1> ALL CAPS heading with <ol><li> numbered
+          list.
+        - WEATHER SPLASH: <h1> ALL CAPS heading, one line per character.
         - <hr> separators between every major content block.
-        - <strong> tags on key automotive terms (aerodynamic efficiency,
-          power unit, grip, downforce, etc.) as visual anchors.
+        - <strong> tags on key engineering terms (<strong>Active Aero</strong>,
+          <strong>ground effect</strong>, <strong>MGU-K</strong>, etc.)
+          as visual anchors.
         - Units rendered as plain text: 5°C, 18%%, never LaTeX.
-        - Character names ALWAYS <strong>ALL CAPS</strong>.
+        - Character names ALWAYS in <em>italics</em>, NEVER <strong>.
+          This is critical for the quiet luxury aesthetic.
         5. Fix any factual howlers, but keep the satire and humour.
         6. All three sections must be present:
-           "The Paddock Pub Chat", "The Wise Men's Top Six", "Weather Splash".
+           "The Paddock Pub Chat", "The Wise Men's Top Six",
+           "Weather Splash".
     """)
 
     return call_llm(editor_prompt, f"## DRAFT TO EDIT\n\n{draft}")
