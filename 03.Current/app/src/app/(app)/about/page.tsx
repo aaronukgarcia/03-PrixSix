@@ -656,21 +656,21 @@ const AboutPageClient = () => {
                                 <CircleDot className="h-5 w-5 text-primary flex-shrink-0 mt-0.5"/>
                                 <div>
                                     <span className="font-medium">Pit Stop</span>
-                                    <p className="text-muted-foreground">When a car stops in the pit lane to change tyres or make repairs. Teams aim for under 2 seconds!</p>
+                                    <p className="text-muted-foreground">When a car stops in the pit lane (their &apos;pit box&apos;) to change tyres or make repairs. Teams aim for under 2 seconds! When you hear &quot;Box, Box, Box&quot; on the radio, the team is calling their driver in.</p>
                                 </div>
                             </div>
                             <div className="flex gap-3 p-3 rounded-lg border">
                                 <CircleDot className="h-5 w-5 text-primary flex-shrink-0 mt-0.5"/>
                                 <div>
-                                    <span className="font-medium">Active Aero (2026)</span>
-                                    <p className="text-muted-foreground">Cars have adjustable wings - 'Straight Mode' (low drag) and 'Corner Mode' (high downforce), replacing the old DRS system</p>
+                                    <span className="font-medium">Active Aero &amp; Overtake Mode (2026)</span>
+                                    <p className="text-muted-foreground">Cars have adjustable wings - &apos;Straight Mode&apos; (low drag) and &apos;Corner Mode&apos; (high downforce), replacing DRS. Overtake Mode gives a temporary power boost to help complete a pass.</p>
                                 </div>
                             </div>
                             <div className="flex gap-3 p-3 rounded-lg border">
                                 <CircleDot className="h-5 w-5 text-primary flex-shrink-0 mt-0.5"/>
                                 <div>
                                     <span className="font-medium">Undercut / Overcut</span>
-                                    <p className="text-muted-foreground">Strategy moves - pitting earlier or later than rivals to gain track position</p>
+                                    <p className="text-muted-foreground">Strategy moves - pitting earlier or later than rivals to gain track position. Fresh tyres can return faster lap times, giving an advantage.</p>
                                 </div>
                             </div>
                             <div className="flex gap-3 p-3 rounded-lg border">
@@ -684,14 +684,14 @@ const AboutPageClient = () => {
                                 <CircleDot className="h-5 w-5 text-primary flex-shrink-0 mt-0.5"/>
                                 <div>
                                     <span className="font-medium">Safety Car</span>
-                                    <p className="text-muted-foreground">When there's a crash or debris, a safety car leads the pack at slow speed until it's cleared</p>
+                                    <p className="text-muted-foreground">When there&apos;s a crash or debris, a Safety Car leads the pack at slow speed until it&apos;s cleared. A Virtual Safety Car (VSC) is similar but drivers slow and control their speed themselves.</p>
                                 </div>
                             </div>
                             <div className="flex gap-3 p-3 rounded-lg border">
                                 <CircleDot className="h-5 w-5 text-primary flex-shrink-0 mt-0.5"/>
                                 <div>
                                     <span className="font-medium">Tyre Compounds</span>
-                                    <p className="text-muted-foreground">Soft (fast but wear quickly), Medium (balanced), Hard (slower but last longer) - shown as red, yellow, white</p>
+                                    <p className="text-muted-foreground">Soft (fast but wear quickly), Medium (balanced), Hard (slower but last longer) - shown as red, yellow, white. Each driver must use at least two different compounds in a Grand Prix.</p>
                                 </div>
                             </div>
                         </div>

@@ -743,7 +743,7 @@ export default function StandingsPage() {
             </div>
             <div className="w-full h-48">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <LineChart key={`chart-${selectedRaceIndex}-${chartMode}`} data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                   <XAxis
                     dataKey="race"
                     tick={{ fontSize: 10 }}
@@ -784,6 +784,7 @@ export default function StandingsPage() {
                         strokeWidth={bold ? 2.5 : 1}
                         dot={false}
                         opacity={bold ? 1 : 0.4}
+                        isAnimationActive={false}
                       />
                     );
                   })}

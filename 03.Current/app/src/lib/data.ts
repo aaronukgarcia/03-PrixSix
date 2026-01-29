@@ -97,7 +97,7 @@ export interface Race {
 
 export const RaceSchedule: Race[] = [
     // 2026 Official F1 Calendar (24 races)
-    { name: "Australian Grand Prix", location: "Melbourne", raceTime: "2026-03-08T05:00:00Z", qualifyingTime: "2026-03-07T06:00:00Z", hasSprint: false, results: [] },
+    { name: "Australian Grand Prix", location: "Melbourne", raceTime: "2026-03-08T04:00:00Z", qualifyingTime: "2026-03-07T05:00:00Z", hasSprint: false, results: [] },
     { name: "Chinese Grand Prix", location: "Shanghai", raceTime: "2026-03-15T07:00:00Z", qualifyingTime: "2026-03-13T07:00:00Z", sprintTime: "2026-03-14T07:00:00Z", hasSprint: true, results: [] },
     { name: "Japanese Grand Prix", location: "Suzuka", raceTime: "2026-03-29T06:00:00Z", qualifyingTime: "2026-03-28T07:00:00Z", hasSprint: false, results: [] },
     { name: "Bahrain Grand Prix", location: "Sakhir", raceTime: "2026-04-12T15:00:00Z", qualifyingTime: "2026-04-11T16:00:00Z", hasSprint: false, results: [] },

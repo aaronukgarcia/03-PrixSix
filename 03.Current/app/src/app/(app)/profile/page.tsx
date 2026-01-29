@@ -43,11 +43,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { generateTeamName } from "@/ai/flows/team-name-generator";
-import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X, Upload } from "lucide-react";
+import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X, Upload, Trash2 } from "lucide-react";
 import { validateImageFile, uploadProfilePhoto, compressImage, type UploadProgress } from "@/lib/file-upload";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, deleteField, doc, updateDoc } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useSession } from "@/contexts/session-context";
@@ -85,6 +85,7 @@ export default function ProfilePage() {
   const { sessionId } = useSession();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isRemovingTeam, setIsRemovingTeam] = useState(false);
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [isRefreshingVerification, setIsRefreshingVerification] = useState(false);
@@ -395,6 +396,34 @@ export default function ProfilePage() {
       }
     } finally {
       setIsSavingSecondaryEmail(false);
+    }
+  }
+
+  async function handleRemoveSecondaryTeam() {
+    if (!firestore || !user) return;
+    setIsRemovingTeam(true);
+    try {
+      await updateDoc(doc(firestore, "users", user.id), {
+        secondaryTeamName: deleteField(),
+      });
+      await logAuditEvent(firestore, {
+        userId: user.id,
+        action: "REMOVE_SECONDARY_TEAM",
+        details: `Removed secondary team`,
+        sessionId,
+      });
+      toast({
+        title: "Secondary Team Removed",
+        description: "Your secondary team has been removed.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Removal Failed",
+        description: error.message || "Failed to remove secondary team",
+      });
+    } finally {
+      setIsRemovingTeam(false);
     }
   }
 
@@ -923,8 +952,30 @@ export default function ProfilePage() {
             <div className="rounded-lg border p-4 space-y-4">
               <h3 className="text-base font-medium">Secondary Team</h3>
               {user?.secondaryTeamName ? (
-                <div>
+                <div className="flex items-center justify-between">
                   <p>Your second team is <span className="font-bold text-accent">{user.secondaryTeamName}</span>.</p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove Secondary Team?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will remove your secondary team &quot;{user.secondaryTeamName}&quot;. Any predictions and scores for this team will remain in the system but the team will no longer appear in your profile.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRemoveSecondaryTeam} disabled={isRemovingTeam}>
+                          {isRemovingTeam ? "Removing..." : "Remove Team"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               ) : (
                 <Form {...secondTeamForm}>
