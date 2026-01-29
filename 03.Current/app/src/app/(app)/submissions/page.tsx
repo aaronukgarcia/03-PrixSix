@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collectionGroup, query, orderBy, where, limit, startAfter, getDocs, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
+import { collection, collectionGroup, query, orderBy, where, limit, startAfter, getDocs, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { FileCheck, CalendarClock, ChevronDown, Loader2, ArrowUpDown, Clock, Users, RotateCcw, PenLine } from "lucide-react";
@@ -54,7 +54,39 @@ export default function SubmissionsPage() {
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
   const [selectedRace, setSelectedRace] = useState(nextRace.name);
+  const [nextRaceName, setNextRaceName] = useState<string | null>(null);
   const selectedRaceId = selectedRace.replace(/\s+/g, '-');
+
+  // Determine the first unscored race and default to it
+  useEffect(() => {
+    if (!firestore) return;
+    const determineNextUnscored = async () => {
+      try {
+        const scoresSnapshot = await getDocs(collection(firestore, "scores"));
+        const scoredRaceIds = new Set<string>();
+        scoresSnapshot.forEach((doc) => {
+          const raceId = doc.data().raceId;
+          if (raceId) scoredRaceIds.add(String(raceId).toLowerCase());
+        });
+
+        for (const race of RaceSchedule) {
+          const baseId = race.name.replace(/\s+/g, "-").toLowerCase();
+          const gpId = `${baseId}-gp`;
+          if (!scoredRaceIds.has(gpId) && !scoredRaceIds.has(baseId)) {
+            setNextRaceName(race.name);
+            setSelectedRace(race.name);
+            return;
+          }
+        }
+        // All races scored — no green highlight, keep findNextRace() default
+        setNextRaceName(null);
+      } catch (error) {
+        console.error("Error determining next unscored race:", error);
+        // Fallback: keep findNextRace() default, no green highlight
+      }
+    };
+    determineNextUnscored();
+  }, [firestore]);
 
   // Sort state - default to date/time (most recent first)
   const [sortField, setSortField] = useState<SortField>("submittedAt");
@@ -250,7 +282,7 @@ export default function SubmissionsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {races.map((race) => (
-                      <SelectItem key={race} value={race}>
+                      <SelectItem key={race} value={race} className={race === nextRaceName ? "text-green-600 font-semibold" : ""}>
                         {race}
                       </SelectItem>
                     ))}
