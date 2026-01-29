@@ -85,10 +85,12 @@ service cloud.firestore {
     }
 
     match /audit_logs/{logId} {
-      // All signed-in users can read prediction submission audit logs (for audit page)
+      // Signed-in users can read their own audit logs (for audit page)
       // Admins can read all audit logs
       allow get, list: if isSignedIn();
-      allow create: if (isSignedIn() && isOwner(request.resource.data.userId)) || request.resource.data.action == 'signup_email_queued';
+      // Only allow create for prediction submissions by the owner
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId)
+        && request.resource.data.action in ['prediction_submitted', 'prediction_updated'];
       allow update, delete: if false;
     }
 
@@ -198,10 +200,10 @@ service cloud.firestore {
       allow read, write: if false; // Server-side only via Admin SDK
     }
 
-    // Error logs - server-side creates, admin reads/updates
+    // Error logs - server-side creates via Admin SDK, admin reads/updates
     match /error_logs/{logId} {
       allow get, list: if isAdmin();
-      allow create: if isSignedIn(); // Allow signed-in users for client-side error logging
+      allow create: if false; // Server-side only via Admin SDK
       allow update: if isAdmin(); // Allow admins to mark errors as resolved
       allow delete: if false;
     }
@@ -220,9 +222,15 @@ service cloud.firestore {
       allow write: if false; // Server-side only via Admin SDK
     }
 
-    // Attack alerts - TEMPORARILY FULLY OPEN FOR DEBUGGING
+    // Attack alerts - admin only
     match /attack_alerts/{alertId} {
-      allow read, write: if true;
+      allow read, write: if isAdmin();
+    }
+
+    // Backup status - written by Cloud Functions (Admin SDK), read by admins
+    match /backup_status/{docId} {
+      allow get, list: if isAdmin();
+      allow write: if false; // Server-side only via Admin SDK
     }
   }
 }

@@ -1,40 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { z } from 'zod';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-interface UpdateUserRequest {
-  userId: string;
-  adminUid: string; // The admin making the request
-  data: {
-    email?: string;
-    teamName?: string;
-    isAdmin?: boolean;
-    mustChangePin?: boolean;
-    [key: string]: any;
-  };
-}
+// SECURITY: Strict Zod schema prevents mass assignment (no [key: string]: any)
+const updateUserRequestSchema = z.object({
+  userId: z.string().min(1),
+  adminUid: z.string().min(1),
+  data: z.object({
+    email: z.string().email().optional(),
+    teamName: z.string().min(1).max(50).optional(),
+    isAdmin: z.boolean().optional(),
+    mustChangePin: z.boolean().optional(),
+  }).strict(),
+});
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
-    const { userId, adminUid, data }: UpdateUserRequest = await request.json();
+    const body = await request.json();
+    const parsed = updateUserRequestSchema.safeParse(body);
 
-    // Validate required fields
-    if (!userId || !adminUid || !data) {
+    if (!parsed.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required fields',
+          error: 'Invalid request data',
+          details: parsed.error.flatten().fieldErrors,
           errorCode: ERROR_CODES.VALIDATION_MISSING_FIELDS.code,
           correlationId,
         },
         { status: 400 }
       );
     }
+
+    const { userId, adminUid, data } = parsed.data;
 
     const { db, FieldValue } = await getFirebaseAdmin();
     const { getAuth } = await import('firebase-admin/auth');

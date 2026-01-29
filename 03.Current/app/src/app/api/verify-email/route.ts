@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
@@ -45,8 +46,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if token matches
-    if (tokenData.token !== token) {
+    // Check if token matches (constant-time comparison to prevent timing attacks)
+    if (!crypto.timingSafeEqual(Buffer.from(tokenData.token), Buffer.from(token))) {
       return NextResponse.json(
         { success: false, error: 'Invalid verification link' },
         { status: 400 }

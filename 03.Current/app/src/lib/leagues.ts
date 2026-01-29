@@ -22,9 +22,11 @@ import { getCorrelationId } from './audit';
  */
 export function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluding similar-looking chars (I, O, 0, 1)
+  const array = new Uint32Array(INVITE_CODE_LENGTH);
+  crypto.getRandomValues(array);
   let code = '';
   for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(array[i] % chars.length);
   }
   return code;
 }

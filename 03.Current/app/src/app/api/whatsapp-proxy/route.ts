@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { verifyAuthToken, getFirebaseAdmin } from '@/lib/firebase-admin';
 
 // Force dynamic to skip static analysis
@@ -6,6 +7,16 @@ export const dynamic = 'force-dynamic';
 
 // Internal HTTP URL for the WhatsApp worker (not exposed to browsers)
 const WHATSAPP_WORKER_INTERNAL_URL = 'http://prixsix-whatsapp.uksouth.azurecontainer.io:3000';
+
+/**
+ * Generate HMAC SHA-256 signature for worker requests
+ * Worker can validate these to ensure requests come from the trusted proxy
+ */
+function signRequest(payload: string): string | null {
+  const secret = process.env.WHATSAPP_APP_SECRET;
+  if (!secret) return null;
+  return `sha256=${crypto.createHmac('sha256', secret).update(payload).digest('hex')}`;
+}
 
 /**
  * Proxy requests to the WhatsApp worker
@@ -36,10 +47,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid endpoint' }, { status: 400 });
     }
 
-    // Fetch from worker
+    // Fetch from worker with HMAC signature
+    const signature = signRequest(endpoint);
     const workerResponse = await fetch(`${WHATSAPP_WORKER_INTERNAL_URL}/${endpoint}`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json, text/plain' },
+      headers: {
+        'Accept': 'application/json, text/plain',
+        ...(signature && { 'X-Hub-Signature-256': signature }),
+      },
     });
 
     // For QR endpoint, return as text
@@ -99,10 +114,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid endpoint' }, { status: 400 });
     }
 
-    // Fetch from worker
+    // Fetch from worker with HMAC signature
+    const signature = signRequest(endpoint);
     const workerResponse = await fetch(`${WHATSAPP_WORKER_INTERNAL_URL}/${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(signature && { 'X-Hub-Signature-256': signature }),
+      },
     });
 
     const data = await workerResponse.json();

@@ -3,15 +3,11 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { sendEmail } from '@/lib/email';
+import crypto from 'crypto';
 
-// Generate a secure verification token
+// Generate a secure verification token using CSPRNG
 function generateVerificationToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 64; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  return crypto.randomBytes(32).toString('hex');
 }
 
 export async function POST(request: NextRequest) {
@@ -77,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // Generate verification token
     const token = generateVerificationToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
 
     // Store token in Firestore (separate collection for secondary email tokens)
     await db.collection('secondary_email_verification_tokens').doc(uid).set({
@@ -131,7 +127,7 @@ export async function POST(request: NextRequest) {
       </p>
 
       <div class="security-note">
-        <strong>Note:</strong> This link will expire in 24 hours. If you did not request this, please ignore this email.
+        <strong>Note:</strong> This link will expire in 2 hours. If you did not request this, please ignore this email.
       </div>
     </div>
     <div class="footer">

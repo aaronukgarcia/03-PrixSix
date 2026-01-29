@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import crypto from 'crypto';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     const userId = userDoc.id;
 
     // Generate a new 6-digit PIN
-    const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+    const newPin = crypto.randomInt(100000, 1000000).toString();
 
     // Update user password in Firebase Auth
     try {
@@ -90,7 +91,6 @@ export async function POST(request: NextRequest) {
       to: normalizedEmail,
       subject: mailSubject,
       html: mailHtml,
-      pin: newPin,
       status: 'queued',
       timestamp: FieldValue.serverTimestamp(),
     });

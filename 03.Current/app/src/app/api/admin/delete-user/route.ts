@@ -1,33 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { z } from 'zod';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-interface DeleteUserRequest {
-  userId: string;
-  adminUid: string; // The admin making the request
-}
+const deleteUserRequestSchema = z.object({
+  userId: z.string().min(1),
+  adminUid: z.string().min(1),
+});
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
-    const { userId, adminUid }: DeleteUserRequest = await request.json();
+    const body = await request.json();
+    const parsed = deleteUserRequestSchema.safeParse(body);
 
-    // Validate required fields
-    if (!userId || !adminUid) {
+    if (!parsed.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required fields',
+          error: 'Invalid request data',
+          details: parsed.error.flatten().fieldErrors,
           errorCode: ERROR_CODES.VALIDATION_MISSING_FIELDS.code,
           correlationId,
         },
         { status: 400 }
       );
     }
+
+    const { userId, adminUid } = parsed.data;
 
     const { db, FieldValue } = await getFirebaseAdmin();
     const { getAuth } = await import('firebase-admin/auth');
@@ -64,14 +68,15 @@ export async function POST(request: NextRequest) {
     const userDoc = await db.collection('users').doc(userId).get();
     const userData = userDoc.exists ? userDoc.data() : null;
 
-    // Delete from Firebase Auth
+    // Coordinated deletion: Auth + Firestore as a unit of work
+    let authDeleted = false;
     try {
       await auth.deleteUser(userId);
+      authDeleted = true;
     } catch (authError: any) {
       console.error(`[Admin Delete Auth Error ${correlationId}]`, authError);
 
       if (authError.code === 'auth/user-not-found') {
-        // User doesn't exist in Auth, continue with Firestore cleanup
         console.warn(`[Admin Delete] User ${userId} not found in Auth, cleaning up Firestore only`);
       } else {
         throw authError;
@@ -79,15 +84,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Delete Firestore documents
-    const batch = db.batch();
-
-    // Delete user document
-    batch.delete(db.collection('users').doc(userId));
-
-    // Delete presence document
-    batch.delete(db.collection('presence').doc(userId));
-
-    await batch.commit();
+    try {
+      const batch = db.batch();
+      batch.delete(db.collection('users').doc(userId));
+      batch.delete(db.collection('presence').doc(userId));
+      await batch.commit();
+    } catch (firestoreError: any) {
+      // Critical: Auth was deleted but Firestore cleanup failed
+      if (authDeleted) {
+        await logError({
+          correlationId,
+          error: firestoreError,
+          context: {
+            route: '/api/admin/delete-user',
+            action: 'firestore_cleanup_after_auth_delete',
+            additionalInfo: { userId, authDeleted: true, critical: true },
+          },
+        });
+      }
+      throw firestoreError;
+    }
 
     // Remove user from all leagues
     try {
