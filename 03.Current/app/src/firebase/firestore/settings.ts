@@ -185,3 +185,54 @@ export async function addWhatsAppAlertHistoryEntry(
         createdAt: entry.createdAt || serverTimestamp(),
     });
 }
+
+// ============================================
+// Pub Chat Settings
+// ============================================
+
+export interface PubChatSettings {
+    content: string;
+    lastUpdated: Timestamp;
+    updatedBy: string;
+}
+
+const defaultPubChatSettings: PubChatSettings = {
+    content: "",
+    lastUpdated: new Timestamp(0, 0),
+    updatedBy: "",
+};
+
+/**
+ * Retrieves the pub chat settings from Firestore.
+ * If the document doesn't exist, it returns default values.
+ * @param {Firestore} db - The Firestore instance.
+ * @returns {Promise<PubChatSettings>} The current pub chat settings.
+ */
+export async function getPubChatSettings(db: Firestore): Promise<PubChatSettings> {
+    const settingsRef = doc(db, "app-settings", "pub-chat");
+    try {
+        const docSnap = await getDoc(settingsRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return { ...defaultPubChatSettings, ...data } as PubChatSettings;
+        } else {
+            return defaultPubChatSettings;
+        }
+    } catch (error) {
+        console.error("Error getting pub chat settings: ", error);
+        return defaultPubChatSettings;
+    }
+}
+
+/**
+ * Updates the pub chat content in Firestore.
+ * @param {Firestore} db - The Firestore instance.
+ * @param {Partial<PubChatSettings>} data - The data to update.
+ */
+export async function updatePubChatContent(
+    db: Firestore,
+    data: Partial<Omit<PubChatSettings, 'lastUpdated'> & { lastUpdated?: FieldValue }>
+) {
+    const settingsRef = doc(db, "app-settings", "pub-chat");
+    await setDoc(settingsRef, data, { merge: true });
+}

@@ -15,6 +15,8 @@ import textwrap
 from difflib import SequenceMatcher
 
 import feedparser
+import firebase_admin
+from firebase_admin import credentials, firestore as admin_firestore
 import requests
 from google import genai
 
@@ -359,6 +361,36 @@ OUTPUT_PATH = os.path.join(
 )
 
 
+# ---------------------------------------------------------------------------
+# Firestore
+# ---------------------------------------------------------------------------
+
+
+def write_to_firestore(body_html: str) -> None:
+    """Write the newsletter HTML body to Firestore for the admin panel.
+
+    Uses the same service-account.json already present for Vertex AI auth.
+    Non-fatal: catches and logs errors without aborting the pipeline.
+    """
+    try:
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+            firebase_admin.initialize_app(cred)
+
+        db = admin_firestore.client()
+        db.collection("app-settings").document("pub-chat").set(
+            {
+                "content": body_html,
+                "lastUpdated": admin_firestore.SERVER_TIMESTAMP,
+                "updatedBy": "prix_six_engine",
+            },
+            merge=True,
+        )
+        print("Firestore — pub-chat content updated")
+    except Exception as exc:
+        print(f"Firestore write failed (non-fatal): {exc}")
+
+
 def main():
     print("Fetching weather...")
     weather = fetch_weather()
@@ -380,7 +412,12 @@ def main():
     with open(OUTPUT_PATH, "w", encoding="utf-8") as fh:
         fh.write(full_html)
 
-    print(f"Done — saved to {OUTPUT_PATH}")
+    print(f"Saved to {OUTPUT_PATH}")
+
+    print("Writing to Firestore...")
+    write_to_firestore(polished)
+
+    print("Done.")
 
 
 if __name__ == "__main__":
