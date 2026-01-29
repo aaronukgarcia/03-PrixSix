@@ -7,6 +7,7 @@ import { Firestore, collection, serverTimestamp, doc, setDoc, onSnapshot as onDo
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
 import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
+import { Functions } from 'firebase/functions';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
@@ -63,6 +64,7 @@ export interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
   storage: FirebaseStorage | null;
+  functions: Functions | null;
   authService: Auth | null;
   user: User | null;
   firebaseUser: FirebaseAuthUser | null;
@@ -91,6 +93,7 @@ interface FirebaseProviderProps {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
   storage: FirebaseStorage;
+  functions: Functions;
   auth: Auth;
 }
 
@@ -99,6 +102,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   firebaseApp,
   firestore,
   storage,
+  functions,
   auth,
 }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseAuthUser | null>(null);
@@ -727,6 +731,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     firebaseApp,
     firestore,
     storage,
+    functions,
     authService: auth,
     user,
     firebaseUser,
@@ -745,7 +750,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     refreshEmailVerificationStatus,
     updateSecondaryEmail,
     sendSecondaryVerificationEmail
-  }), [firebaseApp, firestore, storage, auth, user, firebaseUser, isUserLoading, userError, isEmailVerified]);
+  }), [firebaseApp, firestore, storage, functions, auth, user, firebaseUser, isUserLoading, userError, isEmailVerified]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -802,4 +807,10 @@ export const useStorage = (): FirebaseStorage => {
   const { storage } = useFirebase();
   if (!storage) throw new Error("Firebase Storage not available");
   return storage;
+};
+
+export const useFunctions = (): Functions => {
+  const { functions } = useFirebase();
+  if (!functions) throw new Error("Firebase Functions not available");
+  return functions;
 };

@@ -7,9 +7,10 @@
 //                     (dailyBackup and runRecoveryTest). No writes to Firestore.
 'use client';
 
-import { useMemo } from 'react';
-import { useDoc, useFirestore, useAuth } from '@/firebase';
+import { useMemo, useState, useCallback } from 'react';
+import { useDoc, useFirestore, useAuth, useFunctions } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,6 +27,8 @@ import {
   Info,
   Copy,
   Check,
+  Play,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -35,8 +38,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useState } from 'react';
 import { createAppError, generateClientCorrelationId, formatErrorForDisplay } from '@/lib/error-codes';
+import { useToast } from '@/hooks/use-toast';
 
 // GUID: BACKUP_DASHBOARD-001-v03
 // [Intent] Type definition mirroring the Firestore document shape written by
@@ -168,7 +171,40 @@ function StatusBadge({ status }: { status?: 'SUCCESS' | 'FAILED' }) {
  */
 export function BackupHealthDashboard() {
   const firestore = useFirestore();
+  const functions = useFunctions();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [isBackingUp, setIsBackingUp] = useState(false);
+
+  const handleBackupNow = useCallback(async () => {
+    setIsBackingUp(true);
+    try {
+      const manualBackup = httpsCallable(functions, 'manualBackup');
+      const result = await manualBackup();
+      const data = result.data as { success: boolean; correlationId?: string; backupPath?: string; error?: string };
+
+      if (data.success) {
+        toast({
+          title: 'Backup Complete',
+          description: `Backup saved to ${data.backupPath}`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Backup Failed',
+          description: data.error || 'Unknown error',
+        });
+      }
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Backup Failed',
+        description: err.message || 'Failed to trigger backup',
+      });
+    } finally {
+      setIsBackingUp(false);
+    }
+  }, [functions, toast]);
 
   // GUID: BACKUP_DASHBOARD-011-v03
   // [Intent] Memoize the DocumentReference to prevent useDoc from re-subscribing
@@ -275,7 +311,23 @@ export function BackupHealthDashboard() {
               <HardDrive className="h-4 w-4 text-sky-500" />
               Backup Status
             </CardTitle>
-            <StatusBadge status={data.lastBackupStatus} />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackupNow}
+                disabled={isBackingUp}
+                className="h-7 text-xs"
+              >
+                {isBackingUp ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Play className="h-3 w-3 mr-1" />
+                )}
+                {isBackingUp ? 'Backing up…' : 'Backup Now'}
+              </Button>
+              <StatusBadge status={data.lastBackupStatus} />
+            </div>
           </div>
           <CardDescription>Daily Firestore + Auth export</CardDescription>
         </CardHeader>

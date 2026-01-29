@@ -17,6 +17,7 @@
  */
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
@@ -116,8 +117,123 @@ async function writeStatus(db, fields) {
     .set({ ...fields, updatedAt: Timestamp.now() }, { merge: true });
 }
 
+// ── performBackup (shared logic) ───────────────────────────────
+// GUID: BACKUP_FUNCTIONS-009-v04
+/**
+ * performBackup — Core backup logic shared by dailyBackup and manualBackup.
+ *
+ * [Intent] Encapsulate the full backup workflow (Firestore export + Auth JSON
+ *          to GCS + status write) so it can be invoked by both the scheduled
+ *          handler and the on-demand callable without duplication.
+ *
+ * @param {FirebaseFirestore.Firestore} db - Admin Firestore instance.
+ * @returns {{ correlationId: string, gcsPrefix: string, usersExported: number }}
+ */
+async function performBackup(db) {
+  const correlationId = generateCorrelationId("bkp");
+  const folder = todayFolder();
+  const gcsPrefix = `gs://${BUCKET}/${folder}`;
+
+  try {
+    // GUID: BACKUP_FUNCTIONS-011-v03
+    // [Intent] Use the Firestore managed export API (not client-side reads)
+    //          to create a consistent, point-in-time snapshot of ALL collections.
+    // [Inbound Trigger] performBackup call.
+    // [Downstream Impact] Creates export files under gs://prix6-backups/{date}/firestore/.
+    //                     The LRO (Long Running Operation) blocks until export completes.
+    const firestoreClient = new FirestoreClient({ projectId: MAIN_PROJECT });
+    const [exportOp] = await firestoreClient.exportDocuments({
+      name: firestoreClient.databasePath(MAIN_PROJECT, "(default)"),
+      outputUriPrefix: `${gcsPrefix}/firestore`,
+      collectionIds: [], // empty = all collections
+    });
+
+    // Block until export LRO completes
+    await exportOp.promise();
+
+    // GUID: BACKUP_FUNCTIONS-012-v03
+    // [Intent] Export Firebase Auth user records as a JSON file to GCS.
+    //          Firestore managed export does NOT include Auth data, so we
+    //          must separately iterate all users via the Admin SDK.
+    //          NOTE: Password hashes are NOT included — Firebase Auth does
+    //          not expose them via listUsers(). This is metadata-only.
+    // [Inbound Trigger] Firestore export completed successfully (above).
+    // [Downstream Impact] Creates {date}/auth/users.json in the backup bucket.
+    //                     Paginated at 1000 users per batch (API maximum).
+    const storage = new Storage();
+    const bucket = storage.bucket(BUCKET);
+    const authFile = bucket.file(`${folder}/auth/users.json`);
+
+    const allUsers = [];
+    let nextPageToken;
+    do {
+      const result = await getAuth().listUsers(1000, nextPageToken);
+      for (const user of result.users) {
+        allUsers.push({
+          uid: user.uid,
+          email: user.email || null,
+          displayName: user.displayName || null,
+          disabled: user.disabled,
+          emailVerified: user.emailVerified,
+          metadata: {
+            creationTime: user.metadata.creationTime,
+            lastSignInTime: user.metadata.lastSignInTime,
+          },
+          providerData: user.providerData.map((p) => ({
+            providerId: p.providerId,
+            uid: p.uid,
+            email: p.email || null,
+            displayName: p.displayName || null,
+          })),
+          customClaims: user.customClaims || null,
+        });
+      }
+      nextPageToken = result.pageToken;
+    } while (nextPageToken);
+
+    await authFile.save(JSON.stringify(allUsers, null, 2), {
+      contentType: "application/json",
+      metadata: { correlationId },
+    });
+
+    // GUID: BACKUP_FUNCTIONS-013-v03
+    // [Intent] Persist success status so the admin dashboard can display
+    //          the most recent backup result in real-time.
+    // [Inbound Trigger] Both Firestore and Auth exports completed successfully.
+    // [Downstream Impact] BackupHealthDashboard reads this via useDoc hook.
+    //                     lastBackupError is explicitly nulled to clear any
+    //                     previous failure state.
+    await writeStatus(db, {
+      lastBackupTimestamp: Timestamp.now(),
+      lastBackupStatus: "SUCCESS",
+      lastBackupPath: gcsPrefix,
+      lastBackupError: null,
+      backupCorrelationId: correlationId,
+    });
+
+    return { correlationId, gcsPrefix, usersExported: allUsers.length };
+  } catch (err) {
+    // GUID: BACKUP_FUNCTIONS-015-v03
+    // [Intent] On failure, record the error in backup_status/latest so the
+    //          admin dashboard shows a red "Failed" badge with the error message.
+    // [Inbound Trigger] Any exception in the Firestore export or Auth export.
+    // [Downstream Impact] Dashboard shows failure.
+    console.error("Backup failed:", err);
+
+    await writeStatus(db, {
+      lastBackupTimestamp: Timestamp.now(),
+      lastBackupStatus: "FAILED",
+      lastBackupPath: null,
+      lastBackupError: err.message || String(err),
+      backupCorrelationId: correlationId,
+    });
+
+    throw err;
+  }
+}
+
 // ── dailyBackup ────────────────────────────────────────────────
-// GUID: BACKUP_FUNCTIONS-010-v03
+// GUID: BACKUP_FUNCTIONS-010-v04
 /**
  * dailyBackup — Scheduled Cloud Function (2nd-gen, Cloud Run)
  *
@@ -149,87 +265,9 @@ exports.dailyBackup = onSchedule(
   },
   async () => {
     const db = getFirestore();
-    const correlationId = generateCorrelationId("bkp");
-    const folder = todayFolder();
-    const gcsPrefix = `gs://${BUCKET}/${folder}`;
 
     try {
-      // GUID: BACKUP_FUNCTIONS-011-v03
-      // [Intent] Use the Firestore managed export API (not client-side reads)
-      //          to create a consistent, point-in-time snapshot of ALL collections.
-      //          This is the only way to get a transactionally-consistent export.
-      // [Inbound Trigger] dailyBackup handler entry.
-      // [Downstream Impact] Creates export files under gs://prix6-backups/{date}/firestore/.
-      //                     The LRO (Long Running Operation) blocks until export completes.
-      const firestoreClient = new FirestoreClient({ projectId: MAIN_PROJECT });
-      const [exportOp] = await firestoreClient.exportDocuments({
-        name: firestoreClient.databasePath(MAIN_PROJECT, "(default)"),
-        outputUriPrefix: `${gcsPrefix}/firestore`,
-        collectionIds: [], // empty = all collections
-      });
-
-      // Block until export LRO completes
-      await exportOp.promise();
-
-      // GUID: BACKUP_FUNCTIONS-012-v03
-      // [Intent] Export Firebase Auth user records as a JSON file to GCS.
-      //          Firestore managed export does NOT include Auth data, so we
-      //          must separately iterate all users via the Admin SDK.
-      //          NOTE: Password hashes are NOT included — Firebase Auth does
-      //          not expose them via listUsers(). This is metadata-only.
-      // [Inbound Trigger] Firestore export completed successfully (above).
-      // [Downstream Impact] Creates {date}/auth/users.json in the backup bucket.
-      //                     Paginated at 1000 users per batch (API maximum).
-      const storage = new Storage();
-      const bucket = storage.bucket(BUCKET);
-      const authFile = bucket.file(`${folder}/auth/users.json`);
-
-      const allUsers = [];
-      let nextPageToken;
-      do {
-        const result = await getAuth().listUsers(1000, nextPageToken);
-        for (const user of result.users) {
-          allUsers.push({
-            uid: user.uid,
-            email: user.email || null,
-            displayName: user.displayName || null,
-            disabled: user.disabled,
-            emailVerified: user.emailVerified,
-            metadata: {
-              creationTime: user.metadata.creationTime,
-              lastSignInTime: user.metadata.lastSignInTime,
-            },
-            providerData: user.providerData.map((p) => ({
-              providerId: p.providerId,
-              uid: p.uid,
-              email: p.email || null,
-              displayName: p.displayName || null,
-            })),
-            customClaims: user.customClaims || null,
-          });
-        }
-        nextPageToken = result.pageToken;
-      } while (nextPageToken);
-
-      await authFile.save(JSON.stringify(allUsers, null, 2), {
-        contentType: "application/json",
-        metadata: { correlationId },
-      });
-
-      // GUID: BACKUP_FUNCTIONS-013-v03
-      // [Intent] Persist success status so the admin dashboard can display
-      //          the most recent backup result in real-time.
-      // [Inbound Trigger] Both Firestore and Auth exports completed successfully.
-      // [Downstream Impact] BackupHealthDashboard reads this via useDoc hook.
-      //                     lastBackupError is explicitly nulled to clear any
-      //                     previous failure state.
-      await writeStatus(db, {
-        lastBackupTimestamp: Timestamp.now(),
-        lastBackupStatus: "SUCCESS",
-        lastBackupPath: gcsPrefix,
-        lastBackupError: null,
-        backupCorrelationId: correlationId,
-      });
+      const { correlationId, gcsPrefix, usersExported } = await performBackup(db);
 
       // GUID: BACKUP_FUNCTIONS-014-v03
       // [Intent] Emit a structured JSON log that the Dead Man's Switch MQL
@@ -244,36 +282,17 @@ exports.dailyBackup = onSchedule(
           message: "BACKUP_HEARTBEAT",
           correlationId,
           backupPath: gcsPrefix,
-          usersExported: allUsers.length,
+          usersExported,
           timestamp: new Date().toISOString(),
         })
       );
     } catch (err) {
-      // GUID: BACKUP_FUNCTIONS-015-v03
-      // [Intent] On failure, record the error in backup_status/latest so the
-      //          admin dashboard shows a red "Failed" badge with the error message.
-      //          Still emit BACKUP_HEARTBEAT so the Dead Man's Switch doesn't
-      //          ALSO fire — we want one alert (backup failed), not two.
-      // [Inbound Trigger] Any exception in the Firestore export or Auth export.
-      // [Downstream Impact] Dashboard shows failure. Cloud Functions marks the
-      //                     invocation as failed (re-throw). Heartbeat log
-      //                     includes severity:ERROR for differentiation.
-      console.error("Backup failed:", err);
-
-      await writeStatus(db, {
-        lastBackupTimestamp: Timestamp.now(),
-        lastBackupStatus: "FAILED",
-        lastBackupPath: null,
-        lastBackupError: err.message || String(err),
-        backupCorrelationId: correlationId,
-      });
-
       // Heartbeat on failure path — prevents Dead Man's Switch double-alert
       console.log(
         JSON.stringify({
           severity: "ERROR",
           message: "BACKUP_HEARTBEAT",
-          correlationId,
+          correlationId: generateCorrelationId("bkp"),
           status: "FAILED",
           error: err.message || String(err),
           timestamp: new Date().toISOString(),
@@ -281,6 +300,53 @@ exports.dailyBackup = onSchedule(
       );
 
       throw err; // re-throw so Cloud Functions marks invocation as failed
+    }
+  }
+);
+
+// ── manualBackup ───────────────────────────────────────────────
+// GUID: BACKUP_FUNCTIONS-016-v04
+/**
+ * manualBackup — Callable Cloud Function (2nd-gen, Cloud Run)
+ *
+ * [Intent] Allow admins to trigger an on-demand backup via the admin dashboard
+ *          "Backup Now" button. Uses the same performBackup() logic as the
+ *          scheduled dailyBackup to ensure consistency.
+ *
+ * [Inbound Trigger] Client-side httpsCallable('manualBackup') from the
+ *                   BackupHealthDashboard component.
+ *
+ * [Downstream Impact]
+ *   - Auth check: Verifies caller is admin via Firestore users/{uid}.isAdmin.
+ *   - Calls performBackup() — same GCS writes and status updates as dailyBackup.
+ *   - Returns { success, correlationId, backupPath } to the client.
+ */
+exports.manualBackup = onCall(
+  {
+    region: REGION,
+    timeoutSeconds: 540,
+    memory: "512MiB",
+  },
+  async (request) => {
+    // Auth check: caller must be authenticated
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "You must be logged in.");
+    }
+
+    // Admin check: verify caller is admin via Firestore lookup
+    const db = getFirestore();
+    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
+
+    if (!callerDoc.exists || callerDoc.data().isAdmin !== true) {
+      throw new HttpsError("permission-denied", "Only admins can trigger manual backups.");
+    }
+
+    try {
+      const { correlationId, gcsPrefix } = await performBackup(db);
+      return { success: true, correlationId, backupPath: gcsPrefix };
+    } catch (err) {
+      console.error("Manual backup failed:", err);
+      return { success: false, error: err.message || String(err) };
     }
   }
 );
