@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bug, Lightbulb, Trash2, RefreshCw, User, Mail, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { APP_VERSION } from '@/lib/version';
 
 interface FeedbackItem {
   id: string;
@@ -80,10 +81,19 @@ export function FeedbackManager() {
   const updateStatus = async (id: string, status: FeedbackItem['status']) => {
     if (!firestore) return;
     try {
-      await updateDoc(doc(firestore, 'feedback', id), { status });
+      const updates: Record<string, any> = { status };
+      // When resolving, stamp the version so the submitter can be notified
+      if (status === 'resolved') {
+        updates.resolvedVersion = APP_VERSION;
+        updates.resolvedAt = serverTimestamp();
+        updates.resolvedNotifiedAt = null; // cleared so dashboard picks it up
+      }
+      await updateDoc(doc(firestore, 'feedback', id), updates);
       toast({
         title: 'Status Updated',
-        description: `Feedback marked as ${status}`,
+        description: status === 'resolved'
+          ? `Marked resolved in v${APP_VERSION} — submitter will be notified`
+          : `Feedback marked as ${status}`,
       });
     } catch (error) {
       toast({

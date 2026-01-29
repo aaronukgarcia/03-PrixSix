@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid email format',
+          error: 'Please enter a valid email address (e.g. name@example.com). This field is for a secondary email, not a team name.',
           errorCode: ERROR_CODES.VALIDATION_INVALID_FORMAT.code,
           correlationId,
         },

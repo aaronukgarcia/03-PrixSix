@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
+# GUID: PROVISION_RECOVERY-000-v03
 #
 # provision_recovery_env.sh
-# One-time setup for Prix Six backup infrastructure.
+#
+# [Intent] One-time infrastructure setup for the Prix Six backup & recovery system.
+#          Creates all GCP resources needed before Cloud Functions can run.
+#
+# [Inbound Trigger] Manual execution by a GCP project Owner.
+#
+# [Downstream Impact]
+#   - Creates gs://prix6-backups bucket with IRREVERSIBLE 7-day Object Retention Lock
+#   - Creates prix6-recovery-test GCP project with billing and Firestore
+#   - Enables PITR on the main project's Firestore
+#   - Grants IAM roles so Cloud Functions can export, import, and clean up
 #
 # What this script does:
 #   1. Creates gs://prix6-backups bucket with 7-day Object Retention Lock
@@ -25,6 +36,11 @@
 set -euo pipefail
 
 # ── Configuration ───────────────────────────────────────────────
+# GUID: PROVISION_RECOVERY-001-v03
+# [Intent] Centralise all tuneable parameters at the top of the script.
+#          RETENTION_DAYS controls the Object Retention Lock duration.
+# [Inbound Trigger] Script start.
+# [Downstream Impact] Every step below references these values.
 MAIN_PROJECT="prix6-prod"
 RECOVERY_PROJECT="prix6-recovery-test"
 BUCKET="prix6-backups"
@@ -33,6 +49,11 @@ RETENTION_DAYS=7
 RETENTION_SECONDS=$((RETENTION_DAYS * 86400))
 
 # ── Helpers ─────────────────────────────────────────────────────
+# GUID: PROVISION_RECOVERY-002-v03
+# [Intent] Provide consistent, severity-prefixed output for scripted ops.
+#          confirm() gates destructive / irreversible operations behind y/N prompt.
+# [Inbound Trigger] Called throughout the script.
+# [Downstream Impact] fail() exits with code 1; confirm() exits on non-Y answer.
 log()   { echo "[INFO]  $*"; }
 warn()  { echo "[WARN]  $*" >&2; }
 fail()  { echo "[ERROR] $*" >&2; exit 1; }
@@ -43,6 +64,13 @@ confirm() {
 }
 
 # ── Pre-flight checks ──────────────────────────────────────────
+# GUID: PROVISION_RECOVERY-003-v03
+# [Intent] Verify that gcloud and gsutil CLIs are installed before attempting
+#          any GCP operations. Print a summary of what will happen and require
+#          explicit confirmation.
+# [Inbound Trigger] Script start, after configuration.
+# [Downstream Impact] Exits early if CLIs are missing. Shows the user exactly
+#                     which projects/buckets will be affected.
 command -v gcloud >/dev/null 2>&1 || fail "gcloud CLI not found. Install it first."
 command -v gsutil >/dev/null 2>&1 || fail "gsutil not found. Install Google Cloud SDK."
 
@@ -57,6 +85,16 @@ echo ""
 confirm "Proceed with provisioning?"
 
 # ── Step 1: Create backup bucket with retention lock ────────────
+# GUID: PROVISION_RECOVERY-010-v03
+# [Intent] Create the GCS bucket that will hold all Firestore exports and
+#          Auth JSON backups. The bucket uses Uniform Bucket-Level Access (-b on)
+#          and a 7-day Object Retention Lock. The lock is applied in two stages:
+#          first set the retention policy, then lock it (irreversible).
+# [Inbound Trigger] User confirmed provisioning.
+# [Downstream Impact] Once locked, objects in this bucket cannot be deleted or
+#                     overwritten before the retention period expires. This is
+#                     the core immutability guarantee of the backup system.
+#                     The dailyBackup Cloud Function writes to this bucket.
 log "Step 1: Creating backup bucket gs://$BUCKET ..."
 
 if gsutil ls -b "gs://$BUCKET" &>/dev/null; then
@@ -75,6 +113,14 @@ gsutil retention lock "gs://$BUCKET"
 log "Retention lock applied."
 
 # ── Step 2: Create recovery project ────────────────────────────
+# GUID: PROVISION_RECOVERY-020-v03
+# [Intent] Create a separate GCP project (prix6-recovery-test) used exclusively
+#          by the Sunday smoke test. The smoke test imports backups into this
+#          project's Firestore, verifies critical documents, then deletes everything.
+#          Using a separate project prevents any risk to production data.
+# [Inbound Trigger] Step 1 completed.
+# [Downstream Impact] The project needs billing linked to use Firestore.
+#                     The runRecoveryTest Cloud Function targets this project.
 log "Step 2: Creating recovery project $RECOVERY_PROJECT ..."
 
 if gcloud projects describe "$RECOVERY_PROJECT" &>/dev/null; then
@@ -84,7 +130,12 @@ else
   log "Project created."
 fi
 
-# Link billing
+# GUID: PROVISION_RECOVERY-021-v03
+# [Intent] Link billing to the recovery project. Firestore requires an active
+#          billing account. Uses the first open billing account found.
+# [Inbound Trigger] Recovery project created or already exists.
+# [Downstream Impact] Without billing, Firestore operations will fail with
+#                     PERMISSION_DENIED. The smoke test would report PX-7004.
 log "Linking billing account ..."
 BILLING_ACCOUNT=$(gcloud billing accounts list --format="value(ACCOUNT_ID)" --filter="open=true" | head -1)
 if [[ -z "$BILLING_ACCOUNT" ]]; then
@@ -94,6 +145,14 @@ gcloud billing projects link "$RECOVERY_PROJECT" --billing-account="$BILLING_ACC
 log "Billing linked: $BILLING_ACCOUNT"
 
 # ── Step 3: Enable APIs ────────────────────────────────────────
+# GUID: PROVISION_RECOVERY-030-v03
+# [Intent] Enable all GCP APIs required by the backup Cloud Functions.
+#          Main project needs: Firestore (export), Cloud Functions, Cloud Run
+#          (2nd-gen functions), Cloud Build (deployment), Cloud Scheduler (cron).
+#          Recovery project needs: Firestore (import target), Firebase (project setup).
+# [Inbound Trigger] Projects exist with billing.
+# [Downstream Impact] Without these APIs enabled, `firebase deploy --only functions`
+#                     and the Cloud Function invocations will fail.
 log "Step 3: Enabling APIs ..."
 
 MAIN_APIS=(
@@ -121,6 +180,14 @@ done
 log "APIs enabled."
 
 # ── Step 4: Create Firestore DB in recovery project ────────────
+# GUID: PROVISION_RECOVERY-040-v03
+# [Intent] Create the Firestore database in the recovery project that will
+#          receive imported backups during the Sunday smoke test.
+#          Must be in the same region as the main project for cross-project
+#          import compatibility.
+# [Inbound Trigger] APIs enabled on recovery project.
+# [Downstream Impact] The runRecoveryTest Cloud Function imports data into
+#                     this database and reads from it for verification.
 log "Step 4: Creating Firestore database in $RECOVERY_PROJECT ..."
 
 if gcloud firestore databases describe --project="$RECOVERY_PROJECT" &>/dev/null; then
@@ -134,6 +201,14 @@ else
 fi
 
 # ── Step 5: Enable PITR on main project ────────────────────────
+# GUID: PROVISION_RECOVERY-050-v03
+# [Intent] Enable Point-in-Time Recovery on the main project's Firestore.
+#          PITR allows restoring to any point within the last 7 days (or
+#          configured window) without needing to import from a GCS export.
+#          This is a complementary safeguard alongside the daily GCS exports.
+# [Inbound Trigger] Recovery project Firestore created.
+# [Downstream Impact] Firestore retains version history for PITR window.
+#                     Slightly increases storage costs.
 log "Step 5: Enabling Point-in-Time Recovery on $MAIN_PROJECT ..."
 gcloud firestore databases update \
   --project="$MAIN_PROJECT" \
@@ -142,14 +217,41 @@ gcloud firestore databases update \
 log "PITR enabled."
 
 # ── Step 6: IAM permissions ────────────────────────────────────
+# GUID: PROVISION_RECOVERY-060-v03
+# [Intent] Grant the minimum IAM permissions required for the backup system:
+#          1. Cloud Functions SA → datastore.importExportAdmin on main project
+#             (to trigger Firestore managed exports)
+#          2. Cloud Functions SA → storage.admin on backup bucket
+#             (to write Auth JSON and manage export output)
+#          3. Firestore service agent → storage.objectAdmin on backup bucket
+#             (Firestore's internal agent writes the managed export files —
+#              this is separate from the Cloud Functions SA)
+#          4. Cloud Functions SA → datastore.importExportAdmin on recovery project
+#             (to import backups for smoke test)
+#          5. Cloud Functions SA → datastore.user on recovery project
+#             (to read documents during smoke test verification)
+# [Inbound Trigger] PITR enabled.
+# [Downstream Impact] Without these permissions, Cloud Functions will fail with
+#                     PERMISSION_DENIED errors (PX-7002, PX-7005).
 log "Step 6: Configuring IAM permissions ..."
 
-# Get the project number for the Firestore service agent
+# GUID: PROVISION_RECOVERY-061-v03
+# [Intent] Derive the Firestore service agent email from the project number.
+#          This agent is NOT the firebase-adminsdk SA — it's the internal agent
+#          that Firestore uses to write managed export files to GCS.
+# [Inbound Trigger] IAM step started.
+# [Downstream Impact] Used in the gsutil iam ch command below. If this SA doesn't
+#                     have bucket access, Firestore exports fail silently with a
+#                     "permission denied" in the LRO result.
 PROJECT_NUMBER=$(gcloud projects describe "$MAIN_PROJECT" --format="value(projectNumber)")
 FIRESTORE_SA="service-${PROJECT_NUMBER}@gcp-sa-firestore.iam.gserviceaccount.com"
 FUNCTIONS_SA="${MAIN_PROJECT}@appspot.gserviceaccount.com"
 
-# Cloud Functions SA needs Firestore export admin
+# GUID: PROVISION_RECOVERY-062-v03
+# [Intent] Grant export admin to the Cloud Functions SA so it can call
+#          exportDocuments() on the main project's Firestore.
+# [Inbound Trigger] SA emails derived.
+# [Downstream Impact] Required by BACKUP_FUNCTIONS-011 (Firestore managed export).
 log "Granting datastore.importExportAdmin to $FUNCTIONS_SA ..."
 gcloud projects add-iam-policy-binding "$MAIN_PROJECT" \
   --member="serviceAccount:$FUNCTIONS_SA" \
@@ -157,15 +259,29 @@ gcloud projects add-iam-policy-binding "$MAIN_PROJECT" \
   --condition=None \
   --quiet
 
-# Cloud Functions SA needs Storage Admin on the backup bucket
+# GUID: PROVISION_RECOVERY-063-v03
+# [Intent] Grant storage admin on the backup bucket so the Cloud Functions SA
+#          can write the Auth JSON export and manage objects.
+# [Inbound Trigger] Export admin granted.
+# [Downstream Impact] Required by BACKUP_FUNCTIONS-012 (Auth JSON write).
 log "Granting storage.admin on gs://$BUCKET to $FUNCTIONS_SA ..."
 gsutil iam ch "serviceAccount:${FUNCTIONS_SA}:roles/storage.admin" "gs://$BUCKET"
 
-# Firestore service agent needs bucket access for managed exports
+# GUID: PROVISION_RECOVERY-064-v03
+# [Intent] Grant the Firestore service agent objectAdmin on the backup bucket.
+#          This is the agent that actually writes the managed export files — it's
+#          separate from the Cloud Functions SA and easy to forget.
+# [Inbound Trigger] Cloud Functions SA permissions granted.
+# [Downstream Impact] Without this, Firestore exportDocuments() returns success
+#                     on the API call but the LRO fails with permission denied.
 log "Granting storage.objectAdmin on gs://$BUCKET to Firestore service agent ..."
 gsutil iam ch "serviceAccount:${FIRESTORE_SA}:roles/storage.objectAdmin" "gs://$BUCKET"
 
-# Cloud Functions SA needs Firestore admin on recovery project (for import/delete)
+# GUID: PROVISION_RECOVERY-065-v03
+# [Intent] Grant import/export admin on the recovery project so the smoke test
+#          can import backups into the recovery Firestore.
+# [Inbound Trigger] Bucket permissions granted.
+# [Downstream Impact] Required by BACKUP_FUNCTIONS-022 (recovery import).
 log "Granting datastore.importExportAdmin on $RECOVERY_PROJECT ..."
 gcloud projects add-iam-policy-binding "$RECOVERY_PROJECT" \
   --member="serviceAccount:$FUNCTIONS_SA" \
@@ -173,6 +289,11 @@ gcloud projects add-iam-policy-binding "$RECOVERY_PROJECT" \
   --condition=None \
   --quiet
 
+# GUID: PROVISION_RECOVERY-066-v03
+# [Intent] Grant datastore.user on the recovery project so the smoke test can
+#          read documents (system_status/heartbeat, users) for verification.
+# [Inbound Trigger] Import admin granted on recovery project.
+# [Downstream Impact] Required by BACKUP_FUNCTIONS-023 (smoke test reads).
 log "Granting datastore.user on $RECOVERY_PROJECT (for smoke test reads) ..."
 gcloud projects add-iam-policy-binding "$RECOVERY_PROJECT" \
   --member="serviceAccount:$FUNCTIONS_SA" \
@@ -181,6 +302,10 @@ gcloud projects add-iam-policy-binding "$RECOVERY_PROJECT" \
   --quiet
 
 # ── Done ────────────────────────────────────────────────────────
+# GUID: PROVISION_RECOVERY-070-v03
+# [Intent] Print a summary of everything that was provisioned and next steps.
+# [Inbound Trigger] All steps completed successfully.
+# [Downstream Impact] Human guidance — operator should deploy Cloud Functions next.
 echo ""
 log "=========================================="
 log "  Provisioning complete!"

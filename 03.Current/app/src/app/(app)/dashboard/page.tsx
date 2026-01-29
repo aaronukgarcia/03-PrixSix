@@ -5,6 +5,7 @@ import { findNextRace } from "@/lib/data";
 import { Flag, Calendar, FlaskConical } from "lucide-react";
 import { DashboardClient } from "./_components/DashboardClient";
 import { FeedbackForm } from "./_components/FeedbackForm";
+import { ResolvedFeedbackNotifier } from "./_components/ResolvedFeedbackNotifier";
 import { HotNewsFeed, HotNewsFeedSkeleton } from "./_components/HotNewsFeed";
 import { APP_VERSION } from '@/lib/version';
 
@@ -71,6 +72,7 @@ export default function DashboardPage() {
                 <HotNewsFeed />
             </Suspense>
 
+            <ResolvedFeedbackNotifier />
             <FeedbackForm />
 
             <div className="text-center">

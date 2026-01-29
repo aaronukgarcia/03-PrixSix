@@ -152,13 +152,14 @@ export default function StandingsPage() {
               if (!data) return;
               const userId = data.oduserId || data.userId;
               if (!userId) return; // Skip invalid scores
+              const raceId = (data.raceId || '').toLowerCase();
               scores.push({
                 userId,
-                raceId: data.raceId || '',
+                raceId,
                 totalPoints: data.totalPoints || 0,
               });
-              if (data.raceId) {
-                raceIdsWithScores.add(data.raceId);
+              if (raceId) {
+                raceIdsWithScores.add(raceId);
               }
             } catch (docErr) {
               console.error('Error processing score doc:', doc.id, docErr);
@@ -544,13 +545,15 @@ export default function StandingsPage() {
     return standings.map(s => s.teamName);
   }, [standings]);
 
-  // Generate colors for teams (top 3 get distinct colors, rest are grey)
-  const getTeamColor = (index: number) => {
-    if (index === 0) return "hsl(45, 100%, 50%)";  // Gold
-    if (index === 1) return "hsl(0, 0%, 75%)";     // Silver
-    if (index === 2) return "hsl(30, 60%, 50%)";   // Bronze
-    return "hsl(0, 0%, 40%)";                       // Grey for others
-  };
+  // Deterministic color per team name — stays stable across race selections
+  const getStableTeamColor = useCallback((name: string): string => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = ((hash % 360) + 360) % 360;
+    return `hsl(${hue}, 65%, 55%)`;
+  }, []);
 
   // Get max points for Y-axis (based on selected race standings)
   const maxPoints = useMemo(() => {
@@ -696,17 +699,20 @@ export default function StandingsPage() {
                   }}
                   labelStyle={{ fontWeight: 'bold' }}
                 />
-                {chartTeams.map((teamName, index) => (
-                  <Line
-                    key={teamName}
-                    type="monotone"
-                    dataKey={teamName}
-                    stroke={getTeamColor(index)}
-                    strokeWidth={index < 3 ? 2 : 1}
-                    dot={false}
-                    opacity={index < 3 ? 1 : 0.4}
-                  />
-                ))}
+                {chartTeams.map((teamName) => {
+                  const rank = standings.findIndex(s => s.teamName === teamName);
+                  return (
+                    <Line
+                      key={teamName}
+                      type="monotone"
+                      dataKey={teamName}
+                      stroke={getStableTeamColor(teamName)}
+                      strokeWidth={rank < 3 ? 2.5 : 1}
+                      dot={false}
+                      opacity={rank < 3 ? 1 : 0.4}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           </div>

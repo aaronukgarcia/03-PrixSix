@@ -1,0 +1,377 @@
+{
+  "module": "Backup & Recovery System",
+  "generated": "2026-01-29",
+  "guids": [
+    {
+      "guid": "BACKUP_FUNCTIONS-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Root module for Prix Six Cloud Functions. Provides automated daily Firestore+Auth backup and weekly Sunday smoke test. Entry point for both scheduled Cloud Functions.",
+      "dependencies": ["BACKUP_FUNCTIONS-001", "BACKUP_FUNCTIONS-002", "BACKUP_FUNCTIONS-010", "BACKUP_FUNCTIONS-020"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-001",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Firebase Admin SDK initialisation at cold-start. Required before any getFirestore()/getAuth() call. Runs once per Cloud Function instance lifecycle.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-002",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Centralised configuration constants: project IDs, bucket name, region, status collection/doc path. Single point of change if the project is forked or renamed.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-003",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Generates unique correlation IDs (prefix_timestamp36_random6) for end-to-end tracing across Cloud Functions, Firestore status doc, GCS metadata, and admin dashboard.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-004",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Generates date-based GCS folder names (YYYY-MM-DD or YYYY-MM-DD-SUNDAY). Sunday suffix is cosmetic only — retention is identical for all days.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-005",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Merges partial status fields into backup_status/latest Firestore doc using set(merge:true). Allows dailyBackup and runRecoveryTest to independently update their own fields without clobbering each other.",
+      "dependencies": ["BACKUP_FUNCTIONS-002", "BACKUP_DASHBOARD-011"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-010",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "dailyBackup scheduled Cloud Function (02:00 UTC daily). Orchestrates Firestore managed export, Auth JSON pagination export, status write, and BACKUP_HEARTBEAT structured log emission. Heartbeat emitted on both success and failure to prevent Dead Man's Switch double-alerting.",
+      "dependencies": ["BACKUP_FUNCTIONS-002", "BACKUP_FUNCTIONS-003", "BACKUP_FUNCTIONS-004", "BACKUP_FUNCTIONS-005", "BACKUP_FUNCTIONS-011", "BACKUP_FUNCTIONS-012", "BACKUP_FUNCTIONS-013", "BACKUP_FUNCTIONS-014", "BACKUP_FUNCTIONS-015"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-011",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Firestore managed export via @google-cloud/firestore exportDocuments(). Creates a transactionally-consistent point-in-time snapshot of ALL collections. Blocks on the Long Running Operation until complete.",
+      "dependencies": ["PROVISION_RECOVERY-062", "PROVISION_RECOVERY-064"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-012",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Auth user export via Admin SDK listUsers() pagination (1000/page). Serialises user metadata (uid, email, displayName, providers, customClaims) to JSON in GCS. Does NOT include password hashes — Firebase Auth does not expose them.",
+      "dependencies": ["PROVISION_RECOVERY-063"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-013",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Writes SUCCESS status to backup_status/latest after both Firestore and Auth exports complete. Explicitly nulls lastBackupError to clear any previous failure state.",
+      "dependencies": ["BACKUP_FUNCTIONS-005"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-014",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Emits BACKUP_HEARTBEAT structured JSON log on the success path. This log feeds the log-based metric backup_heartbeat_count, which the Dead Man's Switch MQL alert monitors for absence >25 hours.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-015",
+      "version": 3,
+      "logic_category": "RECOVERY",
+      "description": "Error handler for dailyBackup. Writes FAILED status to backup_status/latest, emits BACKUP_HEARTBEAT with severity:ERROR (to prevent DMS double-alert), then re-throws so Cloud Functions marks the invocation as failed.",
+      "dependencies": ["BACKUP_FUNCTIONS-005"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-020",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "runRecoveryTest scheduled Cloud Function (04:00 UTC Sundays). Imports the latest backup into a disposable recovery project, verifies critical documents exist, cleans up, and writes smoke test result to status doc.",
+      "dependencies": ["BACKUP_FUNCTIONS-002", "BACKUP_FUNCTIONS-003", "BACKUP_FUNCTIONS-005", "BACKUP_FUNCTIONS-021", "BACKUP_FUNCTIONS-022", "BACKUP_FUNCTIONS-023", "BACKUP_FUNCTIONS-024", "BACKUP_FUNCTIONS-025", "BACKUP_FUNCTIONS-026"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-021",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Reads lastBackupPath from backup_status/latest. Guards against the case where no backup has ever run — fails loudly so ops investigates rather than silently skipping the smoke test.",
+      "dependencies": ["BACKUP_FUNCTIONS-005"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-022",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Imports the Firestore export into the recovery project via @google-cloud/firestore importDocuments(). Full restore of all collections. Recovery project is ephemeral and cleaned up after verification.",
+      "dependencies": ["PROVISION_RECOVERY-065"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-023",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Smoke test verification: checks system_status/heartbeat exists AND users collection has at least one document. Both failing = backup is empty or corrupt. One passing is sufficient (system_status may not exist in all envs).",
+      "dependencies": ["PROVISION_RECOVERY-066"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-024",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Post-verification cleanup: deletes all data in the recovery project Firestore. Non-fatal — cleanup failure is logged but does not fail the smoke test because the primary goal (verification) has already succeeded.",
+      "dependencies": ["BACKUP_FUNCTIONS-030"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-025",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Writes SUCCESS smoke test status to backup_status/latest and emits SMOKE_TEST_COMPLETE structured log with verification results.",
+      "dependencies": ["BACKUP_FUNCTIONS-005"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-026",
+      "version": 3,
+      "logic_category": "RECOVERY",
+      "description": "Error handler for runRecoveryTest. Writes FAILED status to backup_status/latest with the error message, then re-throws.",
+      "dependencies": ["BACKUP_FUNCTIONS-005"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-030",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "deleteAllCollections: enumerates all top-level collections in recovery Firestore and batch-deletes every document. Errors are caught and logged (non-fatal by design — next import overwrites anyway).",
+      "dependencies": ["BACKUP_FUNCTIONS-031"]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-031",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "deleteCollection: batch-deletes all documents in a single collection using batches of 500 (Firestore maximum). Loops until collection is empty. Does not recurse into subcollections.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Root module for BackupHealthDashboard.tsx. Admin-only React component that subscribes to backup_status/latest in real-time and renders three cards: Backup Status, Immutability Lock, Smoke Test.",
+      "dependencies": ["BACKUP_DASHBOARD-001", "BACKUP_DASHBOARD-002", "BACKUP_DASHBOARD-003", "BACKUP_DASHBOARD-004", "BACKUP_DASHBOARD-010"]
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "BackupStatus TypeScript interface mirroring the Firestore document shape written by Cloud Functions. All fields optional to handle partial population and first-run state.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-002",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "TimestampDisplay component: renders Firestore Timestamps as relative time ('3 hours ago') with absolute ISO timestamp on hover tooltip. Falls back to 'Never' when no timestamp exists.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-003",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "CopyButton component: one-click clipboard copy for correlation IDs. Shows green check for 2 seconds as visual confirmation. Used by ops to paste IDs into Cloud Logging search.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-004",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "StatusBadge component: renders colour-coded badge for SUCCESS (green), FAILED (red), or No data (outline). Used in Backup Status and Smoke Test card headers.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-010",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "BackupHealthDashboard main component. Handles four states: loading (skeleton cards), error (PX-7001 alert), first-run (info alert), and normal (three-column card grid). Subscribes to backup_status/latest via useDoc.",
+      "dependencies": ["BACKUP_DASHBOARD-011", "BACKUP_DASHBOARD-012", "BACKUP_DASHBOARD-013", "BACKUP_DASHBOARD-014", "BACKUP_DASHBOARD-020"]
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-011",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Memoized DocumentReference for backup_status/latest. Returns null if Firestore isn't ready or user isn't admin, preventing unnecessary subscriptions.",
+      "dependencies": ["BACKUP_FUNCTIONS-005"]
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-012",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Loading state: renders 3 skeleton cards matching the three-column layout to prevent layout shift during Firestore subscription establishment.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-013",
+      "version": 3,
+      "logic_category": "RECOVERY",
+      "description": "Error state: creates PX-7001 (BACKUP_STATUS_READ_FAILED) with correlation ID and renders a destructive Alert with copyable error details. Client-side only — does not write to error_logs.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-014",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "First-run state: handles the case where backup_status/latest doesn't exist yet (dailyBackup hasn't run). Shows info alert with deployment instructions. useDoc subscription remains active so it auto-updates when the doc is created.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-020",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Normal state renderer: three-column responsive grid (1 col mobile, 3 col desktop) containing Backup Status, Immutability Lock, and Smoke Test cards.",
+      "dependencies": ["BACKUP_DASHBOARD-021", "BACKUP_DASHBOARD-022", "BACKUP_DASHBOARD-023"]
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-021",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Backup Status Card: displays last backup timestamp, GCS path, correlation ID (with CopyButton), and error message (if failed). StatusBadge shows SUCCESS/FAILED in header.",
+      "dependencies": ["BACKUP_DASHBOARD-002", "BACKUP_DASHBOARD-003", "BACKUP_DASHBOARD-004"]
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-022",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Immutability Lock Card: displays bucket name, retention period, lock type, and an amber warning that the lock is irreversible. Mostly static/informational since the lock is configured at infrastructure level by provision_recovery_env.sh.",
+      "dependencies": ["PROVISION_RECOVERY-010"]
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-023",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Smoke Test Card: displays last smoke test timestamp, correlation ID, error message, or explanatory text when the test hasn't run yet. StatusBadge shows SUCCESS/FAILED in header.",
+      "dependencies": ["BACKUP_DASHBOARD-002", "BACKUP_DASHBOARD-003", "BACKUP_DASHBOARD-004"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Root module for provision_recovery_env.sh. One-time infrastructure setup script that creates all GCP resources required by the backup system: bucket, recovery project, PITR, and IAM roles.",
+      "dependencies": ["PROVISION_RECOVERY-001", "PROVISION_RECOVERY-010", "PROVISION_RECOVERY-020", "PROVISION_RECOVERY-030", "PROVISION_RECOVERY-040", "PROVISION_RECOVERY-050", "PROVISION_RECOVERY-060"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-001",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Configuration constants: project IDs, bucket name, region, retention days. Single point of change for all infrastructure parameters.",
+      "dependencies": []
+    },
+    {
+      "guid": "PROVISION_RECOVERY-002",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Shell helper functions: log/warn/fail for severity-prefixed output, confirm() for gating irreversible operations behind y/N prompts.",
+      "dependencies": []
+    },
+    {
+      "guid": "PROVISION_RECOVERY-003",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Pre-flight checks: verifies gcloud and gsutil CLIs exist, prints configuration summary, and requires explicit confirmation before proceeding.",
+      "dependencies": ["PROVISION_RECOVERY-002"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-010",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Step 1: Creates gs://prix6-backups bucket with Uniform Bucket-Level Access and 7-day Object Retention Lock. Lock is applied in two stages (set policy, then lock). IRREVERSIBLE — second confirm() gate.",
+      "dependencies": ["PROVISION_RECOVERY-002"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-020",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Step 2: Creates prix6-recovery-test GCP project. Idempotent — skips if project already exists. Recovery project is ephemeral target for Sunday smoke test imports.",
+      "dependencies": ["PROVISION_RECOVERY-002"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-021",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Links billing to recovery project using first open billing account found. Firestore requires billing. Fails with manual instructions if no billing account is available.",
+      "dependencies": ["PROVISION_RECOVERY-020"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-030",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Step 3: Enables required GCP APIs on both projects. Main project: Firestore, Cloud Functions, Cloud Run, Cloud Build, Cloud Scheduler. Recovery project: Firestore, Firebase.",
+      "dependencies": ["PROVISION_RECOVERY-020", "PROVISION_RECOVERY-021"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-040",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Step 4: Creates Firestore database in recovery project (same region as main for import compatibility). Target for runRecoveryTest import and verification.",
+      "dependencies": ["PROVISION_RECOVERY-030"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-050",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Step 5: Enables Point-in-Time Recovery on main project's Firestore. Complementary safeguard alongside daily GCS exports — allows restore to any point within PITR window without import.",
+      "dependencies": ["PROVISION_RECOVERY-040"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-060",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Step 6 overview: grants all IAM permissions required by Cloud Functions for export, storage, import, and smoke test operations.",
+      "dependencies": ["PROVISION_RECOVERY-061", "PROVISION_RECOVERY-062", "PROVISION_RECOVERY-063", "PROVISION_RECOVERY-064", "PROVISION_RECOVERY-065", "PROVISION_RECOVERY-066"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-061",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Derives Firestore service agent SA email from project number. This is the internal GCP agent that writes managed export files — separate from the firebase-adminsdk or Cloud Functions SA.",
+      "dependencies": []
+    },
+    {
+      "guid": "PROVISION_RECOVERY-062",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Grants datastore.importExportAdmin to Cloud Functions SA on main project. Required by BACKUP_FUNCTIONS-011 to call exportDocuments().",
+      "dependencies": ["BACKUP_FUNCTIONS-011"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-063",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Grants storage.admin on backup bucket to Cloud Functions SA. Required by BACKUP_FUNCTIONS-012 to write Auth JSON export.",
+      "dependencies": ["BACKUP_FUNCTIONS-012"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-064",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Grants storage.objectAdmin on backup bucket to Firestore service agent. Critical and easy to forget — without this, exportDocuments() API call returns success but the LRO fails with permission denied.",
+      "dependencies": ["BACKUP_FUNCTIONS-011"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-065",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Grants datastore.importExportAdmin on recovery project to Cloud Functions SA. Required by BACKUP_FUNCTIONS-022 to import backups for smoke test.",
+      "dependencies": ["BACKUP_FUNCTIONS-022"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-066",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Grants datastore.user on recovery project to Cloud Functions SA. Required by BACKUP_FUNCTIONS-023 to read documents during smoke test verification.",
+      "dependencies": ["BACKUP_FUNCTIONS-023"]
+    },
+    {
+      "guid": "PROVISION_RECOVERY-070",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Completion summary: prints what was provisioned and next steps (install functions deps, deploy, verify).",
+      "dependencies": []
+    }
+  ]
+}

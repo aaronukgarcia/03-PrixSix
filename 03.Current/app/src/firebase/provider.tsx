@@ -3,9 +3,10 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, collection, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, arrayUnion } from 'firebase/firestore';
+import { Firestore, collection, serverTimestamp, doc, setDoc, onSnapshot as onDocSnapshot, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, arrayUnion } from 'firebase/firestore';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
 import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword } from 'firebase/auth';
+import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
@@ -61,6 +62,7 @@ interface AuthResult {
 export interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
+  storage: FirebaseStorage | null;
   authService: Auth | null;
   user: User | null;
   firebaseUser: FirebaseAuthUser | null;
@@ -88,6 +90,7 @@ interface FirebaseProviderProps {
   children: ReactNode;
   firebaseApp: FirebaseApp;
   firestore: Firestore;
+  storage: FirebaseStorage;
   auth: Auth;
 }
 
@@ -95,6 +98,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   children,
   firebaseApp,
   firestore,
+  storage,
   auth,
 }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseAuthUser | null>(null);
@@ -106,48 +110,82 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   
   useEffect(() => {
     setIsUserLoading(true);
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (fbUser) => {
-        setFirebaseUser(fbUser);
-        if (fbUser) {
-          try {
-            const userDocRef = doc(firestore, 'users', fbUser.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-              const userData = userDoc.data() as User;
+    let unsubscribeUserDoc: (() => void) | null = null;
 
-              // Sync emailVerified status from Firebase Auth to Firestore
-              if (fbUser.emailVerified && !userData.emailVerified) {
-                try {
-                  await updateDoc(userDocRef, { emailVerified: true });
-                  userData.emailVerified = true;
-                  logAuditEvent(firestore, fbUser.uid, 'email_verified_synced', { email: fbUser.email });
-                } catch (syncError) {
-                  // Non-critical - continue with login even if sync fails
-                  console.warn("Failed to sync email verification status:", syncError);
+    const unsubscribeAuth = onAuthStateChanged(
+      auth,
+      (fbUser) => {
+        setFirebaseUser(fbUser);
+
+        // Tear down any previous user-doc listener
+        if (unsubscribeUserDoc) {
+          unsubscribeUserDoc();
+          unsubscribeUserDoc = null;
+        }
+
+        if (fbUser) {
+          const userDocRef = doc(firestore, 'users', fbUser.uid);
+
+          // Safety net: guarantee isUserLoading clears even if Firestore hangs
+          const loadingTimeout = setTimeout(() => {
+            console.warn("FirebaseProvider: user document fetch timed out (10 s)");
+            setIsUserLoading(false);
+          }, 10_000);
+
+          let isFirstSnapshot = true;
+
+          unsubscribeUserDoc = onDocSnapshot(
+            userDocRef,
+            async (snapshot) => {
+              try {
+                if (snapshot.exists()) {
+                  const userData = snapshot.data() as User;
+
+                  // Sync emailVerified only on initial load
+                  if (isFirstSnapshot && fbUser.emailVerified && !userData.emailVerified) {
+                    try {
+                      await updateDoc(userDocRef, { emailVerified: true });
+                      userData.emailVerified = true;
+                      logAuditEvent(firestore, fbUser.uid, 'email_verified_synced', { email: fbUser.email });
+                    } catch (syncError) {
+                      console.warn("Failed to sync email verification status:", syncError);
+                    }
+                  }
+
+                  setUser(userData);
+
+                  if (isFirstSnapshot && userData.mustChangePin) {
+                    router.push('/profile');
+                  }
+                } else {
+                  console.error("FirebaseProvider: User document not found for uid:", fbUser.uid);
+                  setUser(null);
+                  setUserError(new Error('User profile not found. Please contact support.'));
+                }
+              } catch (docError: any) {
+                console.error("FirebaseProvider: Error processing user document:", docError);
+                setUser(null);
+                setUserError(docError);
+              } finally {
+                if (isFirstSnapshot) {
+                  clearTimeout(loadingTimeout);
+                  setIsUserLoading(false);
+                  isFirstSnapshot = false;
                 }
               }
-
-              setUser(userData);
-              if (userData.mustChangePin) {
-                router.push('/profile');
-              }
-            } else {
-              // User doc doesn't exist - this shouldn't happen for valid users
-              console.error("FirebaseProvider: User document not found for uid:", fbUser.uid);
+            },
+            (error) => {
+              console.error("FirebaseProvider: user document listener error:", error);
+              clearTimeout(loadingTimeout);
               setUser(null);
-              setUserError(new Error('User profile not found. Please contact support.'));
-            }
-          } catch (docError: any) {
-            console.error("FirebaseProvider: Error fetching user document:", docError);
-            setUser(null);
-            setUserError(docError);
-          }
+              setUserError(error);
+              setIsUserLoading(false);
+            },
+          );
         } else {
           setUser(null);
+          setIsUserLoading(false);
         }
-        setIsUserLoading(false);
       },
       (error) => {
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
@@ -155,7 +193,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setIsUserLoading(false);
       }
     );
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+    };
   }, [auth, firestore, router]);
 
   const login = async (email: string, pin: string): Promise<AuthResult> => {
@@ -684,6 +726,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const contextValue = useMemo((): FirebaseContextState => ({
     firebaseApp,
     firestore,
+    storage,
     authService: auth,
     user,
     firebaseUser,
@@ -702,7 +745,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     refreshEmailVerificationStatus,
     updateSecondaryEmail,
     sendSecondaryVerificationEmail
-  }), [firebaseApp, firestore, auth, user, firebaseUser, isUserLoading, userError, isEmailVerified]);
+  }), [firebaseApp, firestore, storage, auth, user, firebaseUser, isUserLoading, userError, isEmailVerified]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -753,4 +796,10 @@ export const useFirebaseApp = (): FirebaseApp => {
   const { firebaseApp } = useFirebase();
   if (!firebaseApp) throw new Error("Firebase App not available");
   return firebaseApp;
+};
+
+export const useStorage = (): FirebaseStorage => {
+  const { storage } = useFirebase();
+  if (!storage) throw new Error("Firebase Storage not available");
+  return storage;
 };
