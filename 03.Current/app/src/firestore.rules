@@ -88,9 +88,9 @@ service cloud.firestore {
       // Signed-in users can read their own audit logs (for audit page)
       // Admins can read all audit logs
       allow get, list: if isSignedIn();
-      // Only allow create for prediction submissions by the owner
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId)
-        && request.resource.data.action in ['prediction_submitted', 'prediction_updated'];
+      // Users can create audit entries only for themselves (prevents cross-user spoofing)
+      // Security-critical audit entries are created server-side via Admin SDK
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
       allow update, delete: if false;
     }
 

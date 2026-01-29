@@ -11,7 +11,9 @@ export function middleware(request: NextRequest) {
     if (origin && host) {
       try {
         const originHost = new URL(origin).host;
-        if (originHost !== host) {
+        // Check X-Forwarded-Host for reverse proxy/cloud environments (Firebase App Hosting, Cloud Run)
+        const forwardedHost = request.headers.get('x-forwarded-host');
+        if (originHost !== host && originHost !== forwardedHost) {
           return new NextResponse(JSON.stringify({ error: 'CSRF check failed' }), {
             status: 403,
             headers: {
