@@ -7,7 +7,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -27,6 +27,12 @@ import { ErrorLogViewer } from "./_components/ErrorLogViewer";
 // [Inbound Trigger] Admin page load (admin-only route guard above).
 // [Downstream Impact] Renders the backup health cards in TabsContent value="backups".
 import { BackupHealthDashboard } from "./_components/BackupHealthDashboard";
+// GUID: PUBCHAT_ADMIN_TAB-001-v01
+// [Intent] Import PubChatPanel component for the 15th admin tab.
+// [Inbound Trigger] Admin page load (admin-only route guard above).
+// [Downstream Impact] Renders PubChat animation + placeholder in TabsContent value="pubchat".
+import { PubChatPanel } from "./_components/PubChatPanel";
+import { LeaguesManager } from "./_components/LeaguesManager";
 import { AttackMonitor } from "./_components/AttackMonitor";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
@@ -86,7 +92,7 @@ export default function AdminPage() {
             </div>
             <AttackMonitor />
             <Tabs defaultValue="functions" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 lg:grid-cols-14">
+                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 lg:grid-cols-16">
                     <TabsTrigger value="functions" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
                     <TabsTrigger value="teams" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
                     <TabsTrigger value="results" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
@@ -107,6 +113,14 @@ export default function AdminPage() {
                         [Downstream Impact] Activates TabsContent value="backups" which mounts
                                             BackupHealthDashboard (BACKUP_DASHBOARD-010). */}
                     <TabsTrigger value="backups" className="data-[state=active]:bg-sky-600 data-[state=active]:text-white"><HardDrive className="w-4 h-4 mr-2"/>Backups</TabsTrigger>
+                    {/* GUID: PUBCHAT_ADMIN_TAB-002-v01
+                        [Intent] 15th tab trigger for the PubChat panel. Amber-500 colour
+                                 matches pub/social theme. Beer icon signals social gathering.
+                        [Inbound Trigger] User clicks the "PubChat" tab in the admin TabsList.
+                        [Downstream Impact] Activates TabsContent value="pubchat" which mounts
+                                            PubChatPanel (PUBCHAT_PANEL-001). */}
+                    <TabsTrigger value="pubchat" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Beer className="w-4 h-4 mr-2"/>PubChat</TabsTrigger>
+                    <TabsTrigger value="leagues" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white"><UsersRound className="w-4 h-4 mr-2"/>Leagues</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
@@ -155,6 +169,17 @@ export default function AdminPage() {
                                         via useDoc (BACKUP_DASHBOARD-011) and renders three status cards. */}
                 <TabsContent value="backups">
                     <BackupHealthDashboard />
+                </TabsContent>
+                {/* GUID: PUBCHAT_ADMIN_TAB-003-v01
+                    [Intent] Mount the PubChatPanel when the PubChat tab is active.
+                    [Inbound Trigger] TabsTrigger value="pubchat" selected (PUBCHAT_ADMIN_TAB-002).
+                    [Downstream Impact] PubChatPanel renders ThePaddockPubChat animation and
+                                        placeholder card for future body content (PUBCHAT_PANEL-001). */}
+                <TabsContent value="pubchat">
+                    <PubChatPanel />
+                </TabsContent>
+                <TabsContent value="leagues">
+                    <LeaguesManager allUsers={allUsers} isUserLoading={isUserLoading} />
                 </TabsContent>
             </Tabs>
       </div>
