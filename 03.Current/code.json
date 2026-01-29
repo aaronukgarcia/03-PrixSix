@@ -372,6 +372,41 @@
       "logic_category": "ORCHESTRATION",
       "description": "Completion summary: prints what was provisioned and next steps (install functions deps, deploy, verify).",
       "dependencies": []
+    },
+    {
+      "guid": "BACKUP_ERRORS-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "PX-7xxx error code definitions for backup & recovery system. Seven codes covering status read failure (dashboard), export failures (Firestore and Auth), smoke test failure, restore failure, cleanup failure, and heartbeat absence (Dead Man's Switch).",
+      "dependencies": ["BACKUP_DASHBOARD-013", "BACKUP_FUNCTIONS-015", "BACKUP_FUNCTIONS-026"]
+    },
+    {
+      "guid": "BACKUP_RULES-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for backup_status collection. Admin-only read access for BackupHealthDashboard subscription. All writes denied at rules level — Cloud Functions write via Admin SDK which bypasses rules.",
+      "dependencies": ["BACKUP_DASHBOARD-011", "BACKUP_FUNCTIONS-005"]
+    },
+    {
+      "guid": "BACKUP_ADMIN_TAB-001",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Import statement for BackupHealthDashboard component in the admin page. Lazy-loaded by Next.js when the admin route is visited.",
+      "dependencies": ["BACKUP_DASHBOARD-000"]
+    },
+    {
+      "guid": "BACKUP_ADMIN_TAB-002",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "14th TabsTrigger in admin page TabsList. Sky-600 colour with HardDrive icon. Activates the Backups tab content panel on click.",
+      "dependencies": ["BACKUP_ADMIN_TAB-003"]
+    },
+    {
+      "guid": "BACKUP_ADMIN_TAB-003",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "TabsContent wrapper that mounts BackupHealthDashboard when the Backups tab is active. Component subscribes to backup_status/latest and renders three status cards.",
+      "dependencies": ["BACKUP_DASHBOARD-010"]
     }
   ]
 }

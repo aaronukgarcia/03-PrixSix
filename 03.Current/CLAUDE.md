@@ -17,6 +17,7 @@ These rules MUST be followed on every piece of code written and every response g
 | #3 | Single Source of Truth — no duplication without CC validation |
 | #4 | Identity Prefix — every response starts with `bob>` or `bill>` |
 | #5 | Verbose Confirmations — explicit, timestamped, version-numbered confirmations |
+| #6 | GUID Documentation — read comments before changing code, update GUID versions and code.json |
 
 ### 🛑 GOLDEN RULE #1: Aggressive Error Trapping
 
@@ -308,6 +309,7 @@ bill> Good morning, I'm Bill on branch feature/xyz. No conflicts detected.
 |------------|-------------|---------|
 | First instance | `bob> ` | `bob> I've updated the file...` |
 | Second instance | `bill> ` | `bill> The build completed...` |
+| Third instance | `ben> ` | `ben> I've reviewed the backup system...` |
 
 #### Why This Matters
 
@@ -336,7 +338,7 @@ The build completed successfully.       ← WRONG: No prefix
 #### Self-Check Before Every Response
 
 Before sending ANY response, ask yourself:
-- ❓ Does my response start with `bob> ` or `bill> `?
+- ❓ Does my response start with `bob> `, `bill> `, or `ben> `?
 - ❓ If NO, add it NOW before sending
 
 **If you forget your assignment, run `node claude-sync.js read` to check.**
@@ -408,6 +410,82 @@ bob> I've updated the version.          ← WRONG: To what number? In which file
 
 bob> Pushed the changes.                ← WRONG: What version? To which branch?
 ```
+
+---
+
+### 🛑 GOLDEN RULE #6: GUID Documentation Discipline
+
+**Every code change MUST respect and maintain the GUID commenting system. Read existing comments before modifying code. Update GUID versions and remarks when logic changes. Update `code.json` to reflect all GUID additions and changes.**
+
+#### Before Modifying ANY Code
+
+1. **Read the GUID comments** on the code block you're about to change
+2. **Understand the three fields:**
+   - `[Intent]` — why this code exists
+   - `[Inbound Trigger]` — what causes it to execute
+   - `[Downstream Impact]` — what breaks if this code changes
+3. **Consider the downstream impact** — if the comment says "X depends on this", check X before changing
+
+If a code block has a GUID comment, **you MUST read and understand it before making changes.**
+
+#### When Changing Existing Code
+
+| What Changed | Required Action |
+|-------------|----------------|
+| Logic changed (behaviour differs) | Increment GUID version (e.g., v03 → v04), update all three remark fields, update `code.json` |
+| Refactored but same behaviour | Increment GUID version, update remarks to reflect new structure |
+| Deleted code | Remove GUID from `code.json`, remove from other GUIDs' dependency lists |
+| Moved code to different file | Update GUID remarks with new location, update `code.json` |
+
+#### When Adding New Code
+
+Every new logical block (function, branch, class, component, rule, config section) MUST have:
+
+```
+// GUID: [MODULE_NAME]-[SEQ]-v03
+// [Intent] Why this code exists.
+// [Inbound Trigger] What causes this code to execute.
+// [Downstream Impact] What depends on this code or what breaks if it changes.
+```
+
+- Use the module naming convention from the file (e.g., `BACKUP_FUNCTIONS-XXX` for functions/index.js)
+- Start at v03 (Fully Audited) for new code where you know the business logic
+- Add a corresponding entry to `code.json`
+
+#### Updating `code.json`
+
+The manifest at `code.json` MUST stay in sync with code comments:
+
+- **New GUID →** Add entry with guid, version, logic_category, description, dependencies
+- **Changed GUID →** Increment version number, update description if behaviour changed
+- **Removed GUID →** Delete entry, remove from all dependency arrays
+- **logic_category** must be one of: `VALIDATION`, `TRANSFORMATION`, `ORCHESTRATION`, `RECOVERY`
+
+#### What NOT To Do
+
+| ❌ Don't | ✅ Do |
+|----------|------|
+| Change code without reading its GUID remarks | Read [Intent] and [Downstream Impact] first |
+| Leave stale GUID comments after changing logic | Update the remarks to match the new behaviour |
+| Add code without GUID comments | Add GUID + [Intent] + [Inbound Trigger] + [Downstream Impact] |
+| Update code GUIDs but forget `code.json` | Always update both together |
+| Delete GUID comments without removing from `code.json` | Remove from both places |
+
+#### Compliance Checklist
+
+When reviewing code changes, verify:
+
+- [ ] All modified code blocks have updated GUID versions and remarks
+- [ ] All new code blocks have GUID comments with all three fields
+- [ ] `code.json` reflects all GUID additions, changes, and deletions
+- [ ] Dependency arrays in `code.json` are accurate (no stale references)
+- [ ] No GUID comments describe behaviour that no longer matches the code
+
+**If ANY checkbox fails, the code is not ready for commit.**
+
+#### Reference
+
+The full GUID commenting specification is in `AddComments.md`. Follow that format for all remarks.
 
 ---
 
@@ -811,6 +889,7 @@ The continue URL in email verification is configured in `firebase/provider.tsx`.
 9. ✅ **GOLDEN RULE #3:** Verify no data duplication without CC sync validation
 10. ✅ **GOLDEN RULE #4:** Prefix your commit confirmation with bob> or bill>
 11. ✅ **GOLDEN RULE #5:** Use verbose confirmation: `bob> Committed: "type: message" (1.x.x)`
+12. ✅ **GOLDEN RULE #6:** GUID comments updated on all changed/new code, `code.json` in sync
 
 ---
 

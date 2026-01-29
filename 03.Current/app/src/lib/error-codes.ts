@@ -61,6 +61,14 @@ export const ERROR_CODES = {
   SESSION_TIMEOUT: { code: 'PX-6002', message: 'Session timed out due to inactivity' },
   SESSION_CONFLICT: { code: 'PX-6003', message: 'Session conflict detected' },
 
+  // GUID: BACKUP_ERRORS-001-v03
+  // [Intent] Define the PX-7xxx error code family for the backup & recovery system.
+  //          Each code maps to a specific failure mode in the dailyBackup or
+  //          runRecoveryTest Cloud Functions, or in the admin dashboard's status read.
+  // [Inbound Trigger] Referenced by BackupHealthDashboard (PX-7001) and
+  //                   Cloud Functions index.js (PX-7002..PX-7007 via structured logs).
+  // [Downstream Impact] Displayed in the admin Error Log tab (ErrorLogViewer PX-7 category)
+  //                     and the Backup Health dashboard (PX-7001 inline alert).
   // 7xxx - Backup & Recovery
   BACKUP_STATUS_READ_FAILED: { code: 'PX-7001', message: 'Failed to read backup status' },
   BACKUP_EXPORT_FAILED: { code: 'PX-7002', message: 'Firestore backup export failed' },

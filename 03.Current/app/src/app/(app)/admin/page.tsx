@@ -22,6 +22,10 @@ import { WhatsAppManager } from "./_components/WhatsAppManager";
 import { StandingDataManager } from "./_components/StandingDataManager";
 import { FeedbackManager } from "./_components/FeedbackManager";
 import { ErrorLogViewer } from "./_components/ErrorLogViewer";
+// GUID: BACKUP_ADMIN_TAB-001-v03
+// [Intent] Import BackupHealthDashboard component for the 14th admin tab.
+// [Inbound Trigger] Admin page load (admin-only route guard above).
+// [Downstream Impact] Renders the backup health cards in TabsContent value="backups".
 import { BackupHealthDashboard } from "./_components/BackupHealthDashboard";
 import { AttackMonitor } from "./_components/AttackMonitor";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
@@ -96,6 +100,12 @@ export default function AdminPage() {
                     <TabsTrigger value="feedback" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white"><Bug className="w-4 h-4 mr-2"/>Feedback</TabsTrigger>
                     <TabsTrigger value="consistency" className="data-[state=active]:bg-teal-500 data-[state=active]:text-white"><ClipboardCheck className="w-4 h-4 mr-2"/>CC</TabsTrigger>
                     <TabsTrigger value="errors" className="data-[state=active]:bg-red-600 data-[state=active]:text-white"><AlertTriangle className="w-4 h-4 mr-2"/>Errors</TabsTrigger>
+                    {/* GUID: BACKUP_ADMIN_TAB-002-v03
+                        [Intent] 14th tab trigger for the Backup Health dashboard. Sky-600 colour
+                                 distinguishes it from other admin tabs. HardDrive icon signals storage/backup.
+                        [Inbound Trigger] User clicks the "Backups" tab in the admin TabsList.
+                        [Downstream Impact] Activates TabsContent value="backups" which mounts
+                                            BackupHealthDashboard (BACKUP_DASHBOARD-010). */}
                     <TabsTrigger value="backups" className="data-[state=active]:bg-sky-600 data-[state=active]:text-white"><HardDrive className="w-4 h-4 mr-2"/>Backups</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
@@ -138,6 +148,11 @@ export default function AdminPage() {
                 <TabsContent value="errors">
                     <ErrorLogViewer />
                 </TabsContent>
+                {/* GUID: BACKUP_ADMIN_TAB-003-v03
+                    [Intent] Mount the BackupHealthDashboard when the Backups tab is active.
+                    [Inbound Trigger] TabsTrigger value="backups" selected (BACKUP_ADMIN_TAB-002).
+                    [Downstream Impact] BackupHealthDashboard subscribes to backup_status/latest
+                                        via useDoc (BACKUP_DASHBOARD-011) and renders three status cards. */}
                 <TabsContent value="backups">
                     <BackupHealthDashboard />
                 </TabsContent>

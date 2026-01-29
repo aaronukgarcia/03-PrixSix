@@ -227,6 +227,14 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // GUID: BACKUP_RULES-001-v03
+    // [Intent] Firestore security rules for the backup_status collection.
+    //          Grants admin-only read access so the BackupHealthDashboard can
+    //          subscribe to backup_status/latest. Denies all client-side writes —
+    //          only Cloud Functions (via Admin SDK, which bypasses rules) can write.
+    // [Inbound Trigger] BackupHealthDashboard useDoc subscription (BACKUP_DASHBOARD-011).
+    // [Downstream Impact] Without these rules, admin dashboard reads would be denied
+    //                     (PX-7001). Write denial ensures no client can forge status.
     // Backup status - written by Cloud Functions (Admin SDK), read by admins
     match /backup_status/{docId} {
       allow get, list: if isAdmin();
