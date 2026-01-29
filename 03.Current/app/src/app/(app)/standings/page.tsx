@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useAuth } from "@/firebase";
 import { useLeague } from "@/contexts/league-context";
 import { LeagueSelector } from "@/components/league/LeagueSelector";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule } from "@/lib/data";
-import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown } from "lucide-react";
+import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { LastUpdated } from "@/components/ui/last-updated";
@@ -121,6 +121,8 @@ export default function StandingsPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { selectedLeague } = useLeague();
+  const { user } = useAuth(); // 7a3f1d2e — identify current user for chart filtering
+  const [chartMode, setChartMode] = useState<'top10' | 'myPosition'>('top10'); // 7a3f1d2e — chart line filter toggle
 
   const [allScores, setAllScores] = useState<ScoreData[]>([]);
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
@@ -539,11 +541,54 @@ export default function StandingsPage() {
     return data;
   }, [completedRaceWeekends, filteredScores, userNames, selectedRaceIndex]);
 
-  // Get team names for chart lines (sorted by final position)
+  // 7a3f1d2e — user's primary and secondary userIds for chart filtering
+  const userTeamIds = useMemo(() => {
+    if (!user) return { primary: null, secondary: null };
+    return { primary: user.id, secondary: user.secondaryTeamName ? `${user.id}-secondary` : null };
+  }, [user]);
+
+  // 7a3f1d2e — filter chart lines to ~11 based on chartMode
   const chartTeams = useMemo(() => {
     if (standings.length === 0) return [];
-    return standings.map(s => s.teamName);
-  }, [standings]);
+
+    if (chartMode === 'top10') {
+      // Top 10 + user's team(s) if outside top 10
+      const top10Names = standings.slice(0, 10).map(s => s.teamName);
+      const result = new Set(top10Names);
+      if (userTeamIds.primary) {
+        const primaryEntry = standings.find(s => s.userId === userTeamIds.primary);
+        if (primaryEntry) result.add(primaryEntry.teamName);
+      }
+      if (userTeamIds.secondary) {
+        const secondaryEntry = standings.find(s => s.userId === userTeamIds.secondary);
+        if (secondaryEntry) result.add(secondaryEntry.teamName);
+      }
+      // Return in standings order
+      return standings.filter(s => result.has(s.teamName)).map(s => s.teamName);
+    }
+
+    // myPosition mode: user's team + 5 above + 5 below
+    const userIndex = userTeamIds.primary
+      ? standings.findIndex(s => s.userId === userTeamIds.primary)
+      : -1;
+
+    if (userIndex === -1) {
+      // User not found — fallback to top 11
+      return standings.slice(0, 11).map(s => s.teamName);
+    }
+
+    const start = Math.max(0, Math.min(userIndex - 5, standings.length - 11));
+    const end = Math.min(standings.length, start + 11);
+    const windowNames = new Set(standings.slice(start, end).map(s => s.teamName));
+
+    // Also include secondary team if outside the window
+    if (userTeamIds.secondary) {
+      const secondaryEntry = standings.find(s => s.userId === userTeamIds.secondary);
+      if (secondaryEntry) windowNames.add(secondaryEntry.teamName);
+    }
+
+    return standings.filter(s => windowNames.has(s.teamName)).map(s => s.teamName);
+  }, [standings, chartMode, userTeamIds]);
 
   // Deterministic color per team name — stays stable across race selections
   const getStableTeamColor = useCallback((name: string): string => {
@@ -672,49 +717,79 @@ export default function StandingsPage() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Season progression chart */}
+        {/* 7a3f1d2e — Season progression chart with mode toggle */}
         {!isLoading && chartData.length > 1 && chartTeams.length > 0 && (
-          <div className="w-full h-48 mb-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                <XAxis
-                  dataKey="race"
-                  tick={{ fontSize: 10 }}
-                  axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-                  tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-                />
-                <YAxis
-                  domain={[0, maxPoints]}
-                  tick={{ fontSize: 10 }}
-                  axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-                  tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-                  width={35}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                  }}
-                  labelStyle={{ fontWeight: 'bold' }}
-                />
-                {chartTeams.map((teamName) => {
-                  const rank = standings.findIndex(s => s.teamName === teamName);
-                  return (
-                    <Line
-                      key={teamName}
-                      type="monotone"
-                      dataKey={teamName}
-                      stroke={getStableTeamColor(teamName)}
-                      strokeWidth={rank < 3 ? 2.5 : 1}
-                      dot={false}
-                      opacity={rank < 3 ? 1 : 0.4}
-                    />
-                  );
-                })}
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="space-y-2 mb-4">
+            {/* 7a3f1d2e — chart mode toggle buttons */}
+            <div className="flex gap-1">
+              <Button
+                variant={chartMode === 'top10' ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setChartMode('top10')}
+              >
+                <Users className="h-3 w-3" />
+                Top 10
+              </Button>
+              <Button
+                variant={chartMode === 'myPosition' ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setChartMode('myPosition')}
+              >
+                <Crosshair className="h-3 w-3" />
+                My Position
+              </Button>
+            </div>
+            <div className="w-full h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                  <XAxis
+                    dataKey="race"
+                    tick={{ fontSize: 10 }}
+                    axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <YAxis
+                    domain={[0, maxPoints]}
+                    tick={{ fontSize: 10 }}
+                    axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                    width={35}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                    }}
+                    labelStyle={{ fontWeight: 'bold' }}
+                  />
+                  {/* 7a3f1d2e — mode-aware line styling */}
+                  {chartTeams.map((teamName) => {
+                    const rank = standings.findIndex(s => s.teamName === teamName);
+                    const entry = standings.find(s => s.teamName === teamName);
+                    const isUserTeam = entry != null && (entry.userId === userTeamIds.primary || entry.userId === userTeamIds.secondary);
+
+                    // top10: top 3 bold+opaque; myPosition: user's teams bold+opaque
+                    const bold = chartMode === 'top10' ? rank < 3 : isUserTeam;
+
+                    return (
+                      <Line
+                        key={teamName}
+                        type="monotone"
+                        dataKey={teamName}
+                        stroke={getStableTeamColor(teamName)}
+                        strokeWidth={bold ? 2.5 : 1}
+                        dot={false}
+                        opacity={bold ? 1 : 0.4}
+                      />
+                    );
+                  })}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
 
