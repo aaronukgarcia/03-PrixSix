@@ -137,9 +137,9 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     return () => clearInterval(interval);
   }, [qualifyingTime]);
 
-  const availableDrivers = allDrivers.filter(
-    (d) => !predictions.some((p) => p?.id === d.id)
-  );
+  const availableDrivers = allDrivers
+    .filter((d) => !predictions.some((p) => p?.id === d.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const addChangeToHistory = (change: string, includeTimestamp = false) => {
     const timestamp = includeTimestamp ? ` [${new Date().toLocaleString()}]` : "";

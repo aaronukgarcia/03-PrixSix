@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { useAuth, useFirestore, useStorage, addDocumentNonBlocking } from "@/firebase";
 import { logAuditEvent } from "@/lib/audit";
 import {
   AlertDialog,
@@ -43,7 +43,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { generateTeamName } from "@/ai/flows/team-name-generator";
-import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X } from "lucide-react";
+import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X, Upload } from "lucide-react";
+import { validateImageFile, uploadProfilePhoto, compressImage, type UploadProgress } from "@/lib/file-upload";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -78,6 +80,7 @@ type ChangePinValues = z.infer<typeof changePinSchema>;
 export default function ProfilePage() {
   const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser, isEmailVerified, sendVerificationEmail, refreshEmailVerificationStatus, updateSecondaryEmail, sendSecondaryVerificationEmail } = useAuth();
   const firestore = useFirestore();
+  const storage = useStorage();
   const { toast } = useToast();
   const { sessionId } = useSession();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -88,6 +91,8 @@ export default function ProfilePage() {
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState("");
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [secondaryEmailInput, setSecondaryEmailInput] = useState("");
   const [isSavingSecondaryEmail, setIsSavingSecondaryEmail] = useState(false);
   const [isSendingSecondaryVerification, setIsSendingSecondaryVerification] = useState(false);
@@ -445,6 +450,70 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !firebaseUser || !storage) return;
+
+    // Validate file
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      toast({
+        variant: "destructive",
+        title: "Invalid File",
+        description: validation.error,
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress({ progress: 0, state: 'running' });
+
+    try {
+      // Compress image before uploading
+      const compressedFile = await compressImage(file, 400, 0.85);
+
+      // Upload to Firebase Storage
+      const downloadUrl = await uploadProfilePhoto(
+        storage,
+        firebaseUser.uid,
+        compressedFile,
+        (progress) => setUploadProgress(progress)
+      );
+
+      // Update Firestore with the new URL
+      const userRef = doc(firestore, "users", firebaseUser.uid);
+      await updateDoc(userRef, { photoUrl: downloadUrl });
+
+      await logAuditEvent(firestore, firebaseUser.uid, 'UPDATE_PROFILE_PHOTO', {
+        email: user?.email,
+        teamName: user?.teamName,
+        photoUrl: downloadUrl,
+        source: 'file_upload',
+      });
+
+      // Update local state
+      setPhotoUrl(downloadUrl);
+
+      toast({
+        title: "Photo Uploaded",
+        description: "Your profile photo has been updated.",
+      });
+      setIsPhotoDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error uploading photo:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload Failed",
+        description: error.message || "Could not upload photo. Please try again.",
+      });
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(null);
+      // Reset file input
+      event.target.value = '';
+    }
+  }
+
   // Preset avatar options
   const presetAvatars = [
     `https://picsum.photos/seed/${user?.id}/200/200`,
@@ -504,16 +573,50 @@ export default function ProfilePage() {
                               <AvatarFallback className="text-3xl">{user?.teamName?.charAt(0)}</AvatarFallback>
                             </Avatar>
                           </div>
+
+                          {/* File Upload Section */}
                           <div className="space-y-2">
-                            <label className="text-sm font-medium">Image URL</label>
+                            <label className="text-sm font-medium">Upload a photo</label>
+                            <div className="flex gap-2">
+                              <Input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={handleFileUpload}
+                                disabled={isUploading || isSavingPhoto}
+                                className="cursor-pointer file:mr-2 file:px-2 file:py-1 file:rounded file:border-0 file:text-sm file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground">JPG, PNG, or WebP. Max 5MB.</p>
+                            {isUploading && uploadProgress && (
+                              <div className="space-y-1">
+                                <Progress value={uploadProgress.progress} className="h-2" />
+                                <p className="text-xs text-muted-foreground text-center">
+                                  Uploading... {Math.round(uploadProgress.progress)}%
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                              <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                              <span className="bg-background px-2 text-muted-foreground">Or</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Enter image URL</label>
                             <div className="flex gap-2">
                               <Input
                                 placeholder="https://example.com/photo.jpg"
                                 value={photoUrl}
                                 onChange={(e) => setPhotoUrl(e.target.value)}
+                                disabled={isUploading}
                               />
                               {photoUrl && (
-                                <Button variant="ghost" size="icon" onClick={() => setPhotoUrl("")}>
+                                <Button variant="ghost" size="icon" onClick={() => setPhotoUrl("")} disabled={isUploading}>
                                   <X className="h-4 w-4" />
                                 </Button>
                               )}
@@ -526,7 +629,8 @@ export default function ProfilePage() {
                                 <button
                                   key={idx}
                                   onClick={() => setPhotoUrl(url)}
-                                  className={`rounded-full overflow-hidden border-2 transition-all ${photoUrl === url ? 'border-primary ring-2 ring-primary/20' : 'border-transparent hover:border-muted-foreground/50'}`}
+                                  disabled={isUploading}
+                                  className={`rounded-full overflow-hidden border-2 transition-all ${photoUrl === url ? 'border-primary ring-2 ring-primary/20' : 'border-transparent hover:border-muted-foreground/50'} ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                   <Avatar className="h-10 w-10">
                                     <AvatarImage src={url} />
@@ -538,10 +642,10 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         <DialogFooter>
-                          <Button variant="outline" onClick={() => setIsPhotoDialogOpen(false)}>
+                          <Button variant="outline" onClick={() => setIsPhotoDialogOpen(false)} disabled={isUploading}>
                             Cancel
                           </Button>
-                          <Button onClick={handleSavePhoto} disabled={isSavingPhoto}>
+                          <Button onClick={handleSavePhoto} disabled={isSavingPhoto || isUploading}>
                             {isSavingPhoto ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Save Photo
                           </Button>

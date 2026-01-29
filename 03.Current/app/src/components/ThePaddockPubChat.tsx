@@ -35,7 +35,7 @@ function parseTimeToMs(t: string): number {
 }
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
-const Prix6HotNewsCard = () => {
+const ThePaddockPubChat = () => {
   const leaderMs = parseTimeToMs(DRIVER_DATA[0].time);
 
   // Shared braking curve
@@ -262,4 +262,4 @@ const Prix6HotNewsCard = () => {
   );
 };
 
-export default Prix6HotNewsCard;
+export default ThePaddockPubChat;
