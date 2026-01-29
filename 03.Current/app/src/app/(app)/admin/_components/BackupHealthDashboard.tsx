@@ -283,10 +283,27 @@ export function BackupHealthDashboard() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertTitle>No backup data yet</AlertTitle>
-        <AlertDescription>
-          The backup system has not run yet. Once <code>dailyBackup</code> executes
-          for the first time, status will appear here. Deploy Cloud Functions and
-          verify with: <code className="text-xs">gcloud functions call dailyBackup</code>
+        <AlertDescription className="space-y-3">
+          <p>
+            The backup system has not run yet. Once <code>dailyBackup</code> executes
+            for the first time, status will appear here.
+          </p>
+          {/* 7a3f1d2e — surface Backup Now in empty state so admins can seed
+              the first backup from the UI without needing CLI access */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBackupNow}
+            disabled={isBackingUp}
+            className="h-7 text-xs"
+          >
+            {isBackingUp ? (
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <Play className="h-3 w-3 mr-1" />
+            )}
+            {isBackingUp ? 'Backing up…' : 'Backup Now'}
+          </Button>
         </AlertDescription>
       </Alert>
     );
