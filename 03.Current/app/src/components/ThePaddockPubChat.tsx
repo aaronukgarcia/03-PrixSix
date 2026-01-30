@@ -3,28 +3,26 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Timer, MapPin } from "lucide-react";
+import type { PubChatTimingData } from "@/firebase/firestore/settings";
 
-// ─── DATA ────────────────────────────────────────────────────────────────────
-const DRIVER_DATA = [
-  { driver: "Hadjar",    team: "Red Bull",     laps: 108, time: "1:18.159" },
-  { driver: "Russell",   team: "Mercedes",     laps:  95, time: "1:18.696" },
-  { driver: "Colapinto", team: "Alpine",       laps:  60, time: "1:20.189" },
-  { driver: "Antonelli", team: "Mercedes",     laps:  59, time: "1:20.700" },
-  { driver: "Ocon",      team: "Haas",         laps: 154, time: "1:21.301" },
-  { driver: "Lawson",    team: "Racing Bulls", laps:  88, time: "1:21.513" },
-  { driver: "Bottas",    team: "Cadillac",     laps:  34, time: "1:24.651" },
-  { driver: "Bortoleto", team: "Audi",         laps:  28, time: "1:25.296" },
-  { driver: "Perez",     team: "Cadillac",     laps:  11, time: "1:25.974" },
+// ─── FALLBACK DATA ──────────────────────────────────────────────────────────
+const FALLBACK_DRIVER_DATA = [
+  { position: 1, driver: "Hadjar",    team: "Red Bull",     teamColour: "3671C6", laps: 108, time: "1:18.159", bestLapDuration: 78.159, fullName: "Isack HADJAR",       driverNumber: 6  },
+  { position: 2, driver: "Russell",   team: "Mercedes",     teamColour: "27F4D2", laps:  95, time: "1:18.696", bestLapDuration: 78.696, fullName: "George RUSSELL",     driverNumber: 63 },
+  { position: 3, driver: "Colapinto", team: "Alpine",       teamColour: "FF87BC", laps:  60, time: "1:20.189", bestLapDuration: 80.189, fullName: "Franco COLAPINTO",   driverNumber: 43 },
+  { position: 4, driver: "Antonelli", team: "Mercedes",     teamColour: "27F4D2", laps:  59, time: "1:20.700", bestLapDuration: 80.700, fullName: "Andrea Kimi ANTONELLI", driverNumber: 12 },
+  { position: 5, driver: "Ocon",      team: "Haas",         teamColour: "B6BABD", laps: 154, time: "1:21.301", bestLapDuration: 81.301, fullName: "Esteban OCON",       driverNumber: 31 },
+  { position: 6, driver: "Lawson",    team: "Racing Bulls", teamColour: "6692FF", laps:  88, time: "1:21.513", bestLapDuration: 81.513, fullName: "Liam LAWSON",        driverNumber: 30 },
+  { position: 7, driver: "Bottas",    team: "Cadillac",     teamColour: "1E5D3A", laps:  34, time: "1:24.651", bestLapDuration: 84.651, fullName: "Valtteri BOTTAS",    driverNumber: 77 },
+  { position: 8, driver: "Bortoleto", team: "Audi",         teamColour: "52E252", laps:  28, time: "1:25.296", bestLapDuration: 85.296, fullName: "Gabriel BORTOLETO",  driverNumber: 5  },
+  { position: 9, driver: "Perez",     team: "Cadillac",     teamColour: "1E5D3A", laps:  11, time: "1:25.974", bestLapDuration: 85.974, fullName: "Sergio PEREZ",       driverNumber: 11 },
 ];
 
-const TEAM_ACCENT: Record<string, string> = {
-  "Red Bull":     "text-blue-400",
-  "Mercedes":     "text-teal-400",
-  "Alpine":       "text-pink-400",
-  "Haas":         "text-neutral-400",
-  "Racing Bulls": "text-sky-400",
-  "Cadillac":     "text-emerald-400",
-  "Audi":         "text-green-400",
+const FALLBACK_SESSION = {
+  meetingName: "Pre-season Testing",
+  sessionName: "Day 1",
+  circuitName: "Barcelona",
+  location: "Barcelona",
 };
 
 /** Parse "M:SS.mmm" → milliseconds */
@@ -35,8 +33,15 @@ function parseTimeToMs(t: string): number {
 }
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
-const ThePaddockPubChat = () => {
-  const leaderMs = parseTimeToMs(DRIVER_DATA[0].time);
+interface ThePaddockPubChatProps {
+  timingData?: PubChatTimingData | null;
+}
+
+const ThePaddockPubChat = ({ timingData }: ThePaddockPubChatProps) => {
+  const drivers = timingData?.drivers?.length ? timingData.drivers : FALLBACK_DRIVER_DATA;
+  const session = timingData?.session || FALLBACK_SESSION;
+
+  const leaderMs = parseTimeToMs(drivers[0].time);
 
   // Shared braking curve
   const brakingEase = [0.22, 1, 0.36, 1] as const;
@@ -74,6 +79,15 @@ const ThePaddockPubChat = () => {
     },
   };
 
+  // Build header text from session metadata
+  const headerLabel = session.meetingName || "Pre-season Testing";
+  const headerTitle = session.sessionName
+    ? `${session.sessionName} \u2014 ${session.circuitName || session.location || ""}`
+    : "Day 1 \u2014 Barcelona";
+  const circuitSubtext = session.circuitName
+    ? `Circuit de ${session.circuitName}`
+    : "Circuit de Barcelona-Catalunya";
+
   return (
     <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-gradient-to-b from-[#0f172a] via-[#0a1628] to-[#020617] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] border border-white/[0.08] font-sans group select-none">
 
@@ -90,16 +104,16 @@ const ThePaddockPubChat = () => {
           <div className="flex items-center gap-2 mb-1">
             <Timer className="w-3.5 h-3.5 text-blue-400/70" />
             <p className="text-[10px] uppercase tracking-[0.2em] text-blue-400/80 font-semibold">
-              Pre-season Testing
+              {headerLabel}
             </p>
           </div>
           <h2 className="text-xl font-bold tracking-tight text-white">
-            Day 1 &mdash; Barcelona
+            {headerTitle}
           </h2>
           <div className="flex items-center gap-1.5 mt-1.5">
             <MapPin className="w-3 h-3 text-slate-500" />
             <p className="text-[10px] text-slate-500 tracking-wide">
-              Circuit de Barcelona-Catalunya
+              {circuitSubtext}
             </p>
           </div>
         </motion.div>
@@ -133,16 +147,15 @@ const ThePaddockPubChat = () => {
 
         {/* rows */}
         <div className="space-y-0.5">
-          {DRIVER_DATA.map((row, i) => {
+          {drivers.map((row, i) => {
             const gap =
               i === 0
                 ? ""
                 : `+${((parseTimeToMs(row.time) - leaderMs) / 1000).toFixed(3)}`;
-            const accent = TEAM_ACCENT[row.team] ?? "text-slate-400";
 
             return (
               <motion.div
-                key={row.driver}
+                key={row.driverNumber ?? row.driver}
                 variants={rowVariants}
                 className={`flex items-center justify-between py-2 px-2 rounded-lg transition-colors duration-200 hover:bg-white/[0.04] ${
                   i === 0
@@ -172,7 +185,8 @@ const ThePaddockPubChat = () => {
                       {row.driver}
                     </span>
                     <span
-                      className={`text-[10px] uppercase tracking-wide ${accent}`}
+                      className="text-[10px] uppercase tracking-wide"
+                      style={{ color: `#${row.teamColour}` }}
                     >
                       {row.team}
                     </span>

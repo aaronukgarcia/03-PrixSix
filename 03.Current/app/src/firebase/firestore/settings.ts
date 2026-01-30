@@ -239,3 +239,60 @@ export async function updatePubChatContent(
     const settingsRef = doc(db, "app-settings", "pub-chat");
     await setDoc(settingsRef, data, { merge: true });
 }
+
+// ============================================
+// Pub Chat Timing Data (OpenF1)
+// ============================================
+
+export interface PubChatTimingDriver {
+    position: number;
+    driver: string;            // Last name: "Verstappen"
+    fullName: string;          // "Max VERSTAPPEN"
+    driverNumber: number;
+    team: string;              // "Red Bull Racing"
+    teamColour: string;        // Hex without #: "3671C6"
+    laps: number;
+    bestLapDuration: number;   // Seconds (float)
+    time: string;              // Formatted: "1:29.117"
+}
+
+export interface PubChatTimingData {
+    session: {
+        meetingKey: number;
+        meetingName: string;
+        sessionKey: number;
+        sessionName: string;
+        circuitName: string;
+        location: string;
+        countryName: string;
+        dateStart: string;
+    };
+    drivers: PubChatTimingDriver[];
+    fetchedAt: Timestamp;
+    fetchedBy: string;
+}
+
+const defaultPubChatTimingData: PubChatTimingData | null = null;
+
+/**
+ * Retrieves the pub chat timing data from Firestore.
+ * Returns null if the document doesn't exist or has no data.
+ * @param {Firestore} db - The Firestore instance.
+ * @param {boolean} forceServer - If true, bypasses cache and fetches from server.
+ * @returns {Promise<PubChatTimingData | null>} The current timing data, or null.
+ */
+export async function getPubChatTimingData(db: Firestore, forceServer = false): Promise<PubChatTimingData | null> {
+    const settingsRef = doc(db, "app-settings", "pub-chat-timing");
+    try {
+        const docSnap = forceServer
+            ? await getDocFromServer(settingsRef)
+            : await getDoc(settingsRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as PubChatTimingData;
+        }
+        return defaultPubChatTimingData;
+    } catch (error) {
+        console.error("Error getting pub chat timing data: ", error);
+        return defaultPubChatTimingData;
+    }
+}

@@ -66,6 +66,9 @@ export const ERROR_CODES = {
   EMAIL_DAILY_LIMIT: { code: 'PX-3003', message: 'Daily email limit reached' },
   EMAIL_CONFIG_MISSING: { code: 'PX-3004', message: 'Email service not configured' },
   AI_GENERATION_FAILED: { code: 'PX-3101', message: 'AI content generation failed' },
+  OPENF1_FETCH_FAILED: { code: 'PX-3201', message: 'OpenF1 API request failed' },
+  OPENF1_NO_DATA: { code: 'PX-3202', message: 'No timing data returned from OpenF1' },
+  OPENF1_PARSE_FAILED: { code: 'PX-3203', message: 'Failed to parse OpenF1 response' },
 
   // 4xxx - Firestore Operations
   FIRESTORE_READ_FAILED: { code: 'PX-4001', message: 'Failed to read from database' },
