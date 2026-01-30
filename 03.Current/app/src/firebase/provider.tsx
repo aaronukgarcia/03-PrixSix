@@ -12,7 +12,17 @@ import React, { createContext, useContext, ReactNode, useMemo, useState, useEffe
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, collection, serverTimestamp, doc, setDoc, onSnapshot as onDocSnapshot, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, arrayUnion } from 'firebase/firestore';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
-import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword } from 'firebase/auth';
+import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword, getRedirectResult, OAuthCredential, OAuthProvider } from 'firebase/auth';
+import {
+  signInWithGoogle as authSignInWithGoogle,
+  signInWithApple as authSignInWithApple,
+  linkGoogleToAccount,
+  linkAppleToAccount,
+  unlinkProvider as authUnlinkProvider,
+  getProviderIds,
+  type OAuthSignInResult,
+  type OAuthLinkResult,
+} from '@/services/authService';
 import { FirebaseStorage } from 'firebase/storage';
 import { Functions } from 'firebase/functions';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
@@ -70,13 +80,15 @@ export interface User {
   photoUrl?: string; // User profile photo URL
   secondaryEmail?: string; // Secondary email for communications only
   secondaryEmailVerified?: boolean; // Whether secondary email is verified
+  providers?: string[]; // ['password', 'google.com', 'apple.com']
+  lastLogin?: any; // Timestamp of last login
 }
 
 // GUID: FIREBASE_PROVIDER-004-v03
 // [Intent] Standard return type for all authentication operations (login, signup, PIN changes, etc.).
 // [Inbound Trigger] Returned by every auth method in the provider.
 // [Downstream Impact] UI components use success/message to display feedback; pin is optionally returned on signup.
-interface AuthResult {
+export interface AuthResult {
   success: boolean;
   message: string;
   pin?: string;
@@ -110,6 +122,14 @@ export interface FirebaseContextState {
   refreshEmailVerificationStatus: () => Promise<void>;
   updateSecondaryEmail: (email: string | null) => Promise<AuthResult>;
   sendSecondaryVerificationEmail: () => Promise<AuthResult>;
+  signInWithGoogle: () => Promise<OAuthSignInResult>;
+  signInWithApple: () => Promise<OAuthSignInResult>;
+  linkGoogle: () => Promise<OAuthLinkResult>;
+  linkApple: () => Promise<OAuthLinkResult>;
+  unlinkProvider: (providerId: string) => Promise<AuthResult>;
+  pendingOAuthCredential: OAuthCredential | null;
+  clearPendingCredential: () => void;
+  isNewOAuthUser: boolean;
 }
 
 // GUID: FIREBASE_PROVIDER-006-v03
@@ -144,6 +164,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [user, setUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [userError, setUserError] = useState<Error | null>(null);
+  const [pendingOAuthCredential, setPendingOAuthCredential] = useState<OAuthCredential | null>(null);
+  const [isNewOAuthUser, setIsNewOAuthUser] = useState(false);
 
   const router = useRouter();
 
@@ -199,15 +221,64 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                     }
                   }
 
+                  // GUID: FIREBASE_PROVIDER-029-v03
+                  // [Intent] Sync provider list from Firebase Auth to Firestore on initial load.
+                  //          Also syncs photoUrl from Google/Apple if user has none set.
+                  // [Inbound Trigger] First snapshot after auth state change.
+                  // [Downstream Impact] Keeps Firestore providers[] in sync with Firebase Auth providerData.
+                  if (isFirstSnapshot) {
+                    const currentProviders = getProviderIds(fbUser);
+                    const storedProviders = userData.providers || [];
+                    const providersChanged = currentProviders.length !== storedProviders.length ||
+                      currentProviders.some(p => !storedProviders.includes(p));
+
+                    const updates: Record<string, any> = {};
+                    if (providersChanged) {
+                      updates.providers = currentProviders;
+                    }
+                    // Sync photoUrl from OAuth provider if user has none
+                    if (!userData.photoUrl && fbUser.photoURL) {
+                      updates.photoUrl = fbUser.photoURL;
+                      userData.photoUrl = fbUser.photoURL;
+                    }
+                    if (Object.keys(updates).length > 0) {
+                      try {
+                        await updateDoc(userDocRef, updates);
+                        if (updates.providers) {
+                          userData.providers = currentProviders;
+                        }
+                      } catch (syncError) {
+                        console.warn("Failed to sync provider/photo data:", syncError);
+                      }
+                    }
+                  }
+
+                  setIsNewOAuthUser(false);
                   setUser(userData);
 
                   if (isFirstSnapshot && userData.mustChangePin) {
                     router.push('/profile');
                   }
                 } else {
-                  console.error("FirebaseProvider: User document not found for uid:", fbUser.uid);
-                  setUser(null);
-                  setUserError(new Error('User profile not found. Please contact support.'));
+                  // GUID: FIREBASE_PROVIDER-030-v03
+                  // [Intent] When a Firebase Auth user exists but no Firestore doc is found,
+                  //          check if this is an OAuth user (Google/Apple). If so, redirect
+                  //          to /complete-profile for team name entry instead of showing an error.
+                  // [Inbound Trigger] OAuth sign-in creates a Firebase Auth user but no Firestore doc.
+                  // [Downstream Impact] Sets isNewOAuthUser=true, which gates access to /complete-profile.
+                  const providerIds = getProviderIds(fbUser);
+                  const hasOAuthProvider = providerIds.includes('google.com') || providerIds.includes('apple.com');
+
+                  if (hasOAuthProvider) {
+                    console.log("FirebaseProvider: New OAuth user detected, routing to complete-profile");
+                    setIsNewOAuthUser(true);
+                    setUser(null);
+                    router.push('/complete-profile');
+                  } else {
+                    console.error("FirebaseProvider: User document not found for uid:", fbUser.uid);
+                    setUser(null);
+                    setUserError(new Error('User profile not found. Please contact support.'));
+                  }
                 }
               } catch (docError: any) {
                 console.error("FirebaseProvider: Error processing user document:", docError);
@@ -841,6 +912,65 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  // GUID: FIREBASE_PROVIDER-031-v03
+  // [Intent] Handle redirect results from OAuth flows (mobile sign-in and linking).
+  //          getRedirectResult resolves the pending credential after a redirect-based OAuth flow.
+  // [Inbound Trigger] Component mounts after a redirect-based OAuth sign-in or link completes.
+  // [Downstream Impact] If a redirect result is found, the user is signed in or their provider
+  //                     is linked. The onAuthStateChanged listener handles the rest.
+  useEffect(() => {
+    getRedirectResult(auth).catch((error: any) => {
+      if (error?.code === 'auth/account-exists-with-different-credential') {
+        const credential = OAuthProvider.credentialFromError(error);
+        if (credential) {
+          setPendingOAuthCredential(credential as OAuthCredential);
+        }
+      } else if (error?.code !== 'auth/popup-closed-by-user') {
+        console.error("FirebaseProvider: Redirect result error:", error);
+      }
+    });
+  }, [auth]);
+
+  // GUID: FIREBASE_PROVIDER-032-v03
+  // [Intent] Wrapper functions for OAuth sign-in and provider linking that call the authService
+  //          module and manage pending credential state.
+  // [Inbound Trigger] Called from login/signup pages and profile/ConversionBanner components.
+  // [Downstream Impact] Delegates to authService functions; on needsLinking, stores pendingCredential.
+  const signInWithGoogle = async (): Promise<OAuthSignInResult> => {
+    setUserError(null);
+    const result = await authSignInWithGoogle(auth);
+    if (result.needsLinking && result.pendingCredential) {
+      setPendingOAuthCredential(result.pendingCredential);
+    }
+    return result;
+  };
+
+  const signInWithApple = async (): Promise<OAuthSignInResult> => {
+    setUserError(null);
+    const result = await authSignInWithApple(auth);
+    if (result.needsLinking && result.pendingCredential) {
+      setPendingOAuthCredential(result.pendingCredential);
+    }
+    return result;
+  };
+
+  const linkGoogle = async (): Promise<OAuthLinkResult> => {
+    return linkGoogleToAccount(auth);
+  };
+
+  const linkApple = async (): Promise<OAuthLinkResult> => {
+    return linkAppleToAccount(auth);
+  };
+
+  const unlinkProviderFn = async (providerId: string): Promise<AuthResult> => {
+    const result = await authUnlinkProvider(auth, providerId);
+    return { success: result.success, message: result.message };
+  };
+
+  const clearPendingCredential = () => {
+    setPendingOAuthCredential(null);
+  };
+
   // GUID: FIREBASE_PROVIDER-021-v03
   // [Intent] Computed boolean that merges Firebase Auth and Firestore email verification status.
   // Prefers Auth (live) over Firestore (cached) for most accurate result.
@@ -876,8 +1006,16 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     sendVerificationEmail,
     refreshEmailVerificationStatus,
     updateSecondaryEmail,
-    sendSecondaryVerificationEmail
-  }), [firebaseApp, firestore, storage, functions, auth, user, firebaseUser, isUserLoading, userError, isEmailVerified]);
+    sendSecondaryVerificationEmail,
+    signInWithGoogle,
+    signInWithApple,
+    linkGoogle,
+    linkApple,
+    unlinkProvider: unlinkProviderFn,
+    pendingOAuthCredential,
+    clearPendingCredential,
+    isNewOAuthUser,
+  }), [firebaseApp, firestore, storage, functions, auth, user, firebaseUser, isUserLoading, userError, isEmailVerified, pendingOAuthCredential, isNewOAuthUser]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -926,6 +1064,14 @@ export const useAuth = () => {
     refreshEmailVerificationStatus: context.refreshEmailVerificationStatus,
     updateSecondaryEmail: context.updateSecondaryEmail,
     sendSecondaryVerificationEmail: context.sendSecondaryVerificationEmail,
+    signInWithGoogle: context.signInWithGoogle,
+    signInWithApple: context.signInWithApple,
+    linkGoogle: context.linkGoogle,
+    linkApple: context.linkApple,
+    unlinkProvider: context.unlinkProvider,
+    pendingOAuthCredential: context.pendingOAuthCredential,
+    clearPendingCredential: context.clearPendingCredential,
+    isNewOAuthUser: context.isNewOAuthUser,
   };
 };
 

@@ -50,7 +50,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { generateTeamName } from "@/ai/flows/team-name-generator";
-import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X, Upload, Trash2 } from "lucide-react";
+import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X, Upload, Trash2, Link2, Unlink } from "lucide-react";
+import { GoogleIcon, AppleIcon } from "@/components/icons/OAuthIcons";
 import { validateImageFile, uploadProfilePhoto, compressImage, type UploadProgress } from "@/lib/file-upload";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -107,7 +108,7 @@ type ChangePinValues = z.infer<typeof changePinSchema>;
 // [Downstream Impact] Writes to Firestore users collection, Firebase Auth, audit_log. Calls
 //   multiple auth context functions (logout, addSecondaryTeam, resetPin, changePin, etc.).
 export default function ProfilePage() {
-  const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser, isEmailVerified, sendVerificationEmail, refreshEmailVerificationStatus, updateSecondaryEmail, sendSecondaryVerificationEmail } = useAuth();
+  const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser, isEmailVerified, sendVerificationEmail, refreshEmailVerificationStatus, updateSecondaryEmail, sendSecondaryVerificationEmail, linkGoogle, linkApple, unlinkProvider } = useAuth();
   const firestore = useFirestore();
   const storage = useStorage();
   const { toast } = useToast();
@@ -126,6 +127,9 @@ export default function ProfilePage() {
   const [secondaryEmailInput, setSecondaryEmailInput] = useState("");
   const [isSavingSecondaryEmail, setIsSavingSecondaryEmail] = useState(false);
   const [isSendingSecondaryVerification, setIsSendingSecondaryVerification] = useState(false);
+  const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
+  const [isLinkingApple, setIsLinkingApple] = useState(false);
+  const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
 
   // GUID: PAGE_PROFILE-006-v03
   // [Intent] Initialise notification preferences form with user's saved values or sensible defaults.
@@ -653,6 +657,70 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-028-v03
+  // [Intent] Link Google account to current user from profile page.
+  // [Inbound Trigger] User clicks "Link" button next to Google in Linked Sign-In Methods card.
+  // [Downstream Impact] Calls linkGoogle from provider; updates providers array via onAuthStateChanged.
+  async function handleLinkGoogle() {
+    setIsLinkingGoogle(true);
+    try {
+      const result = await linkGoogle();
+      toast({
+        variant: result.success ? "default" : "destructive",
+        title: result.success ? "Google Linked" : "Link Failed",
+        description: result.message,
+      });
+    } finally {
+      setIsLinkingGoogle(false);
+    }
+  }
+
+  // GUID: PAGE_PROFILE-029-v03
+  // [Intent] Link Apple account to current user from profile page.
+  // [Inbound Trigger] User clicks "Link" button next to Apple in Linked Sign-In Methods card.
+  // [Downstream Impact] Calls linkApple from provider.
+  async function handleLinkApple() {
+    setIsLinkingApple(true);
+    try {
+      const result = await linkApple();
+      toast({
+        variant: result.success ? "default" : "destructive",
+        title: result.success ? "Apple Linked" : "Link Failed",
+        description: result.message,
+      });
+    } finally {
+      setIsLinkingApple(false);
+    }
+  }
+
+  // GUID: PAGE_PROFILE-030-v03
+  // [Intent] Unlink a provider from the current user, preventing unlinking the last provider.
+  // [Inbound Trigger] User clicks "Unlink" button next to a linked provider.
+  // [Downstream Impact] Removes provider from Firebase Auth providerData; synced to Firestore.
+  async function handleUnlinkProvider(providerId: string) {
+    const providers = user?.providers || [];
+    if (providers.length <= 1) {
+      toast({
+        variant: "destructive",
+        title: "Cannot Unlink",
+        description: "You must have at least one sign-in method linked to your account.",
+      });
+      return;
+    }
+
+    setIsUnlinking(providerId);
+    try {
+      const result = await unlinkProvider(providerId);
+      toast({
+        variant: result.success ? "default" : "destructive",
+        title: result.success ? "Provider Unlinked" : "Unlink Failed",
+        description: result.message,
+      });
+    } finally {
+      setIsUnlinking(null);
+    }
+  }
+
   // GUID: PAGE_PROFILE-026-v03
   // [Intent] Preset avatar options generated from external avatar services using the user's ID/team name.
   // [Inbound Trigger] Computed on render; displayed in the profile photo dialog.
@@ -946,6 +1014,140 @@ export default function ProfilePage() {
                   )}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* GUID: PAGE_PROFILE-031-v03
+            [Intent] Linked Sign-In Methods card showing PIN, Google, and Apple provider status
+                     with Link/Unlink buttons. Prevents unlinking the last remaining provider.
+            [Inbound Trigger] Rendered for all users (not behind mustChangePin gate).
+            [Downstream Impact] Calls handleLinkGoogle/handleLinkApple/handleUnlinkProvider. */}
+        {!user?.mustChangePin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Linked Sign-In Methods</CardTitle>
+              <CardDescription>Manage how you sign in to Prix Six.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* PIN (Password) */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="flex items-center gap-3">
+                  <Key className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">PIN</p>
+                    <p className="text-sm text-muted-foreground">Email + 6-digit PIN</p>
+                  </div>
+                </div>
+                {(user?.providers || []).includes('password') ? (
+                  <span className="flex items-center gap-1 text-sm text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Linked
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Not linked</span>
+                )}
+              </div>
+
+              {/* Google */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="flex items-center gap-3">
+                  <GoogleIcon size={20} />
+                  <div>
+                    <p className="font-medium">Google</p>
+                    <p className="text-sm text-muted-foreground">Sign in with Google</p>
+                  </div>
+                </div>
+                {(user?.providers || []).includes('google.com') ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-sm text-green-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Linked
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleUnlinkProvider('google.com')}
+                      disabled={isUnlinking === 'google.com' || (user?.providers || []).length <= 1}
+                      className="h-7 text-xs text-muted-foreground"
+                    >
+                      {isUnlinking === 'google.com' ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <>
+                          <Unlink className="mr-1 h-3 w-3" />
+                          Unlink
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLinkGoogle}
+                    disabled={isLinkingGoogle}
+                    className="h-7 text-xs"
+                  >
+                    {isLinkingGoogle ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Link2 className="mr-1 h-3 w-3" />
+                    )}
+                    Link
+                  </Button>
+                )}
+              </div>
+
+              {/* Apple */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="flex items-center gap-3">
+                  <AppleIcon size={20} />
+                  <div>
+                    <p className="font-medium">Apple</p>
+                    <p className="text-sm text-muted-foreground">Sign in with Apple</p>
+                  </div>
+                </div>
+                {(user?.providers || []).includes('apple.com') ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-sm text-green-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Linked
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleUnlinkProvider('apple.com')}
+                      disabled={isUnlinking === 'apple.com' || (user?.providers || []).length <= 1}
+                      className="h-7 text-xs text-muted-foreground"
+                    >
+                      {isUnlinking === 'apple.com' ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <>
+                          <Unlink className="mr-1 h-3 w-3" />
+                          Unlink
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLinkApple}
+                    disabled={isLinkingApple}
+                    className="h-7 text-xs"
+                  >
+                    {isLinkingApple ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Link2 className="mr-1 h-3 w-3" />
+                    )}
+                    Link
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}

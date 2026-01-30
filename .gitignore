@@ -57,4 +57,5 @@ node_modules/
 *.cert
 serviceAccountKey*.json
 *-credentials.json
+*.p8
 firebase-debug.log

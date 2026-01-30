@@ -44,6 +44,14 @@ export const ERROR_CODES = {
   AUTH_DOMAIN_NOT_ALLOWED: { code: 'PX-1005', message: 'Domain not allowlisted for email verification' },
   AUTH_PIN_RESET_FAILED: { code: 'PX-1006', message: 'PIN reset failed' },
   AUTH_PERMISSION_DENIED: { code: 'PX-1007', message: 'Permission denied' },
+  AUTH_OAUTH_POPUP_BLOCKED: { code: 'PX-1010', message: 'Sign-in popup was blocked by the browser' },
+  AUTH_OAUTH_POPUP_CLOSED: { code: 'PX-1011', message: 'Sign-in popup was closed before completing' },
+  AUTH_OAUTH_ACCOUNT_EXISTS: { code: 'PX-1012', message: 'An account already exists with a different sign-in method' },
+  AUTH_OAUTH_LINK_FAILED: { code: 'PX-1013', message: 'Failed to link sign-in provider' },
+  AUTH_OAUTH_REDIRECT_FAILED: { code: 'PX-1014', message: 'Sign-in redirect failed' },
+  AUTH_OAUTH_APPLE_NONCE: { code: 'PX-1015', message: 'Apple sign-in nonce verification failed' },
+  AUTH_OAUTH_PROFILE_INCOMPLETE: { code: 'PX-1016', message: 'Profile incomplete — please enter your team name' },
+  AUTH_OAUTH_PROVIDER_ERROR: { code: 'PX-1017', message: 'Sign-in provider error' },
 
   // 2xxx - Data Validation
   VALIDATION_MISSING_FIELDS: { code: 'PX-2001', message: 'Missing required fields' },
@@ -220,6 +228,15 @@ export function mapErrorToCode(error: Error | string): ErrorCode {
   }
   if (lowerMessage.includes('network') || lowerMessage.includes('fetch')) {
     return 'NETWORK_ERROR';
+  }
+  if (lowerMessage.includes('popup') && lowerMessage.includes('blocked')) {
+    return 'AUTH_OAUTH_POPUP_BLOCKED';
+  }
+  if (lowerMessage.includes('popup') && lowerMessage.includes('closed')) {
+    return 'AUTH_OAUTH_POPUP_CLOSED';
+  }
+  if (lowerMessage.includes('account-exists-with-different-credential')) {
+    return 'AUTH_OAUTH_ACCOUNT_EXISTS';
   }
 
   return 'UNKNOWN_ERROR';

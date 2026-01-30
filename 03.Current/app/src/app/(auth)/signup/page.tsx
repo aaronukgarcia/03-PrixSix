@@ -12,7 +12,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Wand2, Frown } from 'lucide-react';
+import { Wand2, Frown, Loader2 } from 'lucide-react';
 import React, { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
+import { GoogleIcon, AppleIcon } from "@/components/icons/OAuthIcons";
 
 // GUID: PAGE_SIGNUP-001-v03
 // [Intent] Array of humorous F1-themed team name suggestions shown via the Wand2 button.
@@ -83,9 +84,11 @@ const formSchema = z.object({
 export default function SignupPage() {
     const { toast } = useToast();
     const router = useRouter();
-    const { signup } = useAuth();
+    const { signup, signInWithGoogle, signInWithApple } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+    const [isAppleLoading, setIsAppleLoading] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -157,6 +160,45 @@ export default function SignupPage() {
             });
         } finally {
             setLoading(false);
+        }
+    }
+
+    // GUID: PAGE_SIGNUP-008-v03
+    // [Intent] Handle Google OAuth sign-in from signup page. New users go to /complete-profile;
+    //          existing users are signed in directly.
+    // [Inbound Trigger] User clicks "Continue with Google" button.
+    // [Downstream Impact] On success, triggers onAuthStateChanged which routes appropriately.
+    async function handleGoogleSignIn() {
+        setError(null);
+        setIsGoogleLoading(true);
+        try {
+            const result = await signInWithGoogle();
+            if (!result.success && result.message) {
+                setError(result.message);
+            }
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setIsGoogleLoading(false);
+        }
+    }
+
+    // GUID: PAGE_SIGNUP-009-v03
+    // [Intent] Handle Apple OAuth sign-in from signup page.
+    // [Inbound Trigger] User clicks "Continue with Apple" button.
+    // [Downstream Impact] Same routing as handleGoogleSignIn.
+    async function handleAppleSignIn() {
+        setError(null);
+        setIsAppleLoading(true);
+        try {
+            const result = await signInWithApple();
+            if (!result.success && result.message) {
+                setError(result.message);
+            }
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setIsAppleLoading(false);
         }
     }
 
@@ -266,6 +308,48 @@ export default function SignupPage() {
                         </Button>
                     </form>
                 </Form>
+                {/* GUID: PAGE_SIGNUP-010-v03
+                    [Intent] OAuth sign-up divider and buttons for Google and Apple.
+                    [Inbound Trigger] Rendered below the PIN signup form.
+                    [Downstream Impact] Clicking triggers handleGoogleSignIn/handleAppleSignIn. */}
+                <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-card px-2 text-muted-foreground">Or sign up with</span>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={handleGoogleSignIn}
+                        disabled={loading || isGoogleLoading || isAppleLoading}
+                        className="w-full"
+                    >
+                        {isGoogleLoading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <GoogleIcon className="mr-2" size={18} />
+                        )}
+                        Google
+                    </Button>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        onClick={handleAppleSignIn}
+                        disabled={loading || isGoogleLoading || isAppleLoading}
+                        className="w-full"
+                    >
+                        {isAppleLoading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <AppleIcon className="mr-2" size={18} />
+                        )}
+                        Apple
+                    </Button>
+                </div>
                 <div className="mt-4 text-center text-sm">
                     Already have an account?{" "}
                     <Link href="/login" className="underline text-accent">

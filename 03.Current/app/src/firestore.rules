@@ -17,6 +17,10 @@ service cloud.firestore {
     }
 
     // SECURITY: Prevent users from modifying protected fields (privilege escalation prevention)
+    // NOTE: `providers` and `lastLogin` are intentionally NOT in protectedFields.
+    // These are synced client-side by onAuthStateChanged (owner-level update of non-protected
+    // fields, already permitted by existing rules). OAuth user doc creation happens via
+    // Admin SDK (bypasses rules entirely).
     function userNotChangingProtectedFields() {
       let protectedFields = ['isAdmin', 'points', 'badLoginAttempts', 'id', 'createdAt'];
       let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();

@@ -16,6 +16,7 @@ import { SessionProvider } from "@/contexts/session-context";
 import { LeagueProvider } from "@/contexts/league-context";
 import { logAuditEvent } from "@/lib/audit";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+import { ConversionBanner } from "@/components/ConversionBanner";
 import { SplashScreen, useSplashScreen } from "@/components/ui/SplashScreen";
 import { SmartLoaderProvider } from "@/components/ui/smart-loader";
 
@@ -28,7 +29,7 @@ function generateGuid() {
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, firebaseUser, isUserLoading, userError, logout } = useAuth();
+  const { user, firebaseUser, isUserLoading, userError, logout, isNewOAuthUser } = useAuth();
   const router = useRouter();
   const firestore = useFirestore();
   const sessionIdRef = useRef<string | null>(null);
@@ -42,11 +43,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       router.push("/login");
       return;
     }
+    // New OAuth users should be on /complete-profile, not app pages
+    if (!isUserLoading && isNewOAuthUser && firebaseUser && !user) {
+      router.push("/complete-profile");
+      return;
+    }
     // If user must change PIN, redirect to profile page
     if (user?.mustChangePin) {
       router.push("/profile");
     }
-  }, [user, firebaseUser, isUserLoading, router]);
+  }, [user, firebaseUser, isUserLoading, isNewOAuthUser, router]);
 
   // Check for single user mode and force logout if not the designated admin
   // This runs in the background and doesn't block page rendering
@@ -241,6 +247,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SmartLoaderProvider>
               <main className="flex-1 p-4 md:p-6">
                 <EmailVerificationBanner />
+                <ConversionBanner />
                 {children}
               </main>
             </SmartLoaderProvider>
