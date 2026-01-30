@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-01-30",
-  "total_guids": 899,
+  "total_guids": 901,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
@@ -2734,7 +2734,7 @@
     },
     {
       "guid": "BACKUP_DASHBOARD-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Root module for BackupHealthDashboard.tsx. Admin-only React component that subscribes to backup_status/latest in real-time and renders three cards: Backup Status, Immutability Lock, Smoke Test.",
       "dependencies": [
@@ -2742,14 +2742,15 @@
         "BACKUP_DASHBOARD-002",
         "BACKUP_DASHBOARD-003",
         "BACKUP_DASHBOARD-004",
+        "BACKUP_DASHBOARD-007",
         "BACKUP_DASHBOARD-010"
       ]
     },
     {
       "guid": "BACKUP_DASHBOARD-001",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
-      "description": "BackupStatus TypeScript interface mirroring the Firestore document shape written by Cloud Functions. All fields optional to handle partial population and first-run state.",
+      "description": "BackupStatus TypeScript interface mirroring the Firestore document shape written by Cloud Functions. All fields optional to handle partial population and first-run state. Includes lastBackupSizeBytes for backup size display.",
       "dependencies": []
     },
     {
@@ -2778,6 +2779,13 @@
       "version": 3,
       "logic_category": "ORCHESTRATION",
       "description": "Trigger a manual backup via the manualBackup callable Cloud Function.",
+      "dependencies": []
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-007",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "formatBytes utility: converts a byte count to a human-readable string (e.g. '14.2 MB'). Used by the Backup Status card to display lastBackupSizeBytes.",
       "dependencies": []
     },
     {
@@ -2964,11 +2972,12 @@
     },
     {
       "guid": "BACKUP_FUNCTIONS-013",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Writes SUCCESS status to backup_status/latest after both Firestore and Auth exports complete. Explicitly nulls lastBackupError to clear any previous failure state.",
+      "description": "Writes SUCCESS status to backup_status/latest after both Firestore and Auth exports complete. Explicitly nulls lastBackupError to clear any previous failure state. Now also writes lastBackupSizeBytes from BACKUP_FUNCTIONS-018.",
       "dependencies": [
-        "BACKUP_FUNCTIONS-005"
+        "BACKUP_FUNCTIONS-005",
+        "BACKUP_FUNCTIONS-018"
       ]
     },
     {
@@ -2986,6 +2995,13 @@
       "dependencies": [
         "BACKUP_FUNCTIONS-005"
       ]
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-018",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Calculates total backup size by listing all GCS objects under the backup folder prefix and summing their sizes. Result stored in lastBackupSizeBytes for admin dashboard display.",
+      "dependencies": []
     },
     {
       "guid": "BACKUP_FUNCTIONS-020",

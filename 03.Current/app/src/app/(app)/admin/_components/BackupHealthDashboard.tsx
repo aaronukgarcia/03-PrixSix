@@ -55,6 +55,7 @@ interface BackupStatus {
   lastBackupStatus?: 'SUCCESS' | 'FAILED';
   lastBackupPath?: string | null;
   lastBackupError?: string | null;
+  lastBackupSizeBytes?: number;
   backupCorrelationId?: string;
   lastSmokeTestTimestamp?: { seconds: number; nanoseconds: number };
   lastSmokeTestStatus?: 'SUCCESS' | 'FAILED';
@@ -106,6 +107,24 @@ function TimestampDisplay({ ts }: { ts?: { seconds: number; nanoseconds: number 
  * [Downstream Impact] Writes to system clipboard. Shows a green check for
  *                     2 seconds as visual confirmation, then reverts to copy icon.
  */
+// GUID: BACKUP_DASHBOARD-007-v03
+/**
+ * formatBytes — Convert a byte count to a human-readable string.
+ *
+ * [Intent] Display backup sizes in a compact, familiar format (e.g. "14.2 MB")
+ *          rather than raw byte counts.
+ * [Inbound Trigger] Called by the Backup Status card when lastBackupSizeBytes is present.
+ * [Downstream Impact] Read-only utility. No side effects.
+ */
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = bytes / Math.pow(k, i);
+  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -467,6 +486,14 @@ export function BackupHealthDashboard() {
               <span className="font-mono text-xs truncate max-w-[180px]" title={data.lastBackupPath}>
                 {data.lastBackupPath}
               </span>
+            </div>
+          )}
+
+          {/* Conditionally show backup size when available */}
+          {data.lastBackupSizeBytes != null && data.lastBackupSizeBytes > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Size</span>
+              <span className="font-mono text-xs">{formatBytes(data.lastBackupSizeBytes)}</span>
             </div>
           )}
 

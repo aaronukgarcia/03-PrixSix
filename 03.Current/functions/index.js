@@ -201,6 +201,18 @@ async function performBackup(db) {
       metadata: { correlationId },
     });
 
+    // GUID: BACKUP_FUNCTIONS-018-v03
+    // [Intent] Calculate total backup size by listing all GCS objects under the
+    //          backup folder prefix and summing their sizes. This lets the admin
+    //          dashboard display a human-readable backup size for verification.
+    // [Inbound Trigger] Auth JSON written successfully (above).
+    // [Downstream Impact] lastBackupSizeBytes is included in the status write below.
+    const [files] = await bucket.getFiles({ prefix: folder });
+    let totalBytes = 0;
+    for (const file of files) {
+      totalBytes += Number(file.metadata.size) || 0;
+    }
+
     // GUID: BACKUP_FUNCTIONS-013-v03
     // [Intent] Persist success status so the admin dashboard can display
     //          the most recent backup result in real-time.
@@ -213,6 +225,7 @@ async function performBackup(db) {
       lastBackupStatus: "SUCCESS",
       lastBackupPath: gcsPrefix,
       lastBackupError: null,
+      lastBackupSizeBytes: totalBytes,
       backupCorrelationId: correlationId,
     });
 
