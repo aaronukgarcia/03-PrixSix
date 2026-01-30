@@ -1,3 +1,9 @@
+// GUID: COMPONENT_APP_SIDEBAR-000-v03
+// [Intent] Main application sidebar component providing navigation links, admin panel access,
+// user profile display, and logout functionality. Renders within the ShadCN Sidebar layout.
+// [Inbound Trigger] Rendered by the authenticated app layout on every page within the (app) route group.
+// [Downstream Impact] Provides primary navigation for the entire app. Changes to menuItems affect
+// all users' navigation. Logout handler updates presence and triggers auth state teardown.
 
 "use client";
 
@@ -34,6 +40,12 @@ import { Button } from "../ui/button";
 import { doc, serverTimestamp } from "firebase/firestore";
 import { logAuditEvent } from "@/lib/audit";
 
+// GUID: COMPONENT_APP_SIDEBAR-001-v03
+// [Intent] Static menu item configuration defining all navigation routes available to regular users.
+// Each entry maps a URL path to a label and Lucide icon component.
+// [Inbound Trigger] Read at render time by the sidebar menu loop.
+// [Downstream Impact] Adding/removing entries changes navigation for all users. The admin panel
+// link is handled separately (COMPONENT_APP_SIDEBAR-003) and is not in this array.
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/schedule", label: "Schedule", icon: Calendar },
@@ -48,11 +60,23 @@ const menuItems = [
   { href: "/about", label: "About", icon: Info },
 ];
 
+// GUID: COMPONENT_APP_SIDEBAR-002-v03
+// [Intent] Exported sidebar component that renders the full navigation sidebar including header
+// with logo, scrollable menu items, conditional admin link, user avatar footer, and logout button.
+// [Inbound Trigger] Rendered by the app layout shell on every authenticated page.
+// [Downstream Impact] Uses useAuth() for user data and logout, useFirestore() for presence updates.
+// Active route highlighting depends on usePathname(). Breaking this component removes all navigation.
 export function AppSidebar() {
   const { user, firebaseUser, logout } = useAuth();
   const firestore = useFirestore();
   const pathname = usePathname();
 
+  // GUID: COMPONENT_APP_SIDEBAR-003-v03
+  // [Intent] Handles user logout by first setting the Firestore presence document to offline,
+  // logging an audit event, then calling the provider's logout function for full sign-out.
+  // [Inbound Trigger] User clicks the logout icon button in the sidebar footer.
+  // [Downstream Impact] Sets presence to offline (non-blocking), logs audit event, then delegates
+  // to FIREBASE_PROVIDER-014 which signs out, clears state, and redirects to /login.
   const handleLogout = async () => {
     if (firebaseUser && firestore) {
       const presenceRef = doc(firestore, "presence", firebaseUser.uid);

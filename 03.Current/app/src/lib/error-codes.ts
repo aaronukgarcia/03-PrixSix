@@ -1,3 +1,19 @@
+// GUID: LIB_ERROR_CODES-000-v03
+// [Intent] Central error code registry and error handling utilities for the Prix Six application.
+//          Defines all PX-xxxx error codes, correlation ID generation, error object creation,
+//          display formatting, and error-to-code mapping. Implements Golden Rule #1.
+// [Inbound Trigger] Imported by every API route, server action, and client component that handles errors.
+// [Downstream Impact] Adding/changing/removing error codes affects all error handling across the app.
+//                     Correlation ID format changes affect error log queries and user-reported error lookups.
+
+// GUID: LIB_ERROR_CODES-001-v03
+// [Intent] Master registry of all application error codes organised by category.
+//          Each code has a unique PX-xxxx identifier and a human-readable message.
+//          Categories: 1xxx=Auth, 2xxx=Validation, 3xxx=External, 4xxx=Firestore,
+//          5xxx=Race/Scoring, 6xxx=Session, 7xxx=Backup, 9xxx=Unknown.
+// [Inbound Trigger] Referenced by every catch block in the application to map errors to user-facing codes.
+// [Downstream Impact] Removing or renaming a key breaks any code referencing that ErrorCode key.
+//                     Changing a message alters what users see in error toasts and alerts.
 /**
  * Prix Six Global Error Code System
  *
@@ -83,8 +99,17 @@ export const ERROR_CODES = {
   NETWORK_ERROR: { code: 'PX-9002', message: 'Network error - please check your connection' },
 } as const;
 
+// GUID: LIB_ERROR_CODES-002-v03
+// [Intent] Derive a union type of all valid error code keys for type-safe error code references.
+// [Inbound Trigger] Used as a parameter type in createAppError, mapErrorToCode, and throughout error handling code.
+// [Downstream Impact] Adding or removing keys from ERROR_CODES automatically updates this type.
 export type ErrorCode = keyof typeof ERROR_CODES;
 
+// GUID: LIB_ERROR_CODES-003-v03
+// [Intent] Define the shape of a structured application error with all four pillars
+//          required by Golden Rule #1: code, message, correlationId, and logged status.
+// [Inbound Trigger] Returned by createAppError and consumed by formatErrorForDisplay and error handlers.
+// [Downstream Impact] Changing this interface affects all error creation and display logic in the app.
 export interface AppError {
   code: string;
   message: string;
@@ -93,6 +118,13 @@ export interface AppError {
   logged: boolean;
 }
 
+// GUID: LIB_ERROR_CODES-004-v03
+// [Intent] Generate a unique client-side correlation ID for error tracking.
+//          Format: err_[timestamp-base36]_[random-6-chars] — short, unique, and copyable.
+// [Inbound Trigger] Called in client-side catch blocks to create a per-error-instance identifier
+//                   that the user can report via WhatsApp or email.
+// [Downstream Impact] The correlation ID links user-reported errors to server-side error_logs entries.
+//                     Changing the format requires updating any log queries that parse correlation IDs.
 /**
  * Generate a unique correlation ID for error tracking
  * Format: err_[timestamp-base36]_[random-6-chars]
@@ -103,6 +135,12 @@ export function generateClientCorrelationId(): string {
   return `err_${timestamp}_${random}`;
 }
 
+// GUID: LIB_ERROR_CODES-005-v03
+// [Intent] Factory function to create a fully populated AppError object from an error code key,
+//          correlation ID, and optional details. Ensures all four Golden Rule #1 pillars are present.
+// [Inbound Trigger] Called by API routes and components after catching an error and generating a correlation ID.
+// [Downstream Impact] The returned AppError is passed to formatErrorForDisplay for user-facing rendering
+//                     and to logError for server-side persistence.
 /**
  * Create an AppError object with all required fields
  */
@@ -121,6 +159,12 @@ export function createAppError(
   };
 }
 
+// GUID: LIB_ERROR_CODES-006-v03
+// [Intent] Format an AppError into title, description, and copyable text for UI display.
+//          Ensures the user can select and copy the error code + correlation ID (Golden Rule #1, Pillar 4).
+// [Inbound Trigger] Called by toast/alert components when rendering an error to the user.
+// [Downstream Impact] Changes to the copyableText format affect what users paste into WhatsApp/email
+//                     when reporting errors. Support workflows depend on this format being parseable.
 /**
  * Format an error for display in a toast/alert
  * Returns selectable text that users can copy
@@ -139,6 +183,13 @@ export function formatErrorForDisplay(error: AppError): {
   };
 }
 
+// GUID: LIB_ERROR_CODES-007-v03
+// [Intent] Heuristically map a raw error message string to the most appropriate ErrorCode key.
+//          Provides a best-effort classification when the calling code does not know the specific error type.
+// [Inbound Trigger] Called by generic catch blocks that receive untyped Error objects and need to
+//                   assign a PX-xxxx code for user display and logging.
+// [Downstream Impact] If mapping rules change, errors may be classified differently in logs and UI.
+//                     Falls back to UNKNOWN_ERROR if no pattern matches.
 /**
  * Map common error messages to error codes
  */

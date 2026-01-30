@@ -1,3 +1,10 @@
+// GUID: PAGE_STANDINGS-000-v03
+// [Intent] Season Standings page — displays cumulative league standings after each race weekend,
+//   with race-by-race selection, season progression chart, rank change indicators, and pagination.
+// [Inbound Trigger] Navigation to /standings route by authenticated user.
+// [Downstream Impact] Reads from Firestore scores and users collections in real-time; navigates
+//   to /results page when user clicks score cells.
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -25,6 +32,11 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
+// GUID: PAGE_STANDINGS-001-v03
+// [Intent] Visual indicator for rank changes between race weekends — shows arrows/chevrons based
+//   on the magnitude and direction of change.
+// [Inbound Trigger] Rendered per row in the standings table with the team's rankChange value.
+// [Downstream Impact] Pure presentational component — no side effects.
 const RankChangeIndicator = ({ change }: { change: number }) => {
   if (change === 0) {
     return <Minus className="h-4 w-4 text-muted-foreground" />;
@@ -41,6 +53,10 @@ const RankChangeIndicator = ({ change }: { change: number }) => {
   return <ArrowDown className="h-4 w-4 text-red-500" />;
 };
 
+// GUID: PAGE_STANDINGS-002-v03
+// [Intent] Badge for top-3 ranked teams — gold for 1st, silver for 2nd, bronze for 3rd.
+// [Inbound Trigger] Rendered next to the team name in the standings table for ranks 1-3.
+// [Downstream Impact] Pure presentational component — no side effects.
 const RankBadge = ({ rank }: { rank: number }) => {
   if (rank === 1) {
     return (
@@ -69,15 +85,27 @@ const RankBadge = ({ rank }: { rank: number }) => {
   return null;
 };
 
+// GUID: PAGE_STANDINGS-003-v03
+// [Intent] Small "Winner" badge shown next to the team(s) that scored highest in the selected race's
+//   GP or Sprint event.
+// [Inbound Trigger] Rendered in the Sprint/GP score cells for teams in the raceWinners sets.
+// [Downstream Impact] Pure presentational component — no side effects.
 const RaceWinnerBadge = () => (
   <Badge variant="outline" className="ml-1 px-1 py-0 text-[9px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">
     Winner
   </Badge>
 );
 
-// 2025 Season Champion
+// GUID: PAGE_STANDINGS-004-v03
+// [Intent] Constant identifying the 2025 season defending champion team for special badge display.
+// [Inbound Trigger] Referenced in the standings table row rendering to show champion badge.
+// [Downstream Impact] If the team name changes, the badge will no longer display correctly.
 const DEFENDING_CHAMPION_TEAM = "Montfleur Motor Racing";
 
+// GUID: PAGE_STANDINGS-005-v03
+// [Intent] Purple badge identifying the defending 2025 season champion in the standings table.
+// [Inbound Trigger] Rendered next to the team name when teamName matches DEFENDING_CHAMPION_TEAM.
+// [Downstream Impact] Pure presentational component — no side effects.
 const DefendingChampionBadge = () => (
   <Badge variant="outline" className="mr-1 px-1.5 py-0 text-[9px] bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700">
     <Crown className="h-3 w-3 mr-0.5 inline" />
@@ -85,6 +113,10 @@ const DefendingChampionBadge = () => (
   </Badge>
 );
 
+// GUID: PAGE_STANDINGS-006-v03
+// [Intent] Type for raw score documents fetched from Firestore scores collection.
+// [Inbound Trigger] Used to type the allScores state array.
+// [Downstream Impact] Consumed by standings calculation and chart data memos.
 interface ScoreData {
   oduserId?: string;
   userId: string;
@@ -92,6 +124,10 @@ interface ScoreData {
   totalPoints: number;
 }
 
+// GUID: PAGE_STANDINGS-007-v03
+// [Intent] Type for a single row in the computed standings table.
+// [Inbound Trigger] Produced by the standings useMemo and consumed by the table rendering.
+// [Downstream Impact] Drives the standings table rows, chart team filtering, and race winner calculation.
 interface StandingEntry {
   rank: number;
   userId: string;
@@ -104,6 +140,11 @@ interface StandingEntry {
   rankChange: number;
 }
 
+// GUID: PAGE_STANDINGS-008-v03
+// [Intent] Type for a completed race weekend — tracks base, sprint, and GP race IDs along with
+//   completion flags.
+// [Inbound Trigger] Built from RaceSchedule cross-referenced with score raceIds that exist in Firestore.
+// [Downstream Impact] Drives race weekend tab rendering and standings calculation logic.
 interface RaceWeekend {
   name: string;
   baseRaceId: string; // e.g., "Chinese-Grand-Prix"
@@ -115,8 +156,18 @@ interface RaceWeekend {
   hasGpScores: boolean;
 }
 
+// GUID: PAGE_STANDINGS-009-v03
+// [Intent] Page size constant for client-side pagination of standings rows.
+// [Inbound Trigger] Used by displayCount state and loadMore callback.
+// [Downstream Impact] Controls how many standings rows are shown before "Load More".
 const PAGE_SIZE = 25;
 
+// GUID: PAGE_STANDINGS-010-v03
+// [Intent] Main Standings page component — subscribes to scores in real-time, computes cumulative
+//   standings per race weekend, renders the progression chart and sortable standings table.
+// [Inbound Trigger] React Router renders this component when user navigates to /standings.
+// [Downstream Impact] Real-time Firestore listener on scores collection; reads users collection
+//   for team names; navigates to /results page on score cell clicks.
 export default function StandingsPage() {
   const firestore = useFirestore();
   const router = useRouter();
@@ -134,7 +185,13 @@ export default function StandingsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Real-time subscription to scores collection
+  // GUID: PAGE_STANDINGS-011-v03
+  // [Intent] Real-time subscription to the entire scores collection — processes raw score documents,
+  //   determines which race weekends are completed, and fetches team names for all scoring users.
+  // [Inbound Trigger] Fires on component mount and whenever firestore reference changes; re-fires
+  //   on any score document change in the scores collection.
+  // [Downstream Impact] Populates allScores, completedRaceWeekends, userNames, and lastUpdated state.
+  //   All downstream memos (standings, chartData, raceWinners) depend on these.
   useEffect(() => {
     if (!firestore) return;
 
@@ -270,7 +327,10 @@ export default function StandingsPage() {
     return () => unsubscribe();
   }, [firestore]);
 
-  // Filter scores by selected league
+  // GUID: PAGE_STANDINGS-012-v03
+  // [Intent] Filter raw scores by the selected league's member user IDs (or pass all if global).
+  // [Inbound Trigger] allScores or selectedLeague changes.
+  // [Downstream Impact] filteredScores is consumed by standings and chartData memos.
   const filteredScores = useMemo(() => {
     if (!selectedLeague || selectedLeague.isGlobal) {
       return allScores;
@@ -278,7 +338,12 @@ export default function StandingsPage() {
     return allScores.filter(score => selectedLeague.memberUserIds.includes(score.userId));
   }, [allScores, selectedLeague]);
 
-  // Calculate standings for selected race weekend
+  // GUID: PAGE_STANDINGS-013-v03
+  // [Intent] Calculate cumulative standings for the selected race weekend — computes old/new overall
+  //   points, sprint/GP breakdown, rank with tie handling, rank change from previous race, and gap.
+  // [Inbound Trigger] filteredScores, completedRaceWeekends, selectedRaceIndex, or userNames changes.
+  // [Downstream Impact] Drives the standings table rendering, raceWinners calculation, chartTeams
+  //   filtering, and maxPoints for chart Y-axis.
   const standings = useMemo(() => {
     if (completedRaceWeekends.length === 0 || selectedRaceIndex < 0) return [];
 
@@ -406,8 +471,11 @@ export default function StandingsPage() {
     return standingsData;
   }, [filteredScores, completedRaceWeekends, selectedRaceIndex, userNames]);
 
-  // Calculate race winners (highest GP and Sprint points for the selected race)
-  // Returns Sets of userIds to handle ties - all teams with max points get the badge
+  // GUID: PAGE_STANDINGS-014-v03
+  // [Intent] Determine the race winners (highest GP and Sprint points) for the selected race weekend,
+  //   returning Sets of userIds to handle ties — all teams with the max score get the Winner badge.
+  // [Inbound Trigger] standings array changes.
+  // [Downstream Impact] gpWinners and sprintWinners Sets drive RaceWinnerBadge rendering in the table.
   const raceWinners = useMemo(() => {
     if (standings.length === 0) return { gpWinners: new Set<string>(), sprintWinners: new Set<string>() };
 
@@ -446,7 +514,11 @@ export default function StandingsPage() {
     return { gpWinners, sprintWinners };
   }, [standings]);
 
-  // Calculate chart data for season progression (only up to selected race)
+  // GUID: PAGE_STANDINGS-015-v03
+  // [Intent] Build chart data for season progression — cumulative points per team after each race
+  //   weekend (including separate Sprint/GP data points for sprint weekends), up to selected race.
+  // [Inbound Trigger] completedRaceWeekends, filteredScores, userNames, or selectedRaceIndex changes.
+  // [Downstream Impact] chartData array is consumed by the Recharts LineChart rendering.
   const chartData = useMemo(() => {
     if (completedRaceWeekends.length === 0 || !userNames.size || selectedRaceIndex < 0) return [];
 
@@ -541,13 +613,21 @@ export default function StandingsPage() {
     return data;
   }, [completedRaceWeekends, filteredScores, userNames, selectedRaceIndex]);
 
-  // 7a3f1d2e — user's primary and secondary userIds for chart filtering
+  // GUID: PAGE_STANDINGS-016-v03
+  // [Intent] Derive the current user's primary and secondary userIds for chart line filtering.
+  // [Inbound Trigger] user state changes.
+  // [Downstream Impact] Used by chartTeams memo to include user's teams even outside top 10.
   const userTeamIds = useMemo(() => {
     if (!user) return { primary: null, secondary: null };
     return { primary: user.id, secondary: user.secondaryTeamName ? `${user.id}-secondary` : null };
   }, [user]);
 
-  // 7a3f1d2e — filter chart lines to ~11 based on chartMode
+  // GUID: PAGE_STANDINGS-017-v03
+  // [Intent] Filter chart lines to approximately 11 teams based on chartMode (top10 or myPosition).
+  //   In top10 mode: top 10 teams + user's team(s) if outside top 10.
+  //   In myPosition mode: user's team + 5 above + 5 below in standings.
+  // [Inbound Trigger] standings, chartMode, or userTeamIds changes.
+  // [Downstream Impact] chartTeams array controls which Line components are rendered in the chart.
   const chartTeams = useMemo(() => {
     if (standings.length === 0) return [];
 
@@ -590,7 +670,11 @@ export default function StandingsPage() {
     return standings.filter(s => windowNames.has(s.teamName)).map(s => s.teamName);
   }, [standings, chartMode, userTeamIds]);
 
-  // Deterministic color per team name — stays stable across race selections
+  // GUID: PAGE_STANDINGS-018-v03
+  // [Intent] Generate a deterministic HSL colour for each team name — ensures the same team always
+  //   gets the same colour regardless of which race is selected.
+  // [Inbound Trigger] Called per team when rendering Line components in the chart.
+  // [Downstream Impact] Pure function — no side effects. Drives chart line stroke colour.
   const getStableTeamColor = useCallback((name: string): string => {
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -600,19 +684,29 @@ export default function StandingsPage() {
     return `hsl(${hue}, 65%, 55%)`;
   }, []);
 
-  // Get max points for Y-axis (based on selected race standings)
+  // GUID: PAGE_STANDINGS-019-v03
+  // [Intent] Calculate maximum points for the chart Y-axis with a 10% buffer for visual headroom.
+  // [Inbound Trigger] standings array changes (specifically the top team's newOverall).
+  // [Downstream Impact] Sets the YAxis domain upper bound in the Recharts LineChart.
   const maxPoints = useMemo(() => {
     if (standings.length === 0) return 100;
     // Add 10% buffer for better visualization
     return Math.ceil(standings[0].newOverall * 1.1);
   }, [standings]);
 
-  // Pagination
+  // GUID: PAGE_STANDINGS-020-v03
+  // [Intent] Client-side pagination — tracks how many standings rows to display and whether more exist.
+  // [Inbound Trigger] Computed from standings.length and displayCount state.
+  // [Downstream Impact] Controls the "Load More" button visibility and progress bar display.
   const totalItems = standings.length;
   const displayedStandings = standings.slice(0, displayCount);
   const hasMore = displayCount < totalItems;
   const progressPercent = totalItems > 0 ? Math.round((displayCount / totalItems) * 100) : 100;
 
+  // GUID: PAGE_STANDINGS-021-v03
+  // [Intent] Load the next page of standings rows with a small delay for smooth UX.
+  // [Inbound Trigger] User clicks the "Load More" button.
+  // [Downstream Impact] Increases displayCount by PAGE_SIZE, showing more rows in the table.
   const loadMore = useCallback(() => {
     setIsLoadingMore(true);
     setTimeout(() => {
@@ -621,6 +715,10 @@ export default function StandingsPage() {
     }, 150);
   }, [totalItems]);
 
+  // GUID: PAGE_STANDINGS-022-v03
+  // [Intent] Navigate to the Results page for a specific race, optionally filtering by team.
+  // [Inbound Trigger] User clicks a score cell (Old Overall, Sprint points, or GP points) in the table.
+  // [Downstream Impact] Triggers client-side navigation to /results with race and optional team params.
   const navigateToResults = (raceId: string, teamId?: string) => {
     const url = teamId
       ? `/results?race=${raceId}&team=${encodeURIComponent(teamId)}`

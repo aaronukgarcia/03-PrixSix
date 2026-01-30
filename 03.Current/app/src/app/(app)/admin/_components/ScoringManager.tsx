@@ -1,4 +1,9 @@
 
+// GUID: ADMIN_SCORING-000-v03
+// [Intent] Read-only admin component displaying the fixed scoring rules for the Prix Six fantasy league, sourced from SCORING_POINTS and SCORING_DERIVED constants.
+// [Inbound Trigger] Rendered within the admin panel when the "Scoring" tab is selected.
+// [Downstream Impact] Purely presentational; does not modify any data. Depends on scoring-rules.ts as the single source of truth for point values.
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Trophy, Target, Award, ArrowRight } from "lucide-react";
 import { SCORING_POINTS, SCORING_DERIVED } from "@/lib/scoring-rules";
 
+// GUID: ADMIN_SCORING-001-v03
+// [Intent] Main ScoringManager component rendering a card that explains each scoring tier and the maximum possible score.
+// [Inbound Trigger] Rendered by the admin page when the Scoring tab is active.
+// [Downstream Impact] No mutations. All point values come from SCORING_POINTS and SCORING_DERIVED in scoring-rules.ts — if those change, this display updates automatically.
 export function ScoringManager() {
     return (
         <Card>

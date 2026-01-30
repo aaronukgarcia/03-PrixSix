@@ -1,3 +1,9 @@
+// GUID: PAGE_FORGOT_PIN-000-v03
+// [Intent] Forgot PIN page — allows users to request a temporary PIN reset email.
+//          Collects email address, calls resetPin API, and redirects to login on success.
+// [Inbound Trigger] User clicks "Forgot my PIN" link on the login page.
+// [Downstream Impact] Triggers /api/reset-pin which sends a temporary PIN email.
+//                     On success, redirects to /login. On failure, shows error with correlation ID.
 
 "use client";
 
@@ -23,10 +29,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
 
+// GUID: PAGE_FORGOT_PIN-001-v03
+// [Intent] Zod validation schema for forgot PIN form — requires a valid email address.
+// [Inbound Trigger] Form submission triggers zodResolver validation.
+// [Downstream Impact] Invalid email prevents onSubmit from executing; FormMessage displays error.
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
 });
 
+// GUID: PAGE_FORGOT_PIN-002-v03
+// [Intent] Main forgot PIN page component — renders email input form, calls resetPin API,
+//          and handles success/error states with toast notifications.
+// [Inbound Trigger] Route navigation to /forgot-pin.
+// [Downstream Impact] Calls useAuth().resetPin which hits /api/reset-pin.
+//                     Success: toast + redirect to /login. Failure: error with PX code and Ref ID.
 export default function ForgotPinPage() {
     const { toast } = useToast();
     const router = useRouter();
@@ -41,6 +57,12 @@ export default function ForgotPinPage() {
         },
     });
 
+    // GUID: PAGE_FORGOT_PIN-003-v03
+    // [Intent] Form submission handler — calls resetPin API, shows toast on success/failure,
+    //          and generates client-side correlation ID for unexpected errors.
+    // [Inbound Trigger] User clicks "Send Reset Email" and form validation passes.
+    // [Downstream Impact] Success: toast "PIN Sent!" + redirect to /login.
+    //                     Failure: inline error with PX code and selectable correlation ID.
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setLoading(true);
         setError(null);

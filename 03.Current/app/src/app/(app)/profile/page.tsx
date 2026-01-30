@@ -1,4 +1,11 @@
 
+// GUID: PAGE_PROFILE-000-v03
+// [Intent] Profile & Settings page — allows users to manage their account, notification preferences,
+//   secondary email, secondary team, profile photo, PIN, email verification, and account closure.
+// [Inbound Trigger] Navigation to /profile route by authenticated user.
+// [Downstream Impact] Changes propagate to Firestore users collection (emailPreferences, photoUrl,
+//   secondaryTeamName, secondaryEmail), Firebase Auth (verification, PIN), and audit_log collection.
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,6 +60,10 @@ import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useSession } from "@/contexts/session-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+// GUID: PAGE_PROFILE-001-v03
+// [Intent] Zod schema for email notification preferences form validation.
+// [Inbound Trigger] Used by react-hook-form to validate the notification preferences form.
+// [Downstream Impact] Controls shape of data written to users/{uid}/emailPreferences in Firestore.
 const profileFormSchema = z.object({
   rankingChanges: z.boolean().default(false).optional(),
   raceReminders: z.boolean().default(true).optional(),
@@ -60,13 +71,25 @@ const profileFormSchema = z.object({
   resultsNotifications: z.boolean().default(true).optional(),
 });
 
+// GUID: PAGE_PROFILE-002-v03
+// [Intent] TypeScript type inferred from profileFormSchema for type-safe form handling.
+// [Inbound Trigger] Used by useForm<ProfileFormValues> and onProfileSubmit handler.
+// [Downstream Impact] None — type-only artifact.
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
+// GUID: PAGE_PROFILE-003-v03
+// [Intent] Zod schema for the secondary team name form — enforces minimum 3-character name.
+// [Inbound Trigger] Used by react-hook-form to validate secondary team creation.
+// [Downstream Impact] Controls the teamName value passed to addSecondaryTeam auth function.
 const secondTeamSchema = z.object({
   teamName: z.string().min(3, "Team name must be at least 3 characters."),
 });
 type SecondTeamValues = z.infer<typeof secondTeamSchema>;
 
+// GUID: PAGE_PROFILE-004-v03
+// [Intent] Zod schema for PIN change form — enforces 6-digit length and match between new/confirm.
+// [Inbound Trigger] Used by react-hook-form to validate the Change PIN form.
+// [Downstream Impact] Controls values passed to changePin auth function; mismatch triggers FormMessage.
 const changePinSchema = z.object({
   newPin: z.string().length(6, "PIN must be 6 digits."),
   confirmPin: z.string().length(6, "PIN must be 6 digits."),
@@ -77,6 +100,12 @@ const changePinSchema = z.object({
 type ChangePinValues = z.infer<typeof changePinSchema>;
 
 
+// GUID: PAGE_PROFILE-005-v03
+// [Intent] Main Profile page component — renders all profile management cards and handles all
+//   user account actions (preferences, photo, teams, PIN, verification, account closure).
+// [Inbound Trigger] React Router renders this component when user navigates to /profile.
+// [Downstream Impact] Writes to Firestore users collection, Firebase Auth, audit_log. Calls
+//   multiple auth context functions (logout, addSecondaryTeam, resetPin, changePin, etc.).
 export default function ProfilePage() {
   const { user, logout, addSecondaryTeam, resetPin, changePin, firebaseUser, isEmailVerified, sendVerificationEmail, refreshEmailVerificationStatus, updateSecondaryEmail, sendSecondaryVerificationEmail } = useAuth();
   const firestore = useFirestore();
@@ -98,6 +127,10 @@ export default function ProfilePage() {
   const [isSavingSecondaryEmail, setIsSavingSecondaryEmail] = useState(false);
   const [isSendingSecondaryVerification, setIsSendingSecondaryVerification] = useState(false);
 
+  // GUID: PAGE_PROFILE-006-v03
+  // [Intent] Initialise notification preferences form with user's saved values or sensible defaults.
+  // [Inbound Trigger] Component mount; re-initialises when user data changes.
+  // [Downstream Impact] Populates the profileForm used in the Email Notifications card.
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -108,7 +141,10 @@ export default function ProfilePage() {
     },
   });
 
-  // Update form when user data loads
+  // GUID: PAGE_PROFILE-007-v03
+  // [Intent] Reset form values when user data loads or changes (e.g. after Firestore round-trip).
+  // [Inbound Trigger] user or user.emailPreferences changes.
+  // [Downstream Impact] Keeps form controls in sync with persisted preferences.
   useEffect(() => {
     if (user?.emailPreferences) {
       profileForm.reset({
@@ -120,6 +156,10 @@ export default function ProfilePage() {
     }
   }, [user, profileForm]);
 
+  // GUID: PAGE_PROFILE-008-v03
+  // [Intent] Initialise secondary team form with existing secondary team name if one exists.
+  // [Inbound Trigger] Component mount; re-initialises when user data changes.
+  // [Downstream Impact] Pre-fills the team name input in the secondary team card.
   const secondTeamForm = useForm<SecondTeamValues>({
     resolver: zodResolver(secondTeamSchema),
     defaultValues: {
@@ -127,6 +167,10 @@ export default function ProfilePage() {
     },
   });
 
+  // GUID: PAGE_PROFILE-009-v03
+  // [Intent] Initialise change PIN form with empty defaults.
+  // [Inbound Trigger] Component mount.
+  // [Downstream Impact] Provides controlled inputs for the PIN change card.
   const changePinForm = useForm<ChangePinValues>({
       resolver: zodResolver(changePinSchema),
       defaultValues: {
@@ -135,12 +179,20 @@ export default function ProfilePage() {
       }
   });
 
+  // GUID: PAGE_PROFILE-010-v03
+  // [Intent] Sync secondary team name into form when user data loads.
+  // [Inbound Trigger] user.secondaryTeamName changes.
+  // [Downstream Impact] Pre-fills the secondary team name input field.
   useEffect(() => {
     if (user?.secondaryTeamName) {
       secondTeamForm.setValue("teamName", user.secondaryTeamName);
     }
   }, [user, secondTeamForm]);
 
+  // GUID: PAGE_PROFILE-011-v03
+  // [Intent] Sync secondary email into local state when user data loads.
+  // [Inbound Trigger] user.secondaryEmail changes.
+  // [Downstream Impact] Pre-fills the secondary email input field.
   useEffect(() => {
     if (user?.secondaryEmail) {
       setSecondaryEmailInput(user.secondaryEmail);
@@ -150,6 +202,10 @@ export default function ProfilePage() {
   }, [user?.secondaryEmail]);
 
 
+  // GUID: PAGE_PROFILE-012-v03
+  // [Intent] Save notification preferences to Firestore and log audit event.
+  // [Inbound Trigger] User submits the Email Notifications form.
+  // [Downstream Impact] Updates users/{uid}.emailPreferences in Firestore; writes audit log entry.
   async function onProfileSubmit(data: ProfileFormValues) {
     if (!firebaseUser || !firestore) return;
 
@@ -187,7 +243,11 @@ export default function ProfilePage() {
       });
     }
   }
-  
+
+  // GUID: PAGE_PROFILE-013-v03
+  // [Intent] Request a new temporary PIN to be emailed to the user.
+  // [Inbound Trigger] User clicks the "Request New PIN" action.
+  // [Downstream Impact] Calls resetPin auth function which emails a temporary PIN.
   async function handleRequestPin() {
     if (!user) return;
     const result = await resetPin(user.email);
@@ -205,6 +265,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-014-v03
+  // [Intent] Permanently close the user's account by deleting presence and user documents, then logging out.
+  // [Inbound Trigger] User confirms the "Close Account" alert dialog.
+  // [Downstream Impact] Deletes presence/{uid} and users/{uid} from Firestore; triggers logout.
   function handleCloseAccount() {
     if (!firebaseUser || !firestore) {
       toast({
@@ -217,7 +281,7 @@ export default function ProfilePage() {
     // Delete the presence document
     const presenceRef = doc(firestore, "presence", firebaseUser.uid);
     deleteDocumentNonBlocking(presenceRef);
-    
+
     // Delete the user document
     const userRef = doc(firestore, "users", firebaseUser.uid);
     deleteDocumentNonBlocking(userRef);
@@ -229,6 +293,10 @@ export default function ProfilePage() {
     logout();
   }
 
+  // GUID: PAGE_PROFILE-015-v03
+  // [Intent] Use AI to suggest a fun secondary team name based on the user's primary team name.
+  // [Inbound Trigger] User clicks the wand/suggest button next to the secondary team name input.
+  // [Downstream Impact] Sets the secondTeamForm teamName field to the AI-generated suggestion.
   async function handleSuggestName() {
     if (!user?.teamName) return;
     setIsGenerating(true);
@@ -249,6 +317,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-016-v03
+  // [Intent] Create the user's secondary team via the auth context function.
+  // [Inbound Trigger] User submits the secondary team creation form.
+  // [Downstream Impact] Calls addSecondaryTeam which writes secondaryTeamName to Firestore users doc.
   async function onSecondTeamSubmit(values: SecondTeamValues) {
     setIsCreating(true);
     try {
@@ -276,6 +348,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-017-v03
+  // [Intent] Change the user's PIN and force re-login for security.
+  // [Inbound Trigger] User submits the Change PIN form with matching new/confirm PINs.
+  // [Downstream Impact] Calls changePin auth function; on success resets form and logs user out.
   async function onChangePinSubmit(values: ChangePinValues) {
     if (!user) return;
     setIsChangingPin(true);
@@ -306,6 +382,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-018-v03
+  // [Intent] Send a verification email to the user's primary email address.
+  // [Inbound Trigger] User clicks "Send verification" button next to unverified email.
+  // [Downstream Impact] Triggers Firebase email verification flow via sendVerificationEmail auth function.
   async function handleSendVerificationEmail() {
     setIsSendingVerification(true);
     try {
@@ -327,6 +407,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-019-v03
+  // [Intent] Refresh the email verification status from Firebase Auth.
+  // [Inbound Trigger] User clicks the refresh icon next to unverified email status.
+  // [Downstream Impact] Updates isEmailVerified state via refreshEmailVerificationStatus auth function.
   async function handleRefreshVerificationStatus() {
     setIsRefreshingVerification(true);
     try {
@@ -347,6 +431,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-020-v03
+  // [Intent] Save or update the user's secondary email address.
+  // [Inbound Trigger] User clicks "Save" button next to the secondary email input.
+  // [Downstream Impact] Calls updateSecondaryEmail auth function; writes to Firestore users doc.
   async function handleSaveSecondaryEmail() {
     if (!secondaryEmailInput.trim()) {
       toast({
@@ -377,6 +465,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-021-v03
+  // [Intent] Remove the user's secondary email by passing null to the update function.
+  // [Inbound Trigger] User clicks "Remove" button next to the secondary email input.
+  // [Downstream Impact] Clears secondaryEmail field in Firestore users doc via updateSecondaryEmail.
   async function handleRemoveSecondaryEmail() {
     setIsSavingSecondaryEmail(true);
     try {
@@ -399,6 +491,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-022-v03
+  // [Intent] Remove the user's secondary team by deleting the secondaryTeamName field from Firestore.
+  // [Inbound Trigger] User confirms the "Remove Secondary Team" alert dialog.
+  // [Downstream Impact] Deletes secondaryTeamName from users/{uid}; writes audit log entry.
   async function handleRemoveSecondaryTeam() {
     if (!firestore || !user) return;
     setIsRemovingTeam(true);
@@ -427,6 +523,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-023-v03
+  // [Intent] Send a verification email to the user's secondary email address.
+  // [Inbound Trigger] User clicks "Send verification" next to unverified secondary email status.
+  // [Downstream Impact] Triggers secondary email verification flow via sendSecondaryVerificationEmail.
   async function handleSendSecondaryVerification() {
     setIsSendingSecondaryVerification(true);
     try {
@@ -448,6 +548,10 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-024-v03
+  // [Intent] Save a profile photo URL (from manual entry or preset selection) to Firestore.
+  // [Inbound Trigger] User clicks "Save Photo" in the photo dialog after entering a URL or choosing a preset.
+  // [Downstream Impact] Updates users/{uid}.photoUrl in Firestore; writes audit log entry.
   async function handleSavePhoto() {
     if (!firebaseUser || !firestore) return;
     setIsSavingPhoto(true);
@@ -479,6 +583,12 @@ export default function ProfilePage() {
     }
   }
 
+  // GUID: PAGE_PROFILE-025-v03
+  // [Intent] Handle file upload for profile photo — validates, compresses, uploads to Firebase Storage,
+  //   then updates Firestore with the download URL.
+  // [Inbound Trigger] User selects a file via the file input in the photo dialog.
+  // [Downstream Impact] Writes compressed image to Firebase Storage; updates users/{uid}.photoUrl;
+  //   writes audit log entry.
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file || !firebaseUser || !storage) return;
@@ -543,7 +653,10 @@ export default function ProfilePage() {
     }
   }
 
-  // Preset avatar options
+  // GUID: PAGE_PROFILE-026-v03
+  // [Intent] Preset avatar options generated from external avatar services using the user's ID/team name.
+  // [Inbound Trigger] Computed on render; displayed in the profile photo dialog.
+  // [Downstream Impact] Selected URL is set into photoUrl state and saved via handleSavePhoto.
   const presetAvatars = [
     `https://picsum.photos/seed/${user?.id}/200/200`,
     `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.teamName || 'User')}`,
@@ -553,7 +666,10 @@ export default function ProfilePage() {
     `https://api.dicebear.com/7.x/shapes/svg?seed=${user?.id}`,
   ];
 
-  // Get current avatar URL
+  // GUID: PAGE_PROFILE-027-v03
+  // [Intent] Derive the current avatar URL — user's saved photo or a fallback generated avatar.
+  // [Inbound Trigger] Computed on render from user state.
+  // [Downstream Impact] Displayed as the profile avatar in the Personal Information card.
   const currentAvatarUrl = user?.photoUrl || `https://picsum.photos/seed/${user?.id}/200/200`;
 
   return (
@@ -948,7 +1064,7 @@ export default function ProfilePage() {
               <h3 className="font-medium text-base">Primary Team: <span className="font-bold text-accent">{user?.teamName}</span></h3>
               <p className="text-sm text-muted-foreground">This is your main team for the season.</p>
            </div>
-           
+
             <div className="rounded-lg border p-4 space-y-4">
               <h3 className="text-base font-medium">Secondary Team</h3>
               {user?.secondaryTeamName ? (
@@ -1007,7 +1123,7 @@ export default function ProfilePage() {
            </div>
         </CardContent>
       </Card>}
-      
+
       <Card>
         <CardHeader>
             <CardTitle>Account Management</CardTitle>

@@ -1,3 +1,12 @@
+// GUID: PAGE_LEAGUES-000-v03
+// [Intent] Leagues listing page — displays all leagues the current user belongs to as cards,
+//   with dialogs to create a new league or join an existing one via invite code.
+//   Shows league metadata (member count, invite code, owner badge) and provides leave/delete actions.
+// [Inbound Trigger] User navigates to /leagues in the app layout.
+// [Downstream Impact] Reads from league-context (which subscribes to Firestore "leagues" collection).
+//   Calls createLeague, joinLeagueByCode, leaveLeague, deleteLeague from lib/leagues.
+//   Navigation to /leagues/[leagueId] on view or after creation.
+
 'use client';
 
 import { useState } from 'react';
@@ -36,6 +45,12 @@ import {
 import { createLeague, joinLeagueByCode, leaveLeague, deleteLeague } from '@/lib/leagues';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
 
+// GUID: PAGE_LEAGUES-001-v03
+// [Intent] Main page component that renders the league listing grid with create/join dialogs,
+//   leave/delete confirmations, and invite code copy functionality.
+// [Inbound Trigger] Rendered by Next.js router when user visits /leagues.
+// [Downstream Impact] Consumes useLeague context for league data, useAuth for current user, and lib/leagues
+//   for all CRUD operations. Navigates to league detail page on creation or view.
 export default function LeaguesPage() {
   const firestore = useFirestore();
   const { user } = useAuth();
@@ -53,6 +68,11 @@ export default function LeaguesPage() {
 
   const hasSecondaryTeam = !!user?.secondaryTeamName;
 
+  // GUID: PAGE_LEAGUES-002-v03
+  // [Intent] Creates a new league via Firestore and navigates to the new league detail page on success.
+  // [Inbound Trigger] User submits the "Create a New League" dialog form.
+  // [Downstream Impact] Calls createLeague from lib/leagues which writes to Firestore "leagues" collection.
+  //   On success, navigates to /leagues/[leagueId]. Shows toast on success or failure.
   const handleCreate = async () => {
     if (!user || !createName.trim()) return;
 
@@ -83,6 +103,11 @@ export default function LeaguesPage() {
     setIsCreating(false);
   };
 
+  // GUID: PAGE_LEAGUES-003-v03
+  // [Intent] Joins an existing league using a 6-character invite code, with support for primary or secondary team selection.
+  // [Inbound Trigger] User submits the "Join a League" dialog form with a valid 6-character code.
+  // [Downstream Impact] Calls joinLeagueByCode from lib/leagues which updates Firestore "leagues" document.
+  //   Team ID format differs for secondary teams (userId-secondary). Shows toast on success or failure.
   const handleJoin = async () => {
     if (!user || !joinCode.trim()) return;
 
@@ -114,6 +139,10 @@ export default function LeaguesPage() {
     setIsJoining(false);
   };
 
+  // GUID: PAGE_LEAGUES-004-v03
+  // [Intent] Removes the current user from a league they are a member of (non-owners only).
+  // [Inbound Trigger] User confirms the "Leave League?" alert dialog on a non-owned league card.
+  // [Downstream Impact] Calls leaveLeague from lib/leagues which removes userId from Firestore league memberUserIds.
   const handleLeave = async (leagueId: string, leagueName: string) => {
     if (!user) return;
 
@@ -133,6 +162,11 @@ export default function LeaguesPage() {
     }
   };
 
+  // GUID: PAGE_LEAGUES-005-v03
+  // [Intent] Permanently deletes a league (owners only), removing all member associations.
+  // [Inbound Trigger] User confirms the "Delete League?" alert dialog on an owned league card.
+  // [Downstream Impact] Calls deleteLeague from lib/leagues which deletes the Firestore "leagues" document.
+  //   All members lose access to the league immediately.
   const handleDelete = async (leagueId: string, leagueName: string) => {
     if (!user) return;
 
@@ -152,6 +186,10 @@ export default function LeaguesPage() {
     }
   };
 
+  // GUID: PAGE_LEAGUES-006-v03
+  // [Intent] Copies a league invite code to the clipboard and confirms via toast.
+  // [Inbound Trigger] User clicks the copy button next to an invite code on a league card.
+  // [Downstream Impact] Uses navigator.clipboard API; no Firestore interaction.
   const copyInviteCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast({
@@ -160,6 +198,11 @@ export default function LeaguesPage() {
     });
   };
 
+  // GUID: PAGE_LEAGUES-007-v03
+  // [Intent] Sets the selected league in context and navigates to the league detail page.
+  // [Inbound Trigger] User clicks "View Details" button on a league card.
+  // [Downstream Impact] Updates league-context selectedLeague (affects LeagueSelector across all pages)
+  //   and navigates to /leagues/[leagueId].
   const handleViewLeague = (leagueId: string) => {
     const league = leagues.find(l => l.id === leagueId);
     if (league) {

@@ -1,3 +1,8 @@
+// GUID: API_AI_ANALYSIS-000-v03
+// [Intent] AI-powered race prediction analysis API route. Accepts a user's top-6 driver prediction and analysis weight configuration, builds a dynamic weighted prompt, calls Genkit/Gemini AI, and returns structured analysis text covering multiple F1 analysis facets and optional pundit personas.
+// [Inbound Trigger] POST request from the predictions analysis UI when a user requests AI analysis of their race prediction.
+// [Downstream Impact] Calls Google AI (Gemini) via Genkit. Returns analysis text to the client. Logs errors to error_logs. AI costs are incurred per request. No data is persisted beyond error logs.
+
 // AI-powered race prediction analysis with weighted facets
 // Uses Genkit with Google AI (Gemini)
 
@@ -9,6 +14,10 @@ import { ERROR_CODES } from '@/lib/error-codes';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
+// GUID: API_AI_ANALYSIS-001-v03
+// [Intent] TypeScript interface for a single driver in the user's prediction — position, driver code, full name, and constructor team.
+// [Inbound Trigger] Referenced by AnalysisRequest interface and the prediction list builder.
+// [Downstream Impact] Defines the structure of each prediction entry. Changes require updating the client-side prediction submission.
 interface PredictionDriver {
   position: number;
   driverCode: string;
@@ -16,6 +25,10 @@ interface PredictionDriver {
   team: string;
 }
 
+// GUID: API_AI_ANALYSIS-002-v03
+// [Intent] TypeScript interface for analysis weight sliders — each facet (0-10) controls how much emphasis the AI gives to that analysis dimension. Includes two pundit personas (jackSparrow, rowanHornblower) with extended word budgets.
+// [Inbound Trigger] Referenced by AnalysisRequest and the prompt builder functions.
+// [Downstream Impact] Adding new facets requires updating this interface, the prompt builder, facetDescriptions, and the client-side weight controls.
 interface AnalysisWeights {
   driverForm: number;
   trackHistory: number;
@@ -30,6 +43,10 @@ interface AnalysisWeights {
   rowanHornblower: number; // Bernie Collins style pundit - up to 250 words
 }
 
+// GUID: API_AI_ANALYSIS-003-v03
+// [Intent] TypeScript interface for the full analysis request payload — race metadata, driver predictions, weight configuration, and pre-calculated total weight.
+// [Inbound Trigger] Referenced when typing the parsed POST request body.
+// [Downstream Impact] Defines the contract between the client-side analysis form and this API endpoint.
 interface AnalysisRequest {
   raceId: string;
   raceName: string;
@@ -39,12 +56,19 @@ interface AnalysisRequest {
   totalWeight: number;
 }
 
-// Standard facets get 50 words, pundit facets get up to 250 words
+// GUID: API_AI_ANALYSIS-004-v03
+// [Intent] Constants defining word budgets per facet type — standard facets get 50 words each, pundit personas get up to 250 words scaled by weight.
+// [Inbound Trigger] Referenced by calculateWordBudgets function.
+// [Downstream Impact] Controls AI output length. Changing these values affects token consumption and response size.
 const WORDS_PER_FACET = 50;
 const WORDS_PER_PUNDIT = 250;
 
 const PUNDIT_FACETS = ['jackSparrow', 'rowanHornblower'];
 
+// GUID: API_AI_ANALYSIS-005-v03
+// [Intent] Calculate per-facet word budgets based on weights. Standard facets get a fixed 50 words if active; pundit facets scale linearly from 0-250 words based on weight (0-10).
+// [Inbound Trigger] Called by buildWeightedPrompt to determine how many words to allocate to each section.
+// [Downstream Impact] The budgets are embedded in the AI prompt to guide output length per section.
 const calculateWordBudgets = (weights: AnalysisWeights): Record<string, number> => {
   const budgets: Record<string, number> = {};
 
@@ -63,7 +87,10 @@ const calculateWordBudgets = (weights: AnalysisWeights): Record<string, number> 
   return budgets;
 };
 
-// Build dynamic prompt based on weights
+// GUID: API_AI_ANALYSIS-006-v03
+// [Intent] Build the complete AI prompt dynamically based on race details, user predictions, and weight configuration. Includes facet descriptions with emphasis levels, word budgets, exclusion notes, and formatting rules (British English, headings, verdict).
+// [Inbound Trigger] Called by the POST handler after validating the request.
+// [Downstream Impact] The returned prompt string is sent directly to Genkit ai.generate(). Prompt quality directly affects analysis quality. Facet descriptions define the AI's knowledge of each analysis dimension.
 const buildWeightedPrompt = (
   raceName: string,
   circuit: string,
@@ -141,6 +168,10 @@ IMPORTANT RULES:
 Begin your analysis:`;
 };
 
+// GUID: API_AI_ANALYSIS-007-v03
+// [Intent] POST handler that validates weights, builds the prediction list and weighted prompt, calls Genkit AI (Gemini), and returns the analysis text. Includes dedicated error handling for AI generation failures separate from general errors.
+// [Inbound Trigger] POST /api/ai/analysis with JSON body matching AnalysisRequest interface.
+// [Downstream Impact] Calls Google AI via Genkit (incurs API costs). Returns analysis text to client. Logs AI-specific and general errors to error_logs with AI_GENERATION_FAILED error code. Console-logs audit info for each successful analysis.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -152,7 +183,10 @@ export async function POST(request: NextRequest) {
     const body: AnalysisRequest = await request.json();
     const { raceName, circuit, predictions, weights, totalWeight } = body;
 
-    // Validate weights
+    // GUID: API_AI_ANALYSIS-008-v03
+    // [Intent] Validate that the total weight across all facets does not exceed the maximum of 77. Prevents abuse and ensures balanced analysis.
+    // [Inbound Trigger] Every valid POST request.
+    // [Downstream Impact] Returns 400 with VALIDATION_INVALID_FORMAT if exceeded. The maximum of 77 is a business rule (9 standard facets x 7 average + 2 pundits x 7 average).
     const calculatedTotal = Object.values(weights).reduce((sum, w) => sum + w, 0);
     if (calculatedTotal > 77) {
       return NextResponse.json(
@@ -180,13 +214,16 @@ export async function POST(request: NextRequest) {
       totalWeight || calculatedTotal
     );
 
-    // Call Genkit AI
+    // GUID: API_AI_ANALYSIS-009-v03
+    // [Intent] Call Genkit AI (Gemini) with the weighted prompt and configured generation parameters. Dedicated try/catch provides specific AI error handling with detailed logging.
+    // [Inbound Trigger] Prompt built successfully from validated inputs.
+    // [Downstream Impact] Returns AI-generated analysis text on success. On failure, logs detailed AI error info (name, code, status, truncated stack) to error_logs and returns a fallback message. Token limit of 1500 controls cost and response length.
     let analysisText: string;
     try {
       const result = await ai.generate({
         prompt,
         config: {
-          maxOutputTokens: 1500, // ~1000 words: 9 facets × 50 + 2 pundits × 250 + verdict
+          maxOutputTokens: 1500, // ~1000 words: 9 facets x 50 + 2 pundits x 250 + verdict
           temperature: 0.7,
         },
       });
@@ -246,6 +283,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
+    // GUID: API_AI_ANALYSIS-010-v03
+    // [Intent] Top-level error handler — catches any unhandled exceptions outside of the AI call (e.g., JSON parse, validation). Logs to error_logs and returns a safe 500 response with a fallback analysis message.
+    // [Inbound Trigger] Any uncaught exception within the POST handler (excluding AI errors caught by SEQ 009).
+    // [Downstream Impact] Writes to error_logs collection. Returns correlationId and fallback analysis text to client. Golden Rule #1 compliance.
     console.error(`[AI Analysis Error ${correlationId}]`, error);
 
     // Log error to error_logs collection

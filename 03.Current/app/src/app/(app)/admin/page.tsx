@@ -1,3 +1,10 @@
+// GUID: PAGE_ADMIN-000-v03
+// [Intent] Admin panel page — tabbed interface providing access to all league management tools.
+//          Restricted to admin users; non-admins are redirected to /dashboard with audit logging.
+// [Inbound Trigger] User navigates to /admin. Admin guard checks user.isAdmin.
+// [Downstream Impact] Renders 16 admin tabs (Functions, Teams, Results, Scoring, Hot News, Online,
+//                     Email Logs, Audit, WhatsApp, Standing, Feedback, CC, Errors, Backups, PubChat, Leagues).
+//                     Fetches all users collection for tabs that need user data.
 
 'use client'
 
@@ -32,7 +39,15 @@ import { BackupHealthDashboard } from "./_components/BackupHealthDashboard";
 // [Inbound Trigger] Admin page load (admin-only route guard above).
 // [Downstream Impact] Renders PubChat animation + placeholder in TabsContent value="pubchat".
 import { PubChatPanel } from "./_components/PubChatPanel";
+// GUID: PAGE_ADMIN-001-v03
+// [Intent] Import LeaguesManager for the 16th admin tab.
+// [Inbound Trigger] Admin page load.
+// [Downstream Impact] Renders leagues management UI in TabsContent value="leagues".
 import { LeaguesManager } from "./_components/LeaguesManager";
+// GUID: PAGE_ADMIN-002-v03
+// [Intent] Import AttackMonitor component for security monitoring displayed above the tabs.
+// [Inbound Trigger] Admin page load.
+// [Downstream Impact] Renders rate-limiting and attack detection alerts at the top of the admin panel.
 import { AttackMonitor } from "./_components/AttackMonitor";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
@@ -40,12 +55,23 @@ import { useEffect, useMemo, useRef } from "react";
 import { collection, query } from "firebase/firestore";
 import type { User } from "@/firebase/provider";
 import { logAuditEvent } from "@/lib/audit";
-  
+
+// GUID: PAGE_ADMIN-003-v03
+// [Intent] Main admin page component — enforces admin-only access, fetches all users,
+//          and renders the tabbed admin interface with 16 management panels.
+// [Inbound Trigger] Route navigation to /admin.
+// [Downstream Impact] Non-admin users trigger ACCESS_DENIED audit event and redirect to /dashboard.
+//                     Admin users see full tabbed interface with all management tools.
 export default function AdminPage() {
     const { user, isUserLoading: isAuthLoading } = useAuth();
     const router = useRouter();
     const firestore = useFirestore();
 
+    // GUID: PAGE_ADMIN-004-v03
+    // [Intent] Memoised Firestore query for all users — only created when user is confirmed admin.
+    // [Inbound Trigger] firestore or user.isAdmin changes.
+    // [Downstream Impact] Provides allUsers data to TeamManager, OnlineUsersManager, AuditLogViewer,
+    //                     ConsistencyChecker, and LeaguesManager tabs.
     const allUsersQuery = useMemo(() => {
         if (!firestore || !user?.isAdmin) return null;
         const q = query(collection(firestore, 'users'));
@@ -57,6 +83,11 @@ export default function AdminPage() {
     const isUserLoading = isAuthLoading || isUsersLoading;
     const accessDeniedLogged = useRef(false);
 
+    // GUID: PAGE_ADMIN-005-v03
+    // [Intent] Admin access guard — redirects non-admin users to /dashboard and logs an
+    //          ACCESS_DENIED audit event (once per session via ref flag).
+    // [Inbound Trigger] Auth loading completes and user is not an admin.
+    // [Downstream Impact] Writes to audit_logs collection. Navigates to /dashboard.
     useEffect(() => {
         // If loading is done and the user is not an admin, redirect them.
         if (!isAuthLoading && user && !user.isAdmin) {
@@ -72,7 +103,11 @@ export default function AdminPage() {
         }
     }, [user, isAuthLoading, router, firestore]);
 
-    // Render a loading state or nothing while checking permissions
+    // GUID: PAGE_ADMIN-006-v03
+    // [Intent] Loading/access-denied guard render — shows "Verifying access..." while auth loads
+    //          or if user is not admin (before redirect completes).
+    // [Inbound Trigger] isAuthLoading is true or user.isAdmin is false.
+    // [Downstream Impact] Prevents rendering of admin tabs until access is confirmed.
     if (isAuthLoading || !user?.isAdmin) {
         return (
             <div className="space-y-6">
@@ -84,6 +119,12 @@ export default function AdminPage() {
         );
     }
 
+    // GUID: PAGE_ADMIN-007-v03
+    // [Intent] Main admin panel render — AttackMonitor at top, then 16-tab interface covering
+    //          all league management functions. Each tab mounts its manager component on activation.
+    // [Inbound Trigger] User is confirmed admin and auth loading is complete.
+    // [Downstream Impact] Each tab renders its respective manager component. Several tabs receive
+    //                     allUsers and isUserLoading props for user-related operations.
     return (
         <div className="space-y-6">
             <div className="space-y-1">

@@ -1,3 +1,8 @@
+// GUID: API_ADMIN_DELETE_USER-000-v03
+// [Intent] Admin API route for deleting a user account — coordinates removal from Firebase Auth, Firestore users/presence collections, and league memberships with full audit logging.
+// [Inbound Trigger] POST request from admin UI (UserManagement component) when an admin deletes a user.
+// [Downstream Impact] Removes user from Firebase Auth, Firestore users and presence collections, and all league memberUserIds arrays. Writes audit_logs. Irreversible operation.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
@@ -6,11 +11,19 @@ import { z } from 'zod';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
+// GUID: API_ADMIN_DELETE_USER-001-v03
+// [Intent] Zod schema for validating delete request — ensures both userId and adminUid are present and non-empty.
+// [Inbound Trigger] Every incoming POST request body is parsed against this schema.
+// [Downstream Impact] Rejects malformed requests before any deletion operations occur.
 const deleteUserRequestSchema = z.object({
   userId: z.string().min(1),
   adminUid: z.string().min(1),
 });
 
+// GUID: API_ADMIN_DELETE_USER-002-v03
+// [Intent] POST handler that orchestrates user deletion: validates input, checks admin permissions, prevents self-deletion, removes Auth + Firestore records, cleans up league memberships, and logs audit events.
+// [Inbound Trigger] POST /api/admin/delete-user with JSON body containing userId and adminUid.
+// [Downstream Impact] Deletes from Firebase Auth, Firestore users and presence collections, removes from leagues.memberUserIds. Writes to audit_logs and error_logs. Partial failure is possible if Auth succeeds but Firestore fails.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -18,6 +31,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = deleteUserRequestSchema.safeParse(body);
 
+    // GUID: API_ADMIN_DELETE_USER-003-v03
+    // [Intent] Early return on Zod validation failure — provides field-level errors to the caller.
+    // [Inbound Trigger] Request body fails schema validation.
+    // [Downstream Impact] Returns 400 with VALIDATION_MISSING_FIELDS error code. No deletion operations occur.
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -37,7 +54,10 @@ export async function POST(request: NextRequest) {
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
 
-    // Verify the requester is an admin
+    // GUID: API_ADMIN_DELETE_USER-004-v03
+    // [Intent] Verify the requesting user has admin privileges before allowing deletion.
+    // [Inbound Trigger] Every valid POST request — admin check is mandatory.
+    // [Downstream Impact] Returns 403 if not admin. Prevents unauthorised account deletion.
     const adminDoc = await db.collection('users').doc(adminUid).get();
     if (!adminDoc.exists || !adminDoc.data()?.isAdmin) {
       return NextResponse.json(
@@ -51,7 +71,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prevent deleting yourself
+    // GUID: API_ADMIN_DELETE_USER-005-v03
+    // [Intent] Safety guard — prevent admins from accidentally deleting their own account.
+    // [Inbound Trigger] userId equals adminUid in the request.
+    // [Downstream Impact] Returns 400. Preserves the admin account that initiated the request.
     if (userId === adminUid) {
       return NextResponse.json(
         {
@@ -64,11 +87,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user info before deletion for audit log
+    // GUID: API_ADMIN_DELETE_USER-006-v03
+    // [Intent] Capture user data before deletion for inclusion in the audit log.
+    // [Inbound Trigger] All pre-deletion checks have passed.
+    // [Downstream Impact] userData is referenced in the audit_logs entry at SEQ 009. If user doc does not exist, audit log records 'unknown'.
     const userDoc = await db.collection('users').doc(userId).get();
     const userData = userDoc.exists ? userDoc.data() : null;
 
-    // Coordinated deletion: Auth + Firestore as a unit of work
+    // GUID: API_ADMIN_DELETE_USER-007-v03
+    // [Intent] Delete user from Firebase Auth. If user is already missing from Auth (orphaned Firestore record), proceed with Firestore cleanup only.
+    // [Inbound Trigger] User data captured; ready for coordinated deletion.
+    // [Downstream Impact] Sets authDeleted flag used by Firestore error handler. If Auth deletion succeeds but Firestore fails, a critical error is logged because the user cannot log in but their data remains. Non-auth/user-not-found errors are re-thrown.
     let authDeleted = false;
     try {
       await auth.deleteUser(userId);
@@ -83,7 +112,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Delete Firestore documents
+    // GUID: API_ADMIN_DELETE_USER-008-v03
+    // [Intent] Delete Firestore user and presence documents in a batch. Logs a critical error if Auth was already deleted but Firestore cleanup fails (split-brain state).
+    // [Inbound Trigger] Auth deletion completed or user was not found in Auth.
+    // [Downstream Impact] Removes users/{userId} and presence/{userId}. If batch fails after Auth deletion, error_logs receives a critical entry for manual remediation.
     try {
       const batch = db.batch();
       batch.delete(db.collection('users').doc(userId));
@@ -105,7 +137,10 @@ export async function POST(request: NextRequest) {
       throw firestoreError;
     }
 
-    // Remove user from all leagues
+    // GUID: API_ADMIN_DELETE_USER-009-v03
+    // [Intent] Remove the deleted user's ID from all league memberUserIds arrays. Best-effort — failure is logged but does not block the response.
+    // [Inbound Trigger] Firestore user/presence documents have been deleted.
+    // [Downstream Impact] Updates leagues collection. If cleanup fails, orphaned userId remains in league arrays — Consistency Checker should detect this.
     try {
       const leaguesSnapshot = await db.collection('leagues').get();
       const leagueUpdates: Promise<any>[] = [];
@@ -127,7 +162,10 @@ export async function POST(request: NextRequest) {
       console.warn(`[Admin Delete] Could not clean up league memberships:`, leagueError.message);
     }
 
-    // Log audit event
+    // GUID: API_ADMIN_DELETE_USER-010-v03
+    // [Intent] Write an audit log entry recording who deleted whom and the deleted user's details.
+    // [Inbound Trigger] Successful completion of all deletion operations.
+    // [Downstream Impact] Populates audit_logs for compliance. Provides traceability for deleted accounts.
     await db.collection('audit_logs').add({
       userId: adminUid,
       action: 'ADMIN_DELETE_USER',
@@ -145,6 +183,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
+    // GUID: API_ADMIN_DELETE_USER-011-v03
+    // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.
+    // [Inbound Trigger] Any uncaught exception within the POST handler.
+    // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client for support reference. Golden Rule #1 compliance.
     console.error(`[Admin Delete User Error ${correlationId}]`, error);
 
     await logError({

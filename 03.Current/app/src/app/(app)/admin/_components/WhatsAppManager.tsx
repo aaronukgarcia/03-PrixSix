@@ -1,3 +1,8 @@
+// GUID: ADMIN_WHATSAPP-000-v03
+// [Intent] Admin component for managing WhatsApp integration: worker status monitoring, alert configuration, custom message sending, message queue viewing, and alert history.
+// [Inbound Trigger] Rendered when admin navigates to the WhatsApp management tab in the admin panel.
+// [Downstream Impact] Writes to whatsapp_queue (processed by WhatsApp worker), whatsapp_alert_history, and settings/whatsapp_alerts collections. Changes here affect automated alert delivery to WhatsApp groups.
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -52,7 +57,10 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-// Dynamic import QRCode to avoid SSR issues - with error handling
+// GUID: ADMIN_WHATSAPP-001-v03
+// [Intent] Dynamically import QRCode component to avoid SSR issues; includes fallback UI on load failure.
+// [Inbound Trigger] Component mounts on the client side.
+// [Downstream Impact] QRCodeComponent is used in the QR code display section when worker is awaiting QR scan.
 const QRCodeComponent = dynamic(
   () => import("react-qr-code").then((mod) => mod.default).catch((err) => {
     console.error("Failed to load QRCode component:", err);
@@ -102,10 +110,17 @@ import {
 } from "@/firebase/firestore/settings";
 import { logAuditEvent } from "@/lib/audit";
 
-// WhatsApp proxy API (handles HTTP->HTTPS and auth)
+// GUID: ADMIN_WHATSAPP-002-v03
+// [Intent] Constants for the WhatsApp proxy API endpoint and message length limit.
+// [Inbound Trigger] Referenced by fetch calls throughout the component.
+// [Downstream Impact] Changing WHATSAPP_PROXY_URL affects all API calls to the WhatsApp worker. MAX_MESSAGE_LENGTH controls UI validation for custom messages.
 const WHATSAPP_PROXY_URL = "/api/whatsapp-proxy";
 const MAX_MESSAGE_LENGTH = 500;
 
+// GUID: ADMIN_WHATSAPP-003-v03
+// [Intent] TypeScript interface for the WhatsApp worker status response, including connection state, groups, and keep-alive health.
+// [Inbound Trigger] Used to type the workerStatus state variable populated from the /status API endpoint.
+// [Downstream Impact] Changes to this interface require matching changes in the worker's status endpoint response shape.
 interface WorkerStatus {
   connected: boolean;
   awaitingQR: boolean;
@@ -120,6 +135,10 @@ interface WorkerStatus {
   };
 }
 
+// GUID: ADMIN_WHATSAPP-004-v03
+// [Intent] TypeScript interface for entries in the whatsapp_status_log Firestore collection, tracking connection state changes.
+// [Inbound Trigger] Used to type status log entries fetched via Firestore snapshot listener.
+// [Downstream Impact] Changes require matching updates to the whatsapp_status_log collection schema in the worker.
 interface StatusLogEntry {
   id: string;
   status: string;
@@ -128,6 +147,10 @@ interface StatusLogEntry {
   consecutiveFailures?: number;
 }
 
+// GUID: ADMIN_WHATSAPP-005-v03
+// [Intent] TypeScript interface for messages in the whatsapp_queue Firestore collection, representing messages to be sent by the worker.
+// [Inbound Trigger] Used to type queue message entries fetched via Firestore snapshot listener.
+// [Downstream Impact] Changes require matching updates to how the WhatsApp worker reads and processes queue documents.
 interface QueueMessage {
   id: string;
   groupName?: string;
@@ -140,7 +163,10 @@ interface QueueMessage {
   retryCount?: number;
 }
 
-// Alert category definitions
+// GUID: ADMIN_WHATSAPP-006-v03
+// [Intent] Static configuration defining all alert categories and their individual alert types for the Alert Control Panel UI.
+// [Inbound Trigger] Rendered in the Alert Categories accordion within the Alert Control Panel card.
+// [Downstream Impact] Adding/removing alert keys here requires matching changes in WhatsAppAlertToggles type and Firestore settings document schema.
 const ALERT_CATEGORIES = {
   raceWeekend: {
     label: "Race Weekend",
@@ -179,10 +205,19 @@ const ALERT_CATEGORIES = {
   },
 };
 
+// GUID: ADMIN_WHATSAPP-007-v03
+// [Intent] Main admin component for WhatsApp integration management. Provides worker status monitoring, QR code authentication, alert settings configuration, custom message sending, message queue display, and alert history.
+// [Inbound Trigger] Rendered by the admin page when the WhatsApp management tab is selected.
+// [Downstream Impact] Writes to whatsapp_queue, whatsapp_alert_history, settings/whatsapp_alerts, and audit_log collections. UI state drives all child cards and real-time listeners.
 export function WhatsAppManager() {
   const firestore = useFirestore();
   const { user, firebaseUser } = useAuth();
   const { toast } = useToast();
+
+  // GUID: ADMIN_WHATSAPP-008-v03
+  // [Intent] State management for all component concerns: worker status, alert settings, message form, queue, history, status log, and QR code lifecycle.
+  // [Inbound Trigger] Initialised on component mount; updated by fetch callbacks, Firestore listeners, and user interactions.
+  // [Downstream Impact] State changes trigger re-renders across all child cards. Settings state is compared to saved values to detect unsaved changes.
 
   // Worker status state
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
@@ -241,7 +276,10 @@ export function WhatsAppManager() {
   const QR_WARN_AGE_SECONDS = 60; // Warn if QR is older than 60 seconds
   const QR_STALE_AGE_SECONDS = 120; // Consider stale after 2 minutes
 
-  // Get auth token for API requests
+  // GUID: ADMIN_WHATSAPP-009-v03
+  // [Intent] Retrieve Firebase auth token for authenticated API requests to the WhatsApp proxy.
+  // [Inbound Trigger] Called by fetchQRCode, fetchWorkerStatus, and other API-calling functions.
+  // [Downstream Impact] Returns null if not authenticated, which causes callers to skip or throw. Token is passed as Bearer auth header.
   const getAuthToken = useCallback(async () => {
     if (!firebaseUser) return null;
     try {
@@ -251,7 +289,10 @@ export function WhatsAppManager() {
     }
   }, [firebaseUser]);
 
-  // Fetch QR code from worker via proxy
+  // GUID: ADMIN_WHATSAPP-010-v03
+  // [Intent] Fetch QR code string from the WhatsApp worker via the proxy API for display in the QR scanner UI.
+  // [Inbound Trigger] Called when admin clicks "Show QR Code" button, or auto-refreshed every 30 seconds while QR is displayed.
+  // [Downstream Impact] Sets qrCodeData which renders the QR code via QRCodeComponent. Sets qrFetchedAt which drives the age warning system.
   const fetchQRCode = useCallback(async () => {
     setQrLoading(true);
     setQrError(null);
@@ -286,7 +327,10 @@ export function WhatsAppManager() {
     }
   }, [getAuthToken]);
 
-  // Fetch worker status via proxy
+  // GUID: ADMIN_WHATSAPP-011-v03
+  // [Intent] Fetch current worker status (connection, groups, keep-alive) from the WhatsApp proxy API. Auto-selects first matching group.
+  // [Inbound Trigger] Called on mount, every 30 seconds via interval, and when admin clicks "Refresh" or "Check Again" button.
+  // [Downstream Impact] Sets workerStatus which drives the entire Worker Status Card UI. Auto-selects Prix Six group for message sending.
   const fetchWorkerStatus = useCallback(async () => {
     setStatusLoading(true);
     setStatusError(null);
@@ -338,7 +382,10 @@ export function WhatsAppManager() {
     }
   }, [selectedGroup, getAuthToken]);
 
-  // Fetch alert settings
+  // GUID: ADMIN_WHATSAPP-012-v03
+  // [Intent] Fetch WhatsApp alert settings from Firestore and populate local editing state with saved values.
+  // [Inbound Trigger] Called on component mount via useEffect.
+  // [Downstream Impact] Populates masterEnabled, testMode, targetGroup, and alertToggles state used by the Alert Control Panel.
   const fetchAlertSettings = useCallback(async () => {
     if (!firestore) return;
 
@@ -362,14 +409,20 @@ export function WhatsAppManager() {
     }
   }, [firestore, toast]);
 
-  // Fetch status on mount and every 30 seconds
+  // GUID: ADMIN_WHATSAPP-013-v03
+  // [Intent] Poll worker status on mount and every 30 seconds to keep the status card up to date.
+  // [Inbound Trigger] Component mount and fetchWorkerStatus callback reference changes.
+  // [Downstream Impact] Drives real-time display of worker connection state. Clears interval on unmount.
   useEffect(() => {
     fetchWorkerStatus();
     const interval = setInterval(fetchWorkerStatus, 30000);
     return () => clearInterval(interval);
   }, [fetchWorkerStatus]);
 
-  // Auto-refresh QR code when displayed and awaitingQR
+  // GUID: ADMIN_WHATSAPP-014-v03
+  // [Intent] Auto-refresh the QR code every 30 seconds while the worker is awaiting QR scan and a QR code is displayed.
+  // [Inbound Trigger] Activated when workerStatus.awaitingQR is true and qrCodeData is present.
+  // [Downstream Impact] Keeps QR code fresh for scanning. Prevents expired QR codes from being displayed.
   useEffect(() => {
     if (!workerStatus?.awaitingQR || !qrCodeData) return;
 
@@ -383,7 +436,10 @@ export function WhatsAppManager() {
     return () => clearInterval(refreshInterval);
   }, [workerStatus?.awaitingQR, qrCodeData, qrLoading, fetchQRCode]);
 
-  // Track QR code age every second
+  // GUID: ADMIN_WHATSAPP-015-v03
+  // [Intent] Track QR code age in seconds to display freshness warnings and auto-expire visual feedback.
+  // [Inbound Trigger] Activated when qrFetchedAt is set (after successful QR fetch). Updates every second.
+  // [Downstream Impact] Drives QR age warning UI (green/amber/red) in the QR code display section.
   useEffect(() => {
     if (!qrFetchedAt) return;
 
@@ -395,12 +451,18 @@ export function WhatsAppManager() {
     return () => clearInterval(ageInterval);
   }, [qrFetchedAt]);
 
-  // Fetch alert settings on mount
+  // GUID: ADMIN_WHATSAPP-016-v03
+  // [Intent] Fetch alert settings from Firestore on component mount.
+  // [Inbound Trigger] Component mount and fetchAlertSettings callback reference changes.
+  // [Downstream Impact] Populates the Alert Control Panel with saved settings.
   useEffect(() => {
     fetchAlertSettings();
   }, [fetchAlertSettings]);
 
-  // Listen to recent queue messages
+  // GUID: ADMIN_WHATSAPP-017-v03
+  // [Intent] Real-time Firestore listener for the last 10 messages in whatsapp_queue, ordered by creation time descending.
+  // [Inbound Trigger] Component mount when firestore is available. Updates automatically on collection changes.
+  // [Downstream Impact] Drives the Message Queue card showing pending/sent/failed messages.
   useEffect(() => {
     if (!firestore) return;
 
@@ -422,7 +484,10 @@ export function WhatsAppManager() {
     return () => unsubscribe();
   }, [firestore]);
 
-  // Listen to alert history
+  // GUID: ADMIN_WHATSAPP-018-v03
+  // [Intent] Real-time Firestore listener for the last 50 entries in whatsapp_alert_history, ordered by creation time descending.
+  // [Inbound Trigger] Component mount when firestore is available. Updates automatically on collection changes.
+  // [Downstream Impact] Drives the Alert History card showing sent alerts with type, group, and test mode indicator.
   useEffect(() => {
     if (!firestore) return;
 
@@ -444,7 +509,10 @@ export function WhatsAppManager() {
     return () => unsubscribe();
   }, [firestore]);
 
-  // Listen to WhatsApp status log
+  // GUID: ADMIN_WHATSAPP-019-v03
+  // [Intent] Real-time Firestore listener for the last 25 entries in whatsapp_status_log, ordered by timestamp descending.
+  // [Inbound Trigger] Component mount when firestore is available. Updates automatically on collection changes.
+  // [Downstream Impact] Drives the Connection Status Log card showing connection state changes from the worker.
   useEffect(() => {
     if (!firestore) return;
 
@@ -466,7 +534,10 @@ export function WhatsAppManager() {
     return () => unsubscribe();
   }, [firestore]);
 
-  // Save alert settings
+  // GUID: ADMIN_WHATSAPP-020-v03
+  // [Intent] Persist alert settings (master switch, test mode, target group, alert toggles) to Firestore and log the change in audit trail.
+  // [Inbound Trigger] Called when admin clicks "Save Settings" button in the Alert Control Panel.
+  // [Downstream Impact] Updates settings/whatsapp_alerts Firestore document. Logs audit event. Triggers toast confirmation. Worker reads these settings to determine which alerts to send.
   const handleSaveSettings = async () => {
     if (!firestore || !firebaseUser) return;
 
@@ -515,7 +586,10 @@ export function WhatsAppManager() {
     }
   };
 
-  // Send custom message
+  // GUID: ADMIN_WHATSAPP-021-v03
+  // [Intent] Queue a custom message for delivery to a WhatsApp group via the worker. Adds to whatsapp_queue and whatsapp_alert_history, and logs an audit event.
+  // [Inbound Trigger] Called when admin clicks "Send Message" button after composing a message and selecting a group.
+  // [Downstream Impact] Creates a PENDING document in whatsapp_queue (picked up by the worker for delivery). Creates a history entry. Audit log entry created.
   const handleSend = async () => {
     if (!firestore || !firebaseUser || !message.trim() || !selectedGroup) {
       toast({
@@ -584,10 +658,18 @@ export function WhatsAppManager() {
     }
   };
 
+  // GUID: ADMIN_WHATSAPP-022-v03
+  // [Intent] Toggle an individual alert type on or off in the local editing state.
+  // [Inbound Trigger] Called when admin toggles a Switch in the Alert Categories accordion.
+  // [Downstream Impact] Updates alertToggles state. Change is local until "Save Settings" is clicked.
   const handleToggleAlert = (key: keyof WhatsAppAlertToggles) => {
     setAlertToggles(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // GUID: ADMIN_WHATSAPP-023-v03
+  // [Intent] Render a coloured Badge component based on message queue status (PENDING, PROCESSING, SENT, FAILED).
+  // [Inbound Trigger] Called per row in both the Message Queue and Alert History tables.
+  // [Downstream Impact] Pure UI helper; no side effects.
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
@@ -603,6 +685,10 @@ export function WhatsAppManager() {
     }
   };
 
+  // GUID: ADMIN_WHATSAPP-024-v03
+  // [Intent] Format a Firestore Timestamp to a human-readable en-GB date/time string (DD/MM HH:MM).
+  // [Inbound Trigger] Called for timestamp display in queue, history, and status log tables.
+  // [Downstream Impact] Pure formatting helper; no side effects.
   const formatTime = (timestamp: Timestamp | undefined) => {
     if (!timestamp) return '-';
     try {
@@ -617,6 +703,10 @@ export function WhatsAppManager() {
     }
   };
 
+  // GUID: ADMIN_WHATSAPP-025-v03
+  // [Intent] Derived boolean that compares local editing state against last-saved settings to detect unsaved changes.
+  // [Inbound Trigger] Evaluated on every render. Compared fields: masterEnabled, testMode, targetGroup, alertToggles.
+  // [Downstream Impact] Controls visibility of "Unsaved Changes" badge and enabled state of "Save Settings" button.
   const hasUnsavedChanges = alertSettings && (
     masterEnabled !== alertSettings.masterEnabled ||
     testMode !== alertSettings.testMode ||

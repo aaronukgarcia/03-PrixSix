@@ -1,3 +1,8 @@
+// GUID: API_ADMIN_UPDATE_USER-000-v03
+// [Intent] Admin API route for updating user profile fields (email, teamName, isAdmin, mustChangePin) with full validation, deduplication, and downstream propagation.
+// [Inbound Trigger] POST request from admin UI (UserManagement component) when an admin edits a user's details.
+// [Downstream Impact] Updates Firebase Auth email, Firestore users collection, propagates teamName changes to predictions subcollection, writes audit_logs. Consistency Checker relies on Auth/Firestore sync.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
@@ -6,7 +11,10 @@ import { z } from 'zod';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-// SECURITY: Strict Zod schema prevents mass assignment (no [key: string]: any)
+// GUID: API_ADMIN_UPDATE_USER-001-v03
+// [Intent] Zod schema for strict request validation — prevents mass assignment by only allowing known fields.
+// [Inbound Trigger] Every incoming POST request body is parsed against this schema.
+// [Downstream Impact] Rejects malformed requests before any database operations occur. Adding new updatable fields requires updating this schema.
 const updateUserRequestSchema = z.object({
   userId: z.string().min(1),
   adminUid: z.string().min(1),
@@ -18,6 +26,10 @@ const updateUserRequestSchema = z.object({
   }).strict(),
 });
 
+// GUID: API_ADMIN_UPDATE_USER-002-v03
+// [Intent] POST handler that orchestrates admin user updates: validates input, checks admin permissions, deduplicates email/teamName, updates Auth + Firestore, propagates teamName to predictions, and logs audit events.
+// [Inbound Trigger] POST /api/admin/update-user with JSON body containing userId, adminUid, and data object.
+// [Downstream Impact] Writes to Firebase Auth (email), Firestore users collection, Firestore predictions subcollection (teamName propagation), and audit_logs collection. Error states logged to error_logs.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -25,6 +37,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = updateUserRequestSchema.safeParse(body);
 
+    // GUID: API_ADMIN_UPDATE_USER-003-v03
+    // [Intent] Early return on Zod validation failure — provides detailed field-level errors to the caller.
+    // [Inbound Trigger] Request body fails schema validation (missing fields, invalid types, extra properties).
+    // [Downstream Impact] Returns 400 with VALIDATION_MISSING_FIELDS error code. No database operations occur.
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -44,7 +60,10 @@ export async function POST(request: NextRequest) {
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
 
-    // Verify the requester is an admin
+    // GUID: API_ADMIN_UPDATE_USER-004-v03
+    // [Intent] Verify the requesting user has admin privileges before allowing any modifications.
+    // [Inbound Trigger] Every valid POST request — admin check is mandatory.
+    // [Downstream Impact] Returns 403 if not admin. Prevents privilege escalation. Relies on isAdmin field in Firestore users collection.
     const adminDoc = await db.collection('users').doc(adminUid).get();
     if (!adminDoc.exists || !adminDoc.data()?.isAdmin) {
       return NextResponse.json(
@@ -58,7 +77,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If email is being changed, check for duplicates and update Auth
+    // GUID: API_ADMIN_UPDATE_USER-005-v03
+    // [Intent] Handle email change: normalise to lowercase, check for duplicates in both Firestore and Firebase Auth, then update Auth record.
+    // [Inbound Trigger] data.email is present in the request body.
+    // [Downstream Impact] Updates Firebase Auth email. If Auth update fails (duplicate or user-not-found), returns specific error. Normalised email is carried forward to Firestore update. Golden Rule #3: Auth is source of truth for email.
     if (data.email) {
       const normalizedEmail = data.email.toLowerCase().trim();
 
@@ -117,7 +139,10 @@ export async function POST(request: NextRequest) {
       data.email = normalizedEmail;
     }
 
-    // If team name is being changed, check for duplicates and propagate to predictions
+    // GUID: API_ADMIN_UPDATE_USER-006-v03
+    // [Intent] Handle teamName change: check for case-insensitive duplicates across all users, capture old name for downstream propagation.
+    // [Inbound Trigger] data.teamName is present in the request body.
+    // [Downstream Impact] If duplicate found, returns 409. Otherwise stores oldTeamName for prediction propagation in SEQ 008. Fetches all users for duplicate check — performance concern at scale.
     let oldTeamName: string | null = null;
     if (data.teamName) {
       const normalizedTeamName = data.teamName.trim();
@@ -154,14 +179,20 @@ export async function POST(request: NextRequest) {
       data.teamName = normalizedTeamName;
     }
 
-    // Update Firestore user document
+    // GUID: API_ADMIN_UPDATE_USER-007-v03
+    // [Intent] Persist the validated changes to the Firestore users document with a server timestamp.
+    // [Inbound Trigger] All validation and deduplication checks have passed.
+    // [Downstream Impact] Updates Firestore users/{userId}. The updatedAt timestamp is used for audit trail. Other components reading user data will see the new values.
     const userDocRef = db.collection('users').doc(userId);
     await userDocRef.update({
       ...data,
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // If team name changed, propagate to all predictions (Golden Rule #3: Single Source of Truth)
+    // GUID: API_ADMIN_UPDATE_USER-008-v03
+    // [Intent] Propagate teamName changes to all of the user's prediction documents (Golden Rule #3: Single Source of Truth — denormalised teamName must stay in sync).
+    // [Inbound Trigger] oldTeamName differs from new data.teamName (team name was actually changed, not just other fields).
+    // [Downstream Impact] Batch-updates predictions subcollection. Writes a specific TEAM_NAME_CHANGED audit log. If this fails mid-batch, predictions may be partially updated — no rollback mechanism.
     let updatedPredictionCount = 0;
     if (oldTeamName && data.teamName && oldTeamName !== data.teamName) {
       // Get all predictions for this user with the old team name
@@ -195,7 +226,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Log general audit event
+    // GUID: API_ADMIN_UPDATE_USER-009-v03
+    // [Intent] Write a general audit log entry for every admin user update, regardless of which fields changed.
+    // [Inbound Trigger] Successful completion of all update operations.
+    // [Downstream Impact] Populates audit_logs collection for compliance and troubleshooting. Admin dashboard may display these entries.
     await db.collection('audit_logs').add({
       userId: adminUid,
       action: 'ADMIN_UPDATE_USER',
@@ -215,6 +249,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
+    // GUID: API_ADMIN_UPDATE_USER-010-v03
+    // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.
+    // [Inbound Trigger] Any uncaught exception within the POST handler.
+    // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client for support reference. Golden Rule #1 compliance.
     console.error(`[Admin Update User Error ${correlationId}]`, error);
 
     await logError({

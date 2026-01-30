@@ -1,4 +1,9 @@
 
+// GUID: COMPONENT_PREDICTION_EDITOR-000-v03
+// [Intent] PredictionEditor component: the core prediction interface where users select, reorder, and submit their top-6 driver predictions for a race. Also provides AI-powered analysis with configurable weights, countdown timer, apply-to-all-teams option, and a change log.
+// [Inbound Trigger] Rendered by the predictions page when a race is selected and the user has an active team.
+// [Downstream Impact] Submits predictions via POST /api/submit-prediction; requests AI analysis via POST /api/ai/analysis; persists AI weights to Firestore users collection. Changes here affect the entire prediction submission flow.
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -30,7 +35,10 @@ import { Slider } from "@/components/ui/slider";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 
-// Analysis facets configuration
+// GUID: COMPONENT_PREDICTION_EDITOR-001-v03
+// [Intent] Configuration array defining the 11 AI analysis facets (9 data-driven + 2 personality-driven). Each facet has a key matching AnalysisWeights, a display label, icon emoji, and description.
+// [Inbound Trigger] Iterated in the weights panel UI to render sliders for each facet.
+// [Downstream Impact] Keys must match AnalysisWeights type and DEFAULT_WEIGHTS object. Adding/removing facets requires updating both.
 const ANALYSIS_FACETS = [
   { key: 'driverForm', label: 'Driver Form', icon: '📈', description: 'Recent performance over last 3-4 races' },
   { key: 'trackHistory', label: 'Track Changes', icon: '🔄', description: 'Circuit evolution, resurfacing, layout mods' },
@@ -45,6 +53,10 @@ const ANALYSIS_FACETS = [
   { key: 'rowanHornblower', label: 'Rowan Hornblower', icon: '📊', description: 'Measured strategist, professional insight' },
 ] as const;
 
+// GUID: COMPONENT_PREDICTION_EDITOR-002-v03
+// [Intent] Default weight values for each AI analysis facet. Data facets default to 7, personality facets to 5.
+// [Inbound Trigger] Used as initial state for weights; also used by resetWeights to restore defaults.
+// [Downstream Impact] Sent to /api/ai/analysis endpoint; changing values alters the default AI analysis emphasis.
 const DEFAULT_WEIGHTS: AnalysisWeights = {
   driverForm: 7,
   trackHistory: 7,
@@ -59,8 +71,16 @@ const DEFAULT_WEIGHTS: AnalysisWeights = {
   rowanHornblower: 5,
 };
 
+// GUID: COMPONENT_PREDICTION_EDITOR-003-v03
+// [Intent] Maximum total weight budget (11 facets x 7 = 77). Enforces a constraint so users must trade off emphasis between facets.
+// [Inbound Trigger] Referenced by handleWeightChange validation and the weight budget display.
+// [Downstream Impact] If increased, users can set all facets to higher values, reducing the trade-off mechanic.
 const MAX_TOTAL_WEIGHT = 77; // 11 facets × 7 default weight
 
+// GUID: COMPONENT_PREDICTION_EDITOR-004-v03
+// [Intent] Props interface for PredictionEditor. Receives driver list, lock state, initial predictions, race metadata, team info, and circuit name.
+// [Inbound Trigger] Defined at module level; consumed when PredictionEditor is instantiated by the predictions page.
+// [Downstream Impact] allDrivers populates the available drivers list; isLocked disables all editing; qualifyingTime drives the countdown timer; allTeamNames enables the "Apply to All" feature.
 interface PredictionEditorProps {
   allDrivers: Driver[];
   isLocked: boolean;
@@ -72,6 +92,10 @@ interface PredictionEditorProps {
   circuitName?: string;
 }
 
+// GUID: COMPONENT_PREDICTION_EDITOR-005-v03
+// [Intent] Main PredictionEditor component. Manages prediction grid state, countdown timer, submission flow, AI analysis, and change history.
+// [Inbound Trigger] Rendered by the predictions page with race-specific props.
+// [Downstream Impact] Submits to /api/submit-prediction for each team; calls /api/ai/analysis for AI insights; persists weights to Firestore. Displays toast notifications for success/failure.
 export function PredictionEditor({ allDrivers, isLocked, initialPredictions, raceName, teamName, qualifyingTime, allTeamNames = [], circuitName }: PredictionEditorProps) {
   const { user, firebaseUser } = useAuth();
   const firestore = useFirestore();
@@ -89,14 +113,20 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
   const [analysisText, setAnalysisText] = useState('');
   const [isAnalysing, setIsAnalysing] = useState(false);
 
-  // Load saved weights from user preferences on mount
+  // GUID: COMPONENT_PREDICTION_EDITOR-006-v03
+  // [Intent] Load user's saved AI analysis weights from Firestore on mount. Overrides DEFAULT_WEIGHTS if the user has previously customised and saved their preferences.
+  // [Inbound Trigger] Fires when user.aiAnalysisWeights changes (typically once after auth resolves).
+  // [Downstream Impact] Sets the weights state which controls AI analysis facet emphasis and slider positions.
   useEffect(() => {
     if (user?.aiAnalysisWeights) {
       setWeights(user.aiAnalysisWeights);
     }
   }, [user?.aiAnalysisWeights]);
 
-  // Calculate total weight
+  // GUID: COMPONENT_PREDICTION_EDITOR-007-v03
+  // [Intent] Memoised calculation of the sum of all current weight values, used for budget enforcement and display.
+  // [Inbound Trigger] Re-computed whenever the weights object changes.
+  // [Downstream Impact] Used by handleWeightChange to cap slider values and by the UI to display remaining budget.
   const totalWeight = useMemo(() => {
     return Object.values(weights).reduce((sum, w) => sum + w, 0);
   }, [weights]);
@@ -106,7 +136,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
   // Only show "Apply to All" if user has multiple teams
   const hasMultipleTeams = allTeamNames.length > 1;
 
-  // Countdown timer
+  // GUID: COMPONENT_PREDICTION_EDITOR-008-v03
+  // [Intent] Countdown timer that updates every second, showing time remaining until qualifying (the prediction deadline). Displays days/hours/minutes/seconds format and shows "CLOSED" when past.
+  // [Inbound Trigger] Fires on mount and whenever qualifyingTime prop changes; runs a 1-second interval.
+  // [Downstream Impact] Updates countdown display string in the footer badge. Does not control the isLocked prop (that comes from the parent).
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
@@ -137,15 +170,27 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     return () => clearInterval(interval);
   }, [qualifyingTime]);
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-009-v03
+  // [Intent] Computed list of drivers not yet selected in the prediction grid, sorted alphabetically. Powers the "Available Drivers" panel.
+  // [Inbound Trigger] Re-computed on every render when predictions or allDrivers change.
+  // [Downstream Impact] Displayed in the available drivers scroll area; clicking a driver calls handleAddDriver.
   const availableDrivers = allDrivers
     .filter((d) => !predictions.some((p) => p?.id === d.id))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-010-v03
+  // [Intent] Appends a change description to the history log (max 5 entries). Optionally includes a timestamp for significant actions like submissions.
+  // [Inbound Trigger] Called by handleAddDriver, handleRemoveDriver, handleMove, handleSubmit, and handleAnalysis.
+  // [Downstream Impact] Updates the Change Log card display; older entries fade via CSS opacity classes.
   const addChangeToHistory = (change: string, includeTimestamp = false) => {
     const timestamp = includeTimestamp ? ` [${new Date().toLocaleString()}]` : "";
     setHistory(prev => [change + timestamp, ...prev].slice(0, 5));
   }
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-011-v03
+  // [Intent] Adds a driver to the first empty slot in the prediction grid. No-op if the grid is locked.
+  // [Inbound Trigger] User clicks a driver button in the Available Drivers panel.
+  // [Downstream Impact] Updates predictions state; logs the addition to the change history.
   const handleAddDriver = (driver: Driver) => {
     if (isLocked) return;
     const newPredictions = [...predictions];
@@ -157,6 +202,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   };
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-012-v03
+  // [Intent] Removes a driver from a specific position in the prediction grid, setting that slot to null. No-op if the grid is locked.
+  // [Inbound Trigger] User clicks the X button on a filled grid slot.
+  // [Downstream Impact] Updates predictions state; logs the removal to the change history; the removed driver reappears in the Available Drivers panel.
   const handleRemoveDriver = (index: number) => {
     if (isLocked) return;
     const driverName = predictions[index]?.name;
@@ -166,6 +215,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     if(driverName) addChangeToHistory(`- ${driverName} from grid`);
   };
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-013-v03
+  // [Intent] Swaps a driver with the adjacent slot (up or down) to reorder predictions. No-op if locked or at grid boundary.
+  // [Inbound Trigger] User clicks the up/down arrow buttons on a grid slot.
+  // [Downstream Impact] Updates predictions state; logs the swap to the change history.
   const handleMove = (index: number, direction: "up" | "down") => {
     if (isLocked) return;
     const newPredictions = [...predictions];
@@ -183,6 +236,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   };
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-014-v03
+  // [Intent] Submits the prediction to the server via /api/submit-prediction. Supports multi-team submission when "Apply to All" is checked. Validates grid completeness and user authentication before sending.
+  // [Inbound Trigger] User clicks the "Submit Predictions" or "Submit to All Teams" button.
+  // [Downstream Impact] POST to /api/submit-prediction for each team; on success shows a toast and logs to change history; on failure shows a destructive toast with error details.
   const handleSubmit = async () => {
     if (!user || !teamName) {
         toast({ variant: "destructive", title: "Error", description: "User or team not identified." });
@@ -265,7 +322,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   }
 
-  // Handle weight change with validation
+  // GUID: COMPONENT_PREDICTION_EDITOR-015-v03
+  // [Intent] Handles weight slider changes with budget enforcement. Caps the new value if it would exceed MAX_TOTAL_WEIGHT.
+  // [Inbound Trigger] User drags an analysis weight slider.
+  // [Downstream Impact] Updates the weights state; reflected in totalWeight memo and the weight budget display.
   const handleWeightChange = (key: keyof AnalysisWeights, value: number) => {
     const currentValue = weights[key];
     const difference = value - currentValue;
@@ -280,12 +340,18 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     setWeights(prev => ({ ...prev, [key]: value }));
   };
 
-  // Reset weights to default
+  // GUID: COMPONENT_PREDICTION_EDITOR-016-v03
+  // [Intent] Resets all analysis weights back to DEFAULT_WEIGHTS values.
+  // [Inbound Trigger] User clicks the reset button in the weights panel.
+  // [Downstream Impact] Restores default slider positions and budget; does not persist to Firestore until next analysis request.
   const resetWeights = () => {
     setWeights(DEFAULT_WEIGHTS);
   };
 
-  // Save weights to user preferences
+  // GUID: COMPONENT_PREDICTION_EDITOR-017-v03
+  // [Intent] Persists the current AI analysis weights to the user's Firestore document. Fire-and-forget: failure is logged but not shown to the user.
+  // [Inbound Trigger] Called by handleAnalysis before requesting AI analysis.
+  // [Downstream Impact] Updates the aiAnalysisWeights field in the Firestore users/{userId} document. On next page load, these weights will be restored via the load useEffect.
   const saveWeights = async () => {
     if (!firestore || !user) return;
     try {
@@ -297,7 +363,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   };
 
-  // AI Analysis handler
+  // GUID: COMPONENT_PREDICTION_EDITOR-018-v03
+  // [Intent] Requests AI-powered race analysis from /api/ai/analysis with the current predictions and weights. Validates grid completeness first. Handles errors with correlation IDs and user-copyable error toasts per Golden Rule #1.
+  // [Inbound Trigger] User clicks the "Generate Analysis" button.
+  // [Downstream Impact] Displays analysis text in the full-width result card; saves weights to Firestore; logs to change history. On error, shows a destructive toast with selectable correlation ID.
   const handleAnalysis = async () => {
     const isComplete = predictions.every(p => p !== null);
     if (!isComplete) {
@@ -372,6 +441,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   };
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-019-v03
+  // [Intent] Main render: two-column layout with prediction grid card (left/top) and sidebar (right/bottom) containing available drivers, change log, and AI analysis panel. Full-width AI result card spans below both columns when analysis is active.
+  // [Inbound Trigger] Component render cycle; re-renders on state changes to predictions, countdown, weights, analysis, etc.
+  // [Downstream Impact] Renders interactive grid slots, available drivers list, submission controls, countdown badge, AI analysis card, and analysis result. All user interactions feed back into the state handlers above.
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card className="lg:col-span-2">
@@ -478,7 +551,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
             )}
         </CardFooter>
       </Card>
-      
+
       <div className="space-y-6">
         <Card className={cn(isLocked && "hidden")}>
             <CardHeader>

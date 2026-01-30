@@ -1,4 +1,9 @@
 
+// GUID: ADMIN_SITE_FUNCTIONS-000-v03
+// [Intent] Admin component for toggling global site functions: user login and new user sign-up. Reads and writes admin_configuration/global in Firestore.
+// [Inbound Trigger] Rendered within the admin panel when the "Site Functions" tab is selected.
+// [Downstream Impact] Changes to userLoginEnabled and newUserSignupEnabled affect the login and registration flows site-wide. Audit events are logged on save.
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,11 +17,19 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { logAuditEvent } from "@/lib/audit";
 
+// GUID: ADMIN_SITE_FUNCTIONS-001-v03
+// [Intent] Type definition for the global site settings stored in admin_configuration/global.
+// [Inbound Trigger] Used to type-check the Firestore document data on read and write.
+// [Downstream Impact] Adding new settings fields here requires corresponding UI controls and Firestore schema updates.
 interface SiteSettings {
     userLoginEnabled: boolean;
     newUserSignupEnabled: boolean;
 }
 
+// GUID: ADMIN_SITE_FUNCTIONS-002-v03
+// [Intent] Main SiteFunctionsManager component providing toggle switches for global site features with save persistence.
+// [Inbound Trigger] Rendered by the admin page when the Site Functions tab is active.
+// [Downstream Impact] Writes to admin_configuration/global in Firestore; login and signup flows check these flags to allow or block access.
 export function SiteFunctionsManager() {
     const firestore = useFirestore();
     const { user } = useAuth();
@@ -25,6 +38,10 @@ export function SiteFunctionsManager() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
+    // GUID: ADMIN_SITE_FUNCTIONS-003-v03
+    // [Intent] Fetches the current global site settings from Firestore on component mount.
+    // [Inbound Trigger] Runs when the firestore instance becomes available (useEffect dependency).
+    // [Downstream Impact] Populates the settings state, which drives the switch toggle positions. Defaults to both enabled if no document exists.
     useEffect(() => {
         if (!firestore) return;
         const fetchSettings = async () => {
@@ -41,6 +58,10 @@ export function SiteFunctionsManager() {
     }, [firestore]);
 
 
+    // GUID: ADMIN_SITE_FUNCTIONS-004-v03
+    // [Intent] Persists the current toggle states to Firestore and logs an audit event for the change.
+    // [Inbound Trigger] Clicking the "Save Settings" button.
+    // [Downstream Impact] Updates admin_configuration/global document; login/signup flows will read these values. Audit trail is created via logAuditEvent.
     const handleSave = async () => {
         if (!firestore || !settings || !user) return;
         setIsSaving(true);
@@ -71,6 +92,10 @@ export function SiteFunctionsManager() {
         setIsSaving(false);
     };
 
+    // GUID: ADMIN_SITE_FUNCTIONS-005-v03
+    // [Intent] Renders a loading skeleton while settings are being fetched from Firestore.
+    // [Inbound Trigger] isLoading is true during the initial fetch.
+    // [Downstream Impact] Prevents interaction with uninitialised toggle states; replaced by the full UI once data loads.
     if (isLoading) {
         return (
             <Card>
@@ -87,6 +112,10 @@ export function SiteFunctionsManager() {
         )
     }
 
+    // GUID: ADMIN_SITE_FUNCTIONS-006-v03
+    // [Intent] Renders the site functions card with toggle switches for login and sign-up, plus a save button.
+    // [Inbound Trigger] Component render cycle after settings have loaded.
+    // [Downstream Impact] User interactions update local state; handleSave persists changes to Firestore.
     return (
         <Card>
             <CardHeader>

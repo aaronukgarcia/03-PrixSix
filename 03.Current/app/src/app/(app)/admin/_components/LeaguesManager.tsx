@@ -1,4 +1,9 @@
 
+// GUID: ADMIN_LEAGUES-000-v03
+// [Intent] Admin component for viewing all leagues, their owners, member counts, invite codes, and expandable member lists.
+// [Inbound Trigger] Rendered within the admin panel when the "Leagues" tab is selected.
+// [Downstream Impact] Read-only view of the leagues collection. Only clipboard write (invite code copy) has a side effect. No Firestore mutations.
+
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
@@ -15,16 +20,28 @@ import { collection, query } from "firebase/firestore";
 import type { League } from "@/lib/types/league";
 import { SYSTEM_OWNER_ID } from "@/lib/types/league";
 
+// GUID: ADMIN_LEAGUES-001-v03
+// [Intent] Defines the props contract for LeaguesManager, requiring the full user list and its loading state for team name resolution.
+// [Inbound Trigger] Passed from the parent admin page which fetches all users.
+// [Downstream Impact] The component resolves user IDs to team names via allUsers for display in the leagues table.
 interface LeaguesManagerProps {
     allUsers: User[] | null;
     isUserLoading: boolean;
 }
 
+// GUID: ADMIN_LEAGUES-002-v03
+// [Intent] Main LeaguesManager component rendering a table of all leagues with expandable member details and invite code copy functionality.
+// [Inbound Trigger] Rendered by the admin page when the Leagues tab is active.
+// [Downstream Impact] Reads the leagues Firestore collection via useCollection. No write operations apart from clipboard copy.
 export function LeaguesManager({ allUsers, isUserLoading }: LeaguesManagerProps) {
     const { toast } = useToast();
     const firestore = useFirestore();
     const [expandedLeagueId, setExpandedLeagueId] = useState<string | null>(null);
 
+    // GUID: ADMIN_LEAGUES-003-v03
+    // [Intent] Memoised Firestore query for the entire leagues collection, used by the useCollection hook.
+    // [Inbound Trigger] Recomputed when the firestore instance changes.
+    // [Downstream Impact] Feeds the useCollection hook which provides real-time league data for the table.
     const leaguesQuery = useMemo(() => {
         if (!firestore) return null;
         const q = query(collection(firestore, 'leagues'));
@@ -34,27 +51,47 @@ export function LeaguesManager({ allUsers, isUserLoading }: LeaguesManagerProps)
 
     const { data: leagues, isLoading: isLeaguesLoading } = useCollection<League>(leaguesQuery);
 
+    // GUID: ADMIN_LEAGUES-004-v03
+    // [Intent] Creates a Map from user ID to team name for efficient lookup when resolving league member and owner names.
+    // [Inbound Trigger] Recomputed when allUsers changes.
+    // [Downstream Impact] Used by resolveTeamName to display human-readable team names instead of raw user IDs.
     const userMap = useMemo(() => {
         if (!allUsers) return new Map<string, string>();
         return new Map(allUsers.map(u => [u.id, u.teamName]));
     }, [allUsers]);
 
+    // GUID: ADMIN_LEAGUES-005-v03
+    // [Intent] Resolves a user ID to a human-readable team name, with special handling for the system owner.
+    // [Inbound Trigger] Called for each league owner and member ID during render.
+    // [Downstream Impact] Display-only; falls back to the raw user ID if no match is found in the user map.
     const resolveTeamName = (userId: string) => {
         if (userId === SYSTEM_OWNER_ID) return "System";
         return userMap.get(userId) || userId;
     };
 
+    // GUID: ADMIN_LEAGUES-006-v03
+    // [Intent] Copies a league's invite code to the system clipboard and shows a confirmation toast.
+    // [Inbound Trigger] Clicking the copy icon button next to an invite code in the table.
+    // [Downstream Impact] Writes to the system clipboard only. No Firestore mutation.
     const handleCopyInviteCode = async (code: string) => {
         await navigator.clipboard.writeText(code);
         toast({ title: "Copied", description: `Invite code "${code}" copied to clipboard.` });
     };
 
+    // GUID: ADMIN_LEAGUES-007-v03
+    // [Intent] Toggles the expanded/collapsed state for a league row to show or hide member details.
+    // [Inbound Trigger] Clicking anywhere on a league table row or the chevron button.
+    // [Downstream Impact] Controls whether the member detail sub-row is visible for the clicked league.
     const toggleExpand = (leagueId: string) => {
         setExpandedLeagueId(prev => prev === leagueId ? null : leagueId);
     };
 
     const isLoading = isUserLoading || isLeaguesLoading;
 
+    // GUID: ADMIN_LEAGUES-008-v03
+    // [Intent] Renders the leagues table with columns for name, owner, member count, invite code, and an expand/collapse control.
+    // [Inbound Trigger] Component render cycle; displays skeleton rows while isLoading is true.
+    // [Downstream Impact] Provides the visual interface for league inspection. Expanded rows show member badges resolved to team names.
     return (
         <Card>
             <CardHeader>

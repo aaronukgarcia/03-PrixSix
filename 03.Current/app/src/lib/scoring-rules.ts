@@ -1,3 +1,21 @@
+// GUID: LIB_SCORING_RULES-000-v03
+// [Intent] Single source of truth for all Prix Six scoring constants, rule descriptions,
+// and gameplay rules. Centralises point values and rule text so every consumer
+// (rules page, scoring engine, consistency checker) reads from one place.
+// [Inbound Trigger] Imported by scoring.ts, rules page components, and consistency checker.
+// [Downstream Impact] Changing point values here changes every score calculation and
+// display across the entire application. scoring.ts depends on SCORING_POINTS and
+// calculateDriverPoints. The rules page depends on SCORING_RULES and GAMEPLAY_RULES.
+
+// GUID: LIB_SCORING_RULES-001-v03
+// [Intent] Define the concrete point values for the hybrid position-based scoring system.
+// Each property maps to a specific proximity tier (exact, 1 off, 2 off, 3+ off, bonus).
+// [Inbound Trigger] Referenced at import time by scoring.ts (calculateDriverPoints, bonus check)
+// and by SCORING_RULES / SCORING_DERIVED constants below.
+// [Downstream Impact] Any value change directly alters all past and future score calculations.
+// SCORING_DERIVED.maxPointsPerRace is computed from these values. SCORING_RULES display
+// strings reference these values.
+
 /**
  * Prix Six Scoring Rules - Single Source of Truth
  *
@@ -32,6 +50,13 @@ export const SCORING_POINTS = {
   bonusAll6: 10,
 } as const;
 
+// GUID: LIB_SCORING_RULES-002-v03
+// [Intent] Derive computed constants (max points per race, number of drivers) from
+// SCORING_POINTS so they stay automatically in sync with the base point values.
+// [Inbound Trigger] Referenced at import time by rules page and validation logic.
+// [Downstream Impact] GAMEPLAY_RULES text references driversToPredict. Any consumer
+// checking maximum possible score relies on maxPointsPerRace.
+
 // Derived values
 export const SCORING_DERIVED = {
   /** Maximum possible points per race: 6 exact (36) + bonus (10) = 46 */
@@ -40,6 +65,15 @@ export const SCORING_DERIVED = {
   /** Number of drivers to predict */
   driversToPredict: 6,
 } as const;
+
+// GUID: LIB_SCORING_RULES-003-v03
+// [Intent] Calculate the points a single driver prediction earns based on the
+// absolute difference between predicted and actual finishing position.
+// Implements the four-tier proximity model: exact / 1-off / 2-off / 3+-off.
+// [Inbound Trigger] Called per-driver by calculateRaceScores in scoring.ts during
+// score computation for each user prediction.
+// [Downstream Impact] Return value is summed into the user's total race score.
+// If this function's logic changes, every race score in the system changes.
 
 /**
  * Calculate points for a single driver prediction based on position difference
@@ -66,6 +100,14 @@ export function calculateDriverPoints(predictedPosition: number, actualPosition:
     return SCORING_POINTS.threeOrMoreOff;
   }
 }
+
+// GUID: LIB_SCORING_RULES-004-v03
+// [Intent] Provide human-readable rule descriptions for display on the rules page.
+// Each entry pairs a point value with a title and prose explanation so the UI can
+// render the scoring table without hardcoded strings.
+// [Inbound Trigger] Imported by the /rules page component at render time.
+// [Downstream Impact] Changing titles or descriptions alters what users see on the
+// rules page. Point values are sourced from SCORING_POINTS (single source of truth).
 
 // Rule descriptions for the rules page
 export const SCORING_RULES = [
@@ -107,6 +149,13 @@ export const SCORING_RULES = [
   },
 ] as const;
 
+// GUID: LIB_SCORING_RULES-005-v03
+// [Intent] Provide human-readable gameplay rule descriptions for the rules page,
+// covering objective, deadlines, defaults, validation, and late-joiner policy.
+// [Inbound Trigger] Imported by the /rules page component at render time.
+// [Downstream Impact] Changing these descriptions alters what users see on the
+// rules page. driversToPredict is sourced from SCORING_DERIVED.
+
 // Gameplay rules for the rules page
 export const GAMEPLAY_RULES = [
   {
@@ -131,10 +180,24 @@ export const GAMEPLAY_RULES = [
   },
 ] as const;
 
+// GUID: LIB_SCORING_RULES-006-v03
+// [Intent] Define the tiebreaker rule text for end-of-season standings disputes.
+// [Inbound Trigger] Imported by the /rules page component at render time.
+// [Downstream Impact] Changing this alters the displayed tiebreaker rule only;
+// no scoring logic depends on this constant.
+
 export const TIEBREAKER_RULE = {
   title: 'End of Season Tie',
   description: 'In the event of a tie in the final standings, the winner will be the team principal who has correctly predicted the most 1st, 2nd, and 3rd place finishes throughout the season, including quali sessions.',
 } as const;
+
+// GUID: LIB_SCORING_RULES-007-v03
+// [Intent] Export TypeScript types derived from the SCORING_RULES and GAMEPLAY_RULES
+// arrays so consuming components can be type-safe when iterating over rules.
+// [Inbound Trigger] Imported by any TypeScript consumer that needs to type-check
+// against individual rule entries.
+// [Downstream Impact] Removing or restructuring SCORING_RULES or GAMEPLAY_RULES
+// will break these types and any consumer depending on them.
 
 // Type exports for TypeScript
 export type ScoringRule = typeof SCORING_RULES[number];

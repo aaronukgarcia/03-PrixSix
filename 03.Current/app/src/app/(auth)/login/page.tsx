@@ -1,3 +1,9 @@
+// GUID: PAGE_LOGIN-000-v03
+// [Intent] Login page for Prix Six. Authenticates users via email + 6-digit PIN,
+//          displays version number, and redirects to dashboard on success.
+// [Inbound Trigger] User navigates to /login or root route (/ renders this page).
+// [Downstream Impact] Successful login sets auth context (useAuth), redirects to /dashboard.
+//                     Failed login displays selectable error with correlation ID.
 
 "use client";
 
@@ -26,11 +32,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
 
+// GUID: PAGE_LOGIN-001-v03
+// [Intent] Zod validation schema for login form — enforces valid email and exactly 6-digit PIN.
+// [Inbound Trigger] Form submission triggers zodResolver validation.
+// [Downstream Impact] Invalid input prevents onSubmit from executing; FormMessage displays errors.
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   pin: z.string().min(6, { message: "PIN must be 6 digits." }).max(6),
 });
 
+// GUID: PAGE_LOGIN-002-v03
+// [Intent] Main login page component — renders email/PIN form, handles authentication,
+//          and manages loading/redirect/error UI states.
+// [Inbound Trigger] Route navigation to /login (or / via PAGE_ROOT).
+// [Downstream Impact] Calls useAuth().login which hits /api/login. On success, pushes to /dashboard.
+//                     On failure, displays error inline with selectable correlation ID.
 export default function LoginPage() {
     const { login } = useAuth();
     const { toast } = useToast();
@@ -47,6 +63,12 @@ export default function LoginPage() {
         },
     });
 
+    // GUID: PAGE_LOGIN-003-v03
+    // [Intent] Form submission handler — calls login API, manages submit/redirect states,
+    //          and displays error with correlation ID on failure.
+    // [Inbound Trigger] User clicks "Sign In" button and form validation passes.
+    // [Downstream Impact] Success: sets isRedirecting, pushes to /dashboard.
+    //                     Failure: shows destructive toast and inline error with Ref ID.
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setError(null);
         setIsSubmitting(true);

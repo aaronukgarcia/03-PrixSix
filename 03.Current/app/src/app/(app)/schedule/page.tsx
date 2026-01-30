@@ -1,3 +1,11 @@
+// GUID: PAGE_SCHEDULE-000-v03
+// [Intent] Schedule page — displays the full 2026 F1 race calendar with qualifying, sprint, and GP times.
+//   Shows all events in the user's local timezone, highlights the next upcoming race, and dims past races.
+//   Includes a "Pit Lane Rules" info card explaining when predictions lock and unlock.
+// [Inbound Trigger] User navigates to /schedule in the app layout.
+// [Downstream Impact] Reads from RaceSchedule and findNextRace in lib/data. Purely presentational — no Firestore
+//   interaction. Changes to RaceSchedule data structure will break the rendering logic.
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,6 +13,10 @@ import { Calendar, Flag, Zap, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RaceSchedule, findNextRace } from "@/lib/data";
 
+// GUID: PAGE_SCHEDULE-001-v03
+// [Intent] Converts an ISO 8601 date string into a localised date and time pair for display.
+// [Inbound Trigger] Called per race event (qualifying, sprint, GP) during the calendar rendering loop.
+// [Downstream Impact] Purely presentational — formats are used directly in the event time grid cells.
 function formatLocalDateTime(isoString: string) {
   const date = new Date(isoString);
   return {
@@ -21,6 +33,12 @@ function formatLocalDateTime(isoString: string) {
   };
 }
 
+// GUID: PAGE_SCHEDULE-002-v03
+// [Intent] Main page component that renders the full race schedule with next-race highlighting,
+//   past-race dimming, sprint weekend badges, and a legend card.
+// [Inbound Trigger] Rendered by Next.js router when user visits /schedule.
+// [Downstream Impact] Consumes RaceSchedule array and findNextRace from lib/data.
+//   No state or Firestore dependencies — this is a static-data presentation page.
 export default function SchedulePage() {
   const sprintCount = RaceSchedule.filter(r => r.hasSprint).length;
   const nextRace = findNextRace();

@@ -1,3 +1,8 @@
+// GUID: API_AUTH_SIGNUP-000-v03
+// [Intent] Server-side API route that registers new users: validates input, creates Firebase Auth and Firestore records, enrols the user in the global league, applies late-joiner handicap scoring if the season has started, sends welcome and verification emails, and returns a custom token for immediate sign-in.
+// [Inbound Trigger] POST request from the client-side signup form.
+// [Downstream Impact] Creates records in users, presence, scores (if late joiner), and audit_logs collections. Updates the global league memberUserIds array. Triggers welcome and verification email API calls. Returns a customToken used by the client to establish a Firebase Auth session.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
@@ -5,6 +10,10 @@ import { ERROR_CODES } from '@/lib/error-codes';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
+// GUID: API_AUTH_SIGNUP-001-v03
+// [Intent] List of commonly guessable 6-digit PINs that are rejected during signup to enforce minimum credential strength.
+// [Inbound Trigger] Referenced by the PIN validation logic in the POST handler.
+// [Downstream Impact] Adding or removing entries changes which PINs are accepted. If this list is too aggressive, legitimate users may be blocked from signing up.
 // Weak PINs that should be rejected
 const WEAK_PINS = [
   '123456', '654321', '111111', '222222', '333333', '444444',
@@ -12,14 +21,26 @@ const WEAK_PINS = [
   '123123', '121212', '112233', '001122', '102030', '112211',
 ];
 
+// GUID: API_AUTH_SIGNUP-002-v03
+// [Intent] Constant for the global league document ID, used to add every new user to the shared league.
+// [Inbound Trigger] Referenced during the global league enrolment step of signup.
+// [Downstream Impact] If this value does not match the actual Firestore document ID in the leagues collection, new users will not be added to the global league.
 const GLOBAL_LEAGUE_ID = 'global';
 
+// GUID: API_AUTH_SIGNUP-003-v03
+// [Intent] Type contract for the expected JSON body of the signup request.
+// [Inbound Trigger] Used to type-assert the parsed request body in the POST handler.
+// [Downstream Impact] Any change to these fields requires matching changes in the client-side signup form submission logic.
 interface SignupRequest {
   email: string;
   teamName: string;
   pin: string;
 }
 
+// GUID: API_AUTH_SIGNUP-004-v03
+// [Intent] Main signup POST handler. Validates all input fields (email, team name, PIN strength), checks admin toggle for signup availability, prevents duplicate emails and team names, creates the Firebase Auth user and Firestore documents, handles late-joiner handicap, sends emails, and returns a custom token.
+// [Inbound Trigger] HTTP POST to /api/auth/signup from the client-side signup form.
+// [Downstream Impact] On success: creates Firebase Auth user, Firestore user document, presence document, global league membership, optional late-joiner handicap score, audit log, and triggers welcome + verification emails. Returns customToken + uid for immediate client-side sign-in.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -27,6 +48,10 @@ export async function POST(request: NextRequest) {
     const data: SignupRequest = await request.json();
     const { email, teamName, pin } = data;
 
+    // GUID: API_AUTH_SIGNUP-005-v03
+    // [Intent] Validate that all required fields (email, team name, PIN) are present.
+    // [Inbound Trigger] Every signup request passes through this check.
+    // [Downstream Impact] Returns 400 with VALIDATION_MISSING_FIELDS error code if any field is absent.
     // Validate required fields
     if (!email || !teamName || !pin) {
       return NextResponse.json(
@@ -40,6 +65,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // GUID: API_AUTH_SIGNUP-006-v03
+    // [Intent] Validate PIN format (exactly 6 digits) and reject weak/guessable PINs from the WEAK_PINS list.
+    // [Inbound Trigger] Runs after required-field validation passes.
+    // [Downstream Impact] Returns 400 with VALIDATION_INVALID_FORMAT error code if PIN does not meet criteria. Prevents creation of accounts with easily compromised credentials.
     // Validate PIN format
     if (!/^\d{6}$/.test(pin)) {
       return NextResponse.json(
@@ -66,6 +95,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // GUID: API_AUTH_SIGNUP-007-v03
+    // [Intent] Validate that the team name is at least 3 characters long.
+    // [Inbound Trigger] Runs after PIN validation passes.
+    // [Downstream Impact] Returns 400 with VALIDATION_INVALID_FORMAT error code if team name is too short.
     // Validate team name length
     if (teamName.trim().length < 3) {
       return NextResponse.json(
@@ -87,6 +120,10 @@ export async function POST(request: NextRequest) {
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
 
+    // GUID: API_AUTH_SIGNUP-008-v03
+    // [Intent] Check the admin_configuration/site_settings document to determine if new user signups are currently enabled. Allows admins to disable registration without code changes.
+    // [Inbound Trigger] Runs after input normalisation and Firebase Admin initialisation.
+    // [Downstream Impact] If newUserSignupEnabled is false, returns 403 with AUTH_PERMISSION_DENIED. If the settings document cannot be read, signup proceeds (fail-open).
     // Check if new user signups are enabled
     try {
       const settingsDoc = await db.collection('admin_configuration').doc('site_settings').get();
@@ -109,6 +146,10 @@ export async function POST(request: NextRequest) {
       // Continue with signup if settings check fails
     }
 
+    // GUID: API_AUTH_SIGNUP-009-v03
+    // [Intent] Check for duplicate email addresses in the Firestore users collection to prevent multiple accounts with the same email.
+    // [Inbound Trigger] Runs after the signup-enabled check passes.
+    // [Downstream Impact] Returns 409 with VALIDATION_DUPLICATE_ENTRY if the email already exists. This is a Firestore-level check; Firebase Auth also enforces email uniqueness separately.
     // Check if email already exists in Firestore
     const emailQuery = await db.collection('users')
       .where('email', '==', normalizedEmail)
@@ -127,6 +168,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // GUID: API_AUTH_SIGNUP-010-v03
+    // [Intent] Check for duplicate team names (case-insensitive) across all existing users to ensure team name uniqueness.
+    // [Inbound Trigger] Runs after the email uniqueness check passes.
+    // [Downstream Impact] Returns 409 with VALIDATION_DUPLICATE_ENTRY if the team name is already taken. Loads all users documents to perform case-insensitive comparison.
     // Check if team name already exists (case-insensitive)
     const allUsersSnapshot = await db.collection('users').get();
     const normalizedNewName = normalizedTeamName.toLowerCase();
@@ -151,6 +196,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // GUID: API_AUTH_SIGNUP-011-v03
+    // [Intent] Create the Firebase Auth user record with the provided email and PIN as password. Handles the auth/email-already-exists error case separately from other auth errors.
+    // [Inbound Trigger] Runs after all validation and uniqueness checks pass.
+    // [Downstream Impact] On success, the uid from the created user record is used for all subsequent Firestore document creation. On failure, no Firestore documents are created (partial state is avoided).
     // Create Firebase Auth user
     let userRecord;
     try {
@@ -201,6 +250,10 @@ export async function POST(request: NextRequest) {
 
     const uid = userRecord.uid;
 
+    // GUID: API_AUTH_SIGNUP-012-v03
+    // [Intent] Create the Firestore user document and presence document for the newly registered user. The user document stores profile and state data; the presence document tracks online status.
+    // [Inbound Trigger] Runs after Firebase Auth user is successfully created.
+    // [Downstream Impact] The users document is read by many parts of the application (login, dashboard, admin panels). The presence document is used by the online status system. Both documents are keyed by the Firebase Auth uid.
     // Create Firestore user document
     const newUser = {
       id: uid,
@@ -221,6 +274,10 @@ export async function POST(request: NextRequest) {
       sessions: [],
     });
 
+    // GUID: API_AUTH_SIGNUP-013-v03
+    // [Intent] Add the new user to the global league by appending their uid to the memberUserIds array. Fails silently if the global league document does not exist (non-blocking).
+    // [Inbound Trigger] Runs after user and presence documents are created.
+    // [Downstream Impact] If this fails, the user will not appear in the global league standings until manually added. The global league document must have a memberUserIds array field.
     // Add user to global league
     try {
       const globalLeagueRef = db.collection('leagues').doc(GLOBAL_LEAGUE_ID);
@@ -233,6 +290,10 @@ export async function POST(request: NextRequest) {
       // Don't fail signup if global league doesn't exist
     }
 
+    // GUID: API_AUTH_SIGNUP-014-v03
+    // [Intent] Apply the late-joiner handicap rule: if the season has already started (scores exist), calculate a starting score of (lowest real score - 5) so the new user starts 5 points behind last place. Skips existing adjustment scores when determining the minimum.
+    // [Inbound Trigger] Runs after global league enrolment.
+    // [Downstream Impact] Creates a scores document with isAdjustment=true and raceId='late-joiner-handicap'. This score is included in standings calculations. An audit log entry is also created. If this fails, the user starts at 0 points (no handicap applied).
     // LATE JOINER RULE: If season has started, new users start 5 points behind last place
     // All late joiners get the same handicap: (lowest real score - 5)
     try {
@@ -281,6 +342,10 @@ export async function POST(request: NextRequest) {
       console.warn('[Signup] Could not calculate late joiner handicap:', handicapError.message);
     }
 
+    // GUID: API_AUTH_SIGNUP-015-v03
+    // [Intent] Send a welcome email and a verification email to the new user via internal API endpoints. Both are fire-and-forget; failures are logged but do not block signup completion.
+    // [Inbound Trigger] Runs after all Firestore documents and handicap scoring are complete.
+    // [Downstream Impact] Calls /api/send-welcome-email and /api/send-verification-email. If these endpoints are down, the user will not receive emails but the account is still fully created.
     // Send welcome email via API
     try {
       const baseUrl = request.headers.get('origin') || 'https://prix6.win';
@@ -313,6 +378,10 @@ export async function POST(request: NextRequest) {
       console.warn('[Signup] Failed to send verification email:', verifyError.message);
     }
 
+    // GUID: API_AUTH_SIGNUP-016-v03
+    // [Intent] Log the successful registration to the audit_logs collection and generate a Firebase custom token so the client can sign in immediately without a second round-trip.
+    // [Inbound Trigger] Runs after email dispatch attempts complete.
+    // [Downstream Impact] The audit log provides a permanent record of user registration. The returned customToken and uid are consumed by the client to call signInWithCustomToken() for immediate session establishment.
     // Log successful registration
     await db.collection('audit_logs').add({
       userId: uid,
@@ -336,6 +405,10 @@ export async function POST(request: NextRequest) {
       uid,
     });
 
+  // GUID: API_AUTH_SIGNUP-017-v03
+  // [Intent] Top-level catch-all error handler for any unhandled exception during signup. Logs the error to error_logs and returns a generic 500 response with correlation ID for support tracing.
+  // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
+  // [Downstream Impact] Writes to error_logs collection. The correlation ID and UNKNOWN_ERROR code in the response allow support to trace the issue.
   } catch (error: any) {
     console.error(`[Signup Error ${correlationId}]`, error);
 

@@ -1,6 +1,18 @@
+// GUID: LIB_DATA-000-v03
+// [Intent] Provides standing data for F1 drivers and race schedule used throughout the app.
+//          Acts as the single source of truth for driver identities, team assignments, numbers,
+//          image mappings, and the 2026 race calendar with qualifying/sprint/race times.
+// [Inbound Trigger] Imported by components and pages that need driver info (predictions, scoring,
+//                   submissions, standings) or race schedule data (deadline banners, next race logic).
+// [Downstream Impact] Any change to driver IDs, names, or schedule times affects predictions,
+//                     scoring, submissions, standings, and deadline calculations across the entire app.
 
 import { PlaceHolderImages } from './placeholder-images';
 
+// GUID: LIB_DATA-001-v03
+// [Intent] Define the shape of a Driver object used across the application.
+// [Inbound Trigger] Used by F1Drivers array and any component consuming driver data.
+// [Downstream Impact] Changing this interface requires updating all components that destructure Driver objects.
 export interface Driver {
   id: string;
   name: string;
@@ -9,6 +21,14 @@ export interface Driver {
   imageId: string;
 }
 
+// GUID: LIB_DATA-002-v03
+// [Intent] Master list of all F1 drivers for the 2026 season with their team assignments,
+//          car numbers, and image IDs. This is the single source of truth for driver standing data.
+// [Inbound Trigger] Referenced by getDriverImage, getDriverName, getDriverCode, formatDriverPredictions,
+//                   and any component displaying driver information.
+// [Downstream Impact] Adding, removing, or renaming drivers here propagates to all predictions,
+//                     scoring, submissions, and UI displays. The Consistency Checker validates
+//                     driver reference integrity against this list.
 export const F1Drivers: Driver[] = [
   // Red Bull Racing
   { id: 'verstappen', name: 'Verstappen', number: 3, team: 'Red Bull Racing', imageId: 'max-verstappen' },
@@ -45,12 +65,24 @@ export const F1Drivers: Driver[] = [
   { id: 'bottas', name: 'Bottas', number: 77, team: 'Cadillac F1 Team', imageId: 'valtteri-bottas' },
 ];
 
+// GUID: LIB_DATA-003-v03
+// [Intent] Resolve a driver ID to their profile image URL via the placeholder images lookup.
+//          Falls back to a generic placeholder if the driver or image is not found.
+// [Inbound Trigger] Called by UI components that render driver avatars/photos (e.g., prediction cards, standings).
+// [Downstream Impact] If PlaceHolderImages data changes or driver imageId mappings change,
+//                     displayed driver images will change across the app.
 export const getDriverImage = (driverId: string) => {
     const driver = F1Drivers.find(d => d.id === driverId);
     const image = PlaceHolderImages.find(p => p.id === driver?.imageId);
     return image?.imageUrl || 'https://picsum.photos/seed/placeholder/100/100';
 }
 
+// GUID: LIB_DATA-004-v03
+// [Intent] Resolve a driver ID (lowercase) to their display name (proper case).
+//          Falls back to the raw ID if the driver is not found in the master list.
+// [Inbound Trigger] Called by formatDriverPredictions and any UI displaying driver names from stored IDs.
+// [Downstream Impact] Submissions page, scoring page, standings, and audit pages all depend on this
+//                     for consistent driver name rendering.
 /**
  * Get driver display name from driver ID.
  * Returns proper case name (e.g., "Hamilton") from lowercase ID (e.g., "hamilton").
@@ -62,6 +94,12 @@ export const getDriverName = (driverId: string): string => {
     return driver?.name || driverId;
 }
 
+// GUID: LIB_DATA-005-v03
+// [Intent] Derive a 3-letter uppercase code from a driver ID (e.g., "hamilton" -> "HAM").
+//          Uses the first 3 letters of the driver's name, or truncates the raw ID as fallback.
+// [Inbound Trigger] Called by compact UI displays (e.g., scoring grids, leaderboard columns) that
+//                   need abbreviated driver identifiers.
+// [Downstream Impact] Changes to driver names affect the derived codes shown in compact views.
 /**
  * Get driver 3-letter code from driver ID.
  * Returns uppercase code (e.g., "HAM") from lowercase ID (e.g., "hamilton").
@@ -74,6 +112,11 @@ export const getDriverCode = (driverId: string): string => {
     return driver.name.substring(0, 3).toUpperCase();
 }
 
+// GUID: LIB_DATA-006-v03
+// [Intent] Convert an array of driver IDs into a comma-separated string of display names.
+//          Provides consistent formatting for prediction displays across the app.
+// [Inbound Trigger] Called by Submissions and Audit pages to render stored prediction arrays as readable text.
+// [Downstream Impact] If getDriverName behaviour changes, all formatted prediction displays change too.
 /**
  * Format an array of driver IDs to display names.
  * Used by Submissions and Audit pages to show predictions consistently.
@@ -85,6 +128,10 @@ export const formatDriverPredictions = (predictions: string[] | undefined): stri
     return predictions.map(id => getDriverName(id)).join(', ');
 }
 
+// GUID: LIB_DATA-007-v03
+// [Intent] Define the shape of a Race object including timing, location, sprint flag, and results.
+// [Inbound Trigger] Used by RaceSchedule array and any component consuming race calendar data.
+// [Downstream Impact] Changing this interface requires updating all components that destructure Race objects.
 export interface Race {
   name: string;
   qualifyingTime: string; // UTC ISO string - when predictions lock
@@ -95,6 +142,15 @@ export interface Race {
   results: (string | null)[];
 }
 
+// GUID: LIB_DATA-008-v03
+// [Intent] Master race calendar for the 2026 F1 season (24 races). Defines qualifying deadlines
+//          (which lock predictions), sprint times, race times, and sprint flags.
+//          This is the single source of truth for race schedule standing data.
+// [Inbound Trigger] Referenced by findNextRace, deadline banners, prediction lock logic,
+//                   scoring pages, and the submissions view.
+// [Downstream Impact] Changes to qualifying times affect when predictions lock.
+//                     Changes to race names affect how races display across the app.
+//                     The Consistency Checker validates track reference integrity against this list.
 export const RaceSchedule: Race[] = [
     // 2026 Official F1 Calendar (24 races)
     { name: "Australian Grand Prix", location: "Melbourne", raceTime: "2026-03-08T04:00:00Z", qualifyingTime: "2026-03-07T05:00:00Z", hasSprint: false, results: [] },
@@ -123,6 +179,13 @@ export const RaceSchedule: Race[] = [
     { name: "Abu Dhabi Grand Prix", location: "Yas Marina", raceTime: "2026-12-06T13:00:00Z", qualifyingTime: "2026-12-05T14:00:00Z", hasSprint: false, results: [] },
 ];
 
+// GUID: LIB_DATA-009-v03
+// [Intent] Find the next upcoming race based on the current date by comparing qualifying times.
+//          Returns the last race in the schedule if all races are in the past (end-of-season fallback).
+// [Inbound Trigger] Called by dashboard, predictions page, and deadline banner components to determine
+//                   which race to display and which deadline to count down to.
+// [Downstream Impact] If the qualifying time comparison logic changes, deadline banners and default
+//                     race selections across the app will be affected.
 export const findNextRace = () => {
     const now = new Date();
     // For demo purposes, if all races are in the past, return the last one.

@@ -1,4 +1,9 @@
 
+// GUID: ADMIN_ONLINE_USERS-000-v03
+// [Intent] Admin component for monitoring online user sessions and managing Single User Mode (purge all sessions, restrict access to one admin).
+// [Inbound Trigger] Rendered within the admin panel when the "Online Users" tab is selected.
+// [Downstream Impact] Reads presence collection for session data. Single User Mode writes to admin_configuration/global and presence documents, affecting all users' ability to use the system.
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -18,9 +23,16 @@ import { ShieldAlert, ShieldOff } from 'lucide-react';
 import { useSession } from '@/contexts/session-context';
 import { usePathname } from 'next/navigation';
 
-// Session timeout constant - must match layout.tsx
+// GUID: ADMIN_ONLINE_USERS-001-v03
+// [Intent] Defines the session timeout window; sessions inactive beyond this threshold are considered expired.
+// [Inbound Trigger] Referenced by useMemo hooks that filter active sessions from presence data.
+// [Downstream Impact] Must match the SESSION_TIMEOUT_MS constant in layout.tsx; mismatches will cause inconsistent online/offline display.
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
+// GUID: ADMIN_ONLINE_USERS-002-v03
+// [Intent] Type definition for a Firestore presence document, tracking a user's online status and session GUIDs.
+// [Inbound Trigger] Used to type presence collection documents read via useCollection.
+// [Downstream Impact] Changes to the presence document schema must be reflected here.
 interface Presence {
   id: string; // This is the Firebase Auth UID
   online: boolean;
@@ -29,18 +41,29 @@ interface Presence {
   lastActivity?: any; // Firestore Timestamp
 }
 
+// GUID: ADMIN_ONLINE_USERS-003-v03
+// [Intent] Defines the props contract for OnlineUsersManager, requiring the full user list and its loading state.
+// [Inbound Trigger] Passed from the parent admin page which fetches all users.
+// [Downstream Impact] The component matches presence data to user details via allUsers.
 interface OnlineUsersManagerProps {
     allUsers: User[] | null;
     isUserLoading: boolean;
 }
 
+// GUID: ADMIN_ONLINE_USERS-004-v03
+// [Intent] Type definition for Single User Mode configuration stored in admin_configuration/global.
+// [Inbound Trigger] Read from Firestore on mount and updated when Single User Mode is activated/deactivated.
+// [Downstream Impact] When singleUserModeEnabled is true, all non-admin users are blocked from accessing the system.
 interface SingleUserModeConfig {
   singleUserModeEnabled: boolean;
   singleUserAdminId: string | null;
   singleUserModeActivatedAt: string | null;
 }
 
-// Helper to log errors to error_logs collection
+// GUID: ADMIN_ONLINE_USERS-005-v03
+// [Intent] Fire-and-forget helper to log errors to the error_logs Firestore collection with full context.
+// [Inbound Trigger] Called from catch blocks within Single User Mode activate/deactivate operations.
+// [Downstream Impact] Writes to the error_logs collection for admin review; does not throw on failure (non-blocking).
 function logErrorToFirestore(
   firestore: any,
   userId: string | undefined,
@@ -66,6 +89,10 @@ function logErrorToFirestore(
   addDocumentNonBlocking(errorLogsRef, errorData);
 }
 
+// GUID: ADMIN_ONLINE_USERS-006-v03
+// [Intent] Main OnlineUsersManager component displaying active sessions in a table and providing Single User Mode controls.
+// [Inbound Trigger] Rendered by the admin page when the Online Users tab is active.
+// [Downstream Impact] Reads presence and admin_configuration collections. Single User Mode writes affect all users' sessions and access.
 export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManagerProps) {
   const firestore = useFirestore();
   const { user } = useAuth();
@@ -75,7 +102,10 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
   const [singleUserMode, setSingleUserMode] = useState<SingleUserModeConfig | null>(null);
   const [isActivating, setIsActivating] = useState(false);
 
-  // Fetch single user mode status
+  // GUID: ADMIN_ONLINE_USERS-007-v03
+  // [Intent] Fetches the current Single User Mode configuration from admin_configuration/global on component mount.
+  // [Inbound Trigger] Runs when the firestore instance becomes available (useEffect dependency).
+  // [Downstream Impact] Populates singleUserMode state which controls the activate/deactivate button display and the warning banner.
   useEffect(() => {
     if (!firestore) return;
     const fetchSingleUserMode = async () => {
@@ -99,7 +129,10 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
     fetchSingleUserMode();
   }, [firestore]);
 
-  // Activate single user mode - purge all sessions except current admin's session
+  // GUID: ADMIN_ONLINE_USERS-008-v03
+  // [Intent] Activates Single User Mode: purges all presence sessions except the current admin's, then sets the flag in admin_configuration.
+  // [Inbound Trigger] Clicking "Activate Single User Mode" in the confirmation AlertDialog.
+  // [Downstream Impact] All other users are immediately disconnected (sessions purged). Admin_configuration/global is updated with singleUserModeEnabled=true. Audit event logged.
   const activateSingleUserMode = async () => {
     if (!firestore || !user) return;
     setIsActivating(true);
@@ -201,7 +234,10 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
     setIsActivating(false);
   };
 
-  // Deactivate single user mode
+  // GUID: ADMIN_ONLINE_USERS-009-v03
+  // [Intent] Deactivates Single User Mode: clears the flag in admin_configuration/global so all users can connect normally.
+  // [Inbound Trigger] Clicking "Exit Single User Mode" in the confirmation AlertDialog.
+  // [Downstream Impact] Sets singleUserModeEnabled=false in admin_configuration/global. Users can reconnect. Audit event logged.
   const deactivateSingleUserMode = async () => {
     if (!firestore || !user) return;
     setIsActivating(true);
@@ -248,7 +284,10 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
     setIsActivating(false);
   };
 
-  // Query all presence documents and filter client-side
+  // GUID: ADMIN_ONLINE_USERS-010-v03
+  // [Intent] Memoised Firestore query for the entire presence collection, used by the useCollection hook.
+  // [Inbound Trigger] Recomputed when the firestore instance changes.
+  // [Downstream Impact] Feeds the useCollection hook which provides real-time presence data for the session table.
   const presenceQuery = useMemo(() => {
     if (!firestore) return null;
     const q = query(collection(firestore, 'presence'));
@@ -258,6 +297,10 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
 
   const { data: allPresence, isLoading: isPresenceLoading } = useCollection<Presence>(presenceQuery);
 
+  // GUID: ADMIN_ONLINE_USERS-011-v03
+  // [Intent] Derives the list of users with active sessions by joining presence data with user details, filtering by session timeout.
+  // [Inbound Trigger] Recomputed when allPresence or allUsers changes.
+  // [Downstream Impact] Drives the session table rows. Admin users show all their active sessions; regular users show only their first.
   const usersWithSessions = useMemo(() => {
     if (!allPresence || !allUsers) return [];
 
@@ -314,10 +357,13 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
     });
 
   }, [allPresence, allUsers]);
-  
+
   const isLoading = isUserLoading || isPresenceLoading;
 
-  // Total active session count (for display in title) - only sessions within timeout
+  // GUID: ADMIN_ONLINE_USERS-012-v03
+  // [Intent] Computes the total count of active sessions across all users, only counting sessions within the timeout window.
+  // [Inbound Trigger] Recomputed when allPresence changes.
+  // [Downstream Impact] Displayed in the card title as the session count badge.
   const totalSessionCount = useMemo(() => {
     if (!allPresence) return 0;
     const now = Date.now();
@@ -340,13 +386,20 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
       }, 0);
   }, [allPresence]);
 
-  // Find admin name for display
+  // GUID: ADMIN_ONLINE_USERS-013-v03
+  // [Intent] Resolves the team name of the admin who activated Single User Mode for display in the warning banner.
+  // [Inbound Trigger] Recomputed when singleUserMode or allUsers changes.
+  // [Downstream Impact] Display-only; shown in the amber warning banner when Single User Mode is active.
   const singleUserAdminName = useMemo(() => {
     if (!singleUserMode?.singleUserAdminId || !allUsers) return null;
     const admin = allUsers.find(u => u.id === singleUserMode.singleUserAdminId);
     return admin?.teamName || 'Unknown Admin';
   }, [singleUserMode, allUsers]);
 
+  // GUID: ADMIN_ONLINE_USERS-014-v03
+  // [Intent] Renders the complete Online Users UI: session table, Single User Mode controls, and status banner.
+  // [Inbound Trigger] Component render cycle.
+  // [Downstream Impact] Provides the visual interface for monitoring sessions and toggling Single User Mode.
   return (
     <Card>
       <CardHeader>

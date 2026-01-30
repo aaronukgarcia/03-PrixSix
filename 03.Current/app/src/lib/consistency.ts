@@ -1,12 +1,48 @@
+// GUID: LIB_CONSISTENCY-000-v03
+// [Intent] Central consistency-checking library for the Prix Six application.
+//   Provides pure validation functions that verify the integrity and correctness
+//   of all core domain data: users, drivers, races, predictions, team coverage,
+//   race results, scores, standings, and leagues. Every function returns a
+//   CheckResult with categorised issues (error/warning) and counts. This module
+//   is consumed exclusively by the admin Consistency Checker UI component and
+//   has no side-effects (no Firestore writes, no network calls).
+// [Inbound Trigger] Imported by ConsistencyChecker.tsx when an admin runs a
+//   consistency audit from the admin panel.
+// [Downstream Impact] Any change to validation logic here directly affects
+//   which issues the Consistency Checker surfaces to admins. Scoring validation
+//   changes may cause false positives/negatives in the CC score audit.
+//   Type exports are used by ConsistencyChecker.tsx and potentially by API routes.
+
 import { F1Drivers, RaceSchedule, type Driver, type Race } from './data';
 import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scoring-rules';
 
 // --- Types ---
 
+// GUID: LIB_CONSISTENCY-001-v03
+// [Intent] Define the set of domain categories that consistency checks cover.
+// [Inbound Trigger] Used as discriminated union tags in CheckResult to identify which check produced a result.
+// [Downstream Impact] Adding a new category here requires a corresponding check function and UI handling in ConsistencyChecker.tsx.
 export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues';
+
+// GUID: LIB_CONSISTENCY-002-v03
+// [Intent] Severity levels for individual issues found during consistency checks.
+// [Inbound Trigger] Assigned to each Issue object during validation.
+// [Downstream Impact] ConsistencyChecker.tsx uses severity to colour-code and filter issues in the admin UI.
 export type IssueSeverity = 'error' | 'warning';
+
+// GUID: LIB_CONSISTENCY-003-v03
+// [Intent] Overall status of a single category check, derived from the worst severity among its issues.
+// [Inbound Trigger] Computed at the end of each check function based on whether errors or warnings exist.
+// [Downstream Impact] Used by generateSummary to count passed/warning/error categories. ConsistencyChecker.tsx uses this for status badges.
 export type CheckStatus = 'pass' | 'warning' | 'error';
 
+// GUID: LIB_CONSISTENCY-004-v03
+// [Intent] Represents a single validation issue found during a consistency check.
+//   Contains severity, the entity it relates to, an optional field name, a
+//   human-readable message, and optional structured details for debugging.
+// [Inbound Trigger] Created inside each check function when a validation rule fails.
+// [Downstream Impact] Rendered in the ConsistencyChecker UI issue list. The 'details'
+//   field may be inspected by admins for root-cause analysis.
 export interface Issue {
   severity: IssueSeverity;
   entity: string;
@@ -15,6 +51,13 @@ export interface Issue {
   details?: Record<string, unknown>;
 }
 
+// GUID: LIB_CONSISTENCY-005-v03
+// [Intent] Aggregate counts of each scoring type across all validated scores.
+//   Used to provide a statistical breakdown of how points were awarded league-wide.
+//   Types A-F map to Prix Six scoring rules; typeG tracks late-joiner handicap entries.
+// [Inbound Trigger] Populated inside checkScores() by parsing score breakdown strings.
+// [Downstream Impact] Attached to the 'scores' CheckResult as scoreTypeCounts.
+//   ConsistencyChecker.tsx renders this as a score distribution summary table.
 export interface ScoreTypeCounts {
   typeA: number;  // +6 Exact Position
   typeB: number;  // +4 One Position Off
@@ -27,6 +70,15 @@ export interface ScoreTypeCounts {
   totalDriverPredictions: number;
 }
 
+// GUID: LIB_CONSISTENCY-006-v03
+// [Intent] Standard return type for every consistency check function.
+//   Contains the category checked, overall pass/warning/error status, total and
+//   valid entity counts, and the list of issues found. The optional scoreTypeCounts
+//   field is only populated by checkScores().
+// [Inbound Trigger] Returned by each check* function (checkUsers, checkDrivers, etc.).
+// [Downstream Impact] Consumed by generateSummary() to produce the overall
+//   ConsistencyCheckSummary. ConsistencyChecker.tsx iterates over these to render
+//   per-category result cards.
 export interface CheckResult {
   category: CheckCategory;
   status: CheckStatus;
@@ -36,6 +88,13 @@ export interface CheckResult {
   scoreTypeCounts?: ScoreTypeCounts;  // Only present for 'scores' category
 }
 
+// GUID: LIB_CONSISTENCY-007-v03
+// [Intent] Top-level summary of all consistency checks run in a single audit session.
+//   Includes a unique correlation ID (for logging/support), timestamp, all individual
+//   CheckResults, and aggregate counts of passed/warning/error categories.
+// [Inbound Trigger] Produced by generateSummary() after all check functions complete.
+// [Downstream Impact] ConsistencyChecker.tsx uses this as the root data structure
+//   for the entire consistency audit display. The correlationId is logged for traceability.
 export interface ConsistencyCheckSummary {
   correlationId: string;
   timestamp: Date;
@@ -48,6 +107,15 @@ export interface ConsistencyCheckSummary {
 
 // --- User Interfaces ---
 
+// GUID: LIB_CONSISTENCY-008-v03
+// [Intent] Lightweight representation of a user record for consistency validation.
+//   Mirrors the subset of Firestore 'users' collection fields needed for checks.
+//   Supports both primary and secondary team/email fields.
+// [Inbound Trigger] Populated from Firestore reads in ConsistencyChecker.tsx and
+//   passed into checkUsers(), checkPredictions(), checkScores(), checkStandings(),
+//   checkTeamCoverage(), and checkLeagues().
+// [Downstream Impact] Adding or removing fields here requires updates to all check
+//   functions that consume UserData and to the Firestore query in ConsistencyChecker.tsx.
 export interface UserData {
   id: string;
   email?: string;
@@ -60,6 +128,14 @@ export interface UserData {
 
 // --- Prediction Interfaces ---
 
+// GUID: LIB_CONSISTENCY-009-v03
+// [Intent] Lightweight representation of a prediction record for consistency validation.
+//   Contains the user/team reference, race reference, and the array of 6 predicted driver IDs.
+//   Supports both userId and teamId fields (legacy and current formats).
+// [Inbound Trigger] Populated from Firestore 'predictions' collection in ConsistencyChecker.tsx
+//   and passed into checkPredictions(), checkScores(), and checkTeamCoverage().
+// [Downstream Impact] Changes to this interface affect prediction validation, score
+//   verification (which cross-references predictions with results), and team coverage checks.
 export interface PredictionData {
   id: string;
   userId?: string;
@@ -71,6 +147,14 @@ export interface PredictionData {
 
 // --- Race Result Interfaces ---
 
+// GUID: LIB_CONSISTENCY-010-v03
+// [Intent] Lightweight representation of an official race result for consistency validation.
+//   Contains the race reference and the top 6 finishing drivers in order (driver1 = P1).
+// [Inbound Trigger] Populated from Firestore 'raceResults' collection in ConsistencyChecker.tsx
+//   and passed into checkRaceResults() and checkScores().
+// [Downstream Impact] Used by checkRaceResults() for structural validation and by checkScores()
+//   to recalculate expected points and verify stored scores match. Changes to driver field
+//   names would break score verification logic.
 export interface RaceResultData {
   id: string;
   raceId?: string;
@@ -84,6 +168,15 @@ export interface RaceResultData {
 
 // --- Score Interfaces ---
 
+// GUID: LIB_CONSISTENCY-011-v03
+// [Intent] Lightweight representation of a score record for consistency validation.
+//   Contains user and race references, total points, and the breakdown string
+//   (comma-separated per-driver scoring details used for score type analysis).
+// [Inbound Trigger] Populated from Firestore 'scores' collection in ConsistencyChecker.tsx
+//   and passed into checkScores() and checkStandings().
+// [Downstream Impact] The breakdown string format is parsed by checkScores() to count
+//   score types (A-F). Changes to breakdown format in the scoring system would require
+//   corresponding updates to the breakdown parser in checkScores().
 export interface ScoreData {
   id: string;
   userId?: string;
@@ -94,6 +187,14 @@ export interface ScoreData {
 
 // --- League Interfaces ---
 
+// GUID: LIB_CONSISTENCY-012-v03
+// [Intent] Lightweight representation of a league record for consistency validation.
+//   Contains league identity, ownership, membership list, global flag, and invite code.
+// [Inbound Trigger] Populated from Firestore 'leagues' collection in ConsistencyChecker.tsx
+//   and passed into checkLeagues().
+// [Downstream Impact] checkLeagues() validates referential integrity of ownerId and
+//   memberUserIds against the users collection. Adding new fields here requires
+//   corresponding validation logic in checkLeagues().
 export interface LeagueData {
   id: string;
   name?: string;
@@ -105,8 +206,20 @@ export interface LeagueData {
 
 // --- Validation Functions ---
 
+// GUID: LIB_CONSISTENCY-013-v03
+// [Intent] Simple email format validation regex. Checks for non-whitespace characters
+//   around @ and dot separators. Not RFC 5322 compliant but sufficient for basic format checks.
+// [Inbound Trigger] Used by checkUsers() to validate primary and secondary email fields.
+// [Downstream Impact] Changing this regex affects which emails are flagged as invalid format
+//   warnings in the user consistency check.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// GUID: LIB_CONSISTENCY-014-v03
+// [Intent] Generate a unique correlation ID for a consistency check audit session.
+//   Format: cc_[timestamp]_[random6chars]. Used for traceability in error logs.
+// [Inbound Trigger] Called by generateSummary() when producing the final ConsistencyCheckSummary.
+// [Downstream Impact] The correlation ID is included in the summary and may be logged
+//   or displayed in the admin UI. Changing the format could affect log search patterns.
 /**
  * Generate a correlation ID for consistency checks
  */
@@ -116,6 +229,16 @@ export function generateConsistencyCorrelationId(): string {
   return `cc_${timestamp}_${random}`;
 }
 
+// GUID: LIB_CONSISTENCY-015-v03
+// [Intent] Normalize a race name or ID to a canonical lowercase-hyphenated format.
+//   Strips trailing "-GP" and "-Sprint" suffixes, replaces spaces with hyphens,
+//   and lowercases the result. This handles inconsistencies between how race IDs
+//   are stored across different Firestore collections.
+// [Inbound Trigger] Called throughout this module when comparing race references
+//   across predictions, results, and scores. Also used by getValidRaceIds().
+// [Downstream Impact] Critical for cross-collection lookups. If normalization logic
+//   changes, all race ID comparisons in checkPredictions(), checkRaceResults(),
+//   checkScores(), and checkStandings() may break, producing false positive mismatches.
 /**
  * Normalize a race name to the ID format (lowercase with hyphens)
  */
@@ -127,6 +250,12 @@ export function normalizeRaceId(raceName: string): string {
     .toLowerCase();
 }
 
+// GUID: LIB_CONSISTENCY-016-v03
+// [Intent] Build a Set of all valid driver IDs from the static F1Drivers reference data.
+//   Used as the authoritative lookup for driver ID validation across all check functions.
+// [Inbound Trigger] Called by checkPredictions(), checkRaceResults(), and indirectly by checkScores().
+// [Downstream Impact] If F1Drivers in data.ts is updated (driver added/removed), this
+//   automatically reflects in validation. No downstream code caches this result.
 /**
  * Get valid driver IDs from static data
  */
@@ -134,6 +263,11 @@ export function getValidDriverIds(): Set<string> {
   return new Set(F1Drivers.map(d => d.id));
 }
 
+// GUID: LIB_CONSISTENCY-017-v03
+// [Intent] Build a Set of all valid race names from the static RaceSchedule reference data.
+//   Provides exact-name lookup for race name validation.
+// [Inbound Trigger] Available for use by any check function needing race name validation.
+// [Downstream Impact] If RaceSchedule in data.ts is updated, this automatically reflects.
 /**
  * Get valid race names from static data
  */
@@ -141,6 +275,14 @@ export function getValidRaceNames(): Set<string> {
   return new Set(RaceSchedule.map(r => r.name));
 }
 
+// GUID: LIB_CONSISTENCY-018-v03
+// [Intent] Build a Set of all valid race IDs in normalized form (lowercase, hyphenated)
+//   from the static RaceSchedule. This is the primary lookup for race ID validation,
+//   using normalizeRaceId() for consistent comparison.
+// [Inbound Trigger] Called by checkPredictions() and checkRaceResults() to validate
+//   race references in Firestore documents.
+// [Downstream Impact] Depends on normalizeRaceId() (LIB_CONSISTENCY-015). Changes to
+//   normalization logic would cascade through this function to all callers.
 /**
  * Get valid normalized race IDs from static data
  */
@@ -150,6 +292,20 @@ export function getValidRaceIds(): Set<string> {
 
 // --- Check Functions ---
 
+// GUID: LIB_CONSISTENCY-019-v03
+// [Intent] Validate the entire users collection for data integrity. Checks:
+//   - Required fields (id, email, teamName)
+//   - Email format validity (primary and secondary)
+//   - Duplicate primary team names (case-insensitive)
+//   - Duplicate secondary team names and conflicts with primary names
+//   - Secondary email not same as primary, not used by another user's primary
+//   - secondaryEmailVerified consistency (not true when no secondary email set)
+//   - isAdmin field presence
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with the
+//   array of all user documents from Firestore.
+// [Downstream Impact] The returned CheckResult is included in the audit summary.
+//   User validation issues may indicate data problems that affect predictions, scores,
+//   and league membership checks downstream.
 /**
  * Validate users collection
  */
@@ -335,6 +491,14 @@ export function checkUsers(users: UserData[]): CheckResult {
   };
 }
 
+// GUID: LIB_CONSISTENCY-020-v03
+// [Intent] Validate the static F1Drivers array from data.ts for completeness and uniqueness.
+//   Checks required fields (id, name, number, team), optional imageId, duplicate IDs,
+//   and expected count of 22 drivers (full F1 grid).
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit. Takes no
+//   parameters as it reads directly from the imported F1Drivers constant.
+// [Downstream Impact] Driver validation ensures the reference data used by
+//   checkPredictions() and checkRaceResults() for driver ID lookups is itself valid.
 /**
  * Validate static driver data
  */
@@ -435,6 +599,15 @@ export function checkDrivers(): CheckResult {
   };
 }
 
+// GUID: LIB_CONSISTENCY-021-v03
+// [Intent] Validate the static RaceSchedule array from data.ts for completeness and correctness.
+//   Checks required fields (name, qualifyingTime, raceTime, location), optional hasSprint,
+//   date format validity, chronological ordering, and expected count of 24 races.
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit. Takes no
+//   parameters as it reads directly from the imported RaceSchedule constant.
+// [Downstream Impact] Race schedule validation ensures the reference data used by
+//   checkPredictions() and checkRaceResults() for race ID lookups is itself valid.
+//   Date ordering checks help catch data entry errors in the schedule.
 /**
  * Validate static race schedule data
  */
@@ -560,6 +733,16 @@ export function checkRaces(): CheckResult {
   };
 }
 
+// GUID: LIB_CONSISTENCY-022-v03
+// [Intent] Helper function to validate whether a given ID represents a valid user
+//   or secondary team. Handles the "{userId}-secondary" convention used for secondary
+//   team entries. Checks that the base user exists AND has a secondary team configured.
+// [Inbound Trigger] Called by checkPredictions(), checkScores(), and checkLeagues()
+//   whenever they need to validate a userId/teamId reference.
+// [Downstream Impact] If the secondary team ID convention changes (e.g., from
+//   "{userId}-secondary" to a different format), this function must be updated,
+//   which would affect all referential integrity checks across predictions, scores,
+//   and leagues.
 /**
  * Helper to check if a user/team ID is valid (primary user or secondary team)
  */
@@ -575,6 +758,18 @@ function isValidUserOrTeamId(id: string, userIds: Set<string>, usersWithSecondar
   return false;
 }
 
+// GUID: LIB_CONSISTENCY-023-v03
+// [Intent] Validate all prediction documents for structural integrity and referential
+//   correctness. Checks:
+//   - userId/teamId exists and references a valid user or secondary team
+//   - raceId exists and maps to a known race in the schedule
+//   - predictions array exists, has exactly 6 entries, contains valid driver IDs,
+//     and has no duplicate drivers
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with the
+//   array of all prediction documents and user documents from Firestore.
+// [Downstream Impact] Prediction validation feeds into checkScores() which
+//   cross-references predictions with race results for score verification.
+//   Invalid predictions flagged here may explain score calculation mismatches.
 /**
  * Validate predictions
  */
@@ -702,6 +897,16 @@ export function checkPredictions(
   };
 }
 
+// GUID: LIB_CONSISTENCY-024-v03
+// [Intent] Validate that all registered teams (both primary and secondary) have at
+//   least one prediction submitted. This is a coverage check, not a structural
+//   validation - it flags teams with zero predictions as warnings so admins can
+//   follow up with inactive players.
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with the
+//   array of all user documents and prediction documents from Firestore.
+// [Downstream Impact] Team coverage warnings are informational only and do not affect
+//   scoring or standings. However, they help admins identify players who may have
+//   missed deadlines or not yet joined the league properly.
 /**
  * Validate team prediction coverage
  * Checks how many registered teams (primary + secondary) have at least one prediction
@@ -770,6 +975,16 @@ export function checkTeamCoverage(
   };
 }
 
+// GUID: LIB_CONSISTENCY-025-v03
+// [Intent] Validate all race result documents for structural integrity. Checks:
+//   - raceId exists and maps to a known race in the schedule
+//   - All 6 driver positions (driver1-driver6) are present, valid driver IDs,
+//     and contain no duplicates within a single result
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with the
+//   array of all race result documents from Firestore.
+// [Downstream Impact] Race result validation is critical because checkScores() uses
+//   race results to recalculate expected scores. Invalid results would cause false
+//   positive score mismatches. Also feeds into the 'results' category in the audit summary.
 /**
  * Validate race results
  */
@@ -871,6 +1086,16 @@ export function checkRaceResults(results: RaceResultData[]): CheckResult {
   };
 }
 
+// GUID: LIB_CONSISTENCY-026-v03
+// [Intent] Local scoring constants derived from the shared scoring-rules.ts module.
+//   Combines point values (SCORING_POINTS) with derived maximum (SCORING_DERIVED)
+//   into a single lookup object for use in score validation. This ensures the
+//   consistency checker uses the same scoring rules as the actual scoring engine.
+// [Inbound Trigger] Evaluated at module load time. Used by calculateExpectedScore()
+//   and checkScores() for score boundary checks and recalculation.
+// [Downstream Impact] If scoring rules change in scoring-rules.ts, this constant
+//   automatically picks up the new values, ensuring CC validation stays in sync.
+//   Single Source of Truth: scoring-rules.ts is the authority.
 // Scoring constants (Prix Six rules)
 // Use shared scoring constants from scoring-rules.ts
 const SCORING = {
@@ -878,6 +1103,18 @@ const SCORING = {
   maxPoints: SCORING_DERIVED.maxPointsPerRace,
 };
 
+// GUID: LIB_CONSISTENCY-027-v03
+// [Intent] Recalculate the expected score for a single prediction against a race result,
+//   using the Prix Six hybrid position-based scoring rules. Delegates per-driver point
+//   calculation to calculateDriverPoints() from scoring-rules.ts. Adds the bonusAll6
+//   bonus if all 6 predicted drivers appear in the actual top 6. Returns both total
+//   points and the count of drivers found in the top 6.
+// [Inbound Trigger] Called by checkScores() for each score document that has both a
+//   matching prediction and race result, to verify the stored totalPoints value.
+// [Downstream Impact] If this function produces a different result than the actual
+//   scoring engine, checkScores() will flag a score calculation mismatch error.
+//   Must stay perfectly in sync with the scoring logic in scoring-rules.ts and
+//   the server-side scoring Cloud Function.
 /**
  * Calculate expected score based on Prix Six hybrid rules
  * Uses position-based scoring: exact +6, 1 off +4, 2 off +3, 3+ off +2, not in top 6 = 0
@@ -914,6 +1151,26 @@ function calculateExpectedScore(predictedDrivers: string[], actualTop6: string[]
   return { points, correctCount };
 }
 
+// GUID: LIB_CONSISTENCY-028-v03
+// [Intent] The most comprehensive check function. Validates all score documents against
+//   race results, predictions, and users. Performs:
+//   - Late-joiner handicap score validation (special raceId 'late-joiner-handicap')
+//   - Score ID format validation ({raceId}_{userId})
+//   - User/team reference validity (supports secondary teams)
+//   - Race reference validity (score has a corresponding race result)
+//   - Prediction cross-reference (score has a corresponding prediction)
+//   - Points range check (0 to maxPoints)
+//   - Score recalculation verification (recalculates from prediction + result and
+//     compares to stored totalPoints)
+//   - Score type counting from breakdown strings (types A-G)
+//   - Missing score detection (predictions with results but no score)
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with arrays
+//   of scores, race results, predictions, and users from Firestore.
+// [Downstream Impact] This is the critical audit function for financial/competitive
+//   integrity. Score mismatches flagged here indicate either a bug in the scoring
+//   engine or data corruption. The scoreTypeCounts are displayed as a statistical
+//   summary in the admin UI. Depends on LIB_CONSISTENCY-015 (normalizeRaceId),
+//   LIB_CONSISTENCY-022 (isValidUserOrTeamId), and LIB_CONSISTENCY-027 (calculateExpectedScore).
 /**
  * Validate scores against race results and predictions
  * Includes verification that score calculation is correct per Prix Six rules
@@ -1218,6 +1475,16 @@ export function checkScores(
   };
 }
 
+// GUID: LIB_CONSISTENCY-029-v03
+// [Intent] Validate that standings (cumulative points per user) are internally consistent.
+//   Calculates each user's total points by summing all their score documents and verifies
+//   the sum is self-consistent. This catches scenarios where individual score documents
+//   might have been modified without updating totals.
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with arrays
+//   of score documents and user documents from Firestore.
+// [Downstream Impact] Standings validation ensures the leaderboard displayed to users
+//   is accurate. Mismatches flagged here indicate score documents were modified or
+//   deleted without recalculating standings.
 /**
  * Validate standings consistency (sum of scores matches expected)
  */
@@ -1280,6 +1547,21 @@ export function checkStandings(
   };
 }
 
+// GUID: LIB_CONSISTENCY-030-v03
+// [Intent] Validate all league documents for structural integrity and referential
+//   correctness. Checks:
+//   - Required fields (id, ownerId, memberUserIds)
+//   - ownerId references a valid user (or is 'system' for global leagues)
+//   - memberUserIds is a non-empty array of valid user/team references
+//   - Owner is included in memberUserIds (unless system-owned)
+//   - No duplicate member entries
+//   - isGlobal field presence
+//   - Optional name and inviteCode fields
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with arrays
+//   of league documents and user documents from Firestore.
+// [Downstream Impact] League validation ensures league membership integrity.
+//   Invalid member references could cause errors in league standings calculations
+//   or league-specific leaderboard rendering.
 /**
  * Validate leagues collection
  * Checks that each league has an owner and at least one member
@@ -1427,6 +1709,15 @@ export function checkLeagues(
   };
 }
 
+// GUID: LIB_CONSISTENCY-031-v03
+// [Intent] Aggregate all individual CheckResult objects into a single ConsistencyCheckSummary.
+//   Counts passed/warning/error categories, generates a unique correlation ID, and
+//   timestamps the audit. This is the final step in a consistency check run.
+// [Inbound Trigger] Called by ConsistencyChecker.tsx after all individual check functions
+//   have completed, with the array of all CheckResult objects.
+// [Downstream Impact] The returned ConsistencyCheckSummary is the root data structure
+//   rendered by the ConsistencyChecker UI. The correlation ID is used for support
+//   traceability if an admin reports issues with the audit results.
 /**
  * Generate a summary of all check results
  */

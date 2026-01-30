@@ -1,3 +1,9 @@
+// GUID: PAGE_DEV-000-v03
+// [Intent] Developer info page — displays current build information (version, framework, backend, AI)
+//          and version history. Server-rendered with static metadata.
+// [Inbound Trigger] User navigates to /about/dev from the About page.
+// [Downstream Impact] Reads APP_VERSION for display. Renders VersionHistory client component.
+
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, Code2, Terminal } from 'lucide-react';
@@ -6,11 +12,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { VersionHistory } from './_components/VersionHistory';
 import { APP_VERSION } from '@/lib/version';
 
+// GUID: PAGE_DEV-001-v03
+// [Intent] Next.js page metadata for SEO — sets title and description for the dev info page.
+// [Inbound Trigger] Next.js framework reads this export at build/render time.
+// [Downstream Impact] Sets the browser tab title and meta description for /about/dev.
 export const metadata: Metadata = {
   title: 'Dev Info | Prix Six',
   description: 'Developer information and version history',
 };
 
+// GUID: PAGE_DEV-002-v03
+// [Intent] Main dev page component — renders build info grid (version, framework, backend, AI),
+//          version history timeline, and footer with copyright.
+// [Inbound Trigger] Route navigation to /about/dev.
+// [Downstream Impact] Displays APP_VERSION from version.ts. Renders VersionHistory component
+//                     which loads changelog data. Links back to /about.
 export default function DevPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900">

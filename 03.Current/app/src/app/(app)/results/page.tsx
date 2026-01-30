@@ -1,3 +1,11 @@
+// GUID: PAGE_RESULTS-000-v03
+// [Intent] Race Results page — displays per-race points breakdowns for all teams' predictions,
+//   with official race results, colour-coded scoring, rank badges, sorting, and pagination.
+// [Inbound Trigger] Navigation to /results route; optionally receives ?race= URL parameter from
+//   Standings page navigation.
+// [Downstream Impact] Reads from Firestore race_results, scores, and predictions collections.
+//   No write operations — this is a read-only view.
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
@@ -31,6 +39,10 @@ import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
+// GUID: PAGE_RESULTS-001-v03
+// [Intent] Type for a score document associated with a team's race performance.
+// [Inbound Trigger] Used to type the scoresMap values fetched from Firestore scores collection.
+// [Downstream Impact] Consumed when building TeamResult objects to display stored scores.
 interface Score {
     id: string;
     oduserId: string;
@@ -40,6 +52,10 @@ interface Score {
     breakdown: string;
 }
 
+// GUID: PAGE_RESULTS-002-v03
+// [Intent] Type for the official race result document — stores the actual top-6 driver finish order.
+// [Inbound Trigger] Fetched from Firestore race_results collection by lowercase event ID.
+// [Downstream Impact] Used to calculate per-driver scoring and determine score types (A-E).
 interface RaceResult {
     id: string;
     raceId: string;
@@ -52,9 +68,17 @@ interface RaceResult {
     submittedAt: any;
 }
 
-// Score types for color coding
+// GUID: PAGE_RESULTS-003-v03
+// [Intent] Score type enum for colour-coded display — maps position difference to grade (A=exact, E=miss).
+// [Inbound Trigger] Computed per driver prediction against the actual result.
+// [Downstream Impact] Drives the colour class applied to individual driver score displays.
 type ScoreType = 'A' | 'B' | 'C' | 'D' | 'E';  // A=exact(+6), B=1off(+4), C=2off(+3), D=3+off(+2), E=notInTop6(0)
 
+// GUID: PAGE_RESULTS-004-v03
+// [Intent] Type for a single driver within a team's prediction — includes predicted/actual positions,
+//   points scored, and the score type grade for colour coding.
+// [Inbound Trigger] Produced by parsePredictions when comparing predictions against actual results.
+// [Downstream Impact] Rendered per driver in the prediction breakdown column of the results table.
 interface DriverPrediction {
     driverId: string;
     driverName: string;
@@ -66,6 +90,10 @@ interface DriverPrediction {
     scoreType: ScoreType;
 }
 
+// GUID: PAGE_RESULTS-005-v03
+// [Intent] Type for a team's complete result for a race — predictions, total points, bonus, and rank.
+// [Inbound Trigger] Built from prediction documents merged with scores and race results.
+// [Downstream Impact] Drives each row in the results table; sortedTeams memo depends on this.
 interface TeamResult {
     teamName: string;
     oduserId: string;
@@ -77,9 +105,16 @@ interface TeamResult {
     rank?: number; // Rank for this race (1st, 2nd, 3rd get badges)
 }
 
+// GUID: PAGE_RESULTS-006-v03
+// [Intent] Page size constant for Firestore query pagination of prediction documents.
+// [Inbound Trigger] Used by fetchAllData and loadMore functions.
+// [Downstream Impact] Controls batch size for predictions fetched per page.
 const PAGE_SIZE = 25;
 
-// Race Result Rank Badge Component (1st, 2nd, 3rd place badges)
+// GUID: PAGE_RESULTS-007-v03
+// [Intent] Race rank badge component for 1st, 2nd, 3rd place finishers in a single race event.
+// [Inbound Trigger] Rendered next to team name when team.rank is 1, 2, or 3.
+// [Downstream Impact] Pure presentational component — no side effects.
 const RaceRankBadge = ({ rank }: { rank: number }) => {
   if (rank === 1) {
     return (
@@ -108,7 +143,11 @@ const RaceRankBadge = ({ rank }: { rank: number }) => {
   return null;
 };
 
-// Build list of all race events (GP + Sprint where applicable)
+// GUID: PAGE_RESULTS-008-v03
+// [Intent] Build a flat list of all race events (GP + Sprint) from the RaceSchedule, with IDs and
+//   metadata for the race selector dropdown.
+// [Inbound Trigger] Called once at module level to create the allRaceEvents constant.
+// [Downstream Impact] allRaceEvents drives the race selector dropdown and event ID lookups.
 function buildRaceEvents() {
     return RaceSchedule.flatMap(race => {
         const events = [];
@@ -132,9 +171,17 @@ function buildRaceEvents() {
     });
 }
 
+// GUID: PAGE_RESULTS-009-v03
+// [Intent] Module-level constant of all race events — avoids recomputation on every render.
+// [Inbound Trigger] Computed once when the module is imported.
+// [Downstream Impact] Used throughout ResultsContent for race selection, filtering, and ID lookups.
 const allRaceEvents = buildRaceEvents();
 
-// Loading fallback for Suspense boundary
+// GUID: PAGE_RESULTS-010-v03
+// [Intent] Suspense loading fallback — skeleton UI shown while ResultsContent loads (required by
+//   Next.js 15 for components using useSearchParams).
+// [Inbound Trigger] Rendered by the Suspense boundary in ResultsPage while ResultsContent is suspended.
+// [Downstream Impact] Pure presentational component — no side effects.
 function ResultsLoadingFallback() {
     return (
         <div className="container mx-auto py-6">
@@ -159,6 +206,13 @@ function ResultsLoadingFallback() {
     );
 }
 
+// GUID: PAGE_RESULTS-011-v03
+// [Intent] Main results content component — fetches race results, scores, and predictions from
+//   Firestore, computes per-driver scoring against actual results, and renders the results table
+//   with colour-coded breakdowns, sorting, and pagination.
+// [Inbound Trigger] Rendered inside Suspense boundary; reads ?race= URL param for deep linking.
+// [Downstream Impact] Reads from Firestore race_results, scores, and predictions (collectionGroup).
+//   No write operations.
 function ResultsContent() {
     const firestore = useFirestore();
     const searchParams = useSearchParams();
@@ -173,7 +227,12 @@ function ResultsContent() {
     const [racesWithResults, setRacesWithResults] = useState<Set<string>>(new Set());
     const [isLoadingMostRecent, setIsLoadingMostRecent] = useState(!raceFromUrl); // Only load if no URL param
 
-    // Fetch all race results to know which races to show in dropdown
+    // GUID: PAGE_RESULTS-012-v03
+    // [Intent] Fetch all race_results documents on mount to determine which races have admin-entered
+    //   results (for dropdown filtering) and which is the most recent (for default selection).
+    // [Inbound Trigger] Fires on mount and when firestore or raceFromUrl changes.
+    // [Downstream Impact] Populates racesWithResults set and mostRecentResultRaceId; drives the
+    //   eventsWithResults filtered dropdown and default race selection.
     useEffect(() => {
         if (!firestore) return;
 
@@ -212,12 +271,19 @@ function ResultsContent() {
         fetchRacesWithResults();
     }, [firestore, raceFromUrl]);
 
-    // Filter events to only show those with results
+    // GUID: PAGE_RESULTS-013-v03
+    // [Intent] Filter the full race events list to only those with admin-entered results.
+    // [Inbound Trigger] racesWithResults set changes.
+    // [Downstream Impact] Drives the race selector dropdown — only shows races that have results.
     const eventsWithResults = useMemo(() => {
         return allRaceEvents.filter(event => racesWithResults.has(event.id));
     }, [racesWithResults]);
 
-    // Calculate default race ID: URL param > most recent result > most recent past event > first event
+    // GUID: PAGE_RESULTS-014-v03
+    // [Intent] Calculate the default race ID to display — prioritises URL parameter, then most recent
+    //   result, then most recent past event, then the first event.
+    // [Inbound Trigger] raceFromUrl, mostRecentResultRaceId, or pastEvents changes.
+    // [Downstream Impact] Sets the initial value of selectedRaceId state.
     const defaultRaceId = useMemo(() => {
         if (raceFromUrl) return raceFromUrl;
         if (mostRecentResultRaceId) return mostRecentResultRaceId;
@@ -227,7 +293,10 @@ function ResultsContent() {
 
     const [selectedRaceId, setSelectedRaceId] = useState(defaultRaceId);
 
-    // Update selected race when default changes (e.g., after fetching most recent result)
+    // GUID: PAGE_RESULTS-015-v03
+    // [Intent] Sync selectedRaceId when the most recent result is fetched (only if no URL param).
+    // [Inbound Trigger] mostRecentResultRaceId changes after async fetch completes.
+    // [Downstream Impact] Updates selectedRaceId which triggers data re-fetch.
     useEffect(() => {
         if (!raceFromUrl && mostRecentResultRaceId && selectedRaceId !== mostRecentResultRaceId) {
             setSelectedRaceId(mostRecentResultRaceId);
@@ -257,15 +326,21 @@ function ResultsContent() {
     // Sort state
     const [sortBy, setSortBy] = useState<'teamName' | 'points'>('points');
 
-    // Update selected race when URL parameter changes
+    // GUID: PAGE_RESULTS-016-v03
+    // [Intent] Sync selectedRaceId when the URL ?race= parameter changes (e.g. browser navigation).
+    // [Inbound Trigger] raceFromUrl search param changes.
+    // [Downstream Impact] Updates selectedRaceId which triggers race result and predictions re-fetch.
     useEffect(() => {
         if (raceFromUrl && raceFromUrl !== selectedRaceId) {
             setSelectedRaceId(raceFromUrl);
         }
     }, [raceFromUrl]);
 
-    // Get base race ID for prediction lookups (without -GP or -Sprint suffix)
-    // Normalize to title case to match how predictions are stored
+    // GUID: PAGE_RESULTS-017-v03
+    // [Intent] Convert a full event ID (with -GP or -Sprint suffix) to the base race ID in title case,
+    //   matching how predictions are stored in Firestore.
+    // [Inbound Trigger] Called when building Firestore queries for predictions.
+    // [Downstream Impact] Incorrect normalisation would cause prediction lookups to return empty results.
     const getBaseRaceId = (eventId: string) => {
         const base = eventId.replace(/-GP$/i, '').replace(/-Sprint$/i, '');
         // Convert to title case: "spanish-grand-prix" -> "Spanish-Grand-Prix"
@@ -274,7 +349,10 @@ function ResultsContent() {
         ).join('-');
     };
 
-    // Fetch race result when selection changes
+    // GUID: PAGE_RESULTS-018-v03
+    // [Intent] Fetch the official race result document when the selected race changes.
+    // [Inbound Trigger] selectedRaceId or firestore changes.
+    // [Downstream Impact] Sets raceResult state which drives scoring display and prediction comparison.
     useEffect(() => {
         if (!firestore || !selectedRaceId) return;
 
@@ -301,6 +379,10 @@ function ResultsContent() {
         fetchRaceResult();
     }, [firestore, selectedRaceId]);
 
+    // GUID: PAGE_RESULTS-019-v03
+    // [Intent] Format a Firestore timestamp into a human-readable UK date-time string.
+    // [Inbound Trigger] Called when displaying the "Results posted" timestamp.
+    // [Downstream Impact] Pure function — no side effects.
     const formatResultTimestamp = (timestamp: any) => {
         if (!timestamp) return null;
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -313,6 +395,10 @@ function ResultsContent() {
         });
     };
 
+    // GUID: PAGE_RESULTS-020-v03
+    // [Intent] Build a formatted string of the official top-6 result (e.g. "P1: Verstappen | P2: ...").
+    // [Inbound Trigger] Called when rendering the official result banner.
+    // [Downstream Impact] Pure function — no side effects. Returns null if no raceResult.
     const getOfficialResult = () => {
         if (!raceResult) return null;
         const drivers = [
@@ -329,7 +415,10 @@ function ResultsContent() {
         }).join(' | ');
     };
 
-    // Helper to get score type based on position difference
+    // GUID: PAGE_RESULTS-021-v03
+    // [Intent] Map a predicted vs actual position difference to a score type grade (A-E) for colour coding.
+    // [Inbound Trigger] Called per driver prediction in parsePredictions.
+    // [Downstream Impact] Drives the CSS class applied to each driver's score display.
     const getScoreType = (predictedPosition: number, actualPosition: number): ScoreType => {
         if (actualPosition === -1) return 'E';  // Not in top 6
         const diff = Math.abs(predictedPosition - actualPosition);
@@ -339,7 +428,11 @@ function ResultsContent() {
         return 'D';  // 3+ off
     };
 
-    // Parse predictions and calculate per-driver scoring (Prix Six rules)
+    // GUID: PAGE_RESULTS-022-v03
+    // [Intent] Parse a team's raw predictions (object or array format) and compare against actual
+    //   top-6 results to produce per-driver scoring with points and score types.
+    // [Inbound Trigger] Called per team when building TeamResult objects from prediction documents.
+    // [Downstream Impact] Produces DriverPrediction[] array used for the prediction breakdown column.
     const parsePredictions = useCallback((predictions: any, actualTop6: string[] | null): DriverPrediction[] => {
         if (!predictions) return [];
 
@@ -385,13 +478,19 @@ function ResultsContent() {
         });
     }, []);
 
-    // Calculate bonus points (only if all 6 correct)
+    // GUID: PAGE_RESULTS-023-v03
+    // [Intent] Calculate bonus points — awards 10 points if all 6 predicted drivers are in the top 6.
+    // [Inbound Trigger] Called per team after counting correct predictions.
+    // [Downstream Impact] Bonus is added to total displayed points and highlighted in amber.
     const calculateBonus = (correctCount: number): number => {
         if (correctCount === 6) return SCORING_POINTS.bonusAll6;
         return 0;
     };
 
-    // Get color class for score type
+    // GUID: PAGE_RESULTS-024-v03
+    // [Intent] Map score type grades (A-E) to Tailwind CSS colour classes for visual feedback.
+    // [Inbound Trigger] Called per driver when rendering the prediction breakdown.
+    // [Downstream Impact] Pure function — returns a CSS class string.
     const getScoreTypeColor = (scoreType: ScoreType): string => {
         switch (scoreType) {
             case 'A': return 'text-green-500';      // Exact (+6)
@@ -403,7 +502,11 @@ function ResultsContent() {
         }
     };
 
-    // Fetch all data for selected race in one effect
+    // GUID: PAGE_RESULTS-025-v03
+    // [Intent] Fetch all data for the selected race in parallel — count, scores, and first page of
+    //   predictions from Firestore. Builds TeamResult objects with scoring breakdown.
+    // [Inbound Trigger] selectedRaceId, raceResult, or firestore changes.
+    // [Downstream Impact] Populates teams, scoresMap, totalCount, and lastUpdated state.
     useEffect(() => {
         if (!firestore || !selectedRaceId) return;
 
@@ -501,7 +604,10 @@ function ResultsContent() {
         fetchAllData();
     }, [firestore, selectedRaceId, raceResult, parsePredictions]);
 
-    // Load more function for pagination
+    // GUID: PAGE_RESULTS-026-v03
+    // [Intent] Load the next page of prediction documents from Firestore using cursor-based pagination.
+    // [Inbound Trigger] User clicks the "Load More Teams" button.
+    // [Downstream Impact] Appends new TeamResult objects to the teams state array.
     const loadMore = useCallback(async () => {
         if (!firestore || !lastDoc || isLoadingMore) return;
 
@@ -556,7 +662,10 @@ function ResultsContent() {
         }
     }, [firestore, selectedRaceId, lastDoc, isLoadingMore, scoresMap, parsePredictions, raceResult]);
 
-    // Filter teams by selected league
+    // GUID: PAGE_RESULTS-027-v03
+    // [Intent] Filter teams by the selected league's member user IDs (or show all if global).
+    // [Inbound Trigger] teams or selectedLeague changes.
+    // [Downstream Impact] filteredTeams feeds into sortedTeams for final display.
     const filteredTeams = useMemo(() => {
         if (!selectedLeague || selectedLeague.isGlobal) {
             return teams;
@@ -568,7 +677,11 @@ function ResultsContent() {
         ? Math.round((filteredTeams.length / totalCount) * 100)
         : 0;
 
-    // Calculate effective points for a team (uses stored score or calculates from predictions)
+    // GUID: PAGE_RESULTS-028-v03
+    // [Intent] Calculate effective points for a team — uses stored score if available, otherwise
+    //   calculates from predictions + bonus when race results exist.
+    // [Inbound Trigger] Called per team in sortedTeams memo.
+    // [Downstream Impact] Drives sort order when sorting by points.
     const getEffectivePoints = useCallback((team: TeamResult): number => {
         if (team.hasScore && team.totalPoints !== null) {
             return team.totalPoints;
@@ -580,7 +693,11 @@ function ResultsContent() {
         return -1; // No score and no results yet - sort to bottom
     }, [raceResult]);
 
-    // Sort teams based on sortBy state and assign ranks (for badges)
+    // GUID: PAGE_RESULTS-029-v03
+    // [Intent] Sort teams by points (descending) or team name (ascending), and assign race ranks
+    //   (1st/2nd/3rd) with proper tie handling when sorted by points.
+    // [Inbound Trigger] filteredTeams, sortBy, or getEffectivePoints changes.
+    // [Downstream Impact] sortedTeams drives the final table rendering with rank badges.
     const sortedTeams = useMemo(() => {
         const sorted = [...filteredTeams].sort((a, b) => {
             if (sortBy === 'points') {
@@ -613,6 +730,10 @@ function ResultsContent() {
         return sorted.map(team => ({ ...team, rank: undefined }));
     }, [filteredTeams, sortBy, getEffectivePoints]);
 
+    // GUID: PAGE_RESULTS-030-v03
+    // [Intent] Toggle the sort order between points and team name.
+    // [Inbound Trigger] User clicks the "Sort by" button.
+    // [Downstream Impact] Changes sortBy state which triggers sortedTeams recalculation.
     const toggleSort = () => {
         setSortBy(prev => prev === 'teamName' ? 'points' : 'teamName');
     };
@@ -824,7 +945,11 @@ function ResultsContent() {
     );
   }
 
-// Wrap ResultsContent in Suspense to handle useSearchParams
+// GUID: PAGE_RESULTS-031-v03
+// [Intent] Exported page component — wraps ResultsContent in a Suspense boundary as required by
+//   Next.js 15 for components that use useSearchParams.
+// [Inbound Trigger] React Router renders this component when user navigates to /results.
+// [Downstream Impact] Delegates to ResultsContent; shows ResultsLoadingFallback during suspension.
 export default function ResultsPage() {
     return (
         <Suspense fallback={<ResultsLoadingFallback />}>

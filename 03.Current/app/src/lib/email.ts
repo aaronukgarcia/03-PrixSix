@@ -1,3 +1,8 @@
+// GUID: LIB_EMAIL-000-v03
+// [Intent] Server-side email sending module using Microsoft Graph API via Azure AD credentials. Provides welcome emails and generic email dispatch with rate-limiting, queuing, and Firestore logging.
+// [Inbound Trigger] Called by API routes (e.g., user registration, admin actions) that need to send transactional emails.
+// [Downstream Impact] Depends on email-tracking.ts for rate limiting and queuing. Writes to email_logs Firestore collection. Failures affect user onboarding and admin notifications.
+
 import { ClientSecretCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
@@ -14,7 +19,10 @@ import {
   isSummarySent
 } from "./email-tracking";
 
-// Initialize Firebase Admin for server-side email logging
+// GUID: LIB_EMAIL-001-v03
+// [Intent] Initialise and return a Firebase Admin Firestore instance for server-side email logging. Uses service account credentials if available, otherwise falls back to default project initialisation.
+// [Inbound Trigger] Called internally by sendWelcomeEmail and sendEmail when logging email activity to Firestore.
+// [Downstream Impact] Provides the Firestore reference used to write to email_logs collection. If this fails, email sending still succeeds but logging is lost.
 function getAdminDb() {
   if (!getApps().length) {
     const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
@@ -32,9 +40,16 @@ function getAdminDb() {
   return getFirestore();
 }
 
+// GUID: LIB_EMAIL-002-v03
+// [Intent] Admin email address constant used as the default sender fallback.
+// [Inbound Trigger] Referenced when GRAPH_SENDER_EMAIL environment variable is not set.
+// [Downstream Impact] Changing this affects the default sender address for all outbound emails.
 const ADMIN_EMAIL = 'aaron@garcia.ltd';
 
-// Generate a unique GUID for email tracking
+// GUID: LIB_EMAIL-003-v03
+// [Intent] Generate a RFC 4122 v4-style GUID for uniquely identifying each email sent, enabling tracking and audit trail lookup.
+// [Inbound Trigger] Called at the start of sendWelcomeEmail and sendEmail to assign a unique reference to each email.
+// [Downstream Impact] The generated GUID is embedded in the email footer, stored in email_logs, and returned to the caller. Used for support reference when users report email issues.
 function generateGuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -43,7 +58,10 @@ function generateGuid(): string {
   });
 }
 
-// Get Graph client
+// GUID: LIB_EMAIL-004-v03
+// [Intent] Create and return an authenticated Microsoft Graph API client using Azure AD client credentials (tenant ID, client ID, client secret). This client is used to send emails via the Graph /sendMail endpoint.
+// [Inbound Trigger] Called by sendWelcomeEmail and sendEmail before dispatching each email.
+// [Downstream Impact] If credentials are missing or invalid, all email sending fails. Depends on GRAPH_TENANT_ID, GRAPH_CLIENT_ID, and GRAPH_CLIENT_SECRET environment variables.
 function getGraphClient() {
   // Trim secrets to remove any trailing whitespace/newlines from environment
   const tenantId = process.env.GRAPH_TENANT_ID?.trim();
@@ -62,6 +80,10 @@ function getGraphClient() {
   return Client.initWithMiddleware({ authProvider });
 }
 
+// GUID: LIB_EMAIL-005-v03
+// [Intent] Type definition for the result returned by email-sending functions, indicating success/failure, the tracking GUID, optional error detail, and whether the email was queued due to rate limiting.
+// [Inbound Trigger] Used as the return type of sendWelcomeEmail and sendEmail.
+// [Downstream Impact] API routes depend on this shape to construct their response payloads. Changes here require updates to all callers.
 interface SendEmailResult {
   success: boolean;
   emailGuid: string;
@@ -70,6 +92,10 @@ interface SendEmailResult {
   queueReason?: string;
 }
 
+// GUID: LIB_EMAIL-006-v03
+// [Intent] Type definition for the parameters required to send a welcome email, including recipient, team name, PIN, and optional Firestore instance for rate-limit tracking.
+// [Inbound Trigger] Used as the parameter type of sendWelcomeEmail.
+// [Downstream Impact] Changes here require updates to all callers of sendWelcomeEmail.
 interface WelcomeEmailParams {
   toEmail: string;
   teamName: string;
@@ -77,6 +103,10 @@ interface WelcomeEmailParams {
   firestore?: any;
 }
 
+// GUID: LIB_EMAIL-007-v03
+// [Intent] Send a branded welcome email to a newly registered user containing their team name and 6-digit PIN. Enforces rate limiting via email-tracking, queues if rate-limited, logs success/failure to email_logs collection, and returns a tracking GUID.
+// [Inbound Trigger] Called from the user registration API route when a new account is created and a welcome email is required.
+// [Downstream Impact] On success, the user receives their PIN and login link. On rate-limit, the email is queued in email_queue collection. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004), canSendEmail/recordSentEmail/queueEmail from email-tracking, and getAdminDb (LIB_EMAIL-001).
 export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: WelcomeEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
   const senderEmail = process.env.GRAPH_SENDER_EMAIL || 'aaron@garcia.ltd';
@@ -240,12 +270,20 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
   }
 }
 
+// GUID: LIB_EMAIL-008-v03
+// [Intent] Type definition for generic email parameters (recipient, subject, HTML content) used by the general-purpose sendEmail function.
+// [Inbound Trigger] Used as the parameter type of sendEmail.
+// [Downstream Impact] Changes here require updates to all callers of sendEmail.
 interface GenericEmailParams {
   toEmail: string;
   subject: string;
   htmlContent: string;
 }
 
+// GUID: LIB_EMAIL-009-v03
+// [Intent] Send a generic email with arbitrary HTML content via Microsoft Graph API. Appends a standard footer with tracking GUID and Prix Six branding. Logs success/failure to email_logs collection for admin audit.
+// [Inbound Trigger] Called by API routes or server actions that need to send non-welcome transactional emails (e.g., daily summaries, notifications).
+// [Downstream Impact] On success, the recipient receives the email. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004) and getAdminDb (LIB_EMAIL-001). Does not use rate limiting (unlike sendWelcomeEmail).
 export async function sendEmail({ toEmail, subject, htmlContent }: GenericEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
   const senderEmail = process.env.GRAPH_SENDER_EMAIL || 'aaron@garcia.ltd';

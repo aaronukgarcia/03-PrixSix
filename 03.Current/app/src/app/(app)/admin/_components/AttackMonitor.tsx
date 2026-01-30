@@ -1,3 +1,8 @@
+// GUID: ADMIN_ATTACK_MONITOR-000-v03
+// [Intent] Admin security component that displays unacknowledged attack alerts (bot attacks, credential stuffing, distributed attacks) with severity-coded UI and acknowledgement controls.
+// [Inbound Trigger] Rendered on the admin dashboard; only visible when there are unacknowledged attack_alerts in Firestore.
+// [Downstream Impact] Reads from and writes to the attack_alerts Firestore collection. Acknowledging alerts updates documents in place.
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -10,6 +15,10 @@ import { Shield, ShieldAlert, ShieldX, Check, ChevronDown, ChevronUp } from 'luc
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
+// GUID: ADMIN_ATTACK_MONITOR-001-v03
+// [Intent] Type definition for an attack alert document from the attack_alerts Firestore collection.
+// [Inbound Trigger] Used to type-check all attack alert data flowing through this component.
+// [Downstream Impact] Schema changes to attack_alerts must be reflected here; affects rendering and acknowledgement logic.
 interface AttackAlert {
   id: string;
   timestamp: {
@@ -34,24 +43,40 @@ interface AttackAlert {
   };
 }
 
+// GUID: ADMIN_ATTACK_MONITOR-002-v03
+// [Intent] Human-readable labels for attack type codes, used in alert card headings.
+// [Inbound Trigger] Looked up by AttackAlertCard during rendering.
+// [Downstream Impact] Adding a new attack type requires a corresponding label entry here.
 const ATTACK_TYPE_LABELS: Record<string, string> = {
   bot_attack: 'Bot Attack',
   credential_stuffing: 'Credential Stuffing',
   distributed_attack: 'Distributed Attack',
 };
 
+// GUID: ADMIN_ATTACK_MONITOR-003-v03
+// [Intent] Descriptive text for each attack type, shown as secondary detail in alert cards.
+// [Inbound Trigger] Looked up by AttackAlertCard during rendering.
+// [Downstream Impact] Adding a new attack type requires a corresponding description entry here.
 const ATTACK_TYPE_DESCRIPTIONS: Record<string, string> = {
   bot_attack: 'Multiple failed login attempts from a single IP address',
   credential_stuffing: 'Single IP trying multiple different accounts',
   distributed_attack: 'Multiple IPs targeting a single account',
 };
 
+// GUID: ADMIN_ATTACK_MONITOR-004-v03
+// [Intent] Main exported component that queries unacknowledged attack alerts and renders a severity-coded summary bar with expandable detail cards.
+// [Inbound Trigger] Mounted by the admin dashboard; renders nothing if no unacknowledged alerts exist.
+// [Downstream Impact] Reads attack_alerts where acknowledged==false; writes acknowledgement updates. The summary bar pulses when critical alerts are present.
 export function AttackMonitor() {
   const firestore = useFirestore();
   const { user } = useAuth();
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
 
+  // GUID: ADMIN_ATTACK_MONITOR-005-v03
+  // [Intent] Memoised Firestore query for unacknowledged attack alerts, gated on admin status to prevent permission errors.
+  // [Inbound Trigger] Re-created when firestore or user.isAdmin changes.
+  // [Downstream Impact] Provides the real-time dataset of active alerts; null query prevents Firestore permission errors for non-admins.
   // Query unacknowledged attack alerts - only if user is admin
   const alertsQuery = useMemo(() => {
     // Don't query until we confirm user is admin to avoid permission errors
@@ -72,6 +97,10 @@ export function AttackMonitor() {
     console.error('[AttackMonitor] Firestore error:', error);
   }
 
+  // GUID: ADMIN_ATTACK_MONITOR-006-v03
+  // [Intent] Acknowledges a single attack alert by updating its Firestore document with acknowledged=true, the admin's user ID, and a timestamp.
+  // [Inbound Trigger] Called when the admin clicks "Acknowledge" on an individual alert card.
+  // [Downstream Impact] Updates the attack_alerts document; the real-time listener removes it from the unacknowledged list.
   const handleAcknowledge = async (alertId: string) => {
     if (!firestore || !user) return;
     setAcknowledging(alertId);
@@ -89,6 +118,10 @@ export function AttackMonitor() {
     }
   };
 
+  // GUID: ADMIN_ATTACK_MONITOR-007-v03
+  // [Intent] Acknowledges all currently visible attack alerts in parallel using Promise.all.
+  // [Inbound Trigger] Called when the admin clicks "Acknowledge All" on the summary bar.
+  // [Downstream Impact] Updates all unacknowledged attack_alerts documents; the component will render nothing once all are acknowledged.
   const handleAcknowledgeAll = async () => {
     if (!firestore || !user || !alerts?.length) return;
     setAcknowledging('all');
@@ -115,6 +148,10 @@ export function AttackMonitor() {
     return null;
   }
 
+  // GUID: ADMIN_ATTACK_MONITOR-008-v03
+  // [Intent] Splits alerts into critical and warning groups to drive severity-based UI styling (pulsing red vs amber).
+  // [Inbound Trigger] Computed on each render from the alerts data.
+  // [Downstream Impact] Determines the summary bar colour, icon, and text; controls whether the animate-pulse class is applied.
   const criticalAlerts = alerts.filter(a => a.severity === 'critical');
   const warningAlerts = alerts.filter(a => a.severity === 'warning');
   const hasCritical = criticalAlerts.length > 0;
@@ -195,6 +232,10 @@ export function AttackMonitor() {
   );
 }
 
+// GUID: ADMIN_ATTACK_MONITOR-009-v03
+// [Intent] Renders a single attack alert card with severity-coded styling, attack details (IP, target, attempts), and an acknowledge button.
+// [Inbound Trigger] Rendered by AttackMonitor for each unacknowledged alert in the expanded details section.
+// [Downstream Impact] Calls onAcknowledge callback which triggers a Firestore update; visual-only otherwise.
 function AttackAlertCard({
   alert,
   onAcknowledge,

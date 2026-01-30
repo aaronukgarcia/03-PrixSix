@@ -1,3 +1,8 @@
+// GUID: API_SEND_RESULTS_EMAIL-000-v03
+// [Intent] API route that sends race results emails to all users who have opted in (or not opted out) of results notifications. Each email is personalised with the user's prediction, score, and current standings.
+// [Inbound Trigger] POST request from the admin scoring/results flow after a race has been scored.
+// [Downstream Impact] Sends emails via sendEmail (email lib); records sent emails via recordSentEmail (email-tracking lib). Frontend relies on results array and success count.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { canSendEmail, recordSentEmail } from '@/lib/email-tracking';
@@ -6,12 +11,19 @@ import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebas
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-// Helper to get just the db (for backwards compatibility)
+// GUID: API_SEND_RESULTS_EMAIL-001-v03
+// [Intent] Helper to obtain the Firestore db instance, wrapping getFirebaseAdmin for backwards compatibility.
+// [Inbound Trigger] Called at the start of the POST handler.
+// [Downstream Impact] Returns the Firestore db; if getFirebaseAdmin fails, the POST handler's catch block handles the error.
 async function getAdminDb() {
   const { db } = await getFirebaseAdmin();
   return db;
 }
 
+// GUID: API_SEND_RESULTS_EMAIL-002-v03
+// [Intent] Type definition for the incoming request body — identifies the race, its official result, per-team scores, and current season standings.
+// [Inbound Trigger] Used to type the parsed JSON body in the POST handler.
+// [Downstream Impact] Changing field names or structure breaks the admin results-email trigger that constructs this payload.
 interface ResultsEmailRequest {
   raceId: string;
   raceName: string;
@@ -28,6 +40,10 @@ interface ResultsEmailRequest {
   }[];
 }
 
+// GUID: API_SEND_RESULTS_EMAIL-003-v03
+// [Intent] POST handler — queries all users who have not opted out of results notifications, builds a personalised results email for each (showing their prediction, score, race scores table, and season standings), sends via Graph API, and records delivery in email-tracking.
+// [Inbound Trigger] HTTP POST with JSON body matching ResultsEmailRequest.
+// [Downstream Impact] Sends personalised emails via sendEmail; records via recordSentEmail to email_daily_stats. Also sends to verified secondary email addresses. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
 export async function POST(request: NextRequest) {
   try {
     const data: ResultsEmailRequest = await request.json();
@@ -122,6 +138,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// GUID: API_SEND_RESULTS_EMAIL-004-v03
+// [Intent] Builds the full HTML email body for race results, including the user's score hero section, official result table, user prediction, race scores table (sorted by points, user highlighted), and season standings table (user highlighted).
+// [Inbound Trigger] Called once per user inside the POST handler's user loop.
+// [Downstream Impact] The generated HTML is passed to sendEmail. Changes to the template affect all results notification emails. Links point to prix6.win/profile.
 function buildResultsEmailHtml(data: {
   teamName: string;
   raceName: string;

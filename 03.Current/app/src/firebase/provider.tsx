@@ -1,3 +1,10 @@
+// GUID: FIREBASE_PROVIDER-000-v03
+// [Intent] Central Firebase context provider that manages authentication state, user profile data,
+// and all auth-related operations (login, signup, logout, PIN management, email verification).
+// This is the single source of truth for the current user's session and profile across the entire app.
+// [Inbound Trigger] Mounted once at the app root by the layout; wraps all authenticated pages.
+// [Downstream Impact] Every component that calls useFirebase(), useAuth(), useFirestore(), useStorage(),
+// or useFunctions() depends on this provider. Removing or breaking it will break the entire application.
 
 'use client';
 
@@ -13,7 +20,10 @@ import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
 import { logAuditEvent } from '@/lib/audit';
 
-// Email notification preferences
+// GUID: FIREBASE_PROVIDER-001-v03
+// [Intent] Defines the shape of user email notification preferences stored in Firestore.
+// [Inbound Trigger] Referenced when reading/writing user profile email settings.
+// [Downstream Impact] Used by email preference UI components and notification dispatch logic.
 export interface EmailPreferences {
   rankingChanges?: boolean;
   raceReminders?: boolean;
@@ -21,7 +31,11 @@ export interface EmailPreferences {
   resultsNotifications?: boolean;
 }
 
-// AI Analysis weights for race predictions
+// GUID: FIREBASE_PROVIDER-002-v03
+// [Intent] Defines AI analysis weight sliders for race prediction assistance.
+// Each field represents a factor weight (0-100) that influences AI-generated predictions.
+// [Inbound Trigger] Referenced when users adjust AI analysis settings on the predictions page.
+// [Downstream Impact] Stored in user profile; consumed by prediction analysis logic.
 export interface AnalysisWeights {
   driverForm: number;
   trackHistory: number;
@@ -36,7 +50,12 @@ export interface AnalysisWeights {
   rowanHornblower: number; // Bernie Collins style pundit
 }
 
-// Extended user profile information
+// GUID: FIREBASE_PROVIDER-003-v03
+// [Intent] Extended user profile interface combining Firebase Auth identity with Firestore profile data.
+// The `id` field is the Firebase Auth UID, which is also the Firestore document key in the `users` collection.
+// [Inbound Trigger] Populated on auth state change from the Firestore `users/{uid}` document.
+// [Downstream Impact] Consumed by every component that reads user state via useAuth() or useFirebase().
+// Changes to this interface require updates across all components that destructure User properties.
 export interface User {
   id: string; // This is the Firebase Auth UID
   email: string;
@@ -53,13 +72,21 @@ export interface User {
   secondaryEmailVerified?: boolean; // Whether secondary email is verified
 }
 
+// GUID: FIREBASE_PROVIDER-004-v03
+// [Intent] Standard return type for all authentication operations (login, signup, PIN changes, etc.).
+// [Inbound Trigger] Returned by every auth method in the provider.
+// [Downstream Impact] UI components use success/message to display feedback; pin is optionally returned on signup.
 interface AuthResult {
   success: boolean;
   message: string;
   pin?: string;
 }
 
-// Combined state for the Firebase context
+// GUID: FIREBASE_PROVIDER-005-v03
+// [Intent] Full type definition for the Firebase context, exposing all Firebase services, user state,
+// and auth operations to consumers. This is the contract between the provider and every downstream hook.
+// [Inbound Trigger] Defined at module level; used as the generic type for FirebaseContext.
+// [Downstream Impact] Any addition or removal of fields here affects useFirebase(), useAuth(), and all consumers.
 export interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
@@ -85,7 +112,10 @@ export interface FirebaseContextState {
   sendSecondaryVerificationEmail: () => Promise<AuthResult>;
 }
 
-// React Context
+// GUID: FIREBASE_PROVIDER-006-v03
+// [Intent] React context instance that holds the full Firebase state and auth operations.
+// [Inbound Trigger] Created once at module load; provided by FirebaseProvider, consumed by useFirebase().
+// [Downstream Impact] If this context is undefined at consumption time, useFirebase() throws.
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 interface FirebaseProviderProps {
@@ -97,6 +127,11 @@ interface FirebaseProviderProps {
   auth: Auth;
 }
 
+// GUID: FIREBASE_PROVIDER-007-v03
+// [Intent] Root provider component that initialises Firebase auth listener, manages user profile
+// state via real-time Firestore subscription, and exposes all auth operations to the component tree.
+// [Inbound Trigger] Rendered once at the app layout level with pre-initialised Firebase service instances.
+// [Downstream Impact] All authenticated UI depends on this component. Removing it breaks the entire app.
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   children,
   firebaseApp,
@@ -109,9 +144,17 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [user, setUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [userError, setUserError] = useState<Error | null>(null);
-  
+
   const router = useRouter();
-  
+
+  // GUID: FIREBASE_PROVIDER-008-v03
+  // [Intent] Sets up a two-layer real-time listener: (1) Firebase Auth state changes trigger
+  // (2) a Firestore onSnapshot listener on the user's profile document. On first snapshot,
+  // syncs emailVerified from Auth to Firestore if needed and redirects users who must change PIN.
+  // Includes a 10-second safety timeout to prevent indefinite loading states.
+  // [Inbound Trigger] Runs once on mount and whenever auth/firestore/router references change.
+  // [Downstream Impact] Populates `user`, `firebaseUser`, `isUserLoading`, and `userError` state.
+  // Every component reading auth state depends on this effect completing successfully.
   useEffect(() => {
     setIsUserLoading(true);
     let unsubscribeUserDoc: (() => void) | null = null;
@@ -204,6 +247,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     };
   }, [auth, firestore, router]);
 
+  // GUID: FIREBASE_PROVIDER-009-v03
+  // [Intent] Authenticates a user via server-side PIN verification API, then signs in using the
+  // returned custom token. Includes a 15-second timeout, brute-force protection (server-side),
+  // and waits for onAuthStateChanged to settle before returning success.
+  // [Inbound Trigger] Called from the login page when the user submits email + PIN.
+  // [Downstream Impact] On success, triggers the auth state listener (FIREBASE_PROVIDER-008) which
+  // loads the user profile. On failure, returns error with correlation ID for user to report.
   const login = async (email: string, pin: string): Promise<AuthResult> => {
     setIsUserLoading(true);
     setUserError(null);
@@ -306,6 +356,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  // GUID: FIREBASE_PROVIDER-010-v03
+  // [Intent] Registers a new user via server-side API (which uses Admin SDK for Firestore writes
+  // and Firebase Auth user creation), then auto-signs in with the returned custom token.
+  // [Inbound Trigger] Called from the signup/registration page when a new user submits their details.
+  // [Downstream Impact] On success, creates a Firebase Auth user + Firestore user document, then
+  // triggers auth state listener (FIREBASE_PROVIDER-008). Logs client errors with correlation IDs.
   const signup = async (email: string, teamName: string, pin?: string): Promise<AuthResult> => {
     // Use server-side API for signup (handles permission checks with Admin SDK)
     try {
@@ -364,7 +420,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       };
     }
   };
-  
+
+  // GUID: FIREBASE_PROVIDER-011-v03
+  // [Intent] Admin-only operation to update a user's profile via server-side API. Handles both
+  // Firestore document updates and Firebase Auth property changes (e.g., email, display name).
+  // [Inbound Trigger] Called from the admin panel when an admin edits a user's details.
+  // [Downstream Impact] Updates the target user's Firestore document and Auth record. If the
+  // current admin is editing their own profile, also updates local React state.
   const updateUser = async (userId: string, data: Partial<User>): Promise<AuthResult> => {
     if (!user?.isAdmin) {
       return { success: false, message: "You do not have permission to perform this action." };
@@ -409,6 +471,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   }
 
+  // GUID: FIREBASE_PROVIDER-012-v03
+  // [Intent] Admin-only operation to delete a user via server-side API. Removes both the Firestore
+  // user document and the Firebase Auth account.
+  // [Inbound Trigger] Called from the admin panel when an admin deletes a user.
+  // [Downstream Impact] Permanently removes user from both Auth and Firestore. The deleted user's
+  // teams and predictions may become orphaned if not cleaned up by the API.
   const deleteUser = async (userId: string): Promise<AuthResult> => {
     if (!user?.isAdmin) {
       return { success: false, message: "You do not have permission to perform this action." };
@@ -448,6 +516,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   }
 
 
+  // GUID: FIREBASE_PROVIDER-013-v03
+  // [Intent] Allows the current authenticated user to create a secondary team via server-side API.
+  // The API validates the team name and creates the necessary Firestore records.
+  // [Inbound Trigger] Called from the team management UI when a user adds a second team.
+  // [Downstream Impact] Updates the user's `secondaryTeamName` in local state and Firestore.
+  // The secondary team participates in league scoring independently.
   const addSecondaryTeam = async (teamName: string): Promise<AuthResult> => {
     if (!user || !firebaseUser) {
       return { success: false, message: "You must be logged in to add a team." };
@@ -479,6 +553,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  // GUID: FIREBASE_PROVIDER-014-v03
+  // [Intent] Signs out the current user, clears local state, and redirects to the login page.
+  // Logs an audit event before signing out so the logout is recorded against the user's UID.
+  // [Inbound Trigger] Called from sidebar logout button, PIN change flow, or session expiry.
+  // [Downstream Impact] Clears user/firebaseUser state, triggers onAuthStateChanged with null,
+  // and navigates to /login. Other components observing auth state will reset accordingly.
   const logout = async () => {
     if (firebaseUser) {
         logAuditEvent(firestore, firebaseUser.uid, 'logout', { source: 'explicit_call' });
@@ -491,6 +571,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     setIsUserLoading(false);
   };
 
+  // GUID: FIREBASE_PROVIDER-015-v03
+  // [Intent] Initiates a server-side PIN reset for the given email address. The API generates a
+  // temporary PIN and sends it via email. Works for unauthenticated users (forgotten PIN flow).
+  // [Inbound Trigger] Called from the login page "Forgot PIN" flow.
+  // [Downstream Impact] Server sets mustChangePin=true on the user document, so next login
+  // triggers forced redirect to /profile for PIN change (FIREBASE_PROVIDER-008).
   const resetPin = async (email: string): Promise<AuthResult> => {
     // Generate correlation ID upfront for error tracking
     const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
@@ -543,9 +629,16 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  // GUID: FIREBASE_PROVIDER-016-v03
+  // [Intent] Changes the current user's PIN (password) via Firebase Auth, clears the mustChangePin
+  // flag, sends a confirmation email, logs audit events, and forces a logout so the user must
+  // re-authenticate with the new PIN.
+  // [Inbound Trigger] Called from the profile page PIN change form.
+  // [Downstream Impact] Updates Firebase Auth password, clears mustChangePin in Firestore,
+  // queues a notification email, and triggers logout (FIREBASE_PROVIDER-014).
   const changePin = async (email: string, newPin: string): Promise<AuthResult> => {
     if (!firebaseUser) return { success: false, message: "You are not logged in."};
-    
+
     try {
         await updatePassword(firebaseUser, newPin);
 
@@ -577,6 +670,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  // GUID: FIREBASE_PROVIDER-017-v03
+  // [Intent] Sends a primary email verification via the custom Graph API endpoint (not Firebase's
+  // built-in email verification). Validates preconditions before sending.
+  // [Inbound Trigger] Called from the EmailVerificationBanner or profile page.
+  // [Downstream Impact] Queues an email via the /api/send-verification-email endpoint.
+  // Logs an audit event on success. Does not change user state until verification is confirmed.
   const sendVerificationEmail = async (): Promise<AuthResult> => {
     if (!firebaseUser) {
       return { success: false, message: "You must be logged in to send a verification email." };
@@ -619,6 +718,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  // GUID: FIREBASE_PROVIDER-018-v03
+  // [Intent] Reloads the Firebase Auth user to check if email has been verified externally (e.g.,
+  // user clicked the verification link in another tab). Syncs the verified status to Firestore.
+  // [Inbound Trigger] Called when user clicks "I've verified" on the EmailVerificationBanner.
+  // [Downstream Impact] Updates Firestore `emailVerified` field and local user state, which causes
+  // the EmailVerificationBanner to hide itself.
   const refreshEmailVerificationStatus = async (): Promise<void> => {
     if (!firebaseUser) return;
 
@@ -638,6 +743,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  // GUID: FIREBASE_PROVIDER-019-v03
+  // [Intent] Updates or removes the user's secondary email address via server-side API.
+  // Passing null or empty string removes the secondary email; otherwise sets and marks unverified.
+  // [Inbound Trigger] Called from the profile page secondary email form.
+  // [Downstream Impact] Updates Firestore user document and local state. A new secondary email
+  // starts as unverified and requires a separate verification flow.
   const updateSecondaryEmail = async (email: string | null): Promise<AuthResult> => {
     if (!firebaseUser) {
       return { success: false, message: "You must be logged in to update your secondary email." };
@@ -680,6 +791,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
+  // GUID: FIREBASE_PROVIDER-020-v03
+  // [Intent] Sends a verification email to the user's secondary email address via the dedicated
+  // server-side API endpoint. Validates preconditions (logged in, has secondary email, not yet verified).
+  // [Inbound Trigger] Called from the profile page when user requests secondary email verification.
+  // [Downstream Impact] Queues a verification email via /api/send-secondary-email-verification.
+  // Logs an audit event. Does not change user state until verification is confirmed server-side.
   const sendSecondaryVerificationEmail = async (): Promise<AuthResult> => {
     if (!firebaseUser || !user) {
       return { success: false, message: "You must be logged in to send a verification email." };
@@ -724,9 +841,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // Computed property for email verification status
+  // GUID: FIREBASE_PROVIDER-021-v03
+  // [Intent] Computed boolean that merges Firebase Auth and Firestore email verification status.
+  // Prefers Auth (live) over Firestore (cached) for most accurate result.
+  // [Inbound Trigger] Recalculated on every render when firebaseUser or user changes.
+  // [Downstream Impact] Consumed by EmailVerificationBanner and any component checking isEmailVerified.
   const isEmailVerified = firebaseUser?.emailVerified ?? user?.emailVerified ?? false;
 
+  // GUID: FIREBASE_PROVIDER-022-v03
+  // [Intent] Memoised context value object that bundles all Firebase services, user state, and
+  // auth operations into a single object for the React context provider.
+  // [Inbound Trigger] Recalculated when any dependency (services, state, or auth functions) changes.
+  // [Downstream Impact] All context consumers re-render when this value reference changes.
+  // The useMemo prevents unnecessary re-renders when unrelated parent state changes.
   const contextValue = useMemo((): FirebaseContextState => ({
     firebaseApp,
     firestore,
@@ -760,6 +887,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   );
 };
 
+// GUID: FIREBASE_PROVIDER-023-v03
+// [Intent] Primary hook for accessing the full Firebase context. Throws if used outside the provider.
+// [Inbound Trigger] Called by any component needing Firebase services or auth state.
+// [Downstream Impact] Returns the full FirebaseContextState. Most components use useAuth() instead
+// for a narrower interface, but this hook is needed for direct Firestore/Storage/Functions access.
 export const useFirebase = () => {
   const context = useContext(FirebaseContext);
   if (context === undefined) {
@@ -768,6 +900,12 @@ export const useFirebase = () => {
   return context;
 };
 
+// GUID: FIREBASE_PROVIDER-024-v03
+// [Intent] Convenience hook that extracts only auth-related fields and operations from the context.
+// Provides a narrower, more focused API for components that only need user/auth functionality.
+// [Inbound Trigger] Called by login, signup, profile, sidebar, and most authenticated components.
+// [Downstream Impact] Returns user state and all auth operations. Components using this hook
+// re-render when any auth-related state changes.
 export const useAuth = () => {
   const context = useFirebase();
   return {
@@ -791,24 +929,41 @@ export const useAuth = () => {
   };
 };
 
+// GUID: FIREBASE_PROVIDER-025-v03
+// [Intent] Typed hook that returns the Firestore instance, throwing if unavailable.
+// [Inbound Trigger] Called by components that need direct Firestore access for queries/writes.
+// [Downstream Impact] Returns a non-null Firestore instance. Used throughout the app for
+// collection queries, document reads, and real-time subscriptions.
 export const useFirestore = (): Firestore => {
   const { firestore } = useFirebase();
   if (!firestore) throw new Error("Firestore not available");
   return firestore;
 };
 
+// GUID: FIREBASE_PROVIDER-026-v03
+// [Intent] Typed hook that returns the FirebaseApp instance, throwing if unavailable.
+// [Inbound Trigger] Called by components that need the raw FirebaseApp reference.
+// [Downstream Impact] Rarely used directly; most components use service-specific hooks instead.
 export const useFirebaseApp = (): FirebaseApp => {
   const { firebaseApp } = useFirebase();
   if (!firebaseApp) throw new Error("Firebase App not available");
   return firebaseApp;
 };
 
+// GUID: FIREBASE_PROVIDER-027-v03
+// [Intent] Typed hook that returns the Firebase Storage instance, throwing if unavailable.
+// [Inbound Trigger] Called by components that upload or retrieve files (e.g., profile photos).
+// [Downstream Impact] Returns a non-null FirebaseStorage instance for file operations.
 export const useStorage = (): FirebaseStorage => {
   const { storage } = useFirebase();
   if (!storage) throw new Error("Firebase Storage not available");
   return storage;
 };
 
+// GUID: FIREBASE_PROVIDER-028-v03
+// [Intent] Typed hook that returns the Firebase Functions instance, throwing if unavailable.
+// [Inbound Trigger] Called by components that invoke Cloud Functions directly.
+// [Downstream Impact] Returns a non-null Functions instance for calling server-side functions.
 export const useFunctions = (): Functions => {
   const { functions } = useFirebase();
   if (!functions) throw new Error("Firebase Functions not available");

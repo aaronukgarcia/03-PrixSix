@@ -1,3 +1,8 @@
+// GUID: API_SEND_HOT_NEWS_EMAIL-000-v03
+// [Intent] API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces daily global and per-address rate limits, logs audit events, and tracks email stats.
+// [Inbound Trigger] POST request from the admin hot news editor (typically the HotNewsEditor component).
+// [Downstream Impact] Sends emails via sendEmail (email lib); writes to audit_logs and email_daily_stats collections. Frontend relies on results array and success counts.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
@@ -5,16 +10,28 @@ import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebas
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
+// GUID: API_SEND_HOT_NEWS_EMAIL-001-v03
+// [Intent] Rate-limiting constants — caps total daily emails at 30 globally and 5 per individual address to prevent abuse and protect Graph API quotas.
+// [Inbound Trigger] Referenced during the email send loop in the POST handler.
+// [Downstream Impact] Changing these values directly affects how many hot news emails can be sent per day. Admin email (aaron@garcia.ltd) is exempt from per-address limit.
 const DAILY_GLOBAL_LIMIT = 30;
 const DAILY_PER_ADDRESS_LIMIT = 5;
 const ADMIN_EMAIL = 'aaron@garcia.ltd';
 
+// GUID: API_SEND_HOT_NEWS_EMAIL-002-v03
+// [Intent] Type definition for the incoming request body — content of the hot news, plus who triggered the update.
+// [Inbound Trigger] Used to type the parsed JSON body in the POST handler.
+// [Downstream Impact] Changing field names breaks the admin HotNewsEditor component that constructs this payload.
 interface HotNewsEmailRequest {
   content: string;
   updatedBy: string;
   updatedByEmail: string;
 }
 
+// GUID: API_SEND_HOT_NEWS_EMAIL-003-v03
+// [Intent] Type definition for an entry in the email_daily_stats.emailsSent array — tracks each sent email for rate-limiting and audit.
+// [Inbound Trigger] Used when recording a successfully sent email into Firestore email_daily_stats.
+// [Downstream Impact] Changing this shape affects the email-health and admin email monitoring views that read email_daily_stats.
 interface EmailLogEntry {
   toEmail: string;
   subject: string;
@@ -25,11 +42,19 @@ interface EmailLogEntry {
   status: 'sent' | 'queued' | 'failed';
 }
 
+// GUID: API_SEND_HOT_NEWS_EMAIL-004-v03
+// [Intent] Returns today's date as an ISO date string (YYYY-MM-DD) for keying the email_daily_stats document.
+// [Inbound Trigger] Called at the start of the POST handler to identify today's stats document.
+// [Downstream Impact] Used as the Firestore document ID in email_daily_stats. Timezone is UTC (server time).
 function getTodayDateString(): string {
   const now = new Date();
   return now.toISOString().split('T')[0];
 }
 
+// GUID: API_SEND_HOT_NEWS_EMAIL-005-v03
+// [Intent] POST handler — orchestrates the entire hot news email broadcast: validates input, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.
+// [Inbound Trigger] HTTP POST with JSON body containing content, updatedBy, and updatedByEmail.
+// [Downstream Impact] Writes to audit_logs (two entries per invocation), email_daily_stats, and sends emails via Graph API. Errors logged to error_logs with correlation ID.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -218,6 +243,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// GUID: API_SEND_HOT_NEWS_EMAIL-006-v03
+// [Intent] Builds the HTML email body for hot news notifications, converting newline-separated content into styled HTML paragraphs with Prix Six branding.
+// [Inbound Trigger] Called once per user (not per recipient) inside the POST handler's email loop.
+// [Downstream Impact] The generated HTML is passed to sendEmail. Changes to the template affect all hot news emails. Links point to prix6.win/dashboard and prix6.win/profile.
 function buildHotNewsEmailHtml(data: { teamName: string; content: string }): string {
   const { teamName, content } = data;
 

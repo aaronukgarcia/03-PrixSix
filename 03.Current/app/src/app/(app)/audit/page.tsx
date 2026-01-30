@@ -1,3 +1,10 @@
+// GUID: PAGE_AUDIT-000-v03
+// [Intent] Submission audit page — displays a paginated table of all prediction submissions
+//          across the league. Fetches from audit_logs collection filtered to prediction_submitted actions.
+// [Inbound Trigger] User navigates to /audit from navigation.
+// [Downstream Impact] Reads audit_logs (paginated) and users collections from Firestore.
+//                     Displays team names, race names, predictions, and timestamps.
+
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
@@ -26,8 +33,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { formatDriverPredictions } from "@/lib/data";
 
+// GUID: PAGE_AUDIT-001-v03
+// [Intent] Page size constant for paginated audit log queries.
+// [Inbound Trigger] Used by fetchAuditLogs query and "Load More" button label.
+// [Downstream Impact] Controls how many audit_logs documents are fetched per page.
 const PAGE_SIZE = 100;
 
+// GUID: PAGE_AUDIT-002-v03
+// [Intent] TypeScript interface for audit log entries — defines the shape of prediction_submitted events.
+// [Inbound Trigger] Used as type parameter in state and mapped results.
+// [Downstream Impact] Provides type safety for audit log rendering and team name resolution.
 interface AuditLogEntry {
   id: string;
   userId: string;
@@ -42,6 +57,12 @@ interface AuditLogEntry {
   timestamp: any;
 }
 
+// GUID: PAGE_AUDIT-003-v03
+// [Intent] Main audit page component — manages paginated audit log fetching, user lookup,
+//          and renders the submission history table with load-more pagination.
+// [Inbound Trigger] Route navigation to /audit.
+// [Downstream Impact] Reads audit_logs (filtered to prediction_submitted, ordered by timestamp desc)
+//                     and users collection. Displays formatted predictions via formatDriverPredictions.
 export default function AuditPage() {
   const firestore = useFirestore();
 
@@ -54,7 +75,10 @@ export default function AuditPage() {
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Users query (still uses real-time for quick lookups)
+  // GUID: PAGE_AUDIT-004-v03
+  // [Intent] Real-time query for all users — provides team name lookup for audit log entries.
+  // [Inbound Trigger] firestore becomes available.
+  // [Downstream Impact] Users data is joined with audit logs in submissionsWithTeamNames memo.
   const usersQuery = useMemo(() => {
     if (!firestore) return null;
     const q = query(collection(firestore, "users"));
@@ -64,7 +88,12 @@ export default function AuditPage() {
 
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
-  // Fetch audit logs with pagination
+  // GUID: PAGE_AUDIT-005-v03
+  // [Intent] Paginated fetch function for audit logs — queries prediction_submitted events
+  //          ordered by timestamp desc with cursor-based pagination via startAfter.
+  // [Inbound Trigger] Called on initial mount and when user clicks "Load More" button.
+  // [Downstream Impact] Populates auditLogs state. Sets hasMore flag based on result count vs PAGE_SIZE.
+  //                     Updates lastDoc cursor for subsequent page loads.
   const fetchAuditLogs = useCallback(async (loadMore = false) => {
     if (!firestore) return;
 
@@ -127,17 +156,28 @@ export default function AuditPage() {
     }
   }, [firestore, lastDoc]);
 
-  // Initial load
+  // GUID: PAGE_AUDIT-006-v03
+  // [Intent] Initial data load — triggers fetchAuditLogs once when Firestore is ready.
+  // [Inbound Trigger] firestore reference becomes available.
+  // [Downstream Impact] Populates the audit log table with the first page of results.
   useEffect(() => {
     if (firestore) {
       fetchAuditLogs(false);
     }
   }, [firestore]); // Only run on mount and when firestore changes
 
+  // GUID: PAGE_AUDIT-007-v03
+  // [Intent] Load more button handler — fetches the next page of audit logs.
+  // [Inbound Trigger] User clicks the "Load Next 100" button.
+  // [Downstream Impact] Appends next page of results to auditLogs state.
   const handleLoadMore = () => {
     fetchAuditLogs(true);
   };
 
+  // GUID: PAGE_AUDIT-008-v03
+  // [Intent] Formats a Firestore timestamp (or date string) to en-GB locale string.
+  // [Inbound Trigger] Called for each audit log entry's timestamp in the table render.
+  // [Downstream Impact] Displays formatted date/time in the "Submitted At" column.
   const formatTimestamp = (timestamp: any) => {
     if (!timestamp) return "N/A";
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -150,10 +190,19 @@ export default function AuditPage() {
     });
   };
 
+  // GUID: PAGE_AUDIT-009-v03
+  // [Intent] Wrapper around formatDriverPredictions to convert driver ID arrays to display names.
+  // [Inbound Trigger] Called for each audit log entry's predictions in the table render.
+  // [Downstream Impact] Displays human-readable driver abbreviations in the "Prediction" column.
   const formatPredictions = (predictions: string[] | undefined) => {
     return formatDriverPredictions(predictions);
   };
 
+  // GUID: PAGE_AUDIT-010-v03
+  // [Intent] Joins audit log entries with user data to resolve team names. Falls back to
+  //          log.details.teamName or "Unknown Team" if user lookup fails.
+  // [Inbound Trigger] auditLogs or users data changes.
+  // [Downstream Impact] Produces the final display data for the submissions table.
   const submissionsWithTeamNames = useMemo(() => {
     if (!auditLogs) return [];
     return auditLogs.map((log) => {

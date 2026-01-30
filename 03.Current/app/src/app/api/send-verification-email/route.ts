@@ -1,3 +1,8 @@
+// GUID: API_SEND_VERIFICATION_EMAIL-000-v03
+// [Intent] API route that sends a primary email verification link to a user. Generates a CSPRNG token, stores it in Firestore with a 2-hour expiry, builds a branded HTML email, and sends via Graph API.
+// [Inbound Trigger] POST request from client-side registration or profile verification flow.
+// [Downstream Impact] Creates a document in email_verification_tokens collection (consumed by /verify-email page). Sends email via sendEmail. Writes to audit_logs. Frontend relies on success/emailGuid response.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
@@ -5,11 +10,18 @@ import { ERROR_CODES } from '@/lib/error-codes';
 import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
 
-// Generate a secure verification token using CSPRNG
+// GUID: API_SEND_VERIFICATION_EMAIL-001-v03
+// [Intent] Generates a cryptographically secure 32-byte hex token for email verification links.
+// [Inbound Trigger] Called once per POST request to create a unique verification token.
+// [Downstream Impact] Token is stored in email_verification_tokens and embedded in the verification URL. Changing token length affects storage and URL format.
 function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
+// GUID: API_SEND_VERIFICATION_EMAIL-002-v03
+// [Intent] POST handler — validates required fields (uid, email), checks Graph API config, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.
+// [Inbound Trigger] HTTP POST with JSON body containing uid, email, and optional teamName.
+// [Downstream Impact] Creates/overwrites email_verification_tokens/{uid} document. Sends email. Writes to audit_logs on success. Errors logged to error_logs with correlation ID and ERROR_CODES mapping.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 

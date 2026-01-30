@@ -1,6 +1,22 @@
+// GUID: LIB_SCORING-000-v03
+// [Intent] Orchestration module for race score calculation, persistence, and standings
+// generation. Reads predictions from Firestore, applies the scoring rules defined in
+// scoring-rules.ts, writes score documents back to Firestore, and computes league standings.
+// [Inbound Trigger] Called from admin API routes when an admin submits or resumes race results.
+// [Downstream Impact] Writes to the 'scores' Firestore collection. Standings computed here
+// are returned to the admin UI and used for league table display. Depends on scoring-rules.ts
+// for point values and the calculateDriverPoints function.
+
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, collectionGroup, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { F1Drivers } from './data';
 import { SCORING_POINTS, calculateDriverPoints } from './scoring-rules';
+
+// GUID: LIB_SCORING-001-v03
+// [Intent] Define the shape of a race result document containing the top 6 finishing
+// drivers keyed by position (driver1 through driver6) plus metadata.
+// [Inbound Trigger] Used as a parameter type for calculateRaceScores and updateRaceScores.
+// [Downstream Impact] Any change to this interface requires updating all callers that
+// construct RaceResult objects (admin scoring API routes).
 
 interface RaceResult {
   id: string;
@@ -13,12 +29,28 @@ interface RaceResult {
   driver6: string;
 }
 
+// GUID: LIB_SCORING-002-v03
+// [Intent] Define the shape of a user prediction document containing the raceId,
+// userId, and ordered array of predicted driver IDs.
+// [Inbound Trigger] Used for typing within calculateRaceScores when processing
+// prediction documents from Firestore.
+// [Downstream Impact] Changes require updating Firestore query result handling.
+
 interface Prediction {
   id: string;
   raceId: string;
   userId: string;
   predictions: string[];
 }
+
+// GUID: LIB_SCORING-003-v03
+// [Intent] Normalise raceId strings to a consistent dash-separated format so that
+// admin-entered race IDs (e.g. "Australian Grand Prix - GP") match the format used
+// by prediction documents (e.g. "Australian-Grand-Prix").
+// [Inbound Trigger] Called by calculateRaceScores, updateRaceScores, and deleteRaceScores
+// before querying or writing to the scores/predictions collections.
+// [Downstream Impact] If this normalisation logic changes, prediction lookups and score
+// document keys will break, causing missing scores or orphaned documents.
 
 /**
  * Normalize raceId to match the format used by predictions.
@@ -34,6 +66,16 @@ function normalizeRaceId(raceId: string): string {
   // Convert to dash-separated format (no lowercase - predictions don't use lowercase)
   return baseName.replace(/\s+/g, '-');
 }
+
+// GUID: LIB_SCORING-004-v03
+// [Intent] Core scoring engine: fetches all predictions for a given race from Firestore
+// using a collectionGroup query, then iterates each user's prediction array applying
+// the hybrid position-based scoring model (exact/1-off/2-off/3+-off) plus the all-6 bonus.
+// Returns an array of per-user score objects with total points and human-readable breakdown.
+// [Inbound Trigger] Called by updateRaceScores when admin triggers score calculation.
+// [Downstream Impact] The returned scores are written to the 'scores' collection by
+// updateRaceScores. Breakdown strings are stored and displayed in the admin UI.
+// Depends on calculateDriverPoints from scoring-rules.ts and F1Drivers from data.ts.
 
 /**
  * Calculate scores for a specific race based on Prix Six Hybrid rules:
@@ -140,6 +182,14 @@ export async function calculateRaceScores(
   return scores;
 }
 
+// GUID: LIB_SCORING-005-v03
+// [Intent] Define auxiliary TypeScript interfaces for the score-with-team-name
+// shape (used in email/report output), the standings entry shape (rank + team + points),
+// and the combined result returned by updateRaceScores.
+// [Inbound Trigger] Used as return types by updateRaceScores.
+// [Downstream Impact] Consumers of updateRaceScores (admin API routes, email templates)
+// depend on these shapes for rendering scores and standings.
+
 interface ScoreWithTeam {
   teamName: string;
   prediction: string;
@@ -157,6 +207,15 @@ interface UpdateScoresResult {
   scores: ScoreWithTeam[];
   standings: StandingEntry[];
 }
+
+// GUID: LIB_SCORING-006-v03
+// [Intent] End-to-end orchestrator: calculates scores for a race, persists each
+// user's score document to the 'scores' collection, then recomputes the full league
+// standings across all races. Returns the race scores and updated standings.
+// [Inbound Trigger] Called from admin API route when race results are submitted/recalculated.
+// [Downstream Impact] Writes score documents (keyed as {raceId}_{userId}) to Firestore.
+// Reads the entire 'scores' collection to compute league standings with tie-aware ranking.
+// Depends on calculateRaceScores (LIB_SCORING-004) and normalizeRaceId (LIB_SCORING-003).
 
 /**
  * Update scores collection for a race
@@ -234,6 +293,14 @@ export async function updateRaceScores(
   };
 }
 
+// GUID: LIB_SCORING-007-v03
+// [Intent] Delete all score documents for a given race from the 'scores' collection.
+// Used when an admin needs to re-score a race or void results.
+// [Inbound Trigger] Called from admin API route when race scores are cleared.
+// [Downstream Impact] Removes score documents from Firestore. League standings
+// will be incorrect until scores are recalculated. Depends on normalizeRaceId
+// (LIB_SCORING-003) for consistent raceId lookup.
+
 /**
  * Delete all scores for a race
  */
@@ -255,6 +322,15 @@ export async function deleteRaceScores(firestore: any, raceId: string): Promise<
 
   return deletedCount;
 }
+
+// GUID: LIB_SCORING-008-v03
+// [Intent] Format a RaceResult into a compact display string showing position numbers
+// and 3-letter driver abbreviations (e.g. "1-VER, 2-HAM, 3-NOR...") for admin UI
+// and email summaries.
+// [Inbound Trigger] Called from admin components or API responses that need a
+// human-readable race result summary.
+// [Downstream Impact] Purely presentational; no data mutation. Depends on F1Drivers
+// from data.ts for driver name lookups.
 
 /**
  * Format race result for display (e.g., "1-VER, 2-HAM, 3-NOR...")

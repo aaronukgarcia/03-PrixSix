@@ -1,3 +1,7 @@
+// GUID: LIB_AUDIT-000-v03
+// [Intent] Client-side audit logging module providing session correlation IDs, Firestore audit event logging, automatic navigation tracking, and permission error reporting.
+// [Inbound Trigger] Imported by React components and pages that need audit trail functionality.
+// [Downstream Impact] Writes to audit_logs Firestore collection. Navigation tracking depends on Next.js routing. Changes affect audit trail completeness and compliance reporting.
 
 'use client';
 
@@ -9,8 +13,16 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 // --- Correlation ID Management ---
 
+// GUID: LIB_AUDIT-001-v03
+// [Intent] Module-level singleton storing the session correlation ID, ensuring all audit events within a single browser session share the same traceable identifier.
+// [Inbound Trigger] Initialised on first call to getCorrelationId; persists for the lifetime of the browser tab/session.
+// [Downstream Impact] All audit_logs entries reference this ID. If reset unexpectedly, audit trail continuity for the session is broken.
 let sessionCorrelationId: string | null = null;
 
+// GUID: LIB_AUDIT-002-v03
+// [Intent] Generates a RFC 4122 v4 GUID string using Math.random for use as session correlation IDs.
+// [Inbound Trigger] Called by getCorrelationId when no session correlation ID exists yet.
+// [Downstream Impact] Provides the unique identifier used across all audit events in a session. Not cryptographically secure but sufficient for audit correlation purposes.
 function generateGuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
@@ -18,6 +30,10 @@ function generateGuid() {
   });
 }
 
+// GUID: LIB_AUDIT-003-v03
+// [Intent] Returns the current session's correlation ID, lazily generating one on first access to ensure all audit events in a session are linkable.
+// [Inbound Trigger] Called by logAuditEvent before writing each audit log entry.
+// [Downstream Impact] Every audit_logs document includes the returned correlationId. If this function's format changes, existing audit log queries may need updating.
 /**
  * Gets the current session's correlation ID, generating one if it doesn't exist.
  * @returns The session's correlation ID.
@@ -31,8 +47,16 @@ export function getCorrelationId(): string {
 
 // --- Auditing Logic ---
 
+// GUID: LIB_AUDIT-004-v03
+// [Intent] Module-level flag intended to control whether audit logging is enabled, allowing future integration with a global configuration system.
+// [Inbound Trigger] Currently unused (hardcoded to true in logAuditEvent); reserved for future config-driven audit toggle.
+// [Downstream Impact] When implemented, toggling this flag will enable or disable all audit logging application-wide.
 let isAuditingEnabled: boolean | null = null;
 
+// GUID: LIB_AUDIT-005-v03
+// [Intent] Writes an audit event to the audit_logs Firestore collection as a fire-and-forget operation, attaching user ID, action description, details, correlation ID, and server timestamp.
+// [Inbound Trigger] Called by useAuditNavigation on page navigations, and available for manual calls from any client-side component needing audit logging.
+// [Downstream Impact] Creates documents in audit_logs collection used for compliance and user activity tracking. Uses addDocumentNonBlocking so failures do not block the UI. Skips logging if no userId is provided.
 /**
  * Logs an audit event to Firestore if auditing is enabled.
  * This is a fire-and-forget operation.
@@ -49,7 +73,7 @@ export async function logAuditEvent(
 ) {
   // TODO: Implement fetching the auditLoggingEnabled flag from a global config/context
   const isEnabled = true; // For now, assume it's enabled.
-  
+
   if (!isEnabled || !userId) {
     return;
   }
@@ -66,6 +90,10 @@ export async function logAuditEvent(
   addDocumentNonBlocking(auditLogRef, logData);
 }
 
+// GUID: LIB_AUDIT-006-v03
+// [Intent] React hook that automatically logs page navigation events to the audit trail, distinguishing between initial page load and subsequent route changes.
+// [Inbound Trigger] Mounted by layout or page components that need automatic navigation auditing. Reacts to pathname changes from Next.js router.
+// [Downstream Impact] Generates 'navigate' audit events with path details. The initial_load flag on first navigation helps distinguish direct visits from in-app navigation. Depends on useAuth, useFirestore, and usePathname hooks.
 /**
  * A client-side hook to automatically log page navigation events.
  */
@@ -92,6 +120,10 @@ export function useAuditNavigation() {
   }, [pathname, firebaseUser, firestore]);
 }
 
+// GUID: LIB_AUDIT-007-v03
+// [Intent] Logs Firestore permission errors to console only (not to Firestore) to avoid circular permission failures when the user lacks write access to audit_logs.
+// [Inbound Trigger] Called by components that catch FirestorePermissionError exceptions during Firestore operations.
+// [Downstream Impact] Console-only logging means these errors are not persisted in Firestore. Server-side log aggregation must capture console.error output to track permission issues.
 /**
  * Logs a Firestore permission error to the audit log.
  * Note: We don't log permission errors to Firestore to avoid circular errors.

@@ -1,3 +1,12 @@
+// GUID: PAGE_LEAGUE_DETAIL-000-v03
+// [Intent] League detail page — displays a single league's information including name, invite code,
+//   member list with owner/secondary badges, and management actions (rename, regenerate code,
+//   remove member, leave, delete). Subscribes to real-time Firestore updates via onSnapshot.
+// [Inbound Trigger] User navigates to /leagues/[leagueId] via league card "View Details" or direct URL.
+// [Downstream Impact] Reads from Firestore "leagues" and "users" collections. Calls regenerateInviteCode,
+//   updateLeagueName, removeMember, deleteLeague, leaveLeague from lib/leagues.
+//   Navigates back to /leagues on leave or delete.
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -46,6 +55,10 @@ import {
 import type { League } from '@/lib/types/league';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
 
+// GUID: PAGE_LEAGUE_DETAIL-001-v03
+// [Intent] Defines the display shape for a league member, including secondary team detection.
+// [Inbound Trigger] Constructed during the onSnapshot callback when member details are fetched.
+// [Downstream Impact] Drives the member list rendering including team name, badges (2nd, Owner, You), and remove button visibility.
 interface MemberInfo {
   id: string;
   teamName: string;
@@ -53,6 +66,12 @@ interface MemberInfo {
   isSecondaryTeam: boolean;
 }
 
+// GUID: PAGE_LEAGUE_DETAIL-002-v03
+// [Intent] Main page component that renders league details with real-time updates, inline name editing,
+//   invite code management, member list with removal capability, and leave/delete actions.
+// [Inbound Trigger] Rendered by Next.js dynamic route when user visits /leagues/[leagueId].
+// [Downstream Impact] Consumes useFirestore, useAuth, useToast hooks and lib/leagues functions.
+//   Real-time onSnapshot subscription keeps league data fresh without manual refresh.
 export default function LeagueDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -73,14 +92,23 @@ export default function LeagueDetailPage() {
 
   const isOwner = league?.ownerId === user?.id;
   const isGlobal = league?.isGlobal;
-  // Check if user is a member (either primary or secondary team)
+
+  // GUID: PAGE_LEAGUE_DETAIL-003-v03
+  // [Intent] Determines if the current user is a member of this league, checking both primary and secondary team IDs.
+  // [Inbound Trigger] Evaluated on every render when league data is available.
+  // [Downstream Impact] Controls access — non-members of non-global leagues see an "Access Denied" card instead of league details.
   const isMember = league?.memberUserIds.some(memberId => {
     if (memberId === user?.id) return true;
     if (memberId.endsWith('-secondary') && memberId.replace(/-secondary$/, '') === user?.id) return true;
     return false;
   }) || false;
 
-  // Subscribe to league updates
+  // GUID: PAGE_LEAGUE_DETAIL-004-v03
+  // [Intent] Subscribes to real-time Firestore updates for the league document, and fetches member details
+  //   (team names, emails) by reading individual user documents for each memberUserId.
+  // [Inbound Trigger] Runs when firestore and leagueId are available; re-subscribes if leagueId changes.
+  // [Downstream Impact] Populates league and members state. Error handling uses PX error codes with
+  //   correlation IDs per Golden Rule #1. Returns unsubscribe function for cleanup.
   useEffect(() => {
     if (!firestore || !leagueId) return;
 
@@ -143,6 +171,11 @@ export default function LeagueDetailPage() {
     return () => unsubscribe();
   }, [firestore, leagueId]);
 
+  // GUID: PAGE_LEAGUE_DETAIL-005-v03
+  // [Intent] Regenerates the league invite code (owner-only action) and displays the new code via toast.
+  // [Inbound Trigger] Owner clicks the refresh icon button next to the invite code.
+  // [Downstream Impact] Calls regenerateInviteCode from lib/leagues which updates the Firestore league document.
+  //   The onSnapshot subscription will automatically reflect the new code.
   const handleRegenerateCode = async () => {
     if (!user) return;
 
@@ -164,6 +197,11 @@ export default function LeagueDetailPage() {
     setIsRegenerating(false);
   };
 
+  // GUID: PAGE_LEAGUE_DETAIL-006-v03
+  // [Intent] Saves the edited league name (owner-only action) via Firestore update.
+  // [Inbound Trigger] Owner clicks the check/save button after editing the league name inline.
+  // [Downstream Impact] Calls updateLeagueName from lib/leagues which updates the Firestore league document.
+  //   The onSnapshot subscription will automatically reflect the new name.
   const handleSaveName = async () => {
     if (!user || !editName.trim()) return;
 
@@ -186,6 +224,11 @@ export default function LeagueDetailPage() {
     setIsSavingName(false);
   };
 
+  // GUID: PAGE_LEAGUE_DETAIL-007-v03
+  // [Intent] Removes a member from the league (owner-only action, cannot remove self).
+  // [Inbound Trigger] Owner confirms the "Remove Member?" alert dialog for a non-owner member.
+  // [Downstream Impact] Calls removeMember from lib/leagues which updates the Firestore league memberUserIds array.
+  //   The onSnapshot subscription will automatically remove the member from the displayed list.
   const handleRemoveMember = async (memberId: string, memberName: string) => {
     if (!user) return;
 
@@ -205,6 +248,11 @@ export default function LeagueDetailPage() {
     }
   };
 
+  // GUID: PAGE_LEAGUE_DETAIL-008-v03
+  // [Intent] Removes the current user from the league (non-owners only) and navigates back to leagues list.
+  // [Inbound Trigger] Non-owner user confirms the "Leave League?" alert dialog.
+  // [Downstream Impact] Calls leaveLeague from lib/leagues which removes userId from Firestore league memberUserIds.
+  //   Navigates to /leagues after success.
   const handleLeave = async () => {
     if (!user || !league) return;
 
@@ -225,6 +273,11 @@ export default function LeagueDetailPage() {
     }
   };
 
+  // GUID: PAGE_LEAGUE_DETAIL-009-v03
+  // [Intent] Permanently deletes the league (owner-only action) and navigates back to leagues list.
+  // [Inbound Trigger] Owner confirms the "Delete League?" alert dialog.
+  // [Downstream Impact] Calls deleteLeague from lib/leagues which deletes the Firestore league document.
+  //   All members lose access immediately. Navigates to /leagues after success.
   const handleDelete = async () => {
     if (!user || !league) return;
 
@@ -245,6 +298,10 @@ export default function LeagueDetailPage() {
     }
   };
 
+  // GUID: PAGE_LEAGUE_DETAIL-010-v03
+  // [Intent] Copies the league invite code to the clipboard and confirms via toast.
+  // [Inbound Trigger] User clicks the copy button next to the invite code display.
+  // [Downstream Impact] Uses navigator.clipboard API; no Firestore interaction.
   const copyInviteCode = () => {
     if (league?.inviteCode) {
       navigator.clipboard.writeText(league.inviteCode);

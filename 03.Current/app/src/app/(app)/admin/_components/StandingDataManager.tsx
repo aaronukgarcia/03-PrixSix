@@ -1,3 +1,8 @@
+// GUID: ADMIN_STANDING_DATA-000-v03
+// [Intent] Read-only admin component displaying standing data: F1 drivers grouped by team and the full race calendar schedule.
+// [Inbound Trigger] Rendered within the admin panel when the "Standing Data" tab is selected.
+// [Downstream Impact] Purely presentational; does not modify any data. Consumes F1Drivers and RaceSchedule from the static data module.
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Calendar, MapPin, Flag, Zap } from "lucide-react";
 import { F1Drivers, RaceSchedule } from "@/lib/data";
 
-// Group drivers by team
+// GUID: ADMIN_STANDING_DATA-001-v03
+// [Intent] Groups the flat F1Drivers array into a lookup keyed by team name for team-based rendering.
+// [Inbound Trigger] Module initialisation (runs once at import time).
+// [Downstream Impact] Used by the StandingDataManager component to render drivers grouped under their team cards.
 const driversByTeam = F1Drivers.reduce((acc, driver) => {
   if (!acc[driver.team]) {
     acc[driver.team] = [];
@@ -15,7 +23,10 @@ const driversByTeam = F1Drivers.reduce((acc, driver) => {
   return acc;
 }, {} as Record<string, typeof F1Drivers>);
 
-// Team colours for visual distinction
+// GUID: ADMIN_STANDING_DATA-002-v03
+// [Intent] Maps F1 constructor names to Tailwind CSS background colour classes for visual team badges.
+// [Inbound Trigger] Referenced during render to colour-code team indicator dots.
+// [Downstream Impact] If a team name changes in the F1Drivers data, a matching entry must be added here or it falls back to bg-gray-500.
 const teamColours: Record<string, string> = {
   'Red Bull Racing': 'bg-blue-600',
   'Ferrari': 'bg-red-600',
@@ -30,7 +41,15 @@ const teamColours: Record<string, string> = {
   'Cadillac F1 Team': 'bg-yellow-500',
 };
 
+// GUID: ADMIN_STANDING_DATA-003-v03
+// [Intent] Main StandingDataManager component rendering two cards: F1 Drivers by team and the Race Calendar table.
+// [Inbound Trigger] Rendered by the admin page when the Standing Data tab is active.
+// [Downstream Impact] Purely read-only display. No mutations. Depends on F1Drivers and RaceSchedule static data arrays.
 export function StandingDataManager() {
+  // GUID: ADMIN_STANDING_DATA-004-v03
+  // [Intent] Formats an ISO date string into a human-readable UK-locale date (e.g., "Sat, 15 Mar 2026").
+  // [Inbound Trigger] Called for each qualifying and race date in the calendar table.
+  // [Downstream Impact] Display-only helper; no side effects.
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleDateString('en-GB', {
@@ -41,6 +60,10 @@ export function StandingDataManager() {
     });
   };
 
+  // GUID: ADMIN_STANDING_DATA-005-v03
+  // [Intent] Formats an ISO date string into a human-readable UK-locale time with timezone (e.g., "14:00 GMT").
+  // [Inbound Trigger] Called for each qualifying and race time in the calendar table.
+  // [Downstream Impact] Display-only helper; no side effects.
   const formatTime = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleTimeString('en-GB', {
@@ -50,10 +73,18 @@ export function StandingDataManager() {
     });
   };
 
+  // GUID: ADMIN_STANDING_DATA-006-v03
+  // [Intent] Determines if a race has already occurred by comparing its time to the current date.
+  // [Inbound Trigger] Called per race row to apply reduced opacity styling on past races.
+  // [Downstream Impact] Affects CSS class only; past races appear dimmed in the table.
   const isPastRace = (raceTime: string) => {
     return new Date(raceTime) < new Date();
   };
 
+  // GUID: ADMIN_STANDING_DATA-007-v03
+  // [Intent] Renders the complete standing data view: driver cards grouped by team and a race calendar table.
+  // [Inbound Trigger] Component render cycle.
+  // [Downstream Impact] Purely presentational output; no mutations or side effects.
   return (
     <div className="space-y-6">
       {/* Drivers Card */}

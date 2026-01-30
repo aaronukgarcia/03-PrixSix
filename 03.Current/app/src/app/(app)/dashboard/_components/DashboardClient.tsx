@@ -1,3 +1,9 @@
+// GUID: COMPONENT_DASHBOARD_CLIENT-000-v03
+// [Intent] Client-side dashboard component providing real-time countdown to qualifying,
+//          deadline urgency warnings, and smart pit lane status (open/closed with prediction check).
+// [Inbound Trigger] Rendered by PAGE_DASHBOARD-003 with nextRace prop.
+// [Downstream Impact] Reads user prediction from Firestore to show "Submit" vs "Edit" link.
+//                     Countdown timer updates every second. Deadline warnings at 24h/6h/1h.
 
 "use client";
 
@@ -10,7 +16,11 @@ import { Clock, CheckCircle2, AlertCircle, Loader2, AlertTriangle } from "lucide
 import { doc } from "firebase/firestore";
 import Link from "next/link";
 
-// Helper to determine deadline urgency
+// GUID: COMPONENT_DASHBOARD_CLIENT-001-v03
+// [Intent] Determines deadline urgency level based on time remaining until qualifying.
+//          Returns null if > 24h, 'notice' < 24h, 'warning' < 6h, 'critical' < 1h.
+// [Inbound Trigger] Called during render with current timeLeft state.
+// [Downstream Impact] Drives the colour-coded deadline warning banner inside the countdown card.
 const getDeadlineWarning = (timeLeft: TimeLeft | null): { message: string; severity: 'critical' | 'warning' | 'notice' } | null => {
   if (!timeLeft) return null;
 
@@ -29,6 +39,10 @@ const getDeadlineWarning = (timeLeft: TimeLeft | null): { message: string; sever
   return null;
 };
 
+// GUID: COMPONENT_DASHBOARD_CLIENT-002-v03
+// [Intent] TypeScript interface for the countdown time breakdown (days/hours/minutes/seconds).
+// [Inbound Trigger] Used by calculateTimeLeft return type and component state.
+// [Downstream Impact] Consumed by countdown display and getDeadlineWarning.
 interface TimeLeft {
   days: number;
   hours: number;
@@ -36,6 +50,11 @@ interface TimeLeft {
   seconds: number;
 }
 
+// GUID: COMPONENT_DASHBOARD_CLIENT-003-v03
+// [Intent] Pure function to compute remaining time from now until targetDate.
+//          Returns null if the target date is in the past (qualifying has started).
+// [Inbound Trigger] Called every second by the useEffect timer and on initial state.
+// [Downstream Impact] Returns TimeLeft used by countdown display and deadline warning logic.
 const calculateTimeLeft = (targetDate: string): TimeLeft | null => {
   const difference = +new Date(targetDate) - +new Date();
   if (difference > 0) {
@@ -49,6 +68,12 @@ const calculateTimeLeft = (targetDate: string): TimeLeft | null => {
   return null;
 };
 
+// GUID: COMPONENT_DASHBOARD_CLIENT-004-v03
+// [Intent] Main client dashboard component — renders countdown timer, deadline warnings,
+//          and pit lane status card with smart "Submit/Edit Prediction" link.
+// [Inbound Trigger] Rendered by DashboardPage with nextRace prop containing schedule data.
+// [Downstream Impact] Subscribes to user's prediction doc in Firestore via useDoc.
+//                     Links to /predictions page. Shows open/closed pit lane status.
 export function DashboardClient({ nextRace }: { nextRace: Race }) {
   const { user } = useAuth();
   const firestore = useFirestore();
@@ -57,12 +82,19 @@ export function DashboardClient({ nextRace }: { nextRace: Race }) {
   const raceId = nextRace.name.replace(/\s+/g, '-');
   const isPitlaneOpen = new Date(nextRace.qualifyingTime) > new Date();
 
-  // Check if user has a prediction for this race
+  // GUID: COMPONENT_DASHBOARD_CLIENT-005-v03
+  // [Intent] Memoised prediction document ID constructed from user ID and race ID.
+  // [Inbound Trigger] user or raceId changes.
+  // [Downstream Impact] Used to construct the Firestore document reference for prediction lookup.
   const predictionDocId = useMemo(() => {
     if (!user) return null;
     return `${user.id}_${raceId}`;
   }, [user, raceId]);
 
+  // GUID: COMPONENT_DASHBOARD_CLIENT-006-v03
+  // [Intent] Memoised Firestore document reference for the user's prediction for this race.
+  // [Inbound Trigger] firestore, user, or predictionDocId changes.
+  // [Downstream Impact] Passed to useDoc hook to subscribe to real-time prediction data.
   const predictionRef = useMemo(() => {
     if (!firestore || !user || !predictionDocId) return null;
     const ref = doc(firestore, "users", user.id, "predictions", predictionDocId);
@@ -74,6 +106,11 @@ export function DashboardClient({ nextRace }: { nextRace: Race }) {
 
   const hasPrediction = predictionData?.predictions && Array.isArray(predictionData.predictions) && predictionData.predictions.length > 0;
 
+  // GUID: COMPONENT_DASHBOARD_CLIENT-007-v03
+  // [Intent] Recurring 1-second timer that recalculates the countdown to qualifying.
+  //          Runs indefinitely (no dependency array) to ensure real-time updates.
+  // [Inbound Trigger] Every render triggers a new 1-second timeout.
+  // [Downstream Impact] Updates timeLeft state, which re-renders countdown display and deadline warnings.
   useEffect(() => {
     const timer = setTimeout(() => {
       setTimeLeft(calculateTimeLeft(nextRace.qualifyingTime));

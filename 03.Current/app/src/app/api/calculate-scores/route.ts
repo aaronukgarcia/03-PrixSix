@@ -1,3 +1,8 @@
+// GUID: API_CALCULATE_SCORES-000-v03
+// [Intent] API route that calculates race scores for all teams based on submitted race results and team predictions. Core scoring engine for the Prix Six fantasy league.
+// [Inbound Trigger] Admin submits race results via the admin scoring page (POST request with top-6 driver finishing order).
+// [Downstream Impact] Writes to scores, race_results, and audit_logs collections. Creates carry-forward prediction documents. Feeds the standings page and all downstream score displays.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { F1Drivers } from '@/lib/data';
@@ -6,6 +11,10 @@ import { SCORING_POINTS, calculateDriverPoints } from '@/lib/scoring-rules';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
+// GUID: API_CALCULATE_SCORES-001-v03
+// [Intent] Defines the shape of the incoming race result submission from the admin.
+// [Inbound Trigger] Parsed from request body JSON in the POST handler.
+// [Downstream Impact] Used for type-safe destructuring of the request payload; changes here require matching changes in the admin scoring form.
 interface RaceResultRequest {
   raceId: string;
   raceName: string;
@@ -17,18 +26,30 @@ interface RaceResultRequest {
   driver6: string;
 }
 
+// GUID: API_CALCULATE_SCORES-002-v03
+// [Intent] Represents a single team's score result for the API response.
+// [Inbound Trigger] Populated during the scoring loop for each team.
+// [Downstream Impact] Returned in the JSON response; consumed by the admin UI to display per-team score breakdowns.
 interface ScoreWithTeam {
   teamName: string;
   prediction: string;
   points: number;
 }
 
+// GUID: API_CALCULATE_SCORES-003-v03
+// [Intent] Represents a ranked entry in the overall standings returned by the API.
+// [Inbound Trigger] Built after all scores are calculated and aggregated.
+// [Downstream Impact] Returned in the JSON response; consumed by the admin UI to show updated league standings after scoring.
 interface StandingEntry {
   rank: number;
   teamName: string;
   totalPoints: number;
 }
 
+// GUID: API_CALCULATE_SCORES-004-v03
+// [Intent] Normalises a raceId/raceName by stripping GP/Sprint suffixes and collapsing whitespace to hyphens, so predictions filed under the base race name can be matched.
+// [Inbound Trigger] Called during scoring to produce the lookup key for the predictions collection.
+// [Downstream Impact] If normalisation logic changes, prediction lookups will break. Must stay in sync with how submit-prediction stores raceId values.
 /**
  * Normalize raceId to match the format used by predictions (base race name only).
  */
@@ -39,6 +60,10 @@ function normalizeRaceIdForPredictions(raceId: string): string {
   return baseName.replace(/\s+/g, '-');
 }
 
+// GUID: API_CALCULATE_SCORES-005-v03
+// [Intent] Creates a Firestore document ID for race results that preserves GP vs Sprint distinction (e.g. "australia-gp" or "australia-sprint").
+// [Inbound Trigger] Called once per scoring request to determine where to store the race result and score documents.
+// [Downstream Impact] Score documents use this ID as a prefix. The delete-scores route and results display pages depend on this format. Changes here break score lookups and deletion.
 /**
  * Create document ID for race results - preserves GP/Sprint distinction.
  * Sprint races get "-sprint" suffix, GP races get "-gp" suffix.
@@ -54,10 +79,18 @@ function createRaceResultDocId(raceName: string): string {
   return isSprint ? `${baseName}-sprint` : `${baseName}-gp`;
 }
 
+// GUID: API_CALCULATE_SCORES-006-v03
+// [Intent] Main POST handler that orchestrates the entire scoring pipeline: auth check, admin verification, prediction resolution (including carry-forwards), score calculation, batch write of scores/results/audit, and standings aggregation.
+// [Inbound Trigger] HTTP POST from the admin scoring page with top-6 race results.
+// [Downstream Impact] Writes scores, race_results, carry-forward predictions, and audit_logs to Firestore. Returns per-team scores and updated league standings. This is the most critical write path in the application.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // GUID: API_CALCULATE_SCORES-007-v03
+    // [Intent] Authenticates the request by verifying the Firebase Auth bearer token and confirms the user has admin privileges.
+    // [Inbound Trigger] Every POST request to this endpoint.
+    // [Downstream Impact] Blocks all non-authenticated or non-admin users. If bypassed, any user could submit race results and modify scores.
     // SECURITY: Verify the Firebase Auth token
     const authHeader = request.headers.get('Authorization');
     const verifiedUser = await verifyAuthToken(authHeader);
@@ -90,6 +123,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // GUID: API_CALCULATE_SCORES-008-v03
+    // [Intent] Parses and validates the race result request body, ensuring all six driver positions are provided.
+    // [Inbound Trigger] After successful auth and admin check.
+    // [Downstream Impact] The six driver IDs become the "actual results" against which all predictions are scored. Missing fields cause a 400 error.
     const data: RaceResultRequest = await request.json();
     const { raceId, raceName, driver1, driver2, driver3, driver4, driver5, driver6 } = data;
 
@@ -107,6 +144,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Scoring] Processing race: ${raceName} (predictions: ${normalizedRaceId}, result doc: ${resultDocId})`);
 
+    // GUID: API_CALCULATE_SCORES-009-v03
+    // [Intent] Loads all users to build lookup maps from userId/teamId to team names, including secondary teams, for score attribution.
+    // [Inbound Trigger] After request validation succeeds.
+    // [Downstream Impact] The userMap is used throughout scoring to resolve team names for display. The userSecondaryTeamNames map enables secondary team prediction matching.
     // Get all users FIRST to map userId/teamId to teamName
     // This is needed to identify secondary team predictions
     const usersSnapshot = await db.collection('users').get();
@@ -124,6 +165,10 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // GUID: API_CALCULATE_SCORES-010-v03
+    // [Intent] Fetches all predictions across all users via a collectionGroup query, then organises them by team and race to support the carry-forward resolution logic.
+    // [Inbound Trigger] After user maps are built.
+    // [Downstream Impact] This is the raw data source for all scoring. If the collectionGroup query fails (e.g. missing index), scoring falls back to an empty set and no scores are calculated.
     // Get ALL predictions - predictions carry forward all season
     // For each team: use race-specific prediction if exists, otherwise latest previous prediction
     let allPredictionsSnapshot;
@@ -135,6 +180,10 @@ export async function POST(request: NextRequest) {
       allPredictionsSnapshot = { size: 0, docs: [] } as any;
     }
 
+    // GUID: API_CALCULATE_SCORES-011-v03
+    // [Intent] Builds a nested map (teamId -> raceId -> prediction) from all prediction documents, keeping only the latest prediction per team per race. Handles both primary and secondary team predictions.
+    // [Inbound Trigger] After all predictions are fetched.
+    // [Downstream Impact] Feeds into the carry-forward resolution logic (API_CALCULATE_SCORES-012). Incorrect team/race mapping here cascades into wrong scores.
     // Build map of all predictions per team, organised by race
     // Key: teamId (e.g., "userId" or "userId-secondary")
     // Value: Map of raceId -> { predictions, timestamp, teamName }
@@ -189,6 +238,10 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // GUID: API_CALCULATE_SCORES-012-v03
+    // [Intent] Resolves each team's effective prediction for the current race by checking for a race-specific prediction first, then falling back to the most recent prediction from any earlier race (carry-forward rule).
+    // [Inbound Trigger] After teamPredictionsByRace is fully populated.
+    // [Downstream Impact] Produces the definitive latestPredictions map used for scoring. Carry-forward predictions also trigger creation of synthetic prediction documents (API_CALCULATE_SCORES-015).
     // Now resolve which prediction to use for each team for THIS race
     // Priority: 1) Prediction for this specific race, 2) Latest prediction from any previous race
     // Track carry-forwards so we can create prediction documents for them
@@ -229,6 +282,10 @@ export async function POST(request: NextRequest) {
     const carryForwardCount = Array.from(latestPredictions.values()).filter(p => p.isCarryForward).length;
     console.log(`[Scoring] Found ${latestPredictions.size} teams with predictions to score (${carryForwardCount} carry-forwards)`);
 
+    // GUID: API_CALCULATE_SCORES-013-v03
+    // [Intent] Converts the latestPredictions map into a snapshot-like iterable format to maintain compatibility with the downstream scoring loop which was originally written against Firestore query snapshots.
+    // [Inbound Trigger] After carry-forward resolution completes.
+    // [Downstream Impact] Consumed by the scoring loop (API_CALCULATE_SCORES-014). If the shape changes, the scoring loop breaks.
     // Convert to snapshot-like format for compatibility with existing scoring code
     const predictionsSnapshot = {
       size: latestPredictions.size,
@@ -246,6 +303,10 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    // GUID: API_CALCULATE_SCORES-014-v03
+    // [Intent] Core scoring loop: iterates over each team's prediction, calculates points per driver using the hybrid position-based scoring system (calculateDriverPoints), applies the all-6 bonus, and prepares batch writes for score documents.
+    // [Inbound Trigger] After predictionsSnapshot is built.
+    // [Downstream Impact] Writes score documents to the scores collection. Score breakdown strings are stored and displayed on the results page. Changes to scoring logic here directly affect league standings.
     // Calculate scores and prepare batch write
     const batch = db.batch();
     const scores: ScoreWithTeam[] = [];
@@ -326,6 +387,10 @@ export async function POST(request: NextRequest) {
       });
     });
 
+    // GUID: API_CALCULATE_SCORES-015-v03
+    // [Intent] Creates synthetic prediction documents in Firestore for teams whose predictions were carried forward, ensuring the results page can find a prediction document for every scored team on every race.
+    // [Inbound Trigger] After the scoring loop completes, for each team flagged as isCarryForward.
+    // [Downstream Impact] Results page queries predictions by raceId; without these documents, carry-forward teams would appear to have no prediction for the race.
     // Create prediction documents for carry-forwards so results page can find them
     // This ensures every scored race has a corresponding prediction document per team
     let carryForwardPredictionsCreated = 0;
@@ -358,6 +423,10 @@ export async function POST(request: NextRequest) {
       console.log(`[Scoring] Creating ${carryForwardPredictionsCreated} carry-forward prediction documents`);
     }
 
+    // GUID: API_CALCULATE_SCORES-016-v03
+    // [Intent] Writes the official race result document to the race_results collection, storing the top-6 finishing order. Also creates an audit log entry for the result submission.
+    // [Inbound Trigger] After all score and carry-forward documents are prepared in the batch.
+    // [Downstream Impact] The race_results document is used by submit-prediction to enforce pit-lane lockout (no predictions after results exist). The audit log provides an admin activity trail.
     // Write race result document
     // Use resultDocId which preserves GP/Sprint distinction
     const resultDocRef = db.collection('race_results').doc(resultDocId);
@@ -393,6 +462,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Scoring] Successfully calculated ${calculatedScores.length} scores`);
 
+    // GUID: API_CALCULATE_SCORES-017-v03
+    // [Intent] Aggregates all scores across all races to produce updated overall league standings with tie-aware ranking, returned in the API response.
+    // [Inbound Trigger] After the batch commit succeeds.
+    // [Downstream Impact] The standings array is returned to the admin UI for immediate display. This is a read-time aggregation, not persisted; the standings page performs its own aggregation.
     // Calculate overall standings
     const allScoresSnapshot = await db.collection('scores').get();
     const userTotals = new Map<string, number>();
@@ -428,6 +501,10 @@ export async function POST(request: NextRequest) {
       standings,
     });
 
+  // GUID: API_CALCULATE_SCORES-018-v03
+  // [Intent] Top-level error handler that catches any unhandled exception during scoring, logs it with a correlation ID, and returns a 500 response with the correlation ID for user-reportable error tracing.
+  // [Inbound Trigger] Any uncaught exception within the POST handler try block.
+  // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response enables support to trace the specific failure.
   } catch (error: any) {
     let requestData = {};
     try {

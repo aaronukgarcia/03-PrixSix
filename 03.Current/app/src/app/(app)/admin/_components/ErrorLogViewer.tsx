@@ -1,3 +1,8 @@
+// GUID: ADMIN_ERRORLOG-000-v03
+// [Intent] Admin component for viewing, searching, filtering, and resolving system error logs.
+// [Inbound Trigger] Rendered on the admin Error Logs tab.
+// [Downstream Impact] Displays error_logs Firestore collection; allows admins to mark errors resolved. Changes to error log schema or error-codes.ts categories affect display.
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -26,6 +31,10 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 
+// GUID: ADMIN_ERRORLOG-001-v03
+// [Intent] Type definition for an error log document from the error_logs Firestore collection.
+// [Inbound Trigger] Used to type-check all error log data flowing through this component.
+// [Downstream Impact] Any schema change to the error_logs collection must be reflected here; affects ErrorLogItem rendering and all filter/group logic.
 interface ErrorLog {
   id: string;
   correlationId: string;
@@ -52,6 +61,10 @@ interface ErrorLog {
   resolvedBy?: string;
 }
 
+// GUID: ADMIN_ERRORLOG-002-v03
+// [Intent] Maps PX error code prefixes to display colours and labels for visual categorisation.
+// [Inbound Trigger] Referenced by getErrorCategory and throughout JSX to style badges and stats.
+// [Downstream Impact] Adding a new error category in error-codes.ts requires a corresponding entry here for correct display.
 // Error code categories with colors
 const ERROR_CATEGORIES = {
   'PX-1': { label: 'Auth', color: 'bg-red-500', textColor: 'text-red-500', bgLight: 'bg-red-500/10', border: 'border-red-500/30' },
@@ -64,6 +77,10 @@ const ERROR_CATEGORIES = {
   'PX-9': { label: 'Unknown', color: 'bg-zinc-500', textColor: 'text-zinc-500', bgLight: 'bg-zinc-500/10', border: 'border-zinc-500/30' },
 } as const;
 
+// GUID: ADMIN_ERRORLOG-003-v03
+// [Intent] Configuration arrays for the two rows of filter tabs: category filters and view mode filters.
+// [Inbound Trigger] Rendered as tab buttons in the ErrorLogViewer UI.
+// [Downstream Impact] Adding or removing tabs changes the available filter options; IDs must match ERROR_CATEGORIES keys for category tabs.
 // Sub-tabs configuration - Row 1: Categories, Row 2: Views
 const CATEGORY_TABS = [
   { id: 'all', label: 'All Errors', color: 'bg-zinc-600' },
@@ -85,6 +102,10 @@ const VIEW_TABS = [
   { id: 'resolved', label: 'Resolved', color: 'bg-green-500' },
 ];
 
+// GUID: ADMIN_ERRORLOG-004-v03
+// [Intent] Extracts the PX category prefix from an error code string, falling back to PX-9 (Unknown).
+// [Inbound Trigger] Called whenever an error log needs its category determined for styling or grouping.
+// [Downstream Impact] Stats calculation, grouped view, and badge colours all depend on this classification.
 function getErrorCategory(errorCode?: string): keyof typeof ERROR_CATEGORIES {
   if (!errorCode) return 'PX-9';
   const prefix = errorCode.substring(0, 4);
@@ -92,6 +113,10 @@ function getErrorCategory(errorCode?: string): keyof typeof ERROR_CATEGORIES {
   return 'PX-9';
 }
 
+// GUID: ADMIN_ERRORLOG-005-v03
+// [Intent] Small utility component that copies text to the clipboard with visual feedback.
+// [Inbound Trigger] Rendered next to correlation IDs and other copyable fields in error log details.
+// [Downstream Impact] Supports Golden Rule #1 (selectable/copyable error details for user reporting).
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -108,6 +133,10 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+// GUID: ADMIN_ERRORLOG-006-v03
+// [Intent] Main exported component that provides a full error log viewing interface with filtering, searching, grouping, and resolution tracking.
+// [Inbound Trigger] Mounted by the admin page when the Error Logs tab is active.
+// [Downstream Impact] Reads from error_logs Firestore collection. Filter/view state changes affect which ErrorLogItem instances are rendered.
 export function ErrorLogViewer() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,6 +144,10 @@ export function ErrorLogViewer() {
   const [selectedView, setSelectedView] = useState('list');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  // GUID: ADMIN_ERRORLOG-007-v03
+  // [Intent] Memoised Firestore query that fetches the 500 most recent error logs ordered by timestamp descending.
+  // [Inbound Trigger] Re-created only when the firestore instance changes.
+  // [Downstream Impact] Provides the raw dataset that all filters, groups, and stats are derived from.
   const errorLogQuery = useMemo(() => {
     if (!firestore) return null;
     const q = query(collection(firestore, 'error_logs'), orderBy('timestamp', 'desc'), limit(500));
@@ -124,6 +157,10 @@ export function ErrorLogViewer() {
 
   const { data: errorLogs, isLoading, error } = useCollection<ErrorLog>(errorLogQuery);
 
+  // GUID: ADMIN_ERRORLOG-008-v03
+  // [Intent] Applies category, search term, time-based, and resolution status filters to the raw error logs.
+  // [Inbound Trigger] Recalculated whenever errorLogs, selectedCategory, searchTerm, or selectedView changes.
+  // [Downstream Impact] Produces the filteredLogs array used for both list and grouped rendering; also feeds groupedLogs.
   // Filter and process logs
   const filteredLogs = useMemo(() => {
     if (!errorLogs) return [];
@@ -178,12 +215,20 @@ export function ErrorLogViewer() {
     }
   }, [errorLogs, selectedCategory, searchTerm, selectedView]);
 
+  // GUID: ADMIN_ERRORLOG-009-v03
+  // [Intent] Extracts the error code from a log, checking multiple possible locations in the log structure.
+  // [Inbound Trigger] Called by groupedLogs and stats memos, and anywhere an error code is needed from a log.
+  // [Downstream Impact] Inconsistent error code storage locations are normalised here; affects grouping and stats accuracy.
   // Helper to get error code from log (checks multiple locations)
   const getLogErrorCode = (log: ErrorLog): string | undefined => {
     if (!log) return undefined;
     return log.context?.additionalInfo?.errorCode || (log as any).errorCode;
   };
 
+  // GUID: ADMIN_ERRORLOG-010-v03
+  // [Intent] Groups filtered logs by their error code for the "Grouped" view mode.
+  // [Inbound Trigger] Recalculated when filteredLogs changes.
+  // [Downstream Impact] Powers the grouped view rendering; each group is collapsible in the UI.
   // Group logs by error code
   const groupedLogs = useMemo(() => {
     try {
@@ -201,6 +246,10 @@ export function ErrorLogViewer() {
     }
   }, [filteredLogs]);
 
+  // GUID: ADMIN_ERRORLOG-011-v03
+  // [Intent] Computes aggregate statistics (total count and per-category counts) across all unfiltered error logs.
+  // [Inbound Trigger] Recalculated when the raw errorLogs data changes.
+  // [Downstream Impact] Drives the stats row at the top of the UI and badge counts on category tabs.
   // Stats
   const stats = useMemo(() => {
     if (!errorLogs) return { total: 0, categories: {} as Record<string, number> };
@@ -218,6 +267,10 @@ export function ErrorLogViewer() {
     }
   }, [errorLogs]);
 
+  // GUID: ADMIN_ERRORLOG-012-v03
+  // [Intent] Toggles the expanded/collapsed state of a group in the grouped view.
+  // [Inbound Trigger] Called when a user clicks a group header in the grouped view.
+  // [Downstream Impact] Controls which group's error items are visible in the grouped view.
   const toggleGroup = (code: string) => {
     const newExpanded = new Set(expandedGroups);
     if (newExpanded.has(code)) {
@@ -393,6 +446,10 @@ export function ErrorLogViewer() {
   );
 }
 
+// GUID: ADMIN_ERRORLOG-013-v03
+// [Intent] Renders a single error log entry with expandable details, copy-able correlation ID, stack trace, context, and a "Mark as Resolved" action.
+// [Inbound Trigger] Rendered by ErrorLogViewer for each error log in both list and grouped views.
+// [Downstream Impact] Writes to error_logs collection when marking resolved. Supports Golden Rule #1 by exposing copyable correlation IDs.
 function ErrorLogItem({ log, accordion, firestore, onResolved }: {
   log: ErrorLog;
   accordion?: boolean;
@@ -411,6 +468,10 @@ function ErrorLogItem({ log, accordion, firestore, onResolved }: {
   const errorMessage = log.error || 'Unknown error';
   const isResolved = log.resolved === true;
 
+  // GUID: ADMIN_ERRORLOG-014-v03
+  // [Intent] Marks an error log as resolved by updating the Firestore document with resolved=true and a timestamp.
+  // [Inbound Trigger] Called when the admin clicks "Mark as Resolved" on an unresolved error.
+  // [Downstream Impact] Updates the error_logs document; the real-time listener will reflect the change in the UI.
   const handleMarkResolved = async () => {
     if (!firestore || !log.id) return;
     setIsResolving(true);
@@ -428,6 +489,10 @@ function ErrorLogItem({ log, accordion, firestore, onResolved }: {
     }
   };
 
+  // GUID: ADMIN_ERRORLOG-015-v03
+  // [Intent] Safely extracts a Date object from the log's timestamp, handling both Firestore seconds and ISO string formats.
+  // [Inbound Trigger] Called during render to produce human-readable timestamps.
+  // [Downstream Impact] If null is returned, the UI displays "Unknown time" instead of crashing.
   // Safely get timestamp - handle null/undefined timestamp
   const getTimestamp = (): Date | null => {
     try {
@@ -444,6 +509,10 @@ function ErrorLogItem({ log, accordion, firestore, onResolved }: {
   };
   const timestamp = getTimestamp();
 
+  // GUID: ADMIN_ERRORLOG-016-v03
+  // [Intent] Safely serialises the error log's context object to a JSON string for display.
+  // [Inbound Trigger] Called during render when expanding error details.
+  // [Downstream Impact] If serialisation fails, a fallback message is shown instead of crashing.
   // Safely stringify context
   const contextString = (() => {
     try {

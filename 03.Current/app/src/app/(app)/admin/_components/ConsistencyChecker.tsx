@@ -1,3 +1,8 @@
+// GUID: ADMIN_CONSISTENCY-000-v03
+// [Intent] Admin component for running data integrity checks across all Firestore collections and displaying results. Validates users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues.
+// [Inbound Trigger] Lazy-loaded and rendered when admin navigates to the Consistency Checker tab in the admin panel.
+// [Downstream Impact] Read-only validation component. Can export issues to error_logs collection. Does not modify source data. Check functions are defined in @/lib/consistency.
+
 'use client';
 
 import { useState, useCallback } from 'react';
@@ -56,13 +61,25 @@ import {
   type ScoreTypeCounts,
 } from '@/lib/consistency';
 
+// GUID: ADMIN_CONSISTENCY-001-v03
+// [Intent] TypeScript interface for the component props: receives the preloaded allUsers array and loading flag from the parent admin page.
+// [Inbound Trigger] Passed by the admin page which fetches users from Firestore.
+// [Downstream Impact] allUsers is required to run checks; isUserLoading disables the run button until users are loaded.
 interface ConsistencyCheckerProps {
   allUsers: User[] | null;
   isUserLoading: boolean;
 }
 
+// GUID: ADMIN_CONSISTENCY-002-v03
+// [Intent] Type alias for the sequential check phases, used to track progress through the validation pipeline.
+// [Inbound Trigger] Set sequentially as each check phase executes in runChecks.
+// [Downstream Impact] Drives the progress bar label and percentage display via phaseLabels and phaseProgress maps.
 type CheckPhase = 'idle' | 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues' | 'complete';
 
+// GUID: ADMIN_CONSISTENCY-003-v03
+// [Intent] Human-readable labels for each check phase, displayed above the progress bar during a check run.
+// [Inbound Trigger] Indexed by the currentPhase state variable.
+// [Downstream Impact] Pure display mapping; no side effects. Must include entries for all CheckPhase values.
 const phaseLabels: Record<CheckPhase, string> = {
   idle: 'Ready',
   users: 'Checking users...',
@@ -77,6 +94,10 @@ const phaseLabels: Record<CheckPhase, string> = {
   complete: 'Complete',
 };
 
+// GUID: ADMIN_CONSISTENCY-004-v03
+// [Intent] Progress percentage for each check phase, used to fill the progress bar proportionally.
+// [Inbound Trigger] Indexed by the currentPhase state variable.
+// [Downstream Impact] Pure display mapping; no side effects. Must include entries for all CheckPhase values.
 const phaseProgress: Record<CheckPhase, number> = {
   idle: 0,
   users: 10,
@@ -91,6 +112,10 @@ const phaseProgress: Record<CheckPhase, number> = {
   complete: 100,
 };
 
+// GUID: ADMIN_CONSISTENCY-005-v03
+// [Intent] Render a small status icon (green check, yellow warning, red X) based on a check result status.
+// [Inbound Trigger] Called in the Issues accordion trigger for each category with issues.
+// [Downstream Impact] Pure UI helper; no side effects.
 function getStatusIcon(status: CheckResult['status']) {
   switch (status) {
     case 'pass':
@@ -102,6 +127,10 @@ function getStatusIcon(status: CheckResult['status']) {
   }
 }
 
+// GUID: ADMIN_CONSISTENCY-006-v03
+// [Intent] Render a coloured Badge (Pass/Warning/Error) based on a check result status.
+// [Inbound Trigger] Called per row in the Summary Table to display the status column.
+// [Downstream Impact] Pure UI helper; no side effects.
 function getStatusBadge(status: CheckResult['status']) {
   switch (status) {
     case 'pass':
@@ -113,6 +142,10 @@ function getStatusBadge(status: CheckResult['status']) {
   }
 }
 
+// GUID: ADMIN_CONSISTENCY-007-v03
+// [Intent] Render a coloured Badge (Warning/Error) based on an individual issue severity level.
+// [Inbound Trigger] Called per issue in the Issues Detail accordion.
+// [Downstream Impact] Pure UI helper; no side effects.
 function getSeverityBadge(severity: Issue['severity']) {
   switch (severity) {
     case 'warning':
@@ -122,6 +155,10 @@ function getSeverityBadge(severity: Issue['severity']) {
   }
 }
 
+// GUID: ADMIN_CONSISTENCY-008-v03
+// [Intent] Main Consistency Checker component. Orchestrates on-demand data fetching, sequential validation checks across 9 categories, progress display, summary table, score type breakdown, issue details, and export to error_logs.
+// [Inbound Trigger] Rendered by the admin page when the Consistency Checker tab is selected. Receives allUsers prop from parent.
+// [Downstream Impact] Fetches predictions, race_results, scores, and leagues collections ON-DEMAND when running checks. Can write to error_logs collection via export function. Does not modify source data.
 export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheckerProps) {
   const firestore = useFirestore();
   const { user } = useAuth();
@@ -135,6 +172,10 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
   // Data is now fetched ON-DEMAND when running checks, not on component mount
   // This prevents loading 4+ MB of Firestore data just by viewing the CC tab
 
+  // GUID: ADMIN_CONSISTENCY-009-v03
+  // [Intent] Execute the full consistency check pipeline: users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues. Fetches Firestore data on-demand per phase to minimise memory usage.
+  // [Inbound Trigger] Called when admin clicks "Run Consistency Check" button.
+  // [Downstream Impact] Sets summary state with all check results, which drives the Summary Table, Score Type Breakdown, Issues Detail, and Export button. Fetches from collectionGroup('predictions'), collection('race_results'), collection('scores'), and collection('leagues').
   const runChecks = useCallback(async () => {
     if (!allUsers || !firestore) return;
 
@@ -286,6 +327,10 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     }
   }, [allUsers, firestore, toast]);
 
+  // GUID: ADMIN_CONSISTENCY-010-v03
+  // [Intent] Export all detected issues to the error_logs Firestore collection with a correlation ID for tracking.
+  // [Inbound Trigger] Called when admin clicks "Export Issues to Error Log" button (only visible when issues exist).
+  // [Downstream Impact] Creates a document in error_logs with type 'consistency_check', summary counts, all issues, and correlation ID. This is the only write operation in this component.
   const exportToErrorLog = useCallback(async () => {
     if (!firestore || !summary || !user) return;
 
@@ -329,6 +374,10 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     }
   }, [firestore, summary, user, toast]);
 
+  // GUID: ADMIN_CONSISTENCY-011-v03
+  // [Intent] Derived count of total issues across all check categories, used to control UI visibility of the Issues Detail card and Export button.
+  // [Inbound Trigger] Recalculated when summary state changes.
+  // [Downstream Impact] Controls conditional rendering of the Issues Detail card and the "All Checks Passed" success alert.
   const totalIssues = summary?.results.reduce((sum, r) => sum + r.issues.length, 0) || 0;
 
   return (

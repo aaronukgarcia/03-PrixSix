@@ -1,3 +1,10 @@
+// GUID: PAGE_VERIFY_EMAIL-000-v03
+// [Intent] Email verification landing page. Processes the token+uid from a verification link,
+//          calls /api/verify-email, and displays success/error/expired status.
+// [Inbound Trigger] User clicks the email verification link sent to their primary email.
+// [Downstream Impact] Successful verification updates the user's emailVerified flag in Firestore.
+//                     Wraps content in Suspense for Next.js useSearchParams() compliance.
+
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
@@ -7,8 +14,17 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 
+// GUID: PAGE_VERIFY_EMAIL-001-v03
+// [Intent] Union type representing all possible verification states for UI rendering.
+// [Inbound Trigger] Used as state type in VerifyEmailContent component.
+// [Downstream Impact] Drives conditional rendering of icon, title, description, and action buttons.
 type VerificationStatus = "loading" | "success" | "error" | "expired" | "already-verified";
 
+// GUID: PAGE_VERIFY_EMAIL-002-v03
+// [Intent] Inner content component that reads search params (token, uid), calls the
+//          /api/verify-email endpoint, and renders status-dependent UI (icon, message, action).
+// [Inbound Trigger] Mounted inside Suspense by VerifyEmailPage. Reads ?token=&uid= from URL.
+// [Downstream Impact] POST to /api/verify-email. Updates UI state. Success shows "Continue to Login" link.
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<VerificationStatus>("loading");
@@ -17,6 +33,11 @@ function VerifyEmailContent() {
   const token = searchParams.get("token");
   const uid = searchParams.get("uid");
 
+  // GUID: PAGE_VERIFY_EMAIL-003-v03
+  // [Intent] Effect that fires on mount to validate token/uid params and call the verify API.
+  //          Sets status to success, expired, already-verified, or error based on API response.
+  // [Inbound Trigger] Component mount with token and uid from URL search params.
+  // [Downstream Impact] Sets verification status which drives the entire page UI.
   useEffect(() => {
     if (!token || !uid) {
       setStatus("error");
@@ -118,6 +139,10 @@ function VerifyEmailContent() {
   );
 }
 
+// GUID: PAGE_VERIFY_EMAIL-004-v03
+// [Intent] Loading fallback component shown while useSearchParams() resolves inside Suspense.
+// [Inbound Trigger] Suspense boundary in VerifyEmailPage renders this during loading.
+// [Downstream Impact] Provides a spinner UI to prevent blank screen during param resolution.
 function LoadingFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -134,6 +159,11 @@ function LoadingFallback() {
   );
 }
 
+// GUID: PAGE_VERIFY_EMAIL-005-v03
+// [Intent] Exported page component wrapping VerifyEmailContent in Suspense boundary
+//          (required by Next.js 15 for useSearchParams).
+// [Inbound Trigger] Route navigation to /verify-email?token=...&uid=...
+// [Downstream Impact] Renders LoadingFallback then VerifyEmailContent once params resolve.
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={<LoadingFallback />}>

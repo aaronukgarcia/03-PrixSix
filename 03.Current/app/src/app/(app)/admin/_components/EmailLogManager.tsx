@@ -1,3 +1,7 @@
+// GUID: ADMIN_EMAILLOG-000-v03
+// [Intent] Admin component for managing the email queue (push, resend, delete) and viewing historical email send logs.
+// [Inbound Trigger] Rendered on the admin Email Logs tab.
+// [Downstream Impact] Reads from email_logs and email_queue Firestore collections via API; sends/deletes queued emails via /api/email-queue.
 
 'use client';
 
@@ -22,6 +26,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+// GUID: ADMIN_EMAILLOG-001-v03
+// [Intent] Type definition for a historical email log document from the email_logs Firestore collection.
+// [Inbound Trigger] Used to type-check email log data in the email send log list.
+// [Downstream Impact] Schema changes to email_logs collection must be reflected here; affects log rendering.
 interface EmailLog {
     id: string;
     to: string;
@@ -35,6 +43,10 @@ interface EmailLog {
     };
 }
 
+// GUID: ADMIN_EMAILLOG-002-v03
+// [Intent] Type definition for a queued email document from the email_queue collection, including retry state.
+// [Inbound Trigger] Used to type-check queued email data fetched via the /api/email-queue endpoint.
+// [Downstream Impact] Schema changes to the email_queue collection or API response must be reflected here.
 interface QueuedEmail {
     id: string;
     toEmail: string;
@@ -50,6 +62,10 @@ interface QueuedEmail {
     lastError?: string;
 }
 
+// GUID: ADMIN_EMAILLOG-003-v03
+// [Intent] Main exported component providing email queue management (push/resend/delete) and historical email log viewing.
+// [Inbound Trigger] Mounted by the admin page when the Email Logs tab is active; requires admin user.
+// [Downstream Impact] Calls /api/email-queue for queue operations; reads email_logs collection for history. Queue actions trigger actual email sends via Microsoft Graph.
 export function EmailLogManager() {
     const firestore = useFirestore();
     const { user } = useAuth();
@@ -61,6 +77,10 @@ export function EmailLogManager() {
     const [isDeletingAll, setIsDeletingAll] = useState(false);
     const [isResendingAll, setIsResendingAll] = useState(false);
 
+    // GUID: ADMIN_EMAILLOG-004-v03
+    // [Intent] Fetches all queued emails (including failed) from the /api/email-queue endpoint.
+    // [Inbound Trigger] Called on component mount (if admin), after each queue action, and on manual refresh.
+    // [Downstream Impact] Populates the queuedEmails state that drives the queue management table.
     // Fetch all emails including failed ones
     const fetchQueuedEmails = useCallback(async () => {
         setIsLoadingQueue(true);
@@ -77,12 +97,20 @@ export function EmailLogManager() {
         }
     }, []);
 
+    // GUID: ADMIN_EMAILLOG-005-v03
+    // [Intent] Triggers the initial fetch of queued emails when the admin user is confirmed.
+    // [Inbound Trigger] Runs when user.isAdmin becomes true or fetchQueuedEmails reference changes.
+    // [Downstream Impact] Without this effect, the queue table would remain empty on first load.
     useEffect(() => {
         if (user?.isAdmin) {
             fetchQueuedEmails();
         }
     }, [user?.isAdmin, fetchQueuedEmails]);
 
+    // GUID: ADMIN_EMAILLOG-006-v03
+    // [Intent] Sends a single queued email immediately via the /api/email-queue push action.
+    // [Inbound Trigger] Called when the admin clicks the send button on a pending queued email row.
+    // [Downstream Impact] Triggers email delivery via Microsoft Graph; refreshes the queue list on completion.
     const handlePushEmail = async (emailId: string) => {
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
@@ -109,6 +137,10 @@ export function EmailLogManager() {
         }
     };
 
+    // GUID: ADMIN_EMAILLOG-007-v03
+    // [Intent] Re-queues a single failed email for another round of retry attempts.
+    // [Inbound Trigger] Called when the admin clicks the resend button on a failed email row.
+    // [Downstream Impact] Resets the email's status to pending in the queue; it will be retried up to 3 times.
     const handleResendEmail = async (emailId: string) => {
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
@@ -135,6 +167,10 @@ export function EmailLogManager() {
         }
     };
 
+    // GUID: ADMIN_EMAILLOG-008-v03
+    // [Intent] Deletes a single queued email from the queue, discarding it permanently.
+    // [Inbound Trigger] Called when the admin clicks the delete button on a queued email row.
+    // [Downstream Impact] Removes the email document from the email_queue collection; email will never be sent.
     const handleDeleteEmail = async (emailId: string) => {
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
@@ -161,6 +197,10 @@ export function EmailLogManager() {
         }
     };
 
+    // GUID: ADMIN_EMAILLOG-009-v03
+    // [Intent] Pushes all pending queued emails for immediate sending in a single batch operation.
+    // [Inbound Trigger] Called when the admin clicks the "Push All" button.
+    // [Downstream Impact] Triggers email delivery for all pending emails; may result in multiple Microsoft Graph API calls.
     const handlePushAll = async () => {
         setIsProcessingAll(true);
         try {
@@ -183,6 +223,10 @@ export function EmailLogManager() {
         }
     };
 
+    // GUID: ADMIN_EMAILLOG-010-v03
+    // [Intent] Re-queues all failed emails for another round of retry attempts in a single batch operation.
+    // [Inbound Trigger] Called when the admin clicks the "Resend Failed" button.
+    // [Downstream Impact] Resets all failed emails to pending status; each will be retried up to 3 times.
     const handleResendAllFailed = async () => {
         const failedIds = queuedEmails.filter(e => e.status === 'failed').map(e => e.id);
         if (failedIds.length === 0) return;
@@ -208,6 +252,10 @@ export function EmailLogManager() {
         }
     };
 
+    // GUID: ADMIN_EMAILLOG-011-v03
+    // [Intent] Deletes all emails from the queue, clearing it entirely.
+    // [Inbound Trigger] Called when the admin clicks the "Delete All" button.
+    // [Downstream Impact] Permanently removes all email_queue documents; no queued emails will be sent.
     const handleDeleteAll = async () => {
         setIsDeletingAll(true);
         try {
@@ -230,6 +278,10 @@ export function EmailLogManager() {
         }
     };
 
+    // GUID: ADMIN_EMAILLOG-012-v03
+    // [Intent] Memoised Firestore query for historical email send logs ordered by timestamp descending.
+    // [Inbound Trigger] Re-created when firestore or user changes; only active when user is admin.
+    // [Downstream Impact] Provides the dataset for the "Email Send Logs" card below the queue management section.
     const emailLogQuery = useMemo(() => {
         if (!firestore || !user?.isAdmin) return null;
         const q = query(collection(firestore, 'email_logs'), orderBy('timestamp', 'desc'));
@@ -239,6 +291,10 @@ export function EmailLogManager() {
 
     const { data: emailLogs, isLoading, error } = useCollection<EmailLog>(emailLogQuery);
 
+    // GUID: ADMIN_EMAILLOG-013-v03
+    // [Intent] Maps an email log status to a Badge variant for consistent visual status representation.
+    // [Inbound Trigger] Called for each email log row to determine badge styling.
+    // [Downstream Impact] Adding new email statuses requires updating this mapping.
     const getStatusVariant = (status: EmailLog['status']) => {
         switch (status) {
             case 'sent':
@@ -254,6 +310,10 @@ export function EmailLogManager() {
         }
     }
 
+    // GUID: ADMIN_EMAILLOG-014-v03
+    // [Intent] Renders a status badge for a queued email, showing failed state, retry count, or pending.
+    // [Inbound Trigger] Called for each row in the email queue table.
+    // [Downstream Impact] Visual-only; no downstream logic depends on this output.
     const getQueueStatusBadge = (email: QueuedEmail) => {
         if (email.status === 'failed') {
             return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />Failed</Badge>;
@@ -269,6 +329,10 @@ export function EmailLogManager() {
         return <Badge variant="outline">Pending</Badge>;
     };
 
+    // GUID: ADMIN_EMAILLOG-015-v03
+    // [Intent] Computes counts of pending and failed emails for display in the header and button labels.
+    // [Inbound Trigger] Recalculated on every render when queuedEmails state changes.
+    // [Downstream Impact] Drives the pending/failed counts shown in the card title and on the Push All / Resend Failed buttons.
     // Count emails by status
     const pendingCount = queuedEmails.filter(e => e.status === 'pending').length;
     const failedCount = queuedEmails.filter(e => e.status === 'failed').length;

@@ -1,3 +1,8 @@
+// GUID: API_SEND_SECONDARY_VERIFICATION-000-v03
+// [Intent] API route that sends a verification email for a user's secondary email address. Validates that the secondary email matches the user record, generates a CSPRNG token, stores it in Firestore with a 2-hour expiry, and sends a branded verification email via Graph API.
+// [Inbound Trigger] POST request from the profile page when a user adds or re-verifies a secondary email address.
+// [Downstream Impact] Creates a document in secondary_email_verification_tokens collection (consumed by /verify-secondary-email page). Sends email via sendEmail. Writes to audit_logs. Frontend relies on success/emailGuid response.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
@@ -5,11 +10,18 @@ import { ERROR_CODES } from '@/lib/error-codes';
 import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
 
-// Generate a secure verification token using CSPRNG
+// GUID: API_SEND_SECONDARY_VERIFICATION-001-v03
+// [Intent] Generates a cryptographically secure 32-byte hex token for secondary email verification links.
+// [Inbound Trigger] Called once per POST request to create a unique verification token.
+// [Downstream Impact] Token is stored in secondary_email_verification_tokens and embedded in the verification URL. Changing token length affects storage and URL format.
 function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
+// GUID: API_SEND_SECONDARY_VERIFICATION-002-v03
+// [Intent] POST handler — validates required fields (uid, secondaryEmail), checks Graph API config, verifies user exists and secondary email matches their record, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.
+// [Inbound Trigger] HTTP POST with JSON body containing uid, secondaryEmail, and optional teamName.
+// [Downstream Impact] Creates/overwrites secondary_email_verification_tokens/{uid} document. Sends email. Writes to audit_logs on success. Errors logged to error_logs with correlation ID and ERROR_CODES mapping. Reads from users collection to validate secondary email ownership.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 

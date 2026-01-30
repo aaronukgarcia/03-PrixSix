@@ -1,3 +1,8 @@
+// GUID: COMPONENT_CINEMATIC_INTRO-000-v03
+// [Intent] Full-screen cinematic intro animation for the About page. Plays a 24-second F1-themed sequence through four phases: Grid Entry (version display), Telemetry (live stats), Module Tour (feature showcase), and Finish (chequered flag + logo). First-time visitors see this automatically; returning visitors can replay it.
+// [Inbound Trigger] Rendered by AboutPageClient when showIntro state is true (first visit or replay).
+// [Downstream Impact] Calls onComplete callback when animation finishes or user skips, which persists the "seen" flag to localStorage and hides the intro.
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -6,16 +11,26 @@ import { Flag, Target, Users, BarChart3, TrendingUp, Calendar, MessageSquare, Ga
 import { Button } from '@/components/ui/button';
 import { APP_VERSION } from '@/lib/version';
 
+// GUID: COMPONENT_CINEMATIC_INTRO-001-v03
+// [Intent] Props interface for CinematicIntro. Receives live data (totalTeams, onlineUsers) and a completion callback.
+// [Inbound Trigger] Defined at module level; consumed when CinematicIntro is instantiated.
+// [Downstream Impact] totalTeams and onlineUsers drive the telemetry phase counters; onComplete controls intro lifecycle in the parent.
 interface CinematicIntroProps {
   totalTeams: number;
   onlineUsers: number;
   onComplete: () => void;
 }
 
-// F1 Red accent color
+// GUID: COMPONENT_CINEMATIC_INTRO-002-v03
+// [Intent] F1 brand red colour constant used throughout the intro for visual consistency.
+// [Inbound Trigger] Referenced by all sub-components for styling borders, text, SVG strokes, and backgrounds.
+// [Downstream Impact] Changing this value alters the entire colour scheme of the cinematic intro.
 const F1_RED = '#FF1801';
 
-// Animation phases with timing
+// GUID: COMPONENT_CINEMATIC_INTRO-003-v03
+// [Intent] Timing configuration for the four animation phases. Each phase has a start and end time in milliseconds, controlling the overall 24-second animation timeline.
+// [Inbound Trigger] Referenced by the phase progression useEffect to schedule setTimeout transitions.
+// [Downstream Impact] Altering these timings changes phase durations and total intro length. Module cycling in Phase 3 depends on moduleTour.start.
 const PHASE_TIMINGS = {
   gridEntry: { start: 0, end: 5000 },
   telemetry: { start: 5000, end: 10000 },
@@ -23,7 +38,10 @@ const PHASE_TIMINGS = {
   finish: { start: 20000, end: 24000 },
 };
 
-// Module data for the tour
+// GUID: COMPONENT_CINEMATIC_INTRO-004-v03
+// [Intent] Static data for the module tour phase (Phase 3). Each entry has a Lucide icon, display name, and short description representing a key app feature.
+// [Inbound Trigger] Iterated in the Phase 3 render block, indexed by currentModuleIndex state.
+// [Downstream Impact] Adding/removing entries changes the number of module cards shown during the tour; timing is spaced at 1500ms intervals.
 const MODULES = [
   { icon: Target, name: 'PREDICTIONS', desc: 'Pick your top 6' },
   { icon: TrendingUp, name: 'STANDINGS', desc: 'Track the leaderboard' },
@@ -33,7 +51,10 @@ const MODULES = [
   { icon: MessageSquare, name: 'COMMUNITY', desc: 'Join the paddock' },
 ];
 
-// Animated counter component
+// GUID: COMPONENT_CINEMATIC_INTRO-005-v03
+// [Intent] Animated number counter that eases from 0 to a target value over a specified duration. Used in the telemetry phase to display live stats with a dramatic count-up effect.
+// [Inbound Trigger] Mounted during Phase 2 (telemetry) with target values for totalTeams and onlineUsers.
+// [Downstream Impact] Purely visual; no side effects beyond the interval timer which is cleaned up on unmount.
 const AnimatedCounter = ({ target, duration = 2000, prefix = '', suffix = '' }: {
   target: number;
   duration?: number;
@@ -42,6 +63,10 @@ const AnimatedCounter = ({ target, duration = 2000, prefix = '', suffix = '' }: 
 }) => {
   const [count, setCount] = useState(0);
 
+  // GUID: COMPONENT_CINEMATIC_INTRO-006-v03
+  // [Intent] Drives the count-up animation using setInterval at ~60fps. Applies a cubic ease-out curve for a decelerating effect.
+  // [Inbound Trigger] Runs when target or duration props change.
+  // [Downstream Impact] Updates count state on each frame; clears interval when animation completes or component unmounts.
   useEffect(() => {
     const startTime = Date.now();
     const timer = setInterval(() => {
@@ -62,7 +87,10 @@ const AnimatedCounter = ({ target, duration = 2000, prefix = '', suffix = '' }: 
   );
 };
 
-// Glitch text effect
+// GUID: COMPONENT_CINEMATIC_INTRO-007-v03
+// [Intent] Text component that periodically applies a brief RGB-shift glitch effect, creating a cyberpunk/HUD aesthetic for the version number display.
+// [Inbound Trigger] Mounted during Phase 1 (gridEntry) to display the version string with visual flair.
+// [Downstream Impact] Purely visual; the glitch fires every 2 seconds for 100ms via setInterval, cleaned up on unmount.
 const GlitchText = ({ text, className = '' }: { text: string; className?: string }) => {
   const [glitchActive, setGlitchActive] = useState(false);
 
@@ -97,7 +125,10 @@ const GlitchText = ({ text, className = '' }: { text: string; className?: string
   );
 };
 
-// Grid lines component for Phase 1
+// GUID: COMPONENT_CINEMATIC_INTRO-008-v03
+// [Intent] Renders a CSS perspective grid with horizontal and vertical lines, creating a retro F1 starting grid / Tron-like visual. Horizontal lines animate downward when isMoving is true.
+// [Inbound Trigger] Mounted during Phase 1 (gridEntry) with isMoving=true.
+// [Downstream Impact] Purely decorative background element; no data dependencies.
 const PerspectiveGrid = ({ isMoving }: { isMoving: boolean }) => {
   return (
     <div className="absolute inset-0 overflow-hidden perspective-[800px]">
@@ -148,7 +179,10 @@ const PerspectiveGrid = ({ isMoving }: { isMoving: boolean }) => {
   );
 };
 
-// HUD Visor overlay
+// GUID: COMPONENT_CINEMATIC_INTRO-009-v03
+// [Intent] Heads-Up Display overlay with vignette darkening, scan lines, corner brackets, and status readouts. Creates an immersive cockpit/telemetry screen aesthetic.
+// [Inbound Trigger] Rendered in Phases 1, 2, and 3 as a persistent overlay layer.
+// [Downstream Impact] Purely decorative; uses pointer-events-none so it does not block user interaction with the skip button.
 const HUDOverlay = () => {
   return (
     <>
@@ -182,7 +216,10 @@ const HUDOverlay = () => {
   );
 };
 
-// Chequered flag pattern
+// GUID: COMPONENT_CINEMATIC_INTRO-010-v03
+// [Intent] Animated chequered flag pattern that sweeps across the screen from left to right during the finish phase, signalling the end of the intro sequence.
+// [Inbound Trigger] Rendered during Phase 4 (finish); animation triggers when visible prop becomes true.
+// [Downstream Impact] Purely visual transition effect; after the sweep completes, the logo is shown.
 const ChequeredFlag = ({ visible }: { visible: boolean }) => {
   return (
     <motion.div
@@ -208,7 +245,10 @@ const ChequeredFlag = ({ visible }: { visible: boolean }) => {
   );
 };
 
-// Prix Six Logo SVG with path animation
+// GUID: COMPONENT_CINEMATIC_INTRO-011-v03
+// [Intent] SVG logo for "PRIX SIX" with animated path drawing. Each letter (P, R, I, X) is drawn sequentially using Framer Motion's pathLength animation, followed by a fade-in "SIX" text element.
+// [Inbound Trigger] Rendered during Phase 4 (finish) after the chequered flag sweep completes; animate prop controls whether paths draw.
+// [Downstream Impact] Purely visual; final branding element before the intro completes.
 const PrixSixLogo = ({ animate }: { animate: boolean }) => {
   return (
     <motion.svg
@@ -285,19 +325,29 @@ const PrixSixLogo = ({ animate }: { animate: boolean }) => {
   );
 };
 
+// GUID: COMPONENT_CINEMATIC_INTRO-012-v03
+// [Intent] Main CinematicIntro component. Orchestrates the 4-phase animation sequence using timed state transitions. Renders a full-screen black overlay with phase-specific content, a skip button, and a progress bar.
+// [Inbound Trigger] Mounted by AboutPageClient when showIntro is true.
+// [Downstream Impact] Calls onComplete when the animation finishes or user clicks "SKIP INTRO", triggering localStorage persistence and returning to the About page content.
 export default function CinematicIntro({ totalTeams, onlineUsers, onComplete }: CinematicIntroProps) {
   const [phase, setPhase] = useState<'gridEntry' | 'telemetry' | 'moduleTour' | 'finish' | 'done'>('gridEntry');
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [showFlag, setShowFlag] = useState(false);
   const [showLogo, setShowLogo] = useState(false);
 
-  // Skip handler
+  // GUID: COMPONENT_CINEMATIC_INTRO-013-v03
+  // [Intent] Skip handler allowing users to bypass the intro at any point. Sets phase to 'done' and immediately calls onComplete.
+  // [Inbound Trigger] User clicks the "SKIP INTRO" button (visible after 1-second delay).
+  // [Downstream Impact] Short-circuits all pending timers (cleaned up by the useEffect return); triggers onComplete in the parent to persist the "seen" flag.
   const handleSkip = useCallback(() => {
     setPhase('done');
     onComplete();
   }, [onComplete]);
 
-  // Phase progression
+  // GUID: COMPONENT_CINEMATIC_INTRO-014-v03
+  // [Intent] Master timeline orchestrator. Schedules all phase transitions, module cycling, flag display, and completion using setTimeout calls based on PHASE_TIMINGS. All timers are cleaned up on unmount.
+  // [Inbound Trigger] Runs once on mount (onComplete is stable via useCallback in parent).
+  // [Downstream Impact] Drives the entire animation lifecycle. Phase state changes trigger AnimatePresence transitions. Calls onComplete at the end of the finish phase.
   useEffect(() => {
     const timers: NodeJS.Timeout[] = [];
 
@@ -335,6 +385,10 @@ export default function CinematicIntro({ totalTeams, onlineUsers, onComplete }: 
 
   if (phase === 'done') return null;
 
+  // GUID: COMPONENT_CINEMATIC_INTRO-015-v03
+  // [Intent] Main render: full-screen fixed overlay with AnimatePresence managing phase transitions. Each phase renders its own motion.div with entry/exit animations. Skip button and progress bar are always visible.
+  // [Inbound Trigger] Re-renders on phase, currentModuleIndex, showFlag, or showLogo state changes.
+  // [Downstream Impact] Visual output only; skip button calls handleSkip; progress bar is a pure 24-second linear animation.
   return (
     <div className="fixed inset-0 z-50 bg-black overflow-hidden">
       <AnimatePresence mode="wait">

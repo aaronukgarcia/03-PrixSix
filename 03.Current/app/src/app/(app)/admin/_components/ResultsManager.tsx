@@ -1,3 +1,7 @@
+// GUID: ADMIN_RESULTS-000-v03
+// [Intent] Admin component for entering official F1 race results and managing existing results. Provides a two-step wizard: race selection then driver picker for top-6 positions.
+// [Inbound Trigger] Rendered when admin navigates to the Results management tab in the admin panel.
+// [Downstream Impact] Calls /api/calculate-scores to write race_results and scores collections, and /api/send-results-email for notifications. Calls /api/delete-scores to remove results. Directly affects league standings.
 
 "use client";
 
@@ -20,7 +24,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
-// Helper to normalize raceId to match prediction format
+// GUID: ADMIN_RESULTS-001-v03
+// [Intent] Normalize a raceId string by stripping GP/Sprint suffixes and replacing spaces with hyphens for consistent matching against prediction raceId format.
+// [Inbound Trigger] Called during race selection to match predictions stored with different formatting conventions.
+// [Downstream Impact] Incorrect normalization would cause score calculation to miss predictions. Must stay in sync with prediction storage format.
 function normalizeRaceId(raceId: string): string {
     let baseName = raceId
         .replace(/\s*-\s*GP$/i, '')
@@ -28,7 +35,10 @@ function normalizeRaceId(raceId: string): string {
     return baseName.replace(/\s+/g, '-');
 }
 
-// Helper to format driver code (e.g., "hamilton" -> "HAM")
+// GUID: ADMIN_RESULTS-002-v03
+// [Intent] Convert a driver ID (e.g., "hamilton") to a 3-letter display code (e.g., "HAM") by looking up the driver in F1Drivers static data.
+// [Inbound Trigger] Called to display compact driver codes in the result summary confirmation dialog.
+// [Downstream Impact] Pure display helper; no side effects. Falls back to first 3 chars of ID if driver not found.
 function getDriverCode(driverId: string): string {
     const driver = F1Drivers.find(d => d.id === driverId);
     if (!driver) return driverId.substring(0, 3).toUpperCase();
@@ -37,6 +47,10 @@ function getDriverCode(driverId: string): string {
     return lastName.substring(0, 3).toUpperCase();
 }
 
+// GUID: ADMIN_RESULTS-003-v03
+// [Intent] TypeScript interface for a race result document stored in the race_results Firestore collection.
+// [Inbound Trigger] Used to type the results fetched via useCollection hook and passed to delete/display functions.
+// [Downstream Impact] Changes require matching updates in the /api/calculate-scores endpoint that writes these documents.
 interface RaceResult {
     id: string;
     raceId: string;
@@ -49,12 +63,25 @@ interface RaceResult {
     submittedAt: any;
 }
 
+// GUID: ADMIN_RESULTS-004-v03
+// [Intent] Type alias for the two-step wizard flow: race selection then result entry.
+// [Inbound Trigger] Used by the step state variable to control which card is displayed.
+// [Downstream Impact] Adding steps requires adding matching JSX render blocks.
 type Step = 'select-race' | 'enter-results';
 
+// GUID: ADMIN_RESULTS-005-v03
+// [Intent] Main admin component for entering and managing official F1 race results via a two-step wizard (select race, then pick top-6 drivers).
+// [Inbound Trigger] Rendered by the admin page when the Results management tab is selected.
+// [Downstream Impact] Triggers server-side score calculation via /api/calculate-scores, sends result notification emails via /api/send-results-email, and can delete results via /api/delete-scores. Directly modifies race_results, scores, and standings collections.
 export function ResultsManager() {
     const firestore = useFirestore();
     const { user, firebaseUser } = useAuth();
     const { toast } = useToast();
+
+    // GUID: ADMIN_RESULTS-006-v03
+    // [Intent] State management for the two-step wizard flow, driver selections, submission status, and deletion tracking.
+    // [Inbound Trigger] Initialised on component mount; updated by user interactions and API responses.
+    // [Downstream Impact] State drives which step is rendered, which drivers are selected, and whether buttons are disabled during async operations.
 
     // Step-based flow
     const [step, setStep] = useState<Step>('select-race');
@@ -68,8 +95,10 @@ export function ResultsManager() {
     const [submissionCount, setSubmissionCount] = useState<number | null>(null);
     const [isLoadingCount, setIsLoadingCount] = useState(false);
 
-    // Fetch submission count when race is selected
-    // NOTE: Predictions carry forward all season - count ALL teams that have ANY prediction
+    // GUID: ADMIN_RESULTS-007-v03
+    // [Intent] Fetch the count of unique team predictions when a race is selected, to show how many teams will be scored. Counts ALL predictions (carry-forward model).
+    // [Inbound Trigger] Fires when selectedRace changes. Queries collectionGroup predictions across all users.
+    // [Downstream Impact] Sets submissionCount displayed in the confirmation dialog and the submission count alert. Uses collectionGroup query which requires matching Firestore index.
     useEffect(() => {
         if (!firestore || !selectedRace) {
             setSubmissionCount(null);
@@ -108,7 +137,10 @@ export function ResultsManager() {
         fetchSubmissionCount();
     }, [firestore, selectedRace]);
 
-    // Fetch existing race results
+    // GUID: ADMIN_RESULTS-008-v03
+    // [Intent] Memoised Firestore query for fetching all existing race results, ordered by submission date descending.
+    // [Inbound Trigger] Evaluated when firestore reference changes. Fed into useCollection hook for real-time data.
+    // [Downstream Impact] Drives the "Entered Race Results" table and the race selection dropdown (marking races with existing results in red).
     const resultsQuery = useMemo(() => {
         if (!firestore) return null;
         const q = query(collection(firestore, "race_results"), orderBy("submittedAt", "desc"));
@@ -118,11 +150,18 @@ export function ResultsManager() {
 
     const { data: existingResults, isLoading: isLoadingResults } = useCollection<RaceResult>(resultsQuery);
 
-    // Available drivers (not yet selected)
+    // GUID: ADMIN_RESULTS-009-v03
+    // [Intent] Derived list of F1 drivers not yet placed in any of the 6 result positions, available for selection.
+    // [Inbound Trigger] Recalculated on every render when predictions state changes.
+    // [Downstream Impact] Drives the "Available Drivers" grid in step 2. Prevents duplicate driver selection.
     const availableDrivers = F1Drivers.filter(
         (d) => !predictions.some((p) => p?.id === d.id)
     );
 
+    // GUID: ADMIN_RESULTS-010-v03
+    // [Intent] Add a driver to the first empty position slot in the predictions array.
+    // [Inbound Trigger] Called when admin clicks a driver button in the Available Drivers grid.
+    // [Downstream Impact] Updates predictions state, which removes the driver from availableDrivers and shows them in the result grid.
     const handleAddDriver = (driver: Driver) => {
         const newPredictions = [...predictions];
         const firstEmptyIndex = newPredictions.findIndex((p) => p === null);
@@ -132,12 +171,20 @@ export function ResultsManager() {
         }
     };
 
+    // GUID: ADMIN_RESULTS-011-v03
+    // [Intent] Remove a driver from a specific position slot, making them available again.
+    // [Inbound Trigger] Called when admin clicks the X button on a placed driver in the result grid.
+    // [Downstream Impact] Updates predictions state, returning the driver to the Available Drivers grid.
     const handleRemoveDriver = (index: number) => {
         const newPredictions = [...predictions];
         newPredictions[index] = null;
         setPredictions(newPredictions);
     };
 
+    // GUID: ADMIN_RESULTS-012-v03
+    // [Intent] Swap a driver with the adjacent position (up or down) to reorder the result.
+    // [Inbound Trigger] Called when admin clicks the up/down arrow buttons on a placed driver.
+    // [Downstream Impact] Updates predictions state, changing the finishing order which directly affects score calculation.
     const handleMove = (index: number, direction: "up" | "down") => {
         const newPredictions = [...predictions];
         const targetIndex = direction === "up" ? index - 1 : index + 1;
@@ -151,6 +198,10 @@ export function ResultsManager() {
         }
     };
 
+    // GUID: ADMIN_RESULTS-013-v03
+    // [Intent] Transition from step 1 (race selection) to step 2 (driver entry) after validating a race is selected.
+    // [Inbound Trigger] Called when admin clicks "Continue to Enter Results" button.
+    // [Downstream Impact] Changes step state to 'enter-results', rendering the driver picker UI.
     const handleProceedToResults = () => {
         if (!selectedRace) {
             toast({ variant: "destructive", title: "Please select a race." });
@@ -159,11 +210,19 @@ export function ResultsManager() {
         setStep('enter-results');
     };
 
+    // GUID: ADMIN_RESULTS-014-v03
+    // [Intent] Navigate back to step 1 (race selection) and reset the driver selections.
+    // [Inbound Trigger] Called when admin clicks "Back to Race Selection" button in step 2.
+    // [Downstream Impact] Resets predictions array to empty, clearing any partial driver selections.
     const handleBack = () => {
         setStep('select-race');
         setPredictions(Array(6).fill(null));
     };
 
+    // GUID: ADMIN_RESULTS-015-v03
+    // [Intent] Validate all 6 positions are filled and open the confirmation dialog before submitting results.
+    // [Inbound Trigger] Called when admin clicks "Review & Submit Results" button.
+    // [Downstream Impact] Shows confirmation dialog with result summary. Does NOT submit; submission happens in handleConfirmedSubmit.
     const handleSubmitClick = () => {
         if (predictions.some(d => d === null)) {
             toast({ variant: "destructive", title: "Incomplete Podium", description: "Please fill all 6 positions." });
@@ -172,12 +231,20 @@ export function ResultsManager() {
         setShowConfirmDialog(true);
     };
 
+    // GUID: ADMIN_RESULTS-016-v03
+    // [Intent] Generate a compact text summary of the result (e.g., "1-HAM, 2-VER, 3-NOR, ...") for the confirmation dialog.
+    // [Inbound Trigger] Called when rendering the confirmation dialog content.
+    // [Downstream Impact] Pure display helper; no side effects.
     const getResultSummary = () => {
         return predictions
             .map((driver, index) => `${index + 1}-${driver ? getDriverCode(driver.id) : '???'}`)
             .join(', ');
     };
 
+    // GUID: ADMIN_RESULTS-017-v03
+    // [Intent] Submit the confirmed race results to the server-side /api/calculate-scores endpoint for secure score calculation, then trigger email notifications via /api/send-results-email.
+    // [Inbound Trigger] Called when admin clicks "Yes, Submit Results" in the confirmation dialog.
+    // [Downstream Impact] Creates race_results document, calculates and writes scores for all teams, updates standings, and sends email notifications. This is the critical scoring pipeline trigger.
     const handleConfirmedSubmit = async () => {
         if (!firestore || !user || !firebaseUser || !selectedRace) return;
 
@@ -259,6 +326,10 @@ export function ResultsManager() {
         }
     };
 
+    // GUID: ADMIN_RESULTS-018-v03
+    // [Intent] Delete a race result and its associated scores via the server-side /api/delete-scores endpoint.
+    // [Inbound Trigger] Called when admin clicks the trash icon on an existing race result row.
+    // [Downstream Impact] Removes race_results document and all associated score documents. Recalculates standings. This is destructive and cannot be undone.
     const handleDelete = async (result: RaceResult) => {
         if (!firestore || !user || !firebaseUser) return;
 
@@ -301,6 +372,10 @@ export function ResultsManager() {
         }
     };
 
+    // GUID: ADMIN_RESULTS-019-v03
+    // [Intent] Format a Firestore Timestamp or Date to a human-readable en-GB string (DD Mon YYYY, HH:MM).
+    // [Inbound Trigger] Called for each row in the Entered Race Results table.
+    // [Downstream Impact] Pure formatting helper; no side effects.
     const formatTimestamp = (timestamp: any) => {
         if (!timestamp) return 'N/A';
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);

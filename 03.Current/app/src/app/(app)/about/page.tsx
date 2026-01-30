@@ -1,4 +1,9 @@
 
+// GUID: PAGE_ABOUT-000-v03
+// [Intent] About page: public-facing informational page explaining Prix Six, F1 basics, scoring rules, and app features. Also manages the cinematic intro sequence for first-time visitors.
+// [Inbound Trigger] User navigates to /about route.
+// [Downstream Impact] Renders CinematicIntro on first visit; displays live team count and online user count from Firestore. Links to /about/dev, /predictions, /rules, /dashboard.
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -41,6 +46,10 @@ import { APP_VERSION } from '@/lib/version';
 import { SCORING_POINTS, SCORING_DERIVED } from '@/lib/scoring-rules';
 import CinematicIntro from './_components/CinematicIntro';
 
+// GUID: PAGE_ABOUT-001-v03
+// [Intent] Type definition for user presence documents stored in Firestore 'presence' collection.
+// [Inbound Trigger] Used when querying the presence collection to calculate online user count.
+// [Downstream Impact] Defines the shape of presence data consumed by the onlineUserCount memo; changes here affect session timeout filtering logic.
 interface Presence {
   id: string;
   online: boolean;
@@ -48,16 +57,31 @@ interface Presence {
   sessionActivity?: { [sessionId: string]: number };
 }
 
+// GUID: PAGE_ABOUT-002-v03
+// [Intent] Session timeout threshold (15 minutes) for determining whether a user session is still considered active.
+// [Inbound Trigger] Referenced in onlineUserCount memo to filter stale sessions.
+// [Downstream Impact] Changing this value alters the sensitivity of the "Online Now" counter; shorter values show fewer active users.
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 
+// GUID: PAGE_ABOUT-003-v03
+// [Intent] localStorage key for tracking whether the user has already seen the cinematic intro animation.
+// [Inbound Trigger] Checked on mount in useEffect; set to 'true' when intro completes.
+// [Downstream Impact] Controls whether CinematicIntro renders on page load; clearing this key causes the intro to replay.
 const INTRO_STORAGE_KEY = 'prix-six-about-intro-seen';
 
+// GUID: PAGE_ABOUT-004-v03
+// [Intent] Main client component for the About page. Manages intro display state, fetches live user/team data from Firestore, and renders all informational sections (how to play, features, F1 primer, scoring, support).
+// [Inbound Trigger] Rendered by the default AboutPage export when the user navigates to /about.
+// [Downstream Impact] Renders CinematicIntro component; queries Firestore 'users' and 'presence' collections; displays APP_VERSION and SCORING_POINTS/SCORING_DERIVED from shared libs.
 const AboutPageClient = () => {
     const firestore = useFirestore();
     const [showIntro, setShowIntro] = useState(false);
     const [hasCheckedStorage, setHasCheckedStorage] = useState(false);
 
-    // Check localStorage on mount to determine if intro should play
+    // GUID: PAGE_ABOUT-005-v03
+    // [Intent] Check localStorage on mount to decide if cinematic intro should play. Prevents rendering the page content until the check is complete to avoid a visual flash.
+    // [Inbound Trigger] Component mounts (runs once due to empty dependency array).
+    // [Downstream Impact] Sets showIntro to true if intro never seen, triggering CinematicIntro render. Sets hasCheckedStorage to true to unblock rendering.
     useEffect(() => {
         const hasSeenIntro = localStorage.getItem(INTRO_STORAGE_KEY);
         if (!hasSeenIntro) {
@@ -66,15 +90,27 @@ const AboutPageClient = () => {
         setHasCheckedStorage(true);
     }, []);
 
+    // GUID: PAGE_ABOUT-006-v03
+    // [Intent] Callback invoked when the cinematic intro finishes or is skipped. Persists the "seen" flag to localStorage so the intro does not replay on future visits.
+    // [Inbound Trigger] Called by CinematicIntro's onComplete prop.
+    // [Downstream Impact] Sets INTRO_STORAGE_KEY in localStorage; hides the intro and reveals the main about page content.
     const handleIntroComplete = () => {
         localStorage.setItem(INTRO_STORAGE_KEY, 'true');
         setShowIntro(false);
     };
 
+    // GUID: PAGE_ABOUT-007-v03
+    // [Intent] Allows the user to replay the cinematic intro by clicking the "Watch Intro" button.
+    // [Inbound Trigger] User clicks the "Watch Intro" button in the hero section.
+    // [Downstream Impact] Sets showIntro to true, causing CinematicIntro to render and obscure the main page content until completion.
     const handleReplayIntro = () => {
         setShowIntro(true);
     };
 
+    // GUID: PAGE_ABOUT-008-v03
+    // [Intent] Memoised Firestore query for all user documents. Used to compute the total teams count.
+    // [Inbound Trigger] Re-evaluated when firestore instance changes (typically only on initial load).
+    // [Downstream Impact] Feeds the useCollection hook for allUsers; result drives totalTeamsCount calculation.
     const allUsersQuery = useMemo(() => {
         if (!firestore) return null;
         const q = query(collection(firestore, 'users'));
@@ -84,6 +120,10 @@ const AboutPageClient = () => {
 
     const { data: allUsers } = useCollection(allUsersQuery);
 
+    // GUID: PAGE_ABOUT-009-v03
+    // [Intent] Memoised Firestore query for all presence documents. Used to compute the online user count.
+    // [Inbound Trigger] Re-evaluated when firestore instance changes.
+    // [Downstream Impact] Feeds the useCollection hook for presenceDocs; result drives onlineUserCount calculation.
     const presenceQuery = useMemo(() => {
         if (!firestore) return null;
         const q = query(collection(firestore, 'presence'));
@@ -93,12 +133,20 @@ const AboutPageClient = () => {
 
     const { data: presenceDocs, isLoading } = useCollection<Presence>(presenceQuery);
 
+    // GUID: PAGE_ABOUT-010-v03
+    // [Intent] Computes total team count including secondary teams. Each user counts as 1 team, plus 1 more if they have a secondaryTeamName.
+    // [Inbound Trigger] Re-computed when allUsers data changes.
+    // [Downstream Impact] Displayed in the "Teams Playing" stat card and passed to CinematicIntro as totalTeams prop.
     const totalTeamsCount = useMemo(() => {
         if (!allUsers) return 0;
         const secondaryTeamCount = allUsers.filter((u: any) => u.secondaryTeamName).length;
         return allUsers.length + secondaryTeamCount;
     }, [allUsers]);
 
+    // GUID: PAGE_ABOUT-011-v03
+    // [Intent] Computes the number of currently online users by checking presence documents for active sessions within the SESSION_TIMEOUT_MS window.
+    // [Inbound Trigger] Re-computed when presenceDocs data changes (real-time Firestore listener).
+    // [Downstream Impact] Displayed in the "Online Now" stat card and passed to CinematicIntro as onlineUsers prop.
     const onlineUserCount = useMemo(() => {
         if (!presenceDocs) return 0;
         const now = Date.now();
@@ -133,6 +181,10 @@ const AboutPageClient = () => {
         );
     }
 
+    // GUID: PAGE_ABOUT-012-v03
+    // [Intent] Main JSX render of the About page: hero section with version badge and replay button, live stat cards, "How to Play" guide, scoring breakdown, features grid, F1 primer for newcomers, and support contact section.
+    // [Inbound Trigger] Rendered when hasCheckedStorage is true and showIntro is false.
+    // [Downstream Impact] Presents static informational content; links to /about/dev, /rules, /predictions, /dashboard. Displays live data from totalTeamsCount and onlineUserCount.
     return (
         <div className="space-y-8">
             {/* Hero Section */}
@@ -781,6 +833,10 @@ const AboutPageClient = () => {
     );
 };
 
+// GUID: PAGE_ABOUT-013-v03
+// [Intent] Default page export wrapping the client component. Required by Next.js App Router for the /about route.
+// [Inbound Trigger] Next.js renders this when the /about route is matched.
+// [Downstream Impact] Renders AboutPageClient which manages all page logic and rendering.
 export default function AboutPage() {
     return <AboutPageClient />;
 }

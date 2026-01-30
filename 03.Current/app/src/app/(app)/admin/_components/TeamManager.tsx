@@ -1,4 +1,9 @@
 
+// GUID: ADMIN_TEAM-000-v03
+// [Intent] Admin component for managing user teams: view, edit, delete, toggle admin status, and unlock locked accounts.
+// [Inbound Trigger] Rendered within the admin panel when the "Teams" tab is selected.
+// [Downstream Impact] Modifies user records in Firestore via useAuth() hooks. Changes to team name, email, admin status, and account lock state propagate to all user-facing components.
+
 "use client";
 
 import { useState } from "react";
@@ -35,15 +40,27 @@ import type { User } from "@/firebase/provider";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
+// GUID: ADMIN_TEAM-001-v03
+// [Intent] Defines the props contract for TeamManager, requiring the full user list and its loading state.
+// [Inbound Trigger] Passed from the parent admin page which fetches all users.
+// [Downstream Impact] The component cannot render meaningful content without allUsers; isUserLoading controls skeleton display.
 interface TeamManagerProps {
     allUsers: User[] | null;
     isUserLoading: boolean;
 }
 
+// GUID: ADMIN_TEAM-002-v03
+// [Intent] Main TeamManager component that renders a table of all users with edit, admin toggle, and delete actions.
+// [Inbound Trigger] Rendered by the admin page when the Teams management tab is active.
+// [Downstream Impact] All user mutations (edit, delete, admin toggle, unlock) flow through useAuth() hooks which update Firestore user documents.
 export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
     const { toast } = useToast();
     const { updateUser, deleteUser } = useAuth();
-    
+
+    // GUID: ADMIN_TEAM-003-v03
+    // [Intent] Local state for the edit dialog: tracks which user is selected and what editable fields contain.
+    // [Inbound Trigger] Populated when handleEditClick is called with a user row.
+    // [Downstream Impact] These values are written to Firestore when handleSaveChanges is invoked.
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [editedTeamName, setEditedTeamName] = useState("");
@@ -51,6 +68,10 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
     const [editedIsAdmin, setEditedIsAdmin] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
+    // GUID: ADMIN_TEAM-004-v03
+    // [Intent] Opens the edit dialog and pre-populates form fields with the selected user's current data.
+    // [Inbound Trigger] Clicking the Edit (pencil) icon button on a user row.
+    // [Downstream Impact] Sets selectedUser and form state; the Dialog component becomes visible.
     const handleEditClick = (user: User) => {
         setSelectedUser(user);
         setEditedTeamName(user.teamName);
@@ -59,6 +80,10 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
         setIsEditDialogOpen(true);
     };
 
+    // GUID: ADMIN_TEAM-005-v03
+    // [Intent] Persists edited user fields (teamName, email, isAdmin) to Firestore and closes the dialog.
+    // [Inbound Trigger] Clicking the "Save changes" button in the edit dialog.
+    // [Downstream Impact] Updates the user document in Firestore; all components consuming user data will reflect changes on next read.
     const handleSaveChanges = async () => {
         if (!selectedUser) return;
         setIsSaving(true);
@@ -73,12 +98,16 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
         } else {
             toast({ variant: "destructive", title: "Update Failed", description: result.message });
         }
-        
+
         setIsSaving(false);
         setIsEditDialogOpen(false);
         setSelectedUser(null);
     };
-    
+
+    // GUID: ADMIN_TEAM-006-v03
+    // [Intent] Toggles a user's admin status between admin and regular user.
+    // [Inbound Trigger] Clicking the Shield icon button on a user row.
+    // [Downstream Impact] Changes the isAdmin field in Firestore; affects the user's access to admin pages and features.
     const handleToggleAdmin = async (user: User) => {
         const result = await updateUser(user.id, { isAdmin: !user.isAdmin });
          if (result.success) {
@@ -88,6 +117,10 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
         }
     };
 
+    // GUID: ADMIN_TEAM-007-v03
+    // [Intent] Permanently deletes a user and all their data from the system.
+    // [Inbound Trigger] Clicking "Delete" in the confirmation AlertDialog after pressing the Trash icon.
+    // [Downstream Impact] Removes the user document from Firestore. Irreversible action that affects standings, predictions, and team references.
     const handleDeleteUser = async (userId: string) => {
         const userToDelete = allUsers?.find(u => u.id === userId);
         const result = await deleteUser(userId);
@@ -97,7 +130,11 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
             toast({ variant: "destructive", title: "Delete Failed", description: result.message });
         }
     };
-    
+
+    // GUID: ADMIN_TEAM-008-v03
+    // [Intent] Resets a locked user's badLoginAttempts counter to zero, unlocking their account.
+    // [Inbound Trigger] Clicking the "Unlock Account" button in the edit dialog for a locked user (badLoginAttempts >= 5).
+    // [Downstream Impact] Sets badLoginAttempts to 0 in Firestore, allowing the user to log in again.
     const handleUnlockUser = async () => {
         if (!selectedUser) return;
         setIsSaving(true);
@@ -111,6 +148,10 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
         setIsEditDialogOpen(false);
     }
 
+    // GUID: ADMIN_TEAM-009-v03
+    // [Intent] Renders the team management UI: a table of users with action buttons and an edit dialog.
+    // [Inbound Trigger] Component render cycle; displays skeleton rows while isUserLoading is true.
+    // [Downstream Impact] Provides the visual interface for all team management operations (edit, admin toggle, delete, unlock).
     return (
         <Card>
             <CardHeader>

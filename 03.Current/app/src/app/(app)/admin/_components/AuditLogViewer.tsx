@@ -1,3 +1,7 @@
+// GUID: ADMIN_AUDITLOG-000-v03
+// [Intent] Admin component for viewing the system audit log of user activity and system events.
+// [Inbound Trigger] Rendered on the admin Audit Logs tab; receives allUsers and loading state as props.
+// [Downstream Impact] Reads from audit_logs Firestore collection; depends on User type from firebase/provider for user lookup.
 
 'use client';
 
@@ -25,6 +29,10 @@ import {
 } from "@/components/ui/tooltip";
 import type { User } from '@/firebase/provider';
 
+// GUID: ADMIN_AUDITLOG-001-v03
+// [Intent] Type definition for an audit log document from the audit_logs Firestore collection.
+// [Inbound Trigger] Used to type-check audit log data fetched by the Firestore query.
+// [Downstream Impact] Schema changes to the audit_logs collection must be reflected here; affects log rendering.
 interface AuditLog {
     id: string;
     userId: string;
@@ -37,25 +45,41 @@ interface AuditLog {
     details: any;
 }
 
+// GUID: ADMIN_AUDITLOG-002-v03
+// [Intent] Props interface for AuditLogViewer, accepting pre-fetched user data to resolve user IDs to display names.
+// [Inbound Trigger] Defined as the component's input contract; parent passes allUsers and loading state.
+// [Downstream Impact] If allUsers is null or loading, user names will fall back to raw user IDs in the display.
 interface AuditLogViewerProps {
     allUsers: User[] | null;
     isUserLoading: boolean;
 }
 
+// GUID: ADMIN_AUDITLOG-003-v03
+// [Intent] Main exported component that displays the last 100 audit log entries with user resolution, action badges, and expandable details.
+// [Inbound Trigger] Mounted by the admin page when the Audit Logs tab is active.
+// [Downstream Impact] Reads from audit_logs Firestore collection (last 100, desc by timestamp). Depends on allUsers prop for user name resolution.
 export function AuditLogViewer({ allUsers, isUserLoading }: AuditLogViewerProps) {
     const firestore = useFirestore();
-    
+
+    // GUID: ADMIN_AUDITLOG-004-v03
+    // [Intent] Memoised Firestore query that fetches the 100 most recent audit logs ordered by timestamp descending.
+    // [Inbound Trigger] Re-created only when the firestore instance changes.
+    // [Downstream Impact] Provides the raw dataset for the audit log accordion list.
     const auditLogQuery = useMemo(() => {
         if (!firestore) return null;
         const q = query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100));
-        (q as any).__memo = true; 
+        (q as any).__memo = true;
         return q;
     }, [firestore]);
 
     const { data: auditLogs, isLoading: isAuditLoading, error } = useCollection<AuditLog>(auditLogQuery);
-    
+
     const isLoading = isUserLoading || isAuditLoading;
 
+    // GUID: ADMIN_AUDITLOG-005-v03
+    // [Intent] Maps audit log action types to Badge variants for consistent visual styling.
+    // [Inbound Trigger] Called for each audit log entry during rendering.
+    // [Downstream Impact] Adding new action types may require updating this mapping for appropriate styling.
     const getActionVariant = (action: string) => {
         switch (action) {
             case 'permission_error': return 'destructive';
@@ -65,6 +89,10 @@ export function AuditLogViewer({ allUsers, isUserLoading }: AuditLogViewerProps)
         }
     }
 
+    // GUID: ADMIN_AUDITLOG-006-v03
+    // [Intent] Resolves a userId to a User object from the pre-fetched allUsers list for display name lookup.
+    // [Inbound Trigger] Called for each audit log entry to display the user's team name instead of raw ID.
+    // [Downstream Impact] If user not found, the raw userId is displayed as a fallback.
     const findUser = (userId: string): User | undefined => {
         return allUsers?.find(u => u.id === userId);
     }

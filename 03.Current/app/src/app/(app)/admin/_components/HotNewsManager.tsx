@@ -1,4 +1,9 @@
 
+// GUID: ADMIN_HOT_NEWS-000-v03
+// [Intent] Admin component for managing the Hot News feed: toggle AI updates, manually edit content, refresh via AI, and optionally email subscribers.
+// [Inbound Trigger] Rendered within the admin panel when the "Hot News" tab is selected.
+// [Downstream Impact] Writes to Firestore settings (hotNewsFeedEnabled, content). Can trigger AI content generation and email dispatch to all subscribed users.
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -26,10 +31,18 @@ import { serverTimestamp } from "firebase/firestore";
 import { logAuditEvent } from "@/lib/audit";
 import { ERROR_CODES, generateClientCorrelationId } from "@/lib/error-codes";
 
+// GUID: ADMIN_HOT_NEWS-001-v03
+// [Intent] Main HotNewsManager component providing AI toggle, content editor, refresh button, and email dispatch controls.
+// [Inbound Trigger] Rendered by the admin page when the Hot News tab is active.
+// [Downstream Impact] Reads/writes hot news settings in Firestore. Can invoke AI generation flow and send-hot-news-email API. Audit events logged on save and refresh.
 export function HotNewsManager() {
   const firestore = useFirestore();
   const { user, firebaseUser } = useAuth();
 
+  // GUID: ADMIN_HOT_NEWS-002-v03
+  // [Intent] Local state managing the hot news settings, loading/error states, form fields, and operation flags.
+  // [Inbound Trigger] Initialised on mount; updated by user interactions and async operations.
+  // [Downstream Impact] Drives the entire component UI: toggles, textarea content, button disabled states, and save/refresh behaviour.
   const [settings, setSettings] = useState<HotNewsSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -43,6 +56,10 @@ export function HotNewsManager() {
 
   const { toast } = useToast();
 
+  // GUID: ADMIN_HOT_NEWS-003-v03
+  // [Intent] Fetches the current hot news settings from Firestore on component mount and populates local state.
+  // [Inbound Trigger] Runs when the firestore instance becomes available (useEffect dependency).
+  // [Downstream Impact] Populates settings, hotNewsFeedEnabled, and content state variables. Sets error state if fetch fails.
   useEffect(() => {
     if (firestore) {
       const fetchSettings = async () => {
@@ -64,6 +81,10 @@ export function HotNewsManager() {
   }, [firestore]);
 
 
+  // GUID: ADMIN_HOT_NEWS-004-v03
+  // [Intent] Saves manual content edits and the AI toggle to Firestore, logs an audit event, and optionally sends emails to all subscribers.
+  // [Inbound Trigger] Clicking the "Save Settings" button.
+  // [Downstream Impact] Updates hot news content in Firestore (visible on dashboard). If sendEmails is checked, triggers /api/send-hot-news-email to dispatch emails. Audit trail created.
   const handleSave = async () => {
     if (!firestore || !firebaseUser) return;
     setIsSaving(true);
@@ -89,7 +110,10 @@ export function HotNewsManager() {
         description: "Hot News settings have been updated.",
       });
 
-      // Send emails to subscribers if checkbox was checked
+      // GUID: ADMIN_HOT_NEWS-005-v03
+      // [Intent] Conditionally sends hot news content via email to all subscribed users after a successful save.
+      // [Inbound Trigger] The sendEmails checkbox is checked when the save button is clicked.
+      // [Downstream Impact] Calls /api/send-hot-news-email API endpoint. On failure, displays an error toast with correlation ID for debugging.
       if (sendEmails) {
         setIsSendingEmails(true);
         try {
@@ -168,6 +192,10 @@ export function HotNewsManager() {
     }
   };
 
+  // GUID: ADMIN_HOT_NEWS-006-v03
+  // [Intent] Triggers the AI-powered hot news generation flow, updates the textarea content, and persists the result to Firestore.
+  // [Inbound Trigger] Clicking the "Refresh Now" button.
+  // [Downstream Impact] Overwrites the content textarea and Firestore hot news content with AI-generated text. Audit event logged with source 'ai_generated'.
   const handleRefresh = async () => {
     if (!firestore || !firebaseUser) return;
     setIsRefreshing(true);
@@ -214,6 +242,10 @@ export function HotNewsManager() {
     }
   }
 
+  // GUID: ADMIN_HOT_NEWS-007-v03
+  // [Intent] Renders a loading skeleton while hot news settings are being fetched from Firestore.
+  // [Inbound Trigger] loading state is true during the initial fetch.
+  // [Downstream Impact] Prevents interaction with uninitialised form state; replaced by the full UI once data loads.
   if (loading) {
     return (
       <Card>
@@ -232,6 +264,10 @@ export function HotNewsManager() {
     );
   }
 
+  // GUID: ADMIN_HOT_NEWS-008-v03
+  // [Intent] Renders an error alert when the initial settings fetch fails, blocking access to the editor.
+  // [Inbound Trigger] error state is non-null after a failed fetch in the useEffect.
+  // [Downstream Impact] User must reload the page to retry; no editing is possible in this state.
   if (error) {
     return (
         <Alert variant="destructive">
@@ -244,6 +280,10 @@ export function HotNewsManager() {
     )
   }
 
+  // GUID: ADMIN_HOT_NEWS-009-v03
+  // [Intent] Renders the full Hot News management UI: AI toggle, content textarea, email checkbox, save and refresh buttons.
+  // [Inbound Trigger] Component render cycle after settings have loaded successfully.
+  // [Downstream Impact] User interactions update local state; handleSave and handleRefresh persist changes to Firestore.
   return (
     <Card>
       <CardHeader>

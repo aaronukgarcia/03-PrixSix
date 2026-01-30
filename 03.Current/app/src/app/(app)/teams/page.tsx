@@ -1,3 +1,11 @@
+// GUID: PAGE_TEAMS-000-v03
+// [Intent] Teams page — displays all team predictions for a selected race in an expandable accordion.
+//   Users can browse every team's P1-P6 driver selections per race, with on-demand lazy loading of
+//   predictions and pagination of team lists. Supports league filtering via LeagueSelector.
+// [Inbound Trigger] User navigates to /teams in the app layout.
+// [Downstream Impact] Reads from Firestore "users", "race_results", and per-user "predictions" subcollections.
+//   Changes to Firestore schema for users or predictions will break data fetching and display logic.
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -35,6 +43,10 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useSmartLoader } from "@/components/ui/smart-loader";
 
+// GUID: PAGE_TEAMS-001-v03
+// [Intent] Represents a basic team record with user association, used before predictions are loaded.
+// [Inbound Trigger] Constructed during team list fetching from Firestore users collection.
+// [Downstream Impact] Extended by TeamWithPrediction; changes to fields affect team display and prediction matching.
 interface TeamBasic {
   teamName: string;
   oduserId: string;
@@ -42,6 +54,10 @@ interface TeamBasic {
   createdAt?: any; // Firestore timestamp of when user joined
 }
 
+// GUID: PAGE_TEAMS-002-v03
+// [Intent] Extends TeamBasic with prediction data and loading state for on-demand prediction fetching.
+// [Inbound Trigger] Teams state array uses this type; predictions populated when accordion is expanded.
+// [Downstream Impact] Drives conditional rendering in the accordion content (loading spinner, "joined after race", driver grid).
 interface TeamWithPrediction extends TeamBasic {
   predictions: (typeof F1Drivers[number] | null)[] | null; // null = not loaded, array = loaded
   isLoadingPredictions?: boolean;
@@ -50,6 +66,10 @@ interface TeamWithPrediction extends TeamBasic {
 
 const PAGE_SIZE = 25;
 
+// GUID: PAGE_TEAMS-003-v03
+// [Intent] Determines the most recent race that has scored results, used to set the default race selection.
+// [Inbound Trigger] Called during initial useEffect to auto-select the latest race with results.
+// [Downstream Impact] Drives the default value of selectedRace state; if logic changes, the default race shown on page load changes.
 // Helper to find the most recent race that has results
 function findMostRecentRaceWithResults(raceResults: { raceId: string }[]): string | null {
   if (!raceResults || raceResults.length === 0) return null;
@@ -69,6 +89,12 @@ function findMostRecentRaceWithResults(raceResults: { raceId: string }[]): strin
   return null;
 }
 
+// GUID: PAGE_TEAMS-004-v03
+// [Intent] Main page component that orchestrates team listing, race selection, on-demand prediction loading,
+//   pagination, and league filtering for the Teams view.
+// [Inbound Trigger] Rendered by Next.js router when user visits /teams.
+// [Downstream Impact] Consumes useFirestore, useLeague, useSmartLoader hooks and RaceSchedule/F1Drivers data.
+//   UI changes here affect the primary team browsing experience for all users.
 export default function TeamsPage() {
   const firestore = useFirestore();
   const { selectedLeague } = useLeague();
@@ -95,7 +121,10 @@ export default function TeamsPage() {
   // Cache for predictions by race
   const [predictionCache, setPredictionCache] = useState<Record<string, Record<string, (typeof F1Drivers[number] | null)[]>>>({});
 
-  // Fetch race results to determine default race selection
+  // GUID: PAGE_TEAMS-005-v03
+  // [Intent] Fetches race_results on mount to determine which race to show by default (most recent with results).
+  // [Inbound Trigger] Runs once when firestore is available and defaultRaceLoaded is false.
+  // [Downstream Impact] Sets selectedRace and defaultRaceLoaded state, which gates the initial team fetch (PAGE_TEAMS-012).
   useEffect(() => {
     if (!firestore || defaultRaceLoaded) return;
 
@@ -122,7 +151,10 @@ export default function TeamsPage() {
     fetchDefaultRace();
   }, [firestore, defaultRaceLoaded, nextRace.name]);
 
-  // Fetch total count once (using aggregation - no document download)
+  // GUID: PAGE_TEAMS-006-v03
+  // [Intent] Fetches the total user count using Firestore server-side aggregation (no document downloads).
+  // [Inbound Trigger] Runs once when firestore becomes available.
+  // [Downstream Impact] Populates totalCount used for the progress bar percentage display.
   useEffect(() => {
     if (!firestore) return;
 
@@ -139,7 +171,10 @@ export default function TeamsPage() {
     fetchCount();
   }, [firestore]);
 
-  // Format prediction data
+  // GUID: PAGE_TEAMS-007-v03
+  // [Intent] Converts raw Firestore prediction data into an array of F1Driver objects for display.
+  // [Inbound Trigger] Called by fetchPredictionForTeam when a prediction document is loaded.
+  // [Downstream Impact] Returns the driver array rendered in the accordion content grid. If F1Drivers data changes, driver matching may break.
   const formatPrediction = useCallback((predData: any) => {
     if (!predData) return Array(6).fill(null);
     const driverIds = predData.predictions || [
@@ -150,7 +185,11 @@ export default function TeamsPage() {
     return driverIds.map(id => F1Drivers.find(d => d.id === id) || null);
   }, []);
 
-  // Fetch just the teams (no predictions) - FAST
+  // GUID: PAGE_TEAMS-008-v03
+  // [Intent] Fetches paginated team list from Firestore users collection WITHOUT predictions (fast initial load).
+  // [Inbound Trigger] Called on initial page load (via PAGE_TEAMS-012 effect) and when "Load More" button is clicked.
+  // [Downstream Impact] Populates the teams state array. Predictions are loaded on-demand via PAGE_TEAMS-010.
+  //   Error display uses PX error codes with correlation IDs per Golden Rule #1.
   const fetchTeams = useCallback(async (isLoadMore = false) => {
     if (!firestore) return;
 
@@ -265,7 +304,10 @@ export default function TeamsPage() {
     }
   }, [firestore, lastDoc, startLoading, stopLoading]);
 
-  // Check if team joined after the selected race
+  // GUID: PAGE_TEAMS-009-v03
+  // [Intent] Checks whether a team's createdAt timestamp is after the selected race's qualifying time.
+  // [Inbound Trigger] Called by fetchPredictionForTeam to skip prediction loading for teams that joined late.
+  // [Downstream Impact] Sets joinedAfterRace flag on the team, rendering "Team joined after this race" message.
   const didTeamJoinAfterRace = useCallback((team: TeamWithPrediction): boolean => {
     if (!team.createdAt || !selectedRace) return false;
 
@@ -278,7 +320,12 @@ export default function TeamsPage() {
     return teamCreatedAt > raceQualifyingTime;
   }, [selectedRace]);
 
-  // Fetch prediction for a specific team on-demand
+  // GUID: PAGE_TEAMS-010-v03
+  // [Intent] Fetches predictions for a single team on-demand when the user expands an accordion item.
+  //   Uses a client-side prediction cache keyed by raceId to avoid redundant Firestore reads.
+  // [Inbound Trigger] Called from handleAccordionChange when a team's accordion is opened and predictions are null.
+  // [Downstream Impact] Updates the teams state array with prediction data and populates predictionCache.
+  //   Distinguishes between primary and secondary team predictions via teamName matching.
   const fetchPredictionForTeam = useCallback(async (teamKey: string, team: TeamWithPrediction) => {
     if (!firestore || !selectedRaceId) return;
 
@@ -356,7 +403,10 @@ export default function TeamsPage() {
     }
   }, [firestore, selectedRaceId, predictionCache, formatPrediction, didTeamJoinAfterRace]);
 
-  // Handle accordion open - fetch prediction on-demand
+  // GUID: PAGE_TEAMS-011-v03
+  // [Intent] Handles accordion open/close events and triggers on-demand prediction fetching for the opened team.
+  // [Inbound Trigger] Fired when user clicks an accordion trigger in the team list.
+  // [Downstream Impact] Calls fetchPredictionForTeam if predictions have not yet been loaded for the selected team.
   const handleAccordionChange = useCallback((value: string | undefined) => {
     setOpenAccordion(value);
 
@@ -372,14 +422,20 @@ export default function TeamsPage() {
     }
   }, [teams, fetchPredictionForTeam]);
 
-  // Initial load - wait for default race to be determined first
+  // GUID: PAGE_TEAMS-012-v03
+  // [Intent] Triggers the initial team list fetch once the default race has been determined.
+  // [Inbound Trigger] Runs when defaultRaceLoaded becomes true and selectedRace is set.
+  // [Downstream Impact] Calls fetchTeams to populate the team list. Guards against premature loading before race selection.
   useEffect(() => {
     if (defaultRaceLoaded && selectedRace) {
       fetchTeams(false);
     }
   }, [firestore, defaultRaceLoaded, selectedRace]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Clear predictions when race changes (they'll be loaded on-demand)
+  // GUID: PAGE_TEAMS-013-v03
+  // [Intent] Resets all team prediction data and closes the accordion when the selected race changes.
+  // [Inbound Trigger] selectedRaceId changes due to user selecting a different race from the dropdown.
+  // [Downstream Impact] Clears predictions from team state so they are re-fetched on-demand for the new race.
   useEffect(() => {
     if (selectedRaceId) {
       setTeams(prev => prev.map(t => ({ ...t, predictions: null, joinedAfterRace: undefined, isLoadingPredictions: false })));
@@ -387,6 +443,10 @@ export default function TeamsPage() {
     }
   }, [selectedRaceId]);
 
+  // GUID: PAGE_TEAMS-014-v03
+  // [Intent] Delegates to fetchTeams with isLoadMore=true for paginated loading.
+  // [Inbound Trigger] User clicks "Load More Teams" button at the bottom of the team list.
+  // [Downstream Impact] Appends the next page of teams to the existing teams array.
   const loadMore = () => {
     fetchTeams(true);
   };
@@ -395,7 +455,10 @@ export default function TeamsPage() {
     ? Math.min(100, Math.round((teams.length / totalCount) * 100))
     : 0;
 
-  // Filter teams by selected league
+  // GUID: PAGE_TEAMS-015-v03
+  // [Intent] Filters the full teams list to only members of the selected league (or shows all if global).
+  // [Inbound Trigger] Recomputed when teams array or selectedLeague changes.
+  // [Downstream Impact] filteredTeams is the array rendered in the accordion; league filtering affects visible team count.
   const filteredTeams = useMemo(() => {
     if (!selectedLeague || selectedLeague.isGlobal) {
       return teams;

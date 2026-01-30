@@ -1,3 +1,8 @@
+// GUID: API_EMAIL_QUEUE-000-v03
+// [Intent] API route that manages the email queue — supports fetching queued/failed emails (GET), sending or re-queuing emails with retry logic (POST), and deleting queued emails (DELETE). Central to the email delivery reliability system.
+// [Inbound Trigger] GET/POST/DELETE requests from the admin email queue management UI.
+// [Downstream Impact] Reads/writes email_queue and email_daily_stats collections. Sends emails via sendEmail (email lib). Failed emails are retried up to MAX_RETRY_ATTEMPTS times before being marked permanently failed.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
@@ -5,10 +10,17 @@ import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebas
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-// Retry configuration
+// GUID: API_EMAIL_QUEUE-001-v03
+// [Intent] Retry configuration constants — limits retry attempts to 3 and spaces retries 5 minutes apart to avoid hammering the Graph API during transient failures.
+// [Inbound Trigger] Referenced by handleEmailFailure when deciding whether to schedule a retry or mark as permanently failed.
+// [Downstream Impact] Changing MAX_RETRY_ATTEMPTS affects how many times a failed email is retried before giving up. Changing RETRY_DELAY_MINUTES affects the delay between retry attempts.
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MINUTES = 5;
 
+// GUID: API_EMAIL_QUEUE-002-v03
+// [Intent] Type definition for a queued email document — represents an email in the email_queue Firestore collection with its delivery status, retry metadata, and content.
+// [Inbound Trigger] Used to type documents retrieved from the email_queue collection across GET, POST, and DELETE handlers.
+// [Downstream Impact] Changing this shape affects the admin email queue UI that displays queued emails and all handler logic that processes queue documents.
 interface QueuedEmail {
   id: string;
   toEmail: string;
@@ -23,7 +35,10 @@ interface QueuedEmail {
   lastError?: string;
 }
 
-// GET - Fetch all queued emails (includes failed for admin view)
+// GUID: API_EMAIL_QUEUE-003-v03
+// [Intent] GET handler — fetches queued emails from Firestore. In admin mode (includeAll=true), returns up to 100 emails regardless of status. In normal mode, returns only pending emails whose nextRetryAt has passed (ready to process).
+// [Inbound Trigger] HTTP GET, optionally with ?includeAll=true query parameter for admin view.
+// [Downstream Impact] Returns email queue data to the admin UI. The filtering logic determines which emails appear as processable. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
 export async function GET(request: NextRequest) {
   try {
     const { db, Timestamp } = await getFirebaseAdmin();
@@ -70,7 +85,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Push (send) queued emails or resend failed emails
+// GUID: API_EMAIL_QUEUE-004-v03
+// [Intent] POST handler — processes email queue actions. "resend" action re-queues failed emails by resetting their retry count and status to pending. "push" action sends pending emails via Graph API, recording successes in email_daily_stats and handling failures with exponential retry logic via handleEmailFailure.
+// [Inbound Trigger] HTTP POST with JSON body containing action ("push" or "resend") and optional emailIds array.
+// [Downstream Impact] "push" sends emails via sendEmail, updates email_queue documents to sent/failed, and records successful sends in email_daily_stats. "resend" resets failed emails to pending. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
 export async function POST(request: NextRequest) {
   try {
     const { action, emailIds } = await request.json();
@@ -220,11 +238,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Handle email failure with retry logic
- * - If retryCount < MAX_RETRY_ATTEMPTS: schedule retry in RETRY_DELAY_MINUTES
- * - If retryCount >= MAX_RETRY_ATTEMPTS: mark as failed permanently
- */
+// GUID: API_EMAIL_QUEUE-005-v03
+// [Intent] Handles email send failures with retry logic. If the retry count is below MAX_RETRY_ATTEMPTS (3), schedules a retry after RETRY_DELAY_MINUTES (5 min) by updating the queue document. If max retries are exhausted, marks the email as permanently failed.
+// [Inbound Trigger] Called from the POST handler's "push" action when sendEmail fails or returns an error.
+// [Downstream Impact] Updates the email_queue document with new retry state. Determines whether the email will be retried or abandoned. The retryScheduled return value is surfaced in the POST response.
 async function handleEmailFailure(
   db: FirebaseFirestore.Firestore,
   FieldValue: typeof import('firebase-admin/firestore').FieldValue,
@@ -259,7 +276,10 @@ async function handleEmailFailure(
   }
 }
 
-// DELETE - Remove queued emails
+// GUID: API_EMAIL_QUEUE-006-v03
+// [Intent] DELETE handler — removes queued emails from Firestore. If specific emailIds are provided, deletes those; otherwise deletes all pending emails. Used by admins to clear the queue.
+// [Inbound Trigger] HTTP DELETE with JSON body containing optional emailIds array.
+// [Downstream Impact] Permanently removes documents from the email_queue collection. Deleted emails cannot be recovered. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
 export async function DELETE(request: NextRequest) {
   try {
     const { db } = await getFirebaseAdmin();

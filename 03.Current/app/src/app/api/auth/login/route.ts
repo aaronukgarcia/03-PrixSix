@@ -1,3 +1,8 @@
+// GUID: API_AUTH_LOGIN-000-v03
+// [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces account lockout after repeated failures, logs all attempts for attack detection, and returns a Firebase custom token on success.
+// [Inbound Trigger] POST request from the client-side login form (LoginPage component).
+// [Downstream Impact] Returns a customToken used by the client to call Firebase signInWithCustomToken(). Writes to audit_logs, login_attempts, and users collections. Lockout state affects future login attempts.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { logLoginAttempt, checkForAttack } from '@/lib/attack-detection';
@@ -5,6 +10,10 @@ import { logLoginAttempt, checkForAttack } from '@/lib/attack-detection';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
+// GUID: API_AUTH_LOGIN-001-v03
+// [Intent] Extract the real client IP address from incoming requests, accounting for various proxy/CDN header conventions.
+// [Inbound Trigger] Called at the start of the POST handler to identify the client for rate limiting and audit logging.
+// [Downstream Impact] The returned IP is written to audit_logs and login_attempts. Used by attack-detection module to flag suspicious activity per IP.
 /**
  * Extract client IP from request headers
  * Checks multiple headers in order of preference for proxy/CDN setups
@@ -33,17 +42,29 @@ function getClientIP(request: NextRequest): string {
   return 'unknown';
 }
 
+// GUID: API_AUTH_LOGIN-002-v03
+// [Intent] Define the brute-force protection thresholds: max allowed failed attempts and lockout window duration.
+// [Inbound Trigger] Referenced by the lockout check logic and lockout trigger logic within the POST handler.
+// [Downstream Impact] Changing these values directly affects when users get locked out and for how long. Alters the security posture of the entire login flow.
 // Maximum login attempts before lockout
 const MAX_LOGIN_ATTEMPTS = 5;
 
 // Lockout duration in milliseconds (30 minutes)
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000;
 
+// GUID: API_AUTH_LOGIN-003-v03
+// [Intent] Type contract for the expected JSON body of the login request.
+// [Inbound Trigger] Used to type-assert the parsed request body in the POST handler.
+// [Downstream Impact] Any change to these fields requires matching changes in the client-side login form submission logic.
 interface LoginRequest {
   email: string;
   pin: string;
 }
 
+// GUID: API_AUTH_LOGIN-004-v03
+// [Intent] Main login POST handler. Validates input, checks lockout status, verifies credentials via Firebase Auth REST API, tracks failed/successful attempts, and returns a custom token on success.
+// [Inbound Trigger] HTTP POST to /api/auth/login from the client-side login form.
+// [Downstream Impact] On success: returns customToken + uid consumed by the client to establish a Firebase Auth session. On failure: increments badLoginAttempts on the users document, may trigger account lockout. All attempts are logged to audit_logs and login_attempts collections for attack detection.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
   const clientIP = getClientIP(request);
@@ -53,6 +74,10 @@ export async function POST(request: NextRequest) {
     const data: LoginRequest = await request.json();
     const { email, pin } = data;
 
+    // GUID: API_AUTH_LOGIN-005-v03
+    // [Intent] Validate that both email and PIN are present before proceeding with authentication.
+    // [Inbound Trigger] Every login request passes through this check.
+    // [Downstream Impact] Returns 400 early if fields are missing. Logged to error_logs for monitoring incomplete submissions.
     // Validate required fields
     if (!email || !pin) {
       await logError({
@@ -77,12 +102,20 @@ export async function POST(request: NextRequest) {
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
 
+    // GUID: API_AUTH_LOGIN-006-v03
+    // [Intent] Look up the user document in Firestore by normalised email to check lockout status and track login attempts.
+    // [Inbound Trigger] Runs after input validation passes.
+    // [Downstream Impact] The retrieved user document is used for lockout checks, bad attempt counter updates, and audit logging throughout the rest of the handler.
     // Find user by email in Firestore
     const usersQuery = await db.collection('users')
       .where('email', '==', normalizedEmail)
       .limit(1)
       .get();
 
+    // GUID: API_AUTH_LOGIN-007-v03
+    // [Intent] Enforce account lockout: if the user has exceeded MAX_LOGIN_ATTEMPTS within the LOCKOUT_DURATION_MS window, reject the login and log the blocked attempt. Also auto-reset the counter once the lockout window expires.
+    // [Inbound Trigger] Runs when the Firestore user document exists (email found).
+    // [Downstream Impact] A locked-out user receives HTTP 429 and cannot proceed to credential verification. The lockout state persists in the users document (badLoginAttempts, lastFailedLoginAt). Attack detection is also triggered for pattern analysis.
     // SECURITY: Check if account exists and lockout status BEFORE attempting auth
     if (!usersQuery.empty) {
       const userDoc = usersQuery.docs[0];
@@ -144,6 +177,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // GUID: API_AUTH_LOGIN-008-v03
+    // [Intent] Look up the user in Firebase Auth by email to confirm the account exists in the auth system, separate from Firestore.
+    // [Inbound Trigger] Runs after lockout check passes.
+    // [Downstream Impact] If user not found in Firebase Auth, returns 401 with a generic message (prevents email enumeration). The retrieved firebaseUserRecord.uid is used later to generate the custom token.
     // Attempt to verify credentials using Firebase Auth
     // First, get the user by email
     let firebaseUserRecord;
@@ -182,6 +219,10 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
+    // GUID: API_AUTH_LOGIN-009-v03
+    // [Intent] Verify the user's PIN (password) by calling the Firebase Auth REST API (Identity Toolkit signInWithPassword endpoint), since the Admin SDK does not support password verification directly.
+    // [Inbound Trigger] Runs after the Firebase Auth user record is successfully retrieved.
+    // [Downstream Impact] If the API key is missing, returns 500. If credentials are invalid, increments the bad attempt counter and may trigger lockout. A Referer header is included to satisfy API key HTTP referrer restrictions.
     // Verify the PIN by attempting to sign in with Firebase Auth REST API
     // Since Admin SDK can't verify passwords, we use the Firebase Auth REST API
     const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -226,6 +267,10 @@ export async function POST(request: NextRequest) {
 
     const authResult = await authResponse.json();
 
+    // GUID: API_AUTH_LOGIN-010-v03
+    // [Intent] Handle failed credential verification: increment the bad login attempts counter, log the failure for attack detection, write an audit record, and trigger lockout if the threshold is reached.
+    // [Inbound Trigger] The Firebase Auth REST API returned a non-OK response or an error payload.
+    // [Downstream Impact] Updates badLoginAttempts and lastFailedLoginAt on the users document. May trigger immediate lockout (HTTP 429). Attack detection patterns are evaluated for the IP and email.
     if (!authResponse.ok || authResult.error) {
       // Invalid credentials - increment bad login attempts
       const userDoc = usersQuery.empty ? null : usersQuery.docs[0];
@@ -284,6 +329,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // GUID: API_AUTH_LOGIN-011-v03
+    // [Intent] Handle successful authentication: generate a Firebase custom token, reset the bad login attempts counter, log the success for analytics and auditing, and return the token to the client.
+    // [Inbound Trigger] The Firebase Auth REST API confirmed the credentials are valid.
+    // [Downstream Impact] The returned customToken is used by the client to call signInWithCustomToken() to establish a Firebase Auth session. The users document is updated to clear lockout state. Audit and analytics records are written.
     // Success! Generate a custom token for the client
     const customToken = await auth.createCustomToken(firebaseUserRecord.uid);
 
@@ -325,6 +374,10 @@ export async function POST(request: NextRequest) {
       uid: firebaseUserRecord.uid,
     });
 
+  // GUID: API_AUTH_LOGIN-012-v03
+  // [Intent] Top-level catch-all error handler for any unhandled exception during login. Logs the error with full context (excluding the PIN) and returns a generic 500 response with the correlation ID.
+  // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
+  // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response allows support to trace the issue. If logError itself fails, falls back to console.error to avoid masking the original error.
   } catch (error: any) {
     console.error('[Login Error]', error);
 

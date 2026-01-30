@@ -1,9 +1,18 @@
+// GUID: API_EMAIL_HEALTH-000-v03
+// [Intent] API route that provides an email system health check for admins. Checks Graph API credentials, Firebase Admin connectivity, recent email success/failure rates, and email queue depth.
+// [Inbound Trigger] GET request from the admin email dashboard or monitoring tools.
+// [Downstream Impact] Returns a HealthCheckResult JSON with overall status (healthy/degraded/unhealthy) and per-check details. Admin UI uses this to display system health indicators.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, verifyAuthToken } from '@/lib/firebase-admin';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
+// GUID: API_EMAIL_HEALTH-001-v03
+// [Intent] Type definition for the health check response — structured result with overall status and individual check statuses for Graph credentials, Firebase Admin, recent emails, and queued emails.
+// [Inbound Trigger] Used to type the response object assembled in the GET handler.
+// [Downstream Impact] Changing this shape affects the admin EmailHealth component that consumes and displays these check results.
 interface HealthCheckResult {
   overall: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: string;
@@ -15,6 +24,10 @@ interface HealthCheckResult {
   };
 }
 
+// GUID: API_EMAIL_HEALTH-002-v03
+// [Intent] GET handler — authenticates the caller via Bearer token, checks admin status, then assembles a health report by inspecting Graph API env vars, querying email_logs for failures in the last 24 hours, and checking email_queue for pending items. Returns overall status as healthy/degraded/unhealthy.
+// [Inbound Trigger] HTTP GET with Authorization header containing a valid Firebase ID token for an admin user.
+// [Downstream Impact] Reads from email_logs (filtered by timestamp >= 24h ago) and email_queue (filtered by status == pending). Admin access is verified via users collection isAdmin flag. Returns 401 if unauthenticated, 403 if non-admin.
 export async function GET(request: NextRequest) {
   // Verify admin token
   const authHeader = request.headers.get('Authorization');

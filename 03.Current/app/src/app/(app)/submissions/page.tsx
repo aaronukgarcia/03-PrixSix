@@ -1,3 +1,11 @@
+// GUID: PAGE_SUBMISSIONS-000-v03
+// [Intent] Submissions page — displays locked-in predictions for all teams for a selected race in a sortable,
+//   paginated table. Defaults to the first unscored race (highlighted green in the dropdown).
+//   Supports league filtering via LeagueSelector and sort toggle between date and team name.
+// [Inbound Trigger] User navigates to /submissions in the app layout.
+// [Downstream Impact] Reads from Firestore "scores" collection and "predictions" collectionGroup.
+//   Changes to prediction document schema or collectionGroup indexes will break data fetching.
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -35,6 +43,10 @@ import { RaceSchedule, findNextRace, formatDriverPredictions } from "@/lib/data"
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
+// GUID: PAGE_SUBMISSIONS-001-v03
+// [Intent] Defines the display shape for a single submission row in the table.
+// [Inbound Trigger] Constructed during fetchSubmissions from Firestore prediction documents.
+// [Downstream Impact] Drives table row rendering including team name, formatted predictions, timestamp, and carry-forward badge.
 interface SubmissionDisplay {
   id: string;
   userId: string;
@@ -46,8 +58,18 @@ interface SubmissionDisplay {
 
 const PAGE_SIZE = 25;
 
+// GUID: PAGE_SUBMISSIONS-002-v03
+// [Intent] Union type for the two sortable columns: submission date or team name.
+// [Inbound Trigger] Used by sortField state and the sort toggle buttons.
+// [Downstream Impact] Controls the Firestore orderBy clause in fetchSubmissions — changing allowed values requires index updates.
 type SortField = "submittedAt" | "teamName";
 
+// GUID: PAGE_SUBMISSIONS-003-v03
+// [Intent] Main page component that orchestrates the submissions table with race selection, sorting,
+//   pagination, and league filtering for viewing locked-in predictions.
+// [Inbound Trigger] Rendered by Next.js router when user visits /submissions.
+// [Downstream Impact] Consumes useFirestore, useLeague hooks and RaceSchedule data.
+//   UI changes here affect the primary submission browsing experience for all users.
 export default function SubmissionsPage() {
   const firestore = useFirestore();
   const { selectedLeague } = useLeague();
@@ -57,7 +79,11 @@ export default function SubmissionsPage() {
   const [nextRaceName, setNextRaceName] = useState<string | null>(null);
   const selectedRaceId = selectedRace.replace(/\s+/g, '-');
 
-  // Determine the first unscored race and default to it
+  // GUID: PAGE_SUBMISSIONS-004-v03
+  // [Intent] Determines the first unscored race by comparing all scores in Firestore against the RaceSchedule,
+  //   then defaults the dropdown to that race and marks it for green highlighting.
+  // [Inbound Trigger] Runs once when firestore is available on page mount.
+  // [Downstream Impact] Sets selectedRace and nextRaceName state. nextRaceName drives the green CSS class on the dropdown item.
   useEffect(() => {
     if (!firestore) return;
     const determineNextUnscored = async () => {
@@ -101,6 +127,10 @@ export default function SubmissionsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // GUID: PAGE_SUBMISSIONS-005-v03
+  // [Intent] Formats a Firestore timestamp or Date into a human-readable en-GB date/time string.
+  // [Inbound Trigger] Called per table row to display the "Submitted At" column.
+  // [Downstream Impact] Purely presentational; no downstream data dependencies.
   const formatTimestamp = (timestamp: any) => {
     if (!timestamp) return "N/A";
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -113,13 +143,20 @@ export default function SubmissionsPage() {
     });
   };
 
+  // GUID: PAGE_SUBMISSIONS-006-v03
+  // [Intent] Delegates to the centralised formatDriverPredictions utility for consistent driver name formatting.
+  // [Inbound Trigger] Called per submission document during fetchSubmissions mapping.
+  // [Downstream Impact] Output displayed in the "Prediction (P1-P6)" column. Relies on data.ts formatDriverPredictions.
   // Use centralized driver name formatting from data.ts
   // This ensures consistent driver name display (e.g., "Hamilton" not "hamilton")
   const formatPredictions = (predictions: any) => {
     return formatDriverPredictions(predictions);
   };
 
-  // Fetch count for selected race
+  // GUID: PAGE_SUBMISSIONS-007-v03
+  // [Intent] Fetches the total prediction count for the selected race using Firestore server-side aggregation.
+  // [Inbound Trigger] Runs whenever selectedRaceId changes (race dropdown selection).
+  // [Downstream Impact] Populates totalCount used for the progress bar. Non-critical — count errors are silently ignored.
   useEffect(() => {
     if (!firestore || !selectedRaceId) return;
 
@@ -140,7 +177,12 @@ export default function SubmissionsPage() {
     fetchCount();
   }, [firestore, selectedRaceId]);
 
-  // Fetch submissions with pagination
+  // GUID: PAGE_SUBMISSIONS-008-v03
+  // [Intent] Fetches paginated submission data from the "predictions" collectionGroup filtered by raceId,
+  //   sorted by the current sortField. Supports both initial load and "Load More" pagination.
+  // [Inbound Trigger] Called on initial load, race change, sort change, and "Load More" button click.
+  // [Downstream Impact] Populates submissions state array rendered in the table. Error display uses PX error codes
+  //   with correlation IDs per Golden Rule #1. Requires Firestore composite indexes on predictions collectionGroup.
   const fetchSubmissions = useCallback(async (isLoadMore = false) => {
     if (!firestore) return;
 
@@ -229,16 +271,26 @@ export default function SubmissionsPage() {
     }
   }, [firestore, selectedRaceId, lastDoc, sortField]);
 
-  // Initial load and race/sort change
+  // GUID: PAGE_SUBMISSIONS-009-v03
+  // [Intent] Triggers fetchSubmissions on initial page load and whenever the race or sort field changes.
+  // [Inbound Trigger] Dependency on firestore, selectedRaceId, and sortField state changes.
+  // [Downstream Impact] Resets and reloads the submissions list from Firestore.
   useEffect(() => {
     fetchSubmissions(false);
   }, [firestore, selectedRaceId, sortField]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // GUID: PAGE_SUBMISSIONS-010-v03
+  // [Intent] Delegates to fetchSubmissions with isLoadMore=true for paginated loading.
+  // [Inbound Trigger] User clicks "Load More Teams" button at the bottom of the table.
+  // [Downstream Impact] Appends the next page of submissions to the existing array.
   const loadMore = () => {
     fetchSubmissions(true);
   };
 
-  // Filter submissions by selected league
+  // GUID: PAGE_SUBMISSIONS-011-v03
+  // [Intent] Filters the full submissions list to only members of the selected league (or shows all if global).
+  // [Inbound Trigger] Recomputed when submissions array or selectedLeague changes.
+  // [Downstream Impact] filteredSubmissions is the array rendered in the table; league filtering affects visible row count.
   const filteredSubmissions = useMemo(() => {
     if (!selectedLeague || selectedLeague.isGlobal) {
       return submissions;

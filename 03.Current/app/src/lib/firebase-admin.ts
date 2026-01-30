@@ -1,3 +1,8 @@
+// GUID: LIB_FIREBASE_ADMIN-000-v03
+// [Intent] Server-side Firebase Admin SDK initialisation and shared utilities for authentication verification, correlation ID generation, and centralised error logging.
+// [Inbound Trigger] Imported by all server-side API routes that need Firestore access, auth verification, or error logging.
+// [Downstream Impact] Every server-side API route depends on this module. Changes to initialisation logic, auth verification, or error logging affect the entire backend.
+
 /**
  * Firebase Admin SDK initialization for server-side API routes.
  * Uses Application Default Credentials (ADC) when running on Google Cloud,
@@ -7,11 +12,19 @@
 import type { App } from 'firebase-admin/app';
 import type { Firestore, FieldValue as FieldValueType, Timestamp as TimestampType } from 'firebase-admin/firestore';
 
+// GUID: LIB_FIREBASE_ADMIN-001-v03
+// [Intent] Module-level singleton cache for the Firebase Admin SDK app, Firestore instance, FieldValue, and Timestamp to avoid re-initialisation on every request.
+// [Inbound Trigger] Populated on first call to getFirebaseAdmin; reused on subsequent calls.
+// [Downstream Impact] If these become stale or corrupted, all server-side Firestore operations fail. The singleton pattern means credentials are loaded once per process lifetime.
 let adminApp: App | null = null;
 let adminDb: Firestore | null = null;
 let adminFieldValue: typeof FieldValueType | null = null;
 let adminTimestamp: typeof TimestampType | null = null;
 
+// GUID: LIB_FIREBASE_ADMIN-002-v03
+// [Intent] Lazily initialises the Firebase Admin SDK (choosing between explicit service account credentials for local dev or Application Default Credentials for Google Cloud) and returns the Firestore instance, FieldValue, and Timestamp utilities.
+// [Inbound Trigger] Called by every API route that needs server-side Firestore access (login, scoring, admin operations, error logging).
+// [Downstream Impact] All server-side database operations depend on this function. If initialisation fails, the entire backend is non-functional. The credential selection logic must match the deployment environment.
 export async function getFirebaseAdmin(): Promise<{
   db: Firestore;
   FieldValue: typeof FieldValueType;
@@ -59,6 +72,10 @@ export async function getFirebaseAdmin(): Promise<{
   return { db: adminDb, FieldValue: adminFieldValue, Timestamp: adminTimestamp };
 }
 
+// GUID: LIB_FIREBASE_ADMIN-003-v03
+// [Intent] Verifies a Firebase ID token from an Authorization header and returns the decoded user identity (uid and email), or null if invalid/missing.
+// [Inbound Trigger] Called by protected API routes to authenticate incoming requests via the Bearer token in the Authorization header.
+// [Downstream Impact] All protected API endpoints depend on this for authentication. Returning null causes the caller to reject the request as unauthorised. Changes to token verification logic affect the entire auth boundary.
 /**
  * Verify a Firebase ID token and return the decoded token
  * SECURITY: Use this to verify that API requests are from authenticated users
@@ -87,6 +104,10 @@ export async function verifyAuthToken(authHeader: string | null): Promise<{
   }
 }
 
+// GUID: LIB_FIREBASE_ADMIN-004-v03
+// [Intent] Generates a unique correlation ID for error tracking, combining a base-36 timestamp with a random suffix to ensure uniqueness.
+// [Inbound Trigger] Called at the start of API route error handling to create a traceable reference for each error instance.
+// [Downstream Impact] The generated ID is stored in error_logs and displayed to users (Golden Rule #1). Format changes affect error log querying and user-reported error references.
 /**
  * Generate a correlation ID for error tracking
  */
@@ -96,6 +117,10 @@ export function generateCorrelationId(): string {
   return `err_${timestamp}_${random}`;
 }
 
+// GUID: LIB_FIREBASE_ADMIN-005-v03
+// [Intent] Persists error details (message, stack trace, context, correlation ID) to the error_logs Firestore collection for centralised error tracking and debugging.
+// [Inbound Trigger] Called by API route catch blocks after generating a correlation ID (Golden Rule #1 compliance).
+// [Downstream Impact] Writes to error_logs collection used by admin error monitoring. Silently catches its own failures to avoid cascading errors. If this function fails, errors are only logged to console.
 /**
  * Log an error to Firestore with correlation ID and context
  */

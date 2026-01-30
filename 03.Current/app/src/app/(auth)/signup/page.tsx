@@ -1,3 +1,9 @@
+// GUID: PAGE_SIGNUP-000-v03
+// [Intent] Signup page for Prix Six. Allows new players to register with a team name,
+//          email, and 6-digit PIN. Includes weak PIN rejection and fun team name suggestions.
+// [Inbound Trigger] User navigates to /signup from the login page link.
+// [Downstream Impact] Successful signup calls useAuth().signup which creates Firebase Auth user
+//                     and Firestore user document, then redirects to /login.
 
 "use client";
 
@@ -24,6 +30,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
 
+// GUID: PAGE_SIGNUP-001-v03
+// [Intent] Array of humorous F1-themed team name suggestions shown via the Wand2 button.
+// [Inbound Trigger] suggestName() picks a random entry on mount and on button click.
+// [Downstream Impact] Populates the teamName form field with a fun default value.
 const funnyNames = [
     "Shortcrust Piastri",
     "Checo yourself",
@@ -34,13 +44,21 @@ const funnyNames = [
     "Max Power",
 ];
 
-// Weak PINs that should be rejected
+// GUID: PAGE_SIGNUP-002-v03
+// [Intent] Blocklist of common weak PINs to prevent trivially guessable credentials.
+// [Inbound Trigger] Zod .refine() validation checks submitted PIN against this list.
+// [Downstream Impact] If PIN matches, form validation fails with "too easy to guess" message.
 const weakPins = [
     "123456", "654321", "111111", "222222", "333333", "444444",
     "555555", "666666", "777777", "888888", "999999", "000000",
     "123123", "121212", "112233", "001122", "102030", "112211",
 ];
 
+// GUID: PAGE_SIGNUP-003-v03
+// [Intent] Zod schema for signup form — validates team name (min 3 chars), email,
+//          6-digit numeric PIN (not weak), and PIN confirmation match.
+// [Inbound Trigger] Form submission triggers zodResolver validation.
+// [Downstream Impact] Invalid input prevents onSubmit; FormMessage shows per-field errors.
 const formSchema = z.object({
   teamName: z.string().min(3, { message: "Team name must be at least 3 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
@@ -56,6 +74,12 @@ const formSchema = z.object({
   path: ["confirmPin"],
 });
 
+// GUID: PAGE_SIGNUP-004-v03
+// [Intent] Main signup page component — renders registration form with team name suggestion,
+//          email, PIN, and confirm PIN fields. Handles registration and error display.
+// [Inbound Trigger] Route navigation to /signup.
+// [Downstream Impact] Calls useAuth().signup which hits /api/signup. On success, redirects to /login.
+//                     On failure, displays error with PX error code and correlation ID.
 export default function SignupPage() {
     const { toast } = useToast();
     const router = useRouter();
@@ -73,6 +97,11 @@ export default function SignupPage() {
         },
     });
 
+    // GUID: PAGE_SIGNUP-005-v03
+    // [Intent] Client-only effect to set a random team name suggestion after hydration,
+    //          preventing SSR/client mismatch on the teamName field.
+    // [Inbound Trigger] Component mounts on client (empty dependency array).
+    // [Downstream Impact] Populates teamName field if empty; no effect if user already typed.
     useEffect(() => {
       // This runs only on the client, after hydration, preventing the mismatch.
       if (!form.getValues("teamName")) {
@@ -80,11 +109,20 @@ export default function SignupPage() {
       }
     }, []); // Empty dependency array ensures this runs only once on mount
 
+    // GUID: PAGE_SIGNUP-006-v03
+    // [Intent] Picks a random F1-themed team name from funnyNames and sets it in the form.
+    // [Inbound Trigger] Called on mount (via useEffect) and when user clicks the Wand2 button.
+    // [Downstream Impact] Updates the teamName form field value.
     function suggestName() {
         const name = funnyNames[Math.floor(Math.random() * funnyNames.length)];
         form.setValue("teamName", name);
     }
 
+    // GUID: PAGE_SIGNUP-007-v03
+    // [Intent] Form submission handler — calls signup API, shows success toast and redirects
+    //          to /login, or displays error with PX code and client-generated correlation ID.
+    // [Inbound Trigger] User clicks "Sign Up" button and form validation passes.
+    // [Downstream Impact] Success: toast + redirect to /login. Failure: error with PX-9001 and Ref ID.
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setLoading(true);
         setError(null);
