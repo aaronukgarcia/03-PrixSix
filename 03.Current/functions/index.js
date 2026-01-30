@@ -34,12 +34,12 @@ const { Storage } = require("@google-cloud/storage");
 initializeApp();
 
 // ── Configuration ──────────────────────────────────────────────
-// GUID: BACKUP_FUNCTIONS-002-v03
+// GUID: BACKUP_FUNCTIONS-002-v04
 // [Intent] Centralise all environment-specific constants so they can be
 //          changed in one place if the project is forked or renamed.
 // [Inbound Trigger] Module load.
 // [Downstream Impact] Referenced by every function and helper in this file.
-const MAIN_PROJECT = "prix6-prod";
+const MAIN_PROJECT = "studio-6033436327-281b1";
 const RECOVERY_PROJECT = "prix6-recovery-test";
 const BUCKET = "prix6-backups";
 const REGION = "europe-west2";
