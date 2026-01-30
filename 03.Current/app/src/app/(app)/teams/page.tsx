@@ -448,7 +448,7 @@ export default function TeamsPage() {
           {!isLoading && totalCount && totalCount > PAGE_SIZE && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Showing {filteredTeams.length}{selectedLeague && !selectedLeague.isGlobal ? ` (filtered from ${teams.length})` : ''} of {totalCount} teams</span>
+                <span>Showing {filteredTeams.length}{selectedLeague && !selectedLeague.isGlobal ? ` of ${teams.length}` : ''} teams</span>
                 <span>{progressPercent}%</span>
               </div>
               <Progress value={progressPercent} className="h-2" />
