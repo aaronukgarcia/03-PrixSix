@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, serverTimestamp, Timestamp, Firestore, FieldValue, collection, query, orderBy, limit, getDocs, addDoc, Query } from "firebase/firestore";
+import { doc, getDoc, getDocFromServer, setDoc, serverTimestamp, Timestamp, Firestore, FieldValue, collection, query, orderBy, limit, getDocs, addDoc, Query } from "firebase/firestore";
 
 // ============================================
 // Hot News Settings
@@ -206,12 +206,15 @@ const defaultPubChatSettings: PubChatSettings = {
  * Retrieves the pub chat settings from Firestore.
  * If the document doesn't exist, it returns default values.
  * @param {Firestore} db - The Firestore instance.
+ * @param {boolean} forceServer - If true, bypasses cache and fetches from server.
  * @returns {Promise<PubChatSettings>} The current pub chat settings.
  */
-export async function getPubChatSettings(db: Firestore): Promise<PubChatSettings> {
+export async function getPubChatSettings(db: Firestore, forceServer = false): Promise<PubChatSettings> {
     const settingsRef = doc(db, "app-settings", "pub-chat");
     try {
-        const docSnap = await getDoc(settingsRef);
+        const docSnap = forceServer
+            ? await getDocFromServer(settingsRef)
+            : await getDoc(settingsRef);
         if (docSnap.exists()) {
             const data = docSnap.data();
             return { ...defaultPubChatSettings, ...data } as PubChatSettings;

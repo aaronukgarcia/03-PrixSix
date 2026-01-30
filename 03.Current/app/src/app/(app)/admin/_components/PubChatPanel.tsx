@@ -28,11 +28,12 @@ export function PubChatPanel() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
 
-    const fetchContent = useCallback(async () => {
+    const fetchContent = useCallback(async (forceServer = false) => {
         try {
             setError(null);
-            const data = await getPubChatSettings(firestore);
+            const data = await getPubChatSettings(firestore, forceServer);
             setSettings(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to fetch pub chat content');
@@ -48,7 +49,8 @@ export function PubChatPanel() {
 
     const handleRefresh = () => {
         setRefreshing(true);
-        fetchContent();
+        setRefreshKey(k => k + 1);
+        fetchContent(true);
     };
 
     const formatTimestamp = (ts: Timestamp): string => {
@@ -63,7 +65,7 @@ export function PubChatPanel() {
                 [Inbound Trigger] Component mount.
                 [Downstream Impact] Renders the self-contained F1 pre-season animation. */}
             <div className="flex justify-center">
-                <ThePaddockPubChat />
+                <ThePaddockPubChat key={refreshKey} />
             </div>
 
             {/* GUID: PUBCHAT_PANEL-003-v02
