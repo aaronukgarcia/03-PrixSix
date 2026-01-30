@@ -21,7 +21,8 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
-const { Firestore: FirestoreClient } = require("@google-cloud/firestore");
+const { Firestore: FirestoreDataClient } = require("@google-cloud/firestore");
+const { FirestoreAdminClient } = require("@google-cloud/firestore").v1;
 const { Storage } = require("@google-cloud/storage");
 
 // GUID: BACKUP_FUNCTIONS-001-v03
@@ -135,15 +136,16 @@ async function performBackup(db) {
   const gcsPrefix = `gs://${BUCKET}/${folder}`;
 
   try {
-    // GUID: BACKUP_FUNCTIONS-011-v03
-    // [Intent] Use the Firestore managed export API (not client-side reads)
-    //          to create a consistent, point-in-time snapshot of ALL collections.
+    // GUID: BACKUP_FUNCTIONS-011-v04
+    // [Intent] Use the Firestore Admin V1 client (FirestoreAdminClient) to call the
+    //          managed export API — NOT the data client (Firestore). The data client
+    //          does not have exportDocuments() or databasePath() methods.
     // [Inbound Trigger] performBackup call.
     // [Downstream Impact] Creates export files under gs://prix6-backups/{date}/firestore/.
     //                     The LRO (Long Running Operation) blocks until export completes.
-    const firestoreClient = new FirestoreClient({ projectId: MAIN_PROJECT });
-    const [exportOp] = await firestoreClient.exportDocuments({
-      name: firestoreClient.databasePath(MAIN_PROJECT, "(default)"),
+    const firestoreAdmin = new FirestoreAdminClient({ projectId: MAIN_PROJECT });
+    const [exportOp] = await firestoreAdmin.exportDocuments({
+      name: firestoreAdmin.databasePath(MAIN_PROJECT, "(default)"),
       outputUriPrefix: `${gcsPrefix}/firestore`,
       collectionIds: [], // empty = all collections
     });
@@ -419,35 +421,36 @@ exports.runRecoveryTest = onSchedule(
       const backupPath = statusSnap.data().lastBackupPath;
       const firestoreExportPath = `${backupPath}/firestore`;
 
-      // GUID: BACKUP_FUNCTIONS-022-v03
+      // GUID: BACKUP_FUNCTIONS-022-v04
       // [Intent] Import the Firestore export into the recovery project's
-      //          (default) database. This is a full restore — all collections
-      //          from the export are written into the recovery DB.
+      //          (default) database using FirestoreAdminClient (not the data client).
+      //          importDocuments() and databasePath() are admin V1 methods only.
       // [Inbound Trigger] Backup path successfully retrieved from status doc.
       // [Downstream Impact] Recovery project Firestore now contains a copy of
       //                     production data. Must be cleaned up after verification.
-      const recoveryClient = new FirestoreClient({
+      const recoveryAdmin = new FirestoreAdminClient({
         projectId: RECOVERY_PROJECT,
       });
 
-      const [importOp] = await recoveryClient.importDocuments({
-        name: recoveryClient.databasePath(RECOVERY_PROJECT, "(default)"),
+      const [importOp] = await recoveryAdmin.importDocuments({
+        name: recoveryAdmin.databasePath(RECOVERY_PROJECT, "(default)"),
         inputUriPrefix: firestoreExportPath,
         collectionIds: [], // all collections
       });
 
       await importOp.promise();
 
-      // GUID: BACKUP_FUNCTIONS-023-v03
-      // [Intent] Verify that the restored data contains critical documents:
+      // GUID: BACKUP_FUNCTIONS-023-v04
+      // [Intent] Verify that the restored data contains critical documents using the
+      //          regular Firestore data client (not the admin client — data reads use
+      //          collection/doc/get which are data client methods only).
       //          1. system_status/heartbeat — proves system config survived.
       //          2. users collection has at least one doc — proves user data survived.
       //          Both checks failing = the backup is empty or corrupt.
-      //          One passing is sufficient (system_status may not exist in all envs).
       // [Inbound Trigger] Import LRO completed successfully.
       // [Downstream Impact] If both checks fail, throws an error that marks the
       //                     smoke test as FAILED in the status doc.
-      const recoveryDb = new FirestoreClient({ projectId: RECOVERY_PROJECT });
+      const recoveryDb = new FirestoreDataClient({ projectId: RECOVERY_PROJECT });
 
       const heartbeatDoc = await recoveryDb
         .collection("system_status")

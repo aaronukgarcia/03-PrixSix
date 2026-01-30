@@ -53,9 +53,9 @@
     },
     {
       "guid": "BACKUP_FUNCTIONS-011",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Firestore managed export via @google-cloud/firestore exportDocuments(). Creates a transactionally-consistent point-in-time snapshot of ALL collections. Blocks on the Long Running Operation until complete.",
+      "description": "Firestore managed export via FirestoreAdminClient.exportDocuments() (v1 admin API). The regular Firestore data client does NOT have exportDocuments() or databasePath() — must use the admin client from @google-cloud/firestore v1 namespace.",
       "dependencies": ["PROVISION_RECOVERY-062", "PROVISION_RECOVERY-064"]
     },
     {
@@ -102,16 +102,16 @@
     },
     {
       "guid": "BACKUP_FUNCTIONS-022",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Imports the Firestore export into the recovery project via @google-cloud/firestore importDocuments(). Full restore of all collections. Recovery project is ephemeral and cleaned up after verification.",
+      "description": "Imports the Firestore export into the recovery project via FirestoreAdminClient.importDocuments() (v1 admin API). Must use the admin client, not the data client. Recovery project is ephemeral and cleaned up after verification.",
       "dependencies": ["PROVISION_RECOVERY-065"]
     },
     {
       "guid": "BACKUP_FUNCTIONS-023",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
-      "description": "Smoke test verification: checks system_status/heartbeat exists AND users collection has at least one document. Both failing = backup is empty or corrupt. One passing is sufficient (system_status may not exist in all envs).",
+      "description": "Smoke test verification using the regular Firestore data client (not admin client — data reads use collection/doc/get). Checks system_status/heartbeat exists AND users collection has at least one document. Both failing = backup is empty or corrupt.",
       "dependencies": ["PROVISION_RECOVERY-066"]
     },
     {
