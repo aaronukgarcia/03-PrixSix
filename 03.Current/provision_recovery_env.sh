@@ -279,6 +279,20 @@ gsutil iam ch "serviceAccount:${FUNCTIONS_SA}:roles/storage.admin" "gs://$BUCKET
 log "Granting storage.objectAdmin on gs://$BUCKET to Firestore service agent ..."
 gsutil iam ch "serviceAccount:${FIRESTORE_SA}:roles/storage.objectAdmin" "gs://$BUCKET"
 
+# GUID: PROVISION_RECOVERY-064b-v03
+# [Intent] Grant the recovery project's Firestore service agent objectAdmin on the
+#          backup bucket. When importDocuments() runs against the recovery project,
+#          it is the RECOVERY project's Firestore agent (not the main project's)
+#          that reads the export files from GCS. objectViewer is NOT sufficient —
+#          the import operation requires objectAdmin.
+# [Inbound Trigger] Main project Firestore agent permissions granted.
+# [Downstream Impact] Without this, runRecoveryTest smoke test fails with
+#                     PX-7004 PERMISSION_DENIED on the import step.
+RECOVERY_PROJECT_NUMBER=$(gcloud projects describe "$RECOVERY_PROJECT" --format="value(projectNumber)")
+RECOVERY_FIRESTORE_SA="service-${RECOVERY_PROJECT_NUMBER}@gcp-sa-firestore.iam.gserviceaccount.com"
+log "Granting storage.objectAdmin on gs://$BUCKET to recovery Firestore service agent ..."
+gsutil iam ch "serviceAccount:${RECOVERY_FIRESTORE_SA}:roles/storage.objectAdmin" "gs://$BUCKET"
+
 # GUID: PROVISION_RECOVERY-065-v03
 # [Intent] Grant import/export admin on the recovery project so the smoke test
 #          can import backups into the recovery Firestore.
