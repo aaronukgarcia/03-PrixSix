@@ -3,7 +3,7 @@ import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scorin
 
 // --- Types ---
 
-export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings' | 'leagues';
+export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues';
 export type IssueSeverity = 'error' | 'warning';
 export type CheckStatus = 'pass' | 'warning' | 'error';
 
@@ -697,6 +697,74 @@ export function checkPredictions(
     category: 'predictions',
     status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
     total: predictions.length,
+    valid: validCount,
+    issues,
+  };
+}
+
+/**
+ * Validate team prediction coverage
+ * Checks how many registered teams (primary + secondary) have at least one prediction
+ */
+export function checkTeamCoverage(
+  users: UserData[],
+  predictions: PredictionData[]
+): CheckResult {
+  const issues: Issue[] = [];
+
+  // Build list of all teams (primary + secondary)
+  const allTeams: { teamId: string; teamName: string; userId: string; isSecondary: boolean }[] = [];
+
+  for (const user of users) {
+    if (user.teamName) {
+      allTeams.push({
+        teamId: user.id,
+        teamName: user.teamName,
+        userId: user.id,
+        isSecondary: false,
+      });
+    }
+    if (user.secondaryTeamName) {
+      allTeams.push({
+        teamId: `${user.id}-secondary`,
+        teamName: user.secondaryTeamName,
+        userId: user.id,
+        isSecondary: true,
+      });
+    }
+  }
+
+  // Build set of teamIds that have at least one prediction
+  const teamsWithPredictions = new Set<string>();
+  for (const pred of predictions) {
+    const userId = pred.userId || pred.teamId;
+    if (userId) {
+      teamsWithPredictions.add(userId);
+    }
+  }
+
+  // Check each team for predictions
+  let validCount = 0;
+  for (const team of allTeams) {
+    if (teamsWithPredictions.has(team.teamId)) {
+      validCount++;
+    } else {
+      issues.push({
+        severity: 'warning',
+        entity: `Team "${team.teamName}"`,
+        field: team.isSecondary ? 'secondaryTeam' : 'primaryTeam',
+        message: `No predictions found for ${team.isSecondary ? 'secondary ' : ''}team "${team.teamName}" (user: ${team.userId})`,
+        details: { teamId: team.teamId, userId: team.userId, isSecondary: team.isSecondary },
+      });
+    }
+  }
+
+  const hasWarnings = issues.some(i => i.severity === 'warning');
+
+  return {
+    category: 'team-coverage',
+    status: hasWarnings ? 'warning' : 'pass',
+    total: allTeams.length,
     valid: validCount,
     issues,
   };

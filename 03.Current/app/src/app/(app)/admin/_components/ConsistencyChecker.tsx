@@ -39,6 +39,7 @@ import {
   checkDrivers,
   checkRaces,
   checkPredictions,
+  checkTeamCoverage,
   checkRaceResults,
   checkScores,
   checkStandings,
@@ -60,7 +61,7 @@ interface ConsistencyCheckerProps {
   isUserLoading: boolean;
 }
 
-type CheckPhase = 'idle' | 'users' | 'drivers' | 'races' | 'predictions' | 'results' | 'scores' | 'standings' | 'leagues' | 'complete';
+type CheckPhase = 'idle' | 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues' | 'complete';
 
 const phaseLabels: Record<CheckPhase, string> = {
   idle: 'Ready',
@@ -68,6 +69,7 @@ const phaseLabels: Record<CheckPhase, string> = {
   drivers: 'Checking drivers...',
   races: 'Checking races...',
   predictions: 'Checking predictions...',
+  'team-coverage': 'Checking team coverage...',
   results: 'Checking race results...',
   scores: 'Checking scores...',
   standings: 'Checking standings...',
@@ -77,14 +79,15 @@ const phaseLabels: Record<CheckPhase, string> = {
 
 const phaseProgress: Record<CheckPhase, number> = {
   idle: 0,
-  users: 12,
-  drivers: 25,
-  races: 37,
-  predictions: 50,
-  results: 62,
-  scores: 75,
-  standings: 87,
-  leagues: 100,
+  users: 10,
+  drivers: 20,
+  races: 30,
+  predictions: 40,
+  'team-coverage': 50,
+  results: 60,
+  scores: 70,
+  standings: 80,
+  leagues: 90,
   complete: 100,
 };
 
@@ -200,6 +203,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         };
       });
       results.push(checkPredictions(predData, userData));
+
+      // Check team prediction coverage
+      setCurrentPhase('team-coverage');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      results.push(checkTeamCoverage(userData, predData));
 
       // Use predictions for score checking
       const allPredictions = predData;
