@@ -62,26 +62,6 @@ export function isMobileDevice(): boolean {
   return isMobileUA || isSmallViewport;
 }
 
-// GUID: SERVICE_AUTH_OAUTH-003-v03
-// [Intent] Generate a cryptographically secure nonce for Apple Sign In CSRF protection.
-//          Uses Web Crypto API to produce a SHA-256 hash of a random string.
-// [Inbound Trigger] Called before every Apple sign-in attempt.
-// [Downstream Impact] The raw nonce is sent to Apple; the hashed nonce is verified by Firebase.
-//                     If nonce generation fails, Apple sign-in is blocked with PX-1015.
-export async function generateAppleNonce(): Promise<{ raw: string; hashed: string }> {
-  const rawNonce = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  const encoder = new TextEncoder();
-  const data = encoder.encode(rawNonce);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashedNonce = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-
-  return { raw: rawNonce, hashed: hashedNonce };
-}
-
 // GUID: SERVICE_AUTH_OAUTH-004-v03
 // [Intent] Extract the list of provider IDs from a Firebase Auth user's providerData array.
 // [Inbound Trigger] Called by the provider sync logic in onAuthStateChanged and by UI
@@ -126,18 +106,16 @@ export async function signInWithGoogle(auth: Auth): Promise<OAuthSignInResult> {
 
 // GUID: SERVICE_AUTH_OAUTH-006-v03
 // [Intent] Sign in with Apple using popup (desktop) or redirect (mobile).
-//          Generates a nonce for CSRF protection before initiating the flow.
+//          Firebase handles nonce generation internally for popup/redirect flows.
 // [Inbound Trigger] Called from FirebaseProvider.signInWithApple wrapper.
 // [Downstream Impact] Same as signInWithGoogle — triggers onAuthStateChanged on success.
 export async function signInWithApple(auth: Auth): Promise<OAuthSignInResult> {
   const correlationId = generateClientCorrelationId();
 
   try {
-    const nonce = await generateAppleNonce();
     const provider = new OAuthProvider('apple.com');
     provider.addScope('email');
     provider.addScope('name');
-    provider.setCustomParameters({ nonce: nonce.hashed });
 
     if (isMobileDevice()) {
       await signInWithRedirect(auth, provider);
@@ -153,14 +131,6 @@ export async function signInWithApple(auth: Auth): Promise<OAuthSignInResult> {
       correlationId,
     };
   } catch (error: any) {
-    if (error?.code === 'auth/invalid-credential' && error?.message?.includes('nonce')) {
-      return {
-        success: false,
-        message: `${ERROR_CODES.AUTH_OAUTH_APPLE_NONCE.message} [${ERROR_CODES.AUTH_OAUTH_APPLE_NONCE.code}] (Ref: ${correlationId})`,
-        correlationId,
-      };
-    }
-
     const provider = new OAuthProvider('apple.com');
     return handleOAuthError(error, auth, provider, correlationId);
   }
@@ -218,11 +188,9 @@ export async function linkAppleToAccount(auth: Auth): Promise<OAuthLinkResult> {
   }
 
   try {
-    const nonce = await generateAppleNonce();
     const provider = new OAuthProvider('apple.com');
     provider.addScope('email');
     provider.addScope('name');
-    provider.setCustomParameters({ nonce: nonce.hashed });
 
     if (isMobileDevice()) {
       await linkWithRedirect(currentUser, provider);
