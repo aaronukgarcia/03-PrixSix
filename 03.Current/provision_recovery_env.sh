@@ -235,17 +235,19 @@ log "PITR enabled."
 #                     PERMISSION_DENIED errors (PX-7002, PX-7005).
 log "Step 6: Configuring IAM permissions ..."
 
-# GUID: PROVISION_RECOVERY-061-v03
-# [Intent] Derive the Firestore service agent email from the project number.
-#          This agent is NOT the firebase-adminsdk SA — it's the internal agent
-#          that Firestore uses to write managed export files to GCS.
+# GUID: PROVISION_RECOVERY-061-v04
+# [Intent] Derive service account emails from the project number.
+#          FIRESTORE_SA is the internal agent Firestore uses to write managed
+#          export files to GCS (NOT the firebase-adminsdk SA).
+#          FUNCTIONS_SA is the Compute Engine default SA used by 2nd-gen Cloud
+#          Functions (Cloud Run-based), NOT the legacy App Engine appspot SA.
 # [Inbound Trigger] IAM step started.
-# [Downstream Impact] Used in the gsutil iam ch command below. If this SA doesn't
-#                     have bucket access, Firestore exports fail silently with a
-#                     "permission denied" in the LRO result.
+# [Downstream Impact] Used in the gsutil/gcloud iam commands below. If either SA
+#                     doesn't have bucket access, Firestore exports fail with
+#                     PERMISSION_DENIED in the LRO result.
 PROJECT_NUMBER=$(gcloud projects describe "$MAIN_PROJECT" --format="value(projectNumber)")
 FIRESTORE_SA="service-${PROJECT_NUMBER}@gcp-sa-firestore.iam.gserviceaccount.com"
-FUNCTIONS_SA="${MAIN_PROJECT}@appspot.gserviceaccount.com"
+FUNCTIONS_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
 # GUID: PROVISION_RECOVERY-062-v03
 # [Intent] Grant export admin to the Cloud Functions SA so it can call
