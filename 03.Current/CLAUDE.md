@@ -1,7 +1,7 @@
 # CLAUDE.md - Prix Six Project Brief
 
 > **Last updated:** 2026-01-22  12:00
-> **Current production version:** Check `package.json` and verify at https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about  
+> **Current production version:** Check `package.json` and verify at https://prix6.win/about
 > **Read this entire file at the start of every session.**
 
 ---
@@ -165,8 +165,8 @@ After every push to `main`, you MUST:
 
 | Page | URL | What to Check |
 |------|-----|---------------|
-| About | https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about | Version number displayed |
-| Login | https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/login | Version number in footer/corner |
+| About | https://prix6.win/about | Version number displayed |
+| Login | https://prix6.win/login | Version number in footer/corner |
 
 4. **Confirm all pages show IDENTICAL version numbers**
 
@@ -623,7 +623,7 @@ Examples:
 2. `app/src/lib/version.ts` - the `APP_VERSION` constant displayed on the About page
 
 **Always verify** the About page reflects the updated version after deployment:  
-https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about
+https://prix6.win/about
 
 ---
 
@@ -802,7 +802,7 @@ The Firebase API key (`AIzaSyA23isMS-Jt60amqI-0XZHoMZeQOawtsSk`) should be restr
 2. Click on the API key
 3. Under **Application restrictions**, select "HTTP referrers (websites)"
 4. Add allowed domains:
-   - `prixsix--studio-6033436327-281b1.europe-west4.hosted.app/*`
+   - `prix6.win/*`
    - `prix6.win/*` (custom domain)
    - `https://prix6.win/*`
    - `localhost:*` (for development)
@@ -846,7 +846,7 @@ If you see error `auth/unauthorized-continue-uri`, add your domains to Firebase:
 1. Go to Firebase Console → Authentication → Settings → Authorized domains
 2. Add these domains:
    - `localhost` (for development)
-   - `prixsix--studio-6033436327-281b1.europe-west4.hosted.app` (production)
+   - `prix6.win` (production)
    - Any custom domains in use
 
 The continue URL in email verification is configured in `firebase/provider.tsx`.
@@ -909,8 +909,8 @@ powershell -Command "& 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk
 ### Verify Version Consistency
 
 After build completes, check BOTH pages show identical versions:
-- **About:** https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/about
-- **Login:** https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/login
+- **About:** https://prix6.win/about
+- **Login:** https://prix6.win/login
 
 ### What to Look For
 
