@@ -173,7 +173,9 @@ export default function SignupPage() {
         setIsGoogleLoading(true);
         try {
             const result = await signInWithGoogle();
-            if (!result.success && result.message) {
+            if (result.success) {
+                router.push('/dashboard');
+            } else if (result.message) {
                 setError(result.message);
             }
         } catch (e: any) {
@@ -192,7 +194,9 @@ export default function SignupPage() {
         setIsAppleLoading(true);
         try {
             const result = await signInWithApple();
-            if (!result.success && result.message) {
+            if (result.success) {
+                router.push('/dashboard');
+            } else if (result.message) {
                 setError(result.message);
             }
         } catch (e: any) {

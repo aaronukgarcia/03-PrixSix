@@ -122,6 +122,10 @@ export default function LoginPage() {
             const result = await signInWithGoogle();
             if (result.success) {
                 setIsRedirecting(true);
+                // New OAuth users go to complete-profile; existing users go to dashboard.
+                // The onAuthStateChanged handler redirects new OAuth users, so push dashboard
+                // as the default — if the user is new, the provider will override this.
+                router.push('/dashboard');
             } else if (result.needsLinking) {
                 setShowLinkingDialog(true);
             } else if (result.message) {
@@ -145,6 +149,7 @@ export default function LoginPage() {
             const result = await signInWithApple();
             if (result.success) {
                 setIsRedirecting(true);
+                router.push('/dashboard');
             } else if (result.needsLinking) {
                 setShowLinkingDialog(true);
             } else if (result.message) {
