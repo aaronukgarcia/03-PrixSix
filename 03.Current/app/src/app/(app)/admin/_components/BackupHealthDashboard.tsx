@@ -175,6 +175,7 @@ export function BackupHealthDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isSmokeTesting, setIsSmokeTesting] = useState(false);
 
   // GUID: BACKUP_DASHBOARD-005-v03
   // [Intent] Trigger a manual backup via the manualBackup callable Cloud Function.
@@ -243,6 +244,69 @@ export function BackupHealthDashboard() {
       });
     } finally {
       setIsBackingUp(false);
+    }
+  }, [functions, toast]);
+
+  // GUID: BACKUP_DASHBOARD-006-v03
+  // [Intent] Trigger a manual smoke test via the manualSmokeTest callable Cloud Function.
+  //          Same error handling pattern as handleBackupNow.
+  // [Inbound Trigger] Admin clicks the "Run Now" button on the Smoke Test card.
+  // [Downstream Impact] On success, backup_status/latest smoke test fields are updated
+  //                     and the dashboard updates in real-time.
+  const handleSmokeTestNow = useCallback(async () => {
+    setIsSmokeTesting(true);
+    try {
+      const manualSmokeTest = httpsCallable(functions, 'manualSmokeTest');
+      const result = await manualSmokeTest();
+      const data = result.data as {
+        success: boolean;
+        correlationId?: string;
+        error?: string;
+        errorCode?: string;
+      };
+
+      if (data.success) {
+        toast({
+          title: 'Smoke Test Passed',
+          description: `Recovery verification completed successfully.`,
+        });
+      } else {
+        const correlationId = data.correlationId || generateClientCorrelationId();
+        const appError = createAppError('BACKUP_SMOKE_TEST_FAILED', correlationId, data.error);
+        const display = formatErrorForDisplay(appError);
+
+        toast({
+          variant: 'destructive',
+          title: display.title,
+          description: (
+            <div className="space-y-1">
+              <p>{display.description}</p>
+              <code className="text-xs select-all block bg-black/20 p-1.5 rounded">
+                {display.copyableText}
+              </code>
+            </div>
+          ),
+        });
+      }
+    } catch (err: any) {
+      const correlationId = generateClientCorrelationId();
+      const appError = createAppError('BACKUP_SMOKE_TEST_FAILED', correlationId, err.message);
+      const display = formatErrorForDisplay(appError);
+
+      toast({
+        variant: 'destructive',
+        title: display.title,
+        description: (
+          <div className="space-y-1">
+            <p>{display.description}</p>
+            <code className="text-xs select-all block bg-black/20 p-1.5 rounded">
+              {display.copyableText}
+            </code>
+          </div>
+        ),
+      });
+    } finally {
+      setIsSmokeTesting(false);
     }
   }, [functions, toast]);
 
@@ -491,7 +555,28 @@ export function BackupHealthDashboard() {
               <FlaskConical className="h-4 w-4 text-sky-500" />
               Smoke Test
             </CardTitle>
-            <StatusBadge status={data.lastSmokeTestStatus} />
+            <div className="flex items-center gap-2">
+              <StatusBadge status={data.lastSmokeTestStatus} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSmokeTestNow}
+                disabled={isSmokeTesting}
+                className="h-7 text-xs"
+              >
+                {isSmokeTesting ? (
+                  <>
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    Testing…
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-1 h-3 w-3" />
+                    Run Now
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
           <CardDescription>Sunday recovery verification</CardDescription>
         </CardHeader>

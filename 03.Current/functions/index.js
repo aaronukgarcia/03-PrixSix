@@ -525,6 +525,130 @@ exports.runRecoveryTest = onSchedule(
   }
 );
 
+// ── manualSmokeTest ──────────────────────────────────────────
+// GUID: BACKUP_FUNCTIONS-040-v03
+/**
+ * manualSmokeTest — Callable Cloud Function (2nd-gen, Cloud Run)
+ *
+ * [Intent] On-demand version of runRecoveryTest, triggered by the admin
+ *          dashboard "Run Now" button on the Smoke Test card. Identical
+ *          logic to the scheduled version but wrapped in onCall with
+ *          auth + admin checks.
+ *
+ * [Inbound Trigger] Admin clicks "Run Now" on Smoke Test card.
+ *
+ * [Downstream Impact] Same as runRecoveryTest: imports backup into
+ *                     recovery project, verifies, cleans up, writes result
+ *                     to backup_status/latest.
+ */
+exports.manualSmokeTest = onCall(
+  {
+    region: REGION,
+    timeoutSeconds: 540,
+    memory: "512MiB",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "You must be logged in.");
+    }
+
+    const db = getFirestore();
+    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
+
+    if (!callerDoc.exists || callerDoc.data().isAdmin !== true) {
+      throw new HttpsError("permission-denied", "Only admins can trigger smoke tests.");
+    }
+
+    const correlationId = generateCorrelationId("smoke");
+
+    try {
+      const statusSnap = await db
+        .collection(STATUS_COLLECTION)
+        .doc(STATUS_DOC)
+        .get();
+
+      if (!statusSnap.exists || !statusSnap.data().lastBackupPath) {
+        throw new Error("No backup path found in backup_status/latest");
+      }
+
+      const backupPath = statusSnap.data().lastBackupPath;
+      const firestoreExportPath = `${backupPath}/firestore`;
+
+      const recoveryAdmin = new FirestoreAdminClient({
+        projectId: RECOVERY_PROJECT,
+      });
+
+      const [importOp] = await recoveryAdmin.importDocuments({
+        name: recoveryAdmin.databasePath(RECOVERY_PROJECT, "(default)"),
+        inputUriPrefix: firestoreExportPath,
+        collectionIds: [],
+      });
+
+      await importOp.promise();
+
+      const recoveryDb = new FirestoreDataClient({ projectId: RECOVERY_PROJECT });
+
+      const heartbeatDoc = await recoveryDb
+        .collection("system_status")
+        .doc("heartbeat")
+        .get();
+
+      const usersSnapshot = await recoveryDb
+        .collection("users")
+        .limit(1)
+        .get();
+
+      const heartbeatExists = heartbeatDoc.exists;
+      const usersHaveData = !usersSnapshot.empty;
+
+      if (!heartbeatExists && !usersHaveData) {
+        throw new Error(
+          "Smoke test failed: neither system_status/heartbeat nor users data found"
+        );
+      }
+
+      await deleteAllCollections(recoveryDb);
+
+      await writeStatus(db, {
+        lastSmokeTestTimestamp: Timestamp.now(),
+        lastSmokeTestStatus: "SUCCESS",
+        lastSmokeTestError: null,
+        smokeTestCorrelationId: correlationId,
+      });
+
+      console.log(
+        JSON.stringify({
+          severity: "INFO",
+          message: "MANUAL_SMOKE_TEST_COMPLETE",
+          correlationId,
+          heartbeatExists,
+          usersHaveData,
+          backupPath,
+          timestamp: new Date().toISOString(),
+        })
+      );
+
+      return { success: true, correlationId };
+    } catch (err) {
+      console.error("Manual smoke test failed:", err);
+
+      await writeStatus(db, {
+        lastSmokeTestTimestamp: Timestamp.now(),
+        lastSmokeTestStatus: "FAILED",
+        lastSmokeTestError: err.message || String(err),
+        smokeTestCorrelationId: correlationId,
+      });
+
+      return {
+        success: false,
+        error: err.message || String(err),
+        correlationId,
+        errorCode: "PX-7004",
+      };
+    }
+  }
+);
+
 // ── Cleanup helpers ────────────────────────────────────────────
 
 // GUID: BACKUP_FUNCTIONS-030-v03
