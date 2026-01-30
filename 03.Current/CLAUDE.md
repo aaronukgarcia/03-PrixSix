@@ -553,6 +553,24 @@ A fantasy Formula 1 league application built on Firebase. Approximately 20 playe
 
 **Terminal clarification:** "Console" means PowerShell or CMD. "Firebase" refers to the GUI unless explicitly using Firebase CLI or SDK.
 
+### Available MCP Tools (System-Wide)
+
+The following MCP servers are configured globally in `C:\Users\aarongarcia\.claude\.mcp.json` and available in all Claude Code sessions:
+
+| MCP Server | Version | Purpose | Relevance to PrixSix |
+|:---|:---|:---|:---|
+| **Vestige** (Memory) | v1.1.2 | Persistent memory across sessions | Core - session context retention |
+| **Sequential Thinking** | 2025.12.18 | Structured reasoning for complex tasks | Useful for architecture decisions |
+| **GitHub MCP** | Remote HTTP | GitHub operations (PRs, issues, code search) | Git workflow automation |
+| **Firebase MCP** | 15.5.1 | Firebase project management, Firestore ops | Direct PrixSix Firebase integration |
+| **Sentry MCP** | 0.29.0 | Error monitoring and tracking | Error analysis if Sentry is configured |
+| **Semgrep MCP** | 0.9.0 | Static code analysis | Security/code quality scanning |
+| **Context7** | 2.1.1 | Up-to-date library documentation | Docs for Next.js, Firebase, React |
+
+**Tokens Required:** GitHub, Sentry, and Semgrep MCPs need API tokens set in `.mcp.json` env vars. Firebase MCP uses existing `GOOGLE_APPLICATION_CREDENTIALS`.
+
+**MCP Install Location:** `E:\GoogleDrive\Tools\MCP\` (with local npm installs for offline fallback)
+
 ---
 
 ## Architecture Overview
