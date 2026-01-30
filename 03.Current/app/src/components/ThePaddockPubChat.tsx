@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Flame, Timer, MapPin } from "lucide-react";
+import { Timer, MapPin } from "lucide-react";
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 const DRIVER_DATA = [
@@ -76,16 +76,6 @@ const ThePaddockPubChat = () => {
     },
   };
 
-  // 5. HOT badge pop
-  const badgeVariants = {
-    hidden: { opacity: 0, scale: 0.8 },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      transition: { delay: 1.8, type: "spring" as const, stiffness: 200, damping: 12 },
-    },
-  };
-
   return (
     <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-gradient-to-b from-[#0f172a] via-[#0a1628] to-[#020617] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] border border-white/[0.08] font-sans group select-none">
 
@@ -95,19 +85,6 @@ const ThePaddockPubChat = () => {
 
       {/* scanline texture */}
       <div className="absolute inset-0 opacity-[0.025] bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(255,255,255,0.05)_2px,rgba(255,255,255,0.05)_4px)] pointer-events-none" />
-
-      {/* ── HOT badge ── */}
-      <motion.div
-        className="absolute top-5 right-5 z-20 flex items-center gap-1.5 rounded-full bg-red-500/15 border border-red-500/25 px-3 py-1 backdrop-blur-sm"
-        variants={badgeVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <Flame className="w-3 h-3 text-red-400" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400">
-          Hot
-        </span>
-      </motion.div>
 
       {/* ── header ── */}
       <div className="relative z-10 p-6 pb-3">
@@ -150,115 +127,180 @@ const ThePaddockPubChat = () => {
 
       {/* ── F1 car asset — cinematic arrival ── */}
       <div
-        className="absolute top-[-10px] right-[-60px] z-[5] w-[280px] pointer-events-none"
+        className="absolute top-[-8px] right-[-50px] z-[5] w-[270px] pointer-events-none"
         style={{
           opacity: 0,
           animation: 'heavyBrake 1.2s cubic-bezier(0.22,1,0.36,1) forwards',
         }}
       >
-        {/* inline SVG — Red Bull RB side-profile silhouette */}
+        {/* inline SVG — technical F1 2026-spec side profile */}
         <svg
-          viewBox="0 0 440 140"
+          viewBox="0 0 520 155"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           className="w-full h-full drop-shadow-[0_20px_30px_rgba(0,0,0,0.6)]"
-          aria-label="Red Bull F1 Car"
+          aria-label="F1 Car"
         >
           <defs>
-            <linearGradient id="rbBody" x1="0" y1="0" x2="440" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#1B3A5C" />
-              <stop offset="100%" stopColor="#0D1F3C" />
+            <linearGradient id="carBody" x1="0" y1="60" x2="520" y2="60" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#1e3a5f" />
+              <stop offset="50%" stopColor="#162d4a" />
+              <stop offset="100%" stopColor="#0e1f35" />
             </linearGradient>
+            <linearGradient id="floorGrad" x1="60" y1="115" x2="430" y2="115" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#0a1420" />
+              <stop offset="100%" stopColor="#162030" />
+            </linearGradient>
+            <radialGradient id="wheelShine" cx="0.35" cy="0.35" r="0.65">
+              <stop offset="0%" stopColor="#3a3a3a" />
+              <stop offset="100%" stopColor="#0a0a0a" />
+            </radialGradient>
           </defs>
 
           {/* ground shadow */}
-          <ellipse cx="220" cy="128" rx="190" ry="8" fill="black" opacity="0.25" />
+          <ellipse cx="260" cy="142" rx="210" ry="10" fill="black" opacity="0.3" />
 
-          {/* main body */}
+          {/* floor / plank */}
           <path
-            d="M18,88 L10,94 L6,100 L14,106 L50,106 C55,92 68,84 82,84
-               C96,84 108,92 112,106 L300,106 C305,92 318,84 332,84
-               C346,84 358,92 362,106 L378,106 L384,98 L386,86 L380,72
-               L360,48 L300,44 L258,48 L240,56 L232,48 Q218,34 206,48
-               L200,56 L190,62 L140,68 L90,76 L50,84 Z"
-            fill="url(#rbBody)"
+            d="M55,112 L65,118 L420,118 L440,112 L420,108 L65,108 Z"
+            fill="url(#floorGrad)" opacity="0.9"
+          />
+          {/* floor edge detail */}
+          <path d="M70,118 L415,118" stroke="#2a4060" strokeWidth="0.5" />
+
+          {/* main monocoque + sidepods */}
+          <path
+            d="M22,96 L15,102 L12,108 L55,112 L65,108
+               C72,94 86,86 102,86 C118,86 130,94 136,108
+               L370,108 C377,94 391,86 407,86 C423,86 435,94 440,108
+               L458,108 L462,100 L464,88 L458,74
+               L440,52 L400,42 L370,38 L340,42
+               L310,52 L296,60 L290,52 L278,40
+               Q265,30 252,40 L246,50 L238,58
+               L200,66 L140,74 L80,84 L40,92 Z"
+            fill="url(#carBody)"
           />
 
-          {/* red accent stripe */}
+          {/* sidepod undercut */}
           <path
-            d="M100,92 L160,84 L260,82 L340,88 L260,90 L160,90 Z"
-            fill="#DC2626" opacity="0.85"
+            d="M160,96 Q200,108 280,106 Q340,104 380,96"
+            stroke="#0a1420" strokeWidth="1.5" fill="none" opacity="0.6"
           />
+
+          {/* sidepod inlet */}
+          <path d="M238,58 L245,52 L265,50 L280,54 L268,62 L242,64 Z" fill="#080e18" />
 
           {/* cockpit opening */}
-          <path d="M200,56 L210,48 L226,48 L232,54 L224,60 L206,62 Z" fill="#050D1A" />
+          <path d="M246,50 L256,42 L276,40 L286,48 L278,56 L252,58 Z" fill="#040810" />
 
-          {/* halo */}
+          {/* halo — titanium arc */}
           <path
-            d="M202,57 Q206,38 218,36 Q230,38 228,54"
-            stroke="#3B6B8C" strokeWidth="3.5" fill="none" strokeLinecap="round"
+            d="M248,52 Q252,32 268,28 Q284,32 282,50"
+            stroke="#4a7a9c" strokeWidth="3" fill="none" strokeLinecap="round"
+          />
+          {/* halo inner shadow */}
+          <path
+            d="M250,50 Q254,34 268,30 Q282,34 280,48"
+            stroke="#2a5070" strokeWidth="1" fill="none" strokeLinecap="round"
           />
 
-          {/* air intake */}
-          <path d="M240,50 L248,40 L260,40 L254,52 Z" fill="#050D1A" />
+          {/* air intake above driver */}
+          <path d="M294,46 L304,34 L318,34 L310,48 Z" fill="#040810" />
 
           {/* engine cover / shark fin */}
           <path
-            d="M268,48 L300,36 L358,36 L378,48 L374,62 L340,56 L280,50 Z"
-            fill="#132D4A" stroke="#1B3A5C" strokeWidth="0.5"
+            d="M320,42 L360,28 L435,28 L456,42 L452,58 L420,50 L340,44 Z"
+            fill="#132d4a" stroke="#1e3a5f" strokeWidth="0.5"
           />
 
-          {/* rear wing pillar */}
-          <rect x="380" y="26" width="5" height="52" rx="2" fill="#1B3A5C" />
-          {/* rear wing main plane */}
-          <rect x="368" y="20" width="32" height="7" rx="2" fill="#DC2626" />
-          {/* rear wing flap */}
-          <rect x="372" y="32" width="26" height="4" rx="1" fill="#2B4A6C" />
-          {/* rear wing endplate */}
-          <rect x="398" y="18" width="4" height="62" rx="2" fill="#1B3A5C" />
+          {/* rear wing assembly */}
+          {/* main pillar */}
+          <rect x="456" y="22" width="4" height="58" rx="1.5" fill="#1a3050" />
+          {/* main plane */}
+          <path d="M442,16 L480,16 L478,22 L444,22 Z" fill="#dc2626" />
+          {/* upper flap */}
+          <path d="M446,10 L478,10 L480,15 L444,15 Z" fill="#1a3050" />
+          {/* lower flap */}
+          <path d="M448,28 L476,28 L474,32 L450,32 Z" fill="#1e3a5f" />
+          {/* endplate */}
+          <path d="M478,8 L484,8 L484,78 L480,80 L478,78 Z" fill="#162d4a" stroke="#1e3a5f" strokeWidth="0.3" />
+          {/* DRS actuator detail */}
+          <rect x="460" y="23" width="12" height="1.5" rx="0.5" fill="#3a5a7a" opacity="0.5" />
 
           {/* front wing */}
-          <path d="M14,100 L4,108 L0,114 L6,118 L36,116 L52,108 L40,100 Z" fill="#1B3A5C" />
-          <rect x="0" y="114" width="38" height="3" rx="1" fill="#DC2626" />
-          <rect x="0" y="104" width="4" height="16" rx="1" fill="#2B4A6C" />
+          <path d="M18,102 L6,108 L2,114 L8,120 L42,118 L56,110 L44,102 Z" fill="#1a3050" />
+          {/* front wing main plane */}
+          <rect x="2" y="116" width="44" height="2.5" rx="1" fill="#dc2626" />
+          {/* front wing flap */}
+          <rect x="4" y="112" width="40" height="2" rx="0.5" fill="#1e3a5f" />
+          {/* front wing endplate */}
+          <path d="M2,106 L6,106 L6,122 L2,122 Z" fill="#1e3a5f" />
+          {/* nose tip */}
+          <path d="M22,96 L15,102 L22,104 L30,98 Z" fill="#162d4a" />
 
           {/* rear diffuser */}
-          <path d="M368,100 L386,104 L392,112 L382,116 L362,112 Z" fill="#1B3A5C" />
+          <path d="M440,108 L462,104 L470,112 L465,118 L440,116 Z" fill="#0e1a28" />
+          {/* diffuser strakes */}
+          <line x1="448" y1="108" x2="450" y2="116" stroke="#1e3a5f" strokeWidth="0.5" />
+          <line x1="454" y1="106" x2="456" y2="116" stroke="#1e3a5f" strokeWidth="0.5" />
+          <line x1="460" y1="106" x2="462" y2="116" stroke="#1e3a5f" strokeWidth="0.5" />
 
           {/* front wheel */}
-          <circle cx="82" cy="106" r="20" fill="#111827" />
-          <circle cx="82" cy="106" r="16" fill="#1F2937" />
-          <circle cx="82" cy="106" r="5"  fill="#374151" />
-          <circle cx="82" cy="106" r="18" fill="none" stroke="#374151" strokeWidth="1" />
+          <circle cx="102" cy="112" r="22" fill="url(#wheelShine)" />
+          <circle cx="102" cy="112" r="18" fill="#1a1a1a" />
+          <circle cx="102" cy="112" r="14" fill="#222" />
+          {/* wheel spokes */}
+          <g stroke="#333" strokeWidth="1.5">
+            <line x1="102" y1="98" x2="102" y2="126" />
+            <line x1="88" y1="112" x2="116" y2="112" />
+            <line x1="92" y1="102" x2="112" y2="122" />
+            <line x1="112" y1="102" x2="92" y2="122" />
+          </g>
+          {/* wheel nut */}
+          <circle cx="102" cy="112" r="4" fill="#2a2a2a" stroke="#444" strokeWidth="0.5" />
+          {/* tire sidewall */}
+          <circle cx="102" cy="112" r="20" fill="none" stroke="#111" strokeWidth="3" />
 
           {/* rear wheel */}
-          <circle cx="332" cy="106" r="22" fill="#111827" />
-          <circle cx="332" cy="106" r="18" fill="#1F2937" />
-          <circle cx="332" cy="106" r="6"  fill="#374151" />
-          <circle cx="332" cy="106" r="20" fill="none" stroke="#374151" strokeWidth="1" />
+          <circle cx="407" cy="112" r="24" fill="url(#wheelShine)" />
+          <circle cx="407" cy="112" r="20" fill="#1a1a1a" />
+          <circle cx="407" cy="112" r="15" fill="#222" />
+          {/* wheel spokes */}
+          <g stroke="#333" strokeWidth="1.5">
+            <line x1="407" y1="92" x2="407" y2="132" />
+            <line x1="387" y1="112" x2="427" y2="112" />
+            <line x1="393" y1="98" x2="421" y2="126" />
+            <line x1="421" y1="98" x2="393" y2="126" />
+          </g>
+          {/* wheel nut */}
+          <circle cx="407" cy="112" r="4.5" fill="#2a2a2a" stroke="#444" strokeWidth="0.5" />
+          {/* tire sidewall */}
+          <circle cx="407" cy="112" r="22" fill="none" stroke="#111" strokeWidth="3" />
 
-          {/* number 1 */}
-          <text x="172" y="92" fontSize="14" fontWeight="bold" fill="#DC2626" fontFamily="Arial,sans-serif">1</text>
+          {/* bargeboard / sidepod vanes */}
+          <line x1="148" y1="86" x2="155" y2="106" stroke="#2a4060" strokeWidth="0.8" />
+          <line x1="155" y1="84" x2="162" y2="104" stroke="#2a4060" strokeWidth="0.6" />
 
-          {/* nose highlight */}
-          <path d="M100,78 L180,70 L200,66 L180,73 L100,80 Z" fill="white" opacity="0.06" />
+          {/* nose body highlight */}
+          <path d="M80,84 L180,74 L240,66 L180,76 L80,86 Z" fill="white" opacity="0.04" />
+          {/* engine cover highlight */}
+          <path d="M330,42 L400,32 L450,34 L400,36 L330,44 Z" fill="white" opacity="0.03" />
         </svg>
 
         {/* tire smoke — puffs at rear wheel on lock-up */}
         <div
-          className="absolute bottom-[10px] right-[70px] w-[50px] h-[25px] rounded-full pointer-events-none"
+          className="absolute bottom-[8px] right-[55px] w-[50px] h-[25px] rounded-full pointer-events-none"
           style={{
-            background: 'radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%)',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 70%)',
             opacity: 0,
             transform: 'scale(0.5)',
             animation: 'smokePuff 0.8s ease-out 0.9s forwards',
           }}
         />
-        {/* secondary smoke puff — slightly offset */}
         <div
-          className="absolute bottom-[14px] right-[85px] w-[35px] h-[18px] rounded-full pointer-events-none"
+          className="absolute bottom-[12px] right-[70px] w-[35px] h-[18px] rounded-full pointer-events-none"
           style={{
-            background: 'radial-gradient(circle, rgba(200,200,220,0.3) 0%, rgba(255,255,255,0) 70%)',
+            background: 'radial-gradient(circle, rgba(200,200,220,0.25) 0%, rgba(255,255,255,0) 70%)',
             opacity: 0,
             transform: 'scale(0.3)',
             animation: 'smokePuff 0.6s ease-out 1.0s forwards',
