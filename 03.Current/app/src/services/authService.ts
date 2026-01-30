@@ -312,9 +312,18 @@ function handleOAuthError(
     };
   }
 
+  if (error?.code === 'auth/operation-not-allowed') {
+    return {
+      success: false,
+      message: `This sign-in provider is not enabled. Enable it in Firebase Console > Authentication > Sign-in method. [${ERROR_CODES.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${correlationId})`,
+      correlationId,
+    };
+  }
+
+  const firebaseCode = error?.code || 'unknown';
   return {
     success: false,
-    message: `${ERROR_CODES.AUTH_OAUTH_PROVIDER_ERROR.message} [${ERROR_CODES.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${correlationId})`,
+    message: `${ERROR_CODES.AUTH_OAUTH_PROVIDER_ERROR.message} (${firebaseCode}) [${ERROR_CODES.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${correlationId})`,
     correlationId,
   };
 }
@@ -325,8 +334,9 @@ function handleOAuthError(
 // [Downstream Impact] Returns typed OAuthLinkResult with error details.
 function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
   console.error(`[Link Provider Error ${correlationId}]`, error);
+  const firebaseCode = error?.code || 'unknown';
 
-  if (error?.code === 'auth/credential-already-in-use') {
+  if (firebaseCode === 'auth/credential-already-in-use') {
     return {
       success: false,
       message: `This account is already linked to another user. [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
@@ -334,7 +344,7 @@ function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
     };
   }
 
-  if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') {
+  if (firebaseCode === 'auth/popup-closed-by-user' || firebaseCode === 'auth/cancelled-popup-request') {
     return {
       success: false,
       message: ERROR_CODES.AUTH_OAUTH_POPUP_CLOSED.message,
@@ -342,7 +352,7 @@ function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
     };
   }
 
-  if (error?.code === 'auth/provider-already-linked') {
+  if (firebaseCode === 'auth/provider-already-linked') {
     return {
       success: false,
       message: `This provider is already linked to your account.`,
@@ -350,9 +360,25 @@ function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
     };
   }
 
+  if (firebaseCode === 'auth/operation-not-allowed') {
+    return {
+      success: false,
+      message: `This sign-in provider is not enabled. Enable it in Firebase Console > Authentication > Sign-in method. [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+      correlationId,
+    };
+  }
+
+  if (firebaseCode === 'auth/popup-blocked') {
+    return {
+      success: false,
+      message: `${ERROR_CODES.AUTH_OAUTH_POPUP_BLOCKED.message} [${ERROR_CODES.AUTH_OAUTH_POPUP_BLOCKED.code}] (Ref: ${correlationId})`,
+      correlationId,
+    };
+  }
+
   return {
     success: false,
-    message: `${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.message} [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+    message: `${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.message} (${firebaseCode}) [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
     correlationId,
   };
 }
