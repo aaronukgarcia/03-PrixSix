@@ -28,9 +28,10 @@ export function ConversionBanner() {
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [isLinkingApple, setIsLinkingApple] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [linkedSuccess, setLinkedSuccess] = useState(false);
 
-  // Don't show if dismissed, no user, or user already has an OAuth provider
-  if (isDismissed || !user || !firebaseUser) {
+  // Don't show if dismissed, linked successfully, no user, or user already has an OAuth provider
+  if (isDismissed || linkedSuccess || !user || !firebaseUser) {
     return null;
   }
 
@@ -51,25 +52,27 @@ export function ConversionBanner() {
     setMessage(null);
     const result = await linkGoogle();
     setIsLinkingGoogle(false);
-    setMessage({
-      type: result.success ? 'success' : 'error',
-      text: result.message,
-    });
+    if (result.success) {
+      setLinkedSuccess(true);
+    } else {
+      setMessage({ type: 'error', text: result.message });
+    }
   };
 
   // GUID: COMPONENT_CONVERSION_BANNER-003-v03
   // [Intent] Link Apple account to the current user.
   // [Inbound Trigger] User clicks "Link Apple" button.
-  // [Downstream Impact] Calls linkApple from provider; on success shows confirmation.
+  // [Downstream Impact] Calls linkApple from provider; on success hides banner immediately.
   const handleLinkApple = async () => {
     setIsLinkingApple(true);
     setMessage(null);
     const result = await linkApple();
     setIsLinkingApple(false);
-    setMessage({
-      type: result.success ? 'success' : 'error',
-      text: result.message,
-    });
+    if (result.success) {
+      setLinkedSuccess(true);
+    } else {
+      setMessage({ type: 'error', text: result.message });
+    }
   };
 
   return (

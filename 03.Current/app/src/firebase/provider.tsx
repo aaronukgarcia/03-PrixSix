@@ -954,12 +954,47 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return result;
   };
 
+  // GUID: FIREBASE_PROVIDER-050-v03
+  // [Intent] Link Google to current account and send confirmation email on success.
+  // [Inbound Trigger] ConversionBanner or profile page "Link Google" button.
+  // [Downstream Impact] Links provider via authService, then fires confirmation email
+  //                     to primary (and secondary if verified) email. Email is fire-and-forget.
   const linkGoogle = async (): Promise<OAuthLinkResult> => {
-    return linkGoogleToAccount(auth);
+    const result = await linkGoogleToAccount(auth);
+    if (result.success && user?.email) {
+      fetch('/api/send-provider-linked-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          teamName: user.teamName,
+          providerId: 'google.com',
+          secondaryEmail: user.secondaryEmailVerified ? user.secondaryEmail : undefined,
+        }),
+      }).catch(() => { /* fire-and-forget */ });
+    }
+    return result;
   };
 
+  // GUID: FIREBASE_PROVIDER-051-v03
+  // [Intent] Link Apple to current account and send confirmation email on success.
+  // [Inbound Trigger] ConversionBanner or profile page "Link Apple" button.
+  // [Downstream Impact] Same as linkGoogle — links provider, sends confirmation email.
   const linkApple = async (): Promise<OAuthLinkResult> => {
-    return linkAppleToAccount(auth);
+    const result = await linkAppleToAccount(auth);
+    if (result.success && user?.email) {
+      fetch('/api/send-provider-linked-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          teamName: user.teamName,
+          providerId: 'apple.com',
+          secondaryEmail: user.secondaryEmailVerified ? user.secondaryEmail : undefined,
+        }),
+      }).catch(() => { /* fire-and-forget */ });
+    }
+    return result;
   };
 
   const unlinkProviderFn = async (providerId: string): Promise<AuthResult> => {

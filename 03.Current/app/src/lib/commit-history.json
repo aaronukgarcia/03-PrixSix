@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-01-30",
   "commits": [
+    {"id": "4b79a1e", "date": "2026-01-30", "version": "1.27.0", "author": "aaron garcia", "message": "feat: auto-hide ConversionBanner on link success, send provider-linked confirmation email", "major": false},
     {"id": "26fb270", "date": "2026-01-30", "version": "1.26.6", "author": "aaron garcia", "message": "fix: increase httpsCallable timeout to 540s for backup and smoke test functions", "major": false},
     {"id": "0264377", "date": "2026-01-30", "version": "1.26.5", "author": "aaron garcia", "message": "fix: add timestamp to backup folder path to allow multiple daily backups", "major": false},
     {"id": "9f7776a", "date": "2026-01-30", "version": "1.26.4", "author": "aaron garcia", "message": "feat: add Run Now button to smoke test card with manualSmokeTest Cloud Function", "major": false},
