@@ -89,9 +89,12 @@ function todayFolder() {
   const yyyy = d.getUTCFullYear();
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(d.getUTCDate()).padStart(2, "0");
+  const HH = String(d.getUTCHours()).padStart(2, "0");
+  const MM = String(d.getUTCMinutes()).padStart(2, "0");
+  const ss = String(d.getUTCSeconds()).padStart(2, "0");
   // Sunday = day 0 in JS; suffix is cosmetic, retention is the same
   const suffix = d.getUTCDay() === 0 ? "-SUNDAY" : "";
-  return `${yyyy}-${mm}-${dd}${suffix}`;
+  return `${yyyy}-${mm}-${dd}T${HH}${MM}${ss}${suffix}`;
 }
 
 // GUID: BACKUP_FUNCTIONS-005-v03

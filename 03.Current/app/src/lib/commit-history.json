@@ -1,7 +1,8 @@
 {
   "lastUpdated": "2026-01-30",
   "commits": [
-    {"id": "46dda45", "date": "2026-01-30", "version": "1.26.4", "author": "aaron garcia", "message": "feat: add Run Now button to smoke test card with manualSmokeTest Cloud Function", "major": false},
+    {"id": "0264377", "date": "2026-01-30", "version": "1.26.5", "author": "aaron garcia", "message": "fix: add timestamp to backup folder path to allow multiple daily backups", "major": false},
+    {"id": "9f7776a", "date": "2026-01-30", "version": "1.26.4", "author": "aaron garcia", "message": "feat: add Run Now button to smoke test card with manualSmokeTest Cloud Function", "major": false},
     {"id": "9ff4441", "date": "2026-01-30", "version": "1.26.3", "author": "aaron garcia", "message": "fix: remove custom Apple nonce that broke popup/redirect OAuth flows", "major": false},
     {"id": "ddd808c", "date": "2026-01-30", "version": "1.26.2", "author": "aaron garcia", "message": "fix: surface Firebase error codes in OAuth link/sign-in error messages", "major": false},
     {"id": "0053aa0", "date": "2026-01-30", "version": "1.26.1", "author": "aaron garcia", "message": "chore: enforce unique version per commit, bump to 1.26.1", "major": false},
