@@ -18,7 +18,7 @@
     {
       "source": "functions",
       "codebase": "prix6-backup",
-      "runtime": "nodejs20"
+      "runtime": "nodejs22"
     }
   ]
 }
