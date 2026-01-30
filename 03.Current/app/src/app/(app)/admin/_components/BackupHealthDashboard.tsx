@@ -190,7 +190,7 @@ export function BackupHealthDashboard() {
   const handleBackupNow = useCallback(async () => {
     setIsBackingUp(true);
     try {
-      const manualBackup = httpsCallable(functions, 'manualBackup');
+      const manualBackup = httpsCallable(functions, 'manualBackup', { timeout: 540_000 });
       const result = await manualBackup();
       const data = result.data as {
         success: boolean;
@@ -256,7 +256,7 @@ export function BackupHealthDashboard() {
   const handleSmokeTestNow = useCallback(async () => {
     setIsSmokeTesting(true);
     try {
-      const manualSmokeTest = httpsCallable(functions, 'manualSmokeTest');
+      const manualSmokeTest = httpsCallable(functions, 'manualSmokeTest', { timeout: 540_000 });
       const result = await manualSmokeTest();
       const data = result.data as {
         success: boolean;
