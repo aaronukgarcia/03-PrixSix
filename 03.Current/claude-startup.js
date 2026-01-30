@@ -26,19 +26,28 @@ try {
     console.log(`IDENTITY: ${name}>`);
     console.log(`PREFIX EVERY RESPONSE with "${name}>". No exceptions.`);
     console.log(`HOOKS: ACTIVE.`);
-    console.log(`VESTIGE: Confirm by running a recall query with "who am I, identity, session startup". If it fails, memory is unavailable.`);
-    console.log(`Read CLAUDE.md for full Golden Rules. Run 'node claude-sync.js read' to check coordination.`);
+    console.log(``);
+    console.log(`MANDATORY STARTUP SEQUENCE — DO ALL OF THESE BEFORE YOUR FIRST RESPONSE:`);
+    console.log(`1. Use the mcp__vestige__recall tool NOW with query "who am I, identity, session startup" to load memory.`);
+    console.log(`2. Read CLAUDE.md for full Golden Rules.`);
+    console.log(`3. Run 'node claude-sync.js read' to check coordination state.`);
+    console.log(`4. Your first response to the user must confirm: identity, hooks status, Vestige status, and current version.`);
+    console.log(`DO NOT skip step 1. Memory recall is not optional. If Vestige tools are unavailable, state that explicitly.`);
   } else if (name) {
     // Got a guest/unknown assignment — warn strongly but still enforce rules
     fs.writeFileSync(identityPath, name, 'utf-8');
 
     console.log(`WARNING: You were assigned "${name}" which is NOT a recognised instance name.`);
     console.log(`Valid names are: bob, bill, ben. This means too many instances are running.`);
-    console.log(`TELL THE USER: "I was assigned ${name} instead of bob/bill/ben. There may be too many instances running. Please check and close stale sessions."`);
+    console.log(`TELL THE USER IMMEDIATELY: "I was assigned ${name} instead of bob/bill/ben. There may be too many instances running. Please check and close stale sessions."`);
     console.log(`STILL PREFIX EVERY RESPONSE with "${name}>".`);
-    console.log(`STILL FOLLOW ALL GOLDEN RULES from CLAUDE.md.`);
-    console.log(`VESTIGE: Recall "who am I, identity, session startup" for full rules.`);
-    console.log(`Read CLAUDE.md. Run 'node claude-sync.js read' to check who else is active.`);
+    console.log(``);
+    console.log(`MANDATORY STARTUP SEQUENCE — DO ALL OF THESE BEFORE YOUR FIRST RESPONSE:`);
+    console.log(`1. Use the mcp__vestige__recall tool NOW with query "who am I, identity, session startup" to load memory.`);
+    console.log(`2. Read CLAUDE.md for full Golden Rules.`);
+    console.log(`3. Run 'node claude-sync.js read' to check who else is active.`);
+    console.log(`4. Your first response must confirm: identity, hooks status, Vestige status, and warn about the guest assignment.`);
+    console.log(`DO NOT skip step 1. Memory recall is not optional.`);
   } else {
     console.log('WARNING: Could not parse name from checkin output.');
     console.log('Run manually: node claude-sync.js checkin');
