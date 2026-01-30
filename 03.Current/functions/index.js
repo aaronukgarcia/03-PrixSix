@@ -224,10 +224,13 @@ async function performBackup(db) {
       lastBackupTimestamp: Timestamp.now(),
       lastBackupStatus: "FAILED",
       lastBackupPath: null,
-      lastBackupError: err.message || String(err),
+      lastBackupError: `PX-7002 | ${err.message || String(err)} | ID: ${correlationId}`,
       backupCorrelationId: correlationId,
     });
 
+    // Attach correlationId to the error so callers (manualBackup) can
+    // include it in their response without needing a separate variable.
+    err.correlationId = correlationId;
     throw err;
   }
 }
@@ -341,12 +344,25 @@ exports.manualBackup = onCall(
       throw new HttpsError("permission-denied", "Only admins can trigger manual backups.");
     }
 
+    // GUID: BACKUP_FUNCTIONS-017-v03
+    // [Intent] Call performBackup and return structured success/failure response.
+    //          On failure, include correlationId and errorCode (PX-7002) so the
+    //          frontend can display a Golden Rule #1 compliant error with copyable
+    //          details. The correlationId is extracted from the error object where
+    //          performBackup attaches it before re-throwing.
+    // [Inbound Trigger] Admin passes auth + admin check above.
+    // [Downstream Impact] Response is consumed by BackupHealthDashboard handleBackupNow.
     try {
       const { correlationId, gcsPrefix } = await performBackup(db);
       return { success: true, correlationId, backupPath: gcsPrefix };
     } catch (err) {
       console.error("Manual backup failed:", err);
-      return { success: false, error: err.message || String(err) };
+      return {
+        success: false,
+        error: err.message || String(err),
+        correlationId: err.correlationId || generateCorrelationId("bkp"),
+        errorCode: "PX-7002",
+      };
     }
   }
 );

@@ -176,12 +176,28 @@ export function BackupHealthDashboard() {
   const { toast } = useToast();
   const [isBackingUp, setIsBackingUp] = useState(false);
 
+  // GUID: BACKUP_DASHBOARD-005-v03
+  // [Intent] Trigger a manual backup via the manualBackup callable Cloud Function.
+  //          Handles three outcomes: success, structured failure (function returns
+  //          success:false), and unstructured failure (network/auth/not-found errors).
+  //          All error paths produce a PX-7xxx error code with correlation ID and
+  //          selectable text per Golden Rule #1.
+  // [Inbound Trigger] Admin clicks the "Backup Now" button.
+  // [Downstream Impact] On success, backup_status/latest is written by the Cloud Function
+  //                     and the dashboard updates in real-time. On failure, a destructive
+  //                     toast with copyable error details is shown to the admin.
   const handleBackupNow = useCallback(async () => {
     setIsBackingUp(true);
     try {
       const manualBackup = httpsCallable(functions, 'manualBackup');
       const result = await manualBackup();
-      const data = result.data as { success: boolean; correlationId?: string; backupPath?: string; error?: string };
+      const data = result.data as {
+        success: boolean;
+        correlationId?: string;
+        backupPath?: string;
+        error?: string;
+        errorCode?: string;
+      };
 
       if (data.success) {
         toast({
@@ -189,17 +205,41 @@ export function BackupHealthDashboard() {
           description: `Backup saved to ${data.backupPath}`,
         });
       } else {
+        // Structured failure from Cloud Function — use server correlationId if available
+        const correlationId = data.correlationId || generateClientCorrelationId();
+        const appError = createAppError('BACKUP_EXPORT_FAILED', correlationId, data.error);
+        const display = formatErrorForDisplay(appError);
+
         toast({
           variant: 'destructive',
-          title: 'Backup Failed',
-          description: data.error || 'Unknown error',
+          title: display.title,
+          description: (
+            <div className="space-y-1">
+              <p>{display.description}</p>
+              <code className="text-xs select-all block bg-black/20 p-1.5 rounded">
+                {display.copyableText}
+              </code>
+            </div>
+          ),
         });
       }
     } catch (err: any) {
+      // Unstructured failure — function not found, network error, auth error, etc.
+      const correlationId = generateClientCorrelationId();
+      const appError = createAppError('BACKUP_EXPORT_FAILED', correlationId, err.message);
+      const display = formatErrorForDisplay(appError);
+
       toast({
         variant: 'destructive',
-        title: 'Backup Failed',
-        description: err.message || 'Failed to trigger backup',
+        title: display.title,
+        description: (
+          <div className="space-y-1">
+            <p>{display.description}</p>
+            <code className="text-xs select-all block bg-black/20 p-1.5 rounded">
+              {display.copyableText}
+            </code>
+          </div>
+        ),
       });
     } finally {
       setIsBackingUp(false);
