@@ -9,6 +9,7 @@
  *   claim /path/            - Claim file ownership
  *   release /path/          - Release file ownership
  *   register "description"  - Register current branch
+ *   ping                    - Send keepalive heartbeat (run every 5 minutes)
  *   init                    - Initialise fresh state
  *   gc                      - Garbage collect stale sessions (auto-runs on checkin)
  *
@@ -28,6 +29,7 @@ const PROJECT_ID = 'studio-6033436327-281b1';
 const SERVICE_ACCOUNT_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS
   || path.join(__dirname, 'service-account.json');
 const DOCUMENT_PATH = 'coordination/claude-state';
+const PINGS_COLLECTION = 'session_pings';
 const STALE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours - sessions inactive longer are stale
 
 // Initialise Firebase Admin
@@ -198,6 +200,55 @@ async function cmdGc() {
   } else {
     console.log('No stale sessions to clean up.');
   }
+}
+
+/**
+ * COMMAND: ping - Send keepalive heartbeat
+ */
+async function cmdPing() {
+  const state = await getState();
+  const branch = getCurrentBranch();
+  const now = new Date().toISOString();
+  const nowMs = Date.now();
+
+  const session = await getCurrentSession(state, branch);
+
+  if (!session) {
+    console.error('No active session found on this branch. Run "checkin" first.');
+    process.exit(1);
+  }
+
+  const { sessionId, name } = session;
+
+  // Update lastActivity on the session
+  state.sessions[sessionId].lastActivity = now;
+
+  // Write ping document to session_pings collection
+  const pingDocId = `${sessionId}_${nowMs}`;
+  await db.collection(PINGS_COLLECTION).doc(pingDocId).set({
+    sessionId,
+    name,
+    branch,
+    timestamp: now
+  });
+
+  // Append to activityLog
+  state.activityLog = state.activityLog || [];
+  state.activityLog.push({
+    sessionId,
+    name,
+    branch,
+    message: `${name} keepalive ping`,
+    timestamp: now
+  });
+
+  // Keep only last 100 entries
+  if (state.activityLog.length > 100) {
+    state.activityLog = state.activityLog.slice(-100);
+  }
+
+  await saveState(state);
+  console.log(`${name} keepalive ping at ${formatTime(now)}`);
 }
 
 /**
@@ -667,6 +718,9 @@ async function main() {
       case 'register':
         await cmdRegister(param);
         break;
+      case 'ping':
+        await cmdPing();
+        break;
       case 'gc':
         await cmdGc();
         break;
@@ -677,6 +731,7 @@ async function main() {
         console.log('  checkin                 - Register and get assigned Bob or Bill');
         console.log('  checkout                - End your session');
         console.log('  checkout --force        - Force end all sessions on branch');
+        console.log('  ping                    - Send keepalive heartbeat (every 5 min)');
         console.log('  gc                      - Garbage collect stale sessions (2h+ inactive)');
         console.log('  init                    - Initialise fresh state');
         console.log('  read                    - Display current coordination state');
@@ -688,6 +743,7 @@ async function main() {
         console.log('Examples:');
         console.log('  node claude-sync.js checkin');
         console.log('  node claude-sync.js read');
+        console.log('  node claude-sync.js ping');
         console.log('  node claude-sync.js gc');
         console.log('  node claude-sync.js write "Fixed login bug"');
         console.log('  node claude-sync.js claim /src/auth/login.js');

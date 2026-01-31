@@ -635,6 +635,20 @@ This keeps you aware of:
 - Any new NO-TOUCH ZONES (claimed files)
 - Activity log updates
 
+### Keepalive Ping — Prove you're alive
+
+**Every 5 minutes, run:**
+```bash
+node claude-sync.js ping
+```
+
+This is **mandatory for all agents**. Each ping:
+- Updates your session's `lastActivity` timestamp
+- Writes a record to the `session_pings` Firestore collection (audit trail)
+- Logs to the activity feed
+
+Failure to ping means you are not following protocol. Aaron can inspect pings in the Firebase Console under the `session_pings` collection.
+
 ### Session End — When I say goodnight/end session/sleep
 
 When I indicate the session is ending (e.g., "goodnight", "that's all", "put this to sleep"), run:
@@ -654,6 +668,7 @@ bob> Goodnight! Bob checked out. Session ended.
 | `node claude-sync.js checkin` | Start of session (get Bob/Bill assignment) |
 | `node claude-sync.js checkout` | End of session |
 | `node claude-sync.js read` | Check current state (poll every ~30 sec) |
+| `node claude-sync.js ping` | Keepalive heartbeat (**every 5 minutes** — mandatory) |
 | `node claude-sync.js claim /path/` | Before modifying files |
 | `node claude-sync.js release /path/` | When done with files |
 | `node claude-sync.js write "message"` | Log significant milestones |

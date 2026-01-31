@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-01-31",
-  "total_guids": 917,
+  "total_guids": 945,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
@@ -3587,6 +3587,87 @@
       "callChain": {
         "calledBy": [],
         "calls": []
+      }
+    },
+    {
+      "guid": "API_AUTH_LOGIN-013",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Record a logon event in user_logons for session tracking after successful PIN authentication. Includes IP and user agent. Non-blocking — login succeeds even if tracking fails.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/login/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "errorProfile": {
+        "throws": ["PX-6004"],
+        "handles": [],
+        "emits": {
+          "PX-6004": {
+            "key": "LOGON_RECORD_FAILED",
+            "message": "Failed to record logon event",
+            "severity": "warning",
+            "recovery": "Non-blocking — login succeeds even if tracking fails. Session will expire via scheduled function.",
+            "failureModes": ["Firestore write timeout", "Admin SDK initialization failure"]
+          }
+        }
+      }
+    },
+    {
+      "guid": "API_AUTH_RECORD_LOGON-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST endpoint that records a user logon event in the user_logons collection for session tracking. Verifies Bearer token, accepts loginMethod, writes via Admin SDK, returns logonId.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/record-logon/route.ts"
+      },
+      "callChain": {
+        "calledBy": ["FIREBASE_PROVIDER-061"],
+        "calls": []
+      },
+      "errorProfile": {
+        "throws": ["PX-6004"],
+        "handles": [],
+        "emits": {
+          "PX-6004": {
+            "key": "LOGON_RECORD_FAILED",
+            "message": "Failed to record logon event",
+            "severity": "error",
+            "recovery": "Non-blocking — OAuth login continues even if logon recording fails.",
+            "failureModes": ["Token verification failure", "Firestore write failure", "Invalid loginMethod"]
+          }
+        }
+      }
+    },
+    {
+      "guid": "API_AUTH_RECORD_LOGOUT-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST endpoint that records a user logout event by updating the user_logons document with logout timestamp and Logged Out status. Validates document ownership to prevent cross-user spoofing.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/record-logout/route.ts"
+      },
+      "callChain": {
+        "calledBy": ["FIREBASE_PROVIDER-014"],
+        "calls": []
+      },
+      "errorProfile": {
+        "throws": ["PX-6005"],
+        "handles": [],
+        "emits": {
+          "PX-6005": {
+            "key": "LOGON_LOGOUT_FAILED",
+            "message": "Failed to record logout event",
+            "severity": "error",
+            "recovery": "Non-blocking — logout proceeds. Session will expire via scheduled function after 24h.",
+            "failureModes": ["Token verification failure", "Logon document not found", "Cross-user ownership mismatch", "Firestore update failure"]
+          }
+        }
       }
     },
     {
@@ -8431,6 +8512,52 @@
       }
     },
     {
+      "guid": "FIREBASE_PROVIDER-060",
+      "version": 3,
+      "logic_category": "STATE_MANAGEMENT",
+      "description": "State variables for logon session tracking: currentLogonId (tracks the active user_logons document ID for logout recording) and pendingLoginMethod (set before OAuth calls for method detection in onAuthStateChanged).",
+      "dependencies": [
+        "FIREBASE_PROVIDER-007"
+      ],
+      "location": {
+        "filePath": "app/src/firebase/provider.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "FIREBASE_PROVIDER-061",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Record logon event for OAuth logins in the onAuthStateChanged first snapshot. Fires when currentLogonId is null (OAuth path). Uses pendingLoginMethod or falls back to provider detection. Fire-and-forget — does not block auth state resolution.",
+      "dependencies": [
+        "FIREBASE_PROVIDER-008",
+        "API_AUTH_RECORD_LOGON-000"
+      ],
+      "location": {
+        "filePath": "app/src/firebase/provider.tsx"
+      },
+      "callChain": {
+        "calledBy": ["FIREBASE_PROVIDER-008"],
+        "calls": ["API_AUTH_RECORD_LOGON-000"]
+      },
+      "errorProfile": {
+        "throws": ["PX-6004"],
+        "handles": [],
+        "emits": {
+          "PX-6004": {
+            "key": "LOGON_RECORD_FAILED",
+            "message": "Failed to record logon event",
+            "severity": "warning",
+            "recovery": "Non-blocking — OAuth login continues. Session will expire via scheduled function.",
+            "failureModes": ["Token fetch failure", "Network error calling record-logon API"]
+          }
+        }
+      }
+    },
+    {
       "guid": "LIB_ATTACK_DETECTION-000",
       "version": 4,
       "logic_category": "ORCHESTRATION",
@@ -11240,6 +11367,20 @@
       }
     },
     {
+      "guid": "LOGON_RULES-001",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "Firestore security rules for the user_logons collection. Grants authenticated read access for profile page logon history display. Denies all client-side writes — only API routes and Cloud Functions write via Admin SDK.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules"
+      },
+      "callChain": {
+        "calledBy": ["PAGE_PROFILE-040"],
+        "calls": []
+      }
+    },
+    {
       "guid": "PAGE_ABOUT-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
@@ -12881,6 +13022,51 @@
       "callChain": {
         "calledBy": [],
         "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_PROFILE-040",
+      "version": 3,
+      "logic_category": "DATA_FETCH",
+      "description": "Memoised Firestore query for the current user's last 10 logon records from user_logons, ordered by logonTimestamp descending. Returns null when user is unavailable so useCollection gracefully waits.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_PROFILE-041",
+      "version": 3,
+      "logic_category": "DATA_FETCH",
+      "description": "Fetch total logon count for badge display via getDocs. Uses a one-shot query instead of a real-time listener to avoid a second subscription for a simple count.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_PROFILE-042",
+      "version": 3,
+      "logic_category": "PRESENTATION",
+      "description": "Logon History card showing last 10 logon events with total count badge, login method, timestamp, and session status (Active=green, Logged Out=secondary, Session Expired=yellow outline). Includes loading skeletons and empty state.",
+      "dependencies": [
+        "PAGE_PROFILE-040",
+        "PAGE_PROFILE-041"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["PAGE_PROFILE-040", "PAGE_PROFILE-041"]
       }
     },
     {
@@ -15287,6 +15473,34 @@
       "callChain": {
         "calledBy": [],
         "calls": []
+      }
+    },
+    {
+      "guid": "SESSION_FUNCTIONS-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Scheduled Cloud Function (every 15 min) that expires stale Active sessions in user_logons after 24 hours. Queries sessionStatus=='Active' with logonTimestamp older than cutoff, batch-updates to 'Session Expired'.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "expireStaleLogons"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "errorProfile": {
+        "throws": ["PX-6006"],
+        "handles": [],
+        "emits": {
+          "PX-6006": {
+            "key": "LOGON_EXPIRY_FAILED",
+            "message": "Failed to expire stale session",
+            "severity": "error",
+            "recovery": "Function retries on next 15-minute schedule. Stale sessions remain Active until next successful run.",
+            "failureModes": ["Firestore query failure", "Batch update failure", "Function timeout"]
+          }
+        }
       }
     }
   ]

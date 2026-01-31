@@ -1,8 +1,28 @@
 {
   "generated": "2026-01-31",
-  "totalGuids": 909,
-  "totalErrorCodes": 62,
+  "totalGuids": 945,
+  "totalErrorCodes": 66,
   "byErrorCode": {
+    "0": {
+      "guid": "PAGE_ONBOARDING-007",
+      "file": "app/src/app/(app)/onboarding/page.tsx",
+      "function": "OnboardingPage",
+      "recovery": ""
+    },
+    "PX-6004": {
+      "guid": "FIREBASE_PROVIDER-061",
+      "file": "app/src/firebase/provider.tsx",
+      "function": "",
+      "message": "Failed to record logon event",
+      "recovery": "Non-blocking — OAuth login continues. Session will expire via scheduled function."
+    },
+    "PX-6005": {
+      "guid": "API_AUTH_RECORD_LOGOUT-000",
+      "file": "app/src/app/api/auth/record-logout/route.ts",
+      "function": "",
+      "message": "Failed to record logout event",
+      "recovery": "Non-blocking — logout proceeds. Session will expire via scheduled function after 24h."
+    },
     "PX-1008": {
       "guid": "LIB_ERROR_CODES-001",
       "file": "app/src/lib/error-codes.ts",
@@ -436,6 +456,13 @@
       "function": "",
       "message": "Session conflict detected",
       "recovery": ""
+    },
+    "PX-6006": {
+      "guid": "SESSION_FUNCTIONS-000",
+      "file": "functions/index.js",
+      "function": "expireStaleLogons",
+      "message": "Failed to expire stale session",
+      "recovery": "Function retries on next 15-minute schedule. Stale sessions remain Active until next successful run."
     }
   },
   "byTopic": {
@@ -1010,6 +1037,7 @@
       "API_AUTH_LOGIN-005",
       "API_AUTH_LOGIN-009",
       "API_AUTH_LOGIN-012",
+      "API_AUTH_LOGIN-013",
       "API_AUTH_RESET_PIN-000",
       "API_AUTH_RESET_PIN-001",
       "API_AUTH_RESET_PIN-002",
@@ -1284,6 +1312,9 @@
       "API_AUTH_LOGIN-010",
       "API_AUTH_LOGIN-011",
       "API_AUTH_LOGIN-012",
+      "API_AUTH_LOGIN-013",
+      "API_AUTH_RECORD_LOGON-000",
+      "API_AUTH_RECORD_LOGOUT-000",
       "API_AUTH_RESET_PIN-000",
       "API_AUTH_RESET_PIN-001",
       "API_AUTH_RESET_PIN-002",
@@ -1315,7 +1346,8 @@
       "PAGE_LOGIN-000",
       "PAGE_LOGIN-001",
       "PAGE_LOGIN-002",
-      "PAGE_LOGIN-003"
+      "PAGE_LOGIN-003",
+      "PAGE_LOGIN-008"
     ],
     "verification": [
       "API_AUTH_LOGIN-009",
@@ -1362,7 +1394,8 @@
       "PAGE_VERIFY_SECONDARY_EMAIL-000",
       "PAGE_VERIFY_SECONDARY_EMAIL-001",
       "PROVISION_RECOVERY-040",
-      "PROVISION_RECOVERY-066"
+      "PROVISION_RECOVERY-066",
+      "PAGE_ONBOARDING-006"
     ],
     "signup": [
       "API_AUTH_SIGNUP-001",
@@ -1464,7 +1497,16 @@
       "BACKUP_FUNCTIONS-026",
       "BACKUP_FUNCTIONS-030",
       "BACKUP_FUNCTIONS-031",
-      "BACKUP_RULES-001"
+      "BACKUP_RULES-001",
+      "BACKUP_RULES-002",
+      "BACKUP_FUNCTIONS-050",
+      "BACKUP_FUNCTIONS-051",
+      "BACKUP_FUNCTIONS-055",
+      "BACKUP_FUNCTIONS-056",
+      "BACKUP_DASHBOARD-030",
+      "BACKUP_DASHBOARD-031",
+      "BACKUP_DASHBOARD-032",
+      "BACKUP_DASHBOARD-033"
     ],
     "dashboard": [
       "BACKUP_DASHBOARD-000",
@@ -1483,6 +1525,10 @@
       "BACKUP_DASHBOARD-021",
       "BACKUP_DASHBOARD-022",
       "BACKUP_DASHBOARD-023",
+      "BACKUP_DASHBOARD-030",
+      "BACKUP_DASHBOARD-031",
+      "BACKUP_DASHBOARD-032",
+      "BACKUP_DASHBOARD-033",
       "COMPONENT_DASHBOARD_CLIENT-000",
       "COMPONENT_DASHBOARD_CLIENT-001",
       "COMPONENT_DASHBOARD_CLIENT-002",
@@ -1561,6 +1607,8 @@
       "FIREBASE_PROVIDER-032",
       "FIREBASE_PROVIDER-050",
       "FIREBASE_PROVIDER-051",
+      "FIREBASE_PROVIDER-060",
+      "FIREBASE_PROVIDER-061",
       "LIB_FIREBASE_ADMIN-000",
       "LIB_FIREBASE_ADMIN-001",
       "LIB_FIREBASE_ADMIN-002",
@@ -1603,7 +1651,9 @@
       "FIREBASE_PROVIDER-031",
       "FIREBASE_PROVIDER-032",
       "FIREBASE_PROVIDER-050",
-      "FIREBASE_PROVIDER-051"
+      "FIREBASE_PROVIDER-051",
+      "FIREBASE_PROVIDER-060",
+      "FIREBASE_PROVIDER-061"
     ],
     "profile": [
       "PAGE_PROFILE-000",
@@ -1633,7 +1683,10 @@
       "PAGE_PROFILE-024",
       "PAGE_PROFILE-025",
       "PAGE_PROFILE-026",
-      "PAGE_PROFILE-027"
+      "PAGE_PROFILE-027",
+      "PAGE_PROFILE-040",
+      "PAGE_PROFILE-041",
+      "PAGE_PROFILE-042"
     ],
     "schedule": [
       "PAGE_SCHEDULE-000",
@@ -1786,7 +1839,25 @@
       "files": [
         "app/src/app/api/auth/login/route.ts"
       ],
-      "errorCodes": []
+      "errorCodes": [
+        "PX-6004"
+      ]
+    },
+    "API_AUTH_RECORD_LOGON": {
+      "files": [
+        "app/src/app/api/auth/record-logon/route.ts"
+      ],
+      "errorCodes": [
+        "PX-6004"
+      ]
+    },
+    "API_AUTH_RECORD_LOGOUT": {
+      "files": [
+        "app/src/app/api/auth/record-logout/route.ts"
+      ],
+      "errorCodes": [
+        "PX-6005"
+      ]
     },
     "API_AUTH_RESET_PIN": {
       "files": [
@@ -1930,7 +2001,8 @@
     },
     "BACKUP_FUNCTIONS": {
       "files": [
-        "functions/src/index.ts"
+        "functions/src/index.ts",
+        "functions/index.js"
       ],
       "errorCodes": []
     },
@@ -1988,7 +2060,8 @@
         "PX-9002",
         "PX-1006",
         "PX-3001",
-        "PX-3004"
+        "PX-3004",
+        "PX-6004"
       ]
     },
     "LIB_ATTACK_DETECTION": {
@@ -2144,6 +2217,12 @@
     "LIB_VERSION": {
       "files": [
         "app/src/lib/version.ts"
+      ],
+      "errorCodes": []
+    },
+    "LOGON_RULES": {
+      "files": [
+        "app/src/firestore.rules"
       ],
       "errorCodes": []
     },
@@ -2309,6 +2388,28 @@
         "app/src/app/(app)/admin/_components/PubChatPanel.tsx"
       ],
       "errorCodes": []
+    },
+    "COMPONENT_WELCOME_CTA": {
+      "files": [
+        "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ONBOARDING": {
+      "files": [
+        "app/src/app/(app)/onboarding/page.tsx"
+      ],
+      "errorCodes": [
+        "0"
+      ]
+    },
+    "SESSION_FUNCTIONS": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": [
+        "PX-6006"
+      ]
     }
   },
   "byFile": {
@@ -2436,7 +2537,25 @@
       "modules": [
         "API_AUTH_LOGIN"
       ],
-      "errorCodes": []
+      "errorCodes": [
+        "PX-6004"
+      ]
+    },
+    "app/src/app/api/auth/record-logon/route.ts": {
+      "modules": [
+        "API_AUTH_RECORD_LOGON"
+      ],
+      "errorCodes": [
+        "PX-6004"
+      ]
+    },
+    "app/src/app/api/auth/record-logout/route.ts": {
+      "modules": [
+        "API_AUTH_RECORD_LOGOUT"
+      ],
+      "errorCodes": [
+        "PX-6005"
+      ]
     },
     "app/src/app/api/auth/reset-pin/route.ts": {
       "modules": [
@@ -2642,6 +2761,15 @@
       ],
       "errorCodes": []
     },
+    "functions/index.js": {
+      "modules": [
+        "BACKUP_FUNCTIONS",
+        "SESSION_FUNCTIONS"
+      ],
+      "errorCodes": [
+        "PX-6006"
+      ]
+    },
     "app/src/components/layout/AppSidebar.tsx": {
       "modules": [
         "COMPONENT_APP_SIDEBAR"
@@ -2690,7 +2818,8 @@
         "PX-9002",
         "PX-1006",
         "PX-3001",
-        "PX-3004"
+        "PX-3004",
+        "PX-6004"
       ]
     },
     "app/src/lib/attack-detection.ts": {
@@ -2790,6 +2919,12 @@
     "app/src/lib/version.ts": {
       "modules": [
         "LIB_VERSION"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firestore.rules": {
+      "modules": [
+        "LOGON_RULES"
       ],
       "errorCodes": []
     },
@@ -2943,6 +3078,20 @@
         "PUBCHAT_PANEL"
       ],
       "errorCodes": []
+    },
+    "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx": {
+      "modules": [
+        "COMPONENT_WELCOME_CTA"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/onboarding/page.tsx": {
+      "modules": [
+        "PAGE_ONBOARDING"
+      ],
+      "errorCodes": [
+        "0"
+      ]
     }
   }
 }
