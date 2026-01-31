@@ -1,9 +1,11 @@
-// GUID: COMPONENT_APP_SIDEBAR-000-v03
+// GUID: COMPONENT_APP_SIDEBAR-000-v04
 // [Intent] Main application sidebar component providing navigation links, admin panel access,
 // user profile display, and logout functionality. Renders within the ShadCN Sidebar layout.
 // [Inbound Trigger] Rendered by the authenticated app layout on every page within the (app) route group.
 // [Downstream Impact] Provides primary navigation for the entire app. Changes to menuItems affect
 // all users' navigation. Logout handler updates presence and triggers auth state teardown.
+// @FIX(v04) Replaced flat "Results" menu item with a collapsible sub-menu containing
+// "Race Results" (/results) and "My Results" (/my-results).
 
 "use client";
 
@@ -15,6 +17,9 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarContent,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import {
   BarChart2,
@@ -29,7 +34,9 @@ import {
   Info,
   FileCheck,
   History,
-  Calendar
+  Calendar,
+  ChevronRight,
+  User,
 } from "lucide-react";
 import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { Logo } from "@/components/Logo";
@@ -39,19 +46,24 @@ import Link from "next/link";
 import { Button } from "../ui/button";
 import { doc, serverTimestamp } from "firebase/firestore";
 import { logAuditEvent } from "@/lib/audit";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 
-// GUID: COMPONENT_APP_SIDEBAR-001-v03
-// [Intent] Static menu item configuration defining all navigation routes available to regular users.
-// Each entry maps a URL path to a label and Lucide icon component.
-// [Inbound Trigger] Read at render time by the sidebar menu loop.
-// [Downstream Impact] Adding/removing entries changes navigation for all users. The admin panel
-// link is handled separately (COMPONENT_APP_SIDEBAR-003) and is not in this array.
-const menuItems = [
+// GUID: COMPONENT_APP_SIDEBAR-001-v04
+// [Intent] Menu items rendered ABOVE the Results collapsible group.
+const menuItemsTop = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/predictions", label: "Predictions", icon: Rocket },
   { href: "/standings", label: "Standings", icon: Trophy },
-  { href: "/results", label: "Results", icon: BarChart2 },
+];
+
+// GUID: COMPONENT_APP_SIDEBAR-001B-v04
+// [Intent] Menu items rendered BELOW the Results collapsible group.
+const menuItemsBottom = [
   { href: "/submissions", label: "Submissions", icon: FileCheck },
   { href: "/audit", label: "Audit", icon: History },
   { href: "/teams", label: "Teams", icon: Users },
@@ -60,32 +72,37 @@ const menuItems = [
   { href: "/about", label: "About", icon: Info },
 ];
 
-// GUID: COMPONENT_APP_SIDEBAR-002-v03
-// [Intent] Exported sidebar component that renders the full navigation sidebar including header
-// with logo, scrollable menu items, conditional admin link, user avatar footer, and logout button.
-// [Inbound Trigger] Rendered by the app layout shell on every authenticated page.
-// [Downstream Impact] Uses useAuth() for user data and logout, useFirestore() for presence updates.
-// Active route highlighting depends on usePathname(). Breaking this component removes all navigation.
+// GUID: COMPONENT_APP_SIDEBAR-002-v04
 export function AppSidebar() {
   const { user, firebaseUser, logout } = useAuth();
   const firestore = useFirestore();
   const pathname = usePathname();
 
-  // GUID: COMPONENT_APP_SIDEBAR-003-v03
-  // [Intent] Handles user logout by first setting the Firestore presence document to offline,
-  // logging an audit event, then calling the provider's logout function for full sign-out.
-  // [Inbound Trigger] User clicks the logout icon button in the sidebar footer.
-  // [Downstream Impact] Sets presence to offline (non-blocking), logs audit event, then delegates
-  // to FIREBASE_PROVIDER-014 which signs out, clears state, and redirects to /login.
+  const isResultsSection = pathname.startsWith("/results") || pathname.startsWith("/my-results");
+
+  // GUID: COMPONENT_APP_SIDEBAR-003-v04
   const handleLogout = async () => {
     if (firebaseUser && firestore) {
       const presenceRef = doc(firestore, "presence", firebaseUser.uid);
-      // Explicitly set user to offline before signing out
       await setDocumentNonBlocking(presenceRef, { online: false, last_seen: serverTimestamp() }, { merge: true });
       logAuditEvent(firestore, firebaseUser.uid, 'logout', { source: 'sidebar' });
     }
     await logout();
   }
+
+  const renderMenuItem = (item: { href: string; label: string; icon: any }) => (
+    <SidebarMenuItem key={item.label}>
+      <Link href={item.href} className="w-full">
+        <SidebarMenuButton
+          isActive={pathname.startsWith(item.href)}
+          tooltip={item.label}
+        >
+          <item.icon />
+          <span>{item.label}</span>
+        </SidebarMenuButton>
+      </Link>
+    </SidebarMenuItem>
+  );
 
   return (
     <Sidebar>
@@ -99,19 +116,54 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.label}>
-              <Link href={item.href} className="w-full">
+          {menuItemsTop.map(renderMenuItem)}
+
+          {/* GUID: COMPONENT_APP_SIDEBAR-004-v04
+              [Intent] Collapsible "Results" group with Race Results and My Results sub-items.
+              Auto-expands when the current route is within the results section. */}
+          <Collapsible defaultOpen={isResultsSection} className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
                 <SidebarMenuButton
-                  isActive={pathname.startsWith(item.href)}
-                  tooltip={item.label}
+                  isActive={isResultsSection}
+                  tooltip="Results"
                 >
-                  <item.icon />
-                  <span>{item.label}</span>
+                  <BarChart2 />
+                  <span>Results</span>
+                  <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
                 </SidebarMenuButton>
-              </Link>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={pathname.startsWith("/results")}
+                    >
+                      <Link href="/results">
+                        <Trophy className="h-4 w-4" />
+                        <span>Race Results</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={pathname.startsWith("/my-results")}
+                    >
+                      <Link href="/my-results">
+                        <User className="h-4 w-4" />
+                        <span>My Results</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </CollapsibleContent>
             </SidebarMenuItem>
-          ))}
+          </Collapsible>
+
+          {menuItemsBottom.map(renderMenuItem)}
+
           {user?.isAdmin && (
              <SidebarMenuItem>
                  <Link href="/admin" className="w-full">
