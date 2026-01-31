@@ -68,12 +68,12 @@ interface TeamWithPrediction extends TeamBasic {
 
 const PAGE_SIZE = 25;
 
-// GUID: PAGE_TEAMS-003-v03
-// [Intent] Determines the most recent race that has scored results, used to set the default race selection.
-// [Inbound Trigger] Called during initial useEffect to auto-select the latest race with results.
+// GUID: PAGE_TEAMS-003-v04
+// [Intent] Determines the next race after the most recent scored results, used to set the default race selection.
+// [Inbound Trigger] Called during initial useEffect to auto-select the next upcoming race for prediction viewing.
 // [Downstream Impact] Drives the default value of selectedRace state; if logic changes, the default race shown on page load changes.
-// Helper to find the most recent race that has results
-function findMostRecentRaceWithResults(raceResults: { raceId: string }[]): string | null {
+// Helper to find the next race after the most recent race that has results
+function findNextRaceAfterResults(raceResults: { raceId: string }[]): string | null {
   if (!raceResults || raceResults.length === 0) return null;
 
   // Get unique raceIds that have results
@@ -85,6 +85,11 @@ function findMostRecentRaceWithResults(raceResults: { raceId: string }[]): strin
     const race = RaceSchedule[i];
     const raceId = race.name.replace(/\s+/g, '-');
     if (racesWithResults.has(raceId)) {
+      // Found the most recent race with results — return the NEXT race
+      if (i + 1 < RaceSchedule.length) {
+        return RaceSchedule[i + 1].name;
+      }
+      // Last race in schedule already has results — stay on it
       return race.name;
     }
   }
@@ -136,12 +141,12 @@ export default function TeamsPage() {
         const resultsSnapshot = await getDocs(resultsQuery);
         const raceResults = resultsSnapshot.docs.map(doc => ({ raceId: doc.data().raceId }));
 
-        const mostRecentWithResults = findMostRecentRaceWithResults(raceResults);
-        if (mostRecentWithResults) {
-          setSelectedRace(mostRecentWithResults);
+        const nextAfterResults = findNextRaceAfterResults(raceResults);
+        if (nextAfterResults) {
+          setSelectedRace(nextAfterResults);
         } else {
-          // No results yet, default to next race
-          setSelectedRace(nextRace.name);
+          // No results yet, default to first race in the schedule
+          setSelectedRace(RaceSchedule[0]?.name || nextRace.name);
         }
       } catch (error) {
         console.error("Error fetching race results:", error);
@@ -279,8 +284,15 @@ export default function TeamsPage() {
         }
       }
 
+      // Sort all teams alphabetically A-Z (case-insensitive) so primary + secondary teams interleave correctly
+      newTeams.sort((a, b) => a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' }));
+
       if (isLoadMore) {
-        setTeams(prev => [...prev, ...newTeams]);
+        setTeams(prev => {
+          const merged = [...prev, ...newTeams];
+          merged.sort((a, b) => a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' }));
+          return merged;
+        });
       } else {
         setTeams(newTeams);
       }
@@ -477,7 +489,7 @@ export default function TeamsPage() {
           Team Predictions
         </h1>
         <p className="text-muted-foreground">
-          See what your rivals are predicting for each race.
+          View the other teams predictions
         </p>
       </div>
 
