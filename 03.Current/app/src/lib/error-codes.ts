@@ -117,6 +117,7 @@ export const ERROR_CODES = {
   BACKUP_RESTORE_FAILED: { code: 'PX-7005', message: 'Backup restore failed' },
   BACKUP_CLEANUP_FAILED: { code: 'PX-7006', message: 'Backup cleanup failed' },
   BACKUP_HEARTBEAT_FAILED: { code: 'PX-7007', message: 'Backup heartbeat missing - backup may not be running' },
+  BACKUP_BACKFILL_FAILED: { code: 'PX-7008', message: 'Backup history backfill failed' },
 
   // 8xxx - Attack Detection
   ATTACK_LOG_FAILED: { code: 'PX-8001', message: 'Failed to log login attempt' },

@@ -266,17 +266,26 @@ export function BackupHealthDashboard() {
 
   const { data: historyData, isLoading: isHistoryLoading } = useCollection<BackupHistoryEntry>(historyQuery);
 
-  // GUID: BACKUP_DASHBOARD-032-v03
+  // GUID: BACKUP_DASHBOARD-032-v04
   // [Intent] Trigger the listBackupHistory callable to backfill history entries
   //          from existing GCS backup folders into the backup_history collection.
+  //          Error paths now use PX-7008 (BACKUP_BACKFILL_FAILED) with correlation ID
+  //          and selectable copyable text per Golden Rule #1.
   // [Inbound Trigger] Admin clicks "Backfill History" button.
   // [Downstream Impact] Populates backup_history collection from GCS bucket prefixes.
+  //                     On failure, shows PX-7008 toast with correlation ID.
   const handleBackfill = useCallback(async () => {
     setIsBackfilling(true);
     try {
       const listBackupHistory = httpsCallable(functions, 'listBackupHistory', { timeout: 540_000 });
       const result = await listBackupHistory();
-      const data = result.data as { success: boolean; count?: number; error?: string };
+      const data = result.data as {
+        success: boolean;
+        count?: number;
+        correlationId?: string;
+        error?: string;
+        errorCode?: string;
+      };
 
       if (data.success) {
         toast({
@@ -284,17 +293,41 @@ export function BackupHealthDashboard() {
           description: `Found ${data.count} backup entries.`,
         });
       } else {
+        // Structured failure from Cloud Function — use server correlationId if available
+        const correlationId = data.correlationId || generateClientCorrelationId();
+        const appError = createAppError('BACKUP_BACKFILL_FAILED', correlationId, data.error);
+        const display = formatErrorForDisplay(appError);
+
         toast({
           variant: 'destructive',
-          title: 'Backfill Failed',
-          description: data.error || 'Unknown error',
+          title: display.title,
+          description: (
+            <div className="space-y-1">
+              <p>{display.description}</p>
+              <code className="text-xs select-all block bg-black/20 p-1.5 rounded">
+                {display.copyableText}
+              </code>
+            </div>
+          ),
         });
       }
     } catch (err: any) {
+      // Unstructured failure — function not found, network error, auth error, etc.
+      const correlationId = generateClientCorrelationId();
+      const appError = createAppError('BACKUP_BACKFILL_FAILED', correlationId, err.message);
+      const display = formatErrorForDisplay(appError);
+
       toast({
         variant: 'destructive',
-        title: 'Backfill Failed',
-        description: err.message || String(err),
+        title: display.title,
+        description: (
+          <div className="space-y-1">
+            <p>{display.description}</p>
+            <code className="text-xs select-all block bg-black/20 p-1.5 rounded">
+              {display.copyableText}
+            </code>
+          </div>
+        ),
       });
     } finally {
       setIsBackfilling(false);

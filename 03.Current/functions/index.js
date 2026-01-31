@@ -426,7 +426,7 @@ exports.manualBackup = onCall(
 );
 
 // ── listBackupHistory (backfill from GCS) ──────────────────────
-// GUID: BACKUP_FUNCTIONS-055-v03
+// GUID: BACKUP_FUNCTIONS-055-v04
 /**
  * listBackupHistory — Callable Cloud Function (2nd-gen, Cloud Run)
  *
@@ -434,6 +434,8 @@ exports.manualBackup = onCall(
  *          GCS backup folders. Lists all top-level prefixes in the backup
  *          bucket, sums file sizes per prefix, and writes each to
  *          backup_history if not already present. Returns the full list.
+ *          On failure, returns PX-7008 error code with correlation ID and
+ *          writes a failure record to backup_history.
  *
  * [Inbound Trigger] Admin clicks "Backfill History" button in the admin
  *                   dashboard, or called via script after initial deployment.
@@ -442,7 +444,7 @@ exports.manualBackup = onCall(
  *   - Auth check: Verifies caller is admin via Firestore users/{uid}.isAdmin.
  *   - Reads all objects in gs://prix6-backups/ to discover prefixes.
  *   - Writes to backup_history collection (skip if doc already exists).
- *   - Returns { success, count, entries } to the client.
+ *   - Returns { success, count, entries } or { success: false, error, errorCode, correlationId }.
  */
 exports.listBackupHistory = onCall(
   {
@@ -461,6 +463,8 @@ exports.listBackupHistory = onCall(
     if (!callerDoc.exists || callerDoc.data().isAdmin !== true) {
       throw new HttpsError("permission-denied", "Only admins can list backup history.");
     }
+
+    const correlationId = generateCorrelationId("bfill");
 
     try {
       const storage = new Storage();
@@ -555,10 +559,26 @@ exports.listBackupHistory = onCall(
       return { success: true, count: entries.length, entries };
     } catch (err) {
       console.error("listBackupHistory failed:", err);
+
+      // Write failure record to backup_history for audit trail
+      await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
+        timestamp: Timestamp.now(),
+        type: "backfill",
+        status: "FAILED",
+        path: null,
+        sizeBytes: 0,
+        correlationId,
+        trigger: "backfill",
+        startedAt: Timestamp.now(),
+        completedAt: Timestamp.now(),
+        error: err.message || String(err),
+      });
+
       return {
         success: false,
         error: err.message || String(err),
-        errorCode: "PX-7005",
+        errorCode: "PX-7008",
+        correlationId,
       };
     }
   }

@@ -6817,9 +6817,9 @@
     },
     {
       "guid": "BACKUP_FUNCTIONS-055",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "listBackupHistory callable Cloud Function. Admin-only. Backfills backup_history collection from existing GCS backup folder prefixes. Lists all top-level prefixes in gs://prix6-backups/, sums file sizes per prefix, writes to backup_history if not already present, returns full list.",
+      "description": "listBackupHistory callable Cloud Function. Admin-only. Backfills backup_history collection from existing GCS backup folder prefixes. Lists all top-level prefixes in gs://prix6-backups/, sums file sizes per prefix, writes to backup_history if not already present, returns full list. On failure returns PX-7008 with correlationId and writes failure record to backup_history.",
       "dependencies": [
         "BACKUP_FUNCTIONS-002",
         "BACKUP_FUNCTIONS-056"
@@ -6890,9 +6890,9 @@
     },
     {
       "guid": "BACKUP_DASHBOARD-032",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "handleBackfill callback — triggers listBackupHistory callable Cloud Function to backfill backup_history from existing GCS backup folders. Shows success/failure toast.",
+      "description": "handleBackfill callback — triggers listBackupHistory callable Cloud Function to backfill backup_history from existing GCS backup folders. Error paths now use PX-7008 (BACKUP_BACKFILL_FAILED) with correlation ID and selectable copyable text per Golden Rule #1.",
       "dependencies": [
         "BACKUP_FUNCTIONS-055"
       ],
