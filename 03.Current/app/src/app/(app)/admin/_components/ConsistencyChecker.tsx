@@ -38,6 +38,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ERROR_CODES, generateClientCorrelationId } from '@/lib/error-codes';
 import type { User } from '@/firebase/provider';
 import {
   checkUsers,
@@ -317,10 +318,27 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         description: `${checkSummary.passed} passed, ${checkSummary.warnings} warnings, ${checkSummary.errors} errors`,
       });
     } catch (error: any) {
+      const errorCorrelationId = generateClientCorrelationId();
+
+      fetch('/api/log-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          correlationId: errorCorrelationId,
+          errorCode: ERROR_CODES.FIRESTORE_READ_FAILED.code,
+          error: error?.message || 'Consistency check failed',
+          context: { route: '/admin', action: 'cc_run', source: 'client' },
+        }),
+      }).catch(() => {});
+
       toast({
         variant: 'destructive',
-        title: 'Check Failed',
-        description: error.message,
+        title: `Error ${ERROR_CODES.FIRESTORE_READ_FAILED.code}`,
+        description: (
+          <span className="select-all cursor-text">
+            {error?.message || 'Consistency check failed'} — Ref: {errorCorrelationId}
+          </span>
+        ),
       });
     } finally {
       setIsRunning(false);
@@ -364,10 +382,28 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         description: `Issues exported with correlation ID: ${summary.correlationId}`,
       });
     } catch (error: any) {
+      const errorCorrelationId = generateClientCorrelationId();
+
+      // Fire-and-forget log to server
+      fetch('/api/log-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          correlationId: errorCorrelationId,
+          errorCode: ERROR_CODES.CC_EXPORT_FAILED.code,
+          error: error?.message || 'Unknown export error',
+          context: { route: '/admin', action: 'cc_export', source: 'client' },
+        }),
+      }).catch(() => {});
+
       toast({
         variant: 'destructive',
-        title: 'Export Failed',
-        description: error.message,
+        title: `Error ${ERROR_CODES.CC_EXPORT_FAILED.code}`,
+        description: (
+          <span className="select-all cursor-text">
+            {error?.message || 'Failed to export consistency check results'} — Ref: {errorCorrelationId}
+          </span>
+        ),
       });
     } finally {
       setIsExporting(false);

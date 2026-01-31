@@ -1,6 +1,6 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-01-31  23:00
+> **Last updated:** 2026-02-01  00:30
 > **Current production version:** Check `package.json` and verify at https://prix6.win/about
 > **Read this entire file at the start of every session.**
 
@@ -960,6 +960,9 @@ The continue URL in email verification is configured in `firebase/provider.tsx`.
 - [ ] (add planned work)
 
 ### Recently Completed
+- [x] Migrated all ~47 remaining hardcoded PX codes to `ERRORS.KEY.code` from `@/lib/error-registry` across 15 files (commit `c4129e8`). Inline correlation ID generation replaced with `generateClientCorrelationId()`. Zero remaining hardcoded `'PX-xxxx'` strings outside source-of-truth files (`error-codes.ts`, `error-registry.ts`) and intentional exclusions (`ErrorLogViewer.tsx` category prefixes, regex parsers in auth pages). Golden Rule #7 is now fully enforced.
+- [x] Phase 9 - migrate all error handling to traced-error system
+- [x] Tier 1 security audit + module indexer error traceability system
 - [x] v1.17.0 - Smart Pit Lane Status (shows Submit/Edit Prediction based on user state)
 - [x] v1.17.0 - Waiting State & Deep Linking (loading spinner, clickable link to /predictions)
 - [x] v1.17.0 - Deadline Visibility Warning (colour-coded banners at 24h/6h/1h)

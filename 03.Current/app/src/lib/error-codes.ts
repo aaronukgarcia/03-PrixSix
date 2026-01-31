@@ -80,6 +80,7 @@ export const ERROR_CODES = {
   FIRESTORE_BATCH_FAILED: { code: 'PX-4003', message: 'Batch operation failed' },
   FIRESTORE_INDEX_REQUIRED: { code: 'PX-4004', message: 'Database index required' },
   FIRESTORE_COLLECTION_GROUP_FAILED: { code: 'PX-4005', message: 'Collection group query failed' },
+  CC_EXPORT_FAILED: { code: 'PX-4006', message: 'Failed to export consistency check results' },
 
   // 5xxx - Race/Scoring Logic
   RACE_NOT_FOUND: { code: 'PX-5001', message: 'Race not found' },
