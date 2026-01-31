@@ -220,7 +220,12 @@ function ResultsContent() {
     const pastEvents = allRaceEvents.filter(event => new Date(event.raceTime) < new Date());
 
     // Check for race query parameter from URL (e.g., from Standings page navigation)
-    const raceFromUrl = searchParams.get('race');
+    // Normalize to canonical event ID — Standings page passes lowercase IDs but
+    // allRaceEvents uses Title-Case from the schedule. Case-insensitive lookup.
+    const rawRaceFromUrl = searchParams.get('race');
+    const raceFromUrl = rawRaceFromUrl
+        ? allRaceEvents.find(e => e.id.toLowerCase() === rawRaceFromUrl.toLowerCase())?.id ?? rawRaceFromUrl
+        : null;
 
     // Track the most recent race with admin-entered results
     const [mostRecentResultRaceId, setMostRecentResultRaceId] = useState<string | null>(null);
@@ -341,17 +346,22 @@ function ResultsContent() {
         }
     }, [raceFromUrl]);
 
-    // GUID: PAGE_RESULTS-017-v03
-    // [Intent] Convert a full event ID (with -GP or -Sprint suffix) to the base race ID in title case,
-    //   matching how predictions are stored in Firestore.
+    // GUID: PAGE_RESULTS-017-v04
+    // [Intent] Convert a full event ID (with -GP or -Sprint suffix) to the base race ID matching
+    //   how predictions are stored in Firestore (e.g. "Spanish-Grand-Prix-II").
     // [Inbound Trigger] Called when building Firestore queries for predictions.
     // [Downstream Impact] Incorrect normalisation would cause prediction lookups to return empty results.
+    // @FIX(v04) Previous version used title-casing which corrupted Roman numerals ("II" → "Ii")
+    //   and other all-caps segments. Now looks up the event in allRaceEvents to get the original
+    //   baseName from the schedule, guaranteeing an exact match with prediction raceId storage.
     const getBaseRaceId = (eventId: string) => {
-        const base = eventId.replace(/-GP$/i, '').replace(/-Sprint$/i, '');
-        // Convert to title case: "spanish-grand-prix" -> "Spanish-Grand-Prix"
-        return base.split('-').map(word =>
-            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-        ).join('-');
+        const event = allRaceEvents.find(e => e.id.toLowerCase() === eventId.toLowerCase());
+        if (event) {
+            // Use the actual race name from the schedule — matches prediction storage exactly
+            return event.baseName.replace(/\s+/g, '-');
+        }
+        // Fallback: strip suffix, preserve original case
+        return eventId.replace(/-GP$/i, '').replace(/-Sprint$/i, '');
     };
 
     // GUID: PAGE_RESULTS-018-v03
@@ -492,17 +502,18 @@ function ResultsContent() {
         return 0;
     };
 
-    // GUID: PAGE_RESULTS-024-v03
+    // GUID: PAGE_RESULTS-024-v04
     // [Intent] Map score type grades (A-E) to Tailwind CSS colour classes for visual feedback.
     // [Inbound Trigger] Called per driver when rendering the prediction breakdown.
     // [Downstream Impact] Pure function — returns a CSS class string.
+    // @FIX(v04) Widened colour gaps between low-scoring grades (+0, +2, +3) for readability.
     const getScoreTypeColor = (scoreType: ScoreType): string => {
         switch (scoreType) {
             case 'A': return 'text-green-500';      // Exact (+6)
-            case 'B': return 'text-lime-500';       // 1 off (+4)
-            case 'C': return 'text-yellow-500';     // 2 off (+3)
+            case 'B': return 'text-emerald-400';    // 1 off (+4)
+            case 'C': return 'text-yellow-400';     // 2 off (+3)
             case 'D': return 'text-orange-500';     // 3+ off (+2)
-            case 'E': return 'text-red-400';        // Not in top 6 (0)
+            case 'E': return 'text-red-500';        // Not in top 6 (+0)
             default: return 'text-muted-foreground';
         }
     };
@@ -887,7 +898,7 @@ function ResultsContent() {
                             <div className="flex flex-wrap gap-1">
                                 {team.predictions.map((pred, i) => (
                                     <span key={i} className="inline-flex items-center">
-                                        <span className={pred.isCorrect ? "text-foreground" : "text-muted-foreground"}>
+                                        <span className={getScoreTypeColor(pred.scoreType)}>
                                             P{pred.position}: {pred.driverName}
                                         </span>
                                         <span className={`font-bold ml-0.5 ${getScoreTypeColor(pred.scoreType)}`}>
