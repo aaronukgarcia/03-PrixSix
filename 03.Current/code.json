@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-01-31",
-  "total_guids": 901,
+  "total_guids": 917,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
@@ -15042,6 +15042,247 @@
       "location": {
         "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
         "functionName": "PubChatPanel"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "COMPONENT_WELCOME_CTA-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Dismissible welcome CTA card for the dashboard. Encourages new users to visit the onboarding checklist at /onboarding. Persists dismiss state in localStorage.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx"
+      },
+      "callChain": {
+        "calledBy": ["PAGE_DASHBOARD-003"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "COMPONENT_WELCOME_CTA-001",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "localStorage key for persisting the dismissed state of the welcome CTA.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx",
+        "functionName": "DISMISS_KEY"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "COMPONENT_WELCOME_CTA-002",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main WelcomeCTA component. Shows gradient-bordered card with shimmer hover effect that links to /onboarding. Fades in on mount and animates out on dismiss.",
+      "dependencies": ["COMPONENT_WELCOME_CTA-001"],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx",
+        "functionName": "WelcomeCTA"
+      },
+      "callChain": {
+        "calledBy": ["PAGE_DASHBOARD-003"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "COMPONENT_WELCOME_CTA-003",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Dismiss handler — persists to localStorage and triggers AnimatePresence exit animation.",
+      "dependencies": ["COMPONENT_WELCOME_CTA-001"],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx",
+        "functionName": "handleDismiss"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Onboarding checklist page. Guides new users through four steps: verify email, make a prediction, explore the paddock, join a league. Steps 1-2 auto-detect from auth/Firestore; steps 3-4 are manual.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx"
+      },
+      "callChain": {
+        "calledBy": ["COMPONENT_WELCOME_CTA-002"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-001",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "localStorage key for persisting manual checklist progress as JSON.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "PROGRESS_KEY"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-002",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Type definition and default state for onboarding progress (emailVerified, predictionMade, paddockExplored, gridJoined).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "OnboardingProgress"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-003",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Checklist item configuration — defines label, description, icon, links, and auto-detect flag for each onboarding step.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "CHECKLIST_ITEMS"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-004",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main onboarding page component. Renders hero, progress bar, and interactive checklist with auto-detect and manual completion.",
+      "dependencies": ["PAGE_ONBOARDING-001", "PAGE_ONBOARDING-002", "PAGE_ONBOARDING-003"],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "OnboardingPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-005",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Load persisted progress from localStorage on mount to restore previously completed manual steps.",
+      "dependencies": ["PAGE_ONBOARDING-001"],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "OnboardingPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-006",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Auto-detect email verification from auth state and sync to onboarding progress.",
+      "dependencies": ["PAGE_ONBOARDING-001"],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "OnboardingPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-007",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Query predictions subcollection to auto-detect if user has made any prediction. Logs traced error on failure via ERRORS.FIRESTORE_READ_FAILED.",
+      "dependencies": ["PAGE_ONBOARDING-001"],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "OnboardingPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "errorProfile": {
+        "emits": ["PX-4001"]
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-008",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Handler for manual step completion — marks step as done in localStorage, then navigates to target page.",
+      "dependencies": ["PAGE_ONBOARDING-001"],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "completeAndNavigate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-009",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Progress bar showing overall checklist completion with neon green accent when all steps done.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "OnboardingPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-010",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Checklist items rendering — staggered entry animation, animated check on completion, action buttons for navigation.",
+      "dependencies": ["PAGE_ONBOARDING-003"],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "OnboardingPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "PAGE_ONBOARDING-011",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Footer with back-to-dashboard navigation button.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/onboarding/page.tsx",
+        "functionName": "OnboardingPage"
       },
       "callChain": {
         "calledBy": [],

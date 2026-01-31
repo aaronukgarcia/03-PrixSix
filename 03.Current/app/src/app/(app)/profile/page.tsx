@@ -11,7 +11,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirestore, useStorage, addDocumentNonBlocking } from "@/firebase";
+import { useAuth, useFirestore, useStorage, addDocumentNonBlocking, useCollection } from "@/firebase";
 import { logAuditEvent } from "@/lib/audit";
 import {
   AlertDialog,
@@ -50,12 +50,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { generateTeamName } from "@/ai/flows/team-name-generator";
-import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X, Upload, Trash2, Link2, Unlink } from "lucide-react";
+import { Frown, Wand2, AlertTriangle, User, Mail, Key, CheckCircle2, XCircle, Loader2, RefreshCw, Camera, X, Upload, Trash2, Link2, Unlink, Clock, LogIn } from "lucide-react";
 import { GoogleIcon, AppleIcon } from "@/components/icons/OAuthIcons";
 import { validateImageFile, uploadProfilePhoto, compressImage, type UploadProgress } from "@/lib/file-upload";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, deleteDoc, deleteField, doc, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, deleteField, doc, updateDoc, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useSession } from "@/contexts/session-context";
@@ -130,6 +131,49 @@ export default function ProfilePage() {
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [isLinkingApple, setIsLinkingApple] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
+
+  // GUID: PAGE_PROFILE-040-v03
+  // [Intent] Memoised Firestore query for the current user's last 10 logon records,
+  //          ordered by logonTimestamp descending. Returns null when user is unavailable
+  //          so useCollection gracefully waits.
+  // [Inbound Trigger] user.id or firestore changes.
+  // [Downstream Impact] Feeds the logon history Card section below.
+  const logonHistoryQuery = useMemo(() => {
+    if (!firestore || !user?.id) return null;
+    const q = query(
+      collection(firestore, 'user_logons'),
+      where('userId', '==', user.id),
+      orderBy('logonTimestamp', 'desc'),
+      limit(10)
+    );
+    (q as any).__memo = true;
+    return q;
+  }, [firestore, user?.id]);
+
+  const { data: logonHistory, isLoading: isLoadingLogons } = useCollection<{
+    userId: string;
+    logonTimestamp: any;
+    logoutTimestamp: any;
+    sessionStatus: string;
+    loginMethod: string;
+    ipAddress: string | null;
+    userAgent: string | null;
+  }>(logonHistoryQuery);
+
+  // GUID: PAGE_PROFILE-041-v03
+  // [Intent] Fetch total logon count for badge display. Uses getDocs instead of
+  //          useCollection to avoid a second real-time listener for a simple count.
+  // [Inbound Trigger] user.id or firestore changes.
+  // [Downstream Impact] Drives the count badge on the logon history card title.
+  const [totalLogonCount, setTotalLogonCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!firestore || !user?.id) return;
+    const countQuery = query(
+      collection(firestore, 'user_logons'),
+      where('userId', '==', user.id)
+    );
+    getDocs(countQuery).then(snap => setTotalLogonCount(snap.size)).catch(() => {});
+  }, [firestore, user?.id]);
 
   // GUID: PAGE_PROFILE-006-v03
   // [Intent] Initialise notification preferences form with user's saved values or sensible defaults.
@@ -1148,6 +1192,85 @@ export default function ProfilePage() {
                   </Button>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* GUID: PAGE_PROFILE-042-v03
+            [Intent] Logon History card showing last 10 logon events with total count badge,
+                     login method, timestamp, and session status. Includes loading/empty states.
+            [Inbound Trigger] Rendered for all users (not behind mustChangePin gate).
+            [Downstream Impact] Reads user_logons collection via useCollection hook. */}
+        {!user?.mustChangePin && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <LogIn className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle>Logon History</CardTitle>
+                </div>
+                {totalLogonCount !== null && totalLogonCount > 0 && (
+                  <Badge variant="secondary">{totalLogonCount} total</Badge>
+                )}
+              </div>
+              <CardDescription>Your recent sign-in activity.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingLogons ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : !logonHistory || logonHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No logon history available yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {logonHistory.map((logon) => {
+                    const timestamp = logon.logonTimestamp?.toDate?.()
+                      ? logon.logonTimestamp.toDate()
+                      : logon.logonTimestamp?.seconds
+                        ? new Date(logon.logonTimestamp.seconds * 1000)
+                        : null;
+
+                    return (
+                      <div key={logon.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">
+                              {logon.loginMethod === 'pin' ? 'PIN' : logon.loginMethod === 'google' ? 'Google' : 'Apple'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {timestamp
+                                ? timestamp.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + timestamp.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+                                : 'Unknown time'}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={
+                            logon.sessionStatus === 'Active'
+                              ? 'default'
+                              : logon.sessionStatus === 'Logged Out'
+                                ? 'secondary'
+                                : 'outline'
+                          }
+                          className={
+                            logon.sessionStatus === 'Active'
+                              ? 'bg-green-600 hover:bg-green-600'
+                              : logon.sessionStatus === 'Session Expired'
+                                ? 'border-yellow-500 text-yellow-600'
+                                : ''
+                          }
+                        >
+                          {logon.sessionStatus}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
