@@ -1280,6 +1280,22 @@ export function checkScores(
     }
   }
 
+  // Build per-user prediction index for carry-forward resolution.
+  // The scoring engine carries forward the latest previous prediction when no
+  // race-specific prediction exists. This map lets the CC try all of a user's
+  // predictions when the direct raceId match fails.
+  const userAllPredictions = new Map<string, PredictionData[]>();
+  for (const pred of predictions) {
+    const userId = pred.userId || pred.teamId;
+    if (!userId) continue;
+    const existing = userAllPredictions.get(userId);
+    if (existing) {
+      existing.push(pred);
+    } else {
+      userAllPredictions.set(userId, [pred]);
+    }
+  }
+
   // Build race results map (by normalized raceId, lowercased for consistent lookups)
   const resultsMap = new Map<string, RaceResultData>();
   for (const result of raceResults) {
@@ -1485,6 +1501,41 @@ export function checkScores(
               // Track the closest mismatch for error reporting
               if (!closestExpected || Math.abs(expected.points - (score.totalPoints ?? 0)) < Math.abs(closestExpected.points - (score.totalPoints ?? 0))) {
                 closestExpected = { ...expected, predictedDrivers };
+              }
+            }
+          }
+
+          // If no direct match, try carry-forward: the scoring engine uses the
+          // latest previous prediction when no race-specific one exists.
+          if (!anyMatch && score.userId) {
+            const allUserPreds = userAllPredictions.get(score.userId) || [];
+            for (const pred of allUserPreds) {
+              // Skip predictions we already tried via direct match
+              if (matchingPredictions.includes(pred)) continue;
+
+              let predictedDrivers: string[] = [];
+              if (Array.isArray(pred.predictions)) {
+                predictedDrivers = pred.predictions;
+              } else if (pred.predictions && typeof pred.predictions === 'object') {
+                const preds = pred.predictions as Record<string, string>;
+                predictedDrivers = [
+                  preds.P1, preds.P2, preds.P3, preds.P4, preds.P5, preds.P6
+                ].filter(Boolean);
+              }
+
+              if (predictedDrivers.length === 6) {
+                const expected = calculateExpectedScore(predictedDrivers, actualTop6);
+                if (expected.points === score.totalPoints) {
+                  anyMatch = true;
+                  closestExpected = { ...expected, predictedDrivers };
+                  issues.push({
+                    severity: 'info',
+                    entity: entityName,
+                    message: `Score verified via carry-forward prediction from ${pred.raceId || 'unknown race'}`,
+                    details: { carryForwardRaceId: pred.raceId, predictedDrivers },
+                  });
+                  break;
+                }
               }
             }
           }
