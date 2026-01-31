@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Query,
   onSnapshot,
@@ -62,6 +62,7 @@ export function useCollection<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
@@ -78,6 +79,11 @@ export function useCollection<T = any>(
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
+        // Success: cancel any pending error emission (auth may have just synced)
+        if (errorTimerRef.current) {
+          clearTimeout(errorTimerRef.current);
+          errorTimerRef.current = null;
+        }
         const results: ResultItemType[] = [];
         for (const doc of snapshot.docs) {
           results.push({ ...(doc.data() as T), id: doc.id });
@@ -104,12 +110,25 @@ export function useCollection<T = any>(
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
+        // Delay global error propagation by 3 seconds to allow transient
+        // auth timing issues to resolve (e.g. OAuth redirect where Firestore
+        // client hasn't synced the auth token yet). If onSnapshot succeeds
+        // within this window, the timer is cancelled above.
+        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = setTimeout(() => {
+          errorEmitter.emit('permission-error', contextualError);
+          errorTimerRef.current = null;
+        }, 3000);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = null;
+      }
+    };
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
   
   if(memoizedTargetRefOrQuery && !(memoizedTargetRefOrQuery as any).__memo) {

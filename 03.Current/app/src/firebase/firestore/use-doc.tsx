@@ -1,6 +1,6 @@
 'use client';
     
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DocumentReference,
   onSnapshot,
@@ -46,6 +46,7 @@ export function useDoc<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!memoizedDocRef) {
@@ -62,6 +63,11 @@ export function useDoc<T = any>(
     const unsubscribe = onSnapshot(
       memoizedDocRef,
       (snapshot: DocumentSnapshot<DocumentData>) => {
+        // Success: cancel any pending error emission (auth may have just synced)
+        if (errorTimerRef.current) {
+          clearTimeout(errorTimerRef.current);
+          errorTimerRef.current = null;
+        }
         if (snapshot.exists()) {
           setData({ ...(snapshot.data() as T), id: snapshot.id });
         } else {
@@ -81,12 +87,25 @@ export function useDoc<T = any>(
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
+        // Delay global error propagation by 3 seconds to allow transient
+        // auth timing issues to resolve (e.g. OAuth redirect where Firestore
+        // client hasn't synced the auth token yet). If onSnapshot succeeds
+        // within this window, the timer is cancelled above.
+        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = setTimeout(() => {
+          errorEmitter.emit('permission-error', contextualError);
+          errorTimerRef.current = null;
+        }, 3000);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = null;
+      }
+    };
   }, [memoizedDocRef]); // Re-run if the memoizedDocRef changes.
 
   return { data, isLoading, error };
