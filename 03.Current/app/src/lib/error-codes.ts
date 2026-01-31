@@ -59,6 +59,8 @@ export const ERROR_CODES = {
   VALIDATION_DUPLICATE_ENTRY: { code: 'PX-2003', message: 'Duplicate entry detected' },
   VALIDATION_SECONDARY_EMAIL_SAME: { code: 'PX-2004', message: 'Secondary email cannot be the same as primary email' },
   VALIDATION_SECONDARY_EMAIL_IN_USE: { code: 'PX-2005', message: 'This email is already in use' },
+  VALIDATION_NULL_DRIVER: { code: 'PX-2010', message: 'Race result contains null or empty driver' },
+  VALIDATION_DUPLICATE_DRIVER: { code: 'PX-2011', message: 'Race result contains duplicate drivers' },
 
   // 3xxx - External Services
   EMAIL_SEND_FAILED: { code: 'PX-3001', message: 'Failed to send email' },
@@ -75,6 +77,7 @@ export const ERROR_CODES = {
   FIRESTORE_WRITE_FAILED: { code: 'PX-4002', message: 'Failed to write to database' },
   FIRESTORE_BATCH_FAILED: { code: 'PX-4003', message: 'Batch operation failed' },
   FIRESTORE_INDEX_REQUIRED: { code: 'PX-4004', message: 'Database index required' },
+  FIRESTORE_COLLECTION_GROUP_FAILED: { code: 'PX-4005', message: 'Collection group query failed' },
 
   // 5xxx - Race/Scoring Logic
   RACE_NOT_FOUND: { code: 'PX-5001', message: 'Race not found' },
@@ -82,6 +85,10 @@ export const ERROR_CODES = {
   SCORE_CALCULATION_FAILED: { code: 'PX-5003', message: 'Score calculation failed' },
   PREDICTION_LOCKED: { code: 'PX-5004', message: 'Predictions are locked for this race' },
   PREDICTION_INCOMPLETE: { code: 'PX-5005', message: 'Prediction is incomplete' },
+  SCORE_WRITE_FAILED: { code: 'PX-5006', message: 'Failed to write score to database' },
+  SCORE_DELETE_FAILED: { code: 'PX-5007', message: 'Failed to delete score from database' },
+  SCORE_STANDINGS_FAILED: { code: 'PX-5008', message: 'Failed to calculate standings' },
+  SCORE_USER_LOOKUP_FAILED: { code: 'PX-5009', message: 'Failed to look up user data during scoring' },
 
   // 6xxx - Session Management
   SESSION_INVALID: { code: 'PX-6001', message: 'Invalid session' },
@@ -104,6 +111,12 @@ export const ERROR_CODES = {
   BACKUP_RESTORE_FAILED: { code: 'PX-7005', message: 'Backup restore failed' },
   BACKUP_CLEANUP_FAILED: { code: 'PX-7006', message: 'Backup cleanup failed' },
   BACKUP_HEARTBEAT_FAILED: { code: 'PX-7007', message: 'Backup heartbeat missing - backup may not be running' },
+
+  // 8xxx - Attack Detection
+  ATTACK_LOG_FAILED: { code: 'PX-8001', message: 'Failed to log login attempt' },
+  ATTACK_ALERT_FAILED: { code: 'PX-8002', message: 'Failed to create attack alert' },
+  ATTACK_LOG_WRITE_FAILED: { code: 'PX-8003', message: 'Failed to write login attempt to database' },
+  ATTACK_CHECK_FAILED: { code: 'PX-8004', message: 'Attack detection check failed' },
 
   // 9xxx - Unknown/Unexpected
   UNKNOWN_ERROR: { code: 'PX-9001', message: 'An unexpected error occurred' },

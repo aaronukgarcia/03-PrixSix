@@ -19,6 +19,8 @@
 !03.Current/docs/
 !03.Current/docs/**
 !03.Current/code.json
+!03.Current/code-index.json
+!03.Current/module-indexer.md
 !03.Current/claude-comment.md
 !03.Current/AddComments.md
 !03.Current/prix_six_engine.py
@@ -34,6 +36,8 @@
 03.Current/app/.firebase/
 03.Current/app/*.log
 03.Current/app/.DS_Store
+03.Current/app/out/
+03.Current/app/nul
 
 # WhatsApp worker ignores
 03.Current/whatsapp-worker/node_modules/

@@ -23,17 +23,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { normalizeRaceId as sharedNormalizeRaceId } from "@/lib/normalize-race-id";
 
-// GUID: ADMIN_RESULTS-001-v03
-// [Intent] Normalize a raceId string by stripping GP/Sprint suffixes and replacing spaces with hyphens for consistent matching against prediction raceId format.
-// [Inbound Trigger] Called during race selection to match predictions stored with different formatting conventions.
-// [Downstream Impact] Incorrect normalization would cause score calculation to miss predictions. Must stay in sync with prediction storage format.
-function normalizeRaceId(raceId: string): string {
-    let baseName = raceId
-        .replace(/\s*-\s*GP$/i, '')
-        .replace(/\s*-\s*Sprint$/i, '');
-    return baseName.replace(/\s+/g, '-');
-}
+// GUID: ADMIN_RESULTS-001-v04
+// @TECH_DEBT: Local normalizeRaceId replaced with shared import from normalize-race-id.ts (Golden Rule #3).
+// [Intent] Race ID normalisation is now handled by the shared normalizeRaceId() utility.
+// [Inbound Trigger] n/a -- import at top of file.
+// [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
+const normalizeRaceId = sharedNormalizeRaceId;
 
 // GUID: ADMIN_RESULTS-002-v03
 // [Intent] Convert a driver ID (e.g., "hamilton") to a 3-letter display code (e.g., "HAM") by looking up the driver in F1Drivers static data.

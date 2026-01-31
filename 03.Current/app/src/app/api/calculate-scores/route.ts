@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { F1Drivers } from '@/lib/data';
 import { SCORING_POINTS, calculateDriverPoints } from '@/lib/scoring-rules';
+import { normalizeRaceId } from '@/lib/normalize-race-id';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -46,19 +47,12 @@ interface StandingEntry {
   totalPoints: number;
 }
 
-// GUID: API_CALCULATE_SCORES-004-v03
-// [Intent] Normalises a raceId/raceName by stripping GP/Sprint suffixes and collapsing whitespace to hyphens, so predictions filed under the base race name can be matched.
-// [Inbound Trigger] Called during scoring to produce the lookup key for the predictions collection.
-// [Downstream Impact] If normalisation logic changes, prediction lookups will break. Must stay in sync with how submit-prediction stores raceId values.
-/**
- * Normalize raceId to match the format used by predictions (base race name only).
- */
-function normalizeRaceIdForPredictions(raceId: string): string {
-  let baseName = raceId
-    .replace(/\s*-\s*GP$/i, '')
-    .replace(/\s*-\s*Sprint$/i, '');
-  return baseName.replace(/\s+/g, '-');
-}
+// GUID: API_CALCULATE_SCORES-004-v04
+// @TECH_DEBT: Local normalizeRaceIdForPredictions replaced with shared normalizeRaceId import (Golden Rule #3).
+// [Intent] Race ID normalisation is now handled by the shared normalizeRaceId() utility.
+// [Inbound Trigger] n/a -- import at top of file.
+// [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
+const normalizeRaceIdForPredictions = normalizeRaceId;
 
 // GUID: API_CALCULATE_SCORES-005-v03
 // [Intent] Creates a Firestore document ID for race results that preserves GP vs Sprint distinction (e.g. "australia-gp" or "australia-sprint").

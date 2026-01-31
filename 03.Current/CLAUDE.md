@@ -1,6 +1,6 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-01-22  12:00
+> **Last updated:** 2026-01-31  23:00
 > **Current production version:** Check `package.json` and verify at https://prix6.win/about
 > **Read this entire file at the start of every session.**
 
@@ -18,6 +18,7 @@ These rules MUST be followed on every piece of code written and every response g
 | #4 | Identity Prefix — every response starts with `bob>` or `bill>` |
 | #5 | Verbose Confirmations — explicit, timestamped, version-numbered confirmations |
 | #6 | GUID Documentation — read comments before changing code, update GUID versions and code.json |
+| #7 | Registry-Sourced Errors — every error MUST be created from the error registry, no exceptions |
 
 ### 🛑 GOLDEN RULE #1: Aggressive Error Trapping
 
@@ -489,6 +490,85 @@ The full GUID commenting specification is in `AddComments.md`. Follow that forma
 
 ---
 
+### 🛑 GOLDEN RULE #7: Registry-Sourced Errors
+
+**Every error MUST be created from the error registry. No exceptions.**
+
+#### The Four Diagnostic Questions
+
+Every error log MUST answer automatically:
+
+| # | Question | Answered By |
+|---|----------|-------------|
+| 1 | **Where did it fail?** | `file` + `functionName` + `correlationId` |
+| 2 | **What was it trying to do?** | `message` + `context` |
+| 3 | **Known failure modes?** | `recovery` + `failureModes` |
+| 4 | **Who triggered it?** | `calledBy` + `calls` + `context` |
+
+#### Required Pattern
+
+```typescript
+import { ERRORS } from '@/lib/error-registry';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+
+const traced = createTracedError(ERRORS.SMOKE_TEST_FAILED, {
+  correlationId,
+  context: { importPath, backupDate }
+});
+await logTracedError(traced, db);
+throw traced;
+```
+
+#### Forbidden Patterns
+
+```typescript
+// NEVER hardcode error codes
+throw new Error('PX-7004: Smoke test failed');
+
+// NEVER manually construct metadata
+logError('PX-7004', 'Smoke test failed', context);
+
+// NEVER log without registry
+console.error('[BACKUP_FUNCTIONS-026]', error);
+```
+
+#### Adding New Errors
+
+1. Add to `errorProfile.emits` in `code.json`
+2. Run `npx tsx scripts/generate-error-registry.ts` from the `app/` directory
+3. Import `ERRORS.NEW_ERROR_KEY` from `@/lib/error-registry`
+4. **Never skip the generation step**
+
+#### Lookup Protocol — When Investigating Errors
+
+When investigating errors, always follow this sequence:
+
+| User Says | Lookup Type | Where to Look |
+|-----------|-------------|---------------|
+| "PX-7004" | Error code | `code-index.json` → `byErrorCode["PX-7004"]` |
+| "smoke test error" | Topic | `code-index.json` → `byTopic["smoke"]` |
+| "BACKUP_FUNCTIONS-026" | GUID | `code.json` → find GUID entry |
+| "error in scoring.ts" | File | `code-index.json` → `byFile["app/src/lib/scoring.ts"]` |
+
+1. Check `code-index.json` **FIRST** (instant lookup)
+2. Answer the four diagnostic questions
+3. Report: GUID → File → Function → Recovery
+4. **Never grep blindly** — use the registry
+
+#### Compliance Checklist
+
+When reviewing error handling code:
+
+- [ ] Error is created via `createTracedError(ERRORS.KEY)` — not hardcoded
+- [ ] Error is logged via `logTracedError()` — not manual console.error
+- [ ] Error code comes from `error-registry.ts` — not inline string
+- [ ] Error includes correlation ID and context
+- [ ] `error-registry.ts` was regenerated if `code.json` errorProfile changed
+
+**If ANY checkbox fails, the code is not ready for commit.**
+
+---
+
 ### Polling — Check shared memory regularly
 
 **Every ~30 seconds (or every few messages), run:**
@@ -908,6 +988,7 @@ The continue URL in email verification is configured in `firebase/provider.tsx`.
 10. ✅ **GOLDEN RULE #4:** Prefix your commit confirmation with bob> or bill>
 11. ✅ **GOLDEN RULE #5:** Use verbose confirmation: `bob> Committed: "type: message" (1.x.x)`
 12. ✅ **GOLDEN RULE #6:** GUID comments updated on all changed/new code, `code.json` in sync
+13. ✅ **GOLDEN RULE #7:** Errors use `ERRORS.KEY` from error-registry.ts, `error-registry.ts` regenerated if code.json changed
 
 ---
 

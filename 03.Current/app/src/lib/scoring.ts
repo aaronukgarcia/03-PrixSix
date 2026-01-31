@@ -1,4 +1,4 @@
-// GUID: LIB_SCORING-000-v03
+// GUID: LIB_SCORING-000-v04
 // [Intent] Orchestration module for race score calculation, persistence, and standings
 // generation. Reads predictions from Firestore, applies the scoring rules defined in
 // scoring-rules.ts, writes score documents back to Firestore, and computes league standings.
@@ -10,8 +10,9 @@
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, collectionGroup, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { F1Drivers } from './data';
 import { SCORING_POINTS, calculateDriverPoints } from './scoring-rules';
+import { normalizeRaceId } from './normalize-race-id';
 
-// GUID: LIB_SCORING-001-v03
+// GUID: LIB_SCORING-001-v04
 // [Intent] Define the shape of a race result document containing the top 6 finishing
 // drivers keyed by position (driver1 through driver6) plus metadata.
 // [Inbound Trigger] Used as a parameter type for calculateRaceScores and updateRaceScores.
@@ -29,7 +30,7 @@ interface RaceResult {
   driver6: string;
 }
 
-// GUID: LIB_SCORING-002-v03
+// GUID: LIB_SCORING-002-v04
 // [Intent] Define the shape of a user prediction document containing the raceId,
 // userId, and ordered array of predicted driver IDs.
 // [Inbound Trigger] Used for typing within calculateRaceScores when processing
@@ -43,31 +44,15 @@ interface Prediction {
   predictions: string[];
 }
 
-// GUID: LIB_SCORING-003-v03
-// [Intent] Normalise raceId strings to a consistent dash-separated format so that
-// admin-entered race IDs (e.g. "Australian Grand Prix - GP") match the format used
-// by prediction documents (e.g. "Australian-Grand-Prix").
-// [Inbound Trigger] Called by calculateRaceScores, updateRaceScores, and deleteRaceScores
-// before querying or writing to the scores/predictions collections.
-// [Downstream Impact] If this normalisation logic changes, prediction lookups and score
-// document keys will break, causing missing scores or orphaned documents.
+// GUID: LIB_SCORING-003-v04
+// @TECH_DEBT: Local normalizeRaceId replaced with shared import from normalize-race-id.ts (Golden Rule #3).
+// [Intent] Race ID normalisation is now handled by the shared normalizeRaceId() utility.
+// [Inbound Trigger] n/a -- import at top of file.
+// [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
 
-/**
- * Normalize raceId to match the format used by predictions.
- * Predictions use: raceName.replace(/\s+/g, '-') e.g., "Australian-Grand-Prix"
- * Admin results use: "Australian Grand Prix - GP" which needs to be converted
- */
-function normalizeRaceId(raceId: string): string {
-  // Remove " - GP" or " - Sprint" suffix if present
-  let baseName = raceId
-    .replace(/\s*-\s*GP$/i, '')
-    .replace(/\s*-\s*Sprint$/i, '');
-
-  // Convert to dash-separated format (no lowercase - predictions don't use lowercase)
-  return baseName.replace(/\s+/g, '-');
-}
-
-// GUID: LIB_SCORING-004-v03
+// GUID: LIB_SCORING-004-v04
+// @SECURITY_RISK: Previously silently swallowed collectionGroup failures, masking missing index or permission errors.
+// @ERROR_PRONE: Previously accepted null/duplicate drivers without validation.
 // [Intent] Core scoring engine: fetches all predictions for a given race from Firestore
 // using a collectionGroup query, then iterates each user's prediction array applying
 // the hybrid position-based scoring model (exact/1-off/2-off/3+-off) plus the all-6 bonus.
@@ -91,6 +76,8 @@ export async function calculateRaceScores(
   firestore: any,
   raceResult: RaceResult
 ): Promise<{ userId: string; totalPoints: number; breakdown: string }[]> {
+  const correlationId = `score_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+
   const actualResults = [
     raceResult.driver1,
     raceResult.driver2,
@@ -100,12 +87,25 @@ export async function calculateRaceScores(
     raceResult.driver6
   ];
 
+  // Validate race result: no null drivers
+  const nullDrivers = actualResults.filter((d, i) => !d);
+  if (nullDrivers.length > 0) {
+    throw new Error(`[PX-2010] Race result contains ${nullDrivers.length} null/empty driver(s) (Ref: ${correlationId})`);
+  }
+
+  // Validate race result: no duplicate drivers
+  const driverSet = new Set(actualResults);
+  if (driverSet.size !== actualResults.length) {
+    throw new Error(`[PX-2011] Race result contains duplicate drivers (Ref: ${correlationId})`);
+  }
+
   // Normalize the raceId to match prediction format
   const normalizedRaceId = normalizeRaceId(raceResult.raceId);
 
-  console.log(`[Scoring] Looking for predictions with raceId: "${normalizedRaceId}" (original: "${raceResult.raceId}")`);
+  console.log(`[Scoring] [${correlationId}] Looking for predictions with raceId: "${normalizedRaceId}" (original: "${raceResult.raceId}")`);
 
   // Get all predictions for this race using collectionGroup query
+  // @SECURITY_RISK fix: throw on failure instead of silently returning empty results
   let predictionsSnapshot;
   try {
     const predictionsQuery = query(
@@ -113,10 +113,10 @@ export async function calculateRaceScores(
       where('raceId', '==', normalizedRaceId)
     );
     predictionsSnapshot = await getDocs(predictionsQuery);
-    console.log(`[Scoring] CollectionGroup query returned ${predictionsSnapshot.size} results`);
+    console.log(`[Scoring] [${correlationId}] CollectionGroup query returned ${predictionsSnapshot.size} results`);
   } catch (error: any) {
-    console.error(`[Scoring] CollectionGroup query failed:`, error);
-    predictionsSnapshot = { size: 0, docs: [], forEach: () => {} } as any;
+    console.error(`[Scoring] [${correlationId}] CollectionGroup query failed [PX-4005]:`, error);
+    throw new Error(`[PX-4005] CollectionGroup query failed for race "${normalizedRaceId}" (Ref: ${correlationId}): ${error.message}`);
   }
 
   console.log(`[Scoring] Found ${predictionsSnapshot.size} predictions`);
@@ -182,7 +182,7 @@ export async function calculateRaceScores(
   return scores;
 }
 
-// GUID: LIB_SCORING-005-v03
+// GUID: LIB_SCORING-005-v04
 // [Intent] Define auxiliary TypeScript interfaces for the score-with-team-name
 // shape (used in email/report output), the standings entry shape (rank + team + points),
 // and the combined result returned by updateRaceScores.
@@ -208,14 +208,15 @@ interface UpdateScoresResult {
   standings: StandingEntry[];
 }
 
-// GUID: LIB_SCORING-006-v03
+// GUID: LIB_SCORING-006-v04
+// @AUDIT_NOTE: Removed `oduserId` typo field that was being written to Firestore alongside `userId`.
 // [Intent] End-to-end orchestrator: calculates scores for a race, persists each
 // user's score document to the 'scores' collection, then recomputes the full league
 // standings across all races. Returns the race scores and updated standings.
 // [Inbound Trigger] Called from admin API route when race results are submitted/recalculated.
 // [Downstream Impact] Writes score documents (keyed as {raceId}_{userId}) to Firestore.
 // Reads the entire 'scores' collection to compute league standings with tie-aware ranking.
-// Depends on calculateRaceScores (LIB_SCORING-004) and normalizeRaceId (LIB_SCORING-003).
+// Depends on calculateRaceScores (LIB_SCORING-004) and normalizeRaceId (LIB_NORMALIZE_RACE_ID-000).
 
 /**
  * Update scores collection for a race
@@ -225,6 +226,8 @@ export async function updateRaceScores(
   raceId: string,
   raceResult: RaceResult
 ): Promise<UpdateScoresResult> {
+  const correlationId = `score_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+
   // Calculate scores using Prix Six rules
   const calculatedScores = await calculateRaceScores(firestore, raceResult);
 
@@ -242,13 +245,17 @@ export async function updateRaceScores(
   const scores: ScoreWithTeam[] = [];
   for (const score of calculatedScores) {
     const scoreDocRef = doc(firestore, 'scores', `${normalizedRaceId}_${score.userId}`);
-    await setDoc(scoreDocRef, {
-      oduserId: score.userId,
-      userId: score.userId,
-      raceId: normalizedRaceId,
-      totalPoints: score.totalPoints,
-      breakdown: score.breakdown
-    });
+    try {
+      await setDoc(scoreDocRef, {
+        userId: score.userId,
+        raceId: normalizedRaceId,
+        totalPoints: score.totalPoints,
+        breakdown: score.breakdown
+      });
+    } catch (error: any) {
+      console.error(`[Scoring] [${correlationId}] Failed to write score for user ${score.userId} [PX-5006]:`, error);
+      throw new Error(`[PX-5006] Failed to write score for user ${score.userId} (Ref: ${correlationId}): ${error.message}`);
+    }
 
     scores.push({
       teamName: userMap.get(score.userId) || 'Unknown',
@@ -293,18 +300,20 @@ export async function updateRaceScores(
   };
 }
 
-// GUID: LIB_SCORING-007-v03
+// GUID: LIB_SCORING-007-v04
 // [Intent] Delete all score documents for a given race from the 'scores' collection.
 // Used when an admin needs to re-score a race or void results.
 // [Inbound Trigger] Called from admin API route when race scores are cleared.
 // [Downstream Impact] Removes score documents from Firestore. League standings
 // will be incorrect until scores are recalculated. Depends on normalizeRaceId
-// (LIB_SCORING-003) for consistent raceId lookup.
+// (LIB_NORMALIZE_RACE_ID-000) for consistent raceId lookup.
 
 /**
  * Delete all scores for a race
  */
 export async function deleteRaceScores(firestore: any, raceId: string): Promise<number> {
+  const correlationId = `score_del_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+
   // Normalize the raceId to match how scores are stored
   const normalizedRaceId = normalizeRaceId(raceId);
 
@@ -316,14 +325,19 @@ export async function deleteRaceScores(firestore: any, raceId: string): Promise<
 
   let deletedCount = 0;
   for (const scoreDoc of scoresSnapshot.docs) {
-    await deleteDoc(scoreDoc.ref);
-    deletedCount++;
+    try {
+      await deleteDoc(scoreDoc.ref);
+      deletedCount++;
+    } catch (error: any) {
+      console.error(`[Scoring] [${correlationId}] Failed to delete score ${scoreDoc.id} [PX-5007]:`, error);
+      throw new Error(`[PX-5007] Failed to delete score ${scoreDoc.id} (Ref: ${correlationId}): ${error.message}`);
+    }
   }
 
   return deletedCount;
 }
 
-// GUID: LIB_SCORING-008-v03
+// GUID: LIB_SCORING-008-v04
 // [Intent] Format a RaceResult into a compact display string showing position numbers
 // and 3-letter driver abbreviations (e.g. "1-VER, 2-HAM, 3-NOR...") for admin UI
 // and email summaries.

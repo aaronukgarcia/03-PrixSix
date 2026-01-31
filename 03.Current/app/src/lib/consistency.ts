@@ -1,4 +1,4 @@
-// GUID: LIB_CONSISTENCY-000-v03
+// GUID: LIB_CONSISTENCY-000-v04
 // [Intent] Central consistency-checking library for the Prix Six application.
 //   Provides pure validation functions that verify the integrity and correctness
 //   of all core domain data: users, drivers, races, predictions, team coverage,
@@ -15,6 +15,7 @@
 
 import { F1Drivers, RaceSchedule, type Driver, type Race } from './data';
 import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scoring-rules';
+import { normalizeRaceIdForComparison } from './normalize-race-id';
 
 // --- Types ---
 
@@ -229,25 +230,19 @@ export function generateConsistencyCorrelationId(): string {
   return `cc_${timestamp}_${random}`;
 }
 
-// GUID: LIB_CONSISTENCY-015-v03
+// GUID: LIB_CONSISTENCY-015-v04
+// @TECH_DEBT: Local normalizeRaceId replaced with shared normalizeRaceIdForComparison import (Golden Rule #3).
+//   The consistency checker needs lowercased comparison (unlike scoring which preserves case).
 // [Intent] Normalize a race name or ID to a canonical lowercase-hyphenated format.
-//   Strips trailing "-GP" and "-Sprint" suffixes, replaces spaces with hyphens,
-//   and lowercases the result. This handles inconsistencies between how race IDs
-//   are stored across different Firestore collections.
+//   Delegates to normalizeRaceIdForComparison from normalize-race-id.ts.
 // [Inbound Trigger] Called throughout this module when comparing race references
 //   across predictions, results, and scores. Also used by getValidRaceIds().
-// [Downstream Impact] Critical for cross-collection lookups. If normalization logic
-//   changes, all race ID comparisons in checkPredictions(), checkRaceResults(),
-//   checkScores(), and checkStandings() may break, producing false positive mismatches.
+// [Downstream Impact] Critical for cross-collection lookups. See LIB_NORMALIZE_RACE_ID-000.
 /**
  * Normalize a race name to the ID format (lowercase with hyphens)
  */
 export function normalizeRaceId(raceName: string): string {
-  return raceName
-    .replace(/\s*-\s*GP$/i, '')
-    .replace(/\s*-\s*Sprint$/i, '')
-    .replace(/\s+/g, '-')
-    .toLowerCase();
+  return normalizeRaceIdForComparison(raceName);
 }
 
 // GUID: LIB_CONSISTENCY-016-v03
@@ -733,7 +728,10 @@ export function checkRaces(): CheckResult {
   };
 }
 
-// GUID: LIB_CONSISTENCY-022-v03
+// GUID: LIB_CONSISTENCY-022-v04
+// @ERROR_PRONE: The "-secondary" suffix convention is hardcoded here and in multiple other files
+//   (provider.tsx, add-secondary-team API, team coverage check). If the convention changes,
+//   all these locations must be updated in lockstep. Consider extracting to a shared constant.
 // [Intent] Helper function to validate whether a given ID represents a valid user
 //   or secondary team. Handles the "{userId}-secondary" convention used for secondary
 //   team entries. Checks that the base user exists AND has a secondary team configured.
@@ -1103,7 +1101,13 @@ const SCORING = {
   maxPoints: SCORING_DERIVED.maxPointsPerRace,
 };
 
-// GUID: LIB_CONSISTENCY-027-v03
+// GUID: LIB_CONSISTENCY-027-v04
+// @AUDIT_NOTE: This function intentionally lowercases driver IDs before comparison to handle
+//   potential case mismatches between prediction and result documents. The scoring engine
+//   (scoring.ts) does NOT lowercase, relying on exact case match. This means the consistency
+//   checker is more lenient than the actual scorer -- a case mismatch would score 0 in
+//   production but would not be flagged as a mismatch here. This is intentional: the CC
+//   catches structural issues, not case sensitivity issues.
 // [Intent] Recalculate the expected score for a single prediction against a race result,
 //   using the Prix Six hybrid position-based scoring rules. Delegates per-driver point
 //   calculation to calculateDriverPoints() from scoring-rules.ts. Adds the bonusAll6
@@ -1151,7 +1155,10 @@ function calculateExpectedScore(predictedDrivers: string[], actualTop6: string[]
   return { points, correctCount };
 }
 
-// GUID: LIB_CONSISTENCY-028-v03
+// GUID: LIB_CONSISTENCY-028-v04
+// @ERROR_PRONE: Breakdown string parsing (splitting on comma, matching "+N" patterns) is fragile.
+//   If the breakdown format changes in scoring.ts, the score type counting here will silently break.
+// @AUDIT_NOTE: Late-joiner handicap scores now warn if totalPoints exceeds maxPoints per race.
 // [Intent] The most comprehensive check function. Validates all score documents against
 //   race results, predictions, and users. Performs:
 //   - Late-joiner handicap score validation (special raceId 'late-joiner-handicap')
@@ -1252,6 +1259,15 @@ export function checkScores(
           message: 'Late-joiner handicap missing totalPoints',
         });
         isValid = false;
+      } else if (Math.abs(score.totalPoints) > SCORING.maxPoints) {
+        // Bounds check: late-joiner handicap magnitude should not exceed max possible race score
+        issues.push({
+          severity: 'warning',
+          entity: entityName,
+          field: 'totalPoints',
+          message: `Late-joiner handicap |${score.totalPoints}| exceeds maxPoints (${SCORING.maxPoints}) -- verify this is intentional`,
+          details: { totalPoints: score.totalPoints, maxPoints: SCORING.maxPoints },
+        });
       }
 
       if (isValid) {
@@ -1475,7 +1491,7 @@ export function checkScores(
   };
 }
 
-// GUID: LIB_CONSISTENCY-029-v03
+// GUID: LIB_CONSISTENCY-029-v04
 // [Intent] Validate that standings (cumulative points per user) are internally consistent.
 //   Calculates each user's total points by summing all their score documents and verifies
 //   the sum is self-consistent. This catches scenarios where individual score documents
@@ -1709,7 +1725,7 @@ export function checkLeagues(
   };
 }
 
-// GUID: LIB_CONSISTENCY-031-v03
+// GUID: LIB_CONSISTENCY-031-v04
 // [Intent] Aggregate all individual CheckResult objects into a single ConsistencyCheckSummary.
 //   Counts passed/warning/error categories, generates a unique correlation ID, and
 //   timestamps the audit. This is the final step in a consistency check run.

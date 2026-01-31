@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
+import { normalizeRaceIdForComparison } from '@/lib/normalize-race-id';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -18,20 +19,13 @@ interface DeleteScoresRequest {
   raceName: string;
 }
 
-// GUID: API_DELETE_SCORES-002-v03
-// [Intent] Normalises a raceId by stripping GP/Sprint suffixes, collapsing whitespace to hyphens, and lowercasing to match the format used when scores are stored.
-// [Inbound Trigger] Called once per delete request to produce the Firestore query key.
-// [Downstream Impact] Must produce the same format as API_CALCULATE_SCORES-005 (createRaceResultDocId). If normalisation diverges, scores will not be found for deletion.
-/**
- * Normalize raceId to match the format used by scores.
- * Scores are stored with lowercase raceId, so we must lowercase here.
- */
-function normalizeRaceId(raceId: string): string {
-  let baseName = raceId
-    .replace(/\s*-\s*GP$/i, '')
-    .replace(/\s*-\s*Sprint$/i, '');
-  return baseName.replace(/\s+/g, '-').toLowerCase();
-}
+// GUID: API_DELETE_SCORES-002-v04
+// @TECH_DEBT: Local normalizeRaceId replaced with shared normalizeRaceIdForComparison import (Golden Rule #3).
+//   Delete-scores uses lowercase comparison since score documents may store raceId in different cases.
+// [Intent] Race ID normalisation is now handled by the shared normalizeRaceIdForComparison() utility.
+// [Inbound Trigger] n/a -- import at top of file.
+// [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
+const normalizeRaceId = normalizeRaceIdForComparison;
 
 // GUID: API_DELETE_SCORES-003-v03
 // [Intent] Main POST handler that authenticates the admin, queries all score documents for the specified race, batch-deletes them along with the race result document, and logs an audit event.

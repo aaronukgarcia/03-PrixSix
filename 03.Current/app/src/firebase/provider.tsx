@@ -1,4 +1,4 @@
-// GUID: FIREBASE_PROVIDER-000-v03
+// GUID: FIREBASE_PROVIDER-000-v04
 // [Intent] Central Firebase context provider that manages authentication state, user profile data,
 // and all auth-related operations (login, signup, logout, PIN management, email verification).
 // This is the single source of truth for the current user's session and profile across the entire app.
@@ -29,6 +29,7 @@ import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
 import { logAuditEvent } from '@/lib/audit';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: FIREBASE_PROVIDER-001-v03
 // [Intent] Defines the shape of user email notification preferences stored in Firestore.
@@ -169,7 +170,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   const router = useRouter();
 
-  // GUID: FIREBASE_PROVIDER-008-v03
+  // GUID: FIREBASE_PROVIDER-008-v04
+  // @SECURITY_RISK @AUDIT_NOTE: Auth state race condition -- between onAuthStateChanged firing and
+  //   the Firestore snapshot resolving, there is a window where `firebaseUser` is set but `user` is null.
+  //   Components must check `isUserLoading` before relying on `user` state. The 10s timeout mitigates
+  //   indefinite loading but does not eliminate the race. A proper fix requires server-side session tokens.
   // [Intent] Sets up a two-layer real-time listener: (1) Firebase Auth state changes trigger
   // (2) a Firestore onSnapshot listener on the user's profile document. On first snapshot,
   // syncs emailVerified from Auth to Firestore if needed and redirects users who must change PIN.
@@ -221,7 +226,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                     }
                   }
 
-                  // GUID: FIREBASE_PROVIDER-029-v03
+                  // GUID: FIREBASE_PROVIDER-029-v04
                   // [Intent] Sync provider list from Firebase Auth to Firestore on initial load.
                   //          Also syncs photoUrl from Google/Apple if user has none set.
                   // [Inbound Trigger] First snapshot after auth state change.
@@ -260,7 +265,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                     router.push('/profile');
                   }
                 } else {
-                  // GUID: FIREBASE_PROVIDER-030-v03
+                  // GUID: FIREBASE_PROVIDER-030-v04
                   // [Intent] When a Firebase Auth user exists but no Firestore doc is found,
                   //          check if this is an OAuth user (Google/Apple). If so, redirect
                   //          to /complete-profile for team name entry instead of showing an error.
@@ -318,7 +323,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     };
   }, [auth, firestore, router]);
 
-  // GUID: FIREBASE_PROVIDER-009-v03
+  // GUID: FIREBASE_PROVIDER-009-v04
+  // @SECURITY_RISK @AUDIT_NOTE: No CSRF token is sent with the login POST. The /api/auth/login endpoint
+  //   relies on SameSite cookies and CORS headers for cross-origin protection. A proper CSRF token
+  //   would require server-side session infrastructure (not currently implemented).
+  // @TECH_DEBT: Inline correlation ID generation replaced with generateClientCorrelationId() import.
   // [Intent] Authenticates a user via server-side PIN verification API, then signs in using the
   // returned custom token. Includes a 15-second timeout, brute-force protection (server-side),
   // and waits for onAuthStateChanged to settle before returning success.
@@ -368,7 +377,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         // Verify sign-in actually succeeded by checking currentUser
         if (!auth.currentUser) {
             setIsUserLoading(false);
-            const clientCorrelationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+            const clientCorrelationId = generateClientCorrelationId();
             return {
                 success: false,
                 message: `Sign-in verification failed. Please try again. [PX-1008] (Ref: ${clientCorrelationId})`,
@@ -405,7 +414,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
          setIsUserLoading(false);
 
          // Generate client-side correlation ID for network/client errors
-         const clientCorrelationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+         const clientCorrelationId = generateClientCorrelationId();
 
          // Handle specific error cases
          if (signInError.name === 'AbortError') {
@@ -422,12 +431,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
              };
          }
 
-         const errorMessage = `${signInError.message || 'An error occurred during login'} (Ref: ${clientCorrelationId})`;
-         return { success: false, message: errorMessage };
+         return { success: false, message: `An error occurred during login. [PX-9001] (Ref: ${clientCorrelationId})` };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-010-v03
+  // GUID: FIREBASE_PROVIDER-010-v04
   // [Intent] Registers a new user via server-side API (which uses Admin SDK for Firestore writes
   // and Firebase Auth user creation), then auto-signs in with the returned custom token.
   // [Inbound Trigger] Called from the signup/registration page when a new user submits their details.
@@ -465,7 +473,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     } catch (error: any) {
       // Generate client-side correlation ID for network/client errors
-      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const correlationId = generateClientCorrelationId();
       console.error(`[Signup Error ${correlationId}]`, error);
 
       // Log via API
@@ -492,7 +500,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-011-v03
+  // GUID: FIREBASE_PROVIDER-011-v04
   // [Intent] Admin-only operation to update a user's profile via server-side API. Handles both
   // Firestore document updates and Firebase Auth property changes (e.g., email, display name).
   // [Inbound Trigger] Called from the admin panel when an admin edits a user's details.
@@ -536,13 +544,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return { success: true, message: result.message || "User updated successfully." };
 
     } catch (e: any) {
-      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const correlationId = generateClientCorrelationId();
       console.error(`[Update User Error ${correlationId}]`, e);
       return { success: false, message: `Failed to update user. [PX-9002] (Ref: ${correlationId})` };
     }
   }
 
-  // GUID: FIREBASE_PROVIDER-012-v03
+  // GUID: FIREBASE_PROVIDER-012-v04
   // [Intent] Admin-only operation to delete a user via server-side API. Removes both the Firestore
   // user document and the Firebase Auth account.
   // [Inbound Trigger] Called from the admin panel when an admin deletes a user.
@@ -580,7 +588,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return { success: true, message: result.message || "User deleted successfully." };
 
     } catch (e: any) {
-      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const correlationId = generateClientCorrelationId();
       console.error(`[Delete User Error ${correlationId}]`, e);
       return { success: false, message: `Failed to delete user. [PX-9002] (Ref: ${correlationId})` };
     }
@@ -642,7 +650,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     setIsUserLoading(false);
   };
 
-  // GUID: FIREBASE_PROVIDER-015-v03
+  // GUID: FIREBASE_PROVIDER-015-v04
   // [Intent] Initiates a server-side PIN reset for the given email address. The API generates a
   // temporary PIN and sends it via email. Works for unauthenticated users (forgotten PIN flow).
   // [Inbound Trigger] Called from the login page "Forgot PIN" flow.
@@ -650,7 +658,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   // triggers forced redirect to /profile for PIN change (FIREBASE_PROVIDER-008).
   const resetPin = async (email: string): Promise<AuthResult> => {
     // Generate correlation ID upfront for error tracking
-    const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    const correlationId = generateClientCorrelationId();
 
     try {
       // Use server-side API for PIN reset (Admin SDK bypasses Firestore rules)
@@ -700,7 +708,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-016-v03
+  // GUID: FIREBASE_PROVIDER-016-v04
+  // @SECURITY_RISK: Previously returned raw e.message to UI, potentially leaking Firebase internals.
+  //   Now returns generic error message with PX error code for all non-specific errors.
   // [Intent] Changes the current user's PIN (password) via Firebase Auth, clears the mustChangePin
   // flag, sends a confirmation email, logs audit events, and forces a logout so the user must
   // re-authenticate with the new PIN.
@@ -733,15 +743,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         return { success: true, message: "PIN updated successfully. You have been logged out." };
 
     } catch (e: any) {
-        console.error("PIN change error:", e);
+        const correlationId = generateClientCorrelationId();
+        console.error(`[PIN Change Error ${correlationId}]`, e);
         if (e.code === 'auth/requires-recent-login') {
             return { success: false, message: "This is a sensitive operation. Please log out and log back in before changing your PIN." };
         }
-        return { success: false, message: e.message };
+        // @SECURITY_RISK fix: return generic message instead of raw e.message which could leak Firebase internals
+        return { success: false, message: `PIN change failed. Please try again. [PX-1006] (Ref: ${correlationId})` };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-017-v03
+  // GUID: FIREBASE_PROVIDER-017-v04
+  // @SECURITY_RISK: Sanitized error messages in catch block to prevent leaking internal details.
   // [Intent] Sends a primary email verification via the custom Graph API endpoint (not Firebase's
   // built-in email verification). Validates preconditions before sending.
   // [Inbound Trigger] Called from the EmailVerificationBanner or profile page.
@@ -784,12 +797,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         return { success: false, message: result.error || "Failed to send verification email." };
       }
     } catch (e: any) {
-      console.error("Send verification email error:", e);
-      return { success: false, message: e.message || "Failed to send verification email." };
+      const correlationId = generateClientCorrelationId();
+      console.error(`[Verification Email Error ${correlationId}]`, e);
+      return { success: false, message: `Failed to send verification email. [PX-3001] (Ref: ${correlationId})` };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-018-v03
+  // GUID: FIREBASE_PROVIDER-018-v04
   // [Intent] Reloads the Firebase Auth user to check if email has been verified externally (e.g.,
   // user clicked the verification link in another tab). Syncs the verified status to Firestore.
   // [Inbound Trigger] Called when user clicks "I've verified" on the EmailVerificationBanner.
@@ -814,7 +828,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-019-v03
+  // GUID: FIREBASE_PROVIDER-019-v04
   // [Intent] Updates or removes the user's secondary email address via server-side API.
   // Passing null or empty string removes the secondary email; otherwise sets and marks unverified.
   // [Inbound Trigger] Called from the profile page secondary email form.
@@ -856,13 +870,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         return { success: false, message: errorMessage };
       }
     } catch (e: any) {
-      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const correlationId = generateClientCorrelationId();
       console.error(`[Update Secondary Email Error ${correlationId}]`, e);
       return { success: false, message: `Failed to update secondary email. [PX-9002] (Ref: ${correlationId})` };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-020-v03
+  // GUID: FIREBASE_PROVIDER-020-v04
+  // @SECURITY_RISK: Sanitized error messages in catch block to prevent leaking internal details.
   // [Intent] Sends a verification email to the user's secondary email address via the dedicated
   // server-side API endpoint. Validates preconditions (logged in, has secondary email, not yet verified).
   // [Inbound Trigger] Called from the profile page when user requests secondary email verification.
@@ -907,12 +922,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         return { success: false, message: result.error || "Failed to send verification email." };
       }
     } catch (e: any) {
-      console.error("Send secondary verification email error:", e);
-      return { success: false, message: e.message || "Failed to send verification email." };
+      const correlationId = generateClientCorrelationId();
+      console.error(`[Secondary Verification Email Error ${correlationId}]`, e);
+      return { success: false, message: `Failed to send verification email. [PX-3001] (Ref: ${correlationId})` };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-031-v03
+  // GUID: FIREBASE_PROVIDER-031-v04
   // [Intent] Handle redirect results from OAuth flows (mobile sign-in and linking).
   //          getRedirectResult resolves the pending credential after a redirect-based OAuth flow.
   // [Inbound Trigger] Component mounts after a redirect-based OAuth sign-in or link completes.
@@ -931,7 +947,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     });
   }, [auth]);
 
-  // GUID: FIREBASE_PROVIDER-032-v03
+  // GUID: FIREBASE_PROVIDER-032-v04
   // [Intent] Wrapper functions for OAuth sign-in and provider linking that call the authService
   //          module and manage pending credential state.
   // [Inbound Trigger] Called from login/signup pages and profile/ConversionBanner components.
@@ -954,7 +970,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return result;
   };
 
-  // GUID: FIREBASE_PROVIDER-050-v03
+  // GUID: FIREBASE_PROVIDER-050-v04
   // [Intent] Link Google to current account and send confirmation email on success.
   // [Inbound Trigger] ConversionBanner or profile page "Link Google" button.
   // [Downstream Impact] Links provider via authService, then fires confirmation email
@@ -976,7 +992,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return result;
   };
 
-  // GUID: FIREBASE_PROVIDER-051-v03
+  // GUID: FIREBASE_PROVIDER-051-v04
   // [Intent] Link Apple to current account and send confirmation email on success.
   // [Inbound Trigger] ConversionBanner or profile page "Link Apple" button.
   // [Downstream Impact] Same as linkGoogle — links provider, sends confirmation email.
