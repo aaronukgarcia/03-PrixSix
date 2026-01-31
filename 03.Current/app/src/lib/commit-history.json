@@ -1,6 +1,9 @@
 {
   "lastUpdated": "2026-01-31",
   "commits": [
+    {"id": "d63437f", "date": "2026-01-31", "version": "1.27.10", "author": "aaron garcia", "message": "fix: downgrade misleading CC warnings to info notes", "major": false},
+    {"id": "67aebaf", "date": "2026-01-31", "version": "1.27.10", "author": "aaron garcia", "message": "feat: add PX-7008 backfill error handling, backup dashboard improvements", "major": false},
+    {"id": "c769445", "date": "2026-01-31", "version": "1.27.10", "author": "aaron garcia", "message": "chore: sync commit history, add ping keepalive, regenerate registries", "major": false},
     {"id": "5ea5a7f", "date": "2026-01-31", "version": "1.27.9", "author": "aaron garcia", "message": "feat: add onboarding/WelcomeCTA GUIDs to code.json, profile logon history", "major": false},
     {"id": "8cc8519", "date": "2026-01-31", "version": "1.27.8", "author": "aaron garcia", "message": "feat: session tracking, Golden Rule #8, onboarding & UI updates", "major": true},
     {"id": "f0b0008", "date": "2026-01-31", "version": "1.27.7", "author": "aaron garcia", "message": "feat: backup & smoke test history table in admin panel", "major": false},

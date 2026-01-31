@@ -108,3 +108,16 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Golden Rule #1: All error-related UI must have selectable text */
+  [data-radix-toast-viewport],
+  [data-radix-toast-viewport] *,
+  [role="alert"],
+  [role="alert"] *,
+  .destructive,
+  .destructive * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+}

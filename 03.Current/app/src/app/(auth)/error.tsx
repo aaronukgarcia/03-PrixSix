@@ -23,7 +23,11 @@ export default function AuthError({
     setCorrelationId(id);
 
     // Log to console for debugging
-    console.error(`[Auth Error ${id}]`, error);
+    console.error(`[Auth Error ${id}]`, {
+      message: error.message,
+      digest: error.digest,
+      note: 'If digest is a Server Action hash, user has stale cache — refresh will fix.',
+    });
 
     // Try to log to server (fire and forget)
     fetch('/api/log-client-error', {
@@ -81,6 +85,14 @@ export default function AuthError({
                 {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
               </Button>
             </div>
+            {error.digest && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-muted-foreground">Digest:</span>
+                <code className="text-xs bg-background px-2 py-1 rounded select-all flex-1 break-all">
+                  {error.digest}
+                </code>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">

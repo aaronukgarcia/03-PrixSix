@@ -1296,9 +1296,9 @@
     },
     {
       "guid": "ADMIN_HOT_NEWS-006",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
-      "description": "Triggers the AI-powered hot news generation flow, updates the textarea content, and persists the result to Firestore.",
+      "description": "Triggers the AI-powered hot news generation flow, updates the textarea content, and persists the result to Firestore. Detects stale Server Action hash (post-deployment cache mismatch) and prompts user to refresh.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/_components/HotNewsManager.tsx",
@@ -9323,9 +9323,9 @@
     },
     {
       "guid": "LIB_CONSISTENCY-028",
-      "version": 4,
+      "version": 7,
       "logic_category": "VALIDATION",
-      "description": "The most comprehensive check function. Validates all score documents against",
+      "description": "The most comprehensive check function. Validates all score documents against race results and predictions. predictionMap stores PredictionData[] per key to handle Sprint/GP prediction collisions. v07 adds comprehensive double cross-check: breakdown math verification, ghost point detection, per-driver point accuracy (reverse Team→Admin), forward Admin→Team check, and bonus verification.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/consistency.ts"

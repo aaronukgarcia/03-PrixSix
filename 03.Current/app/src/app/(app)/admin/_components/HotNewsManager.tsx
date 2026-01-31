@@ -25,11 +25,12 @@ import { useToast } from "@/hooks/use-toast";
 import { HotNewsSettings, updateHotNewsContent, getHotNewsSettings } from "@/firebase/firestore/settings";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, RefreshCw, Mail, Copy, Check } from "lucide-react";
+import { AlertCircle, RefreshCw, Mail, Copy, Check, RotateCcw } from "lucide-react";
 import { hotNewsFeedFlow } from "@/ai/flows/hot-news-feed";
 import { serverTimestamp } from "firebase/firestore";
 import { logAuditEvent } from "@/lib/audit";
 import { ERROR_CODES, generateClientCorrelationId } from "@/lib/error-codes";
+import { ToastAction } from "@/components/ui/toast";
 
 // GUID: ADMIN_HOT_NEWS-001-v03
 // [Intent] Main HotNewsManager component providing AI toggle, content editor, refresh button, and email dispatch controls.
@@ -192,10 +193,11 @@ export function HotNewsManager() {
     }
   };
 
-  // GUID: ADMIN_HOT_NEWS-006-v03
+  // GUID: ADMIN_HOT_NEWS-006-v04
   // [Intent] Triggers the AI-powered hot news generation flow, updates the textarea content, and persists the result to Firestore.
   // [Inbound Trigger] Clicking the "Refresh Now" button.
   // [Downstream Impact] Overwrites the content textarea and Firestore hot news content with AI-generated text. Audit event logged with source 'ai_generated'.
+  // [Error Handling] Detects stale Server Action hash (post-deployment cache mismatch) and prompts user to refresh the page.
   const handleRefresh = async () => {
     if (!firestore || !firebaseUser) return;
     setIsRefreshing(true);
@@ -224,18 +226,39 @@ export function HotNewsManager() {
       }
     } catch (e: any) {
         const correlationId = generateClientCorrelationId();
+        const isStaleAction = !!e?.digest || /not found|internal/i.test(e?.message);
+        const moduleInfo = 'ADMIN_HOT_NEWS-006 (hotNewsFeedFlow)';
+
+        console.error(`[${ERROR_CODES.AI_GENERATION_FAILED.code}] ${moduleInfo}`, {
+          correlationId,
+          digest: e?.digest,
+          message: e?.message,
+        });
+
         toast({
             variant: "destructive",
             title: `Error ${ERROR_CODES.AI_GENERATION_FAILED.code}`,
             description: (
               <div className="space-y-2">
-                <p>{e.message}</p>
-                <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
-                  ID: {correlationId}
+                <p>
+                  {isStaleAction
+                    ? "The app has been updated. Please refresh the page."
+                    : e.message}
                 </p>
+                <code className="block text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
+                  {correlationId}{e?.digest ? ` | digest:${e.digest}` : ''} | {moduleInfo}
+                </code>
               </div>
             ),
             duration: 15000,
+            ...(isStaleAction && {
+              action: (
+                <ToastAction altText="Refresh Page" onClick={() => window.location.reload()}>
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Refresh
+                </ToastAction>
+              ),
+            }),
         });
     } finally {
         setIsRefreshing(false);
