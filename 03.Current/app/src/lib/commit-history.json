@@ -1,7 +1,7 @@
 {
   "lastUpdated": "2026-01-31",
   "commits": [
-    {"id": "pending", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "fix: results page case-insensitive race ID lookup + colour-coded predictions", "major": false},
+    {"id": "94a4e3f", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "fix: results page case-insensitive race ID lookup + colour-coded predictions", "major": false},
     {"id": "03f1505", "date": "2026-01-31", "version": "1.27.14", "author": "aaron garcia", "message": "fix: results page race selection override + double-fetch prediction jump", "major": false},
     {"id": "272de42", "date": "2026-01-31", "version": "1.27.13", "author": "aaron garcia", "message": "fix: deploy listBackupHistory, fix JSDoc syntax error in functions", "major": false},
     {"id": "d208a03", "date": "2026-01-31", "version": "1.27.12", "author": "aaron garcia", "message": "fix: carry-forward prediction resolution in consistency checker", "major": false},
