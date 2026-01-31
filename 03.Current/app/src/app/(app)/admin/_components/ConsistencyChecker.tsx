@@ -32,6 +32,7 @@ import {
   AlertCircle,
   CheckCircle2,
   AlertTriangle,
+  Info,
   XCircle,
   Play,
   Download,
@@ -113,8 +114,8 @@ const phaseProgress: Record<CheckPhase, number> = {
   complete: 100,
 };
 
-// GUID: ADMIN_CONSISTENCY-005-v03
-// [Intent] Render a small status icon (green check, yellow warning, red X) based on a check result status.
+// GUID: ADMIN_CONSISTENCY-005-v04
+// [Intent] Render a small status icon (green check, blue info, yellow warning, red X) based on a check result status.
 // [Inbound Trigger] Called in the Issues accordion trigger for each category with issues.
 // [Downstream Impact] Pure UI helper; no side effects.
 function getStatusIcon(status: CheckResult['status']) {
@@ -128,7 +129,7 @@ function getStatusIcon(status: CheckResult['status']) {
   }
 }
 
-// GUID: ADMIN_CONSISTENCY-006-v03
+// GUID: ADMIN_CONSISTENCY-006-v04
 // [Intent] Render a coloured Badge (Pass/Warning/Error) based on a check result status.
 // [Inbound Trigger] Called per row in the Summary Table to display the status column.
 // [Downstream Impact] Pure UI helper; no side effects.
@@ -143,12 +144,14 @@ function getStatusBadge(status: CheckResult['status']) {
   }
 }
 
-// GUID: ADMIN_CONSISTENCY-007-v03
-// [Intent] Render a coloured Badge (Warning/Error) based on an individual issue severity level.
+// GUID: ADMIN_CONSISTENCY-007-v04
+// [Intent] Render a coloured Badge (Info/Warning/Error) based on an individual issue severity level.
 // [Inbound Trigger] Called per issue in the Issues Detail accordion.
 // [Downstream Impact] Pure UI helper; no side effects.
 function getSeverityBadge(severity: Issue['severity']) {
   switch (severity) {
+    case 'info':
+      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Info</Badge>;
     case 'warning':
       return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Warning</Badge>;
     case 'error':
@@ -509,8 +512,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
                           {result.issues.length > 0 && result.issues.some(i => i.severity === 'error') && (
                             <XCircle className="h-4 w-4 text-red-500" />
                           )}
-                          {result.issues.length > 0 && !result.issues.some(i => i.severity === 'error') && (
+                          {result.issues.length > 0 && !result.issues.some(i => i.severity === 'error') && result.issues.some(i => i.severity === 'warning') && (
                             <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                          )}
+                          {result.issues.length > 0 && result.issues.every(i => i.severity === 'info') && (
+                            <Info className="h-4 w-4 text-blue-500" />
                           )}
                         </div>
                       </TableCell>

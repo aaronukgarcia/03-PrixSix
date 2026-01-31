@@ -1,9 +1,9 @@
-// GUID: LIB_CONSISTENCY-000-v04
+// GUID: LIB_CONSISTENCY-000-v05
 // [Intent] Central consistency-checking library for the Prix Six application.
 //   Provides pure validation functions that verify the integrity and correctness
 //   of all core domain data: users, drivers, races, predictions, team coverage,
 //   race results, scores, standings, and leagues. Every function returns a
-//   CheckResult with categorised issues (error/warning) and counts. This module
+//   CheckResult with categorised issues (error/warning/info) and counts. This module
 //   is consumed exclusively by the admin Consistency Checker UI component and
 //   has no side-effects (no Firestore writes, no network calls).
 // [Inbound Trigger] Imported by ConsistencyChecker.tsx when an admin runs a
@@ -25,11 +25,13 @@ import { normalizeRaceIdForComparison } from './normalize-race-id';
 // [Downstream Impact] Adding a new category here requires a corresponding check function and UI handling in ConsistencyChecker.tsx.
 export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues';
 
-// GUID: LIB_CONSISTENCY-002-v03
+// GUID: LIB_CONSISTENCY-002-v04
 // [Intent] Severity levels for individual issues found during consistency checks.
+//   'info' is for expected/benign conditions that should be surfaced but not count as warnings.
 // [Inbound Trigger] Assigned to each Issue object during validation.
 // [Downstream Impact] ConsistencyChecker.tsx uses severity to colour-code and filter issues in the admin UI.
-export type IssueSeverity = 'error' | 'warning';
+//   'info'-only checks resolve to status 'pass', not 'warning'.
+export type IssueSeverity = 'error' | 'warning' | 'info';
 
 // GUID: LIB_CONSISTENCY-003-v03
 // [Intent] Overall status of a single category check, derived from the worst severity among its issues.
@@ -895,11 +897,11 @@ export function checkPredictions(
   };
 }
 
-// GUID: LIB_CONSISTENCY-024-v03
+// GUID: LIB_CONSISTENCY-024-v04
 // [Intent] Validate that all registered teams (both primary and secondary) have at
 //   least one prediction submitted. This is a coverage check, not a structural
-//   validation - it flags teams with zero predictions as warnings so admins can
-//   follow up with inactive players.
+//   validation — teams with zero predictions are flagged as 'info' (expected for
+//   new or pre-season users) rather than warnings.
 // [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with the
 //   array of all user documents and prediction documents from Firestore.
 // [Downstream Impact] Team coverage warnings are informational only and do not affect
@@ -953,20 +955,21 @@ export function checkTeamCoverage(
       validCount++;
     } else {
       issues.push({
-        severity: 'warning',
+        severity: 'info',
         entity: `Team "${team.teamName}"`,
         field: team.isSecondary ? 'secondaryTeam' : 'primaryTeam',
-        message: `No predictions found for ${team.isSecondary ? 'secondary ' : ''}team "${team.teamName}" (user: ${team.userId})`,
+        message: `No predictions yet for ${team.isSecondary ? 'secondary ' : ''}team "${team.teamName}" (user: ${team.userId}) — expected for new or pre-season users`,
         details: { teamId: team.teamId, userId: team.userId, isSecondary: team.isSecondary },
       });
     }
   }
 
+  const hasErrors = issues.some(i => i.severity === 'error');
   const hasWarnings = issues.some(i => i.severity === 'warning');
 
   return {
     category: 'team-coverage',
-    status: hasWarnings ? 'warning' : 'pass',
+    status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
     total: allTeams.length,
     valid: validCount,
     issues,
@@ -1155,10 +1158,11 @@ function calculateExpectedScore(predictedDrivers: string[], actualTop6: string[]
   return { points, correctCount };
 }
 
-// GUID: LIB_CONSISTENCY-028-v04
+// GUID: LIB_CONSISTENCY-028-v05
 // @ERROR_PRONE: Breakdown string parsing (splitting on comma, matching "+N" patterns) is fragile.
 //   If the breakdown format changes in scoring.ts, the score type counting here will silently break.
-// @AUDIT_NOTE: Late-joiner handicap scores now warn if totalPoints exceeds maxPoints per race.
+// @AUDIT_NOTE: Late-joiner handicap scores surface an 'info' note (not warning) if totalPoints
+//   exceeds maxPoints per race — this is intentional by design for late joiners.
 // [Intent] The most comprehensive check function. Validates all score documents against
 //   race results, predictions, and users. Performs:
 //   - Late-joiner handicap score validation (special raceId 'late-joiner-handicap')
@@ -1260,12 +1264,12 @@ export function checkScores(
         });
         isValid = false;
       } else if (Math.abs(score.totalPoints) > SCORING.maxPoints) {
-        // Bounds check: late-joiner handicap magnitude should not exceed max possible race score
+        // Bounds note: late-joiner handicap magnitude exceeding maxPoints is intentional by design
         issues.push({
-          severity: 'warning',
+          severity: 'info',
           entity: entityName,
           field: 'totalPoints',
-          message: `Late-joiner handicap |${score.totalPoints}| exceeds maxPoints (${SCORING.maxPoints}) -- verify this is intentional`,
+          message: `Late-joiner handicap |${score.totalPoints}| exceeds maxPoints (${SCORING.maxPoints}) — intentional for late joiners`,
           details: { totalPoints: score.totalPoints, maxPoints: SCORING.maxPoints },
         });
       }
