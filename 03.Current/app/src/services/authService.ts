@@ -1,4 +1,4 @@
-// GUID: SERVICE_AUTH_OAUTH-000-v04
+// GUID: SERVICE_AUTH_OAUTH-000-v05
 // [Intent] Client-side OAuth authentication service for Google and Apple sign-in.
 //          Provides popup-with-redirect-fallback sign-in, provider linking/unlinking,
 //          Apple nonce generation, and mobile detection. All OAuth must happen client-side
@@ -61,6 +61,20 @@ export function isMobileDevice(): boolean {
   const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
   const isSmallViewport = window.innerWidth < 768;
   return isMobileUA || isSmallViewport;
+}
+
+// GUID: SERVICE_AUTH_OAUTH-003-v01
+// [Intent] Detect Gmail plus-addressing (e.g. user+tag@gmail.com) which shares the same
+//          Google account as the base address (user@gmail.com). When linking Google OAuth,
+//          Firebase sees the base address, causing auth/credential-already-in-use if another
+//          Firebase Auth user already has that Google credential linked.
+// [Inbound Trigger] Called by handleLinkError to provide plus-address-specific error messages.
+// [Downstream Impact] Enables clearer error guidance for users with plus-address emails.
+function isGmailPlusAddress(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const [local, domain] = email.toLowerCase().split('@');
+  if (!domain) return false;
+  return (domain === 'gmail.com' || domain === 'googlemail.com') && local.includes('+');
 }
 
 // GUID: SERVICE_AUTH_OAUTH-004-v03
@@ -165,7 +179,7 @@ export async function linkGoogleToAccount(auth: Auth): Promise<OAuthLinkResult> 
     await linkWithPopup(currentUser, provider);
     return { success: true, message: 'Google account linked successfully', correlationId };
   } catch (error: any) {
-    return handleLinkError(error, correlationId);
+    return handleLinkError(error, correlationId, currentUser.email);
   }
 }
 
@@ -198,7 +212,7 @@ export async function linkAppleToAccount(auth: Auth): Promise<OAuthLinkResult> {
     await linkWithPopup(currentUser, provider);
     return { success: true, message: 'Apple account linked successfully', correlationId };
   } catch (error: any) {
-    return handleLinkError(error, correlationId);
+    return handleLinkError(error, correlationId, currentUser.email);
   }
 }
 
@@ -294,15 +308,24 @@ function handleOAuthError(
   };
 }
 
-// GUID: SERVICE_AUTH_OAUTH-011-v04
-// [Intent] Central error handler for provider linking errors.
+// GUID: SERVICE_AUTH_OAUTH-011-v05
+// [Intent] Central error handler for provider linking errors. Detects Gmail plus-addressing
+//          to provide specific guidance when auth/credential-already-in-use occurs.
 // [Inbound Trigger] Called from linkGoogleToAccount and linkAppleToAccount catch blocks.
 // [Downstream Impact] Returns typed OAuthLinkResult with error details.
-function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
+function handleLinkError(error: any, correlationId: string, userEmail?: string | null): OAuthLinkResult {
   console.error(`[Link Provider Error ${correlationId}]`, error);
   const firebaseCode = error?.code || 'unknown';
 
   if (firebaseCode === 'auth/credential-already-in-use') {
+    if (isGmailPlusAddress(userEmail)) {
+      const baseEmail = userEmail!.split('+')[0] + '@' + userEmail!.split('@')[1];
+      return {
+        success: false,
+        message: `Your email "${userEmail}" uses Gmail plus-addressing — Gmail treats it as the same Google account as "${baseEmail}". That Google account is already linked to another Prix Six user. To fix this, sign in to the other account and unlink Google first, or contact support. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+        correlationId,
+      };
+    }
     return {
       success: false,
       message: `This Google/Apple account is already linked to a different Prix Six user. Each provider account can only be linked to one user — if you have multiple accounts, sign in to the other one and unlink it first. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
