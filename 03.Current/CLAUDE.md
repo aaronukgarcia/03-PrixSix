@@ -19,6 +19,7 @@ These rules MUST be followed on every piece of code written and every response g
 | #5 | Verbose Confirmations — explicit, timestamped, version-numbered confirmations |
 | #6 | GUID Documentation — read comments before changing code, update GUID versions and code.json |
 | #7 | Registry-Sourced Errors — every error MUST be created from the error registry, no exceptions |
+| #8 | Prompt Identity Enforcement — "who" check, violation logging to Vestige memory, scorekeeping |
 
 ### 🛑 GOLDEN RULE #1: Aggressive Error Trapping
 
@@ -569,6 +570,59 @@ When reviewing error handling code:
 
 ---
 
+### 🛑 GOLDEN RULE #8: Prompt Identity Enforcement
+
+**The "who" check. When the user says "who", you MUST verify your prompt prefix is correct. If it is not — or was not — log a violation to Vestige memory. No exceptions.**
+
+#### The Rule
+
+Every agent that has checked in via `claude-sync.js checkin` MUST prefix ALL responses with their assigned name (e.g. `bill>`, `bob>`, `ben>`). This is already covered by Golden Rule #4. Rule #8 adds **enforcement and accountability**.
+
+#### The "who" Check
+
+When the user says **"who"**:
+
+1. **Check:** Am I currently using the correct prompt prefix?
+2. **Check:** Have I been using it consistently since checkin — or did I have to be corrected?
+3. **If either check fails:** Log a violation to Vestige memory immediately
+
+#### Violation Logging — MANDATORY
+
+Every violation MUST be logged to Vestige memory with:
+
+| Field | Example |
+|-------|---------|
+| **Agent name** | Bill |
+| **Date/time** | 2026-01-31 17:30 UTC |
+| **Violation number** | #1 (incrementing counter per agent) |
+| **What happened** | Didn't use `bill>` prefix after checkin |
+| **Reason why** | Treated checkin output as informational instead of a directive |
+
+Use `mcp__vestige__smart_ingest` with tags `["prompt-violation", "<agent-name>", "golden-rule-8", "counter", "prixsix"]`.
+
+#### Scorekeeping
+
+Maintain a running tally across sessions:
+- `Bill = N violations`
+- `Bob = N violations`
+- `Ben = N violations`
+
+When logging a new violation, recall the previous count first via `mcp__vestige__recall` with query `"prompt identity violation"`, increment, and store the updated tally.
+
+#### Honesty During "who" Check
+
+**Do NOT claim "no violation" if you had to be corrected during the session.** The "who" check must be honest — it covers the entire session, not just the current message. Falsely reporting "no violation" is itself a violation.
+
+#### Self-Check — Every Response
+
+Before sending ANY response, verify:
+- ❓ Does my response start with my assigned prefix?
+- ❓ If NO, add it NOW and log a violation
+
+This rule exists because agents consistently fail to follow Golden Rule #4 despite it being clearly documented. Rule #8 adds consequences.
+
+---
+
 ### Polling — Check shared memory regularly
 
 **Every ~30 seconds (or every few messages), run:**
@@ -992,6 +1046,7 @@ The continue URL in email verification is configured in `firebase/provider.tsx`.
 11. ✅ **GOLDEN RULE #5:** Use verbose confirmation: `bob> Committed: "type: message" (1.x.x)`
 12. ✅ **GOLDEN RULE #6:** GUID comments updated on all changed/new code, `code.json` in sync
 13. ✅ **GOLDEN RULE #7:** Errors use `ERRORS.KEY` from error-registry.ts, `error-registry.ts` regenerated if code.json changed
+14. ✅ **GOLDEN RULE #8:** Prompt prefix used on every response; violations logged to Vestige memory
 
 ---
 

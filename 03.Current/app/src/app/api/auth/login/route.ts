@@ -326,6 +326,7 @@ export async function POST(request: NextRequest) {
     // [Downstream Impact] The returned customToken is used by the client to call signInWithCustomToken() to establish a Firebase Auth session. The users document is updated to clear lockout state. Audit and analytics records are written.
     // Success! Generate a custom token for the client
     const customToken = await auth.createCustomToken(firebaseUserRecord.uid);
+    let logonId: string | null = null;
 
     // Reset bad login attempts on successful login
     if (!usersQuery.empty) {
@@ -357,12 +358,35 @@ export async function POST(request: NextRequest) {
         },
         timestamp: FieldValue.serverTimestamp(),
       });
+
+      // GUID: API_AUTH_LOGIN-013-v03
+      // [Intent] Record a logon event in user_logons for session tracking (non-blocking).
+      //          PIN logins include IP and user agent since this runs server-side.
+      //          Login succeeds even if tracking fails.
+      // [Inbound Trigger] Successful PIN authentication above.
+      // [Downstream Impact] Creates an Active session document; logonId returned to client
+      //                     for use with /api/auth/record-logout on sign-out.
+      try {
+        const logonRef = await db.collection('user_logons').add({
+          userId,
+          logonTimestamp: FieldValue.serverTimestamp(),
+          logoutTimestamp: null,
+          sessionStatus: 'Active',
+          loginMethod: 'pin',
+          ipAddress: clientIP || null,
+          userAgent: userAgent || null,
+        });
+        logonId = logonRef.id;
+      } catch (logonError) {
+        console.error('[Login] Failed to record logon event:', logonError);
+      }
     }
 
     return NextResponse.json({
       success: true,
       customToken,
       uid: firebaseUserRecord.uid,
+      logonId,
     });
 
   // GUID: API_AUTH_LOGIN-012-v04

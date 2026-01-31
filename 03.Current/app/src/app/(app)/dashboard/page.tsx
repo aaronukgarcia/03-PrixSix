@@ -15,6 +15,7 @@ import { DashboardClient } from "./_components/DashboardClient";
 import { FeedbackForm } from "./_components/FeedbackForm";
 import { ResolvedFeedbackNotifier } from "./_components/ResolvedFeedbackNotifier";
 import { HotNewsFeed, HotNewsFeedSkeleton } from "./_components/HotNewsFeed";
+import { WelcomeCTA } from "./_components/WelcomeCTA";
 import { APP_VERSION } from '@/lib/version';
 
 // GUID: PAGE_DASHBOARD-001-v03
@@ -55,6 +56,8 @@ export default function DashboardPage() {
                     </AlertDescription>
                 </Alert>
             )}
+
+            <WelcomeCTA />
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

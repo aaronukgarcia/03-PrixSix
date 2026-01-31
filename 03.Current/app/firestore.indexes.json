@@ -31,6 +31,22 @@
         { "fieldPath": "teamId", "order": "ASCENDING" },
         { "fieldPath": "submittedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "user_logons",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "logonTimestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "user_logons",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionStatus", "order": "ASCENDING" },
+        { "fieldPath": "logonTimestamp", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

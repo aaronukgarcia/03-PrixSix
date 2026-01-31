@@ -169,6 +169,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [pendingOAuthCredential, setPendingOAuthCredential] = useState<OAuthCredential | null>(null);
   const [isNewOAuthUser, setIsNewOAuthUser] = useState(false);
 
+  // GUID: FIREBASE_PROVIDER-060-v03
+  // [Intent] Track the current session's logon document ID for logout recording.
+  //          Set after PIN login (from API response) or OAuth login (from record-logon call).
+  //          Cleared on logout. Used by logout() to call /api/auth/record-logout.
+  // [Inbound Trigger] Set by login() (PIN) or onAuthStateChanged first snapshot (OAuth).
+  // [Downstream Impact] Consumed by logout() to update the user_logons document status.
+  const [currentLogonId, setCurrentLogonId] = useState<string | null>(null);
+  const [pendingLoginMethod, setPendingLoginMethod] = useState<'google' | 'apple' | null>(null);
+
   const router = useRouter();
 
   // GUID: FIREBASE_PROVIDER-008-v04
@@ -257,6 +266,42 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                         console.warn("Failed to sync provider/photo data:", syncError);
                       }
                     }
+                  }
+
+                  // GUID: FIREBASE_PROVIDER-061-v03
+                  // [Intent] Record logon event for OAuth logins. PIN logins are recorded
+                  //          server-side in /api/auth/login, so this only fires when
+                  //          currentLogonId is null (i.e. OAuth path). Uses pendingLoginMethod
+                  //          set before the OAuth call, or falls back to provider detection.
+                  // [Inbound Trigger] First snapshot after OAuth sign-in.
+                  // [Downstream Impact] Creates user_logons doc; stores logonId for logout.
+                  if (isFirstSnapshot && !currentLogonId) {
+                    const providerIds = getProviderIds(fbUser);
+                    let method: string = pendingLoginMethod || 'google';
+                    if (!pendingLoginMethod) {
+                      if (providerIds.includes('apple.com')) method = 'apple';
+                      else if (providerIds.includes('google.com')) method = 'google';
+                    }
+                    setPendingLoginMethod(null);
+
+                    // Fire-and-forget: don't block auth state resolution
+                    fbUser.getIdToken().then(token =>
+                      fetch('/api/auth/record-logon', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ loginMethod: method }),
+                      })
+                        .then(res => res.json())
+                        .then(data => {
+                          if (data.success && data.logonId) {
+                            setCurrentLogonId(data.logonId);
+                          }
+                        })
+                        .catch(() => { /* non-blocking */ })
+                    ).catch(() => { /* token fetch failed, non-blocking */ });
                   }
 
                   setIsNewOAuthUser(false);
@@ -370,6 +415,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                 success: false,
                 message: errorMessage,
             };
+        }
+
+        // Store logonId from PIN login response for logout tracking
+        if (result.logonId) {
+          setCurrentLogonId(result.logonId);
         }
 
         // Use custom token to sign in
@@ -642,7 +692,24 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const logout = async () => {
     if (firebaseUser) {
         logAuditEvent(firestore, firebaseUser.uid, 'logout', { source: 'explicit_call' });
+
+        // Record logout in user_logons (fire-and-forget, don't block signOut)
+        if (currentLogonId) {
+          firebaseUser.getIdToken()
+            .then(token =>
+              fetch('/api/auth/record-logout', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ logonId: currentLogonId }),
+              })
+            )
+            .catch(() => { /* non-blocking: session will expire via scheduled function */ });
+        }
     }
+    setCurrentLogonId(null);
     setIsUserLoading(true);
     await signOut(auth);
     setUser(null);
@@ -955,6 +1022,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   // [Downstream Impact] Delegates to authService functions; on needsLinking, stores pendingCredential.
   const signInWithGoogle = async (): Promise<OAuthSignInResult> => {
     setUserError(null);
+    setPendingLoginMethod('google');
     const result = await authSignInWithGoogle(auth);
     if (result.needsLinking && result.pendingCredential) {
       setPendingOAuthCredential(result.pendingCredential);
@@ -964,6 +1032,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   const signInWithApple = async (): Promise<OAuthSignInResult> => {
     setUserError(null);
+    setPendingLoginMethod('apple');
     const result = await authSignInWithApple(auth);
     if (result.needsLinking && result.pendingCredential) {
       setPendingOAuthCredential(result.pendingCredential);

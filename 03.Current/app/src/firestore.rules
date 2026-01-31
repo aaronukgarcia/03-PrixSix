@@ -231,6 +231,19 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // GUID: LOGON_RULES-001-v03
+    // [Intent] Firestore security rules for the user_logons collection.
+    //          Grants authenticated read access so the profile page can query
+    //          logon history. Denies all client-side writes — only API routes
+    //          and Cloud Functions (via Admin SDK) can write.
+    // [Inbound Trigger] Profile page useCollection subscription for logon history.
+    // [Downstream Impact] Without these rules, profile page logon reads would be denied.
+    //                     Write denial ensures no client can forge logon records.
+    match /user_logons/{logonId} {
+      allow get, list: if isSignedIn();
+      allow write: if false; // Server-side only via Admin SDK
+    }
+
     // GUID: BACKUP_RULES-001-v03
     // [Intent] Firestore security rules for the backup_status collection.
     //          Grants admin-only read access so the BackupHealthDashboard can

@@ -905,6 +905,93 @@ exports.manualSmokeTest = onCall(
   }
 );
 
+// ── Session expiry ────────────────────────────────────────────
+// GUID: SESSION_FUNCTIONS-000-v03
+/**
+ * expireStaleLogons — Scheduled Cloud Function (2nd-gen, Cloud Run)
+ *
+ * [Intent] Mark stale Active sessions as 'Session Expired' after 24 hours.
+ *          Scans all user_logons documents with sessionStatus == 'Active' and
+ *          logonTimestamp older than 24 hours, then batch-updates them.
+ *
+ * [Inbound Trigger] Cloud Scheduler cron: "*/15 * * * *" (every 15 minutes).
+ *
+ * [Downstream Impact]
+ *   - Updates user_logons documents from 'Active' to 'Session Expired'.
+ *   - Profile page logon history will reflect expired status.
+ *   - Handles sessions where the user closed the browser without logging out.
+ */
+exports.expireStaleLogons = onSchedule(
+  {
+    schedule: "*/15 * * * *",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    retryCount: 0,
+  },
+  async () => {
+    const db = getFirestore();
+    const correlationId = generateCorrelationId("exp");
+
+    try {
+      const cutoff = Timestamp.fromDate(
+        new Date(Date.now() - 24 * 60 * 60 * 1000)
+      );
+
+      const staleQuery = db
+        .collection("user_logons")
+        .where("sessionStatus", "==", "Active")
+        .where("logonTimestamp", "<", cutoff);
+
+      const snapshot = await staleQuery.get();
+
+      if (snapshot.empty) {
+        return;
+      }
+
+      // Batch update in groups of 500 (Firestore batch limit)
+      const batchSize = 500;
+      let processed = 0;
+
+      for (let i = 0; i < snapshot.docs.length; i += batchSize) {
+        const batch = db.batch();
+        const chunk = snapshot.docs.slice(i, i + batchSize);
+
+        for (const doc of chunk) {
+          batch.update(doc.ref, {
+            sessionStatus: "Session Expired",
+            logoutTimestamp: Timestamp.now(),
+          });
+        }
+
+        await batch.commit();
+        processed += chunk.length;
+      }
+
+      console.log(
+        JSON.stringify({
+          severity: "INFO",
+          message: "SESSION_EXPIRY_COMPLETE",
+          correlationId,
+          expiredCount: processed,
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          severity: "ERROR",
+          message: "SESSION_EXPIRY_FAILED",
+          correlationId,
+          error: err.message || String(err),
+          timestamp: new Date().toISOString(),
+        })
+      );
+    }
+  }
+);
+
 // ── Cleanup helpers ────────────────────────────────────────────
 
 // GUID: BACKUP_FUNCTIONS-030-v03

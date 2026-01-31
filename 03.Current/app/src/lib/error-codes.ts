@@ -97,6 +97,9 @@ export const ERROR_CODES = {
   SESSION_INVALID: { code: 'PX-6001', message: 'Invalid session' },
   SESSION_TIMEOUT: { code: 'PX-6002', message: 'Session timed out due to inactivity' },
   SESSION_CONFLICT: { code: 'PX-6003', message: 'Session conflict detected' },
+  LOGON_RECORD_FAILED: { code: 'PX-6004', message: 'Failed to record logon event' },
+  LOGON_LOGOUT_FAILED: { code: 'PX-6005', message: 'Failed to record logout event' },
+  LOGON_EXPIRY_FAILED: { code: 'PX-6006', message: 'Failed to expire stale session' },
 
   // GUID: BACKUP_ERRORS-001-v03
   // [Intent] Define the PX-7xxx error code family for the backup & recovery system.
