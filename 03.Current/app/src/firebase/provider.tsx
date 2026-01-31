@@ -996,23 +996,30 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-031-v04
-  // [Intent] Handle redirect results from OAuth flows (mobile sign-in and linking).
+  // GUID: FIREBASE_PROVIDER-031-v05
+  // [Intent] Handle redirect results from OAuth flows (mobile Google sign-in).
   //          getRedirectResult resolves the pending credential after a redirect-based OAuth flow.
-  // [Inbound Trigger] Component mounts after a redirect-based OAuth sign-in or link completes.
-  // [Downstream Impact] If a redirect result is found, the user is signed in or their provider
-  //                     is linked. The onAuthStateChanged listener handles the rest.
+  //          Apple Sign-In now uses popup on all platforms, so this mainly handles Google mobile.
+  // [Inbound Trigger] Component mounts after a redirect-based OAuth sign-in completes.
+  // [Downstream Impact] If a redirect result is found, onAuthStateChanged fires with the user.
+  //                     On error, pending credentials are saved for the linking flow.
   useEffect(() => {
-    getRedirectResult(auth).catch((error: any) => {
-      if (error?.code === 'auth/account-exists-with-different-credential') {
-        const credential = OAuthProvider.credentialFromError(error);
-        if (credential) {
-          setPendingOAuthCredential(credential as OAuthCredential);
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          console.log('[FirebaseProvider] Redirect result processed for:', result.user.email);
         }
-      } else if (error?.code !== 'auth/popup-closed-by-user') {
-        console.error("FirebaseProvider: Redirect result error:", error);
-      }
-    });
+      })
+      .catch((error: any) => {
+        if (error?.code === 'auth/account-exists-with-different-credential') {
+          const credential = OAuthProvider.credentialFromError(error);
+          if (credential) {
+            setPendingOAuthCredential(credential as OAuthCredential);
+          }
+        } else if (error?.code !== 'auth/popup-closed-by-user') {
+          console.error("FirebaseProvider: Redirect result error:", error);
+        }
+      });
   }, [auth]);
 
   // GUID: FIREBASE_PROVIDER-032-v04

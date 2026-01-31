@@ -105,9 +105,11 @@ export async function signInWithGoogle(auth: Auth): Promise<OAuthSignInResult> {
   }
 }
 
-// GUID: SERVICE_AUTH_OAUTH-006-v03
-// [Intent] Sign in with Apple using popup (desktop) or redirect (mobile).
-//          Firebase handles nonce generation internally for popup/redirect flows.
+// GUID: SERVICE_AUTH_OAUTH-006-v04
+// [Intent] Sign in with Apple using popup on all platforms. Apple Sign-In on iOS
+//          uses the native system authentication sheet (not a browser popup), so
+//          signInWithPopup works reliably on mobile. The previous signInWithRedirect
+//          approach was broken by Safari ITP clearing the auth session during redirect.
 // [Inbound Trigger] Called from FirebaseProvider.signInWithApple wrapper.
 // [Downstream Impact] Same as signInWithGoogle — triggers onAuthStateChanged on success.
 export async function signInWithApple(auth: Auth): Promise<OAuthSignInResult> {
@@ -117,11 +119,6 @@ export async function signInWithApple(auth: Auth): Promise<OAuthSignInResult> {
     const provider = new OAuthProvider('apple.com');
     provider.addScope('email');
     provider.addScope('name');
-
-    if (isMobileDevice()) {
-      await signInWithRedirect(auth, provider);
-      return { success: true, message: 'Redirecting to Apple...', correlationId };
-    }
 
     const result = await signInWithPopup(auth, provider);
     const isNew = result.user.metadata.creationTime === result.user.metadata.lastSignInTime;
