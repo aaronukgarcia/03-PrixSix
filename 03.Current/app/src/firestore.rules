@@ -244,5 +244,20 @@ service cloud.firestore {
       allow get, list: if isAdmin();
       allow write: if false; // Server-side only via Admin SDK
     }
+
+    // GUID: BACKUP_RULES-002-v03
+    // [Intent] Firestore security rules for the backup_history collection.
+    //          Grants admin-only read access for the backup history table in
+    //          BackupHealthDashboard. Denies all client-side writes — history
+    //          entries are written by Cloud Functions (Admin SDK) only.
+    // [Inbound Trigger] BackupHealthDashboard useCollection subscription.
+    // [Downstream Impact] Without these rules, admin dashboard history reads
+    //                     would be denied. Write denial ensures no client can
+    //                     forge history entries.
+    // Backup history - written by Cloud Functions (Admin SDK), read by admins
+    match /backup_history/{docId} {
+      allow get, list: if isAdmin();
+      allow write: if false; // Server-side only via Admin SDK
+    }
   }
 }

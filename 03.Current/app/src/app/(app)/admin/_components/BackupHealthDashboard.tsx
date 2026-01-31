@@ -8,13 +8,21 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
-import { useDoc, useFirestore, useAuth, useFunctions } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useDoc, useCollection, useFirestore, useAuth, useFunctions } from '@/firebase';
+import { doc, collection, query, orderBy } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   HardDrive,
   ShieldCheck,
@@ -29,6 +37,8 @@ import {
   Check,
   Play,
   Loader2,
+  History,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -64,6 +74,26 @@ interface BackupStatus {
   bucketRetentionLockEnabled?: boolean;
   bucketRetentionDays?: number;
   updatedAt?: { seconds: number; nanoseconds: number };
+}
+
+// GUID: BACKUP_DASHBOARD-030-v03
+// [Intent] Type definition for entries in the backup_history Firestore collection.
+//          Each document represents one backup run (successful or failed).
+// [Inbound Trigger] N/A — type definition.
+// [Downstream Impact] Used by useCollection<BackupHistoryEntry>() to type the
+//                     real-time subscription for the backup history table.
+interface BackupHistoryEntry {
+  id: string;
+  timestamp?: { seconds: number; nanoseconds: number };
+  type?: 'backup' | 'smoke_test';
+  status: 'SUCCESS' | 'FAILED';
+  path?: string | null;
+  sizeBytes?: number;
+  correlationId?: string;
+  trigger?: string;
+  startedAt?: { seconds: number; nanoseconds: number };
+  completedAt?: { seconds: number; nanoseconds: number };
+  error?: string;
 }
 
 // GUID: BACKUP_DASHBOARD-002-v03
@@ -123,6 +153,27 @@ function formatBytes(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   const value = bytes / Math.pow(k, i);
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+// GUID: BACKUP_DASHBOARD-034-v03
+/**
+ * formatDuration — Convert elapsed seconds to a human-readable string.
+ *
+ * [Intent] Display backup/smoke test duration in a compact format (e.g. "2m 34s").
+ * [Inbound Trigger] Called by the history table when startedAt and completedAt are present.
+ * [Downstream Impact] Read-only utility. No side effects.
+ */
+function formatDuration(
+  startedAt?: { seconds: number; nanoseconds: number },
+  completedAt?: { seconds: number; nanoseconds: number }
+): string {
+  if (!startedAt || !completedAt) return '—';
+  const elapsedSec = completedAt.seconds - startedAt.seconds;
+  if (elapsedSec < 0) return '—';
+  if (elapsedSec < 60) return `${elapsedSec}s`;
+  const mins = Math.floor(elapsedSec / 60);
+  const secs = elapsedSec % 60;
+  return `${mins}m ${secs}s`;
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -195,6 +246,60 @@ export function BackupHealthDashboard() {
   const { toast } = useToast();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isSmokeTesting, setIsSmokeTesting] = useState(false);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+
+  // GUID: BACKUP_DASHBOARD-031-v03
+  // [Intent] Memoize the Firestore query for the backup_history collection,
+  //          ordered by timestamp descending (newest first). Returns null if
+  //          Firestore isn't ready or user isn't admin.
+  // [Inbound Trigger] Component mount or firestore/user state change.
+  // [Downstream Impact] Passed to useCollection for real-time subscription.
+  const historyQuery = useMemo(() => {
+    if (!firestore || !user?.isAdmin) return null;
+    const q = query(
+      collection(firestore, 'backup_history'),
+      orderBy('timestamp', 'desc')
+    );
+    (q as any).__memo = true;
+    return q;
+  }, [firestore, user?.isAdmin]);
+
+  const { data: historyData, isLoading: isHistoryLoading } = useCollection<BackupHistoryEntry>(historyQuery);
+
+  // GUID: BACKUP_DASHBOARD-032-v03
+  // [Intent] Trigger the listBackupHistory callable to backfill history entries
+  //          from existing GCS backup folders into the backup_history collection.
+  // [Inbound Trigger] Admin clicks "Backfill History" button.
+  // [Downstream Impact] Populates backup_history collection from GCS bucket prefixes.
+  const handleBackfill = useCallback(async () => {
+    setIsBackfilling(true);
+    try {
+      const listBackupHistory = httpsCallable(functions, 'listBackupHistory', { timeout: 540_000 });
+      const result = await listBackupHistory();
+      const data = result.data as { success: boolean; count?: number; error?: string };
+
+      if (data.success) {
+        toast({
+          title: 'Backfill Complete',
+          description: `Found ${data.count} backup entries.`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Backfill Failed',
+          description: data.error || 'Unknown error',
+        });
+      }
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Backfill Failed',
+        description: err.message || String(err),
+      });
+    } finally {
+      setIsBackfilling(false);
+    }
+  }, [functions, toast]);
 
   // GUID: BACKUP_DASHBOARD-005-v03
   // [Intent] Trigger a manual backup via the manualBackup callable Cloud Function.
@@ -434,10 +539,12 @@ export function BackupHealthDashboard() {
 
   // GUID: BACKUP_DASHBOARD-020-v03
   // [Intent] Normal state — render the three-column card dashboard showing
-  //          backup status, immutability lock info, and smoke test results.
+  //          backup status, immutability lock info, and smoke test results,
+  //          followed by a full backup history table.
   // [Inbound Trigger] useDoc returns valid data from backup_status/latest.
   // [Downstream Impact] Read-only display. All data comes from the useDoc subscription.
   return (
+    <>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* GUID: BACKUP_DASHBOARD-021-v03
           [Intent] Backup Status Card — shows the last daily backup result including
@@ -644,5 +751,116 @@ export function BackupHealthDashboard() {
         </CardContent>
       </Card>
     </div>
+
+    {/* GUID: BACKUP_DASHBOARD-033-v03
+        [Intent] Backup History table — shows all past backup runs with date/time,
+                 status, size, GCS path, and correlation ID. Sorted newest first.
+        [Inbound Trigger] useCollection subscription to backup_history collection.
+        [Downstream Impact] Read-only display. Backfill button triggers listBackupHistory callable. */}
+    <Card className="mt-4">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <History className="h-4 w-4 text-sky-500" />
+            Backup History
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBackfill}
+            disabled={isBackfilling}
+            className="h-7 text-xs"
+          >
+            {isBackfilling ? (
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3 mr-1" />
+            )}
+            {isBackfilling ? 'Backfilling…' : 'Backfill from GCS'}
+          </Button>
+        </div>
+        <CardDescription>All past backups with date, time, and size</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isHistoryLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        ) : !historyData || historyData.length === 0 ? (
+          <div className="text-center py-6 text-sm text-muted-foreground">
+            No backup history yet. Click &quot;Backfill from GCS&quot; to import existing backups, or wait for the next scheduled backup.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date / Time</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Trigger</TableHead>
+                <TableHead className="text-right">Duration</TableHead>
+                <TableHead className="text-right">Size</TableHead>
+                <TableHead>Path</TableHead>
+                <TableHead>Correlation ID</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {historyData.map((entry) => {
+                const date = entry.timestamp
+                  ? new Date(entry.timestamp.seconds * 1000)
+                  : null;
+                return (
+                  <TableRow key={entry.id}>
+                    <TableCell className="font-mono text-xs whitespace-nowrap">
+                      {date ? format(date, 'yyyy-MM-dd HH:mm:ss') : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {entry.type === 'smoke_test' ? 'Smoke Test' : 'Backup'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={entry.status} />
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground capitalize">
+                      {entry.trigger || '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {formatDuration(entry.startedAt, entry.completedAt)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {entry.sizeBytes != null && entry.sizeBytes > 0
+                        ? formatBytes(entry.sizeBytes)
+                        : '—'}
+                    </TableCell>
+                    <TableCell
+                      className="font-mono text-xs truncate max-w-[200px]"
+                      title={entry.path || undefined}
+                    >
+                      {entry.path || '—'}
+                    </TableCell>
+                    <TableCell>
+                      {entry.correlationId ? (
+                        <span className="flex items-center gap-1">
+                          <code className="text-xs font-mono truncate max-w-[120px]">
+                            {entry.correlationId}
+                          </code>
+                          <CopyButton text={entry.correlationId} />
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+    </>
   );
 }

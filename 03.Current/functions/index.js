@@ -45,6 +45,7 @@ const BUCKET = "prix6-backups";
 const REGION = "europe-west2";
 const STATUS_COLLECTION = "backup_status";
 const STATUS_DOC = "latest";
+const HISTORY_COLLECTION = "backup_history";
 
 // ── Shared helpers ─────────────────────────────────────────────
 
@@ -131,10 +132,13 @@ async function writeStatus(db, fields) {
  *          handler and the on-demand callable without duplication.
  *
  * @param {FirebaseFirestore.Firestore} db - Admin Firestore instance.
+ * @param {{ trigger?: string }} [options] - Optional parameters.
+ * @param {string} [options.trigger='scheduled'] - What triggered the backup ('scheduled' or 'manual').
  * @returns {{ correlationId: string, gcsPrefix: string, usersExported: number }}
  */
-async function performBackup(db) {
+async function performBackup(db, { trigger = "scheduled" } = {}) {
   const correlationId = generateCorrelationId("bkp");
+  const startedAt = Timestamp.now();
   const folder = todayFolder();
   const gcsPrefix = `gs://${BUCKET}/${folder}`;
 
@@ -229,6 +233,24 @@ async function performBackup(db) {
       backupCorrelationId: correlationId,
     });
 
+    // GUID: BACKUP_FUNCTIONS-050-v03
+    // [Intent] Write a history entry to the backup_history collection so admins
+    //          can view all past backups in the admin dashboard, not just the latest.
+    // [Inbound Trigger] Backup completed successfully (status written above).
+    // [Downstream Impact] BackupHealthDashboard subscribes to backup_history collection
+    //                     to display a full backup history table.
+    await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
+      timestamp: Timestamp.now(),
+      type: "backup",
+      status: "SUCCESS",
+      path: gcsPrefix,
+      sizeBytes: totalBytes,
+      correlationId,
+      trigger,
+      startedAt,
+      completedAt: Timestamp.now(),
+    });
+
     return { correlationId, gcsPrefix, usersExported: allUsers.length };
   } catch (err) {
     // GUID: BACKUP_FUNCTIONS-015-v03
@@ -244,6 +266,24 @@ async function performBackup(db) {
       lastBackupPath: null,
       lastBackupError: `PX-7002 | ${err.message || String(err)} | ID: ${correlationId}`,
       backupCorrelationId: correlationId,
+    });
+
+    // GUID: BACKUP_FUNCTIONS-051-v03
+    // [Intent] Write a failure history entry so the backup history table shows
+    //          failed attempts alongside successful ones for complete audit trail.
+    // [Inbound Trigger] Backup failed (error caught above).
+    // [Downstream Impact] Visible in admin dashboard backup history table as red badge.
+    await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
+      timestamp: Timestamp.now(),
+      type: "backup",
+      status: "FAILED",
+      path: null,
+      sizeBytes: 0,
+      correlationId,
+      trigger,
+      startedAt,
+      completedAt: Timestamp.now(),
+      error: err.message || String(err),
     });
 
     // Attach correlationId to the error so callers (manualBackup) can
@@ -371,7 +411,7 @@ exports.manualBackup = onCall(
     // [Inbound Trigger] Admin passes auth + admin check above.
     // [Downstream Impact] Response is consumed by BackupHealthDashboard handleBackupNow.
     try {
-      const { correlationId, gcsPrefix } = await performBackup(db);
+      const { correlationId, gcsPrefix } = await performBackup(db, { trigger: "manual" });
       return { success: true, correlationId, backupPath: gcsPrefix };
     } catch (err) {
       console.error("Manual backup failed:", err);
@@ -380,6 +420,145 @@ exports.manualBackup = onCall(
         error: err.message || String(err),
         correlationId: err.correlationId || generateCorrelationId("bkp"),
         errorCode: "PX-7002",
+      };
+    }
+  }
+);
+
+// ── listBackupHistory (backfill from GCS) ──────────────────────
+// GUID: BACKUP_FUNCTIONS-055-v03
+/**
+ * listBackupHistory — Callable Cloud Function (2nd-gen, Cloud Run)
+ *
+ * [Intent] Backfill the backup_history Firestore collection from existing
+ *          GCS backup folders. Lists all top-level prefixes in the backup
+ *          bucket, sums file sizes per prefix, and writes each to
+ *          backup_history if not already present. Returns the full list.
+ *
+ * [Inbound Trigger] Admin clicks "Backfill History" button in the admin
+ *                   dashboard, or called via script after initial deployment.
+ *
+ * [Downstream Impact]
+ *   - Auth check: Verifies caller is admin via Firestore users/{uid}.isAdmin.
+ *   - Reads all objects in gs://prix6-backups/ to discover prefixes.
+ *   - Writes to backup_history collection (skip if doc already exists).
+ *   - Returns { success, count, entries } to the client.
+ */
+exports.listBackupHistory = onCall(
+  {
+    region: REGION,
+    timeoutSeconds: 540,
+    memory: "512MiB",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "You must be logged in.");
+    }
+
+    const db = getFirestore();
+    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
+
+    if (!callerDoc.exists || callerDoc.data().isAdmin !== true) {
+      throw new HttpsError("permission-denied", "Only admins can list backup history.");
+    }
+
+    try {
+      const storage = new Storage();
+      const bucket = storage.bucket(BUCKET);
+
+      // GUID: BACKUP_FUNCTIONS-056-v03
+      // [Intent] List all top-level "folder" prefixes in the backup bucket.
+      //          Each prefix represents one backup run (e.g. "2025-06-15T020000/").
+      //          Using delimiter '/' and prefix '' to get only top-level folders.
+      // [Inbound Trigger] Admin auth check passed above.
+      // [Downstream Impact] Each prefix is checked against backup_history and
+      //                     written if missing.
+      const [, , apiResponse] = await bucket.getFiles({
+        prefix: "",
+        delimiter: "/",
+        autoPaginate: false,
+      });
+
+      const prefixes = (apiResponse.prefixes || []).map((p) =>
+        p.endsWith("/") ? p.slice(0, -1) : p
+      );
+
+      const entries = [];
+
+      for (const prefix of prefixes) {
+        // Skip non-date prefixes (safety check)
+        if (!prefix.match(/^\d{4}-\d{2}-\d{2}/)) continue;
+
+        // Check if history entry already exists
+        const existingDoc = await db
+          .collection(HISTORY_COLLECTION)
+          .where("path", "==", `gs://${BUCKET}/${prefix}`)
+          .limit(1)
+          .get();
+
+        if (!existingDoc.empty) {
+          // Already backfilled — include in response but skip write
+          const data = existingDoc.docs[0].data();
+          entries.push(data);
+          continue;
+        }
+
+        // Sum file sizes for this prefix
+        const [files] = await bucket.getFiles({ prefix: `${prefix}/` });
+        let totalBytes = 0;
+        for (const file of files) {
+          totalBytes += Number(file.metadata.size) || 0;
+        }
+
+        // Parse timestamp from folder name (e.g. "2025-06-15T020000")
+        const dateStr = prefix.replace("-SUNDAY", "");
+        const parsed = dateStr.match(
+          /^(\d{4})-(\d{2})-(\d{2})T(\d{2})(\d{2})(\d{2})$/
+        );
+        let folderDate;
+        if (parsed) {
+          folderDate = new Date(
+            Date.UTC(
+              parseInt(parsed[1]),
+              parseInt(parsed[2]) - 1,
+              parseInt(parsed[3]),
+              parseInt(parsed[4]),
+              parseInt(parsed[5]),
+              parseInt(parsed[6])
+            )
+          );
+        } else {
+          // Fallback: try parsing as ISO-ish date
+          folderDate = new Date(dateStr);
+        }
+
+        const docId = `backfill_${prefix.replace(/[^a-zA-Z0-9-]/g, "_")}`;
+        const entryTimestamp = Timestamp.fromDate(
+          isNaN(folderDate.getTime()) ? new Date() : folderDate
+        );
+        const entry = {
+          timestamp: entryTimestamp,
+          type: "backup",
+          status: "SUCCESS",
+          path: `gs://${BUCKET}/${prefix}`,
+          sizeBytes: totalBytes,
+          correlationId: docId,
+          trigger: "backfill",
+          startedAt: entryTimestamp,
+          completedAt: entryTimestamp,
+        };
+
+        await db.collection(HISTORY_COLLECTION).doc(docId).set(entry);
+        entries.push(entry);
+      }
+
+      return { success: true, count: entries.length, entries };
+    } catch (err) {
+      console.error("listBackupHistory failed:", err);
+      return {
+        success: false,
+        error: err.message || String(err),
+        errorCode: "PX-7005",
       };
     }
   }
@@ -416,6 +595,7 @@ exports.runRecoveryTest = onSchedule(
   async () => {
     const db = getFirestore();
     const correlationId = generateCorrelationId("smoke");
+    const startedAt = Timestamp.now();
 
     try {
       // GUID: BACKUP_FUNCTIONS-021-v03
@@ -509,6 +689,23 @@ exports.runRecoveryTest = onSchedule(
         smokeTestCorrelationId: correlationId,
       });
 
+      // GUID: BACKUP_FUNCTIONS-060-v03
+      // [Intent] Write smoke test history entry so admins can see all past
+      //          smoke test runs alongside backups in the history table.
+      // [Inbound Trigger] Smoke test completed successfully.
+      // [Downstream Impact] Visible in admin dashboard backup history table.
+      await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
+        timestamp: Timestamp.now(),
+        type: "smoke_test",
+        status: "SUCCESS",
+        path: backupPath,
+        sizeBytes: 0,
+        correlationId,
+        trigger: "scheduled",
+        startedAt,
+        completedAt: Timestamp.now(),
+      });
+
       console.log(
         JSON.stringify({
           severity: "INFO",
@@ -534,6 +731,23 @@ exports.runRecoveryTest = onSchedule(
         lastSmokeTestStatus: "FAILED",
         lastSmokeTestError: err.message || String(err),
         smokeTestCorrelationId: correlationId,
+      });
+
+      // GUID: BACKUP_FUNCTIONS-061-v03
+      // [Intent] Write smoke test failure history entry for audit trail.
+      // [Inbound Trigger] Smoke test failed (error caught above).
+      // [Downstream Impact] Visible in admin dashboard history table as red badge.
+      await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
+        timestamp: Timestamp.now(),
+        type: "smoke_test",
+        status: "FAILED",
+        path: null,
+        sizeBytes: 0,
+        correlationId,
+        trigger: "scheduled",
+        startedAt,
+        completedAt: Timestamp.now(),
+        error: err.message || String(err),
       });
 
       throw err;
@@ -576,6 +790,7 @@ exports.manualSmokeTest = onCall(
     }
 
     const correlationId = generateCorrelationId("smoke");
+    const startedAt = Timestamp.now();
 
     try {
       const statusSnap = await db
@@ -632,6 +847,18 @@ exports.manualSmokeTest = onCall(
         smokeTestCorrelationId: correlationId,
       });
 
+      await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
+        timestamp: Timestamp.now(),
+        type: "smoke_test",
+        status: "SUCCESS",
+        path: backupPath,
+        sizeBytes: 0,
+        correlationId,
+        trigger: "manual",
+        startedAt,
+        completedAt: Timestamp.now(),
+      });
+
       console.log(
         JSON.stringify({
           severity: "INFO",
@@ -653,6 +880,19 @@ exports.manualSmokeTest = onCall(
         lastSmokeTestStatus: "FAILED",
         lastSmokeTestError: err.message || String(err),
         smokeTestCorrelationId: correlationId,
+      });
+
+      await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
+        timestamp: Timestamp.now(),
+        type: "smoke_test",
+        status: "FAILED",
+        path: null,
+        sizeBytes: 0,
+        correlationId,
+        trigger: "manual",
+        startedAt,
+        completedAt: Timestamp.now(),
+        error: err.message || String(err),
       });
 
       return {

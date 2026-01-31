@@ -6679,6 +6679,183 @@
       }
     },
     {
+      "guid": "BACKUP_RULES-002",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for backup_history collection. Admin-only read access for BackupHealthDashboard history table subscription. All writes denied at rules level — Cloud Functions write via Admin SDK which bypasses rules.",
+      "dependencies": [
+        "BACKUP_DASHBOARD-031",
+        "BACKUP_FUNCTIONS-050"
+      ],
+      "location": {
+        "filePath": "firestore.rules"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "BACKUP_DASHBOARD-031",
+          "BACKUP_FUNCTIONS-050"
+        ]
+      }
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-050",
+      "version": 3,
+      "logic_category": "DATA_WRITE",
+      "description": "Writes a SUCCESS history entry to backup_history collection after a successful backup, recording timestamp, status, path, sizeBytes, correlationId, and trigger type.",
+      "dependencies": [
+        "BACKUP_FUNCTIONS-002"
+      ],
+      "location": {
+        "filePath": "functions/index.js"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-009"
+        ],
+        "calls": []
+      }
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-051",
+      "version": 3,
+      "logic_category": "DATA_WRITE",
+      "description": "Writes a FAILED history entry to backup_history collection when a backup fails, recording timestamp, status, correlationId, trigger, and error message for audit trail.",
+      "dependencies": [
+        "BACKUP_FUNCTIONS-002"
+      ],
+      "location": {
+        "filePath": "functions/index.js"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-009"
+        ],
+        "calls": []
+      }
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-055",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "listBackupHistory callable Cloud Function. Admin-only. Backfills backup_history collection from existing GCS backup folder prefixes. Lists all top-level prefixes in gs://prix6-backups/, sums file sizes per prefix, writes to backup_history if not already present, returns full list.",
+      "dependencies": [
+        "BACKUP_FUNCTIONS-002",
+        "BACKUP_FUNCTIONS-056"
+      ],
+      "location": {
+        "filePath": "functions/index.js"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_DASHBOARD-032"
+        ],
+        "calls": [
+          "BACKUP_FUNCTIONS-056"
+        ]
+      }
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-056",
+      "version": 3,
+      "logic_category": "DATA_READ",
+      "description": "Lists all top-level folder prefixes in the backup GCS bucket using delimiter-based listing. Each prefix represents one backup run.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-055"
+        ],
+        "calls": []
+      }
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-030",
+      "version": 3,
+      "logic_category": "STATE",
+      "description": "Type definition for BackupHistoryEntry interface representing a document in the backup_history Firestore collection. Each entry records one backup run with timestamp, status, path, sizeBytes, correlationId, trigger, and optional error.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_DASHBOARD-031"
+        ],
+        "calls": []
+      }
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-031",
+      "version": 3,
+      "logic_category": "DATA_READ",
+      "description": "Memoized Firestore query for backup_history collection ordered by timestamp descending. Gated on admin status. Feeds useCollection hook for real-time backup history table.",
+      "dependencies": [
+        "BACKUP_DASHBOARD-030"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_DASHBOARD-010"
+        ],
+        "calls": [
+          "BACKUP_RULES-002"
+        ]
+      }
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-032",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "handleBackfill callback — triggers listBackupHistory callable Cloud Function to backfill backup_history from existing GCS backup folders. Shows success/failure toast.",
+      "dependencies": [
+        "BACKUP_FUNCTIONS-055"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_DASHBOARD-033"
+        ],
+        "calls": [
+          "BACKUP_FUNCTIONS-055"
+        ]
+      }
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-033",
+      "version": 3,
+      "logic_category": "RENDER",
+      "description": "Backup History table UI showing all past backups with columns: Date/Time, Status, Trigger, Size, Path, Correlation ID. Includes Backfill from GCS button. Real-time subscription via useCollection.",
+      "dependencies": [
+        "BACKUP_DASHBOARD-031",
+        "BACKUP_DASHBOARD-032",
+        "BACKUP_DASHBOARD-004",
+        "BACKUP_DASHBOARD-007",
+        "BACKUP_DASHBOARD-003"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_DASHBOARD-020"
+        ],
+        "calls": [
+          "BACKUP_DASHBOARD-031",
+          "BACKUP_DASHBOARD-032",
+          "BACKUP_DASHBOARD-004",
+          "BACKUP_DASHBOARD-007",
+          "BACKUP_DASHBOARD-003"
+        ]
+      }
+    },
+    {
       "guid": "COMPONENT_APP_SIDEBAR-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
