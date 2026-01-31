@@ -12,7 +12,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
 import { Frown, Loader2 } from 'lucide-react';
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { APP_VERSION } from '@/lib/version';
 
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ const formSchema = z.object({
 // [Downstream Impact] Calls useAuth().login which hits /api/login. On success, pushes to /dashboard.
 //                     On failure, displays error inline with selectable correlation ID.
 export default function LoginPage() {
-    const { login, signInWithGoogle, signInWithApple, clearPendingCredential } = useAuth();
+    const { login, signInWithGoogle, signInWithApple, clearPendingCredential, user, isUserLoading } = useAuth();
     const { toast } = useToast();
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,6 +66,19 @@ export default function LoginPage() {
     const [isAppleLoading, setIsAppleLoading] = useState(false);
     const [showLinkingDialog, setShowLinkingDialog] = useState(false);
     const router = useRouter();
+
+    // GUID: PAGE_LOGIN-008-v03
+    // [Intent] Redirect already-authenticated users to the dashboard. This handles the case where
+    //          a mobile redirect-based OAuth flow (Apple/Google) completes and the browser returns
+    //          to the login page with the user already signed in via getRedirectResult.
+    // [Inbound Trigger] User state changes after redirect-based OAuth completes, or user navigates
+    //                   to /login while already authenticated.
+    // [Downstream Impact] Prevents authenticated users from seeing the login form; sends them to /dashboard.
+    useEffect(() => {
+        if (!isUserLoading && user) {
+            router.push('/dashboard');
+        }
+    }, [user, isUserLoading, router]);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),

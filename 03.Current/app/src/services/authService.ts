@@ -308,7 +308,7 @@ function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
   if (firebaseCode === 'auth/credential-already-in-use') {
     return {
       success: false,
-      message: `This account is already linked to another user. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+      message: `This Google/Apple account is already linked to a different Prix Six user. Each provider account can only be linked to one user — if you have multiple accounts, sign in to the other one and unlink it first. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }

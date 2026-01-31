@@ -12087,6 +12087,21 @@
       }
     },
     {
+      "guid": "PAGE_LOGIN-008",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Redirect already-authenticated users to dashboard. Handles mobile redirect-based OAuth flows (Apple/Google) where getRedirectResult completes and the login page remounts with user already signed in.",
+      "dependencies": ["FIREBASE_PROVIDER-031", "FIREBASE_PROVIDER-008"],
+      "location": {
+        "filePath": "app/src/app/(auth)/login/page.tsx",
+        "functionName": "useEffect (auth redirect)"
+      },
+      "callChain": {
+        "calledBy": ["FIREBASE_PROVIDER-031"],
+        "calls": []
+      }
+    },
+    {
       "guid": "PAGE_PREDICTIONS-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
