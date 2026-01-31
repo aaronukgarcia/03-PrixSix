@@ -1,4 +1,4 @@
-// GUID: PAGE_RESULTS-000-v03
+// GUID: PAGE_RESULTS-000-v04
 // [Intent] Race Results page — displays per-race points breakdowns for all teams' predictions,
 //   with official race results, colour-coded scoring, rank badges, sorting, and pagination.
 // [Inbound Trigger] Navigation to /results route; optionally receives ?race= URL parameter from
@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFirestore } from "@/firebase";
 import { useLeague } from "@/contexts/league-context";
@@ -292,16 +292,21 @@ function ResultsContent() {
     }, [raceFromUrl, mostRecentResultRaceId, pastEvents]);
 
     const [selectedRaceId, setSelectedRaceId] = useState(defaultRaceId);
+    const initialRaceApplied = useRef(!!raceFromUrl);
 
-    // GUID: PAGE_RESULTS-015-v03
-    // [Intent] Sync selectedRaceId when the most recent result is fetched (only if no URL param).
-    // [Inbound Trigger] mostRecentResultRaceId changes after async fetch completes.
-    // [Downstream Impact] Updates selectedRaceId which triggers data re-fetch.
+    // GUID: PAGE_RESULTS-015-v04
+    // [Intent] Set selectedRaceId to the most recent result ONCE on initial load (only if no URL param).
+    //   After the initial default is applied, the user is free to select any race without override.
+    // [Inbound Trigger] mostRecentResultRaceId resolves from async fetch.
+    // [Downstream Impact] Updates selectedRaceId once; subsequent user selections are NOT overridden.
+    // @FIX(v04) Previous version included selectedRaceId in deps, causing it to override every
+    //   manual race selection back to the most recent result. Now uses a ref flag to fire only once.
     useEffect(() => {
-        if (!raceFromUrl && mostRecentResultRaceId && selectedRaceId !== mostRecentResultRaceId) {
+        if (!initialRaceApplied.current && mostRecentResultRaceId) {
             setSelectedRaceId(mostRecentResultRaceId);
+            initialRaceApplied.current = true;
         }
-    }, [mostRecentResultRaceId, raceFromUrl, selectedRaceId]);
+    }, [mostRecentResultRaceId]);
     const selectedEvent = allRaceEvents.find(e => e.id === selectedRaceId);
     const selectedRaceName = selectedEvent?.label || selectedRaceId;
     const hasSeasonStarted = pastEvents.length > 0;
@@ -310,8 +315,8 @@ function ResultsContent() {
     const [raceResult, setRaceResult] = useState<RaceResult | null>(null);
     const [isLoadingResult, setIsLoadingResult] = useState(false);
 
-    // Pagination state
-    const [teams, setTeams] = useState<TeamResult[]>([]);
+    // Pagination state — raw Firestore docs, processed into teams via useMemo below
+    const [rawPredictionDocs, setRawPredictionDocs] = useState<any[]>([]);
     const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -502,17 +507,23 @@ function ResultsContent() {
         }
     };
 
-    // GUID: PAGE_RESULTS-025-v03
-    // [Intent] Fetch all data for the selected race in parallel — count, scores, and first page of
-    //   predictions from Firestore. Builds TeamResult objects with scoring breakdown.
-    // [Inbound Trigger] selectedRaceId, raceResult, or firestore changes.
-    // [Downstream Impact] Populates teams, scoresMap, totalCount, and lastUpdated state.
+    // GUID: PAGE_RESULTS-025-v04
+    // [Intent] Fetch raw data for the selected race in parallel — count, scores, and first page of
+    //   predictions from Firestore. Stores raw prediction docs; scoring is computed in teams useMemo.
+    // [Inbound Trigger] selectedRaceId or firestore changes.
+    // [Downstream Impact] Populates rawPredictionDocs, scoresMap, totalCount, and lastUpdated state.
+    //   Does NOT depend on raceResult — scoring is derived reactively in the teams useMemo.
+    // @FIX(v04) Removed raceResult from dependency array to eliminate double-fetch "jump" where
+    //   predictions loaded once without scoring, then re-fetched when raceResult arrived.
+    //   Raw docs are now stored separately; scoring computed via useMemo(rawDocs + raceResult).
     useEffect(() => {
         if (!firestore || !selectedRaceId) return;
 
+        let cancelled = false;
+
         const fetchAllData = async () => {
             setIsLoading(true);
-            setTeams([]);
+            setRawPredictionDocs([]);
             setLastDoc(null);
             setScoresLoaded(false);
 
@@ -542,6 +553,8 @@ function ResultsContent() {
                     ))
                 ]);
 
+                if (cancelled) return;
+
                 // Process count
                 setTotalCount(countResult.data().count);
 
@@ -557,57 +570,72 @@ function ResultsContent() {
                 setScoresMap(newScoresMap);
                 setScoresLoaded(true);
 
-                // Process submissions
+                // Store raw prediction docs (scoring computed in teams useMemo)
                 if (submissionsResult.empty) {
                     setHasMore(false);
-                    setTeams([]);
+                    setRawPredictionDocs([]);
                 } else {
                     setLastDoc(submissionsResult.docs[submissionsResult.docs.length - 1]);
                     setHasMore(submissionsResult.docs.length === PAGE_SIZE);
-
-                    // Get actual top 6 from race result for scoring display
-                    const actualTop6 = raceResult ? [
-                        raceResult.driver1, raceResult.driver2, raceResult.driver3,
-                        raceResult.driver4, raceResult.driver5, raceResult.driver6
-                    ] : null;
-
-                    const newTeams: TeamResult[] = submissionsResult.docs.map((doc) => {
-                        const data = doc.data();
-                        const oduserId = data.userId || data.oduserId; // Support both formats
-                        const score = newScoresMap.get(oduserId);
-                        const predictions = parsePredictions(data.predictions, actualTop6);
-                        const correctCount = predictions.filter(p => p.isCorrect).length;
-                        return {
-                            teamName: data.teamName || "Unknown Team",
-                            oduserId,
-                            predictions,
-                            totalPoints: score?.totalPoints ?? null,
-                            breakdown: score?.breakdown || '',
-                            hasScore: !!score,
-                            bonusPoints: calculateBonus(correctCount),
-                        };
-                    });
-                    setTeams(newTeams);
+                    setRawPredictionDocs(submissionsResult.docs.map(d => d.data()));
                 }
 
                 setLastUpdated(new Date());
             } catch (error) {
                 console.error("Error fetching data:", error);
-                setTotalCount(null);
-                setScoresMap(new Map());
-                setTeams([]);
+                if (!cancelled) {
+                    setTotalCount(null);
+                    setScoresMap(new Map());
+                    setRawPredictionDocs([]);
+                }
             } finally {
-                setIsLoading(false);
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
             }
         };
 
         fetchAllData();
-    }, [firestore, selectedRaceId, raceResult, parsePredictions]);
+        return () => { cancelled = true; };
+    }, [firestore, selectedRaceId]);
 
-    // GUID: PAGE_RESULTS-026-v03
+    // GUID: PAGE_RESULTS-025B-v04
+    // [Intent] Derive processed TeamResult objects from raw prediction docs + raceResult + scoresMap.
+    //   This replaces the in-useEffect processing, allowing scoring to update reactively when
+    //   raceResult arrives WITHOUT re-fetching predictions from Firestore.
+    // [Inbound Trigger] rawPredictionDocs, raceResult, or scoresMap changes.
+    // [Downstream Impact] Produces the teams array consumed by filteredTeams and sortedTeams memos.
+    const teams = useMemo(() => {
+        if (rawPredictionDocs.length === 0) return [] as TeamResult[];
+
+        const actualTop6 = raceResult ? [
+            raceResult.driver1, raceResult.driver2, raceResult.driver3,
+            raceResult.driver4, raceResult.driver5, raceResult.driver6
+        ] : null;
+
+        return rawPredictionDocs.map((data) => {
+            const oduserId = data.userId || data.oduserId; // Support both formats
+            const score = scoresMap.get(oduserId);
+            const predictions = parsePredictions(data.predictions, actualTop6);
+            const correctCount = predictions.filter(p => p.isCorrect).length;
+            return {
+                teamName: data.teamName || "Unknown Team",
+                oduserId,
+                predictions,
+                totalPoints: score?.totalPoints ?? null,
+                breakdown: score?.breakdown || '',
+                hasScore: !!score,
+                bonusPoints: calculateBonus(correctCount),
+            };
+        });
+    }, [rawPredictionDocs, raceResult, scoresMap, parsePredictions]);
+
+    // GUID: PAGE_RESULTS-026-v04
     // [Intent] Load the next page of prediction documents from Firestore using cursor-based pagination.
     // [Inbound Trigger] User clicks the "Load More Teams" button.
-    // [Downstream Impact] Appends new TeamResult objects to the teams state array.
+    // [Downstream Impact] Appends raw prediction docs to rawPredictionDocs; teams useMemo recomputes.
+    // @FIX(v04) No longer processes predictions inline — appends raw docs so the teams useMemo
+    //   handles scoring consistently for all docs (initial + paginated).
     const loadMore = useCallback(async () => {
         if (!firestore || !lastDoc || isLoadingMore) return;
 
@@ -630,37 +658,14 @@ function ResultsContent() {
             }
             setHasMore(snapshot.docs.length === PAGE_SIZE);
 
-            // Get actual top 6 from race result for scoring display
-            const actualTop6 = raceResult ? [
-                raceResult.driver1, raceResult.driver2, raceResult.driver3,
-                raceResult.driver4, raceResult.driver5, raceResult.driver6
-            ] : null;
-
-            const newTeams: TeamResult[] = snapshot.docs.map((doc) => {
-                const data = doc.data();
-                const oduserId = data.userId || data.oduserId; // Support both formats
-                const score = scoresMap.get(oduserId);
-                const predictions = parsePredictions(data.predictions, actualTop6);
-                const correctCount = predictions.filter(p => p.isCorrect).length;
-                return {
-                    teamName: data.teamName || "Unknown Team",
-                    oduserId,
-                    predictions,
-                    totalPoints: score?.totalPoints ?? null,
-                    breakdown: score?.breakdown || '',
-                    hasScore: !!score,
-                    bonusPoints: calculateBonus(correctCount),
-                };
-            });
-
-            setTeams((prev) => [...prev, ...newTeams]);
+            setRawPredictionDocs(prev => [...prev, ...snapshot.docs.map(d => d.data())]);
             setLastUpdated(new Date());
         } catch (error) {
             console.error("Error loading more:", error);
         } finally {
             setIsLoadingMore(false);
         }
-    }, [firestore, selectedRaceId, lastDoc, isLoadingMore, scoresMap, parsePredictions, raceResult]);
+    }, [firestore, selectedRaceId, lastDoc, isLoadingMore]);
 
     // GUID: PAGE_RESULTS-027-v03
     // [Intent] Filter teams by the selected league's member user IDs (or show all if global).

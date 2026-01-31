@@ -1,6 +1,10 @@
 {
   "lastUpdated": "2026-01-31",
   "commits": [
+    {"id": "pending", "date": "2026-01-31", "version": "1.27.14", "author": "aaron garcia", "message": "fix: results page race selection override + double-fetch prediction jump", "major": false},
+    {"id": "272de42", "date": "2026-01-31", "version": "1.27.13", "author": "aaron garcia", "message": "fix: deploy listBackupHistory, fix JSDoc syntax error in functions", "major": false},
+    {"id": "d208a03", "date": "2026-01-31", "version": "1.27.12", "author": "aaron garcia", "message": "fix: carry-forward prediction resolution in consistency checker", "major": false},
+    {"id": "ee209bb", "date": "2026-01-31", "version": "1.27.11", "author": "aaron garcia", "message": "feat: comprehensive double cross-check in consistency checker", "major": false},
     {"id": "d63437f", "date": "2026-01-31", "version": "1.27.10", "author": "aaron garcia", "message": "fix: downgrade misleading CC warnings to info notes", "major": false},
     {"id": "67aebaf", "date": "2026-01-31", "version": "1.27.10", "author": "aaron garcia", "message": "feat: add PX-7008 backfill error handling, backup dashboard improvements", "major": false},
     {"id": "c769445", "date": "2026-01-31", "version": "1.27.10", "author": "aaron garcia", "message": "chore: sync commit history, add ping keepalive, regenerate registries", "major": false},
