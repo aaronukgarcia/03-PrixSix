@@ -30,6 +30,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
 import { GoogleIcon, AppleIcon } from "@/components/icons/OAuthIcons";
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_SIGNUP-001-v03
 // [Intent] Array of humorous F1-themed team name suggestions shown via the Wand2 button.
@@ -121,7 +123,7 @@ export default function SignupPage() {
         form.setValue("teamName", name);
     }
 
-    // GUID: PAGE_SIGNUP-007-v03
+    // GUID: PAGE_SIGNUP-007-v04
     // [Intent] Form submission handler — calls signup API, shows success toast and redirects
     //          to /login, or displays error with PX code and client-generated correlation ID.
     // [Inbound Trigger] User clicks "Sign Up" button and form validation passes.
@@ -149,13 +151,13 @@ export default function SignupPage() {
                 });
             }
         } catch (e: any) {
-            const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+            const correlationId = generateClientCorrelationId();
             console.error(`Signup page error [${correlationId}]:`, e);
-            const errorMessage = `${e.message || 'An unexpected error occurred'} [PX-9001] (Ref: ${correlationId})`;
+            const errorMessage = `${e.message || 'An unexpected error occurred'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`;
             setError(errorMessage);
             toast({
                 variant: "destructive",
-                title: "Registration Failed [PX-9001]",
+                title: `Registration Failed [${ERRORS.UNKNOWN_ERROR.code}]`,
                 description: e.message || 'An unexpected error occurred',
             });
         } finally {

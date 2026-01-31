@@ -54,6 +54,8 @@ import {
 } from '@/lib/leagues';
 import type { League } from '@/lib/types/league';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_LEAGUE_DETAIL-001-v03
 // [Intent] Defines the display shape for a league member, including secondary team detection.
@@ -103,7 +105,7 @@ export default function LeagueDetailPage() {
     return false;
   }) || false;
 
-  // GUID: PAGE_LEAGUE_DETAIL-004-v03
+  // GUID: PAGE_LEAGUE_DETAIL-004-v04
   // [Intent] Subscribes to real-time Firestore updates for the league document, and fetches member details
   //   (team names, emails) by reading individual user documents for each memberUserId.
   // [Inbound Trigger] Runs when firestore and leagueId are available; re-subscribes if leagueId changes.
@@ -156,12 +158,12 @@ export default function LeagueDetailPage() {
       },
       (error: any) => {
         console.error('Error fetching league:', error);
-        const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+        const correlationId = generateClientCorrelationId();
         let errorMsg: string;
         if (error?.code === 'permission-denied') {
-          errorMsg = `Permission denied. You may not be a member of this league. [PX-1001] (Ref: ${correlationId})`;
+          errorMsg = `Permission denied. You may not be a member of this league. [${ERRORS.AUTH_INVALID_TOKEN.code}] (Ref: ${correlationId})`;
         } else {
-          errorMsg = `Error loading league: ${error?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`;
+          errorMsg = `Error loading league: ${error?.message || 'Unknown error'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`;
         }
         setLoadError(errorMsg);
         setIsLoading(false);

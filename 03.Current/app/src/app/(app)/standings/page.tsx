@@ -31,6 +31,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_STANDINGS-001-v03
 // [Intent] Visual indicator for rank changes between race weekends — shows arrows/chevrons based
@@ -185,7 +187,7 @@ export default function StandingsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // GUID: PAGE_STANDINGS-011-v03
+  // GUID: PAGE_STANDINGS-011-v04
   // [Intent] Real-time subscription to the entire scores collection — processes raw score documents,
   //   determines which race weekends are completed, and fetches team names for all scoring users.
   // [Inbound Trigger] Fires on component mount and whenever firestore reference changes; re-fires
@@ -302,21 +304,21 @@ export default function StandingsPage() {
         setIsLoading(false);
         } catch (err: any) {
           console.error('Error in scores snapshot handler:', err);
-          const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-          setError(`Error processing standings data: ${err?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`);
+          const correlationId = generateClientCorrelationId();
+          setError(`Error processing standings data: ${err?.message || 'Unknown error'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`);
           setIsLoading(false);
         }
       },
       (error: any) => {
         console.error("Error fetching standings:", error);
-        const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+        const correlationId = generateClientCorrelationId();
         let errorMsg: string;
         if (error?.code === 'failed-precondition') {
-          errorMsg = `Database index required. Please contact an administrator. [PX-4004] (Ref: ${correlationId})`;
+          errorMsg = `Database index required. Please contact an administrator. [${ERRORS.FIRESTORE_INDEX_REQUIRED.code}] (Ref: ${correlationId})`;
         } else if (error?.code === 'permission-denied') {
-          errorMsg = `Permission denied. Please sign in again. [PX-1001] (Ref: ${correlationId})`;
+          errorMsg = `Permission denied. Please sign in again. [${ERRORS.AUTH_INVALID_TOKEN.code}] (Ref: ${correlationId})`;
         } else {
-          errorMsg = `Error loading standings: ${error?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`;
+          errorMsg = `Error loading standings: ${error?.message || 'Unknown error'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`;
         }
         setError(errorMsg);
         setIsLoading(false);

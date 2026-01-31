@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 /**
  * Global error boundary that catches errors in the root layout.
@@ -19,7 +21,7 @@ export default function GlobalError({
 
   useEffect(() => {
     // Generate correlation ID for this error
-    const id = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    const id = generateClientCorrelationId();
     setCorrelationId(id);
 
     // Log to console for debugging
@@ -31,7 +33,7 @@ export default function GlobalError({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         correlationId: id,
-        errorCode: 'PX-9002',
+        errorCode: ERRORS.NETWORK_ERROR.code,
         error: error.message || 'Unknown global error',
         stack: error.stack,
         digest: error.digest,
@@ -118,7 +120,7 @@ export default function GlobalError({
             marginBottom: '1rem',
           }}>
             <p style={{ color: '#ef4444', fontWeight: '500', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-              [PX-9002] Global Error
+              [{ERRORS.NETWORK_ERROR.code}] Global Error
             </p>
             <p style={{ color: '#a1a1aa', marginBottom: '0.75rem', fontSize: '0.875rem' }}>
               {error.message || 'An unexpected error occurred'}

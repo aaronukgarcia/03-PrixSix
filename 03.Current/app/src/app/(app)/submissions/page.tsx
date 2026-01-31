@@ -42,6 +42,8 @@ import { LastUpdated } from "@/components/ui/last-updated";
 import { RaceSchedule, findNextRace, formatDriverPredictions } from "@/lib/data";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_SUBMISSIONS-001-v03
 // [Intent] Defines the display shape for a single submission row in the table.
@@ -177,7 +179,7 @@ export default function SubmissionsPage() {
     fetchCount();
   }, [firestore, selectedRaceId]);
 
-  // GUID: PAGE_SUBMISSIONS-008-v03
+  // GUID: PAGE_SUBMISSIONS-008-v04
   // [Intent] Fetches paginated submission data from the "predictions" collectionGroup filtered by raceId,
   //   sorted by the current sortField. Supports both initial load and "Load More" pagination.
   // [Inbound Trigger] Called on initial load, race change, sort change, and "Load More" button click.
@@ -254,15 +256,15 @@ export default function SubmissionsPage() {
       setLastUpdated(new Date());
     } catch (error: any) {
       console.error("Error fetching submissions:", error);
-      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const correlationId = generateClientCorrelationId();
       let errorMsg: string;
       if (error?.code === 'failed-precondition') {
-        errorMsg = `Database index required. Please contact an administrator. [PX-4004] (Ref: ${correlationId})`;
+        errorMsg = `Database index required. Please contact an administrator. [${ERRORS.FIRESTORE_INDEX_REQUIRED.code}] (Ref: ${correlationId})`;
         console.error(`[Submissions Index Error ${correlationId}]`, error?.message);
       } else if (error?.code === 'permission-denied') {
-        errorMsg = `Permission denied. Please sign in again. [PX-1007] (Ref: ${correlationId})`;
+        errorMsg = `Permission denied. Please sign in again. [${ERRORS.AUTH_PERMISSION_DENIED.code}] (Ref: ${correlationId})`;
       } else {
-        errorMsg = `Error loading submissions: ${error?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`;
+        errorMsg = `Error loading submissions: ${error?.message || 'Unknown error'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`;
       }
       setError(errorMsg);
     } finally {

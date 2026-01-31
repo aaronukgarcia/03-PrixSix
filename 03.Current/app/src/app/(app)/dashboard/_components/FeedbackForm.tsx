@@ -11,6 +11,8 @@ import { Bug, Lightbulb, Send, CheckCircle2, Frown, Copy, Check, Bell } from 'lu
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 export function FeedbackForm() {
   const firestore = useFirestore();
@@ -39,7 +41,7 @@ export function FeedbackForm() {
     setError(null);
 
     // Generate correlation ID upfront
-    const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    const correlationId = generateClientCorrelationId();
 
     try {
       await addDoc(collection(firestore, 'feedback'), {
@@ -76,7 +78,7 @@ export function FeedbackForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           correlationId,
-          errorCode: 'PX-4002',
+          errorCode: ERRORS.FIRESTORE_WRITE_FAILED.code,
           error: err?.message || 'Failed to submit feedback',
           stack: err?.stack,
           context: {
@@ -89,12 +91,12 @@ export function FeedbackForm() {
         }),
       }).catch(() => {});
 
-      const errorMessage = `Failed to submit feedback. [PX-4002] (Ref: ${correlationId})`;
+      const errorMessage = `Failed to submit feedback. [${ERRORS.FIRESTORE_WRITE_FAILED.code}] (Ref: ${correlationId})`;
       setError(errorMessage);
 
       toast({
         variant: 'destructive',
-        title: 'Error [PX-4002]',
+        title: `Error [${ERRORS.FIRESTORE_WRITE_FAILED.code}]`,
         description: 'Failed to submit feedback. Please try again.',
       });
     } finally {

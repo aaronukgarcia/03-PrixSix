@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Copy, Check, RefreshCw, Home } from 'lucide-react';
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 export default function RootError({
   error,
@@ -17,7 +19,7 @@ export default function RootError({
 
   useEffect(() => {
     // Generate correlation ID for this error
-    const id = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    const id = generateClientCorrelationId();
     setCorrelationId(id);
 
     // Log to console for debugging
@@ -29,7 +31,7 @@ export default function RootError({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         correlationId: id,
-        errorCode: 'PX-9001',
+        errorCode: ERRORS.UNKNOWN_ERROR.code,
         error: error.message || 'Unknown client-side error',
         stack: error.stack,
         digest: error.digest,
@@ -66,7 +68,7 @@ export default function RootError({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-md bg-destructive/10 p-4 text-sm">
-            <p className="font-medium text-destructive mb-2">[PX-9001] Client Error</p>
+            <p className="font-medium text-destructive mb-2">[{ERRORS.UNKNOWN_ERROR.code}] Client Error</p>
             <p className="text-muted-foreground mb-3">
               {error.message || 'An unexpected error occurred'}
             </p>

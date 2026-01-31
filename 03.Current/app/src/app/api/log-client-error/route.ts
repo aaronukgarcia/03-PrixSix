@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { ERRORS } from '@/lib/error-registry';
 
 // GUID: API_LOG_CLIENT_ERROR-001-v03
 // [Intent] Initialise Firebase Admin SDK if not already done. Supports both production (Application Default Credentials) and local development (service account file).
@@ -145,14 +146,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_LOG_CLIENT_ERROR-005-v04
+    // GUID: API_LOG_CLIENT_ERROR-005-v05
     // [Intent] Persist a legacy client error payload to Firestore error_logs collection with context,
     //          defaulting errorCode to PX-9001 (unknown) if not provided.
     // [Inbound Trigger] Validation passed — correlationId and error are present. No guid/module fields detected.
     // [Downstream Impact] Creates a document in error_logs with source: 'client'. Admin error dashboard reads these.
     await db.collection('error_logs').add({
       correlationId: legacyBody.correlationId,
-      errorCode: legacyBody.errorCode || 'PX-9001',
+      errorCode: legacyBody.errorCode || ERRORS.UNKNOWN_ERROR.code,
       error: legacyBody.error,
       stack: legacyBody.stack || null,
       digest: legacyBody.digest || null,
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
         ...legacyBody.context,
         source: 'client',
         additionalInfo: {
-          errorCode: legacyBody.errorCode || 'PX-9001',
+          errorCode: legacyBody.errorCode || ERRORS.UNKNOWN_ERROR.code,
           errorType: 'ClientSideError',
         },
       },

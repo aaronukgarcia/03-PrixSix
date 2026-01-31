@@ -33,6 +33,8 @@ import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { getProviderIds } from "@/services/authService";
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_COMPLETE_PROFILE-001-v03
 // [Intent] Fun F1-themed team name suggestions (same pool as signup page).
@@ -101,7 +103,7 @@ export default function CompleteProfilePage() {
     form.setValue("teamName", name);
   }
 
-  // GUID: PAGE_COMPLETE_PROFILE-006-v03
+  // GUID: PAGE_COMPLETE_PROFILE-006-v04
   // [Intent] Submit team name to complete-oauth-profile API.
   // [Inbound Trigger] User clicks "Join Prix Six" and form validation passes.
   // [Downstream Impact] Creates Firestore user doc. On success, toast + redirect happens
@@ -146,9 +148,9 @@ export default function CompleteProfilePage() {
         });
       }
     } catch (e: any) {
-      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const correlationId = generateClientCorrelationId();
       console.error(`Complete profile error [${correlationId}]:`, e);
-      const errorMessage = `${e.message || 'An unexpected error occurred'} [PX-9001] (Ref: ${correlationId})`;
+      const errorMessage = `${e.message || 'An unexpected error occurred'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`;
       setError(errorMessage);
       toast({
         variant: "destructive",

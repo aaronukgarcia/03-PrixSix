@@ -42,6 +42,8 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useSmartLoader } from "@/components/ui/smart-loader";
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_TEAMS-001-v03
 // [Intent] Represents a basic team record with user association, used before predictions are loaded.
@@ -185,7 +187,7 @@ export default function TeamsPage() {
     return driverIds.map(id => F1Drivers.find(d => d.id === id) || null);
   }, []);
 
-  // GUID: PAGE_TEAMS-008-v03
+  // GUID: PAGE_TEAMS-008-v04
   // [Intent] Fetches paginated team list from Firestore users collection WITHOUT predictions (fast initial load).
   // [Inbound Trigger] Called on initial page load (via PAGE_TEAMS-012 effect) and when "Load More" button is clicked.
   // [Downstream Impact] Populates the teams state array. Predictions are loaded on-demand via PAGE_TEAMS-010.
@@ -286,15 +288,15 @@ export default function TeamsPage() {
       setLastUpdated(new Date());
     } catch (error: any) {
       console.error("Error fetching teams:", error);
-      const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const correlationId = generateClientCorrelationId();
       let errorMsg: string;
       if (error?.code === 'failed-precondition') {
-        errorMsg = `Database index required. Please contact an administrator. [PX-4004] (Ref: ${correlationId})`;
+        errorMsg = `Database index required. Please contact an administrator. [${ERRORS.FIRESTORE_INDEX_REQUIRED.code}] (Ref: ${correlationId})`;
         console.error(`[Teams Index Error ${correlationId}]`, error?.message);
       } else if (error?.code === 'permission-denied') {
-        errorMsg = `Permission denied. Please sign in again. [PX-1001] (Ref: ${correlationId})`;
+        errorMsg = `Permission denied. Please sign in again. [${ERRORS.AUTH_INVALID_TOKEN.code}] (Ref: ${correlationId})`;
       } else {
-        errorMsg = `Error loading teams: ${error?.message || 'Unknown error'} [PX-9001] (Ref: ${correlationId})`;
+        errorMsg = `Error loading teams: ${error?.message || 'Unknown error'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`;
       }
       setError(errorMsg);
     } finally {

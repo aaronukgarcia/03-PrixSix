@@ -28,6 +28,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
+import { ERRORS } from '@/lib/error-registry';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_FORGOT_PIN-001-v03
 // [Intent] Zod validation schema for forgot PIN form — requires a valid email address.
@@ -57,7 +59,7 @@ export default function ForgotPinPage() {
         },
     });
 
-    // GUID: PAGE_FORGOT_PIN-003-v03
+    // GUID: PAGE_FORGOT_PIN-003-v04
     // [Intent] Form submission handler — calls resetPin API, shows toast on success/failure,
     //          and generates client-side correlation ID for unexpected errors.
     // [Inbound Trigger] User clicks "Send Reset Email" and form validation passes.
@@ -85,12 +87,12 @@ export default function ForgotPinPage() {
                 });
             }
         } catch (e: any) {
-            const correlationId = `err_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-            const errorMessage = `${e.message || 'An unexpected error occurred'} [PX-9001] (Ref: ${correlationId})`;
+            const correlationId = generateClientCorrelationId();
+            const errorMessage = `${e.message || 'An unexpected error occurred'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`;
             setError(errorMessage);
             toast({
                 variant: "destructive",
-                title: "Reset Failed [PX-9001]",
+                title: `Reset Failed [${ERRORS.UNKNOWN_ERROR.code}]`,
                 description: e.message || 'An unexpected error occurred',
             });
         } finally {

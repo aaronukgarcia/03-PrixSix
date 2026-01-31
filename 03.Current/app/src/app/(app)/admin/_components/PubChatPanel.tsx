@@ -21,6 +21,7 @@ import { getPubChatSettings, PubChatSettings, getPubChatTimingData, PubChatTimin
 import { Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { generateClientCorrelationId } from '@/lib/error-codes';
+import { ERRORS } from '@/lib/error-registry';
 
 // ─── OpenF1 dropdown types ──────────────────────────────────────────────────
 interface MeetingOption {
@@ -181,7 +182,7 @@ export function PubChatPanel() {
             if (!json.success) {
                 toast({
                     variant: 'destructive',
-                    title: `Error ${json.errorCode || 'PX-3201'}`,
+                    title: `Error ${json.errorCode || ERRORS.OPENF1_FETCH_FAILED.code}`,
                     description: json.error || 'Failed to fetch timing data',
                 });
                 return;
