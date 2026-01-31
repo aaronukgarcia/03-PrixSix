@@ -934,7 +934,7 @@ exports.manualSmokeTest = onCall(
  *          Scans all user_logons documents with sessionStatus == 'Active' and
  *          logonTimestamp older than 24 hours, then batch-updates them.
  *
- * [Inbound Trigger] Cloud Scheduler cron: "*/15 * * * *" (every 15 minutes).
+ * [Inbound Trigger] Cloud Scheduler cron: every 15 minutes.
  *
  * [Downstream Impact]
  *   - Updates user_logons documents from 'Active' to 'Session Expired'.
