@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
-import { canSendEmail, recordSentEmail } from '@/lib/email-tracking';
+import { getTodayDateString } from '@/lib/email-tracking';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
@@ -13,13 +13,77 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-// GUID: API_SEND_RESULTS_EMAIL-001-v03
-// [Intent] Helper to obtain the Firestore db instance, wrapping getFirebaseAdmin for backwards compatibility.
+// GUID: API_SEND_RESULTS_EMAIL-001-v04
+// [Intent] Helper to obtain the Firestore db instance and FieldValue utilities from the Admin SDK.
 // [Inbound Trigger] Called at the start of the POST handler.
-// [Downstream Impact] Returns the Firestore db; if getFirebaseAdmin fails, the POST handler's catch block handles the error.
-async function getAdminDb() {
-  const { db } = await getFirebaseAdmin();
-  return db;
+// [Downstream Impact] Returns the Firestore db and FieldValue; if getFirebaseAdmin fails, the POST handler's catch block handles the error.
+async function getAdminFirebase() {
+  const { db, FieldValue } = await getFirebaseAdmin();
+  return { db, FieldValue };
+}
+
+// GUID: API_SEND_RESULTS_EMAIL-001B-v01
+// [Intent] Server-side rate-limit check using Admin SDK. Replaces client-side canSendEmail which used incompatible firebase/firestore SDK.
+// [Inbound Trigger] Called before each email send in the POST handler loop.
+// [Downstream Impact] Returns canSend boolean. If false, the email is skipped with the reason. Rate limits: 30 global/day, 5 per address/day (admin exempt).
+const DAILY_GLOBAL_LIMIT = 30;
+const DAILY_PER_ADDRESS_LIMIT = 5;
+const ADMIN_EMAIL = 'aaron@garcia.ltd';
+
+async function canSendEmailAdmin(
+  db: Awaited<ReturnType<typeof getFirebaseAdmin>>['db'],
+  toEmail: string
+): Promise<{ canSend: boolean; reason?: string }> {
+  const today = getTodayDateString();
+  const statsRef = db.collection('email_daily_stats').doc(today);
+  const statsDoc = await statsRef.get();
+
+  const stats = statsDoc.exists
+    ? (statsDoc.data() as { totalSent: number; emailsSent: { toEmail: string }[] })
+    : { totalSent: 0, emailsSent: [] };
+
+  if (stats.totalSent >= DAILY_GLOBAL_LIMIT) {
+    return { canSend: false, reason: `Daily global limit of ${DAILY_GLOBAL_LIMIT} emails reached` };
+  }
+
+  if (toEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+    const addressCount = (stats.emailsSent || []).filter(
+      (e) => e.toEmail?.toLowerCase() === toEmail.toLowerCase()
+    ).length;
+    if (addressCount >= DAILY_PER_ADDRESS_LIMIT) {
+      return { canSend: false, reason: `Daily limit of ${DAILY_PER_ADDRESS_LIMIT} emails to ${toEmail} reached` };
+    }
+  }
+
+  return { canSend: true };
+}
+
+// GUID: API_SEND_RESULTS_EMAIL-001C-v01
+// [Intent] Server-side email recording using Admin SDK. Replaces client-side recordSentEmail which used incompatible firebase/firestore SDK.
+// [Inbound Trigger] Called after a successful email send in the POST handler loop.
+// [Downstream Impact] Increments daily stats counter and appends the email log entry. Creates the stats doc if it doesn't exist yet for the day.
+async function recordSentEmailAdmin(
+  db: Awaited<ReturnType<typeof getFirebaseAdmin>>['db'],
+  FieldValue: Awaited<ReturnType<typeof getFirebaseAdmin>>['FieldValue'],
+  entry: { toEmail: string; subject: string; type: string; teamName?: string; emailGuid: string; sentAt: string; status: string }
+): Promise<void> {
+  const today = getTodayDateString();
+  const statsRef = db.collection('email_daily_stats').doc(today);
+  const statsDoc = await statsRef.get();
+
+  if (!statsDoc.exists) {
+    await statsRef.set({
+      date: today,
+      totalSent: 1,
+      emailsSent: [entry],
+      summaryEmailSent: false,
+    });
+  } else {
+    await statsRef.update({
+      totalSent: FieldValue.increment(1),
+      emailsSent: FieldValue.arrayUnion(entry),
+    });
+  }
 }
 
 // GUID: API_SEND_RESULTS_EMAIL-002-v03
@@ -52,7 +116,7 @@ export async function POST(request: NextRequest) {
     const { raceId, raceName, officialResult, scores, standings } = data;
 
     // Get all users who have opted in to results notifications
-    const db = await getAdminDb();
+    const { db, FieldValue } = await getAdminFirebase();
     const usersSnapshot = await db.collection('users').get();
     const usersToNotify = usersSnapshot.docs.filter(doc => {
       const userData = doc.data();
@@ -92,7 +156,7 @@ export async function POST(request: NextRequest) {
       // Send to each recipient
       for (const recipientEmail of recipients) {
         // Check rate limiting for each recipient
-        const rateCheck = await canSendEmail(db as any, recipientEmail);
+        const rateCheck = await canSendEmailAdmin(db, recipientEmail);
         if (!rateCheck.canSend) {
           results.push({ email: recipientEmail, success: false, error: rateCheck.reason });
           continue;
@@ -106,7 +170,7 @@ export async function POST(request: NextRequest) {
           });
 
           if (emailResult.success) {
-            await recordSentEmail(db as any, {
+            await recordSentEmailAdmin(db, FieldValue, {
               toEmail: recipientEmail,
               subject: `Prix Six: ${raceName} Results`,
               type: 'results_notification',
