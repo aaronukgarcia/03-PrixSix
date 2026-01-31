@@ -1,4 +1,4 @@
-// GUID: API_SEND_SECONDARY_VERIFICATION-000-v03
+// GUID: API_SEND_SECONDARY_VERIFICATION-000-v04
 // [Intent] API route that sends a verification email for a user's secondary email address. Validates that the secondary email matches the user record, generates a CSPRNG token, stores it in Firestore with a 2-hour expiry, and sends a branded verification email via Graph API.
 // [Inbound Trigger] POST request from the profile page when a user adds or re-verifies a secondary email address.
 // [Downstream Impact] Creates a document in secondary_email_verification_tokens collection (consumed by /verify-secondary-email page). Sends email via sendEmail. Writes to audit_logs. Frontend relies on success/emailGuid response.
@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { ERRORS } from '@/lib/error-registry';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
 
@@ -18,7 +20,7 @@ function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
-// GUID: API_SEND_SECONDARY_VERIFICATION-002-v03
+// GUID: API_SEND_SECONDARY_VERIFICATION-002-v04
 // [Intent] POST handler — validates required fields (uid, secondaryEmail), checks Graph API config, verifies user exists and secondary email matches their record, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.
 // [Inbound Trigger] HTTP POST with JSON body containing uid, secondaryEmail, and optional teamName.
 // [Downstream Impact] Creates/overwrites secondary_email_verification_tokens/{uid} document. Sends email. Writes to audit_logs on success. Errors logged to error_logs with correlation ID and ERROR_CODES mapping. Reads from users collection to validate secondary email ownership.
@@ -171,40 +173,31 @@ export async function POST(request: NextRequest) {
         emailGuid: emailResult.emailGuid,
       });
     } else {
-      await logError({
+      const traced = createTracedError(ERRORS.EMAIL_SEND_FAILED, {
         correlationId,
-        error: emailResult.error || 'Failed to send secondary verification email',
-        context: {
-          route: '/api/send-secondary-email-verification',
-          action: 'send_email',
-          userId: uid,
-          additionalInfo: { secondaryEmail },
-        },
+        context: { route: '/api/send-secondary-email-verification', action: 'send_email', userId: uid, secondaryEmail },
       });
+      await logTracedError(traced, db);
       return NextResponse.json({
         success: false,
-        error: emailResult.error || 'Failed to send verification email',
-        errorCode: ERROR_CODES.EMAIL_SEND_FAILED.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       }, { status: 500 });
     }
   } catch (error: any) {
-    console.error('Error sending secondary verification email:', error);
-    await logError({
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/send-secondary-email-verification',
-        action: 'POST',
-        additionalInfo: { errorType: error.code || error.name || 'UnknownError' },
-      },
+      context: { route: '/api/send-secondary-email-verification', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, (await getFirebaseAdmin()).db);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Internal server error',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

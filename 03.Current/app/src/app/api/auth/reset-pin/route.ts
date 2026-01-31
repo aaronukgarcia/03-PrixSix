@@ -1,10 +1,12 @@
-// GUID: API_AUTH_RESET_PIN-000-v03
+// GUID: API_AUTH_RESET_PIN-000-v04
 // [Intent] Server-side API route that handles PIN reset requests: validates the email, generates a new random 6-digit PIN, updates Firebase Auth, marks the user as mustChangePin, queues a reset email, and logs the action. Returns a generic success message regardless of whether the email exists to prevent enumeration attacks.
 // [Inbound Trigger] POST request from the client-side PIN reset form.
 // [Downstream Impact] Updates the user's password in Firebase Auth, sets mustChangePin=true on the Firestore user document, writes to the mail collection (consumed by the email sending service), writes to email_logs and audit_logs collections.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import crypto from 'crypto';
 
 // Force dynamic to skip static analysis at build time
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
     const userDoc = usersQuery.docs[0];
     const userId = userDoc.id;
 
-    // GUID: API_AUTH_RESET_PIN-005-v03
+    // GUID: API_AUTH_RESET_PIN-005-v04
     // [Intent] Generate a cryptographically secure random 6-digit PIN and update the user's password in Firebase Auth. Uses crypto.randomInt for uniform distribution across the 100000-999999 range.
     // [Inbound Trigger] Runs after the user is found in Firestore.
     // [Downstream Impact] Changes the user's Firebase Auth password immediately. If this fails, no email is sent and no Firestore flags are set (clean failure). The new PIN is included in the reset email sent later.
@@ -82,17 +84,14 @@ export async function POST(request: NextRequest) {
       await auth.updateUser(userId, { password: newPin });
     } catch (authError: any) {
       console.error(`[PIN Reset Error ${correlationId}] Failed to update Firebase Auth:`, authError);
-      await logError({
+      const traced = createTracedError(ERRORS.AUTH_PIN_RESET_FAILED, {
         correlationId,
-        error: authError,
-        context: {
-          route: '/api/auth/reset-pin',
-          action: 'updateUser',
-          additionalInfo: { email: normalizedEmail },
-        },
+        context: { route: '/api/auth/reset-pin', action: 'updateUser', email: normalizedEmail },
+        cause: authError instanceof Error ? authError : undefined,
       });
+      await logTracedError(traced, db);
       return NextResponse.json(
-        { success: false, error: 'Failed to reset PIN. Please try again.', correlationId },
+        { success: false, error: traced.definition.message, errorCode: traced.definition.code, correlationId: traced.correlationId },
         { status: 500 }
       );
     }
@@ -145,23 +144,21 @@ export async function POST(request: NextRequest) {
       message: 'If an account exists with that email, a temporary PIN will be sent.',
     });
 
-  // GUID: API_AUTH_RESET_PIN-009-v03
+  // GUID: API_AUTH_RESET_PIN-009-v04
   // [Intent] Top-level catch-all error handler for any unhandled exception during PIN reset. Logs the error to error_logs (with fallback to console if logging itself fails) and returns a generic 500 response with correlation ID for support tracing.
   // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
-  // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response allows support to trace the issue. If logError fails, falls back to console.error to avoid masking the original error.
+  // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response allows support to trace the issue. If logTracedError fails, falls back to console.error to avoid masking the original error.
   } catch (error: any) {
     console.error('[Reset PIN Error]', error);
 
     try {
-      await logError({
+      const { db } = await getFirebaseAdmin();
+      const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
         correlationId,
-        error,
-        context: {
-          route: '/api/auth/reset-pin',
-          action: 'POST',
-          userAgent: request.headers.get('user-agent') || undefined,
-        },
+        context: { route: '/api/auth/reset-pin', action: 'POST', userAgent: request.headers.get('user-agent') || undefined },
+        cause: error instanceof Error ? error : undefined,
       });
+      await logTracedError(traced, db);
     } catch (logErr) {
       console.error('[Reset PIN Error - Logging failed]', logErr);
     }

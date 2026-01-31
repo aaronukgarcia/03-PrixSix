@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import { F1Drivers } from '@/lib/data';
 import { SCORING_POINTS, calculateDriverPoints } from '@/lib/scoring-rules';
 import { normalizeRaceId } from '@/lib/normalize-race-id';
@@ -101,18 +103,13 @@ export async function POST(request: NextRequest) {
     // SECURITY: Verify the user is an admin
     const userDoc = await db.collection('users').doc(verifiedUser.uid).get();
     if (!userDoc.exists || !userDoc.data()?.isAdmin) {
-      await logError({
+      const traced = createTracedError(ERRORS.AUTH_ADMIN_REQUIRED, {
         correlationId,
-        error: 'Forbidden: Admin access required',
-        context: {
-          route: '/api/calculate-scores',
-          action: 'POST',
-          userId: verifiedUser.uid,
-          additionalInfo: { reason: 'non_admin_attempt' },
-        },
+        context: { route: '/api/calculate-scores', action: 'POST', userId: verifiedUser.uid, reason: 'non_admin_attempt' },
       });
+      await logTracedError(traced, db);
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Admin access required' },
+        { success: false, error: traced.definition.message },
         { status: 403 }
       );
     }
@@ -495,29 +492,21 @@ export async function POST(request: NextRequest) {
       standings,
     });
 
-  // GUID: API_CALCULATE_SCORES-018-v03
+  // GUID: API_CALCULATE_SCORES-018-v04
   // [Intent] Top-level error handler that catches any unhandled exception during scoring, logs it with a correlation ID, and returns a 500 response with the correlation ID for user-reportable error tracing.
   // [Inbound Trigger] Any uncaught exception within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response enables support to trace the specific failure.
   } catch (error: any) {
-    let requestData = {};
-    try {
-      requestData = await request.clone().json();
-    } catch {}
-
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/calculate-scores',
-        action: 'POST',
-        requestData,
-        userAgent: request.headers.get('user-agent') || undefined,
-      },
+      context: { route: '/api/calculate-scores', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
 
     return NextResponse.json(
-      { success: false, error: error.message, correlationId },
+      { success: false, error: traced.definition.message, correlationId: traced.correlationId },
       { status: 500 }
     );
   }

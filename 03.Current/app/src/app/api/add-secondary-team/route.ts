@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -251,32 +253,25 @@ export async function POST(request: NextRequest) {
       secondaryTeamId,
     });
 
-  // GUID: API_ADD_SECONDARY_TEAM-010-v03
+  // GUID: API_ADD_SECONDARY_TEAM-010-v04
   // [Intent] Top-level error handler that catches any unhandled exception during secondary team creation, logs it with a correlation ID, and returns a 500 response with the correlation ID for user-reportable error tracing.
   // [Inbound Trigger] Any uncaught exception within the POST handler try block.
-  // [Downstream Impact] Writes to error_logs collection via logError. The correlation ID and error code in the response enable support to trace the specific failure.
+  // [Downstream Impact] Writes to error_logs collection via logTracedError. The correlation ID and error code in the response enable support to trace the specific failure.
   } catch (error: any) {
-    console.error(`[AddSecondaryTeam Error ${correlationId}]`, error);
-
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/add-secondary-team',
-        action: 'POST',
-        additionalInfo: {
-          errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-          errorType: error.code || error.name || 'UnknownError',
-        },
-      },
+      context: { route: '/api/add-secondary-team', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'An error occurred. Please try again.',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

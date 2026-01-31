@@ -3251,8 +3251,7 @@
       "description": "AI-powered race prediction analysis API route. Accepts a user's top-6 driver prediction and analysis weight configuration, builds a dynamic weighted prompt, calls Genkit/Gemini AI, and returns structured analysis text covering multiple F1 analysis facets and optional pundit personas.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/api/ai/analysis/route.ts",
-        "functionName": "dynamic"
+        "filePath": "app/src/app/api/ai/analysis/route.ts"
       },
       "callChain": {
         "calledBy": [],
@@ -3902,6 +3901,21 @@
       "callChain": {
         "calledBy": [],
         "calls": []
+      },
+      "errorProfile": {
+        "throws": [
+          "PX-1008"
+        ],
+        "handles": [],
+        "emits": {
+          "PX-1008": {
+            "key": "AUTH_SIGNIN_VERIFICATION_FAILED",
+            "message": "Sign-in verification failed",
+            "severity": "error",
+            "recovery": "",
+            "failureModes": []
+          }
+        }
       }
     },
     {
@@ -4585,7 +4599,8 @@
       "description": "Basic validation — ensures the minimum required fields (correlationId and error message) are present.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/api/log-client-error/route.ts"
+        "filePath": "app/src/app/api/log-client-error/route.ts",
+        "functionName": "traced"
       },
       "callChain": {
         "calledBy": [],
@@ -5039,8 +5054,7 @@
       "description": "Top-level error handler that catches any unhandled exception during prediction submission, logs it with a correlation ID, and returns a 500 response.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/api/submit-prediction/route.ts",
-        "functionName": "data"
+        "filePath": "app/src/app/api/submit-prediction/route.ts"
       },
       "callChain": {
         "calledBy": [],
@@ -7649,6 +7663,13 @@
         ],
         "handles": [],
         "emits": {
+          "PX-1008": {
+            "key": "AUTH_SIGNIN_VERIFICATION_FAILED",
+            "message": "Sign-in verification failed",
+            "severity": "error",
+            "recovery": "",
+            "failureModes": []
+          },
           "PX-1007": {
             "key": "AUTH_PERMISSION_DENIED",
             "message": "Permission denied",
@@ -7658,6 +7679,13 @@
               "Firestore rules deny access",
               "User role downgraded"
             ]
+          },
+          "PX-1009": {
+            "key": "AUTH_LOGIN_TIMEOUT",
+            "message": "Login verification timed out",
+            "severity": "error",
+            "recovery": "",
+            "failureModes": []
           },
           "PX-9001": {
             "key": "UNKNOWN_ERROR",
@@ -9629,6 +9657,8 @@
           "PX-1015",
           "PX-1016",
           "PX-1017",
+          "PX-1008",
+          "PX-1009",
           "PX-2001",
           "PX-2002",
           "PX-2003",
@@ -9811,6 +9841,20 @@
               "OAuth provider outage",
               "Invalid OAuth configuration"
             ]
+          },
+          "PX-1008": {
+            "key": "AUTH_SIGNIN_VERIFICATION_FAILED",
+            "message": "Sign-in verification failed",
+            "severity": "error",
+            "recovery": "",
+            "failureModes": []
+          },
+          "PX-1009": {
+            "key": "AUTH_LOGIN_TIMEOUT",
+            "message": "Login verification timed out",
+            "severity": "error",
+            "recovery": "",
+            "failureModes": []
           },
           "PX-2001": {
             "key": "VALIDATION_MISSING_FIELDS",

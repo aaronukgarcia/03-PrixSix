@@ -5,8 +5,10 @@
 // [Downstream Impact] Returns meeting or session lists from OpenF1. No Firestore writes.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -107,31 +109,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Invalid parameters' }, { status: 400 });
 
   } catch (error: any) {
-    // GUID: API_ADMIN_OPENF1_SESSIONS-004-v01
+    // GUID: API_ADMIN_OPENF1_SESSIONS-004-v02
     // [Intent] Top-level error handler — logs to error_logs and returns safe 500 response.
     // [Inbound Trigger] Any uncaught exception within the GET handler.
     // [Downstream Impact] Writes to error_logs. Returns correlationId for debugging.
-    console.error(`[OpenF1 Sessions Error ${correlationId}]`, error);
-
-    await logError({
+    const { db } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.OPENF1_FETCH_FAILED, {
       correlationId,
-      error,
-      context: {
-        route: '/api/admin/openf1-sessions',
-        action: 'GET',
-        additionalInfo: {
-          errorCode: ERROR_CODES.OPENF1_FETCH_FAILED.code,
-          errorType: error.code || error.name || 'UnknownError',
-        },
-      },
+      context: { route: '/api/admin/openf1-sessions', action: 'GET' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, db);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to fetch OpenF1 data. Please try again.',
-        errorCode: ERROR_CODES.OPENF1_FETCH_FAILED.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

@@ -34,10 +34,13 @@ const db = getFirestore(app);
 // Force dynamic
 export const dynamic = 'force-dynamic';
 
-// GUID: API_LOG_CLIENT_ERROR-002-v03
-// [Intent] TypeScript interface defining the expected shape of client error payloads. Ensures type safety for the request body.
+// GUID: API_LOG_CLIENT_ERROR-002-v04
+// [Intent] TypeScript interfaces defining the expected shape of client error payloads. Supports both
+//          the legacy format (correlationId + errorCode + error) and the new TracedError format from
+//          logTracedError() which includes full diagnostic metadata (guid, module, file, recovery, etc.).
 // [Inbound Trigger] Referenced by the POST handler when typing the parsed request body.
-// [Downstream Impact] Defines the contract between client-side error reporters and this API endpoint. Changes here require updating all client-side callers.
+// [Downstream Impact] Defines the contract between client-side error reporters and this API endpoint.
+//                     Both formats write to error_logs. The traced format includes richer metadata.
 interface ClientErrorRequest {
   correlationId: string;
   errorCode?: string;
@@ -52,43 +55,112 @@ interface ClientErrorRequest {
   };
 }
 
-// GUID: API_LOG_CLIENT_ERROR-003-v03
-// [Intent] POST handler that validates the incoming client error payload and writes it to the Firestore error_logs collection. Designed to be resilient — never returns an error that would worsen the client's already-errored state.
-// [Inbound Trigger] POST /api/log-client-error with JSON body matching ClientErrorRequest interface.
-// [Downstream Impact] Writes to Firestore error_logs collection with source: 'client'. The catch block intentionally returns 500 silently — the client is already in an error state and additional error handling would be counterproductive.
+interface TracedErrorRequest {
+  code: string;
+  guid: string;
+  module: string;
+  file: string;
+  functionName: string;
+  message: string;
+  severity: string;
+  recovery: string;
+  failureModes: string[];
+  correlationId: string;
+  context: Record<string, unknown>;
+  timestamp: string;
+  stack?: string;
+  calledBy: string[];
+  calls: string[];
+}
+
+// GUID: API_LOG_CLIENT_ERROR-003-v04
+// [Intent] POST handler that validates the incoming client error payload and writes it to the Firestore
+//          error_logs collection. Accepts both legacy format and new TracedError format. Designed to be
+//          resilient — never returns an error that would worsen the client's already-errored state.
+// [Inbound Trigger] POST /api/log-client-error with JSON body matching ClientErrorRequest or TracedErrorRequest.
+// [Downstream Impact] Writes to Firestore error_logs collection with source: 'client'. The catch block
+//                     intentionally returns 500 silently — the client is already in an error state.
 export async function POST(request: NextRequest) {
   try {
-    const body: ClientErrorRequest = await request.json();
+    const body = await request.json();
 
-    // GUID: API_LOG_CLIENT_ERROR-004-v03
-    // [Intent] Basic validation — ensures the minimum required fields (correlationId and error message) are present.
+    // GUID: API_LOG_CLIENT_ERROR-004-v04
+    // [Intent] Detect whether the payload is a TracedError (has guid + module fields) or legacy format.
+    //          Route to the appropriate persistence logic. Both formats require a correlationId.
     // [Inbound Trigger] Every incoming POST request.
-    // [Downstream Impact] Returns 400 if missing fields. Prevents empty or meaningless error log entries.
-    if (!body.correlationId || !body.error) {
+    // [Downstream Impact] Returns 400 if correlationId is missing. TracedError format writes richer metadata.
+    const isTracedError = body.guid && body.module && body.code;
+
+    if (isTracedError) {
+      const traced: TracedErrorRequest = body;
+      if (!traced.correlationId) {
+        return NextResponse.json(
+          { success: false, error: 'Missing correlationId' },
+          { status: 400 }
+        );
+      }
+
+      // GUID: API_LOG_CLIENT_ERROR-007-v03
+      // [Intent] Persist a TracedError payload with full diagnostic metadata to error_logs.
+      //          Stores all four diagnostic answers: where (file, functionName, guid), what (message, context),
+      //          known failures (recovery, failureModes), and who triggered (calledBy, calls).
+      // [Inbound Trigger] Client-side logTracedError() call via fetch.
+      // [Downstream Impact] Creates a richer error_logs document. Admin ErrorLogViewer can display recovery hints.
+      await db.collection('error_logs').add({
+        correlationId: traced.correlationId,
+        errorCode: traced.code,
+        error: traced.message,
+        guid: traced.guid,
+        module: traced.module,
+        file: traced.file,
+        functionName: traced.functionName,
+        severity: traced.severity,
+        recovery: traced.recovery,
+        failureModes: traced.failureModes,
+        stack: traced.stack || null,
+        calledBy: traced.calledBy,
+        calls: traced.calls,
+        context: {
+          ...traced.context,
+          source: 'client',
+          additionalInfo: {
+            errorCode: traced.code,
+            errorType: 'TracedError',
+          },
+        },
+        timestamp: traced.timestamp ? new Date(traced.timestamp) : new Date(),
+        createdAt: new Date().toISOString(),
+      });
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Legacy format
+    const legacyBody: ClientErrorRequest = body;
+
+    if (!legacyBody.correlationId || !legacyBody.error) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Rate limiting - simple check based on IP (optional enhancement)
-    // For now, just log it
-
-    // GUID: API_LOG_CLIENT_ERROR-005-v03
-    // [Intent] Persist the client error to Firestore error_logs collection with full context, defaulting errorCode to PX-9001 (unknown) if not provided.
-    // [Inbound Trigger] Validation passed — correlationId and error are present.
-    // [Downstream Impact] Creates a new document in error_logs. Includes source: 'client' to distinguish from server-side errors. Admin error dashboard reads these entries.
+    // GUID: API_LOG_CLIENT_ERROR-005-v04
+    // [Intent] Persist a legacy client error payload to Firestore error_logs collection with context,
+    //          defaulting errorCode to PX-9001 (unknown) if not provided.
+    // [Inbound Trigger] Validation passed — correlationId and error are present. No guid/module fields detected.
+    // [Downstream Impact] Creates a document in error_logs with source: 'client'. Admin error dashboard reads these.
     await db.collection('error_logs').add({
-      correlationId: body.correlationId,
-      errorCode: body.errorCode || 'PX-9001',
-      error: body.error,
-      stack: body.stack || null,
-      digest: body.digest || null,
+      correlationId: legacyBody.correlationId,
+      errorCode: legacyBody.errorCode || 'PX-9001',
+      error: legacyBody.error,
+      stack: legacyBody.stack || null,
+      digest: legacyBody.digest || null,
       context: {
-        ...body.context,
+        ...legacyBody.context,
         source: 'client',
         additionalInfo: {
-          errorCode: body.errorCode || 'PX-9001',
+          errorCode: legacyBody.errorCode || 'PX-9001',
           errorType: 'ClientSideError',
         },
       },

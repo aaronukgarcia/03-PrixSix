@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import { z } from 'zod';
 
 // Force dynamic to skip static analysis at build time
@@ -249,31 +251,24 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    // GUID: API_ADMIN_UPDATE_USER-010-v03
+    // GUID: API_ADMIN_UPDATE_USER-010-v04
     // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.
     // [Inbound Trigger] Any uncaught exception within the POST handler.
     // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client for support reference. Golden Rule #1 compliance.
-    console.error(`[Admin Update User Error ${correlationId}]`, error);
-
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/admin/update-user',
-        action: 'POST',
-        additionalInfo: {
-          errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-          errorType: error.code || error.name || 'UnknownError',
-        },
-      },
+      context: { route: '/api/admin/update-user', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to update user. Please try again.',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

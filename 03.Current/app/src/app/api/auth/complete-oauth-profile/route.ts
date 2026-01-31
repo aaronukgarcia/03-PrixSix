@@ -1,4 +1,4 @@
-// GUID: API_AUTH_COMPLETE_OAUTH-000-v03
+// GUID: API_AUTH_COMPLETE_OAUTH-000-v04
 // [Intent] Server-side API route that completes the profile for new OAuth users.
 //          Mirrors the signup route but skips Firebase Auth user creation (OAuth already created it).
 //          Validates the user exists in Auth with an OAuth provider, creates Firestore documents,
@@ -9,6 +9,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 
 export const dynamic = 'force-dynamic';
@@ -312,32 +314,27 @@ export async function POST(request: NextRequest) {
       message: 'Profile completed successfully!',
     });
 
-  // GUID: API_AUTH_COMPLETE_OAUTH-014-v03
+  // GUID: API_AUTH_COMPLETE_OAUTH-014-v04
   // [Intent] Top-level error handler for unhandled exceptions.
   // [Inbound Trigger] Any unhandled exception in the POST handler.
   // [Downstream Impact] Logs error and returns 500 with correlation ID.
   } catch (error: any) {
     console.error(`[Complete OAuth Profile Error ${correlationId}]`, error);
 
-    await logError({
+    const { db } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/auth/complete-oauth-profile',
-        action: 'POST',
-        additionalInfo: {
-          errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-          errorType: error.code || error.name || 'UnknownError',
-        },
-      },
+      context: { route: '/api/auth/complete-oauth-profile', action: 'POST', errorType: error.code || error.name || 'UnknownError' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, db);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'An error occurred while completing your profile. Please try again.',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

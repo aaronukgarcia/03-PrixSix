@@ -1,10 +1,12 @@
-// GUID: API_AUTH_SIGNUP-000-v03
+// GUID: API_AUTH_SIGNUP-000-v04
 // [Intent] Server-side API route that registers new users: validates input, creates Firebase Auth and Firestore records, enrols the user in the global league, applies late-joiner handicap scoring if the season has started, sends welcome and verification emails, and returns a custom token for immediate sign-in.
 // [Inbound Trigger] POST request from the client-side signup form.
 // [Downstream Impact] Creates records in users, presence, scores (if late joiner), and audit_logs collections. Updates the global league memberUserIds array. Triggers welcome and verification email API calls. Returns a customToken used by the client to establish a Firebase Auth session.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 
 // Force dynamic to skip static analysis at build time
@@ -196,7 +198,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_SIGNUP-011-v03
+    // GUID: API_AUTH_SIGNUP-011-v04
     // [Intent] Create the Firebase Auth user record with the provided email and PIN as password. Handles the auth/email-already-exists error case separately from other auth errors.
     // [Inbound Trigger] Runs after all validation and uniqueness checks pass.
     // [Downstream Impact] On success, the uid from the created user record is used for all subsequent Firestore document creation. On failure, no Firestore documents are created (partial state is avoided).
@@ -223,26 +225,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      await logError({
+      const traced = createTracedError(ERRORS.AUTH_SIGNIN_VERIFICATION_FAILED, {
         correlationId,
-        error: authError,
-        context: {
-          route: '/api/auth/signup',
-          action: 'create_auth_user',
-          requestData: { email: normalizedEmail, teamName: normalizedTeamName },
-          additionalInfo: {
-            errorCode: ERROR_CODES.AUTH_USER_NOT_FOUND.code,
-            authErrorCode: authError.code,
-          },
-        },
+        context: { route: '/api/auth/signup', action: 'create_auth_user', requestData: { email: normalizedEmail, teamName: normalizedTeamName }, authErrorCode: authError.code },
+        cause: authError instanceof Error ? authError : undefined,
       });
+      await logTracedError(traced, db);
 
       return NextResponse.json(
         {
           success: false,
-          error: 'Failed to create account. Please try again.',
-          errorCode: 'PX-1008',
-          correlationId,
+          error: traced.definition.message,
+          errorCode: traced.definition.code,
+          correlationId: traced.correlationId,
         },
         { status: 500 }
       );
@@ -405,32 +400,27 @@ export async function POST(request: NextRequest) {
       uid,
     });
 
-  // GUID: API_AUTH_SIGNUP-017-v03
+  // GUID: API_AUTH_SIGNUP-017-v04
   // [Intent] Top-level catch-all error handler for any unhandled exception during signup. Logs the error to error_logs and returns a generic 500 response with correlation ID for support tracing.
   // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection. The correlation ID and UNKNOWN_ERROR code in the response allow support to trace the issue.
   } catch (error: any) {
     console.error(`[Signup Error ${correlationId}]`, error);
 
-    await logError({
+    const { db } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/auth/signup',
-        action: 'POST',
-        additionalInfo: {
-          errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-          errorType: error.code || error.name || 'UnknownError',
-        },
-      },
+      context: { route: '/api/auth/signup', action: 'POST', errorType: error.code || error.name || 'UnknownError' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, db);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'An error occurred during registration. Please try again.',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

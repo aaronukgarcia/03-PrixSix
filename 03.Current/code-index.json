@@ -1,8 +1,15 @@
 {
   "generated": "2026-01-31",
   "totalGuids": 909,
-  "totalErrorCodes": 60,
+  "totalErrorCodes": 62,
   "byErrorCode": {
+    "PX-1008": {
+      "guid": "LIB_ERROR_CODES-001",
+      "file": "app/src/lib/error-codes.ts",
+      "function": "",
+      "message": "Sign-in verification failed",
+      "recovery": ""
+    },
     "PX-9001": {
       "guid": "PAGE_TEAMS-008",
       "file": "app/src/app/(app)/teams/page.tsx",
@@ -100,6 +107,13 @@
       "function": "",
       "message": "Permission denied",
       "recovery": "Check Firestore security rules and user permissions."
+    },
+    "PX-1009": {
+      "guid": "LIB_ERROR_CODES-001",
+      "file": "app/src/lib/error-codes.ts",
+      "function": "",
+      "message": "Login verification timed out",
+      "recovery": ""
     },
     "PX-1006": {
       "guid": "LIB_ERROR_CODES-001",
@@ -1784,7 +1798,9 @@
       "files": [
         "app/src/app/api/auth/signup/route.ts"
       ],
-      "errorCodes": []
+      "errorCodes": [
+        "PX-1008"
+      ]
     },
     "API_CALCULATE_SCORES": {
       "files": [
@@ -1965,7 +1981,9 @@
         "app/src/firebase/provider.tsx"
       ],
       "errorCodes": [
+        "PX-1008",
         "PX-1007",
+        "PX-1009",
         "PX-9001",
         "PX-9002",
         "PX-1006",
@@ -2033,6 +2051,8 @@
         "PX-1015",
         "PX-1016",
         "PX-1017",
+        "PX-1008",
+        "PX-1009",
         "PX-2001",
         "PX-2002",
         "PX-2003",
@@ -2428,7 +2448,9 @@
       "modules": [
         "API_AUTH_SIGNUP"
       ],
-      "errorCodes": []
+      "errorCodes": [
+        "PX-1008"
+      ]
     },
     "app/src/app/api/calculate-scores/route.ts": {
       "modules": [
@@ -2572,6 +2594,8 @@
         "PX-1015",
         "PX-1016",
         "PX-1017",
+        "PX-1008",
+        "PX-1009",
         "PX-2001",
         "PX-2002",
         "PX-2003",
@@ -2659,7 +2683,9 @@
         "FIREBASE_PROVIDER"
       ],
       "errorCodes": [
+        "PX-1008",
         "PX-1007",
+        "PX-1009",
         "PX-9001",
         "PX-9002",
         "PX-1006",

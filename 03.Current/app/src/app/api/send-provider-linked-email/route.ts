@@ -1,4 +1,4 @@
-// GUID: API_SEND_PROVIDER_LINKED_EMAIL-000-v03
+// GUID: API_SEND_PROVIDER_LINKED_EMAIL-000-v04
 // [Intent] API route that sends a confirmation email when a user links a Google or Apple
 //          sign-in provider to their account. Sends to primary email and secondary email
 //          (if verified). Fire-and-forget from the client.
@@ -6,8 +6,10 @@
 // [Downstream Impact] Sends branded email via sendEmail (Graph API). No Firestore state changes.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { ERRORS } from '@/lib/error-registry';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { sendEmail } from '@/lib/email';
 
 // GUID: API_SEND_PROVIDER_LINKED_EMAIL-001-v03
@@ -22,7 +24,7 @@ function providerDisplayName(providerId: string): string {
   }
 }
 
-// GUID: API_SEND_PROVIDER_LINKED_EMAIL-002-v03
+// GUID: API_SEND_PROVIDER_LINKED_EMAIL-002-v04
 // [Intent] POST handler — validates required fields, builds a branded confirmation email,
 //          and sends to primary (and optionally secondary) email addresses.
 // [Inbound Trigger] HTTP POST with JSON body: { email, teamName, providerId, secondaryEmail? }.
@@ -117,19 +119,18 @@ export async function POST(request: NextRequest) {
       correlationId,
     });
   } catch (error: any) {
-    console.error('Error sending provider-linked email:', error);
-    await logError({
-      code: ERROR_CODES.EMAIL_SEND_FAILED?.code || 'PX-3001',
-      message: error.message || 'Failed to send provider-linked email',
+    const traced = createTracedError(ERRORS.EMAIL_SEND_FAILED, {
       correlationId,
-      context: { route: 'send-provider-linked-email' },
+      context: { route: '/api/send-provider-linked-email', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
-
+    await logTracedError(traced, (await getFirebaseAdmin()).db);
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to send confirmation email',
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

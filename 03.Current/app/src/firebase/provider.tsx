@@ -30,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
 import { logAuditEvent } from '@/lib/audit';
 import { generateClientCorrelationId } from '@/lib/error-codes';
+import { ERRORS } from '@/lib/error-registry';
 
 // GUID: FIREBASE_PROVIDER-001-v03
 // [Intent] Defines the shape of user email notification preferences stored in Firestore.
@@ -323,7 +324,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     };
   }, [auth, firestore, router]);
 
-  // GUID: FIREBASE_PROVIDER-009-v04
+  // GUID: FIREBASE_PROVIDER-009-v05
   // @SECURITY_RISK @AUDIT_NOTE: No CSRF token is sent with the login POST. The /api/auth/login endpoint
   //   relies on SameSite cookies and CORS headers for cross-origin protection. A proper CSRF token
   //   would require server-side session infrastructure (not currently implemented).
@@ -380,7 +381,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             const clientCorrelationId = generateClientCorrelationId();
             return {
                 success: false,
-                message: `Sign-in verification failed. Please try again. [PX-1008] (Ref: ${clientCorrelationId})`,
+                message: `Sign-in verification failed. Please try again. [${ERRORS.AUTH_SIGNIN_VERIFICATION_FAILED.code}] (Ref: ${clientCorrelationId})`,
             };
         }
 
@@ -420,22 +421,22 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
          if (signInError.name === 'AbortError') {
              return {
                  success: false,
-                 message: `Login timed out. Please check your connection and try again. [PX-1007] (Ref: ${clientCorrelationId})`,
+                 message: `Login timed out. Please check your connection and try again. [${ERRORS.AUTH_PERMISSION_DENIED.code}] (Ref: ${clientCorrelationId})`,
              };
          }
 
          if (signInError.message === 'Auth state timeout') {
              return {
                  success: false,
-                 message: `Login verification timed out. Please refresh and try again. [PX-1009] (Ref: ${clientCorrelationId})`,
+                 message: `Login verification timed out. Please refresh and try again. [${ERRORS.AUTH_LOGIN_TIMEOUT.code}] (Ref: ${clientCorrelationId})`,
              };
          }
 
-         return { success: false, message: `An error occurred during login. [PX-9001] (Ref: ${clientCorrelationId})` };
+         return { success: false, message: `An error occurred during login. [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${clientCorrelationId})` };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-010-v04
+  // GUID: FIREBASE_PROVIDER-010-v05
   // [Intent] Registers a new user via server-side API (which uses Admin SDK for Firestore writes
   // and Firebase Auth user creation), then auto-signs in with the returned custom token.
   // [Inbound Trigger] Called from the signup/registration page when a new user submits their details.
@@ -482,7 +483,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           correlationId,
-          errorCode: 'PX-9002',
+          errorCode: ERRORS.NETWORK_ERROR.code,
           error: error?.message || 'Network error during signup',
           stack: error?.stack,
           context: {
@@ -495,12 +496,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
       return {
         success: false,
-        message: `Registration failed - network error. Please check your connection and try again. [PX-9002] (Ref: ${correlationId})`,
+        message: `Registration failed - network error. Please check your connection and try again. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})`,
       };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-011-v04
+  // GUID: FIREBASE_PROVIDER-011-v05
   // [Intent] Admin-only operation to update a user's profile via server-side API. Handles both
   // Firestore document updates and Firebase Auth property changes (e.g., email, display name).
   // [Inbound Trigger] Called from the admin panel when an admin edits a user's details.
@@ -546,11 +547,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
       console.error(`[Update User Error ${correlationId}]`, e);
-      return { success: false, message: `Failed to update user. [PX-9002] (Ref: ${correlationId})` };
+      return { success: false, message: `Failed to update user. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})` };
     }
   }
 
-  // GUID: FIREBASE_PROVIDER-012-v04
+  // GUID: FIREBASE_PROVIDER-012-v05
   // [Intent] Admin-only operation to delete a user via server-side API. Removes both the Firestore
   // user document and the Firebase Auth account.
   // [Inbound Trigger] Called from the admin panel when an admin deletes a user.
@@ -590,7 +591,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
       console.error(`[Delete User Error ${correlationId}]`, e);
-      return { success: false, message: `Failed to delete user. [PX-9002] (Ref: ${correlationId})` };
+      return { success: false, message: `Failed to delete user. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})` };
     }
   }
 
@@ -650,7 +651,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     setIsUserLoading(false);
   };
 
-  // GUID: FIREBASE_PROVIDER-015-v04
+  // GUID: FIREBASE_PROVIDER-015-v05
   // [Intent] Initiates a server-side PIN reset for the given email address. The API generates a
   // temporary PIN and sends it via email. Works for unauthenticated users (forgotten PIN flow).
   // [Inbound Trigger] Called from the login page "Forgot PIN" flow.
@@ -674,7 +675,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         const errorMessage = result.error || 'PIN reset failed';
         return {
           success: false,
-          message: `${errorMessage} [PX-1006] (Ref: ${result.correlationId || correlationId})`,
+          message: `${errorMessage} [${ERRORS.AUTH_PIN_RESET_FAILED.code}] (Ref: ${result.correlationId || correlationId})`,
         };
       }
 
@@ -689,7 +690,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           correlationId,
-          errorCode: 'PX-1006',
+          errorCode: ERRORS.AUTH_PIN_RESET_FAILED.code,
           error: error?.message || 'Unknown error during PIN reset',
           stack: error?.stack,
           context: {
@@ -703,12 +704,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
       return {
         success: false,
-        message: `PIN reset failed. Please try again later. [PX-1006] (Ref: ${correlationId})`,
+        message: `PIN reset failed. Please try again later. [${ERRORS.AUTH_PIN_RESET_FAILED.code}] (Ref: ${correlationId})`,
       };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-016-v04
+  // GUID: FIREBASE_PROVIDER-016-v05
   // @SECURITY_RISK: Previously returned raw e.message to UI, potentially leaking Firebase internals.
   //   Now returns generic error message with PX error code for all non-specific errors.
   // [Intent] Changes the current user's PIN (password) via Firebase Auth, clears the mustChangePin
@@ -749,11 +750,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             return { success: false, message: "This is a sensitive operation. Please log out and log back in before changing your PIN." };
         }
         // @SECURITY_RISK fix: return generic message instead of raw e.message which could leak Firebase internals
-        return { success: false, message: `PIN change failed. Please try again. [PX-1006] (Ref: ${correlationId})` };
+        return { success: false, message: `PIN change failed. Please try again. [${ERRORS.AUTH_PIN_RESET_FAILED.code}] (Ref: ${correlationId})` };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-017-v04
+  // GUID: FIREBASE_PROVIDER-017-v05
   // @SECURITY_RISK: Sanitized error messages in catch block to prevent leaking internal details.
   // [Intent] Sends a primary email verification via the custom Graph API endpoint (not Firebase's
   // built-in email verification). Validates preconditions before sending.
@@ -791,7 +792,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         if (response.status === 503) {
           return {
             success: false,
-            message: "Email service not configured. Please contact an administrator. (Error PX-3001)"
+            message: `Email service not configured. Please contact an administrator. (Error ${ERRORS.EMAIL_SEND_FAILED.code})`
           };
         }
         return { success: false, message: result.error || "Failed to send verification email." };
@@ -799,7 +800,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
       console.error(`[Verification Email Error ${correlationId}]`, e);
-      return { success: false, message: `Failed to send verification email. [PX-3001] (Ref: ${correlationId})` };
+      return { success: false, message: `Failed to send verification email. [${ERRORS.EMAIL_SEND_FAILED.code}] (Ref: ${correlationId})` };
     }
   };
 
@@ -828,7 +829,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-019-v04
+  // GUID: FIREBASE_PROVIDER-019-v05
   // [Intent] Updates or removes the user's secondary email address via server-side API.
   // Passing null or empty string removes the secondary email; otherwise sets and marks unverified.
   // [Inbound Trigger] Called from the profile page secondary email form.
@@ -872,11 +873,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
       console.error(`[Update Secondary Email Error ${correlationId}]`, e);
-      return { success: false, message: `Failed to update secondary email. [PX-9002] (Ref: ${correlationId})` };
+      return { success: false, message: `Failed to update secondary email. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})` };
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-020-v04
+  // GUID: FIREBASE_PROVIDER-020-v05
   // @SECURITY_RISK: Sanitized error messages in catch block to prevent leaking internal details.
   // [Intent] Sends a verification email to the user's secondary email address via the dedicated
   // server-side API endpoint. Validates preconditions (logged in, has secondary email, not yet verified).
@@ -916,7 +917,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         if (response.status === 503) {
           return {
             success: false,
-            message: "Email service not configured. Please contact an administrator. (Error PX-3004)"
+            message: `Email service not configured. Please contact an administrator. (Error ${ERRORS.EMAIL_CONFIG_MISSING.code})`
           };
         }
         return { success: false, message: result.error || "Failed to send verification email." };
@@ -924,7 +925,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
       console.error(`[Secondary Verification Email Error ${correlationId}]`, e);
-      return { success: false, message: `Failed to send verification email. [PX-3001] (Ref: ${correlationId})` };
+      return { success: false, message: `Failed to send verification email. [${ERRORS.EMAIL_SEND_FAILED.code}] (Ref: ${correlationId})` };
     }
   };
 

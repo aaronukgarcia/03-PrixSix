@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import { z } from 'zod';
 
 // Force dynamic to skip static analysis at build time
@@ -112,7 +114,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // GUID: API_ADMIN_DELETE_USER-008-v03
+    // GUID: API_ADMIN_DELETE_USER-008-v04
     // [Intent] Delete Firestore user and presence documents in a batch. Logs a critical error if Auth was already deleted but Firestore cleanup fails (split-brain state).
     // [Inbound Trigger] Auth deletion completed or user was not found in Auth.
     // [Downstream Impact] Removes users/{userId} and presence/{userId}. If batch fails after Auth deletion, error_logs receives a critical entry for manual remediation.
@@ -124,15 +126,12 @@ export async function POST(request: NextRequest) {
     } catch (firestoreError: any) {
       // Critical: Auth was deleted but Firestore cleanup failed
       if (authDeleted) {
-        await logError({
+        const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
           correlationId,
-          error: firestoreError,
-          context: {
-            route: '/api/admin/delete-user',
-            action: 'firestore_cleanup_after_auth_delete',
-            additionalInfo: { userId, authDeleted: true, critical: true },
-          },
+          context: { route: '/api/admin/delete-user', action: 'firestore_cleanup_after_auth_delete', userId, authDeleted: true, critical: true },
+          cause: firestoreError instanceof Error ? firestoreError : undefined,
         });
+        await logTracedError(traced, db);
       }
       throw firestoreError;
     }
@@ -183,31 +182,24 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    // GUID: API_ADMIN_DELETE_USER-011-v03
+    // GUID: API_ADMIN_DELETE_USER-011-v04
     // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.
     // [Inbound Trigger] Any uncaught exception within the POST handler.
     // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client for support reference. Golden Rule #1 compliance.
-    console.error(`[Admin Delete User Error ${correlationId}]`, error);
-
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/admin/delete-user',
-        action: 'POST',
-        additionalInfo: {
-          errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-          errorType: error.code || error.name || 'UnknownError',
-        },
-      },
+      context: { route: '/api/admin/delete-user', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to delete user. Please try again.',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

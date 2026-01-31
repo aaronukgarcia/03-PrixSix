@@ -1,4 +1,4 @@
-// GUID: API_SEND_RESULTS_EMAIL-000-v03
+// GUID: API_SEND_RESULTS_EMAIL-000-v04
 // [Intent] API route that sends race results emails to all users who have opted in (or not opted out) of results notifications. Each email is personalised with the user's prediction, score, and current standings.
 // [Inbound Trigger] POST request from the admin scoring/results flow after a race has been scored.
 // [Downstream Impact] Sends emails via sendEmail (email lib); records sent emails via recordSentEmail (email-tracking lib). Frontend relies on results array and success count.
@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { canSendEmail, recordSentEmail } from '@/lib/email-tracking';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { ERRORS } from '@/lib/error-registry';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -40,7 +42,7 @@ interface ResultsEmailRequest {
   }[];
 }
 
-// GUID: API_SEND_RESULTS_EMAIL-003-v03
+// GUID: API_SEND_RESULTS_EMAIL-003-v04
 // [Intent] POST handler — queries all users who have not opted out of results notifications, builds a personalised results email for each (showing their prediction, score, race scores table, and season standings), sends via Graph API, and records delivery in email-tracking.
 // [Inbound Trigger] HTTP POST with JSON body matching ResultsEmailRequest.
 // [Downstream Impact] Sends personalised emails via sendEmail; records via recordSentEmail to email_daily_stats. Also sends to verified secondary email addresses. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
@@ -130,9 +132,20 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error: any) {
-    console.error('Error sending results emails:', error);
+    const correlationId = generateCorrelationId();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
+      correlationId,
+      context: { route: '/api/send-results-email', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, (await getFirebaseAdmin()).db);
     return NextResponse.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
+      },
       { status: 500 }
     );
   }

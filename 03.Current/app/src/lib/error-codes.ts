@@ -52,6 +52,8 @@ export const ERROR_CODES = {
   AUTH_OAUTH_APPLE_NONCE: { code: 'PX-1015', message: 'Apple sign-in nonce verification failed' },
   AUTH_OAUTH_PROFILE_INCOMPLETE: { code: 'PX-1016', message: 'Profile incomplete — please enter your team name' },
   AUTH_OAUTH_PROVIDER_ERROR: { code: 'PX-1017', message: 'Sign-in provider error' },
+  AUTH_SIGNIN_VERIFICATION_FAILED: { code: 'PX-1008', message: 'Sign-in verification failed' },
+  AUTH_LOGIN_TIMEOUT: { code: 'PX-1009', message: 'Login verification timed out' },
 
   // 2xxx - Data Validation
   VALIDATION_MISSING_FIELDS: { code: 'PX-2001', message: 'Missing required fields' },

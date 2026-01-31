@@ -1,4 +1,4 @@
-// GUID: API_SEND_HOT_NEWS_EMAIL-000-v03
+// GUID: API_SEND_HOT_NEWS_EMAIL-000-v04
 // [Intent] API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces daily global and per-address rate limits, logs audit events, and tracks email stats.
 // [Inbound Trigger] POST request from the admin hot news editor (typically the HotNewsEditor component).
 // [Downstream Impact] Sends emails via sendEmail (email lib); writes to audit_logs and email_daily_stats collections. Frontend relies on results array and success counts.
@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { ERRORS } from '@/lib/error-registry';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -51,7 +53,7 @@ function getTodayDateString(): string {
   return now.toISOString().split('T')[0];
 }
 
-// GUID: API_SEND_HOT_NEWS_EMAIL-005-v03
+// GUID: API_SEND_HOT_NEWS_EMAIL-005-v04
 // [Intent] POST handler — orchestrates the entire hot news email broadcast: validates input, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.
 // [Inbound Trigger] HTTP POST with JSON body containing content, updatedBy, and updatedByEmail.
 // [Downstream Impact] Writes to audit_logs (two entries per invocation), email_daily_stats, and sends emails via Graph API. Errors logged to error_logs with correlation ID.
@@ -226,18 +228,19 @@ export async function POST(request: NextRequest) {
       auditLogged: true,
     });
   } catch (error: any) {
-    await logError({
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/send-hot-news-email',
-        action: 'POST',
-        userAgent: request.headers.get('user-agent') || undefined,
-      },
+      context: { route: '/api/send-hot-news-email', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
-
+    await logTracedError(traced, (await getFirebaseAdmin()).db);
     return NextResponse.json(
-      { success: false, error: error.message, correlationId },
+      {
+        success: false,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
+      },
       { status: 500 }
     );
   }

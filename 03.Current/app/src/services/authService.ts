@@ -1,4 +1,4 @@
-// GUID: SERVICE_AUTH_OAUTH-000-v03
+// GUID: SERVICE_AUTH_OAUTH-000-v04
 // [Intent] Client-side OAuth authentication service for Google and Apple sign-in.
 //          Provides popup-with-redirect-fallback sign-in, provider linking/unlinking,
 //          Apple nonce generation, and mobile detection. All OAuth must happen client-side
@@ -24,7 +24,8 @@ import {
   UserCredential,
   User as FirebaseAuthUser,
 } from 'firebase/auth';
-import { generateClientCorrelationId, ERROR_CODES } from '@/lib/error-codes';
+import { generateClientCorrelationId } from '@/lib/error-codes';
+import { ERRORS } from '@/lib/error-registry';
 
 // GUID: SERVICE_AUTH_OAUTH-001-v03
 // [Intent] Type definitions for OAuth operation results, providing structured success/error
@@ -136,7 +137,7 @@ export async function signInWithApple(auth: Auth): Promise<OAuthSignInResult> {
   }
 }
 
-// GUID: SERVICE_AUTH_OAUTH-007-v03
+// GUID: SERVICE_AUTH_OAUTH-007-v04
 // [Intent] Link a Google account to the currently signed-in user.
 //          Uses popup on desktop with redirect fallback.
 // [Inbound Trigger] Called from ConversionBanner or profile page link buttons.
@@ -149,7 +150,7 @@ export async function linkGoogleToAccount(auth: Auth): Promise<OAuthLinkResult> 
   if (!currentUser) {
     return {
       success: false,
-      message: `You must be signed in to link an account. [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+      message: `You must be signed in to link an account. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }
@@ -171,7 +172,7 @@ export async function linkGoogleToAccount(auth: Auth): Promise<OAuthLinkResult> 
   }
 }
 
-// GUID: SERVICE_AUTH_OAUTH-008-v03
+// GUID: SERVICE_AUTH_OAUTH-008-v04
 // [Intent] Link an Apple account to the currently signed-in user.
 // [Inbound Trigger] Called from ConversionBanner or profile page link buttons.
 // [Downstream Impact] Adds 'apple.com' to providerData; synced to Firestore by auth listener.
@@ -182,7 +183,7 @@ export async function linkAppleToAccount(auth: Auth): Promise<OAuthLinkResult> {
   if (!currentUser) {
     return {
       success: false,
-      message: `You must be signed in to link an account. [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+      message: `You must be signed in to link an account. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }
@@ -204,7 +205,7 @@ export async function linkAppleToAccount(auth: Auth): Promise<OAuthLinkResult> {
   }
 }
 
-// GUID: SERVICE_AUTH_OAUTH-009-v03
+// GUID: SERVICE_AUTH_OAUTH-009-v04
 // [Intent] Unlink a sign-in provider from the current user.
 //          Caller must verify this isn't the last provider before calling.
 // [Inbound Trigger] Called from profile page unlink buttons.
@@ -216,7 +217,7 @@ export async function unlinkProvider(auth: Auth, providerId: string): Promise<OA
   if (!currentUser) {
     return {
       success: false,
-      message: `You must be signed in to unlink a provider. [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+      message: `You must be signed in to unlink a provider. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }
@@ -232,13 +233,13 @@ export async function unlinkProvider(auth: Auth, providerId: string): Promise<OA
     console.error(`[Unlink Provider Error ${correlationId}]`, error);
     return {
       success: false,
-      message: `Failed to unlink provider. [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+      message: `Failed to unlink provider. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }
 }
 
-// GUID: SERVICE_AUTH_OAUTH-010-v03
+// GUID: SERVICE_AUTH_OAUTH-010-v04
 // [Intent] Central error handler for OAuth sign-in errors. Maps Firebase error codes to
 //          application error codes and handles popup-blocked fallback to redirect.
 // [Inbound Trigger] Called from signInWithGoogle and signInWithApple catch blocks.
@@ -256,7 +257,7 @@ function handleOAuthError(
     signInWithRedirect(auth, provider).catch(() => {});
     return {
       success: false,
-      message: `${ERROR_CODES.AUTH_OAUTH_POPUP_BLOCKED.message}. Redirecting instead...`,
+      message: `${ERRORS.AUTH_OAUTH_POPUP_BLOCKED.message}. Redirecting instead...`,
       correlationId,
     };
   }
@@ -264,7 +265,7 @@ function handleOAuthError(
   if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') {
     return {
       success: false,
-      message: ERROR_CODES.AUTH_OAUTH_POPUP_CLOSED.message,
+      message: ERRORS.AUTH_OAUTH_POPUP_CLOSED.message,
       correlationId,
     };
   }
@@ -273,7 +274,7 @@ function handleOAuthError(
     const credential = OAuthProvider.credentialFromError(error);
     return {
       success: false,
-      message: ERROR_CODES.AUTH_OAUTH_ACCOUNT_EXISTS.message,
+      message: ERRORS.AUTH_OAUTH_ACCOUNT_EXISTS.message,
       needsLinking: true,
       pendingCredential: credential,
       correlationId,
@@ -283,7 +284,7 @@ function handleOAuthError(
   if (error?.code === 'auth/operation-not-allowed') {
     return {
       success: false,
-      message: `This sign-in provider is not enabled. Enable it in Firebase Console > Authentication > Sign-in method. [${ERROR_CODES.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${correlationId})`,
+      message: `This sign-in provider is not enabled. Enable it in Firebase Console > Authentication > Sign-in method. [${ERRORS.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }
@@ -291,12 +292,12 @@ function handleOAuthError(
   const firebaseCode = error?.code || 'unknown';
   return {
     success: false,
-    message: `${ERROR_CODES.AUTH_OAUTH_PROVIDER_ERROR.message} (${firebaseCode}) [${ERROR_CODES.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${correlationId})`,
+    message: `${ERRORS.AUTH_OAUTH_PROVIDER_ERROR.message} (${firebaseCode}) [${ERRORS.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${correlationId})`,
     correlationId,
   };
 }
 
-// GUID: SERVICE_AUTH_OAUTH-011-v03
+// GUID: SERVICE_AUTH_OAUTH-011-v04
 // [Intent] Central error handler for provider linking errors.
 // [Inbound Trigger] Called from linkGoogleToAccount and linkAppleToAccount catch blocks.
 // [Downstream Impact] Returns typed OAuthLinkResult with error details.
@@ -307,7 +308,7 @@ function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
   if (firebaseCode === 'auth/credential-already-in-use') {
     return {
       success: false,
-      message: `This account is already linked to another user. [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+      message: `This account is already linked to another user. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }
@@ -315,7 +316,7 @@ function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
   if (firebaseCode === 'auth/popup-closed-by-user' || firebaseCode === 'auth/cancelled-popup-request') {
     return {
       success: false,
-      message: ERROR_CODES.AUTH_OAUTH_POPUP_CLOSED.message,
+      message: ERRORS.AUTH_OAUTH_POPUP_CLOSED.message,
       correlationId,
     };
   }
@@ -331,7 +332,7 @@ function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
   if (firebaseCode === 'auth/operation-not-allowed') {
     return {
       success: false,
-      message: `This sign-in provider is not enabled. Enable it in Firebase Console > Authentication > Sign-in method. [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+      message: `This sign-in provider is not enabled. Enable it in Firebase Console > Authentication > Sign-in method. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }
@@ -339,14 +340,14 @@ function handleLinkError(error: any, correlationId: string): OAuthLinkResult {
   if (firebaseCode === 'auth/popup-blocked') {
     return {
       success: false,
-      message: `${ERROR_CODES.AUTH_OAUTH_POPUP_BLOCKED.message} [${ERROR_CODES.AUTH_OAUTH_POPUP_BLOCKED.code}] (Ref: ${correlationId})`,
+      message: `${ERRORS.AUTH_OAUTH_POPUP_BLOCKED.message} [${ERRORS.AUTH_OAUTH_POPUP_BLOCKED.code}] (Ref: ${correlationId})`,
       correlationId,
     };
   }
 
   return {
     success: false,
-    message: `${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.message} (${firebaseCode}) [${ERROR_CODES.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
+    message: `${ERRORS.AUTH_OAUTH_LINK_FAILED.message} (${firebaseCode}) [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
     correlationId,
   };
 }

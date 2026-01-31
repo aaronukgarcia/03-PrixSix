@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import crypto from 'crypto';
 
 // GUID: API_VERIFY_EMAIL-001-v03
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_VERIFY_EMAIL-004-v03
+    // GUID: API_VERIFY_EMAIL-004-v04
     // [Intent] Mark the user's email as verified in Firestore users collection.
     // [Inbound Trigger] Token has passed all validation checks (exists, matches, not used, not expired).
     // [Downstream Impact] Sets users/{uid}.emailVerified = true. The email verification banner component reads this field. If this write fails, returns 500 and does not proceed to Auth update.
@@ -97,28 +99,24 @@ export async function POST(request: NextRequest) {
         emailVerified: true,
       });
     } catch (userUpdateError: any) {
-      await logError({
+      const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
         correlationId,
-        error: userUpdateError,
-        context: {
-          route: '/api/verify-email',
-          action: 'update_user_document',
-          userId: uid,
-          additionalInfo: { step: 'firestore_user_update' },
-        },
+        context: { route: '/api/verify-email', action: 'update_user_document', userId: uid, step: 'firestore_user_update' },
+        cause: userUpdateError instanceof Error ? userUpdateError : undefined,
       });
+      await logTracedError(traced, db);
       return NextResponse.json(
         {
           success: false,
-          error: 'Failed to update user record',
-          errorCode: ERROR_CODES.FIRESTORE_WRITE_FAILED.code,
-          correlationId,
+          error: traced.definition.message,
+          errorCode: traced.definition.code,
+          correlationId: traced.correlationId,
         },
         { status: 500 }
       );
     }
 
-    // GUID: API_VERIFY_EMAIL-005-v03
+    // GUID: API_VERIFY_EMAIL-005-v04
     // [Intent] Also mark as verified in Firebase Auth for consistency (Golden Rule #3). Auth failure is non-fatal — Firestore was already updated.
     // [Inbound Trigger] Firestore user document successfully updated.
     // [Downstream Impact] Updates Firebase Auth emailVerified flag. Failure is logged but does not fail the request — graceful degradation. Consistency Checker should validate Auth/Firestore sync.
@@ -126,16 +124,12 @@ export async function POST(request: NextRequest) {
       const auth = getAuth();
       await auth.updateUser(uid, { emailVerified: true });
     } catch (authUpdateError: any) {
-      await logError({
+      const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
         correlationId,
-        error: authUpdateError,
-        context: {
-          route: '/api/verify-email',
-          action: 'update_auth_user',
-          userId: uid,
-          additionalInfo: { step: 'firebase_auth_update' },
-        },
+        context: { route: '/api/verify-email', action: 'update_auth_user', userId: uid, step: 'firebase_auth_update' },
+        cause: authUpdateError instanceof Error ? authUpdateError : undefined,
       });
+      await logTracedError(traced, db);
       // Don't fail completely - Firestore was updated, just log the auth error
       console.warn('[Verify Email] Firebase Auth update failed, but Firestore was updated:', authUpdateError.message);
     }
@@ -162,26 +156,23 @@ export async function POST(request: NextRequest) {
       message: 'Email verified successfully',
     });
   } catch (error: any) {
-    // GUID: API_VERIFY_EMAIL-007-v03
+    // GUID: API_VERIFY_EMAIL-007-v04
     // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.
     // [Inbound Trigger] Any uncaught exception within the POST handler.
     // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client for support reference. Golden Rule #1 compliance.
-    console.error('Error verifying email:', error);
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/verify-email',
-        action: 'POST',
-        additionalInfo: { errorType: error.code || error.name || 'UnknownError' },
-      },
+      context: { route: '/api/verify-email', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Internal server error',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

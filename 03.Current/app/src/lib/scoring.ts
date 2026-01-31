@@ -11,6 +11,8 @@ import { collection, query, where, getDocs, doc, setDoc, deleteDoc, collectionGr
 import { F1Drivers } from './data';
 import { SCORING_POINTS, calculateDriverPoints } from './scoring-rules';
 import { normalizeRaceId } from './normalize-race-id';
+import { createTracedError } from './traced-error';
+import { ERRORS } from './error-registry';
 
 // GUID: LIB_SCORING-001-v04
 // [Intent] Define the shape of a race result document containing the top 6 finishing
@@ -90,13 +92,13 @@ export async function calculateRaceScores(
   // Validate race result: no null drivers
   const nullDrivers = actualResults.filter((d, i) => !d);
   if (nullDrivers.length > 0) {
-    throw new Error(`[PX-2010] Race result contains ${nullDrivers.length} null/empty driver(s) (Ref: ${correlationId})`);
+    throw createTracedError(ERRORS.VALIDATION_NULL_DRIVER, { correlationId, context: { nullCount: nullDrivers.length, raceId: raceResult.raceId } });
   }
 
   // Validate race result: no duplicate drivers
   const driverSet = new Set(actualResults);
   if (driverSet.size !== actualResults.length) {
-    throw new Error(`[PX-2011] Race result contains duplicate drivers (Ref: ${correlationId})`);
+    throw createTracedError(ERRORS.VALIDATION_DUPLICATE_DRIVER, { correlationId, context: { raceId: raceResult.raceId } });
   }
 
   // Normalize the raceId to match prediction format
@@ -115,8 +117,8 @@ export async function calculateRaceScores(
     predictionsSnapshot = await getDocs(predictionsQuery);
     console.log(`[Scoring] [${correlationId}] CollectionGroup query returned ${predictionsSnapshot.size} results`);
   } catch (error: any) {
-    console.error(`[Scoring] [${correlationId}] CollectionGroup query failed [PX-4005]:`, error);
-    throw new Error(`[PX-4005] CollectionGroup query failed for race "${normalizedRaceId}" (Ref: ${correlationId}): ${error.message}`);
+    console.error(`[Scoring] [${correlationId}] CollectionGroup query failed:`, error);
+    throw createTracedError(ERRORS.FIRESTORE_COLLECTION_GROUP_FAILED, { correlationId, context: { raceId: normalizedRaceId }, cause: error instanceof Error ? error : undefined });
   }
 
   console.log(`[Scoring] Found ${predictionsSnapshot.size} predictions`);
@@ -253,8 +255,8 @@ export async function updateRaceScores(
         breakdown: score.breakdown
       });
     } catch (error: any) {
-      console.error(`[Scoring] [${correlationId}] Failed to write score for user ${score.userId} [PX-5006]:`, error);
-      throw new Error(`[PX-5006] Failed to write score for user ${score.userId} (Ref: ${correlationId}): ${error.message}`);
+      console.error(`[Scoring] [${correlationId}] Failed to write score for user ${score.userId}:`, error);
+      throw createTracedError(ERRORS.SCORE_WRITE_FAILED, { correlationId, context: { userId: score.userId, raceId: normalizedRaceId }, cause: error instanceof Error ? error : undefined });
     }
 
     scores.push({
@@ -329,8 +331,8 @@ export async function deleteRaceScores(firestore: any, raceId: string): Promise<
       await deleteDoc(scoreDoc.ref);
       deletedCount++;
     } catch (error: any) {
-      console.error(`[Scoring] [${correlationId}] Failed to delete score ${scoreDoc.id} [PX-5007]:`, error);
-      throw new Error(`[PX-5007] Failed to delete score ${scoreDoc.id} (Ref: ${correlationId}): ${error.message}`);
+      console.error(`[Scoring] [${correlationId}] Failed to delete score ${scoreDoc.id}:`, error);
+      throw createTracedError(ERRORS.SCORE_DELETE_FAILED, { correlationId, context: { scoreDocId: scoreDoc.id }, cause: error instanceof Error ? error : undefined });
     }
   }
 

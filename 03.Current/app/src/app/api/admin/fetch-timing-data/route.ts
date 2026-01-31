@@ -9,6 +9,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import { z } from 'zod';
 
 // Force dynamic to skip static analysis at build time
@@ -284,32 +286,25 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-012-v01
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-012-v02
     // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs,
     //          and returns a safe 500 response with correlation ID.
     // [Inbound Trigger] Any uncaught exception within the POST handler.
     // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client.
-    console.error(`[Fetch Timing Data Error ${correlationId}]`, error);
-
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.OPENF1_FETCH_FAILED, {
       correlationId,
-      error,
-      context: {
-        route: '/api/admin/fetch-timing-data',
-        action: 'POST',
-        additionalInfo: {
-          errorCode: ERROR_CODES.OPENF1_FETCH_FAILED.code,
-          errorType: error.code || error.name || 'UnknownError',
-        },
-      },
+      context: { route: '/api/admin/fetch-timing-data', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to fetch timing data. Please try again.',
-        errorCode: ERROR_CODES.OPENF1_FETCH_FAILED.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

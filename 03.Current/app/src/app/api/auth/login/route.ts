@@ -1,10 +1,12 @@
-// GUID: API_AUTH_LOGIN-000-v03
+// GUID: API_AUTH_LOGIN-000-v04
 // [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces account lockout after repeated failures, logs all attempts for attack detection, and returns a Firebase custom token on success.
 // [Inbound Trigger] POST request from the client-side login form (LoginPage component).
 // [Downstream Impact] Returns a customToken used by the client to call Firebase signInWithCustomToken(). Writes to audit_logs, login_attempts, and users collections. Lockout state affects future login attempts.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import { logLoginAttempt, checkForAttack } from '@/lib/attack-detection';
 
 // Force dynamic to skip static analysis at build time
@@ -74,21 +76,18 @@ export async function POST(request: NextRequest) {
     const data: LoginRequest = await request.json();
     const { email, pin } = data;
 
-    // GUID: API_AUTH_LOGIN-005-v03
+    // GUID: API_AUTH_LOGIN-005-v04
     // [Intent] Validate that both email and PIN are present before proceeding with authentication.
     // [Inbound Trigger] Every login request passes through this check.
     // [Downstream Impact] Returns 400 early if fields are missing. Logged to error_logs for monitoring incomplete submissions.
     // Validate required fields
     if (!email || !pin) {
-      await logError({
+      const { db } = await getFirebaseAdmin();
+      const traced = createTracedError(ERRORS.VALIDATION_MISSING_FIELDS, {
         correlationId,
-        error: new Error('Email and PIN are required'),
-        context: {
-          route: '/api/auth/login',
-          action: 'validation',
-          requestData: { email: email || 'missing' },
-        },
+        context: { route: '/api/auth/login', action: 'validation', requestData: { email: email || 'missing' } },
       });
+      await logTracedError(traced, db);
       return NextResponse.json(
         { success: false, error: 'Email and PIN are required', correlationId },
         { status: 400 }
@@ -177,7 +176,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // GUID: API_AUTH_LOGIN-008-v03
+    // GUID: API_AUTH_LOGIN-008-v04
     // [Intent] Look up the user in Firebase Auth by email to confirm the account exists in the auth system, separate from Firestore.
     // [Inbound Trigger] Runs after lockout check passes.
     // [Downstream Impact] If user not found in Firebase Auth, returns 401 with a generic message (prevents email enumeration). The retrieved firebaseUserRecord.uid is used later to generate the custom token.
@@ -201,16 +200,12 @@ export async function POST(request: NextRequest) {
         await checkForAttack(db, FieldValue, clientIP, normalizedEmail);
 
         // Don't reveal if user exists or not - but log for debugging
-        await logError({
+        const traced = createTracedError(ERRORS.AUTH_USER_NOT_FOUND, {
           correlationId,
-          error: new Error('Login attempt for non-existent user'),
-          context: {
-            route: '/api/auth/login',
-            action: 'user_lookup',
-            requestData: { email: normalizedEmail },
-            ip: clientIP,
-          },
+          context: { route: '/api/auth/login', action: 'user_lookup', requestData: { email: normalizedEmail }, ip: clientIP },
+          cause: error instanceof Error ? error : undefined,
         });
+        await logTracedError(traced, db);
         return NextResponse.json(
           { success: false, error: 'Invalid email or PIN', correlationId },
           { status: 401 }
@@ -219,7 +214,7 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    // GUID: API_AUTH_LOGIN-009-v03
+    // GUID: API_AUTH_LOGIN-009-v04
     // [Intent] Verify the user's PIN (password) by calling the Firebase Auth REST API (Identity Toolkit signInWithPassword endpoint), since the Admin SDK does not support password verification directly.
     // [Inbound Trigger] Runs after the Firebase Auth user record is successfully retrieved.
     // [Downstream Impact] If the API key is missing, returns 500. If credentials are invalid, increments the bad attempt counter and may trigger lockout. A Referer header is included to satisfy API key HTTP referrer restrictions.
@@ -229,17 +224,13 @@ export async function POST(request: NextRequest) {
 
     if (!firebaseApiKey) {
       console.error('[Auth] Firebase API key not configured');
-      await logError({
+      const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
         correlationId,
-        error: new Error('NEXT_PUBLIC_FIREBASE_API_KEY environment variable is not configured'),
-        context: {
-          route: '/api/auth/login',
-          action: 'config_check',
-          requestData: { email: normalizedEmail },
-        },
+        context: { route: '/api/auth/login', action: 'config_check', requestData: { email: normalizedEmail } },
       });
+      await logTracedError(traced, db);
       return NextResponse.json(
-        { success: false, error: 'Server configuration error', correlationId },
+        { success: false, error: traced.definition.message, errorCode: traced.definition.code, correlationId: traced.correlationId },
         { status: 500 }
       );
     }
@@ -374,10 +365,10 @@ export async function POST(request: NextRequest) {
       uid: firebaseUserRecord.uid,
     });
 
-  // GUID: API_AUTH_LOGIN-012-v03
+  // GUID: API_AUTH_LOGIN-012-v04
   // [Intent] Top-level catch-all error handler for any unhandled exception during login. Logs the error with full context (excluding the PIN) and returns a generic 500 response with the correlation ID.
   // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
-  // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response allows support to trace the issue. If logError itself fails, falls back to console.error to avoid masking the original error.
+  // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response allows support to trace the issue. If logTracedError itself fails, falls back to console.error to avoid masking the original error.
   } catch (error: any) {
     console.error('[Login Error]', error);
 
@@ -389,16 +380,13 @@ export async function POST(request: NextRequest) {
 
     // Try to log error, but don't fail if logging fails
     try {
-      await logError({
+      const { db } = await getFirebaseAdmin();
+      const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
         correlationId,
-        error,
-        context: {
-          route: '/api/auth/login',
-          action: 'POST',
-          requestData: { email: requestData.email },
-          userAgent: request.headers.get('user-agent') || undefined,
-        },
+        context: { route: '/api/auth/login', action: 'POST', requestData: { email: requestData.email }, userAgent: request.headers.get('user-agent') || undefined },
+        cause: error instanceof Error ? error : undefined,
       });
+      await logTracedError(traced, db);
     } catch (logErr) {
       console.error('[Login Error - Logging failed]', logErr);
     }

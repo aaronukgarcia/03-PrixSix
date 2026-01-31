@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import crypto from 'crypto';
 
 // GUID: API_VERIFY_SECONDARY_EMAIL-001-v03
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_VERIFY_SECONDARY_EMAIL-005-v03
+    // GUID: API_VERIFY_SECONDARY_EMAIL-005-v04
     // [Intent] Mark the user's secondary email as verified in Firestore. NOTE: Does NOT update Firebase Auth — secondary email is for communications only, not login.
     // [Inbound Trigger] User exists and secondary email matches the token's email.
     // [Downstream Impact] Sets users/{uid}.secondaryEmailVerified = true. Profile page reads this field. If write fails, returns 500.
@@ -127,22 +129,18 @@ export async function POST(request: NextRequest) {
         secondaryEmailVerified: true,
       });
     } catch (userUpdateError: any) {
-      await logError({
+      const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
         correlationId,
-        error: userUpdateError,
-        context: {
-          route: '/api/verify-secondary-email',
-          action: 'update_user_document',
-          userId: uid,
-          additionalInfo: { step: 'firestore_user_update' },
-        },
+        context: { route: '/api/verify-secondary-email', action: 'update_user_document', userId: uid, step: 'firestore_user_update' },
+        cause: userUpdateError instanceof Error ? userUpdateError : undefined,
       });
+      await logTracedError(traced, db);
       return NextResponse.json(
         {
           success: false,
-          error: 'Failed to update user record',
-          errorCode: ERROR_CODES.FIRESTORE_WRITE_FAILED.code,
-          correlationId,
+          error: traced.definition.message,
+          errorCode: traced.definition.code,
+          correlationId: traced.correlationId,
         },
         { status: 500 }
       );
@@ -170,26 +168,23 @@ export async function POST(request: NextRequest) {
       message: 'Secondary email verified successfully',
     });
   } catch (error: any) {
-    // GUID: API_VERIFY_SECONDARY_EMAIL-007-v03
+    // GUID: API_VERIFY_SECONDARY_EMAIL-007-v04
     // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.
     // [Inbound Trigger] Any uncaught exception within the POST handler.
     // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client for support reference. Golden Rule #1 compliance.
-    console.error('Error verifying secondary email:', error);
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/verify-secondary-email',
-        action: 'POST',
-        additionalInfo: { errorType: error.code || error.name || 'UnknownError' },
-      },
+      context: { route: '/api/verify-secondary-email', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Internal server error',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // GUID: API_UPDATE_SECONDARY_EMAIL-001-v03
 // [Intent] Regex for basic email format validation — ensures the input looks like a valid email before database operations.
@@ -162,26 +164,23 @@ export async function POST(request: NextRequest) {
       message: 'Secondary email updated. Please verify your new email address.',
     });
   } catch (error: any) {
-    // GUID: API_UPDATE_SECONDARY_EMAIL-008-v03
+    // GUID: API_UPDATE_SECONDARY_EMAIL-008-v04
     // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.
     // [Inbound Trigger] Any uncaught exception within the POST handler.
     // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client for support reference. Golden Rule #1 compliance.
-    console.error('Error updating secondary email:', error);
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/update-secondary-email',
-        action: 'POST',
-        additionalInfo: { errorType: error.code || error.name || 'UnknownError' },
-      },
+      context: { route: '/api/update-secondary-email', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Internal server error',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

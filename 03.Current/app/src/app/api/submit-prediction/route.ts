@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RaceSchedule } from '@/lib/data';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -155,28 +157,22 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: 'Prediction submitted successfully' });
 
-  // GUID: API_SUBMIT_PREDICTION-007-v03
+  // GUID: API_SUBMIT_PREDICTION-007-v04
   // [Intent] Top-level error handler that catches any unhandled exception during prediction submission, logs it with a correlation ID, and returns a 500 response.
   // [Inbound Trigger] Any uncaught exception within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response enables support to trace the specific failure.
   } catch (error: any) {
     const correlationId = generateCorrelationId();
-    const data: PredictionRequest = await request.clone().json().catch(() => ({}));
-
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      error,
-      context: {
-        route: '/api/submit-prediction',
-        action: 'POST',
-        userId: data.userId,
-        requestData: { teamName: data.teamName, raceId: data.raceId, raceName: data.raceName },
-        userAgent: request.headers.get('user-agent') || undefined,
-      },
+      context: { route: '/api/submit-prediction', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
 
     return NextResponse.json(
-      { success: false, error: error.message, correlationId },
+      { success: false, error: traced.definition.message, correlationId: traced.correlationId },
       { status: 500 }
     );
   }

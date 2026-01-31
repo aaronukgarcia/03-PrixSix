@@ -8,8 +8,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
-import { generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -239,22 +241,13 @@ export async function POST(request: NextRequest) {
 
       // Log specific AI error (wrapped in try-catch to prevent silent failures)
       try {
-        await logError({
+        const { db } = await getFirebaseAdmin();
+        const traced = createTracedError(ERRORS.AI_GENERATION_FAILED, {
           correlationId,
-          error: aiError instanceof Error ? aiError : String(aiError),
-          context: {
-            route: '/api/ai/analysis',
-            action: 'ai.generate',
-            additionalInfo: {
-              errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
-              errorType: aiError?.name || 'AIGenerationError',
-              aiErrorCode: aiError?.code,
-              aiErrorStatus: aiError?.status,
-              raceName,
-              promptLength: prompt?.length,
-            },
-          },
+          context: { route: '/api/ai/analysis', action: 'ai.generate', aiErrorCode: aiError?.code, aiErrorStatus: aiError?.status, raceName, promptLength: prompt?.length },
+          cause: aiError instanceof Error ? aiError : undefined,
         });
+        await logTracedError(traced, db);
       } catch (logErr) {
         console.error(`[Failed to log AI error ${correlationId}]`, logErr);
       }
@@ -262,8 +255,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `AI generation failed: ${aiError?.message || 'Unknown AI error'}`,
-          errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
+          error: ERRORS.AI_GENERATION_FAILED.message,
+          errorCode: ERRORS.AI_GENERATION_FAILED.code,
           correlationId,
           analysis: 'Unable to generate analysis at this time. Please try again later.',
         },
@@ -283,32 +276,24 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    // GUID: API_AI_ANALYSIS-010-v03
+    // GUID: API_AI_ANALYSIS-010-v04
     // [Intent] Top-level error handler — catches any unhandled exceptions outside of the AI call (e.g., JSON parse, validation). Logs to error_logs and returns a safe 500 response with a fallback analysis message.
     // [Inbound Trigger] Any uncaught exception within the POST handler (excluding AI errors caught by SEQ 009).
     // [Downstream Impact] Writes to error_logs collection. Returns correlationId and fallback analysis text to client. Golden Rule #1 compliance.
-    console.error(`[AI Analysis Error ${correlationId}]`, error);
-
-    // Log error to error_logs collection
-    await logError({
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.AI_GENERATION_FAILED, {
       correlationId,
-      error: error instanceof Error ? error : String(error),
-      context: {
-        route: '/api/ai/analysis',
-        action: 'POST',
-        additionalInfo: {
-          errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
-          errorType: error?.name || 'Unknown',
-        },
-      },
+      context: { route: '/api/ai/analysis', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
     });
+    await logTracedError(traced, errorDb);
 
     return NextResponse.json(
       {
         success: false,
-        error: ERROR_CODES.AI_GENERATION_FAILED.message,
-        errorCode: ERROR_CODES.AI_GENERATION_FAILED.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
         analysis: 'Unable to generate analysis at this time. Please try again later.',
       },
       { status: 500 }
