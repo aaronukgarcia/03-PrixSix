@@ -132,19 +132,19 @@ export default function ProfilePage() {
   const [isLinkingApple, setIsLinkingApple] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
 
-  // GUID: PAGE_PROFILE-040-v03
-  // [Intent] Memoised Firestore query for the current user's last 10 logon records,
+  // GUID: PAGE_PROFILE-040-v04
+  // [Intent] Memoised Firestore query for the current user's logon records,
   //          ordered by logonTimestamp descending. Returns null when user is unavailable
   //          so useCollection gracefully waits.
   // [Inbound Trigger] user.id or firestore changes.
   // [Downstream Impact] Feeds the logon history Card section below.
+  // @FIX(v04) Fetch all logons for client-side pagination (small dataset per user).
   const logonHistoryQuery = useMemo(() => {
     if (!firestore || !user?.id) return null;
     const q = query(
       collection(firestore, 'user_logons'),
       where('userId', '==', user.id),
-      orderBy('logonTimestamp', 'desc'),
-      limit(10)
+      orderBy('logonTimestamp', 'desc')
     );
     (q as any).__memo = true;
     return q;
@@ -160,20 +160,19 @@ export default function ProfilePage() {
     userAgent: string | null;
   }>(logonHistoryQuery);
 
-  // GUID: PAGE_PROFILE-041-v03
-  // [Intent] Fetch total logon count for badge display. Uses getDocs instead of
-  //          useCollection to avoid a second real-time listener for a simple count.
-  // [Inbound Trigger] user.id or firestore changes.
-  // [Downstream Impact] Drives the count badge on the logon history card title.
-  const [totalLogonCount, setTotalLogonCount] = useState<number | null>(null);
-  useEffect(() => {
-    if (!firestore || !user?.id) return;
-    const countQuery = query(
-      collection(firestore, 'user_logons'),
-      where('userId', '==', user.id)
-    );
-    getDocs(countQuery).then(snap => setTotalLogonCount(snap.size)).catch(() => {});
-  }, [firestore, user?.id]);
+  // GUID: PAGE_PROFILE-041-v04
+  // [Intent] Client-side pagination for logon history — 5 items per page.
+  // [Inbound Trigger] logonHistory changes or user clicks next/previous.
+  // [Downstream Impact] Drives which logon entries are visible in the card.
+  const LOGONS_PER_PAGE = 5;
+  const [logonPage, setLogonPage] = useState(0);
+  const totalLogonCount = logonHistory?.length ?? null;
+  const totalLogonPages = totalLogonCount ? Math.ceil(totalLogonCount / LOGONS_PER_PAGE) : 0;
+  const paginatedLogons = useMemo(() => {
+    if (!logonHistory) return [];
+    const start = logonPage * LOGONS_PER_PAGE;
+    return logonHistory.slice(start, start + LOGONS_PER_PAGE);
+  }, [logonHistory, logonPage]);
 
   // GUID: PAGE_PROFILE-006-v03
   // [Intent] Initialise notification preferences form with user's saved values or sensible defaults.
@@ -1196,11 +1195,12 @@ export default function ProfilePage() {
           </Card>
         )}
 
-        {/* GUID: PAGE_PROFILE-042-v03
-            [Intent] Logon History card showing last 10 logon events with total count badge,
-                     login method, timestamp, and session status. Includes loading/empty states.
+        {/* GUID: PAGE_PROFILE-042-v04
+            [Intent] Logon History card showing paginated logon events (5 per page) with total
+                     count badge, login method, timestamp, session status, and prev/next buttons.
             [Inbound Trigger] Rendered for all users (not behind mustChangePin gate).
-            [Downstream Impact] Reads user_logons collection via useCollection hook. */}
+            [Downstream Impact] Reads user_logons collection via useCollection hook.
+            @FIX(v04) Changed from flat list of 10 to paginated view of 5 per page with navigation. */}
         {!user?.mustChangePin && (
           <Card>
             <CardHeader>
@@ -1215,7 +1215,7 @@ export default function ProfilePage() {
               </div>
               <CardDescription>Your recent sign-in activity.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {isLoadingLogons ? (
                 <div className="space-y-3">
                   <Skeleton className="h-12 w-full" />
@@ -1225,51 +1225,76 @@ export default function ProfilePage() {
               ) : !logonHistory || logonHistory.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No logon history available yet.</p>
               ) : (
-                <div className="space-y-2">
-                  {logonHistory.map((logon) => {
-                    const timestamp = logon.logonTimestamp?.toDate?.()
-                      ? logon.logonTimestamp.toDate()
-                      : logon.logonTimestamp?.seconds
-                        ? new Date(logon.logonTimestamp.seconds * 1000)
-                        : null;
+                <>
+                  <div className="space-y-2">
+                    {paginatedLogons.map((logon) => {
+                      const timestamp = logon.logonTimestamp?.toDate?.()
+                        ? logon.logonTimestamp.toDate()
+                        : logon.logonTimestamp?.seconds
+                          ? new Date(logon.logonTimestamp.seconds * 1000)
+                          : null;
 
-                    return (
-                      <div key={logon.id} className="flex items-center justify-between rounded-lg border p-3">
-                        <div className="flex items-center gap-3">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm font-medium">
-                              {logon.loginMethod === 'pin' ? 'PIN' : logon.loginMethod === 'google' ? 'Google' : 'Apple'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {timestamp
-                                ? timestamp.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + timestamp.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-                                : 'Unknown time'}
-                            </p>
+                      return (
+                        <div key={logon.id} className="flex items-center justify-between rounded-lg border p-3">
+                          <div className="flex items-center gap-3">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="text-sm font-medium">
+                                {logon.loginMethod === 'pin' ? 'PIN' : logon.loginMethod === 'google' ? 'Google' : 'Apple'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {timestamp
+                                  ? timestamp.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + timestamp.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+                                  : 'Unknown time'}
+                              </p>
+                            </div>
                           </div>
+                          <Badge
+                            variant={
+                              logon.sessionStatus === 'Active'
+                                ? 'default'
+                                : logon.sessionStatus === 'Logged Out'
+                                  ? 'secondary'
+                                  : 'outline'
+                            }
+                            className={
+                              logon.sessionStatus === 'Active'
+                                ? 'bg-green-600 hover:bg-green-600'
+                                : logon.sessionStatus === 'Session Expired'
+                                  ? 'border-yellow-500 text-yellow-600'
+                                  : ''
+                            }
+                          >
+                            {logon.sessionStatus}
+                          </Badge>
                         </div>
-                        <Badge
-                          variant={
-                            logon.sessionStatus === 'Active'
-                              ? 'default'
-                              : logon.sessionStatus === 'Logged Out'
-                                ? 'secondary'
-                                : 'outline'
-                          }
-                          className={
-                            logon.sessionStatus === 'Active'
-                              ? 'bg-green-600 hover:bg-green-600'
-                              : logon.sessionStatus === 'Session Expired'
-                                ? 'border-yellow-500 text-yellow-600'
-                                : ''
-                          }
-                        >
-                          {logon.sessionStatus}
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                  {totalLogonPages > 1 && (
+                    <div className="flex items-center justify-between pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogonPage(p => p - 1)}
+                        disabled={logonPage === 0}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Page {logonPage + 1} of {totalLogonPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogonPage(p => p + 1)}
+                        disabled={logonPage >= totalLogonPages - 1}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
