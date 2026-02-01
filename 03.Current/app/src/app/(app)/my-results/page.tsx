@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth, useFirestore } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { F1Drivers } from "@/lib/data";
@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collection, query, where, getDocs, orderBy, limit as firestoreLimit } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, getDoc, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Zap, Flag, Loader2, User, Search, X, TrendingUp, Target, BarChart3 } from "lucide-react";
@@ -27,7 +27,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { SCORING_POINTS } from "@/lib/scoring-rules";
 import {
-    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+    ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import {
     type RaceResult,
@@ -79,12 +79,18 @@ export default function MyResultsPage() {
     // Team search state
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<TeamSearchResult[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
     const [isPopoverOpen, setIsPopoverOpen] = useState(false);
     const [viewingTeam, setViewingTeam] = useState<TeamSearchResult | null>(null);
     const [otherTeamResults, setOtherTeamResults] = useState<MyRaceResult[]>([]);
     const [isLoadingOtherTeam, setIsLoadingOtherTeam] = useState(false);
-    const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [allTeams, setAllTeams] = useState<TeamSearchResult[]>([]);
+
+    // Season leader state
+    const [leaderData, setLeaderData] = useState<{
+        teamId: string;
+        teamName: string;
+        perRacePoints: Map<string, number>;
+    } | null>(null);
 
     const hasSecondaryTeam = !!user?.secondaryTeamName;
 
@@ -101,6 +107,103 @@ export default function MyResultsPage() {
         if (activeTeamId === `${user.id}-secondary`) return user.secondaryTeamName || "";
         return user.teamName;
     }, [user, activeTeamId]);
+
+    // Load all teams on mount for client-side search
+    useEffect(() => {
+        if (!firestore) return;
+
+        const fetchAllTeams = async () => {
+            try {
+                const usersQuery = query(
+                    collection(firestore, "users"),
+                    orderBy("teamName"),
+                );
+                const snapshot = await getDocs(usersQuery);
+                const teams: TeamSearchResult[] = [];
+
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.teamName) {
+                        teams.push({
+                            userId: docSnap.id,
+                            teamName: data.teamName,
+                            isSecondary: false,
+                        });
+                    }
+                    if (data.secondaryTeamName) {
+                        teams.push({
+                            userId: docSnap.id,
+                            teamName: data.secondaryTeamName,
+                            isSecondary: true,
+                        });
+                    }
+                });
+
+                setAllTeams(teams);
+            } catch (error) {
+                console.error("Error loading all teams:", error);
+            }
+        };
+
+        fetchAllTeams();
+    }, [firestore]);
+
+    // Compute season leader from all scores
+    useEffect(() => {
+        if (!firestore) return;
+
+        const fetchLeader = async () => {
+            try {
+                const scoresSnapshot = await getDocs(collection(firestore, "scores"));
+
+                // Aggregate totalPoints per userId
+                const totals = new Map<string, number>();
+                const perRace = new Map<string, Map<string, number>>();
+
+                scoresSnapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const userId = data.userId as string;
+                    const raceId = (data.raceId as string)?.toLowerCase();
+                    const pts = data.totalPoints as number;
+
+                    totals.set(userId, (totals.get(userId) || 0) + pts);
+
+                    if (!perRace.has(userId)) {
+                        perRace.set(userId, new Map());
+                    }
+                    perRace.get(userId)!.set(raceId, pts);
+                });
+
+                if (totals.size === 0) return;
+
+                // Find leader (highest total)
+                let leaderId = "";
+                let leaderTotal = -1;
+                for (const [uid, total] of totals) {
+                    if (total > leaderTotal) {
+                        leaderTotal = total;
+                        leaderId = uid;
+                    }
+                }
+
+                // Resolve leader's team name
+                const leaderDoc = await getDoc(doc(firestore, "users", leaderId));
+                const leaderTeamName = leaderDoc.exists()
+                    ? (leaderDoc.data().teamName as string) || leaderId
+                    : leaderId;
+
+                setLeaderData({
+                    teamId: leaderId,
+                    teamName: leaderTeamName,
+                    perRacePoints: perRace.get(leaderId) || new Map(),
+                });
+            } catch (error) {
+                console.error("Error computing season leader:", error);
+            }
+        };
+
+        fetchLeader();
+    }, [firestore]);
 
     // GUID: PAGE_MY_RESULTS-004-v01
     // [Intent] Shared processing function to build MyRaceResult[] from Firestore data.
@@ -280,90 +383,18 @@ export default function MyResultsPage() {
         return () => { cancelled = true; };
     }, [firestore, viewingTeam, processResults]);
 
-    // GUID: PAGE_MY_RESULTS-007-v01
-    // [Intent] Debounced team search handler — Firestore prefix query on teamName.
+    // GUID: PAGE_MY_RESULTS-007-v02
+    // [Intent] Client-side team search — case-insensitive substring filter on allTeams.
     const handleSearch = useCallback((input: string) => {
         setSearchQuery(input);
-
-        if (searchTimerRef.current) {
-            clearTimeout(searchTimerRef.current);
-        }
-
-        if (!input.trim() || !firestore) {
-            setSearchResults([]);
-            setIsSearching(false);
+        const needle = input.trim().toLowerCase();
+        if (!needle) {
+            setSearchResults(allTeams);
             return;
         }
-
-        setIsSearching(true);
-
-        searchTimerRef.current = setTimeout(async () => {
-            try {
-                const normalizedInput = input.trim();
-                const usersQuery = query(
-                    collection(firestore, "users"),
-                    where("teamName", ">=", normalizedInput),
-                    where("teamName", "<=", normalizedInput + "\uf8ff"),
-                    firestoreLimit(10),
-                );
-
-                const snapshot = await getDocs(usersQuery);
-                const results: TeamSearchResult[] = [];
-
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    results.push({
-                        userId: doc.id,
-                        teamName: data.teamName,
-                        isSecondary: false,
-                    });
-
-                    // Also check secondaryTeamName locally
-                    if (
-                        data.secondaryTeamName &&
-                        data.secondaryTeamName.toLowerCase().startsWith(normalizedInput.toLowerCase())
-                    ) {
-                        results.push({
-                            userId: doc.id,
-                            teamName: data.secondaryTeamName,
-                            isSecondary: true,
-                        });
-                    }
-                });
-
-                // Also do a separate query for secondary team names matching
-                const secondaryQuery = query(
-                    collection(firestore, "users"),
-                    where("secondaryTeamName", ">=", normalizedInput),
-                    where("secondaryTeamName", "<=", normalizedInput + "\uf8ff"),
-                    firestoreLimit(10),
-                );
-
-                const secondarySnapshot = await getDocs(secondaryQuery);
-                secondarySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    // Avoid duplicates
-                    const exists = results.some(
-                        r => r.userId === doc.id && r.isSecondary === true
-                    );
-                    if (!exists && data.secondaryTeamName) {
-                        results.push({
-                            userId: doc.id,
-                            teamName: data.secondaryTeamName,
-                            isSecondary: true,
-                        });
-                    }
-                });
-
-                setSearchResults(results);
-            } catch (error) {
-                console.error("Error searching teams:", error);
-                setSearchResults([]);
-            } finally {
-                setIsSearching(false);
-            }
-        }, 300);
-    }, [firestore]);
+        const filtered = allTeams.filter(t => t.teamName.toLowerCase().includes(needle));
+        setSearchResults(filtered);
+    }, [allTeams]);
 
     // Computed display variables
     const displayResults = viewingTeam ? otherTeamResults : raceResults;
@@ -372,8 +403,21 @@ export default function MyResultsPage() {
         return displayResults.reduce((sum, r) => sum + r.totalPoints, 0);
     }, [displayResults]);
 
-    // GUID: PAGE_MY_RESULTS-008-v01
-    // [Intent] Chart data — sort chronologically, compute running average.
+    // Determine the effective team ID being displayed (for leader comparison)
+    const displayTeamId = useMemo(() => {
+        if (viewingTeam) {
+            return viewingTeam.isSecondary
+                ? `${viewingTeam.userId}-secondary`
+                : viewingTeam.userId;
+        }
+        return activeTeamId;
+    }, [viewingTeam, activeTeamId]);
+
+    // Whether to show the leader overlay (skip if viewing the leader themselves)
+    const showLeaderLine = leaderData && displayTeamId !== leaderData.teamId;
+
+    // GUID: PAGE_MY_RESULTS-008-v02
+    // [Intent] Chart data — sort chronologically, compute running average, merge leader per-race scores.
     const chartData = useMemo(() => {
         if (displayResults.length === 0) return [];
 
@@ -387,15 +431,25 @@ export default function MyResultsPage() {
             const truncatedName = r.baseName.length > 6
                 ? r.baseName.slice(0, 6) + "…"
                 : r.baseName;
-            return {
+            const entry: Record<string, any> = {
                 race: truncatedName + (r.isSprint ? " (S)" : ""),
                 fullName: r.eventLabel,
                 points: r.totalPoints,
                 average: Math.round((cumulative / (i + 1)) * 10) / 10,
                 cumulative,
             };
+
+            // Merge leader's score for this race event
+            if (showLeaderLine && leaderData) {
+                const leaderPts = leaderData.perRacePoints.get(r.eventId.toLowerCase());
+                if (leaderPts !== undefined) {
+                    entry.leaderPoints = leaderPts;
+                }
+            }
+
+            return entry;
         });
-    }, [displayResults]);
+    }, [displayResults, showLeaderLine, leaderData]);
 
     // GUID: PAGE_MY_RESULTS-009-v01
     // [Intent] Narrative stats — score-type breakdown, best race, bonus total, top drivers.
@@ -492,6 +546,9 @@ export default function MyResultsPage() {
                 <p className="font-medium">{data.fullName}</p>
                 <p className="text-accent">{data.points} pts</p>
                 <p className="text-muted-foreground">Avg: {data.average}</p>
+                {data.leaderPoints !== undefined && (
+                    <p className="text-destructive">{leaderData?.teamName}: {data.leaderPoints} pts</p>
+                )}
             </div>
         );
     };
@@ -533,14 +590,13 @@ export default function MyResultsPage() {
                                 value={searchQuery}
                                 onChange={(e) => {
                                     handleSearch(e.target.value);
-                                    if (e.target.value.trim()) {
-                                        setIsPopoverOpen(true);
-                                    }
+                                    setIsPopoverOpen(true);
                                 }}
                                 onFocus={() => {
-                                    if (searchQuery.trim() && searchResults.length > 0) {
-                                        setIsPopoverOpen(true);
+                                    if (!searchQuery.trim()) {
+                                        setSearchResults(allTeams);
                                     }
+                                    setIsPopoverOpen(true);
                                 }}
                                 className="pl-9"
                             />
@@ -551,18 +607,13 @@ export default function MyResultsPage() {
                         align="start"
                         onOpenAutoFocus={(e) => e.preventDefault()}
                     >
-                        <div className="max-h-[200px] overflow-y-auto">
-                            {isSearching && (
-                                <div className="flex items-center justify-center py-4">
-                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                </div>
-                            )}
-                            {!isSearching && searchResults.length === 0 && searchQuery.trim() && (
+                        <div className="max-h-[300px] overflow-y-auto">
+                            {searchResults.length === 0 && searchQuery.trim() && (
                                 <p className="text-sm text-muted-foreground text-center py-4">
                                     No teams found
                                 </p>
                             )}
-                            {!isSearching && searchResults.map((result, i) => (
+                            {searchResults.map((result, i) => (
                                 <button
                                     key={`${result.userId}-${result.isSecondary}-${i}`}
                                     className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors border-b last:border-b-0"
@@ -629,7 +680,7 @@ export default function MyResultsPage() {
                     <CardContent>
                         <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }}>
+                                <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }}>
                                     <XAxis
                                         dataKey="race"
                                         tick={{ fontSize: 11 }}
@@ -639,11 +690,12 @@ export default function MyResultsPage() {
                                     />
                                     <YAxis tick={{ fontSize: 11 }} />
                                     <Tooltip content={<ChartTooltip />} />
+                                    <Legend verticalAlign="top" height={30} />
                                     <Bar
                                         dataKey="points"
                                         fill="hsl(var(--accent))"
                                         radius={[4, 4, 0, 0]}
-                                        name="Points"
+                                        name="Race Points"
                                     />
                                     <Bar
                                         dataKey="average"
@@ -651,7 +703,18 @@ export default function MyResultsPage() {
                                         radius={[4, 4, 0, 0]}
                                         name="Running Avg"
                                     />
-                                </BarChart>
+                                    {showLeaderLine && (
+                                        <Line
+                                            type="monotone"
+                                            dataKey="leaderPoints"
+                                            stroke="hsl(var(--destructive))"
+                                            dot={false}
+                                            strokeWidth={2}
+                                            name={leaderData?.teamName || "Leader"}
+                                            connectNulls
+                                        />
+                                    )}
+                                </ComposedChart>
                             </ResponsiveContainer>
                         </div>
                     </CardContent>
