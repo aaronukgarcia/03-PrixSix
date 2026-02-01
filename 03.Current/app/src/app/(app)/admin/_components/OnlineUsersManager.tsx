@@ -300,7 +300,7 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
   // GUID: ADMIN_ONLINE_USERS-011-v03
   // [Intent] Derives the list of users with active sessions by joining presence data with user details, filtering by session timeout.
   // [Inbound Trigger] Recomputed when allPresence or allUsers changes.
-  // [Downstream Impact] Drives the session table rows. Admin users show all their active sessions; regular users show only their first.
+  // [Downstream Impact] Drives the session table rows. All active sessions are shown for every user.
   const usersWithSessions = useMemo(() => {
     if (!allPresence || !allUsers) return [];
 
@@ -339,21 +339,12 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
 
         if (activeSessions.length === 0) return [];
 
-        // For admins: show all active sessions
-        // For regular users: show only the first active session
-        if (userDetail.isAdmin) {
-            return activeSessions.map(sessionId => ({
-                ...userDetail,
-                sessionId: sessionId,
-                lastActivity: presence.sessionActivity?.[sessionId],
-            }));
-        } else {
-            return [{
-                ...userDetail,
-                sessionId: activeSessions[0],
-                lastActivity: presence.sessionActivity?.[activeSessions[0]],
-            }];
-        }
+        // Show all active sessions for every user
+        return activeSessions.map(sessionId => ({
+            ...userDetail,
+            sessionId: sessionId,
+            lastActivity: presence.sessionActivity?.[sessionId],
+        }));
     });
 
   }, [allPresence, allUsers]);

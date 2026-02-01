@@ -266,7 +266,7 @@ export function BackupHealthDashboard() {
 
   const { data: historyData, isLoading: isHistoryLoading } = useCollection<BackupHistoryEntry>(historyQuery);
 
-  // GUID: BACKUP_DASHBOARD-032-v04
+  // GUID: BACKUP_DASHBOARD-032-v05
   // [Intent] Trigger the listBackupHistory callable to backfill history entries
   //          from existing GCS backup folders into the backup_history collection.
   //          Error paths now use PX-7008 (BACKUP_BACKFILL_FAILED) with correlation ID
@@ -282,6 +282,8 @@ export function BackupHealthDashboard() {
       const data = result.data as {
         success: boolean;
         count?: number;
+        total?: number;
+        partial?: boolean;
         correlationId?: string;
         error?: string;
         errorCode?: string;
@@ -289,14 +291,28 @@ export function BackupHealthDashboard() {
 
       if (data.success) {
         toast({
-          title: 'Backfill Complete',
-          description: `Found ${data.count} backup entries.`,
+          title: data.partial ? 'Backfill Partial' : 'Backfill Complete',
+          description: data.partial
+            ? `Processed ${data.count} of ${data.total} backup entries. Run again to continue.`
+            : `Found ${data.count} backup entries.`,
         });
       } else {
         // Structured failure from Cloud Function — use server correlationId if available
         const correlationId = data.correlationId || generateClientCorrelationId();
         const appError = createAppError('BACKUP_BACKFILL_FAILED', correlationId, data.error);
         const display = formatErrorForDisplay(appError);
+
+        // Log to Firestore so the error appears in the admin Errors tab
+        fetch('/api/log-client-error', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            correlationId,
+            errorCode: appError.code,
+            error: data.error || appError.message,
+            context: { route: '/admin', action: 'backfill-backup-history', source: 'client' },
+          }),
+        }).catch(() => {});
 
         toast({
           variant: 'destructive',
@@ -316,6 +332,18 @@ export function BackupHealthDashboard() {
       const correlationId = generateClientCorrelationId();
       const appError = createAppError('BACKUP_BACKFILL_FAILED', correlationId, err.message);
       const display = formatErrorForDisplay(appError);
+
+      // Log to Firestore so the error appears in the admin Errors tab
+      fetch('/api/log-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          correlationId,
+          errorCode: appError.code,
+          error: err.message || String(err),
+          context: { route: '/admin', action: 'backfill-backup-history', source: 'client' },
+        }),
+      }).catch(() => {});
 
       toast({
         variant: 'destructive',

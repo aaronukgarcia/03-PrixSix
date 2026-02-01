@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-01",
   "commits": [
+    {"id": "2c80dfd", "date": "2026-02-01", "version": "1.28.2", "author": "aaron garcia", "message": "fix: show all sessions in online tab and log PX-7008 to error_logs", "major": false},
     {"id": "e49fd8f", "date": "2026-02-01", "version": "1.28.1", "author": "aaron garcia", "message": "chore: update commit-history hash and bump version for 1.28.1", "major": false},
     {"id": "b439e2f", "date": "2026-02-01", "version": "1.28.0", "author": "aaron garcia", "message": "feat: add stats dashboard with bar chart, narrative breakdown, and team search to My Results", "major": true},
     {"id": "a502230", "date": "2026-02-01", "version": "1.27.15", "author": "aaron garcia", "message": "feat: paginate profile logon history to 5 per page", "major": false},
