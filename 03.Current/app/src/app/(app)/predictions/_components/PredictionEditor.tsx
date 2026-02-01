@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -15,17 +15,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { Driver } from "@/lib/data";
-import { getDriverImage } from "@/lib/data";
-import { ArrowDown, ArrowUp, X, Check, ListCollapse, Timer, Sparkles, Settings2, RotateCcw, Loader2 } from "lucide-react";
+import { Check, ListCollapse, Timer, Sparkles, Settings2, RotateCcw, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuth, useFirestore } from "@/firebase";
 import type { AnalysisWeights } from "@/firebase/provider";
-import type { User as FirebaseAuthUser } from 'firebase/auth';
+
 import { doc, updateDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { generateClientCorrelationId, ERROR_CODES } from "@/lib/error-codes";
@@ -33,7 +30,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Progress } from "@/components/ui/progress";
+import { DndPredictionWrapper } from "./DndPredictionWrapper";
+import { DroppableGridSlot } from "./DroppableGridSlot";
+import { DroppablePoolZone } from "./DroppablePoolZone";
 
 // GUID: COMPONENT_PREDICTION_EDITOR-001-v03
 // [Intent] Configuration array defining the 11 AI analysis facets (9 data-driven + 2 personality-driven). Each facet has a key matching AnalysisWeights, a display label, icon emoji, and description.
@@ -235,6 +234,44 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
       if(driver1 && driver2) addChangeToHistory(`↔️ Swapped ${driver1} / ${driver2}`);
     }
   };
+
+  // Drag-and-drop handlers
+  const handleDropToSlot = useCallback((driverId: string, slotIndex: number) => {
+    if (isLocked) return;
+    const driver = allDrivers.find((d) => d.id === driverId);
+    if (!driver) return;
+    const newPredictions = [...predictions];
+    const displaced = newPredictions[slotIndex];
+    newPredictions[slotIndex] = driver;
+    setPredictions(newPredictions);
+    if (displaced) {
+      addChangeToHistory(`+ ${driver.name} to P${slotIndex + 1}, ${displaced.name} back to pool`);
+    } else {
+      addChangeToHistory(`+ ${driver.name} to P${slotIndex + 1}`);
+    }
+  }, [isLocked, allDrivers, predictions]);
+
+  const handleSwapSlots = useCallback((fromIndex: number, toIndex: number) => {
+    if (isLocked) return;
+    const newPredictions = [...predictions];
+    [newPredictions[fromIndex], newPredictions[toIndex]] = [
+      newPredictions[toIndex],
+      newPredictions[fromIndex],
+    ];
+    setPredictions(newPredictions);
+    const driver1 = newPredictions[fromIndex]?.name;
+    const driver2 = newPredictions[toIndex]?.name;
+    if (driver1 && driver2) addChangeToHistory(`↔️ Swapped ${driver1} / ${driver2}`);
+  }, [isLocked, predictions]);
+
+  const handleRemoveFromGrid = useCallback((slotIndex: number) => {
+    if (isLocked) return;
+    const driverName = predictions[slotIndex]?.name;
+    const newPredictions = [...predictions];
+    newPredictions[slotIndex] = null;
+    setPredictions(newPredictions);
+    if (driverName) addChangeToHistory(`- ${driverName} from grid`);
+  }, [isLocked, predictions]);
 
   // GUID: COMPONENT_PREDICTION_EDITOR-014-v03
   // [Intent] Submits the prediction to the server via /api/submit-prediction. Supports multi-team submission when "Apply to All" is checked. Validates grid completeness and user authentication before sending.
@@ -446,6 +483,13 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
   // [Inbound Trigger] Component render cycle; re-renders on state changes to predictions, countdown, weights, analysis, etc.
   // [Downstream Impact] Renders interactive grid slots, available drivers list, submission controls, countdown badge, AI analysis card, and analysis result. All user interactions feed back into the state handlers above.
   return (
+    <DndPredictionWrapper
+      predictions={predictions}
+      availableDrivers={availableDrivers}
+      onDropToSlot={handleDropToSlot}
+      onSwapSlots={handleSwapSlots}
+      onRemoveFromGrid={handleRemoveFromGrid}
+    >
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card className="lg:col-span-2">
         <CardHeader>
@@ -462,55 +506,29 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
               <div key={row} className="grid grid-cols-2 gap-4">
                 {[0, 1].map((col) => {
                   const index = row * 2 + col;
-                  const driver = predictions[index];
-                  const isRightLane = col === 1;
                   return (
-                    <div
+                    <DroppableGridSlot
                       key={index}
-                      className={cn(
-                        "relative group flex flex-col items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed bg-card-foreground/5 transition-colors h-[140px]",
-                        isRightLane && "translate-y-6" // Stagger right lane visually without affecting layout
-                      )}
-                    >
-                      <div className="absolute top-1 left-2 font-bold text-muted-foreground text-sm">P{index + 1}</div>
-                      {!isLocked && (
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMove(index, 'up')} disabled={index === 0}>
-                            <ArrowUp className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMove(index, 'down')} disabled={index === 5}>
-                            <ArrowDown className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      {driver ? (
-                        <>
-                          {!isLocked && (
-                            <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveDriver(index)}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          )}
-                          <Avatar className="w-16 h-16 border-4 border-primary">
-                            <AvatarImage src={getDriverImage(driver.id)} data-ai-hint="driver portrait"/>
-                            <AvatarFallback>{driver.name.substring(0, 2)}</AvatarFallback>
-                          </Avatar>
-                          <div className="text-center">
-                            <p className="font-bold text-sm">{driver.name}</p>
-                            <p className="text-xs text-muted-foreground">{driver.team}</p>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
-                          <p className="text-xs">Select driver</p>
-                        </div>
-                      )}
-                    </div>
+                      index={index}
+                      driver={predictions[index]}
+                      isLocked={isLocked}
+                      isRightLane={col === 1}
+                      onMove={handleMove}
+                      onRemove={handleRemoveDriver}
+                    />
                   );
                 })}
               </div>
             ))}
           </div>
         </CardContent>
+        {!isLocked && (
+          <div className="px-6 pb-2">
+            <p className="text-xs text-muted-foreground italic">
+              Tip: drag a driver from the grid back to the pool to free up a slot
+            </p>
+          </div>
+        )}
         <CardFooter className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full">
                 <Button onClick={handleSubmit} disabled={isLocked || isSubmitting}>
@@ -556,23 +574,14 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         <Card className={cn(isLocked && "hidden")}>
             <CardHeader>
                 <CardTitle>Available Drivers</CardTitle>
-                <CardDescription>Click a driver to add them to your grid. Looking for someone? Scroll down.</CardDescription>
+                <CardDescription>Click or drag a driver to add them to your grid. Looking for someone? Scroll down.</CardDescription>
             </CardHeader>
             <CardContent>
-                <ScrollArea className="h-72">
-                    <div className="grid grid-cols-2 gap-2 pr-4">
-                    {availableDrivers.map(driver => (
-                        <Button key={driver.id} variant="secondary" className="h-auto p-2 flex items-center gap-2 justify-start" onClick={() => handleAddDriver(driver)}>
-                            <Avatar className="w-8 h-8">
-                                <AvatarImage src={getDriverImage(driver.id)} data-ai-hint="driver portrait" />
-                                <AvatarFallback>{driver.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm font-medium">{driver.name}</span>
-                        </Button>
-                    ))}
-                    </div>
-                    <ScrollBar className="bg-muted" />
-                </ScrollArea>
+                <DroppablePoolZone
+                  availableDrivers={availableDrivers}
+                  isLocked={isLocked}
+                  onAddDriver={handleAddDriver}
+                />
             </CardContent>
         </Card>
         <Card>
@@ -717,5 +726,6 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         </Card>
       )}
     </div>
+    </DndPredictionWrapper>
   );
 }
