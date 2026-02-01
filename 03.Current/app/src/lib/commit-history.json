@@ -1,7 +1,8 @@
 {
   "lastUpdated": "2026-02-01",
   "commits": [
-    {"id": "PENDING", "date": "2026-02-01", "version": "1.28.0", "author": "aaron garcia", "message": "feat: add stats dashboard with bar chart, narrative breakdown, and team search to My Results", "major": true},
+    {"id": "e49fd8f", "date": "2026-02-01", "version": "1.28.1", "author": "aaron garcia", "message": "chore: update commit-history hash and bump version for 1.28.1", "major": false},
+    {"id": "b439e2f", "date": "2026-02-01", "version": "1.28.0", "author": "aaron garcia", "message": "feat: add stats dashboard with bar chart, narrative breakdown, and team search to My Results", "major": true},
     {"id": "a502230", "date": "2026-02-01", "version": "1.27.15", "author": "aaron garcia", "message": "feat: paginate profile logon history to 5 per page", "major": false},
     {"id": "3ef4099", "date": "2026-02-01", "version": "1.27.15", "author": "aaron garcia", "message": "chore: add reusable feedback notification and cleanup scripts", "major": false},
     {"id": "60f196a", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "fix: detect Gmail plus-addressing in OAuth linking error messages", "major": false},
