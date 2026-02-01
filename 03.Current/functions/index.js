@@ -426,7 +426,7 @@ exports.manualBackup = onCall(
 );
 
 // ── listBackupHistory (backfill from GCS) ──────────────────────
-// GUID: BACKUP_FUNCTIONS-055-v04
+// GUID: BACKUP_FUNCTIONS-055-v05
 /**
  * listBackupHistory — Callable Cloud Function (2nd-gen, Cloud Run)
  *
@@ -489,10 +489,16 @@ exports.listBackupHistory = onCall(
 
       const entries = [];
 
-      for (const prefix of prefixes) {
-        // Skip non-date prefixes (safety check)
-        if (!prefix.match(/^\d{4}-\d{2}-\d{2}/)) continue;
+      // Filter to date-like prefixes only
+      const datePrefixes = prefixes.filter((p) => /^\d{4}-\d{2}-\d{2}/.test(p));
 
+      // GUID: BACKUP_FUNCTIONS-057-v01
+      // [Intent] Process a single GCS prefix: check if already backfilled,
+      //          sum file sizes with paginated listing, parse timestamp, and
+      //          write the history entry. Returns the entry object.
+      // [Inbound Trigger] Called per-prefix from the batched loop below.
+      // [Downstream Impact] Reads from GCS and writes to backup_history.
+      async function processPrefix(prefix) {
         // Check if history entry already exists
         const existingDoc = await db
           .collection(HISTORY_COLLECTION)
@@ -501,18 +507,20 @@ exports.listBackupHistory = onCall(
           .get();
 
         if (!existingDoc.empty) {
-          // Already backfilled — include in response but skip write
-          const data = existingDoc.docs[0].data();
-          entries.push(data);
-          continue;
+          return existingDoc.docs[0].data();
         }
 
-        // Sum file sizes for this prefix
-        const [files] = await bucket.getFiles({ prefix: `${prefix}/` });
+        // Sum file sizes with paginated listing to avoid loading
+        // all File objects into memory at once (OOM on large exports)
         let totalBytes = 0;
-        for (const file of files) {
-          totalBytes += Number(file.metadata.size) || 0;
-        }
+        let nextQuery = { prefix: `${prefix}/`, autoPaginate: false, maxResults: 500 };
+        do {
+          const [files, query] = await bucket.getFiles(nextQuery);
+          for (const file of files) {
+            totalBytes += Number(file.metadata.size) || 0;
+          }
+          nextQuery = query;
+        } while (nextQuery);
 
         // Parse timestamp from folder name (e.g. "2025-06-15T020000")
         const dateStr = prefix.replace("-SUNDAY", "");
@@ -532,7 +540,6 @@ exports.listBackupHistory = onCall(
             )
           );
         } else {
-          // Fallback: try parsing as ISO-ish date
           folderDate = new Date(dateStr);
         }
 
@@ -553,7 +560,40 @@ exports.listBackupHistory = onCall(
         };
 
         await db.collection(HISTORY_COLLECTION).doc(docId).set(entry);
-        entries.push(entry);
+        return entry;
+      }
+
+      // GUID: BACKUP_FUNCTIONS-058-v01
+      // [Intent] Process prefixes in parallel batches of 10 to stay well
+      //          within the 540s Cloud Functions timeout. A deadline guard
+      //          ensures we return a partial result instead of being killed
+      //          by Cloud Run mid-flight.
+      // [Inbound Trigger] Prefix list from GCS listing above.
+      // [Downstream Impact] Writes backfill entries; may return partial
+      //                     results if deadline approached. Caller can
+      //                     re-invoke to pick up remaining prefixes.
+      const BATCH_SIZE = 10;
+      const DEADLINE_MS = 480_000; // 480s — stop 60s before the 540s timeout
+      const startTime = Date.now();
+
+      for (let i = 0; i < datePrefixes.length; i += BATCH_SIZE) {
+        if (Date.now() - startTime > DEADLINE_MS) {
+          console.warn(
+            `listBackupHistory: deadline approaching, returning partial result ` +
+            `(${entries.length}/${datePrefixes.length} prefixes processed)`
+          );
+          return {
+            success: true,
+            partial: true,
+            count: entries.length,
+            total: datePrefixes.length,
+            entries,
+          };
+        }
+
+        const batch = datePrefixes.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(processPrefix));
+        entries.push(...results);
       }
 
       return { success: true, count: entries.length, entries };

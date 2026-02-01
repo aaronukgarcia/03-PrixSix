@@ -1,4 +1,4 @@
-// GUID: PAGE_RESULTS-000-v05
+// GUID: PAGE_RESULTS-000-v06
 // [Intent] Race Results page — displays per-race points breakdowns for all teams' predictions,
 //   with official race results, colour-coded scoring, rank badges, sorting, and pagination.
 // [Inbound Trigger] Navigation to /results route; optionally receives ?race= URL parameter from
@@ -28,14 +28,16 @@ import { F1Drivers } from "@/lib/data";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { collectionGroup, collection, query, where, doc, getDoc, getDocs, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag } from "lucide-react";
+import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag, Lock } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -468,20 +470,41 @@ function ResultsContent() {
                         <SelectValue placeholder="Select a race or sprint" />
                       </SelectTrigger>
                       <SelectContent>
-                        {eventsWithResults.length > 0 ? (
-                          eventsWithResults.map((event) => (
-                            <SelectItem key={event.id} value={event.id}>
-                              <span className="flex items-center gap-2">
-                                {event.isSprint ? (
-                                  <Zap className="h-3 w-3 text-amber-500" />
-                                ) : (
-                                  <Flag className="h-3 w-3 text-primary" />
-                                )}
-                                {event.label}
-                              </span>
-                            </SelectItem>
-                          ))
-                        ) : (
+                        {eventsWithResults.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Completed</SelectLabel>
+                            {eventsWithResults.map((event) => (
+                              <SelectItem key={event.id} value={event.id}>
+                                <span className="flex items-center gap-2">
+                                  {event.isSprint ? (
+                                    <Zap className="h-3 w-3 text-amber-500" />
+                                  ) : (
+                                    <Flag className="h-3 w-3 text-primary" />
+                                  )}
+                                  {event.label}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                        {(() => {
+                          const upcomingEvents = allRaceEvents.filter(event => !racesWithResults.has(event.id));
+                          if (upcomingEvents.length === 0) return null;
+                          return (
+                            <SelectGroup>
+                              <SelectLabel>Upcoming</SelectLabel>
+                              {upcomingEvents.map((event) => (
+                                <SelectItem key={event.id} value={event.id} disabled className="opacity-50">
+                                  <span className="flex items-center gap-2 text-muted-foreground">
+                                    <Lock className="h-3 w-3" />
+                                    {event.label}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          );
+                        })()}
+                        {eventsWithResults.length === 0 && allRaceEvents.every(e => racesWithResults.has(e.id)) && (
                           <SelectItem value="none" disabled>
                             No results available yet
                           </SelectItem>

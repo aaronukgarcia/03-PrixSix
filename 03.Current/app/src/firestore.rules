@@ -219,6 +219,12 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Feedback counters - used by transactions in FeedbackForm for reference ID generation
+    match /counters/{docId} {
+      allow get: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
     // Login attempts - server-side only (Admin SDK bypasses rules)
     // Used for attack detection
     match /login_attempts/{attemptId} {
