@@ -14,6 +14,8 @@
 !03.Current/claude-sync.js
 !03.Current/firebase.json
 !03.Current/provision_recovery_env.sh
+!03.Current/scripts/
+!03.Current/scripts/**
 !03.Current/functions/
 !03.Current/functions/**
 !03.Current/docs/
