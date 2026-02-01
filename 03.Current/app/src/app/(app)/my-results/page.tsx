@@ -690,7 +690,7 @@ export default function MyResultsPage() {
                                     />
                                     <YAxis tick={{ fontSize: 11 }} />
                                     <Tooltip content={<ChartTooltip />} />
-                                    <Legend verticalAlign="top" height={30} />
+                                    <Legend verticalAlign="top" height={30} formatter={(value: string) => <span style={{ color: "white" }}>{value}</span>} />
                                     <Bar
                                         dataKey="points"
                                         fill="hsl(var(--accent))"
