@@ -2,8 +2,10 @@
  * claude-sync.js - Coordination script for multiple Claude Code sessions
  *
  * Commands:
- *   checkin                 - Register session and get assigned Bob or Bill
- *   checkout                - End session
+ *   checkin                 - Register session and get assigned Bill, Bob, or Ben
+ *   checkout                - End your own session
+ *   checkout <Name>         - Force-end a specific session by name (e.g. checkout Bob)
+ *   checkout --force        - Force-end all sessions on current branch
  *   read                    - Display current coordination state
  *   write "message"         - Log activity
  *   claim /path/            - Claim file ownership
@@ -15,9 +17,15 @@
  *
  * Uses Firestore document at: coordination/claude-state
  *
+ * IDENTITY RULES (INVIOLABLE):
+ *   - Names are assigned in strict order: Bill (1st), Bob (2nd), Ben (3rd)
+ *   - Maximum 3 concurrent sessions. No Guest-X names. Ever.
+ *   - No duplicate names. If a collision is detected, the youngest session is evicted.
+ *   - Dropped sessions do NOT reclaim their old name — they take the next available slot.
+ *   - Every response MUST be prefixed with name> (e.g. bill>)
+ *
  * STALE SESSION POLICY:
  *   Sessions inactive for 2+ hours are marked stale and auto-cleaned on next checkin.
- *   This prevents ghost sessions from blocking bob/bill assignment.
  */
 
 const admin = require('firebase-admin');
@@ -100,24 +108,29 @@ function formatTime(isoString) {
 }
 
 /**
- * Determine Bob or Bill based on active sessions
- * Bob = oldest active session, Bill = second
+ * Valid session names in strict assignment order.
+ * Bill is ALWAYS first. Bob is second. Ben is third. No exceptions.
+ */
+const VALID_NAMES = ['Bill', 'Bob', 'Ben'];
+
+/**
+ * Assign a name to a new session.
+ * Returns the first available name from [Bill, Bob, Ben], or null if all 3 are occupied.
+ * Excludes the caller's own sessionId from the "taken" set so re-checkins work.
  */
 function assignName(sessions, mySessionId) {
-  const activeSessions = Object.entries(sessions || {})
-    .filter(([id, s]) => s.status === 'active')
-    .sort((a, b) => new Date(a[1].startedAt) - new Date(b[1].startedAt));
+  const takenNames = new Set(
+    Object.entries(sessions || {})
+      .filter(([id, s]) => s.status === 'active' && id !== mySessionId)
+      .map(([id, s]) => s.name)
+  );
 
-  const myIndex = activeSessions.findIndex(([id]) => id === mySessionId);
+  for (const name of VALID_NAMES) {
+    if (!takenNames.has(name)) return name;
+  }
 
-  if (myIndex === 0) return 'Bob';
-  if (myIndex === 1) return 'Bill';
-  if (myIndex > 1) return `Guest-${myIndex + 1}`;
-
-  // Not found yet - will be assigned based on count
-  if (activeSessions.length === 0) return 'Bob';
-  if (activeSessions.length === 1) return 'Bill';
-  return `Guest-${activeSessions.length + 1}`;
+  // All 3 slots occupied — caller must wait
+  return null;
 }
 
 /**
@@ -270,27 +283,93 @@ async function cmdInit() {
 
 /**
  * COMMAND: checkin - Register session and get assigned name
+ *
+ * Identity rules enforced here:
+ *   1. GC stale sessions first (2h+ inactive)
+ *   2. Evict any sessions with invalid names (Guest-X, duplicates)
+ *   3. Assign first available from [Bill, Bob, Ben]
+ *   4. Reject if all 3 slots are occupied
+ *   5. Duplicate detection: if name collision, youngest session is evicted
  */
 async function cmdCheckin() {
   const state = await getState();
   const branch = getCurrentBranch();
   const now = new Date().toISOString();
 
-  // Run garbage collection first to clean up stale sessions
+  // Step 1: Garbage collect stale sessions
   const gcResult = garbageCollectSessions(state);
   if (gcResult.cleaned > 0) {
     console.log(`[GC] Cleaned ${gcResult.cleaned} stale session(s): ${gcResult.details.join(', ')}`);
   }
 
-  // Generate a unique session ID based on timestamp only (allows multiple on same branch)
-  const sessionId = `session-${Date.now()}`;
-
   state.sessions = state.sessions || {};
 
-  // Assign name based on global active session count (Bob = first, Bill = second)
+  // Step 2: Evict any sessions with invalid names (Guest-X or names not in VALID_NAMES)
+  for (const [sessionId, session] of Object.entries(state.sessions)) {
+    if (session.status !== 'active') continue;
+    if (!VALID_NAMES.includes(session.name)) {
+      console.log(`[EVICT] Removed invalid session "${session.name}" (${sessionId})`);
+      state.sessions[sessionId].status = 'evicted';
+      state.sessions[sessionId].endedAt = now;
+      state.sessions[sessionId].evictReason = `Invalid name "${session.name}" — only Bill, Bob, Ben are allowed`;
+      state.activityLog = state.activityLog || [];
+      state.activityLog.push({
+        sessionId,
+        name: session.name,
+        branch: session.branch,
+        message: `${session.name} evicted: invalid name (only Bill, Bob, Ben allowed)`,
+        timestamp: now
+      });
+    }
+  }
+
+  // Step 3: Evict duplicate names — keep oldest, evict youngest
+  const nameHolders = {}; // name → [{ sessionId, startedAt }]
+  for (const [sessionId, session] of Object.entries(state.sessions)) {
+    if (session.status !== 'active') continue;
+    if (!nameHolders[session.name]) nameHolders[session.name] = [];
+    nameHolders[session.name].push({ sessionId, startedAt: session.startedAt });
+  }
+  for (const [name, holders] of Object.entries(nameHolders)) {
+    if (holders.length <= 1) continue;
+    // Sort oldest first, evict all but the oldest
+    holders.sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt));
+    for (let i = 1; i < holders.length; i++) {
+      const dupId = holders[i].sessionId;
+      console.log(`[EVICT] Duplicate "${name}" — evicting younger session ${dupId}`);
+      state.sessions[dupId].status = 'evicted';
+      state.sessions[dupId].endedAt = now;
+      state.sessions[dupId].evictReason = `Duplicate name "${name}" — youngest evicted`;
+      state.activityLog = state.activityLog || [];
+      state.activityLog.push({
+        sessionId: dupId,
+        name,
+        branch: state.sessions[dupId].branch,
+        message: `${name} evicted: duplicate name (youngest session loses)`,
+        timestamp: now
+      });
+    }
+  }
+
+  // Step 4: Assign name — first available from [Bill, Bob, Ben]
+  const sessionId = `session-${Date.now()}`;
   const name = assignName(state.sessions, sessionId);
 
-  // Register the session
+  if (!name) {
+    console.error('');
+    console.error('='.repeat(60));
+    console.error('CHECKIN REJECTED — ALL 3 SLOTS OCCUPIED');
+    console.error('='.repeat(60));
+    console.error('Active sessions: Bill, Bob, and Ben are all checked in.');
+    console.error('One must checkout before a new session can join.');
+    console.error('Run: node claude-sync.js read');
+    console.error('='.repeat(60));
+    console.error('');
+    await saveState(state); // Save any evictions/GC that happened
+    process.exit(1);
+  }
+
+  // Step 5: Register the session
   state.sessions[sessionId] = {
     name,
     branch,
@@ -319,37 +398,60 @@ async function cmdCheckin() {
   console.log(`Branch: ${branch}`);
   console.log(`Started: ${formatTime(now)}`);
   console.log('');
-  console.log(`Prefix all your responses with: ${name.toLowerCase()}>`);
+  console.log(`MANDATORY: Prefix ALL responses with: ${name.toLowerCase()}>`);
   console.log('');
-  console.log('Remember to poll the shared memory regularly!');
+  console.log('Valid names: Bill (1st), Bob (2nd), Ben (3rd). No exceptions.');
+  console.log('Remember to poll with "read" and ping every 5 minutes!');
   console.log('='.repeat(60));
   console.log('');
 }
 
 /**
  * COMMAND: checkout - End session
+ *
+ * Modes:
+ *   checkout              — End your own session (finds active session on current branch)
+ *   checkout <Name>       — End a specific session by name (Bill, Bob, or Ben)
+ *   checkout --force      — Force-end ALL active sessions on current branch
  */
-async function cmdCheckout(force = false) {
+async function cmdCheckout(options = {}) {
+  const { force = false, targetName = null } = options;
   const state = await getState();
   const branch = getCurrentBranch();
   const now = new Date().toISOString();
 
   state.sessions = state.sessions || {};
 
-  // Find active session on this branch
-  const sessionEntry = Object.entries(state.sessions)
-    .find(([id, s]) => s.branch === branch && s.status === 'active');
+  let sessionEntry = null;
 
-  if (!sessionEntry && !force) {
-    console.log('No active session found on this branch.');
-    return;
+  if (targetName) {
+    // Find active session by name (case-insensitive match)
+    sessionEntry = Object.entries(state.sessions)
+      .find(([id, s]) => s.status === 'active' && s.name.toLowerCase() === targetName.toLowerCase());
+    if (!sessionEntry) {
+      console.error(`No active session found with name "${targetName}".`);
+      console.error('Active sessions:');
+      const active = Object.entries(state.sessions).filter(([id, s]) => s.status === 'active');
+      if (active.length === 0) {
+        console.error('  (none)');
+      } else {
+        for (const [id, s] of active) {
+          console.error(`  ${s.name} — branch: ${s.branch}, started: ${formatTime(s.startedAt)}`);
+        }
+      }
+      process.exit(1);
+    }
+  } else if (!force) {
+    // Find active session on this branch
+    sessionEntry = Object.entries(state.sessions)
+      .find(([id, s]) => s.branch === branch && s.status === 'active');
   }
 
   if (sessionEntry) {
     const [sessionId, session] = sessionEntry;
     const name = session.name || 'Unknown';
 
-    // Mark as inactive
+    // Mark as ended
     state.sessions[sessionId].status = 'ended';
     state.sessions[sessionId].endedAt = now;
 
@@ -357,7 +459,7 @@ async function cmdCheckout(force = false) {
     state.claimedFiles = state.claimedFiles || {};
     const releasedFiles = [];
     for (const [filePath, claim] of Object.entries(state.claimedFiles)) {
-      if (claim.claimedBy === sessionId || claim.name === name) {
+      if (claim.claimedBy === sessionId || claim.sessionId === sessionId || claim.name === name) {
         releasedFiles.push(filePath);
         delete state.claimedFiles[filePath];
       }
@@ -368,7 +470,7 @@ async function cmdCheckout(force = false) {
     state.activityLog.push({
       sessionId,
       name,
-      branch,
+      branch: session.branch,
       message: `${name} checked out. Released ${releasedFiles.length} file(s).`,
       timestamp: now
     });
@@ -386,15 +488,27 @@ async function cmdCheckout(force = false) {
     console.log('='.repeat(60));
     console.log('');
   } else if (force) {
-    // Force clear all sessions on this branch
+    // Force clear all active sessions on this branch
+    let cleared = 0;
     for (const [sessionId, session] of Object.entries(state.sessions)) {
-      if (session.branch === branch) {
+      if (session.branch === branch && session.status === 'active') {
         state.sessions[sessionId].status = 'force-ended';
         state.sessions[sessionId].endedAt = now;
+        cleared++;
       }
     }
+    state.activityLog = state.activityLog || [];
+    state.activityLog.push({
+      sessionId: 'system',
+      name: 'FORCE',
+      branch,
+      message: `Force-ended ${cleared} session(s) on branch '${branch}'`,
+      timestamp: now
+    });
     await saveState(state);
-    console.log('Force-cleared all sessions on this branch.');
+    console.log(`Force-cleared ${cleared} session(s) on branch '${branch}'.`);
+  } else {
+    console.log('No active session found on this branch.');
   }
 }
 
@@ -701,7 +815,13 @@ async function main() {
         await cmdCheckin();
         break;
       case 'checkout':
-        await cmdCheckout(param === '--force');
+        if (param === '--force') {
+          await cmdCheckout({ force: true });
+        } else if (param) {
+          await cmdCheckout({ targetName: param });
+        } else {
+          await cmdCheckout({});
+        }
         break;
       case 'read':
         await cmdRead();
@@ -727,9 +847,12 @@ async function main() {
       default:
         console.log('claude-sync.js - Claude Code session coordination');
         console.log('');
+        console.log('Identity: Bill (1st) → Bob (2nd) → Ben (3rd). No Guest-X. Max 3.');
+        console.log('');
         console.log('Commands:');
-        console.log('  checkin                 - Register and get assigned Bob or Bill');
-        console.log('  checkout                - End your session');
+        console.log('  checkin                 - Register and get assigned Bill, Bob, or Ben');
+        console.log('  checkout                - End your own session');
+        console.log('  checkout <Name>         - End a specific session by name');
         console.log('  checkout --force        - Force end all sessions on branch');
         console.log('  ping                    - Send keepalive heartbeat (every 5 min)');
         console.log('  gc                      - Garbage collect stale sessions (2h+ inactive)');
@@ -742,14 +865,14 @@ async function main() {
         console.log('');
         console.log('Examples:');
         console.log('  node claude-sync.js checkin');
+        console.log('  node claude-sync.js checkout Bob');
         console.log('  node claude-sync.js read');
         console.log('  node claude-sync.js ping');
-        console.log('  node claude-sync.js gc');
         console.log('  node claude-sync.js write "Fixed login bug"');
         console.log('  node claude-sync.js claim /src/auth/login.js');
-        console.log('  node claude-sync.js checkout');
         console.log('');
         console.log('Note: Stale sessions (2h+ inactive) are auto-cleaned on checkin.');
+        console.log('      Invalid names (Guest-X) are evicted on next checkin.');
         break;
     }
   } catch (error) {

@@ -63,6 +63,13 @@ interface TeamSearchResult {
     isSecondary: boolean;
 }
 
+/** Returns ordinal suffix string, e.g. 1→"1st", 2→"2nd", 3→"3rd", 5→"5th" */
+function ordinal(n: number): string {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 // GUID: PAGE_MY_RESULTS-002-v01
 // [Intent] Main page component — fetches all user predictions, race results, and scores,
 //   then renders per-race cards with scoring breakdowns ordered most recent first.
@@ -91,6 +98,9 @@ export default function MyResultsPage() {
         teamName: string;
         perRacePoints: Map<string, number>;
     } | null>(null);
+
+    // All teams' season totals for ranking (userId → totalPoints)
+    const [allTeamTotals, setAllTeamTotals] = useState<Map<string, number>>(new Map());
 
     const hasSecondaryTeam = !!user?.secondaryTeamName;
 
@@ -175,6 +185,8 @@ export default function MyResultsPage() {
                 });
 
                 if (totals.size === 0) return;
+
+                setAllTeamTotals(totals);
 
                 // Find leader (highest total)
                 let leaderId = "";
@@ -416,6 +428,19 @@ export default function MyResultsPage() {
     // Whether to show the leader overlay (skip if viewing the leader themselves)
     const showLeaderLine = leaderData && displayTeamId !== leaderData.teamId;
 
+    // Compute the displayed team's season rank from allTeamTotals
+    const displaySeasonRank = useMemo(() => {
+        if (allTeamTotals.size === 0 || !displayTeamId) return null;
+        const teamTotal = allTeamTotals.get(displayTeamId);
+        if (teamTotal === undefined) return null;
+        // Count how many teams have strictly more points
+        let rank = 1;
+        for (const [, total] of allTeamTotals) {
+            if (total > teamTotal) rank++;
+        }
+        return rank;
+    }, [allTeamTotals, displayTeamId]);
+
     // GUID: PAGE_MY_RESULTS-008-v02
     // [Intent] Chart data — sort chronologically, compute running average, merge leader per-race scores.
     const chartData = useMemo(() => {
@@ -654,7 +679,7 @@ export default function MyResultsPage() {
                     <CardContent>
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-bold text-accent">{displaySeasonTotal}</span>
-                            <span className="text-muted-foreground">points across {displayResults.length} {displayResults.length === 1 ? 'race' : 'races'}</span>
+                            <span className="text-muted-foreground">points across {displayResults.length} {displayResults.length === 1 ? 'race' : 'races'}{displaySeasonRank ? ` — ${ordinal(displaySeasonRank)} overall` : ''}</span>
                         </div>
                     </CardContent>
                 </Card>
