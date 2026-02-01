@@ -1,6 +1,16 @@
 {
-  "lastUpdated": "2026-01-31",
+  "lastUpdated": "2026-02-01",
   "commits": [
+    {"id": "PENDING", "date": "2026-02-01", "version": "1.28.0", "author": "aaron garcia", "message": "feat: add stats dashboard with bar chart, narrative breakdown, and team search to My Results", "major": true},
+    {"id": "a502230", "date": "2026-02-01", "version": "1.27.15", "author": "aaron garcia", "message": "feat: paginate profile logon history to 5 per page", "major": false},
+    {"id": "3ef4099", "date": "2026-02-01", "version": "1.27.15", "author": "aaron garcia", "message": "chore: add reusable feedback notification and cleanup scripts", "major": false},
+    {"id": "60f196a", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "fix: detect Gmail plus-addressing in OAuth linking error messages", "major": false},
+    {"id": "f6764ff", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "fix: Apple Sign-In uses popup on all platforms instead of redirect", "major": false},
+    {"id": "282b6d1", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "feat: add My Results page with collapsible Results sidebar sub-menu", "major": true},
+    {"id": "81414d6", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "fix: add 3s grace period for Firestore permission errors during OAuth", "major": false},
+    {"id": "4a4e226", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "feat: teams page defaults to next race, sorted A-Z, updated subtitle", "major": false},
+    {"id": "bfb5f53", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "fix: send-results-email using Admin SDK instead of client SDK for email tracking", "major": false},
+    {"id": "516eadd", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "chore: update commit-history hash for 1.27.15", "major": false},
     {"id": "94a4e3f", "date": "2026-01-31", "version": "1.27.15", "author": "aaron garcia", "message": "fix: results page case-insensitive race ID lookup + colour-coded predictions", "major": false},
     {"id": "03f1505", "date": "2026-01-31", "version": "1.27.14", "author": "aaron garcia", "message": "fix: results page race selection override + double-fetch prediction jump", "major": false},
     {"id": "272de42", "date": "2026-01-31", "version": "1.27.13", "author": "aaron garcia", "message": "fix: deploy listBackupHistory, fix JSDoc syntax error in functions", "major": false},
