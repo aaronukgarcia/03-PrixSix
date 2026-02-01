@@ -9,6 +9,7 @@
 
 "use client";
 
+import { useEffect } from "react";
 import {
   Sidebar,
   SidebarHeader,
@@ -20,6 +21,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   BarChart2,
@@ -77,8 +79,13 @@ export function AppSidebar() {
   const { user, firebaseUser, logout } = useAuth();
   const firestore = useFirestore();
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
 
   const isResultsSection = pathname.startsWith("/results") || pathname.startsWith("/my-results");
+
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [pathname, setOpenMobile]);
 
   // GUID: COMPONENT_APP_SIDEBAR-003-v04
   const handleLogout = async () => {
