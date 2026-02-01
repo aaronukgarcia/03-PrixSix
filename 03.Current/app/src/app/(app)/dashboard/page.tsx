@@ -8,9 +8,8 @@
 
 import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { findNextRace } from "@/lib/data";
-import { Flag, Calendar, FlaskConical } from "lucide-react";
+import { Flag, Calendar } from "lucide-react";
 import { DashboardClient } from "./_components/DashboardClient";
 import { FeedbackForm } from "./_components/FeedbackForm";
 import { ResolvedFeedbackNotifier } from "./_components/ResolvedFeedbackNotifier";
@@ -18,12 +17,7 @@ import { HotNewsFeed, HotNewsFeedSkeleton } from "./_components/HotNewsFeed";
 import { WelcomeCTA } from "./_components/WelcomeCTA";
 import { APP_VERSION } from '@/lib/version';
 
-// GUID: PAGE_DASHBOARD-001-v03
-// [Intent] Pre-season flag — controls visibility of the pre-season testing banner.
-//          Set to false when the F1 season officially starts.
-// [Inbound Trigger] Evaluated at render time.
-// [Downstream Impact] When true, shows amber "Pre-Season Testing" alert on dashboard.
-const IS_PRE_SEASON = true;
+// Pre-season banner moved to PreSeasonBanner.tsx — now shown on all pages via layout.tsx
 
 
 // GUID: PAGE_DASHBOARD-002-v03
@@ -48,14 +42,6 @@ export default function DashboardPage() {
         <div className="grid gap-6">
             <DashboardClient nextRace={nextRace} />
 
-            {IS_PRE_SEASON && (
-                <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
-                    <FlaskConical className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-amber-800 dark:text-amber-200">
-                        <strong>Pre-Season Testing</strong> — Predictions and scores with test results will be purged prior to the first race. Have fun experimenting!
-                    </AlertDescription>
-                </Alert>
-            )}
 
             <WelcomeCTA />
 

@@ -8,7 +8,7 @@
 
 'use client';
 
-import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect, useRef } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, collection, serverTimestamp, doc, setDoc, onSnapshot as onDocSnapshot, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, arrayUnion } from 'firebase/firestore';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
@@ -176,6 +176,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   // [Inbound Trigger] Set by login() (PIN) or onAuthStateChanged first snapshot (OAuth).
   // [Downstream Impact] Consumed by logout() to update the user_logons document status.
   const [currentLogonId, setCurrentLogonId] = useState<string | null>(null);
+  const logonIdRef = useRef<string | null>(null); // Synchronous mirror — prevents duplicate logon recording
   const [pendingLoginMethod, setPendingLoginMethod] = useState<'google' | 'apple' | null>(null);
 
   const router = useRouter();
@@ -275,7 +276,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                   //          set before the OAuth call, or falls back to provider detection.
                   // [Inbound Trigger] First snapshot after OAuth sign-in.
                   // [Downstream Impact] Creates user_logons doc; stores logonId for logout.
-                  if (isFirstSnapshot && !currentLogonId) {
+                  if (isFirstSnapshot && !currentLogonId && !logonIdRef.current) {
                     const providerIds = getProviderIds(fbUser);
                     let method: string = pendingLoginMethod || 'google';
                     if (!pendingLoginMethod) {
@@ -297,6 +298,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                         .then(res => res.json())
                         .then(data => {
                           if (data.success && data.logonId) {
+                            logonIdRef.current = data.logonId;
                             setCurrentLogonId(data.logonId);
                           }
                         })
@@ -417,8 +419,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             };
         }
 
-        // Store logonId from PIN login response for logout tracking
+        // Store logonId from PIN login response for logout tracking.
+        // Set ref synchronously so onAuthStateChanged (which fires before next render)
+        // sees it immediately and skips duplicate logon recording.
         if (result.logonId) {
+          logonIdRef.current = result.logonId;
           setCurrentLogonId(result.logonId);
         }
 
@@ -709,6 +714,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             .catch(() => { /* non-blocking: session will expire via scheduled function */ });
         }
     }
+    logonIdRef.current = null;
     setCurrentLogonId(null);
     setIsUserLoading(true);
     await signOut(auth);

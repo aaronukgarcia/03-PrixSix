@@ -17,6 +17,7 @@ import { LeagueProvider } from "@/contexts/league-context";
 import { logAuditEvent } from "@/lib/audit";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { ConversionBanner } from "@/components/ConversionBanner";
+import { PreSeasonBanner } from "@/components/PreSeasonBanner";
 import { SplashScreen, useSplashScreen } from "@/components/ui/SplashScreen";
 import { SmartLoaderProvider } from "@/components/ui/smart-loader";
 
@@ -246,6 +247,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </header>
             <SmartLoaderProvider>
               <main className="flex-1 p-4 md:p-6">
+                <PreSeasonBanner />
                 <EmailVerificationBanner />
                 <ConversionBanner />
                 {children}
