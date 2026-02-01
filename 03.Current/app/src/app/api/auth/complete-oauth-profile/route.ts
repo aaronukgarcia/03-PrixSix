@@ -134,8 +134,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_COMPLETE_OAUTH-007-v03
-    // [Intent] Check for duplicate team names (case-insensitive).
+    // GUID: API_AUTH_COMPLETE_OAUTH-007-v04
+    // [Intent] Check for duplicate team names (case-insensitive) across both primary and
+    //          secondary team names.
     // [Inbound Trigger] After existing doc check.
     // [Downstream Impact] Returns 409 if team name is taken.
     const allUsersSnapshot = await db.collection('users').get();
@@ -143,8 +144,10 @@ export async function POST(request: NextRequest) {
     let teamNameExists = false;
 
     allUsersSnapshot.forEach((doc: any) => {
-      const existingName = doc.data().teamName?.toLowerCase()?.trim();
-      if (existingName === normalizedNewName) {
+      const data = doc.data();
+      const existingPrimary = data.teamName?.toLowerCase()?.trim();
+      const existingSecondary = data.secondaryTeamName?.toLowerCase()?.trim();
+      if (existingPrimary === normalizedNewName || existingSecondary === normalizedNewName) {
         teamNameExists = true;
       }
     });

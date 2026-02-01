@@ -170,18 +170,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_SIGNUP-010-v03
-    // [Intent] Check for duplicate team names (case-insensitive) across all existing users to ensure team name uniqueness.
+    // GUID: API_AUTH_SIGNUP-010-v04
+    // [Intent] Check for duplicate team names (case-insensitive) across all existing users'
+    //          primary AND secondary team names to ensure team name uniqueness.
     // [Inbound Trigger] Runs after the email uniqueness check passes.
-    // [Downstream Impact] Returns 409 with VALIDATION_DUPLICATE_ENTRY if the team name is already taken. Loads all users documents to perform case-insensitive comparison.
-    // Check if team name already exists (case-insensitive)
+    // [Downstream Impact] Returns 409 with VALIDATION_DUPLICATE_ENTRY if the team name is already taken.
+    // Check if team name already exists (case-insensitive) — checks both teamName and secondaryTeamName
     const allUsersSnapshot = await db.collection('users').get();
     const normalizedNewName = normalizedTeamName.toLowerCase();
     let teamNameExists = false;
 
     allUsersSnapshot.forEach(doc => {
-      const existingName = doc.data().teamName?.toLowerCase()?.trim();
-      if (existingName === normalizedNewName) {
+      const data = doc.data();
+      const existingPrimary = data.teamName?.toLowerCase()?.trim();
+      const existingSecondary = data.secondaryTeamName?.toLowerCase()?.trim();
+      if (existingPrimary === normalizedNewName || existingSecondary === normalizedNewName) {
         teamNameExists = true;
       }
     });

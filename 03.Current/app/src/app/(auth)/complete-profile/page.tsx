@@ -28,6 +28,16 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
@@ -35,20 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getProviderIds } from "@/services/authService";
 import { ERRORS } from '@/lib/error-registry';
 import { generateClientCorrelationId } from '@/lib/error-codes';
-
-// GUID: PAGE_COMPLETE_PROFILE-001-v03
-// [Intent] Fun F1-themed team name suggestions (same pool as signup page).
-// [Inbound Trigger] suggestName() picks a random entry on mount and on button click.
-// [Downstream Impact] Populates the teamName form field with a fun default value.
-const funnyNames = [
-  "Shortcrust Piastri",
-  "Checo yourself",
-  "Smooth Operator",
-  "Thorpe Park Ferme",
-  "Vettel Attend",
-  "Toto Recall",
-  "Max Power",
-];
+import { doesTeamNameMatchEmail } from '@/lib/team-name-suggestions';
 
 // GUID: PAGE_COMPLETE_PROFILE-002-v03
 // [Intent] Zod schema for team name — minimum 3 characters.
@@ -70,6 +67,11 @@ export default function CompleteProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [showEmailMatchDialog, setShowEmailMatchDialog] = useState(false);
+  const [pendingValues, setPendingValues] = useState<z.infer<typeof formSchema> | null>(null);
+  const [dialogSuggestions, setDialogSuggestions] = useState<string[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -78,14 +80,30 @@ export default function CompleteProfilePage() {
     },
   });
 
-  // GUID: PAGE_COMPLETE_PROFILE-004-v03
-  // [Intent] Set a random team name suggestion on mount (client-only to avoid SSR mismatch).
+  // GUID: PAGE_COMPLETE_PROFILE-004-v04
+  // [Intent] Fetch dynamic team name suggestions from the API on mount, then set the first
+  //          suggestion in the form field. Falls back gracefully if the fetch fails.
   // [Inbound Trigger] Component mounts on client.
-  // [Downstream Impact] Populates teamName field if empty.
+  // [Downstream Impact] Populates suggestions state and sets initial teamName field value.
   useEffect(() => {
-    if (!form.getValues("teamName")) {
-      suggestName();
+    let cancelled = false;
+    async function fetchSuggestions() {
+      try {
+        const res = await fetch('/api/team-name-suggestions');
+        const data = await res.json();
+        if (!cancelled && data.suggestions?.length > 0) {
+          setSuggestions(data.suggestions);
+          if (!form.getValues("teamName")) {
+            form.setValue("teamName", data.suggestions[0]);
+            setSuggestionIndex(1);
+          }
+        }
+      } catch {
+        // Fail silently — user can still type their own name
+      }
     }
+    fetchSuggestions();
+    return () => { cancelled = true; };
   }, []);
 
   // GUID: PAGE_COMPLETE_PROFILE-005-v03
@@ -98,9 +116,33 @@ export default function CompleteProfilePage() {
     }
   }, [isUserLoading, firebaseUser, isNewOAuthUser, router]);
 
+  // GUID: PAGE_COMPLETE_PROFILE-005b-v01
+  // [Intent] Cycles through the fetched suggestions sequentially. Wraps around when the
+  //          end of the list is reached.
+  // [Inbound Trigger] Called when user clicks the Wand2 button.
+  // [Downstream Impact] Updates the teamName form field value and advances the index.
   function suggestName() {
-    const name = funnyNames[Math.floor(Math.random() * funnyNames.length)];
+    if (suggestions.length === 0) return;
+    const name = suggestions[suggestionIndex % suggestions.length];
     form.setValue("teamName", name);
+    setSuggestionIndex((prev) => (prev + 1) % suggestions.length);
+  }
+
+  // GUID: PAGE_COMPLETE_PROFILE-005c-v01
+  // [Intent] Intercepts form submission to check if team name resembles the user's email.
+  //          If it does, shows a dialog with fun alternatives. If not, proceeds normally.
+  // [Inbound Trigger] Form submission after validation passes.
+  // [Downstream Impact] Either shows the email-match dialog or calls onSubmit directly.
+  function handleFormSubmit(values: z.infer<typeof formSchema>) {
+    const email = firebaseUser?.email || '';
+    if (doesTeamNameMatchEmail(values.teamName, email)) {
+      setPendingValues(values);
+      const shuffled = [...suggestions].sort(() => Math.random() - 0.5);
+      setDialogSuggestions(shuffled.slice(0, 5));
+      setShowEmailMatchDialog(true);
+    } else {
+      onSubmit(values);
+    }
   }
 
   // GUID: PAGE_COMPLETE_PROFILE-006-v04
@@ -193,7 +235,7 @@ export default function CompleteProfilePage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="teamName"
@@ -243,6 +285,57 @@ export default function CompleteProfilePage() {
           </Form>
         </CardContent>
       </Card>
+
+      {/* GUID: PAGE_COMPLETE_PROFILE-007-v01
+          [Intent] AlertDialog shown when the chosen team name resembles the user's email.
+                   Offers 5 random fun suggestions as clickable buttons, plus options to
+                   go back and change or keep the current name.
+          [Inbound Trigger] handleFormSubmit detects email-like team name.
+          [Downstream Impact] User picks a suggestion (updates form) or keeps name (submits). */}
+      <AlertDialog open={showEmailMatchDialog} onOpenChange={setShowEmailMatchDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure about that name?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your team name looks like it might be based on your email. Most players go with a funny name! How about:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-2 py-2">
+            {dialogSuggestions.map((name) => (
+              <Button
+                key={name}
+                variant="outline"
+                className="justify-start text-left"
+                onClick={() => {
+                  form.setValue("teamName", name);
+                  setShowEmailMatchDialog(false);
+                  setPendingValues(null);
+                }}
+              >
+                <Wand2 className="h-4 w-4 mr-2 flex-shrink-0" />
+                {name}
+              </Button>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowEmailMatchDialog(false);
+              setPendingValues(null);
+            }}>
+              Let me change it
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowEmailMatchDialog(false);
+              if (pendingValues) {
+                onSubmit(pendingValues);
+                setPendingValues(null);
+              }
+            }}>
+              Keep my name
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

@@ -549,10 +549,8 @@ export default function ProfilePage() {
       await updateDoc(doc(firestore, "users", user.id), {
         secondaryTeamName: deleteField(),
       });
-      await logAuditEvent(firestore, {
-        userId: user.id,
-        action: "REMOVE_SECONDARY_TEAM",
-        details: `Removed secondary team`,
+      await logAuditEvent(firestore, user.id, 'REMOVE_SECONDARY_TEAM', {
+        details: 'Removed secondary team',
         sessionId,
       });
       toast({
