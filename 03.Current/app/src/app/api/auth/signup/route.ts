@@ -340,27 +340,14 @@ export async function POST(request: NextRequest) {
       console.warn('[Signup] Could not calculate late joiner handicap:', handicapError.message);
     }
 
-    // GUID: API_AUTH_SIGNUP-015-v03
-    // [Intent] Send a welcome email and a verification email to the new user via internal API endpoints. Both are fire-and-forget; failures are logged but do not block signup completion.
+    // GUID: API_AUTH_SIGNUP-015-v04
+    // [Intent] Send a verification email to the new user via internal API endpoint. Fire-and-forget;
+    //          failure is logged but does not block signup completion. The verification email serves
+    //          as both welcome and verification (branded template with CTA button).
     // [Inbound Trigger] Runs after all Firestore documents and handicap scoring are complete.
-    // [Downstream Impact] Calls /api/send-welcome-email and /api/send-verification-email. If these endpoints are down, the user will not receive emails but the account is still fully created.
-    // Send welcome email via API
-    try {
-      const baseUrl = request.headers.get('origin') || 'https://prix6.win';
-      await fetch(`${baseUrl}/api/send-welcome-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toEmail: normalizedEmail,
-          teamName: normalizedTeamName,
-          pin: '[user-created]',
-        }),
-      });
-    } catch (emailError: any) {
-      console.warn('[Signup] Failed to send welcome email:', emailError.message);
-    }
-
-    // Send verification email
+    // [Downstream Impact] Calls /api/send-verification-email. If the endpoint is down, the user
+    //                     will not receive the email but the account is still fully created.
+    // Send verification email (also serves as welcome email — no separate welcome needed)
     try {
       const baseUrl = request.headers.get('origin') || 'https://prix6.win';
       await fetch(`${baseUrl}/api/send-verification-email`, {

@@ -1,14 +1,15 @@
-// GUID: COMPONENT_CONVERSION_BANNER-000-v03
+// GUID: COMPONENT_CONVERSION_BANNER-000-v04
 // [Intent] Dismissable banner that prompts PIN-only users to link a Google or Apple account.
 //          Similar pattern to EmailVerificationBanner but with blue/purple theme.
 //          Shows only when the user's providerData contains only 'password'.
+//          Dismiss state persists in localStorage so it doesn't reappear on every page.
 // [Inbound Trigger] Rendered in the app layout after EmailVerificationBanner.
 // [Downstream Impact] Calls linkGoogle() and linkApple() from the Firebase provider.
-//                     Auto-hides on successful link. Dismissable for the current session.
+//                     Auto-hides on successful link. Dismissable persistently via localStorage.
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/firebase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,22 +17,34 @@ import { Shield, X, Loader2, CheckCircle2 } from "lucide-react";
 import { GoogleIcon, AppleIcon } from "@/components/icons/OAuthIcons";
 import { cn } from "@/lib/utils";
 
-// GUID: COMPONENT_CONVERSION_BANNER-001-v03
+const DISMISS_KEY = "prix-six-conversion-banner-dismissed";
+
+// GUID: COMPONENT_CONVERSION_BANNER-001-v04
 // [Intent] Main exported component. Renders only for PIN-only users (no OAuth provider linked).
 //          Provides Link Google and Link Apple buttons with loading and success states.
+//          Dismiss state persists in localStorage across page loads and sessions.
 // [Inbound Trigger] Parent layout renders this component for all authenticated users.
 // [Downstream Impact] On successful link, the provider sync in onAuthStateChanged updates
 //                     the user's providers list, causing this banner to auto-hide.
 export function ConversionBanner() {
   const { user, firebaseUser, linkGoogle, linkApple } = useAuth();
-  const [isDismissed, setIsDismissed] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(true); // default hidden to prevent flash
+  const [hasChecked, setHasChecked] = useState(false);
+
+  useEffect(() => {
+    const val = localStorage.getItem(DISMISS_KEY);
+    if (val !== "true") {
+      setIsDismissed(false);
+    }
+    setHasChecked(true);
+  }, []);
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [isLinkingApple, setIsLinkingApple] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [linkedSuccess, setLinkedSuccess] = useState(false);
 
-  // Don't show if dismissed, linked successfully, no user, or user already has an OAuth provider
-  if (isDismissed || linkedSuccess || !user || !firebaseUser) {
+  // Don't show if not yet checked localStorage, dismissed, linked successfully, no user, or user already has OAuth
+  if (!hasChecked || isDismissed || linkedSuccess || !user || !firebaseUser) {
     return null;
   }
 
@@ -132,7 +145,10 @@ export function ConversionBanner() {
         variant="ghost"
         size="icon"
         className="absolute top-2 right-2 h-6 w-6 text-blue-700/60 hover:text-blue-700 hover:bg-blue-500/20"
-        onClick={() => setIsDismissed(true)}
+        onClick={() => {
+          localStorage.setItem(DISMISS_KEY, "true");
+          setIsDismissed(true);
+        }}
       >
         <X className="h-3 w-3" />
         <span className="sr-only">Dismiss</span>

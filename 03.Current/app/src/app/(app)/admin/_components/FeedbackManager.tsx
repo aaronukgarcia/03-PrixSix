@@ -30,11 +30,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bug, Lightbulb, Trash2, RefreshCw, User, Mail, Clock } from 'lucide-react';
+import { Bug, Lightbulb, Trash2, RefreshCw, User, Mail, Clock, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { APP_VERSION } from '@/lib/version';
 
-// GUID: ADMIN_FEEDBACK-001-v03
+// GUID: ADMIN_FEEDBACK-001-v04
 // [Intent] Type definition for a feedback item document in the Firestore feedback collection.
 // [Inbound Trigger] Used to type feedback documents read via onSnapshot real-time listener.
 // [Downstream Impact] Changes to the feedback document schema must be reflected here.
@@ -47,6 +47,7 @@ interface FeedbackItem {
   teamName: string;
   createdAt: Timestamp;
   status: 'new' | 'reviewed' | 'resolved' | 'dismissed';
+  referenceId?: string;
 }
 
 // GUID: ADMIN_FEEDBACK-002-v03
@@ -211,7 +212,7 @@ export function FeedbackManager() {
     );
   }
 
-  // GUID: ADMIN_FEEDBACK-012-v03
+  // GUID: ADMIN_FEEDBACK-012-v04
   // [Intent] Renders the complete Feedback Manager UI: stats cards, type/status filter buttons, and an expandable accordion list of feedback items.
   // [Inbound Trigger] Component render cycle after feedback data has loaded.
   // [Downstream Impact] User interactions trigger status updates (updateStatus) and deletions (deleteFeedback) which write to Firestore.
@@ -292,6 +293,11 @@ export function FeedbackManager() {
                   >
                     <AccordionTrigger className="hover:no-underline px-4 py-3 hover:bg-muted/50">
                       <div className="flex items-center gap-3 flex-1 text-left">
+                        {item.referenceId && (
+                          <Badge variant="secondary" className="font-mono text-[10px] shrink-0">
+                            {item.referenceId}
+                          </Badge>
+                        )}
                         {item.type === 'bug' ? (
                           <Bug className="h-4 w-4 text-red-500 shrink-0" />
                         ) : (
@@ -317,6 +323,12 @@ export function FeedbackManager() {
 
                         {/* User info */}
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                          {item.referenceId && (
+                            <span className="flex items-center gap-1">
+                              <Hash className="h-3 w-3" />
+                              {item.referenceId}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
                             <User className="h-3 w-3" />
                             {item.teamName}

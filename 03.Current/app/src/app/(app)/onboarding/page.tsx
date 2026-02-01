@@ -1,7 +1,7 @@
-// GUID: PAGE_ONBOARDING-000
-// [Intent] Onboarding checklist page. Guides new users through four steps to get started:
-//          verify email, make a prediction, explore the paddock, and join a league.
-//          Steps 1-2 auto-detect from auth/Firestore state; steps 3-4 are manual.
+// GUID: PAGE_ONBOARDING-000-v04
+// [Intent] Onboarding checklist page. Guides new users through five steps to get started:
+//          verify email, learn the game, make a prediction, explore the paddock, and join a league.
+//          Steps 1 & 3 auto-detect from auth/Firestore state; steps 2, 4, 5 are manual.
 // [Inbound Trigger] User navigates to /onboarding (typically via WelcomeCTA on dashboard).
 // [Downstream Impact] Reads auth state and predictions subcollection. Writes progress to localStorage.
 
@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MailCheck,
+  BookOpen,
   Target,
   Compass,
   Users,
@@ -35,10 +36,11 @@ import { createTracedError, logTracedError } from "@/lib/traced-error";
 // [Downstream Impact] Stores JSON object with boolean flags for each checklist item.
 const PROGRESS_KEY = "prix-six-onboarding-progress";
 
-// GUID: PAGE_ONBOARDING-002
+// GUID: PAGE_ONBOARDING-002-v04
 // [Intent] Type definition for onboarding progress state.
 interface OnboardingProgress {
   emailVerified: boolean;
+  gameLearned: boolean;
   predictionMade: boolean;
   paddockExplored: boolean;
   gridJoined: boolean;
@@ -46,12 +48,13 @@ interface OnboardingProgress {
 
 const DEFAULT_PROGRESS: OnboardingProgress = {
   emailVerified: false,
+  gameLearned: false,
   predictionMade: false,
   paddockExplored: false,
   gridJoined: false,
 };
 
-// GUID: PAGE_ONBOARDING-003
+// GUID: PAGE_ONBOARDING-003-v04
 // [Intent] Checklist item configuration. Defines label, description, icon, links, and
 //          whether the step is auto-detected or requires manual completion.
 // [Inbound Trigger] Rendered by the checklist map.
@@ -75,6 +78,14 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
     autoDetect: true,
   },
   {
+    id: "gameLearned",
+    label: "Learn the Game",
+    description: "Visit the About page to understand how Prix Six works and how scoring is calculated.",
+    icon: BookOpen,
+    links: [{ href: "/about", label: "About Prix Six" }],
+    autoDetect: false,
+  },
+  {
     id: "predictionMade",
     label: "Make a Prediction",
     description: "Submit your first race prediction and start earning points on the grid.",
@@ -85,12 +96,12 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
   {
     id: "paddockExplored",
     label: "Explore the Paddock",
-    description: "Read the rules, check the standings, and learn how scoring works.",
+    description: "Check the standings, browse results, and view the full rules.",
     icon: Compass,
     links: [
-      { href: "/about", label: "About" },
       { href: "/rules", label: "Rules" },
       { href: "/standings", label: "Standings" },
+      { href: "/results", label: "Results" },
     ],
     autoDetect: false,
   },

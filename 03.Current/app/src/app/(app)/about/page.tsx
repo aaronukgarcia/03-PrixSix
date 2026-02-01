@@ -38,7 +38,8 @@ import {
   Book,
   ExternalLink,
   ChevronRight,
-  Film
+  Film,
+  ScrollText,
 } from "lucide-react";
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
@@ -393,6 +394,28 @@ const AboutPageClient = () => {
                             See the <a href="/rules" className="text-primary underline hover:no-underline">Rules page</a> for full details.
                         </p>
                     </div>
+                </CardContent>
+            </Card>
+
+            {/* GUID: PAGE_ABOUT-014-v03 */}
+            {/* [Intent] Prominent Rules Discovery card linking to the full rules page. */}
+            <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10">
+                <CardContent className="flex flex-col sm:flex-row items-center gap-4 p-6">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
+                        <ScrollText className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="flex-1 text-center sm:text-left">
+                        <h3 className="font-semibold text-lg">Full Rules & Scoring</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Want the complete breakdown? See exact point values, bonus conditions, tiebreakers, and everything else that decides who wins the championship.
+                        </p>
+                    </div>
+                    <Link href="/rules">
+                        <Button className="gap-2">
+                            View Rules
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </Link>
                 </CardContent>
             </Card>
 

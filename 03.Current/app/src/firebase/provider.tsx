@@ -10,7 +10,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect, useRef } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, collection, serverTimestamp, doc, setDoc, onSnapshot as onDocSnapshot, updateDoc, deleteDoc, writeBatch, query, where, getDocs, limit, arrayUnion } from 'firebase/firestore';
+import { Firestore, collection, serverTimestamp, doc, setDoc, onSnapshot as onDocSnapshot, updateDoc, deleteDoc, writeBatch, query, where, getDocs, getDoc, limit, arrayUnion } from 'firebase/firestore';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
 import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword, getRedirectResult, OAuthCredential, OAuthProvider } from 'firebase/auth';
 import {
@@ -121,7 +121,7 @@ export interface FirebaseContextState {
   resetPin: (email: string) => Promise<AuthResult>;
   changePin: (email: string, newPin: string) => Promise<AuthResult>;
   sendVerificationEmail: () => Promise<AuthResult>;
-  refreshEmailVerificationStatus: () => Promise<void>;
+  refreshEmailVerificationStatus: () => Promise<boolean>;
   updateSecondaryEmail: (email: string | null) => Promise<AuthResult>;
   sendSecondaryVerificationEmail: () => Promise<AuthResult>;
   signInWithGoogle: () => Promise<OAuthSignInResult>;
@@ -877,28 +877,45 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-018-v04
-  // [Intent] Reloads the Firebase Auth user to check if email has been verified externally (e.g.,
-  // user clicked the verification link in another tab). Syncs the verified status to Firestore.
-  // [Inbound Trigger] Called when user clicks "I've verified" on the EmailVerificationBanner.
-  // [Downstream Impact] Updates Firestore `emailVerified` field and local user state, which causes
-  // the EmailVerificationBanner to hide itself.
-  const refreshEmailVerificationStatus = async (): Promise<void> => {
-    if (!firebaseUser) return;
+  // GUID: FIREBASE_PROVIDER-018-v05
+  // [Intent] Checks if email has been verified by reloading Firebase Auth AND checking Firestore.
+  // The custom verification flow (/api/verify-email) updates Firestore directly and attempts Auth
+  // update (non-fatal), so we must check both sources. Returns true if verified, false if not.
+  // [Inbound Trigger] Called when user clicks "I've verified" on the EmailVerificationBanner,
+  //                   or automatically when the page regains visibility after verification.
+  // [Downstream Impact] Updates local user state if verified, causing the EmailVerificationBanner to hide.
+  const refreshEmailVerificationStatus = async (): Promise<boolean> => {
+    if (!firebaseUser) return false;
 
     try {
-      // Reload the Firebase user to get the latest emailVerified status
+      // Reload the Firebase Auth user to get the latest emailVerified status
       await firebaseUser.reload();
 
-      // Update Firestore if email is now verified
-      if (firebaseUser.emailVerified && user && !user.emailVerified) {
-        const userDocRef = doc(firestore, 'users', firebaseUser.uid);
-        await updateDoc(userDocRef, { emailVerified: true });
-        setUser(prev => prev ? { ...prev, emailVerified: true } : null);
-        logAuditEvent(firestore, firebaseUser.uid, 'email_verified', { email: firebaseUser.email });
+      if (firebaseUser.emailVerified) {
+        // Auth says verified — sync to local state if needed
+        if (user && !user.emailVerified) {
+          const userDocRef = doc(firestore, 'users', firebaseUser.uid);
+          await updateDoc(userDocRef, { emailVerified: true });
+          setUser(prev => prev ? { ...prev, emailVerified: true } : null);
+          logAuditEvent(firestore, firebaseUser.uid, 'email_verified', { email: firebaseUser.email });
+        }
+        return true;
       }
+
+      // Auth doesn't show verified — also check Firestore directly.
+      // The custom /api/verify-email route updates Firestore first (Auth update is non-fatal).
+      const userDocRef = doc(firestore, 'users', firebaseUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists() && userDocSnap.data()?.emailVerified === true) {
+        setUser(prev => prev ? { ...prev, emailVerified: true } : null);
+        logAuditEvent(firestore, firebaseUser.uid, 'email_verified_from_firestore', { email: firebaseUser.email });
+        return true;
+      }
+
+      return false;
     } catch (e: any) {
       console.error("Refresh email verification status error:", e);
+      return false;
     }
   };
 

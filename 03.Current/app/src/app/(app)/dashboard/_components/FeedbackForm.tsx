@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useFirestore, useAuth } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,15 +44,34 @@ export function FeedbackForm() {
     const correlationId = generateClientCorrelationId();
 
     try {
-      await addDoc(collection(firestore, 'feedback'), {
-        type,
-        text: text.trim(),
-        userId: user.id,
-        userEmail: user.email || 'unknown',
-        teamName: user.teamName || 'Unknown',
-        createdAt: serverTimestamp(),
-        status: 'new',
-        notifyOnFix,
+      const counterDocId = type === 'bug' ? 'feedback_bugs' : 'feedback_features';
+      const prefix = type === 'bug' ? 'BG' : 'FB';
+
+      await runTransaction(firestore, async (transaction) => {
+        const counterRef = doc(firestore, 'counters', counterDocId);
+        const counterSnap = await transaction.get(counterRef);
+
+        let nextId = 1;
+        if (counterSnap.exists()) {
+          nextId = (counterSnap.data().nextId || 0) + 1;
+        }
+
+        const referenceId = `${prefix}-${String(nextId).padStart(3, '0')}`;
+
+        const feedbackRef = doc(collection(firestore, 'feedback'));
+        transaction.set(feedbackRef, {
+          type,
+          text: text.trim(),
+          userId: user.id,
+          userEmail: user.email || 'unknown',
+          teamName: user.teamName || 'Unknown',
+          createdAt: serverTimestamp(),
+          status: 'new',
+          notifyOnFix,
+          referenceId,
+        });
+
+        transaction.set(counterRef, { nextId }, { merge: true });
       });
 
       const wantsNotification = notifyOnFix;

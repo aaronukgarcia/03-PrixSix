@@ -1,22 +1,24 @@
-// GUID: COMPONENT_EMAIL_BANNER-000-v03
+// GUID: COMPONENT_EMAIL_BANNER-000-v04
 // [Intent] Dismissable banner component that prompts unverified users to verify their email address.
 // Displays send-verification and refresh-status actions with inline feedback messages.
+// Auto-checks verification status when the page regains visibility (user returns from email).
 // [Inbound Trigger] Rendered on authenticated pages when the current user's email is not verified.
 // [Downstream Impact] Calls sendVerificationEmail() and refreshEmailVerificationStatus() from the
 // Firebase provider (FIREBASE_PROVIDER-017, FIREBASE_PROVIDER-018). Hides itself once verified or dismissed.
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/firebase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Mail, X, Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// GUID: COMPONENT_EMAIL_BANNER-001-v03
+// GUID: COMPONENT_EMAIL_BANNER-001-v04
 // [Intent] Main exported component that renders the email verification banner with send/refresh
 // actions. Manages local UI state for dismissal, sending progress, and feedback messages.
+// Auto-checks verification when page becomes visible (e.g., user returns from email link).
 // [Inbound Trigger] Rendered by parent layout/page components for authenticated users.
 // [Downstream Impact] Interacts with Firebase provider auth methods. When dismissed, stays hidden
 // for the current session only (state resets on page reload).
@@ -27,12 +29,29 @@ export function EmailVerificationBanner() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // GUID: COMPONENT_EMAIL_BANNER-004-v04
+  // [Intent] Auto-check verification status when the page becomes visible (user returns from
+  // clicking the email verification link in another tab/window). Uses the Page Visibility API.
+  // [Inbound Trigger] Browser fires visibilitychange event when user switches back to this tab.
+  // [Downstream Impact] Calls refreshEmailVerificationStatus which may update local state and
+  // cause this banner to unmount if email is now verified.
+  const handleVisibilityChange = useCallback(async () => {
+    if (document.visibilityState === 'visible' && !isEmailVerified && user) {
+      await refreshEmailVerificationStatus();
+    }
+  }, [isEmailVerified, user, refreshEmailVerificationStatus]);
+
+  useEffect(() => {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [handleVisibilityChange]);
+
   // Don't show if already verified, dismissed, or no user
   if (isEmailVerified || isDismissed || !user) {
     return null;
   }
 
-  // GUID: COMPONENT_EMAIL_BANNER-002-v03
+  // GUID: COMPONENT_EMAIL_BANNER-002-v04
   // [Intent] Triggers the verification email send flow with loading state and result feedback.
   // [Inbound Trigger] User clicks "Send verification email" button.
   // [Downstream Impact] Calls FIREBASE_PROVIDER-017 (sendVerificationEmail). Displays success
@@ -48,17 +67,24 @@ export function EmailVerificationBanner() {
     });
   };
 
-  // GUID: COMPONENT_EMAIL_BANNER-003-v03
-  // [Intent] Refreshes the email verification status by reloading the Firebase Auth user.
-  // If the user has verified their email externally, this will detect and sync it.
+  // GUID: COMPONENT_EMAIL_BANNER-003-v04
+  // [Intent] Refreshes the email verification status by checking both Firebase Auth and Firestore.
+  // Shows feedback if still not verified so the user knows the check ran.
   // [Inbound Trigger] User clicks "I've verified" button after clicking the verification link.
   // [Downstream Impact] Calls FIREBASE_PROVIDER-018 (refreshEmailVerificationStatus). If email
   // is now verified, updates Firestore and local state, causing this banner to unmount.
+  // If not yet verified, shows a helpful message.
   const handleRefresh = async () => {
     setIsRefreshing(true);
     setMessage(null);
-    await refreshEmailVerificationStatus();
+    const verified = await refreshEmailVerificationStatus();
     setIsRefreshing(false);
+    if (!verified) {
+      setMessage({
+        type: 'error',
+        text: 'Email not yet verified. Please click the link in the verification email first, then try again.'
+      });
+    }
   };
 
   return (
