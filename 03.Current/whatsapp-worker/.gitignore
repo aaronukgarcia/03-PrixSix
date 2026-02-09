@@ -11,3 +11,6 @@ whatsapp-worker/.wwebjs_auth
 whatsapp-worker/.wwebjs_cache
 .wwebjs_auth
 .wwebjs_cache
+
+# API Keys (SENSITIVE)
+.api-key.txt

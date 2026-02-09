@@ -7,6 +7,9 @@ import { QueueProcessor } from './queue-processor';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Add JSON body parser for webhook
+app.use(express.json());
+
 let whatsappClient: WhatsAppClient;
 let queueProcessor: QueueProcessor;
 
@@ -136,6 +139,50 @@ app.post('/trigger-test', async (req: Request, res: Response) => {
   }
 });
 
+// NEW: Process queue endpoint for Container Apps scale-to-zero
+// This endpoint is called when a message is queued, triggering scale-up
+app.post('/process-queue', async (req: Request, res: Response) => {
+  console.log('📬 Received request to process queue');
+
+  // Verify API key if configured
+  const apiKey = process.env.WORKER_API_KEY;
+  if (apiKey) {
+    const providedKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    if (providedKey !== apiKey) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+  }
+
+  const status = whatsappClient?.getStatus();
+
+  if (!status?.ready) {
+    // WhatsApp not ready yet - queue will be processed once ready
+    res.json({
+      message: 'WhatsApp initializing, queue will be processed when ready',
+      status: 'pending',
+    });
+    return;
+  }
+
+  try {
+    // Process all pending messages
+    await queueProcessor.processAllPending();
+    res.json({
+      message: 'Queue processing triggered',
+      status: 'success',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Error processing queue:', error);
+    res.status(500).json({
+      error: error.message,
+      status: 'error',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 async function main() {
   console.log('🏎️ Prix Six WhatsApp Worker Starting...');
   console.log('='.repeat(50));
@@ -173,7 +220,7 @@ async function main() {
   console.log('⏳ Waiting for WhatsApp to be ready...');
   await waitForReady();
 
-  // Start queue processor
+  // Start queue listener
   queueProcessor.startListening();
 
   console.log('='.repeat(50));
