@@ -2,9 +2,10 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // Profile photos - users can only write to their own folder
+    // SECURITY FIX (GEMINI-007): Restrict read access to authenticated users only
     match /profile-photos/{userId}/{fileName} {
-      // Anyone can read profile photos (they're public)
-      allow read: if true;
+      // Only authenticated users can read profile photos (prevents public enumeration)
+      allow read: if request.auth != null;
 
       // Only authenticated users can write to their own folder
       // File must be an image and less than 5MB
