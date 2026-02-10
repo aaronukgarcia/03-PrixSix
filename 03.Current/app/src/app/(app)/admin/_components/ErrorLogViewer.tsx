@@ -1,4 +1,5 @@
-// GUID: ADMIN_ERRORLOG-000-v03
+// GUID: ADMIN_ERRORLOG-000-v04
+// @SECURITY_FIX: Added stack trace sanitization to prevent information disclosure (ADMINCOMP-011).
 // [Intent] Admin component for viewing, searching, filtering, and resolving system error logs.
 // [Inbound Trigger] Rendered on the admin Error Logs tab.
 // [Downstream Impact] Displays error_logs Firestore collection; allows admins to mark errors resolved. Changes to error log schema or error-codes.ts categories affect display.
@@ -30,6 +31,38 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
+
+// GUID: ADMIN_ERRORLOG-001a-v01
+// [Intent] Sanitize stack traces to remove absolute paths and sensitive information before display.
+// [Inbound Trigger] Called when rendering error log details containing stack traces.
+// [Downstream Impact] Prevents information disclosure of server directory structure and file paths.
+/**
+ * Sanitizes a stack trace by removing absolute paths and sensitive information
+ * @param stack - Raw stack trace string
+ * @returns Sanitized stack trace with relative paths only
+ */
+function sanitizeStackTrace(stack: string | undefined): string {
+  if (!stack) return '';
+
+  return stack
+    // Remove Windows absolute paths (e.g., E:\GoogleDrive\...\app\src\...)
+    .replace(/[A-Z]:\\[^\s\n)]+\\app\\/gi, 'app/')
+    // Remove Unix absolute paths (e.g., /home/user/.../app/src/...)
+    .replace(/\/[^\s\n)]+\/app\//gi, 'app/')
+    // Remove node_modules absolute paths
+    .replace(/[A-Z]:\\[^\s\n)]+\\node_modules\\/gi, 'node_modules/')
+    .replace(/\/[^\s\n)]+\/node_modules\//gi, 'node_modules/')
+    // Remove user home directory references
+    .replace(/[A-Z]:\\Users\\[^\\]+\\/gi, '~/')
+    .replace(/\/home\/[^/]+\//gi, '~/')
+    // Remove .next build directory absolute paths
+    .replace(/[A-Z]:\\[^\s\n)]+\\.next\\/gi, '.next/')
+    .replace(/\/[^\s\n)]+\/.next\//gi, '.next/')
+    // Limit stack trace to first 20 lines (prevent log spam)
+    .split('\n')
+    .slice(0, 20)
+    .join('\n');
+}
 
 // GUID: ADMIN_ERRORLOG-001-v03
 // [Intent] Type definition for an error log document from the error_logs Firestore collection.
@@ -545,7 +578,7 @@ function ErrorLogItem({ log, accordion, firestore, onResolved }: {
         <div>
           <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-1">Stack Trace</h4>
           <pre className="p-2 bg-background rounded-md text-xs overflow-auto max-h-32">
-            <code>{log.stack}</code>
+            <code>{sanitizeStackTrace(log.stack)}</code>
           </pre>
         </div>
       )}
