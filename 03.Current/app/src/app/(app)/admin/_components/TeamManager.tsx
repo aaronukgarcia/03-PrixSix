@@ -1,5 +1,6 @@
 
-// GUID: ADMIN_TEAM-000-v03
+// GUID: ADMIN_TEAM-000-v04
+// @SECURITY_FIX: Added input validation for team name changes (ADMINCOMP-022).
 // [Intent] Admin component for managing user teams: view, edit, delete, toggle admin status, and unlock locked accounts.
 // [Inbound Trigger] Rendered within the admin panel when the "Teams" tab is selected.
 // [Downstream Impact] Modifies user records in Firestore via useAuth() hooks. Changes to team name, email, admin status, and account lock state propagate to all user-facing components.
@@ -80,15 +81,43 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
         setIsEditDialogOpen(true);
     };
 
-    // GUID: ADMIN_TEAM-005-v03
+    // GUID: ADMIN_TEAM-005-v04
+    // @SECURITY_FIX: Added input validation for team names (ADMINCOMP-022).
+    //   Validates length (2-50 chars), trims whitespace, blocks dangerous characters.
     // [Intent] Persists edited user fields (teamName, email, isAdmin) to Firestore and closes the dialog.
     // [Inbound Trigger] Clicking the "Save changes" button in the edit dialog.
     // [Downstream Impact] Updates the user document in Firestore; all components consuming user data will reflect changes on next read.
     const handleSaveChanges = async () => {
         if (!selectedUser) return;
+
+        // SECURITY: Validate team name input (ADMINCOMP-022 fix)
+        const trimmedTeamName = editedTeamName.trim();
+
+        if (!trimmedTeamName) {
+            toast({ variant: "destructive", title: "Validation Error", description: "Team name cannot be empty" });
+            return;
+        }
+
+        if (trimmedTeamName.length < 2) {
+            toast({ variant: "destructive", title: "Validation Error", description: "Team name must be at least 2 characters" });
+            return;
+        }
+
+        if (trimmedTeamName.length > 50) {
+            toast({ variant: "destructive", title: "Validation Error", description: "Team name must be 50 characters or less" });
+            return;
+        }
+
+        // Check for dangerous characters that could cause issues
+        const dangerousChars = /[<>{}[\]\\]/;
+        if (dangerousChars.test(trimmedTeamName)) {
+            toast({ variant: "destructive", title: "Validation Error", description: "Team name contains invalid characters (<>{}[]\\)" });
+            return;
+        }
+
         setIsSaving(true);
         const result = await updateUser(selectedUser.id, {
-            teamName: editedTeamName,
+            teamName: trimmedTeamName,
             email: editedEmail,
             isAdmin: editedIsAdmin,
         });
