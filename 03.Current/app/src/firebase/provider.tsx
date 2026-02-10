@@ -181,11 +181,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   const router = useRouter();
 
-  // GUID: FIREBASE_PROVIDER-008-v04
-  // @SECURITY_RISK @AUDIT_NOTE: Auth state race condition -- between onAuthStateChanged firing and
-  //   the Firestore snapshot resolving, there is a window where `firebaseUser` is set but `user` is null.
-  //   Components must check `isUserLoading` before relying on `user` state. The 10s timeout mitigates
-  //   indefinite loading but does not eliminate the race. A proper fix requires server-side session tokens.
+  // GUID: FIREBASE_PROVIDER-008-v05
+  // @SECURITY_RISK @AUDIT_NOTE (PARTIALLY FIXED - AUTH-003): Auth state race condition -- between
+  //   onAuthStateChanged firing and the Firestore snapshot resolving, there is a window where
+  //   `firebaseUser` is set but `user` is null. Components must check `isUserLoading` before
+  //   relying on `user` state. The 10s timeout now sets userError on expiry to prevent inconsistent
+  //   state (isUserLoading=false with user=null). Full fix requires server-side session tokens.
   // [Intent] Sets up a two-layer real-time listener: (1) Firebase Auth state changes trigger
   // (2) a Firestore onSnapshot listener on the user's profile document. On first snapshot,
   // syncs emailVerified from Auth to Firestore if needed and redirects users who must change PIN.
@@ -212,8 +213,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           const userDocRef = doc(firestore, 'users', fbUser.uid);
 
           // Safety net: guarantee isUserLoading clears even if Firestore hangs
+          // SECURITY FIX (AUTH-003): Set userError on timeout to prevent inconsistent state
+          // where isUserLoading=false but user=null (race condition that causes component crashes)
           const loadingTimeout = setTimeout(() => {
-            console.warn("FirebaseProvider: user document fetch timed out (10 s)");
+            console.error("FirebaseProvider: user document fetch timed out (10 s)");
+            setUser(null);
+            setUserError(new Error('User profile fetch timed out. Please refresh the page.'));
             setIsUserLoading(false);
           }, 10_000);
 
