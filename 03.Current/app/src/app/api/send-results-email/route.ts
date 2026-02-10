@@ -1,10 +1,11 @@
-// GUID: API_SEND_RESULTS_EMAIL-000-v04
+// GUID: API_SEND_RESULTS_EMAIL-000-v05
+// @SECURITY_FIX: Added HTML escaping for all user-controlled data to prevent XSS (EMAIL-005).
 // [Intent] API route that sends race results emails to all users who have opted in (or not opted out) of results notifications. Each email is personalised with the user's prediction, score, and current standings.
 // [Inbound Trigger] POST request from the admin scoring/results flow after a race has been scored.
 // [Downstream Impact] Sends emails via sendEmail (email lib); records sent emails via recordSentEmail (email-tracking lib). Frontend relies on results array and success count.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, escapeHtml } from '@/lib/email';
 import { getTodayDateString } from '@/lib/email-tracking';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
@@ -215,7 +216,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GUID: API_SEND_RESULTS_EMAIL-004-v03
+// GUID: API_SEND_RESULTS_EMAIL-004-v04
+// @SECURITY_FIX: Added HTML escaping to prevent XSS injection (EMAIL-005).
+//   All user-controlled data (team names, driver names, race names, predictions) now escaped.
 // [Intent] Builds the full HTML email body for race results, including the user's score hero section, official result table, user prediction, race scores table (sorted by points, user highlighted), and season standings table (user highlighted).
 // [Inbound Trigger] Called once per user inside the POST handler's user loop.
 // [Downstream Impact] The generated HTML is passed to sendEmail. Changes to the template affect all results notification emails. Links point to prix6.win/profile.
@@ -231,17 +234,18 @@ function buildResultsEmailHtml(data: {
 }): string {
   const { teamName, raceName, officialResult, userPrediction, userPoints, allScores, standings, userRank } = data;
 
+  // SECURITY: Escape all user-controlled content to prevent XSS (EMAIL-005 fix)
   const officialResultHtml = officialResult
-    .map((driver, i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">P${i + 1}</td><td style="padding:4px 8px;border:1px solid #ddd;">${driver}</td></tr>`)
+    .map((driver, i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">P${i + 1}</td><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(driver)}</td></tr>`)
     .join('');
 
   const scoresHtml = allScores
     .sort((a, b) => b.points - a.points)
-    .map(s => `<tr style="${s.teamName === teamName ? 'background:#e6f3ff;font-weight:bold;' : ''}"><td style="padding:4px 8px;border:1px solid #ddd;">${s.teamName}</td><td style="padding:4px 8px;border:1px solid #ddd;">${s.points}</td></tr>`)
+    .map(s => `<tr style="${escapeHtml(s.teamName) === escapeHtml(teamName) ? 'background:#e6f3ff;font-weight:bold;' : ''}"><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(s.teamName)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${s.points}</td></tr>`)
     .join('');
 
   const standingsHtml = standings
-    .map(s => `<tr style="${s.teamName === teamName ? 'background:#e6f3ff;font-weight:bold;' : ''}"><td style="padding:4px 8px;border:1px solid #ddd;">${s.rank}</td><td style="padding:4px 8px;border:1px solid #ddd;">${s.teamName}</td><td style="padding:4px 8px;border:1px solid #ddd;">${s.totalPoints}</td></tr>`)
+    .map(s => `<tr style="${escapeHtml(s.teamName) === escapeHtml(teamName) ? 'background:#e6f3ff;font-weight:bold;' : ''}"><td style="padding:4px 8px;border:1px solid #ddd;">${s.rank}</td><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(s.teamName)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${s.totalPoints}</td></tr>`)
     .join('');
 
   return `
@@ -254,11 +258,11 @@ function buildResultsEmailHtml(data: {
 <body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
   <div style="background:#1a1a2e;color:white;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
     <h1 style="margin:0;font-size:24px;">Prix Six</h1>
-    <p style="margin:5px 0 0;opacity:0.9;">${raceName} Results</p>
+    <p style="margin:5px 0 0;opacity:0.9;">${escapeHtml(raceName)} Results</p>
   </div>
 
   <div style="background:#f8f9fa;padding:20px;border:1px solid #ddd;border-top:none;">
-    <h2 style="color:#1a1a2e;margin-top:0;">Hey ${teamName}!</h2>
+    <h2 style="color:#1a1a2e;margin-top:0;">Hey ${escapeHtml(teamName)}!</h2>
 
     <div style="background:white;padding:15px;border-radius:8px;margin-bottom:20px;text-align:center;">
       <p style="margin:0;font-size:14px;color:#666;">Your Score</p>
@@ -280,7 +284,7 @@ function buildResultsEmailHtml(data: {
     </table>
 
     <h3 style="color:#1a1a2e;border-bottom:2px solid #e63946;padding-bottom:5px;">Your Prediction</h3>
-    <p style="font-family:monospace;background:#fff;padding:10px;border-radius:4px;border:1px solid #ddd;">${userPrediction}</p>
+    <p style="font-family:monospace;background:#fff;padding:10px;border-radius:4px;border:1px solid #ddd;">${escapeHtml(userPrediction)}</p>
 
     <h3 style="color:#1a1a2e;border-bottom:2px solid #e63946;padding-bottom:5px;">Race Scores</h3>
     <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
