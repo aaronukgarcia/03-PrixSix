@@ -78,7 +78,7 @@ export async function calculateRaceScores(
   firestore: any,
   raceResult: RaceResult
 ): Promise<{ userId: string; totalPoints: number; breakdown: string }[]> {
-  const correlationId = `score_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+  const correlationId = `score_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   const actualResults = [
     raceResult.driver1,
@@ -228,7 +228,7 @@ export async function updateRaceScores(
   raceId: string,
   raceResult: RaceResult
 ): Promise<UpdateScoresResult> {
-  const correlationId = `score_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+  const correlationId = `score_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   // Calculate scores using Prix Six rules
   const calculatedScores = await calculateRaceScores(firestore, raceResult);
@@ -314,7 +314,7 @@ export async function updateRaceScores(
  * Delete all scores for a race
  */
 export async function deleteRaceScores(firestore: any, raceId: string): Promise<number> {
-  const correlationId = `score_del_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+  const correlationId = `score_del_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   // Normalize the raceId to match how scores are stored
   const normalizedRaceId = normalizeRaceId(raceId);

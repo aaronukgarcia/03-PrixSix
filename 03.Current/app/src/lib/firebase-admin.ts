@@ -109,11 +109,13 @@ export async function verifyAuthToken(authHeader: string | null): Promise<{
 // [Inbound Trigger] Called at the start of API route error handling to create a traceable reference for each error instance.
 // [Downstream Impact] The generated ID is stored in error_logs and displayed to users (Golden Rule #1). Format changes affect error log querying and user-reported error references.
 /**
- * Generate a correlation ID for error tracking
+ * Generate a correlation ID for error tracking using crypto.randomUUID()
+ * for cryptographically secure randomness (LIB-002 fix)
  */
 export function generateCorrelationId(): string {
+  const crypto = require('crypto');
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
+  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
   return `err_${timestamp}_${random}`;
 }
 

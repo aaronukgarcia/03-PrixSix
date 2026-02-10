@@ -15,9 +15,11 @@ import type { ErrorDefinition, TracedError } from '@/types/errors';
 //                   catch blocks that need a correlation ID before creating the traced error.
 // [Downstream Impact] The correlation ID links user-reported errors to server-side error_logs entries.
 //                     Changing the format requires updating any log queries that parse correlation IDs.
+// [Security] Uses crypto.randomUUID() instead of Math.random() for secure randomness (LIB-002 fix).
 export function generateCorrelationId(prefix: string): string {
+  const crypto = require('crypto');
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
+  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
   return `${prefix}_${timestamp}_${random}`;
 }
 

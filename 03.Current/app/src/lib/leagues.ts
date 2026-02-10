@@ -22,20 +22,33 @@ import type { League, CreateLeagueData } from './types/league';
 import { GLOBAL_LEAGUE_ID, SYSTEM_OWNER_ID, INVITE_CODE_LENGTH, MAX_LEAGUES_PER_USER } from './types/league';
 import { getCorrelationId } from './audit';
 
-// GUID: LIB_LEAGUES-001-v03
-// [Intent] Generate a cryptographically random invite code of INVITE_CODE_LENGTH characters using an alphabet that excludes visually ambiguous characters (I, O, 0, 1) to reduce user input errors.
+// GUID: LIB_LEAGUES-001-v04
+// [Intent] Generate a cryptographically random invite code of INVITE_CODE_LENGTH characters using an alphabet that excludes visually ambiguous characters (I, O, 0, 1) to reduce user input errors. Uses rejection sampling to eliminate modulo bias (LIB-001 fix).
 // [Inbound Trigger] Called by createLeague and regenerateInviteCode when a new or refreshed invite code is needed.
-// [Downstream Impact] The generated code is stored in the league document's inviteCode field. Users enter this code to join leagues via joinLeagueByCode. Must be unique enough to avoid collisions (6 chars from 30-char alphabet = ~729M combinations).
+// [Downstream Impact] The generated code is stored in the league document's inviteCode field. Users enter this code to join leagues via joinLeagueByCode. Must be unique enough to avoid collisions (6 chars from 32-char alphabet = ~1B combinations).
+// [Security] Rejection sampling prevents modulo bias that would make some codes more predictable.
 /**
- * Generate a random 6-character alphanumeric invite code
+ * Generate a random 6-character alphanumeric invite code using rejection sampling
+ * to eliminate modulo bias
  */
 export function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluding similar-looking chars (I, O, 0, 1)
-  const array = new Uint32Array(INVITE_CODE_LENGTH);
-  crypto.getRandomValues(array);
+  const charsLength = chars.length; // 32 characters
+
+  // SECURITY: Rejection sampling to prevent modulo bias (LIB-001 fix)
+  // Calculate the largest value that's a multiple of charsLength
+  const maxValid = Math.floor(0xFFFFFFFF / charsLength) * charsLength;
+
   let code = '';
   for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
-    code += chars.charAt(array[i] % chars.length);
+    let randomValue;
+    do {
+      const array = new Uint32Array(1);
+      crypto.getRandomValues(array);
+      randomValue = array[0];
+    } while (randomValue >= maxValid); // Reject values that would cause bias
+
+    code += chars.charAt(randomValue % charsLength);
   }
   return code;
 }

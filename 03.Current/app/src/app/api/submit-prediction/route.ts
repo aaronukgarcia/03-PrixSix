@@ -57,6 +57,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // SECURITY: Verify team ownership (API-013 fix) - prevent submitting for another user's team
+    // User can only submit predictions for their own primary team or secondary teams
+    const { db: authDb } = await getFirebaseAdmin();
+    const userDoc = await authDb.collection('users').doc(userId).get();
+
+    if (!userDoc.exists) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const userData = userDoc.data();
+    const userTeams = [userData?.teamName]; // Primary team
+
+    // Add secondary teams if they exist
+    if (userData?.secondaryTeams && Array.isArray(userData.secondaryTeams)) {
+      userTeams.push(...userData.secondaryTeams);
+    }
+
+    // Verify the teamId belongs to this user
+    if (!userTeams.includes(teamId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Forbidden: Cannot submit predictions for a team you do not own',
+          correlationId
+        },
+        { status: 403 }
+      );
+    }
+
     // GUID: API_SUBMIT_PREDICTION-004-v03
     // [Intent] Validates that all required fields are present and that the predictions array contains exactly 6 driver IDs.
     // [Inbound Trigger] After auth verification passes.
