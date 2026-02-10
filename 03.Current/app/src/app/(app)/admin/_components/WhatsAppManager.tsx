@@ -1,4 +1,5 @@
-// GUID: ADMIN_WHATSAPP-000-v03
+// GUID: ADMIN_WHATSAPP-000-v04
+// @SECURITY_FIX: Added HTML escaping for message content display (ADMINCOMP-015).
 // [Intent] Admin component for managing WhatsApp integration: worker status monitoring, alert configuration, custom message sending, message queue viewing, and alert history.
 // [Inbound Trigger] Rendered when admin navigates to the WhatsApp management tab in the admin panel.
 // [Downstream Impact] Writes to whatsapp_queue (processed by WhatsApp worker), whatsapp_alert_history, and settings/whatsapp_alerts collections. Changes here affect automated alert delivery to WhatsApp groups.
@@ -116,6 +117,24 @@ import { logAuditEvent } from "@/lib/audit";
 // [Downstream Impact] Changing WHATSAPP_PROXY_URL affects all API calls to the WhatsApp worker. MAX_MESSAGE_LENGTH controls UI validation for custom messages.
 const WHATSAPP_PROXY_URL = "/api/whatsapp-proxy";
 const MAX_MESSAGE_LENGTH = 500;
+
+// GUID: ADMIN_WHATSAPP-002a-v01
+// [Intent] Sanitize message content by escaping HTML entities to prevent XSS in message preview displays.
+// [Inbound Trigger] Called when rendering WhatsApp message content in alert history table.
+// [Downstream Impact] Prevents XSS attacks via malicious message content in admin UI.
+/**
+ * Escape HTML entities in a string to prevent XSS
+ * @param unsafe - Raw string that may contain HTML
+ * @returns Escaped string safe for display
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 // GUID: ADMIN_WHATSAPP-003-v03
 // [Intent] TypeScript interface for the WhatsApp worker status response, including connection state, groups, and keep-alive health.
@@ -1396,10 +1415,10 @@ export function WhatsAppManager() {
                     <TableCell className="font-medium">
                       {entry.targetGroup || '-'}
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={entry.message}>
-                      {entry.message.length > 40
+                    <TableCell className="max-w-[200px] truncate" title={escapeHtml(entry.message)}>
+                      {escapeHtml(entry.message.length > 40
                         ? entry.message.substring(0, 40) + '...'
-                        : entry.message}
+                        : entry.message)}
                     </TableCell>
                     <TableCell>
                       {entry.testMode ? (
