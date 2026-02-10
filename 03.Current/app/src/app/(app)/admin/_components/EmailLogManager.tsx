@@ -563,7 +563,7 @@ export function EmailLogManager() {
                                                 <span className="font-semibold">To:</span> {log.to}
                                             </div>
                                             <div className="truncate">
-                                                <span className="font-semibold">PIN:</span> <span className="font-mono">{log.pin}</span>
+                                                <span className="font-semibold">PIN:</span> <span className="font-mono">••••••</span>
                                             </div>
                                             <div>
                                                 <Badge variant={getStatusVariant(log.status)}>{log.status.replace('_', ' ')}</Badge>
