@@ -1,13 +1,14 @@
-// GUID: ADMIN_ATTACK_MONITOR-000-v03
+// GUID: ADMIN_ATTACK_MONITOR-000-v04
+// @SECURITY_FIX: Replaced direct Firestore writes with API endpoint for attack acknowledgement (ADMINCOMP-013).
 // [Intent] Admin security component that displays unacknowledged attack alerts (bot attacks, credential stuffing, distributed attacks) with severity-coded UI and acknowledgement controls.
 // [Inbound Trigger] Rendered on the admin dashboard; only visible when there are unacknowledged attack_alerts in Firestore.
-// [Downstream Impact] Reads from and writes to the attack_alerts Firestore collection. Acknowledging alerts updates documents in place.
+// [Downstream Impact] Reads from attack_alerts Firestore collection. Calls /api/admin/acknowledge-attack endpoint when acknowledging alerts.
 
 'use client';
 
 import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useAuth } from '@/firebase';
-import { collection, query, where, orderBy, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -97,20 +98,29 @@ export function AttackMonitor() {
     console.error('[AttackMonitor] Firestore error:', error);
   }
 
-  // GUID: ADMIN_ATTACK_MONITOR-006-v03
-  // [Intent] Acknowledges a single attack alert by updating its Firestore document with acknowledged=true, the admin's user ID, and a timestamp.
+  // GUID: ADMIN_ATTACK_MONITOR-006-v04
+  // @SECURITY_FIX: Replaced direct Firestore write with API endpoint call (ADMINCOMP-013).
+  // [Intent] Acknowledges a single attack alert by calling the server-side API endpoint with proper authentication.
   // [Inbound Trigger] Called when the admin clicks "Acknowledge" on an individual alert card.
-  // [Downstream Impact] Updates the attack_alerts document; the real-time listener removes it from the unacknowledged list.
+  // [Downstream Impact] Calls /api/admin/acknowledge-attack endpoint; real-time listener removes it from the unacknowledged list.
   const handleAcknowledge = async (alertId: string) => {
-    if (!firestore || !user) return;
+    if (!user) return;
     setAcknowledging(alertId);
     try {
-      const alertRef = doc(firestore, 'attack_alerts', alertId);
-      await updateDoc(alertRef, {
-        acknowledged: true,
-        acknowledgedBy: user.id,
-        acknowledgedAt: Timestamp.now(),
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/acknowledge-attack', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ alertId }),
       });
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to acknowledge alert');
+      }
     } catch (err) {
       console.error('Failed to acknowledge alert:', err);
     } finally {
@@ -118,24 +128,29 @@ export function AttackMonitor() {
     }
   };
 
-  // GUID: ADMIN_ATTACK_MONITOR-007-v03
-  // [Intent] Acknowledges all currently visible attack alerts in parallel using Promise.all.
+  // GUID: ADMIN_ATTACK_MONITOR-007-v04
+  // @SECURITY_FIX: Replaced direct Firestore writes with API endpoint call (ADMINCOMP-013).
+  // [Intent] Acknowledges all currently visible attack alerts by calling the server-side API endpoint with an array of IDs.
   // [Inbound Trigger] Called when the admin clicks "Acknowledge All" on the summary bar.
-  // [Downstream Impact] Updates all unacknowledged attack_alerts documents; the component will render nothing once all are acknowledged.
+  // [Downstream Impact] Calls /api/admin/acknowledge-attack endpoint with alertIds array; component will render nothing once all are acknowledged.
   const handleAcknowledgeAll = async () => {
-    if (!firestore || !user || !alerts?.length) return;
+    if (!user || !alerts?.length) return;
     setAcknowledging('all');
     try {
-      await Promise.all(
-        alerts.map(alert => {
-          const alertRef = doc(firestore, 'attack_alerts', alert.id);
-          return updateDoc(alertRef, {
-            acknowledged: true,
-            acknowledgedBy: user.id,
-            acknowledgedAt: Timestamp.now(),
-          });
-        })
-      );
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/acknowledge-attack', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ alertIds: alerts.map(a => a.id) }),
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to acknowledge alerts');
+      }
     } catch (err) {
       console.error('Failed to acknowledge all alerts:', err);
     } finally {
