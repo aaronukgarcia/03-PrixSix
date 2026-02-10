@@ -11,8 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Copy, Users, ChevronDown, ChevronUp } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Users, ChevronDown, ChevronUp } from "lucide-react";
 import type { User } from "@/firebase/provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCollection, useFirestore } from "@/firebase";
@@ -34,7 +33,6 @@ interface LeaguesManagerProps {
 // [Inbound Trigger] Rendered by the admin page when the Leagues tab is active.
 // [Downstream Impact] Reads the leagues Firestore collection via useCollection. No write operations apart from clipboard copy.
 export function LeaguesManager({ allUsers, isUserLoading }: LeaguesManagerProps) {
-    const { toast } = useToast();
     const firestore = useFirestore();
     const [expandedLeagueId, setExpandedLeagueId] = useState<string | null>(null);
 
@@ -70,13 +68,10 @@ export function LeaguesManager({ allUsers, isUserLoading }: LeaguesManagerProps)
     };
 
     // GUID: ADMIN_LEAGUES-006-v03
-    // [Intent] Copies a league's invite code to the system clipboard and shows a confirmation toast.
-    // [Inbound Trigger] Clicking the copy icon button next to an invite code in the table.
-    // [Downstream Impact] Writes to the system clipboard only. No Firestore mutation.
-    const handleCopyInviteCode = async (code: string) => {
-        await navigator.clipboard.writeText(code);
-        toast({ title: "Copied", description: `Invite code "${code}" copied to clipboard.` });
-    };
+    // [Intent] REMOVED - Invite codes are now masked for security (ADMIN-005 fix).
+    // Previous functionality: Copied league invite codes to clipboard.
+    // [Security] Displaying and copying private league invite codes in admin panel enabled
+    // unauthorized access. Codes are now masked with ••••••••.
 
     // GUID: ADMIN_LEAGUES-007-v03
     // [Intent] Toggles the expanded/collapsed state for a league row to show or hide member details.
@@ -138,20 +133,7 @@ export function LeaguesManager({ allUsers, isUserLoading }: LeaguesManagerProps)
                                     </TableCell>
                                     <TableCell>
                                         {!league.isGlobal && league.inviteCode ? (
-                                            <div className="flex items-center gap-2">
-                                                <code className="text-sm bg-muted px-2 py-0.5 rounded">{league.inviteCode}</code>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleCopyInviteCode(league.inviteCode!);
-                                                    }}
-                                                >
-                                                    <Copy className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
+                                            <code className="text-sm bg-muted px-2 py-0.5 rounded text-muted-foreground">••••••••</code>
                                         ) : (
                                             <span className="text-muted-foreground text-sm">&mdash;</span>
                                         )}
