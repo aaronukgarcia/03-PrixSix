@@ -19,10 +19,12 @@ const WHATSAPP_WORKER_INTERNAL_URL = 'http://prixsix-whatsapp.uksouth.azureconta
 // GUID: API_WHATSAPP_PROXY-002-v03
 // [Intent] Generate HMAC SHA-256 signature for outgoing worker requests so the worker can verify requests originate from this trusted proxy.
 // [Inbound Trigger] Called by GET and POST handlers before forwarding each request.
-// [Downstream Impact] If WHATSAPP_APP_SECRET is not set, returns null (signature header is omitted). Worker should validate signature when present.
-function signRequest(payload: string): string | null {
+// [Downstream Impact] SECURITY FIX (WHATSAPP-001): WHATSAPP_APP_SECRET is now mandatory. Throws error if not set, preventing unsigned requests to worker.
+function signRequest(payload: string): string {
   const secret = process.env.WHATSAPP_APP_SECRET;
-  if (!secret) return null;
+  if (!secret) {
+    throw new Error('WHATSAPP_APP_SECRET environment variable is required for WhatsApp proxy authentication');
+  }
   return `sha256=${crypto.createHmac('sha256', secret).update(payload).digest('hex')}`;
 }
 
@@ -62,15 +64,15 @@ export async function GET(request: NextRequest) {
     }
 
     // GUID: API_WHATSAPP_PROXY-006-v03
-    // [Intent] Forward the validated GET request to the WhatsApp worker with HMAC signature. Handles QR endpoint as plain text, all others as JSON.
+    // [Intent] Forward the validated GET request to the WhatsApp worker with mandatory HMAC signature. Handles QR endpoint as plain text, all others as JSON.
     // [Inbound Trigger] Endpoint validated against whitelist.
-    // [Downstream Impact] Returns worker response to the admin UI. QR endpoint returns Content-Type: text/plain for QR code rendering. Network errors caught by outer try/catch.
+    // [Downstream Impact] Returns worker response to the admin UI. QR endpoint returns Content-Type: text/plain for QR code rendering. Network errors (including missing WHATSAPP_APP_SECRET) caught by outer try/catch.
     const signature = signRequest(endpoint);
     const workerResponse = await fetch(`${WHATSAPP_WORKER_INTERNAL_URL}/${endpoint}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json, text/plain',
-        ...(signature && { 'X-Hub-Signature-256': signature }),
+        'X-Hub-Signature-256': signature,
       },
     });
 
@@ -143,15 +145,15 @@ export async function POST(request: NextRequest) {
     }
 
     // GUID: API_WHATSAPP_PROXY-011-v03
-    // [Intent] Forward the validated POST request to the WhatsApp worker with HMAC signature and return the JSON response.
+    // [Intent] Forward the validated POST request to the WhatsApp worker with mandatory HMAC signature and return the JSON response.
     // [Inbound Trigger] Endpoint validated against whitelist.
-    // [Downstream Impact] Returns worker response to the admin UI. Network errors caught by outer try/catch.
+    // [Downstream Impact] Returns worker response to the admin UI. Network errors (including missing WHATSAPP_APP_SECRET) caught by outer try/catch.
     const signature = signRequest(endpoint);
     const workerResponse = await fetch(`${WHATSAPP_WORKER_INTERNAL_URL}/${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(signature && { 'X-Hub-Signature-256': signature }),
+        'X-Hub-Signature-256': signature,
       },
     });
 
