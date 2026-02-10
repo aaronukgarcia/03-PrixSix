@@ -5,7 +5,7 @@
 // [Downstream Impact] Returns meeting or session lists from OpenF1. No Firestore writes.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
@@ -15,7 +15,13 @@ export const dynamic = 'force-dynamic';
 
 const OPENF1_BASE = 'https://api.openf1.org/v1';
 
-// GUID: API_ADMIN_OPENF1_SESSIONS-001-v01
+// GUID: API_ADMIN_OPENF1_SESSIONS-001-v02
+// @SECURITY_FIX: Added authentication and admin verification. Previous version had NO AUTH,
+//   allowing anyone to use this endpoint as a public proxy to OpenF1 API, enabling:
+//   - IP hiding (attacker uses your server as proxy)
+//   - Rate limit bypass
+//   - Resource exhaustion (unlimited proxy requests)
+//   - Risk of your server IP getting banned by OpenF1
 // [Intent] GET handler that proxies OpenF1 meetings (when ?year= is provided) or sessions
 //          (when ?meetingKey= is provided) to populate admin UI dropdowns.
 // [Inbound Trigger] GET /api/admin/openf1-sessions?year=YYYY or ?meetingKey=NNN
@@ -24,6 +30,26 @@ export async function GET(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // SECURITY: Verify authentication and admin status before proxying external API
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized', correlationId },
+        { status: 401 }
+      );
+    }
+
+    const { db } = await getFirebaseAdmin();
+    const userDoc = await db.collection('users').doc(verifiedUser.uid).get();
+    if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required', correlationId },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
     const meetingKey = searchParams.get('meetingKey');

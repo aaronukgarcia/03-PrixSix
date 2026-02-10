@@ -7,7 +7,7 @@
 //                     document to render live timing data.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
@@ -18,13 +18,14 @@ export const dynamic = 'force-dynamic';
 
 const OPENF1_BASE = 'https://api.openf1.org/v1';
 
-// GUID: API_ADMIN_FETCH_TIMING_DATA-001-v01
-// [Intent] Zod schema for validating the fetch request — requires sessionKey and adminUid.
+// GUID: API_ADMIN_FETCH_TIMING_DATA-001-v02
+// @SECURITY_FIX: Removed adminUid from schema - now uses authenticated user's UID instead.
+//   Previous version allowed parameter tampering: attacker could submit any admin UID.
+// [Intent] Zod schema for validating the fetch request — requires sessionKey only.
 // [Inbound Trigger] Every incoming POST request body is parsed against this schema.
 // [Downstream Impact] Rejects malformed requests before any OpenF1 API calls are made.
 const fetchTimingRequestSchema = z.object({
   sessionKey: z.number().int().positive(),
-  adminUid: z.string().min(1),
 }).strict();
 
 // GUID: API_ADMIN_FETCH_TIMING_DATA-002-v01
@@ -40,15 +41,31 @@ function formatLapDuration(seconds: number): string {
   return `${mins}:${paddedSecs}`;
 }
 
-// GUID: API_ADMIN_FETCH_TIMING_DATA-003-v01
+// GUID: API_ADMIN_FETCH_TIMING_DATA-003-v02
+// @SECURITY_FIX: Added proper authentication via verifyAuthToken. Previous version had parameter
+//   tampering vulnerability - attacker could submit any admin UID without authentication:
+//   1. No verifyAuthToken() call - endpoint had NO authentication
+//   2. Admin check used adminUid from request body (user-controlled)
+//   3. Attacker could call endpoint with valid admin UID and bypass all auth
 // [Intent] POST handler that orchestrates the OpenF1 fetch pipeline: validates input, checks admin
 //          permissions, fetches session/driver/lap data, computes best laps, and writes to Firestore.
-// [Inbound Trigger] POST /api/admin/fetch-timing-data with JSON body containing sessionKey and adminUid.
+// [Inbound Trigger] POST /api/admin/fetch-timing-data with JSON body containing sessionKey.
 // [Downstream Impact] Writes to app-settings/pub-chat-timing and audit_logs. Reads from OpenF1 API.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // SECURITY: Verify authentication FIRST before any processing
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized', correlationId },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const parsed = fetchTimingRequestSchema.safeParse(body);
 
@@ -65,13 +82,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { sessionKey, adminUid } = parsed.data;
+    const { sessionKey } = parsed.data;
     const { db, FieldValue } = await getFirebaseAdmin();
 
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-004-v01
-    // [Intent] Verify the requesting user has admin privileges before allowing the fetch.
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-004-v02
+    // @SECURITY_FIX: Now uses authenticated user's UID instead of user-controlled adminUid parameter.
+    // [Intent] Verify the authenticated user has admin privileges before allowing the fetch.
     // [Inbound Trigger] Every valid POST request — admin check is mandatory.
     // [Downstream Impact] Returns 403 if not admin. Prevents unauthorised data writes.
+    const adminUid = verifiedUser.uid; // Use authenticated user's UID, not request parameter
     const adminDoc = await db.collection('users').doc(adminUid).get();
     if (!adminDoc.exists || !adminDoc.data()?.isAdmin) {
       return NextResponse.json(
