@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -35,13 +35,38 @@ interface QueuedEmail {
   lastError?: string;
 }
 
-// GUID: API_EMAIL_QUEUE-003-v03
+// GUID: API_EMAIL_QUEUE-003-v04
+// @SECURITY_FIX: Added authentication and admin verification. Previous version had NO AUTH,
+//   exposing critical vulnerability allowing anyone to:
+//   - Query all queued emails (including PINs, verification codes, user data)
+//   - See email addresses, subjects, full HTML content
+//   - Data breach via unauthenticated access
 // [Intent] GET handler — fetches queued emails from Firestore. In admin mode (includeAll=true), returns up to 100 emails regardless of status. In normal mode, returns only pending emails whose nextRetryAt has passed (ready to process).
 // [Inbound Trigger] HTTP GET, optionally with ?includeAll=true query parameter for admin view.
 // [Downstream Impact] Returns email queue data to the admin UI. The filtering logic determines which emails appear as processable. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
 export async function GET(request: NextRequest) {
   try {
+    // SECURITY: Verify authentication and admin status FIRST
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { db, Timestamp } = await getFirebaseAdmin();
+
+    // SECURITY: Verify admin status before returning queue data
+    const userDoc = await db.collection('users').doc(verifiedUser.uid).get();
+    if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
     const { searchParams } = new URL(request.url);
     const includeAll = searchParams.get('includeAll') === 'true';
     const now = Timestamp.now();
@@ -85,14 +110,40 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// GUID: API_EMAIL_QUEUE-004-v03
+// GUID: API_EMAIL_QUEUE-004-v04
+// @SECURITY_FIX: Added authentication and admin verification. Previous version had NO AUTH,
+//   exposing critical vulnerability allowing anyone to:
+//   - Force email spam attacks via "push" action
+//   - Re-queue emails infinitely via "resend" (DoS)
+//   - Resource exhaustion
 // [Intent] POST handler — processes email queue actions. "resend" action re-queues failed emails by resetting their retry count and status to pending. "push" action sends pending emails via Graph API, recording successes in email_daily_stats and handling failures with exponential retry logic via handleEmailFailure.
 // [Inbound Trigger] HTTP POST with JSON body containing action ("push" or "resend") and optional emailIds array.
 // [Downstream Impact] "push" sends emails via sendEmail, updates email_queue documents to sent/failed, and records successful sends in email_daily_stats. "resend" resets failed emails to pending. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
 export async function POST(request: NextRequest) {
   try {
-    const { action, emailIds } = await request.json();
+    // SECURITY: Verify authentication and admin status FIRST
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { db, FieldValue, Timestamp } = await getFirebaseAdmin();
+
+    // SECURITY: Verify admin status before processing queue operations
+    const userDoc = await db.collection('users').doc(verifiedUser.uid).get();
+    if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const { action, emailIds } = await request.json();
 
     // Action: resend - Re-queue failed emails for another round of attempts
     if (action === 'resend') {
@@ -276,13 +327,39 @@ async function handleEmailFailure(
   }
 }
 
-// GUID: API_EMAIL_QUEUE-006-v03
+// GUID: API_EMAIL_QUEUE-006-v04
+// @SECURITY_FIX: Added authentication and admin verification. Previous version had NO AUTH,
+//   exposing critical vulnerability allowing anyone to:
+//   - Delete all queued emails (disruption of email system)
+//   - Cause email delivery failures
+//   - Permanent data loss
 // [Intent] DELETE handler — removes queued emails from Firestore. If specific emailIds are provided, deletes those; otherwise deletes all pending emails. Used by admins to clear the queue.
 // [Inbound Trigger] HTTP DELETE with JSON body containing optional emailIds array.
 // [Downstream Impact] Permanently removes documents from the email_queue collection. Deleted emails cannot be recovered. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
 export async function DELETE(request: NextRequest) {
   try {
+    // SECURITY: Verify authentication and admin status FIRST
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { db } = await getFirebaseAdmin();
+
+    // SECURITY: Verify admin status before deleting queue data
+    const userDoc = await db.collection('users').doc(verifiedUser.uid).get();
+    if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
     const { emailIds } = await request.json();
 
     let deletedCount = 0;
