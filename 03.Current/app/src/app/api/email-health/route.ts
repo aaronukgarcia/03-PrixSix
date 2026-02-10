@@ -24,12 +24,15 @@ interface HealthCheckResult {
   };
 }
 
-// GUID: API_EMAIL_HEALTH-002-v03
+// GUID: API_EMAIL_HEALTH-002-v04
+// @SECURITY_FIX: Moved admin check to beginning of handler. Previous version performed health
+//   checks BEFORE verifying admin status, allowing any authenticated user to see system health
+//   information (Graph API credentials status, email failure rates, queue depths).
 // [Intent] GET handler — authenticates the caller via Bearer token, checks admin status, then assembles a health report by inspecting Graph API env vars, querying email_logs for failures in the last 24 hours, and checking email_queue for pending items. Returns overall status as healthy/degraded/unhealthy.
 // [Inbound Trigger] HTTP GET with Authorization header containing a valid Firebase ID token for an admin user.
 // [Downstream Impact] Reads from email_logs (filtered by timestamp >= 24h ago) and email_queue (filtered by status == pending). Admin access is verified via users collection isAdmin flag. Returns 401 if unauthenticated, 403 if non-admin.
 export async function GET(request: NextRequest) {
-  // Verify admin token
+  // SECURITY: Verify authentication AND admin status BEFORE any health checks
   const authHeader = request.headers.get('Authorization');
   const verifiedUser = await verifyAuthToken(authHeader);
 
@@ -37,6 +40,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized' },
       { status: 401 }
+    );
+  }
+
+  // SECURITY: Check admin status immediately after authentication
+  try {
+    const { db: adminCheckDb } = await getFirebaseAdmin();
+    const userDoc = await adminCheckDb.collection('users').doc(verifiedUser.uid).get();
+    if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: 'Failed to verify admin status' },
+      { status: 500 }
     );
   }
 
@@ -113,23 +133,6 @@ export async function GET(request: NextRequest) {
       message: `Firebase Admin error: ${error.message}`,
     };
     result.overall = 'unhealthy';
-  }
-
-  // Check if admin user
-  try {
-    const { db } = await getFirebaseAdmin();
-    const userDoc = await db.collection('users').doc(verifiedUser.uid).get();
-    if (!userDoc.exists || !userDoc.data()?.isAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: 'Failed to verify admin status' },
-      { status: 500 }
-    );
   }
 
   return NextResponse.json({ success: true, health: result });
