@@ -323,10 +323,11 @@ export function ResultsManager() {
         }
     };
 
-    // GUID: ADMIN_RESULTS-018-v03
-    // [Intent] Delete a race result and its associated scores via the server-side /api/delete-scores endpoint.
+    // GUID: ADMIN_RESULTS-018-v04
+    // @SECURITY_FIX: Now includes cascade deletion of predictions (ADMINCOMP-023).
+    // [Intent] Delete a race result, its associated scores, and all user predictions via the server-side /api/delete-scores endpoint.
     // [Inbound Trigger] Called when admin clicks the trash icon on an existing race result row.
-    // [Downstream Impact] Removes race_results document and all associated score documents. Recalculates standings. This is destructive and cannot be undone.
+    // [Downstream Impact] Removes race_results document, all associated score documents, and all prediction documents. Recalculates standings. This is destructive and cannot be undone.
     const handleDelete = async (result: RaceResult) => {
         if (!firestore || !user || !firebaseUser) return;
 
@@ -356,7 +357,7 @@ export function ResultsManager() {
 
             toast({
                 title: "Result Deleted",
-                description: `Results for ${result.raceId} have been removed. ${deleteResult.scoresDeleted} scores deleted.`
+                description: `Results for ${result.raceId} have been removed. ${deleteResult.scoresDeleted} scores and ${deleteResult.predictionsDeleted || 0} predictions deleted.`
             });
         } catch (e: any) {
             toast({

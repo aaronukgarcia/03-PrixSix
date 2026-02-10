@@ -1,7 +1,8 @@
-// GUID: API_DELETE_SCORES-000-v03
-// [Intent] API route that deletes all scores and the race result document for a given race. Used by admins to undo/re-do scoring.
+// GUID: API_DELETE_SCORES-000-v04
+// @SECURITY_FIX: Added cascade deletion for predictions (ADMINCOMP-023).
+// [Intent] API route that deletes all scores, predictions, and the race result document for a given race. Used by admins to undo/re-do scoring.
 // [Inbound Trigger] Admin triggers score deletion from the admin scoring page (POST request with raceId).
-// [Downstream Impact] Removes score documents from the scores collection and the race result from race_results. Standings recalculate on next page load. Audit log records the deletion.
+// [Downstream Impact] Removes score documents from the scores collection, prediction documents from the predictions collection, and the race result from race_results. Standings recalculate on next page load. Audit log records the deletion.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
@@ -84,22 +85,46 @@ export async function POST(request: NextRequest) {
 
     const normalizedRaceId = normalizeRaceId(raceId);
 
-    // GUID: API_DELETE_SCORES-006-v03
-    // [Intent] Queries all score documents matching the normalised raceId, deletes them in a batch along with the race result document, and writes an audit log entry -- all committed atomically.
+    // GUID: API_DELETE_SCORES-006-v04
+    // @SECURITY_FIX: Added cascade deletion for predictions (ADMINCOMP-023).
+    // [Intent] Queries all score and prediction documents matching the normalised raceId, deletes them in a batch along with the race result document, and writes an audit log entry -- all committed atomically.
     // [Inbound Trigger] After request validation and normalisation.
-    // [Downstream Impact] Removes all score documents for the race and the race_results document. The batch is atomic; either all deletes succeed or none do. Standings will reflect the removal on next load.
+    // [Downstream Impact] Removes all score documents, all prediction documents for the race, and the race_results document. The batch is atomic; either all deletes succeed or none do. Standings will reflect the removal on next load.
     // Find all scores for this race
     const scoresQuery = await db.collection('scores')
       .where('raceId', '==', normalizedRaceId)
       .get();
 
+    // GUID: API_DELETE_SCORES-008-v01
+    // @SECURITY_FIX: Query predictions for cascade deletion (ADMINCOMP-023).
+    // [Intent] Find all user predictions for this race to delete them along with scores.
+    // [Inbound Trigger] Same batch operation as score deletion.
+    // [Downstream Impact] Prevents orphaned predictions after race result deletion.
+    // Find all predictions for this race
+    const predictionsQuery = await db.collection('predictions')
+      .where('raceId', '==', normalizedRaceId)
+      .get();
+
     // Create batch delete
     const batch = db.batch();
-    let deletedCount = 0;
+    let scoresDeleted = 0;
+    let predictionsDeleted = 0;
 
+    // Delete all scores
     scoresQuery.forEach((scoreDoc) => {
       batch.delete(scoreDoc.ref);
-      deletedCount++;
+      scoresDeleted++;
+    });
+
+    // GUID: API_DELETE_SCORES-009-v01
+    // @SECURITY_FIX: Delete predictions in same batch (ADMINCOMP-023).
+    // [Intent] Remove all user predictions for the race to prevent orphaned data.
+    // [Inbound Trigger] Part of atomic batch delete operation.
+    // [Downstream Impact] Ensures data integrity - no orphaned predictions remain after race deletion.
+    // Delete all predictions
+    predictionsQuery.forEach((predictionDoc) => {
+      batch.delete(predictionDoc.ref);
+      predictionsDeleted++;
     });
 
     // Delete the race result document
@@ -115,7 +140,8 @@ export async function POST(request: NextRequest) {
       details: {
         raceId: resultDocId,
         raceName: raceName || raceId,
-        scoresDeleted: deletedCount,
+        scoresDeleted,
+        predictionsDeleted,
         deletedAt: new Date().toISOString(),
       },
       timestamp: FieldValue.serverTimestamp(),
@@ -124,11 +150,12 @@ export async function POST(request: NextRequest) {
     // Commit all deletes atomically
     await batch.commit();
 
-    console.log(`[DeleteScores] Deleted ${deletedCount} scores for race ${raceId}`);
+    console.log(`[DeleteScores] Deleted ${scoresDeleted} scores and ${predictionsDeleted} predictions for race ${raceId}`);
 
     return NextResponse.json({
       success: true,
-      scoresDeleted: deletedCount,
+      scoresDeleted,
+      predictionsDeleted,
     });
 
   // GUID: API_DELETE_SCORES-007-v04
