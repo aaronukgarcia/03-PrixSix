@@ -1,4 +1,5 @@
-// GUID: API_AUTH_SIGNUP-000-v04
+// GUID: API_AUTH_SIGNUP-000-v05
+// @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // [Intent] Server-side API route that registers new users: validates input, creates Firebase Auth and Firestore records, enrols the user in the global league, applies late-joiner handicap scoring if the season has started, sends welcome and verification emails, and returns a custom token for immediate sign-in.
 // [Inbound Trigger] POST request from the client-side signup form.
 // [Downstream Impact] Creates records in users, presence, scores (if late joiner), and audit_logs collections. Updates the global league memberUserIds array. Triggers welcome and verification email API calls. Returns a customToken used by the client to establish a Firebase Auth session.
@@ -8,6 +9,7 @@ import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebas
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { validateCsrfProtection } from '@/lib/csrf-protection';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -45,6 +47,16 @@ interface SignupRequest {
 // [Downstream Impact] On success: creates Firebase Auth user, Firestore user document, presence document, global league membership, optional late-joiner handicap score, audit log, and triggers welcome + verification emails. Returns customToken + uid for immediate client-side sign-in.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
+
+  // GUID: API_AUTH_SIGNUP-022-v01
+  // @SECURITY_FIX: CSRF protection via Origin/Referer validation (GEMINI-005).
+  // [Intent] Validate that the request originates from an allowed domain to prevent CSRF attacks.
+  // [Inbound Trigger] Every signup request, before processing any data.
+  // [Downstream Impact] Rejects cross-origin requests from malicious sites with 403 status.
+  const csrfError = validateCsrfProtection(request, correlationId);
+  if (csrfError) {
+    return csrfError;
+  }
 
   try {
     const data: SignupRequest = await request.json();

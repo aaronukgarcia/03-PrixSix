@@ -1,4 +1,5 @@
-// GUID: API_AUTH_RESET_PIN-000-v04
+// GUID: API_AUTH_RESET_PIN-000-v05
+// @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // [Intent] Server-side API route that handles PIN reset requests: validates the email, generates a new random 6-digit PIN, updates Firebase Auth, marks the user as mustChangePin, queues a reset email, and logs the action. Returns a generic success message regardless of whether the email exists to prevent enumeration attacks.
 // [Inbound Trigger] POST request from the client-side PIN reset form.
 // [Downstream Impact] Updates the user's password in Firebase Auth, sets mustChangePin=true on the Firestore user document, writes to the mail collection (consumed by the email sending service), writes to email_logs and audit_logs collections.
@@ -7,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
+import { validateCsrfProtection } from '@/lib/csrf-protection';
 import crypto from 'crypto';
 
 // Force dynamic to skip static analysis at build time
@@ -26,6 +28,16 @@ interface ResetPinRequest {
 // [Downstream Impact] On success: changes the user's Firebase Auth password, sets mustChangePin on the user document (forces PIN change on next login), queues an email in the mail collection. On failure: logs error with correlation ID. The ambiguous response message is intentional for security.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
+
+  // GUID: API_AUTH_RESET_PIN-013-v01
+  // @SECURITY_FIX: CSRF protection via Origin/Referer validation (GEMINI-005).
+  // [Intent] Validate that the request originates from an allowed domain to prevent CSRF attacks.
+  // [Inbound Trigger] Every PIN reset request, before processing any data.
+  // [Downstream Impact] Rejects cross-origin requests from malicious sites with 403 status.
+  const csrfError = validateCsrfProtection(request, correlationId);
+  if (csrfError) {
+    return csrfError;
+  }
 
   try {
     const data: ResetPinRequest = await request.json();

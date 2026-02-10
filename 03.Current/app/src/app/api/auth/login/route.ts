@@ -1,4 +1,5 @@
-// GUID: API_AUTH_LOGIN-000-v04
+// GUID: API_AUTH_LOGIN-000-v05
+// @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces account lockout after repeated failures, logs all attempts for attack detection, and returns a Firebase custom token on success.
 // [Inbound Trigger] POST request from the client-side login form (LoginPage component).
 // [Downstream Impact] Returns a customToken used by the client to call Firebase signInWithCustomToken(). Writes to audit_logs, login_attempts, and users collections. Lockout state affects future login attempts.
@@ -8,6 +9,7 @@ import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebas
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { logLoginAttempt, checkForAttack } from '@/lib/attack-detection';
+import { validateCsrfProtection } from '@/lib/csrf-protection';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -71,6 +73,16 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
   const clientIP = getClientIP(request);
   const userAgent = request.headers.get('user-agent') || undefined;
+
+  // GUID: API_AUTH_LOGIN-014-v01
+  // @SECURITY_FIX: CSRF protection via Origin/Referer validation (GEMINI-005).
+  // [Intent] Validate that the request originates from an allowed domain to prevent CSRF attacks.
+  // [Inbound Trigger] Every login request, before processing credentials.
+  // [Downstream Impact] Rejects cross-origin requests from malicious sites with 403 status.
+  const csrfError = validateCsrfProtection(request, correlationId);
+  if (csrfError) {
+    return csrfError;
+  }
 
   try {
     const data: LoginRequest = await request.json();

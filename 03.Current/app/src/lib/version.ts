@@ -14,4 +14,4 @@
 //                     deployed About and Login pages. A stale value here means deployment verification fails.
 // Single source of truth for app version
 // IMPORTANT: Update this when you bump the version in package.json
-export const APP_VERSION = "1.52.0";
+export const APP_VERSION = "1.53.0";
