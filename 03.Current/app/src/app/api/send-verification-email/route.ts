@@ -1,4 +1,5 @@
-// GUID: API_SEND_VERIFICATION_EMAIL-000-v04
+// GUID: API_SEND_VERIFICATION_EMAIL-000-v05
+// @SECURITY_FIX: Added URL parameter encoding to prevent injection (EMAIL-002).
 // [Intent] API route that sends a primary email verification link to a user. Generates a CSPRNG token, stores it in Firestore with a 2-hour expiry, builds a branded HTML email, and sends via Graph API.
 // [Inbound Trigger] POST request from client-side registration or profile verification flow.
 // [Downstream Impact] Creates a document in email_verification_tokens collection (consumed by /verify-email page). Sends email via sendEmail. Writes to audit_logs. Frontend relies on success/emailGuid response.
@@ -20,7 +21,9 @@ function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
-// GUID: API_SEND_VERIFICATION_EMAIL-002-v04
+// GUID: API_SEND_VERIFICATION_EMAIL-002-v05
+// @SECURITY_FIX: Added URL parameter encoding to prevent injection (EMAIL-002).
+//   Previous version did not encode token/uid parameters in verification URL.
 // [Intent] POST handler — validates required fields (uid, email), checks Graph API config, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.
 // [Inbound Trigger] HTTP POST with JSON body containing uid, email, and optional teamName.
 // [Downstream Impact] Creates/overwrites email_verification_tokens/{uid} document. Sends email. Writes to audit_logs on success. Errors logged to error_logs with correlation ID and ERROR_CODES mapping.
@@ -76,7 +79,8 @@ export async function POST(request: NextRequest) {
     const baseUrl = isProduction
       ? 'https://prix6.win'
       : 'http://localhost:9002';
-    const verificationUrl = `${baseUrl}/verify-email?token=${token}&uid=${uid}`;
+    // SECURITY: Encode URL parameters to prevent injection (EMAIL-002 fix)
+    const verificationUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}&uid=${encodeURIComponent(uid)}`;
 
     // Send verification email via Graph API
     const htmlContent = `
