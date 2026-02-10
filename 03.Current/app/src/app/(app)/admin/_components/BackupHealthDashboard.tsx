@@ -1,4 +1,5 @@
-// GUID: BACKUP_DASHBOARD-000-v03
+// GUID: BACKUP_DASHBOARD-000-v04
+// @SECURITY_FIX: Added rate limiting to manual backup trigger (ADMINCOMP-017).
 // [Intent] Admin-only dashboard tab showing backup health across three cards:
 //          daily backup status, bucket immutability lock info, and Sunday smoke
 //          test results. Subscribes in real-time to backup_status/latest via useDoc.
@@ -247,6 +248,9 @@ export function BackupHealthDashboard() {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isSmokeTesting, setIsSmokeTesting] = useState(false);
   const [isBackfilling, setIsBackfilling] = useState(false);
+  // SECURITY: Rate limiting state for manual backup (ADMINCOMP-017 fix)
+  const [lastBackupTimestamp, setLastBackupTimestamp] = useState<number | null>(null);
+  const BACKUP_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
   // GUID: BACKUP_DASHBOARD-031-v03
   // [Intent] Memoize the Firestore query for the backup_history collection,
@@ -362,7 +366,9 @@ export function BackupHealthDashboard() {
     }
   }, [functions, toast]);
 
-  // GUID: BACKUP_DASHBOARD-005-v03
+  // GUID: BACKUP_DASHBOARD-005-v04
+  // @SECURITY_FIX: Added 5-minute rate limiting to prevent abuse (ADMINCOMP-017).
+  //   Tracks last backup timestamp and enforces cooldown period.
   // [Intent] Trigger a manual backup via the manualBackup callable Cloud Function.
   //          Handles three outcomes: success, structured failure (function returns
   //          success:false), and unstructured failure (network/auth/not-found errors).
@@ -373,6 +379,21 @@ export function BackupHealthDashboard() {
   //                     and the dashboard updates in real-time. On failure, a destructive
   //                     toast with copyable error details is shown to the admin.
   const handleBackupNow = useCallback(async () => {
+    // SECURITY: Rate limiting check (ADMINCOMP-017 fix)
+    const now = Date.now();
+    if (lastBackupTimestamp) {
+      const timeSinceLastBackup = now - lastBackupTimestamp;
+      if (timeSinceLastBackup < BACKUP_COOLDOWN_MS) {
+        const remainingMinutes = Math.ceil((BACKUP_COOLDOWN_MS - timeSinceLastBackup) / 60000);
+        toast({
+          variant: 'destructive',
+          title: 'Rate Limit',
+          description: `Please wait ${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''} before triggering another manual backup.`,
+        });
+        return;
+      }
+    }
+
     setIsBackingUp(true);
     try {
       const manualBackup = httpsCallable(functions, 'manualBackup', { timeout: 540_000 });
@@ -386,6 +407,8 @@ export function BackupHealthDashboard() {
       };
 
       if (data.success) {
+        // SECURITY: Update rate limit timestamp on successful backup (ADMINCOMP-017 fix)
+        setLastBackupTimestamp(Date.now());
         toast({
           title: 'Backup Complete',
           description: `Backup saved to ${data.backupPath}`,
@@ -430,7 +453,7 @@ export function BackupHealthDashboard() {
     } finally {
       setIsBackingUp(false);
     }
-  }, [functions, toast]);
+  }, [functions, toast, lastBackupTimestamp, BACKUP_COOLDOWN_MS]);
 
   // GUID: BACKUP_DASHBOARD-006-v03
   // [Intent] Trigger a manual smoke test via the manualSmokeTest callable Cloud Function.
