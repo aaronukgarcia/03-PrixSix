@@ -1,4 +1,6 @@
-// GUID: LIB_EMAIL-000-v03
+// GUID: LIB_EMAIL-000-v04
+// @SECURITY_FIX: Added error message sanitization to prevent credential exposure (EMAIL-003).
+//   Azure AD/Graph API errors may contain tenant IDs, client IDs, or partial credentials.
 // [Intent] Server-side email sending module using Microsoft Graph API via Azure AD credentials. Provides welcome emails and generic email dispatch with rate-limiting, queuing, and Firestore logging.
 // [Inbound Trigger] Called by API routes (e.g., user registration, admin actions) that need to send transactional emails.
 // [Downstream Impact] Depends on email-tracking.ts for rate limiting and queuing. Writes to email_logs Firestore collection. Failures affect user onboarding and admin notifications.
@@ -99,7 +101,9 @@ function getGraphClient() {
   return Client.initWithMiddleware({ authProvider });
 }
 
-// GUID: LIB_EMAIL-005-v03
+// GUID: LIB_EMAIL-005-v04
+// @SECURITY_FIX: Added error sanitization to prevent credential exposure (EMAIL-003).
+//   Sanitizes Azure AD/Graph API error messages before logging or returning them.
 // [Intent] Type definition for the result returned by email-sending functions, indicating success/failure, the tracking GUID, optional error detail, and whether the email was queued due to rate limiting.
 // [Inbound Trigger] Used as the return type of sendWelcomeEmail and sendEmail.
 // [Downstream Impact] API routes depend on this shape to construct their response payloads. Changes here require updates to all callers.
@@ -109,6 +113,33 @@ interface SendEmailResult {
   error?: string;
   queued?: boolean;
   queueReason?: string;
+}
+
+// GUID: LIB_EMAIL-005a-v01
+// [Intent] Sanitize error messages to remove sensitive credential information before logging or returning.
+//          Azure AD/Graph API errors may contain tenant IDs, client IDs, or other partial credential info.
+// [Inbound Trigger] Called from catch blocks in sendWelcomeEmail and sendEmail.
+// [Downstream Impact] Returns safe, generic error messages. Prevents credential leakage via logs or API responses.
+function sanitizeErrorMessage(error: any): string {
+  if (!error) return 'Unknown error occurred';
+
+  const message = error.message || String(error);
+
+  // Remove common credential patterns from Azure/Graph errors
+  // Pattern: Remove UUIDs (potential tenant/client IDs)
+  const sanitized = message
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '[REDACTED]')
+    // Pattern: Remove email addresses (potential service accounts)
+    .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[REDACTED]')
+    // Pattern: Remove potential client secrets (long alphanumeric strings)
+    .replace(/\b[A-Za-z0-9]{32,}\b/g, '[REDACTED]');
+
+  // If error contains authentication or credential keywords, return generic message
+  if (/auth|credential|token|secret|tenant|client.?id/i.test(sanitized)) {
+    return 'Email service authentication failed. Please check configuration.';
+  }
+
+  return sanitized;
 }
 
 // GUID: LIB_EMAIL-006-v03
@@ -122,7 +153,8 @@ interface WelcomeEmailParams {
   firestore?: any;
 }
 
-// GUID: LIB_EMAIL-007-v03
+// GUID: LIB_EMAIL-007-v04
+// @SECURITY_FIX: Error messages now sanitized to prevent credential exposure (EMAIL-003).
 // [Intent] Send a branded welcome email to a newly registered user containing their team name and 6-digit PIN. Enforces rate limiting via email-tracking, queues if rate-limited, logs success/failure to email_logs collection, and returns a tracking GUID.
 // [Inbound Trigger] Called from the user registration API route when a new account is created and a welcome email is required.
 // [Downstream Impact] On success, the user receives their PIN and login link. On rate-limit, the email is queued in email_queue collection. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004), canSendEmail/recordSentEmail/queueEmail from email-tracking, and getAdminDb (LIB_EMAIL-001).
@@ -265,7 +297,9 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
 
     return { success: true, emailGuid };
   } catch (error: any) {
-    console.error("Error sending welcome email:", error.message);
+    // SECURITY: Sanitize error message to prevent credential exposure (EMAIL-003 fix)
+    const safeError = sanitizeErrorMessage(error);
+    console.error("Error sending welcome email:", safeError);
 
     // Log failed email to email_logs
     try {
@@ -279,13 +313,13 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
         timestamp: Timestamp.now(),
         emailGuid,
         teamName,
-        error: error.message,
+        error: safeError,
       });
     } catch (logError: any) {
       console.error("Error logging failed welcome email:", logError.message);
     }
 
-    return { success: false, emailGuid, error: error.message };
+    return { success: false, emailGuid, error: safeError };
   }
 }
 
@@ -299,7 +333,8 @@ interface GenericEmailParams {
   htmlContent: string;
 }
 
-// GUID: LIB_EMAIL-009-v03
+// GUID: LIB_EMAIL-009-v04
+// @SECURITY_FIX: Error messages now sanitized to prevent credential exposure (EMAIL-003).
 // [Intent] Send a generic email with arbitrary HTML content via Microsoft Graph API. Appends a standard footer with tracking GUID and Prix Six branding. Logs success/failure to email_logs collection for admin audit.
 // [Inbound Trigger] Called by API routes or server actions that need to send non-welcome transactional emails (e.g., daily summaries, notifications).
 // [Downstream Impact] On success, the recipient receives the email. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004) and getAdminDb (LIB_EMAIL-001). Does not use rate limiting (unlike sendWelcomeEmail).
@@ -356,7 +391,9 @@ ${htmlContent}
 
     return { success: true, emailGuid };
   } catch (error: any) {
-    console.error("Error sending email:", error.message);
+    // SECURITY: Sanitize error message to prevent credential exposure (EMAIL-003 fix)
+    const safeError = sanitizeErrorMessage(error);
+    console.error("Error sending email:", safeError);
 
     // Log failed email to email_logs
     try {
@@ -369,12 +406,12 @@ ${htmlContent}
         status: 'failed',
         timestamp: Timestamp.now(),
         emailGuid,
-        error: error.message,
+        error: safeError,
       });
     } catch (logError: any) {
       console.error("Error logging failed email:", logError.message);
     }
 
-    return { success: false, emailGuid, error: error.message };
+    return { success: false, emailGuid, error: safeError };
   }
 }
