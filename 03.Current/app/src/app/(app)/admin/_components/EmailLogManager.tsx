@@ -23,6 +23,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import DOMPurify from 'isomorphic-dompurify';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -582,7 +583,12 @@ export function EmailLogManager() {
                                                 <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-1">Email Body Preview</h4>
                                                 <div
                                                     className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-4 bg-background overflow-auto"
-                                                    dangerouslySetInnerHTML={{ __html: log.html }}
+                                                    dangerouslySetInnerHTML={{
+                                                        __html: DOMPurify.sanitize(log.html, {
+                                                            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'a', 'blockquote', 'code', 'pre', 'div', 'span', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
+                                                            ALLOWED_ATTR: ['href', 'target', 'rel', 'style', 'class']
+                                                        })
+                                                    }}
                                                 />
                                             </div>
                                         </div>

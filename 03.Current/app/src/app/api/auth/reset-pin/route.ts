@@ -50,10 +50,14 @@ export async function POST(request: NextRequest) {
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
 
-    // GUID: API_AUTH_RESET_PIN-004-v03
-    // [Intent] Look up the user in Firestore by normalised email. If no user is found, return a generic success message to prevent email enumeration attacks (attacker cannot determine which emails have accounts).
+    // GUID: API_AUTH_RESET_PIN-004-v04
+    // [Intent] Look up the user in Firestore by normalised email. If no user is found, introduce a constant-time delay before returning a generic success message to prevent timing-based email enumeration attacks.
     // [Inbound Trigger] Runs after email validation and normalisation.
-    // [Downstream Impact] If user not found, the handler returns early with a fake success response. If found, the user document and ID are used for all subsequent operations (PIN update, mustChangePin flag, audit logging).
+    // [Downstream Impact] If user not found, waits ~500ms to match the timing of successful PIN reset operations, then returns with a fake success response. This prevents attackers from using response time to determine valid emails (fixes API-006 timing attack). If found, the user document and ID are used for all subsequent operations.
+    // SECURITY: Constant-time response to prevent timing attacks (API-006 fix)
+    const startTime = Date.now();
+    const TARGET_MIN_DURATION = 500; // milliseconds - matches average successful PIN reset time
+
     // Find user by email in Firestore
     const usersQuery = await db.collection('users')
       .where('email', '==', normalizedEmail)
@@ -62,7 +66,14 @@ export async function POST(request: NextRequest) {
 
     if (usersQuery.empty) {
       // Don't reveal if user exists - return success anyway
-      // This prevents email enumeration attacks
+      // SECURITY: Add constant-time delay to prevent timing-based enumeration
+      const elapsed = Date.now() - startTime;
+      const remainingDelay = Math.max(0, TARGET_MIN_DURATION - elapsed);
+
+      if (remainingDelay > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingDelay));
+      }
+
       return NextResponse.json({
         success: true,
         message: 'If an account exists with that email, a temporary PIN will be sent.',

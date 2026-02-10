@@ -22,6 +22,7 @@ import { Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 import { ERRORS } from '@/lib/error-registry';
+import DOMPurify from 'isomorphic-dompurify';
 
 // ─── OpenF1 dropdown types ──────────────────────────────────────────────────
 interface MeetingOption {
@@ -332,7 +333,12 @@ export function PubChatPanel() {
                     ) : (
                         <div
                             className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-4 bg-background overflow-auto"
-                            dangerouslySetInnerHTML={{ __html: settings.content }}
+                            dangerouslySetInnerHTML={{
+                                __html: DOMPurify.sanitize(settings.content, {
+                                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'a', 'blockquote', 'code', 'pre'],
+                                    ALLOWED_ATTR: ['href', 'target', 'rel']
+                                })
+                            }}
                         />
                     )}
                 </CardContent>
