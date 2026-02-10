@@ -74,7 +74,12 @@ interface TracedErrorRequest {
   calls: string[];
 }
 
-// GUID: API_LOG_CLIENT_ERROR-003-v04
+// GUID: API_LOG_CLIENT_ERROR-003-v05
+// @SECURITY_FIX: Added input validation and size limits to prevent log injection and DoS attacks.
+//   Previous version had no limits on payload size or field lengths, allowing attackers to:
+//   - Flood error_logs with spam (resource exhaustion)
+//   - Inject malicious payloads into admin dashboard
+//   - Pollute logs with junk data
 // [Intent] POST handler that validates the incoming client error payload and writes it to the Firestore
 //          error_logs collection. Accepts both legacy format and new TracedError format. Designed to be
 //          resilient — never returns an error that would worsen the client's already-errored state.
@@ -83,49 +88,77 @@ interface TracedErrorRequest {
 //                     intentionally returns 500 silently — the client is already in an error state.
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Limit payload size to prevent DoS (1MB limit)
+    const MAX_PAYLOAD_SIZE = 1024 * 1024; // 1MB
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > MAX_PAYLOAD_SIZE) {
+      return NextResponse.json(
+        { success: false, error: 'Payload too large' },
+        { status: 413 }
+      );
+    }
+
     const body = await request.json();
 
-    // GUID: API_LOG_CLIENT_ERROR-004-v04
+    // SECURITY: Validate and sanitize string fields to prevent log injection
+    const MAX_STRING_LENGTH = 10000; // 10KB per string field
+    const MAX_CORRELATION_ID_LENGTH = 100;
+
+    const sanitizeString = (str: any, maxLength: number): string => {
+      if (typeof str !== 'string') return '';
+      // Truncate to max length
+      return str.slice(0, maxLength);
+    };
+
+    // GUID: API_LOG_CLIENT_ERROR-004-v05
     // [Intent] Detect whether the payload is a TracedError (has guid + module fields) or legacy format.
     //          Route to the appropriate persistence logic. Both formats require a correlationId.
+    //          SECURITY: Added field length validation to prevent log pollution.
     // [Inbound Trigger] Every incoming POST request.
-    // [Downstream Impact] Returns 400 if correlationId is missing. TracedError format writes richer metadata.
+    // [Downstream Impact] Returns 400 if correlationId is missing or invalid. TracedError format writes richer metadata.
     const isTracedError = body.guid && body.module && body.code;
 
     if (isTracedError) {
       const traced: TracedErrorRequest = body;
-      if (!traced.correlationId) {
+      if (!traced.correlationId || traced.correlationId.length > MAX_CORRELATION_ID_LENGTH) {
         return NextResponse.json(
-          { success: false, error: 'Missing correlationId' },
+          { success: false, error: 'Invalid or missing correlationId' },
           { status: 400 }
         );
       }
 
-      // GUID: API_LOG_CLIENT_ERROR-007-v03
+      // GUID: API_LOG_CLIENT_ERROR-007-v04
       // [Intent] Persist a TracedError payload with full diagnostic metadata to error_logs.
       //          Stores all four diagnostic answers: where (file, functionName, guid), what (message, context),
       //          known failures (recovery, failureModes), and who triggered (calledBy, calls).
+      //          SECURITY: All string fields are sanitized and truncated to prevent log injection.
       // [Inbound Trigger] Client-side logTracedError() call via fetch.
       // [Downstream Impact] Creates a richer error_logs document. Admin ErrorLogViewer can display recovery hints.
       await db.collection('error_logs').add({
-        correlationId: traced.correlationId,
-        errorCode: traced.code,
-        error: traced.message,
-        guid: traced.guid,
-        module: traced.module,
-        file: traced.file,
-        functionName: traced.functionName,
-        severity: traced.severity,
-        recovery: traced.recovery,
-        failureModes: traced.failureModes,
-        stack: traced.stack || null,
-        calledBy: traced.calledBy,
-        calls: traced.calls,
+        correlationId: sanitizeString(traced.correlationId, MAX_CORRELATION_ID_LENGTH),
+        errorCode: sanitizeString(traced.code, 50),
+        error: sanitizeString(traced.message, MAX_STRING_LENGTH),
+        guid: sanitizeString(traced.guid, 100),
+        module: sanitizeString(traced.module, 100),
+        file: sanitizeString(traced.file, 500),
+        functionName: sanitizeString(traced.functionName, 200),
+        severity: sanitizeString(traced.severity, 50),
+        recovery: sanitizeString(traced.recovery, MAX_STRING_LENGTH),
+        failureModes: Array.isArray(traced.failureModes)
+          ? traced.failureModes.slice(0, 10).map(fm => sanitizeString(fm, 1000))
+          : [],
+        stack: traced.stack ? sanitizeString(traced.stack, MAX_STRING_LENGTH) : null,
+        calledBy: Array.isArray(traced.calledBy)
+          ? traced.calledBy.slice(0, 20).map(cb => sanitizeString(cb, 200))
+          : [],
+        calls: Array.isArray(traced.calls)
+          ? traced.calls.slice(0, 20).map(c => sanitizeString(c, 200))
+          : [],
         context: {
           ...traced.context,
           source: 'client',
           additionalInfo: {
-            errorCode: traced.code,
+            errorCode: sanitizeString(traced.code, 50),
             errorType: 'TracedError',
           },
         },
@@ -139,29 +172,31 @@ export async function POST(request: NextRequest) {
     // Legacy format
     const legacyBody: ClientErrorRequest = body;
 
-    if (!legacyBody.correlationId || !legacyBody.error) {
+    if (!legacyBody.correlationId || !legacyBody.error ||
+        legacyBody.correlationId.length > MAX_CORRELATION_ID_LENGTH) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, error: 'Missing or invalid required fields' },
         { status: 400 }
       );
     }
 
-    // GUID: API_LOG_CLIENT_ERROR-005-v05
+    // GUID: API_LOG_CLIENT_ERROR-005-v06
     // [Intent] Persist a legacy client error payload to Firestore error_logs collection with context,
     //          defaulting errorCode to PX-9001 (unknown) if not provided.
+    //          SECURITY: All string fields are sanitized and truncated to prevent log injection.
     // [Inbound Trigger] Validation passed — correlationId and error are present. No guid/module fields detected.
     // [Downstream Impact] Creates a document in error_logs with source: 'client'. Admin error dashboard reads these.
     await db.collection('error_logs').add({
-      correlationId: legacyBody.correlationId,
-      errorCode: legacyBody.errorCode || ERRORS.UNKNOWN_ERROR.code,
-      error: legacyBody.error,
-      stack: legacyBody.stack || null,
-      digest: legacyBody.digest || null,
+      correlationId: sanitizeString(legacyBody.correlationId, MAX_CORRELATION_ID_LENGTH),
+      errorCode: sanitizeString(legacyBody.errorCode || ERRORS.UNKNOWN_ERROR.code, 50),
+      error: sanitizeString(legacyBody.error, MAX_STRING_LENGTH),
+      stack: legacyBody.stack ? sanitizeString(legacyBody.stack, MAX_STRING_LENGTH) : null,
+      digest: legacyBody.digest ? sanitizeString(legacyBody.digest, 100) : null,
       context: {
         ...legacyBody.context,
         source: 'client',
         additionalInfo: {
-          errorCode: legacyBody.errorCode || ERRORS.UNKNOWN_ERROR.code,
+          errorCode: sanitizeString(legacyBody.errorCode || ERRORS.UNKNOWN_ERROR.code, 50),
           errorType: 'ClientSideError',
         },
       },
