@@ -1,6 +1,6 @@
 {
   "name": "prixsix-whatsapp-worker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "WhatsApp notification worker for Prix Six Fantasy F1",
   "main": "dist/index.js",
   "scripts": {

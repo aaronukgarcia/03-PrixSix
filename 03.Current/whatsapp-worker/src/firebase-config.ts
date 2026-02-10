@@ -13,7 +13,24 @@ export function initializeFirebase(): void {
 
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     // Parse JSON from environment variable (for containerized deployment)
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    // SECURITY: Validate service account JSON before use (WHATSAPP-004 fix)
+    let serviceAccount: any;
+
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } catch (error: any) {
+      // SECURITY: Don't expose the env var content in error message
+      throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON. Check environment variable format.');
+    }
+
+    // Validate required fields exist
+    const requiredFields = ['project_id', 'private_key', 'client_email'];
+    const missingFields = requiredFields.filter(field => !serviceAccount[field]);
+
+    if (missingFields.length > 0) {
+      throw new Error(`FIREBASE_SERVICE_ACCOUNT is missing required fields: ${missingFields.join(', ')}`);
+    }
+
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.appspot.com`,

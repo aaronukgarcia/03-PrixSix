@@ -19,14 +19,25 @@ export class AzureBlobStore {
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
     const containerName = process.env.AZURE_STORAGE_CONTAINER || 'whatsapp-session';
 
+    // SECURITY: Validate connection string before use (WHATSAPP-003 fix)
     if (!connectionString) {
       throw new Error('AZURE_STORAGE_CONNECTION_STRING environment variable is required');
     }
 
-    const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-    this.containerClient = blobServiceClient.getContainerClient(containerName);
+    // Validate connection string format (should contain AccountName and AccountKey)
+    if (!connectionString.includes('AccountName=') || !connectionString.includes('AccountKey=')) {
+      throw new Error('AZURE_STORAGE_CONNECTION_STRING is malformed: missing AccountName or AccountKey');
+    }
 
-    console.log(`☁️ Azure Blob Store initialised for container: ${containerName}`);
+    // Wrap Azure SDK initialization to prevent credential exposure in error messages
+    try {
+      const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+      this.containerClient = blobServiceClient.getContainerClient(containerName);
+      console.log(`☁️ Azure Blob Store initialised for container: ${containerName}`);
+    } catch (error: any) {
+      // SECURITY: Sanitize error to prevent connection string exposure in logs
+      throw new Error(`Failed to initialize Azure Blob Storage: ${error.code || 'Invalid configuration'}. Check AZURE_STORAGE_CONNECTION_STRING format.`);
+    }
   }
 
   /**

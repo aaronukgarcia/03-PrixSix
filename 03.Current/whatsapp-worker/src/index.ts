@@ -13,8 +13,30 @@ app.use(express.json());
 let whatsappClient: WhatsAppClient;
 let queueProcessor: QueueProcessor;
 
+// SECURITY: Authentication middleware for sensitive endpoints (WHATSAPP-002 fix)
+// Verifies WORKER_API_KEY is set and matches the request header
+function requireAuth(req: Request, res: Response, next: Function) {
+  const apiKey = process.env.WORKER_API_KEY;
+
+  if (!apiKey) {
+    console.error('WORKER_API_KEY environment variable is not set');
+    res.status(500).json({ error: 'Server misconfigured: API key not set' });
+    return;
+  }
+
+  const providedKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+
+  if (providedKey !== apiKey) {
+    res.status(401).json({ error: 'Unauthorized: Invalid or missing API key' });
+    return;
+  }
+
+  next();
+}
+
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+// SECURITY: Protected with authentication (WHATSAPP-002 fix)
+app.get('/health', requireAuth, (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus() || {
     ready: false,
     qrCode: null,
@@ -37,7 +59,8 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Status endpoint with more details
-app.get('/status', async (req: Request, res: Response) => {
+// SECURITY: Protected with authentication (WHATSAPP-002 fix)
+app.get('/status', requireAuth, async (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus() || {
     ready: false,
     qrCode: null,
@@ -78,7 +101,8 @@ app.get('/status', async (req: Request, res: Response) => {
 });
 
 // QR Code endpoint (for remote setup)
-app.get('/qr', (req: Request, res: Response) => {
+// SECURITY: CRITICAL - Protected with authentication to prevent session hijacking (WHATSAPP-002 fix)
+app.get('/qr', requireAuth, (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus();
 
   if (!status?.qrCode) {
@@ -94,7 +118,8 @@ app.get('/qr', (req: Request, res: Response) => {
 });
 
 // Manual ping endpoint (for testing keep-alive)
-app.post('/ping', async (req: Request, res: Response) => {
+// SECURITY: Protected with authentication (WHATSAPP-002 fix)
+app.post('/ping', requireAuth, async (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus();
 
   if (!status?.ready) {
@@ -141,18 +166,9 @@ app.post('/trigger-test', async (req: Request, res: Response) => {
 
 // NEW: Process queue endpoint for Container Apps scale-to-zero
 // This endpoint is called when a message is queued, triggering scale-up
-app.post('/process-queue', async (req: Request, res: Response) => {
+// SECURITY: Protected with authentication (WHATSAPP-002 fix - consolidated with requireAuth middleware)
+app.post('/process-queue', requireAuth, async (req: Request, res: Response) => {
   console.log('📬 Received request to process queue');
-
-  // Verify API key if configured
-  const apiKey = process.env.WORKER_API_KEY;
-  if (apiKey) {
-    const providedKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
-    if (providedKey !== apiKey) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-  }
 
   const status = whatsappClient?.getStatus();
 
