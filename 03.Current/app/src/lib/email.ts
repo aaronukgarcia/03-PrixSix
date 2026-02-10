@@ -19,6 +19,25 @@ import {
   isSummarySent
 } from "./email-tracking";
 
+// GUID: LIB_EMAIL-000A-v01
+// [Intent] Escape HTML special characters to prevent XSS injection in email templates.
+//          Converts &<>"'/ to their HTML entity equivalents to safely embed user-controlled
+//          data into HTML email content. This prevents script injection via team names,
+//          content fields, or other user-supplied strings.
+// [Inbound Trigger] Called on all user-controlled data before interpolating into email HTML.
+// [Downstream Impact] Protects against EMAIL-001 (HTML injection vulnerability). All user data
+//                     in emails is rendered as text, not executable HTML/JavaScript.
+// [Security] Resolves CVSS 7.5 vulnerability by preventing stored XSS in email templates.
+export function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/\//g, '&#x2F;');
+}
+
 // GUID: LIB_EMAIL-001-v03
 // [Intent] Initialise and return a Firebase Admin Firestore instance for server-side email logging. Uses service account credentials if available, otherwise falls back to default project initialisation.
 // [Inbound Trigger] Called internally by sendWelcomeEmail and sendEmail when logging email activity to Firestore.
@@ -136,12 +155,12 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
       <p>The F1 Prediction League</p>
     </div>
     <div class="content">
-      <p>Hello <strong>${teamName}</strong>,</p>
+      <p>Hello <strong>${escapeHtml(teamName)}</strong>,</p>
 
       <p>Welcome to the Prix Six league! Your account has been created and you're ready to start making predictions.</p>
 
       <p>Your secure 6-digit PIN is:</p>
-      <div class="pin-box">${pin}</div>
+      <div class="pin-box">${escapeHtml(pin)}</div>
 
       <p style="text-align: center;">
         <a href="https://prix6.win/login" class="cta-button">Log In Now</a>

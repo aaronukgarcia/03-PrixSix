@@ -20,6 +20,24 @@ const DAILY_GLOBAL_LIMIT = 30;
 const DAILY_PER_ADDRESS_LIMIT = 5;
 const ADMIN_EMAIL = 'aaron@garcia.ltd';
 
+// GUID: API_SEND_HOT_NEWS_EMAIL-001A-v01
+// [Intent] Escape HTML special characters to prevent XSS injection in hot news email content.
+//          Converts &<>"'/ to their HTML entity equivalents to safely embed user-controlled
+//          data (team names, admin-authored content) into HTML email templates.
+// [Inbound Trigger] Called by buildHotNewsEmailHtml on all user/admin-supplied strings.
+// [Downstream Impact] Protects against EMAIL-001 (HTML injection vulnerability). All user data
+//                     in emails is rendered as text, not executable HTML/JavaScript.
+// [Security] Resolves CVSS 7.5 vulnerability by preventing stored XSS in email templates.
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/\//g, '&#x2F;');
+}
+
 // GUID: API_SEND_HOT_NEWS_EMAIL-002-v03
 // [Intent] Type definition for the incoming request body — content of the hot news, plus who triggered the update.
 // [Inbound Trigger] Used to type the parsed JSON body in the POST handler.
@@ -253,12 +271,13 @@ export async function POST(request: NextRequest) {
 function buildHotNewsEmailHtml(data: { teamName: string; content: string }): string {
   const { teamName, content } = data;
 
-  // Convert newlines to HTML breaks for proper formatting
+  // SECURITY: Escape HTML to prevent XSS injection (EMAIL-001 fix)
+  // Convert newlines to HTML breaks for proper formatting, escaping each line
   const formattedContent = content
     .split('\n')
     .map(line => line.trim())
     .filter(line => line.length > 0)
-    .map(line => `<p style="margin:0 0 10px 0;">${line}</p>`)
+    .map(line => `<p style="margin:0 0 10px 0;">${escapeHtml(line)}</p>`)
     .join('');
 
   return `
@@ -275,7 +294,7 @@ function buildHotNewsEmailHtml(data: { teamName: string; content: string }): str
   </div>
 
   <div style="background:#f8f9fa;padding:20px;border:1px solid #ddd;border-top:none;">
-    <h2 style="color:#1a1a2e;margin-top:0;">Hey ${teamName}!</h2>
+    <h2 style="color:#1a1a2e;margin-top:0;">Hey ${escapeHtml(teamName)}!</h2>
 
     <p style="color:#666;">Here's the latest hot news from the F1 world:</p>
 

@@ -24,6 +24,7 @@ const { getAuth } = require("firebase-admin/auth");
 const { Firestore: FirestoreDataClient } = require("@google-cloud/firestore");
 const { FirestoreAdminClient } = require("@google-cloud/firestore").v1;
 const { Storage } = require("@google-cloud/storage");
+const ERROR_CODES = require("../shared/error-codes.json");
 
 // GUID: BACKUP_FUNCTIONS-001-v03
 // [Intent] Initialise the Firebase Admin SDK once at cold-start so all
@@ -264,7 +265,7 @@ async function performBackup(db, { trigger = "scheduled" } = {}) {
       lastBackupTimestamp: Timestamp.now(),
       lastBackupStatus: "FAILED",
       lastBackupPath: null,
-      lastBackupError: `PX-7002 | ${err.message || String(err)} | ID: ${correlationId}`,
+      lastBackupError: `${ERROR_CODES.BACKUP_EXPORT_FAILED.code} | ${err.message || String(err)} | ID: ${correlationId}`,
       backupCorrelationId: correlationId,
     });
 
@@ -419,7 +420,7 @@ exports.manualBackup = onCall(
         success: false,
         error: err.message || String(err),
         correlationId: err.correlationId || generateCorrelationId("bkp"),
-        errorCode: "PX-7002",
+        errorCode: ERROR_CODES.BACKUP_EXPORT_FAILED.code,
       };
     }
   }
@@ -617,7 +618,7 @@ exports.listBackupHistory = onCall(
       return {
         success: false,
         error: err.message || String(err),
-        errorCode: "PX-7008",
+        errorCode: ERROR_CODES.BACKUP_BACKFILL_FAILED.code,
         correlationId,
       };
     }
@@ -959,7 +960,7 @@ exports.manualSmokeTest = onCall(
         success: false,
         error: err.message || String(err),
         correlationId,
-        errorCode: "PX-7004",
+        errorCode: ERROR_CODES.BACKUP_SMOKE_TEST_FAILED.code,
       };
     }
   }

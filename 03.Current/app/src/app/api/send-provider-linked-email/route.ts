@@ -24,6 +24,24 @@ function providerDisplayName(providerId: string): string {
   }
 }
 
+// GUID: API_SEND_PROVIDER_LINKED_EMAIL-001A-v01
+// [Intent] Escape HTML special characters to prevent XSS injection in provider linked email.
+//          Converts &<>"'/ to their HTML entity equivalents to safely embed user-controlled
+//          data (team names) into HTML email templates.
+// [Inbound Trigger] Called before interpolating user data into email HTML.
+// [Downstream Impact] Protects against EMAIL-001 (HTML injection vulnerability). All user data
+//                     in emails is rendered as text, not executable HTML/JavaScript.
+// [Security] Resolves CVSS 7.5 vulnerability by preventing stored XSS in email templates.
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/\//g, '&#x2F;');
+}
+
 // GUID: API_SEND_PROVIDER_LINKED_EMAIL-002-v04
 // [Intent] POST handler — validates required fields, builds a branded confirmation email,
 //          and sends to primary (and optionally secondary) email addresses.
@@ -71,21 +89,21 @@ export async function POST(request: NextRequest) {
         </div>
         <div style="background: #f8f9fa; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
           <h2 style="color: #1a1a1a; font-size: 20px; margin: 0 0 12px 0;">
-            ${displayName} Account Linked
+            ${escapeHtml(displayName)} Account Linked
           </h2>
           <p style="color: #444; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
-            Hi <strong>${displayTeam}</strong>,
+            Hi <strong>${escapeHtml(displayTeam)}</strong>,
           </p>
           <p style="color: #444; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
-            Your <strong>${displayName}</strong> account has been successfully linked to your Prix Six account.
-            You can now sign in using ${displayName} for faster, more secure access without needing your PIN.
+            Your <strong>${escapeHtml(displayName)}</strong> account has been successfully linked to your Prix Six account.
+            You can now sign in using ${escapeHtml(displayName)} for faster, more secure access without needing your PIN.
           </p>
           <p style="color: #444; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
             Your existing PIN sign-in method still works &mdash; you now have multiple ways to access your account.
           </p>
           <div style="background: #e8f5e9; border-radius: 8px; padding: 16px; margin-top: 16px;">
             <p style="color: #2e7d32; font-size: 14px; margin: 0;">
-              <strong>Linked methods:</strong> PIN + ${displayName}
+              <strong>Linked methods:</strong> PIN + ${escapeHtml(displayName)}
             </p>
           </div>
         </div>

@@ -9,7 +9,7 @@ import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebas
 import { ERROR_CODES } from '@/lib/error-codes';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, escapeHtml } from '@/lib/email';
 import crypto from 'crypto';
 
 // GUID: API_SEND_SECONDARY_VERIFICATION-001-v03
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       <p>Prix Six - F1 Prediction League</p>
     </div>
     <div class="content">
-      <p>Hello${teamName ? ` <strong>${teamName}</strong>` : ''},</p>
+      <p>Hello${teamName ? ` <strong>${escapeHtml(teamName)}</strong>` : ''},</p>
 
       <p>Please verify this secondary email address to receive Prix Six communications at this address.</p>
 
