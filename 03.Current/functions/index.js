@@ -1114,3 +1114,83 @@ async function deleteCollection(firestoreClient, collRef) {
     await batch.commit();
   }
 }
+
+// ── Admin Hot Link Token Cleanup ───────────────────────────────
+
+// GUID: ADMIN_HOTLINK_CLEANUP-001-v03
+/**
+ * cleanupExpiredAdminTokens
+ *
+ * [Intent] Hourly cron job to delete expired admin challenge tokens from the
+ *          admin_challenges collection. Provides defensive redundancy alongside
+ *          Firestore TTL policy (Option C approach). Prevents token accumulation
+ *          and ensures tokens older than 10 minutes are purged.
+ * [Inbound Trigger] Cloud Scheduler cron: "0 * * * *" (every hour at minute 0).
+ * [Downstream Impact] Deletes docs in admin_challenges where expiresAt < now.
+ *                     Logs cleanup stats to structured logs for monitoring.
+ *                     No user-facing impact — expired tokens are already invalid.
+ *
+ * Security: Runs server-side via Admin SDK (bypasses Firestore rules).
+ * Rate: Hourly to balance cleanup frequency vs Cloud Function invocation costs.
+ */
+exports.cleanupExpiredAdminTokens = onSchedule(
+  {
+    schedule: "0 * * * *", // Every hour at minute 0
+    timeZone: "UTC",
+    region: REGION,
+    memory: "256MiB",
+    timeoutSeconds: 60,
+  },
+  async (event) => {
+    const db = getFirestore();
+    const correlationId = generateCorrelationId("cleanup");
+    const now = Date.now();
+
+    try {
+      console.log(`[${correlationId}] Starting admin token cleanup...`);
+
+      // Query for expired tokens
+      const expiredTokensRef = db.collection("admin_challenges")
+        .where("expiresAt", "<", now);
+
+      const snapshot = await expiredTokensRef.get();
+
+      if (snapshot.empty) {
+        console.log(`[${correlationId}] No expired tokens found.`);
+        return { deleted: 0, correlationId };
+      }
+
+      // Batch delete (max 500 per batch)
+      const batch = db.batch();
+      let count = 0;
+
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        count++;
+      });
+
+      await batch.commit();
+
+      console.log({
+        message: "ADMIN_TOKEN_CLEANUP",
+        correlationId,
+        deletedCount: count,
+        timestamp: new Date().toISOString(),
+        severity: "INFO",
+      });
+
+      return { deleted: count, correlationId };
+
+    } catch (error) {
+      console.error({
+        message: "ADMIN_TOKEN_CLEANUP_FAILED",
+        correlationId,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        severity: "ERROR",
+      });
+
+      throw error;
+    }
+  }
+);

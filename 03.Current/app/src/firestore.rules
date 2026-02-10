@@ -41,8 +41,23 @@ service cloud.firestore {
       allow get, list: if isSignedIn();
       // SECURITY: Users cannot create themselves as admin
       allow create: if isOwner(userId) && validUserCreate();
-      // SECURITY: Users can only update non-protected fields; admins can update anything
-      allow update: if (isOwner(userId) && userNotChangingProtectedFields()) || isAdmin();
+
+      // SECURITY: Admin Identity Lockdown - prevents admins from changing their own email
+      // Regular users can update non-protected fields
+      // Admins can update other users OR update themselves WITHOUT changing email/secondary_email
+      allow update: if
+        // Case 1: Regular user updating themselves (not changing protected fields)
+        (isOwner(userId) && userNotChangingProtectedFields()) ||
+
+        // Case 2: Admin updating another user (full access)
+        (isAdmin() && request.auth.uid != userId) ||
+
+        // Case 3: Admin updating themselves (email and secondary_email must remain unchanged)
+        (isAdmin() &&
+         request.auth.uid == userId &&
+         request.resource.data.email == resource.data.email &&
+         request.resource.data.get('secondary_email', null) == resource.data.get('secondary_email', null));
+
       // Users should not delete their own accounts (handled by admin or server)
       allow delete: if isAdmin();
 
@@ -277,6 +292,29 @@ service cloud.firestore {
     match /backup_history/{docId} {
       allow get, list: if isAdmin();
       allow write: if false; // Server-side only via Admin SDK
+    }
+
+    // GUID: ADMIN_HOTLINK_RULES-001-v03
+    // [Intent] Firestore security rules for admin_challenges collection (Admin Hot Link tokens).
+    //          Denies all client-side access. Tokens are created and verified server-side only
+    //          via /api/auth/admin-challenge and /api/admin/verify-access endpoints.
+    // [Inbound Trigger] Admin Hot Link verification flow (Phase 3.A implementation).
+    // [Downstream Impact] Without these rules, clients could bypass the Magic Link flow by
+    //                     directly reading/creating tokens. Server-side only ensures single-use
+    //                     token consumption and prevents token enumeration attacks.
+    match /admin_challenges/{tokenId} {
+      allow read, write: if false; // Server-side only via Admin SDK
+    }
+
+    // GUID: ADMIN_VERIFICATION_RULES-001-v03
+    // [Intent] Firestore security rules for secondary_email_verification_tokens collection.
+    //          Denies all client-side access. Tokens created server-side only.
+    // [Inbound Trigger] Email verification flow.
+    // [Downstream Impact] Resolves FIRESTORE-002 (missing collection protection).
+    //                     Without these rules, collection defaults to deny-all (secure)
+    //                     but explicit rule removes maintenance risk.
+    match /secondary_email_verification_tokens/{tokenId} {
+      allow read, write: if false; // Server-side only via Admin SDK
     }
   }
 }
