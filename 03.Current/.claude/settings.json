@@ -19,6 +19,16 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node claude-ping-check.js"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

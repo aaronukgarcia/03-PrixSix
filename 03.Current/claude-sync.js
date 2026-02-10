@@ -11,7 +11,8 @@
  *   claim /path/            - Claim file ownership
  *   release /path/          - Release file ownership
  *   register "description"  - Register current branch
- *   ping                    - Send keepalive heartbeat (run every 5 minutes)
+ *   ping                    - Send keepalive heartbeat + watchdog report
+ *   watchdog                - Standalone sleep detection report (no ping)
  *   init                    - Initialise fresh state
  *   gc                      - Garbage collect stale sessions (auto-runs on checkin)
  *
@@ -39,6 +40,8 @@ const SERVICE_ACCOUNT_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS
 const DOCUMENT_PATH = 'coordination/claude-state';
 const PINGS_COLLECTION = 'session_pings';
 const STALE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours - sessions inactive longer are stale
+const SLEEP_THRESHOLD_MS = 5 * 60 * 1000;    // 5 minutes - peer considered sleeping
+const DEEP_SLEEP_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes - peer considered deeply sleeping
 
 // Initialise Firebase Admin
 let db;
@@ -216,6 +219,41 @@ async function cmdGc() {
 }
 
 /**
+ * Generate watchdog report for sleeping peers.
+ * Returns { lines: string[], alerts: string[] } where lines are for stdout
+ * and alerts are for the activity log.
+ */
+function watchdogReport(state, mySessionId) {
+  const now = Date.now();
+  const lines = [];
+  const alerts = [];
+
+  for (const [sessionId, session] of Object.entries(state.sessions || {})) {
+    if (session.status !== 'active') continue;
+    if (sessionId === mySessionId) continue;
+
+    const lastActivity = new Date(session.lastActivity || session.startedAt).getTime();
+    const inactiveMs = now - lastActivity;
+
+    if (inactiveMs >= DEEP_SLEEP_THRESHOLD_MS) {
+      const mins = Math.round(inactiveMs / 60000);
+      const lastTime = formatTime(session.lastActivity || session.startedAt);
+      const line = `WATCHDOG: ${session.name} sleeping ${mins}m (last: ${lastTime}) on ${session.branch || 'unknown'} *** DEEP SLEEP ***`;
+      lines.push(line);
+      alerts.push(`${session.name} deep-sleeping ${mins}m on ${session.branch || 'unknown'}`);
+    } else if (inactiveMs >= SLEEP_THRESHOLD_MS) {
+      const mins = Math.round(inactiveMs / 60000);
+      const lastTime = formatTime(session.lastActivity || session.startedAt);
+      const line = `WATCHDOG: ${session.name} sleeping ${mins}m (last: ${lastTime}) on ${session.branch || 'unknown'}`;
+      lines.push(line);
+      alerts.push(`${session.name} sleeping ${mins}m on ${session.branch || 'unknown'}`);
+    }
+  }
+
+  return { lines, alerts };
+}
+
+/**
  * COMMAND: ping - Send keepalive heartbeat
  */
 async function cmdPing() {
@@ -260,8 +298,53 @@ async function cmdPing() {
     state.activityLog = state.activityLog.slice(-100);
   }
 
+  // Watchdog: check for sleeping peers
+  const watchdog = watchdogReport(state, sessionId);
+  if (watchdog.alerts.length > 0) {
+    state.activityLog.push({
+      sessionId,
+      name,
+      branch,
+      message: `Watchdog: ${watchdog.alerts.join('; ')}`,
+      timestamp: now
+    });
+    // Trim again if needed
+    if (state.activityLog.length > 100) {
+      state.activityLog = state.activityLog.slice(-100);
+    }
+  }
+
   await saveState(state);
   console.log(`${name} keepalive ping at ${formatTime(now)}`);
+
+  // Print watchdog lines after self-ping confirmation
+  for (const line of watchdog.lines) {
+    console.log(line);
+  }
+}
+
+/**
+ * COMMAND: watchdog - Standalone sleep detection report (no self-ping)
+ */
+async function cmdWatchdog() {
+  const state = await getState();
+  const branch = getCurrentBranch();
+
+  const session = await getCurrentSession(state, branch);
+  const mySessionId = session?.sessionId || null;
+  const myName = session?.name || 'unknown';
+
+  const watchdog = watchdogReport(state, mySessionId);
+
+  console.log(`Watchdog report by ${myName} at ${formatTime(new Date().toISOString())}`);
+
+  if (watchdog.lines.length === 0) {
+    console.log('All peers are active. No sleeping sessions detected.');
+  } else {
+    for (const line of watchdog.lines) {
+      console.log(line);
+    }
+  }
 }
 
 /**
@@ -844,6 +927,9 @@ async function main() {
       case 'gc':
         await cmdGc();
         break;
+      case 'watchdog':
+        await cmdWatchdog();
+        break;
       default:
         console.log('claude-sync.js - Claude Code session coordination');
         console.log('');
@@ -854,7 +940,8 @@ async function main() {
         console.log('  checkout                - End your own session');
         console.log('  checkout <Name>         - End a specific session by name');
         console.log('  checkout --force        - Force end all sessions on branch');
-        console.log('  ping                    - Send keepalive heartbeat (every 5 min)');
+        console.log('  ping                    - Send keepalive heartbeat + watchdog report');
+        console.log('  watchdog                - Standalone sleep detection report (no ping)');
         console.log('  gc                      - Garbage collect stale sessions (2h+ inactive)');
         console.log('  init                    - Initialise fresh state');
         console.log('  read                    - Display current coordination state');

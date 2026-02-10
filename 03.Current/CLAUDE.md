@@ -20,6 +20,9 @@ These rules MUST be followed on every piece of code written and every response g
 | #6 | GUID Documentation — read comments before changing code, update GUID versions and code.json |
 | #7 | Registry-Sourced Errors — every error MUST be created from the error registry, no exceptions |
 | #8 | Prompt Identity Enforcement — "who" check, violation logging to Vestige memory, scorekeeping |
+| #9 | Shell Preference — Microsoft PowerShell first, then CMD, then bash if needed |
+| #10 | Dependency Update Discipline — check for updates on any dependency encountered during bug fixes or feature builds |
+| #11 | Pre-Commit Security Review — mandatory security threat modeling before every commit |
 
 ### 🛑 GOLDEN RULE #1: Aggressive Error Trapping
 
@@ -620,6 +623,291 @@ Before sending ANY response, verify:
 - ❓ If NO, add it NOW and log a violation
 
 This rule exists because agents consistently fail to follow Golden Rule #4 despite it being clearly documented. Rule #8 adds consequences.
+
+---
+
+### 🛑 GOLDEN RULE #9: Shell Preference
+
+**When executing commands, prioritize shell selection in this order: PowerShell → CMD → bash. Only use bash when PowerShell and CMD cannot accomplish the task.**
+
+#### The Rule
+
+Windows is the primary development platform for Prix Six. Shell commands should respect the native Windows environment:
+
+1. **First choice: PowerShell** — Use for most operations (file operations, Azure CLI, gcloud CLI, git)
+2. **Second choice: CMD** — Use when PowerShell syntax is problematic or legacy batch scripts required
+3. **Last resort: bash** — Only when the task genuinely requires Unix shell features unavailable in PowerShell/CMD
+
+#### When to Use Each Shell
+
+| Shell | Use For | Examples |
+|-------|---------|----------|
+| **PowerShell** | Most operations, Azure CLI, gcloud CLI, git, npm | `Get-Content`, `az containerapp logs`, `gcloud logging read` |
+| **CMD** | Legacy batch scripts, simple commands when PowerShell escaping is problematic | `dir`, `copy`, basic git commands |
+| **bash** | Unix-specific tools, complex piping that requires Unix semantics | `grep` with complex regex (though prefer Grep tool), `find` (though prefer Glob tool) |
+
+#### Tool Preference Over bash
+
+Before reaching for bash, check if a specialized tool can accomplish the task:
+- **File search** → Use `Glob` tool (not `find` or `ls`)
+- **Content search** → Use `Grep` tool (not `grep` or `rg`)
+- **Read files** → Use `Read` tool (not `cat`/`head`/`tail`)
+- **Edit files** → Use `Edit` tool (not `sed`/`awk`)
+- **Write files** → Use `Write` tool (not `echo >`/`cat <<EOF`)
+
+#### PowerShell Path Conventions
+
+When using PowerShell with full paths:
+- Use quotes around paths with spaces: `& "C:\Program Files\..."`
+- Prefer forward slashes in JSON/config (avoid escaping): `"E:/GoogleDrive/..."`
+- Use `&` operator for executing commands with paths
+
+#### Rationale
+
+- Windows native tools (PowerShell/CMD) have better integration with Windows APIs
+- PowerShell provides rich object-oriented output vs bash text streams
+- Avoids WSL/Git Bash dependency and PATH complexity
+- Clearer intent when Unix features are genuinely needed
+
+---
+
+### 🛑 GOLDEN RULE #10: Dependency Update Discipline
+
+**Any dependency that is discovered or encountered during a bug fix or feature build MUST be checked for available updates.**
+
+#### The Rule
+
+When working on bugs or features, if you interact with, import, or reference any external dependency:
+
+1. **Check for updates** — Use `npm outdated`, package manager queries, or version check commands
+2. **Review changelog** — Check for breaking changes, security fixes, or relevant improvements
+3. **Consider updating** — If safe to do so (no breaking changes or acceptable effort to adapt), update the dependency
+4. **Document the decision** — If you choose NOT to update, note the reason (e.g., "Breaking changes require auth refactor - defer to separate ticket")
+
+#### What Counts as "Encountered"
+
+| Scenario | Action Required |
+|----------|-----------------|
+| Import statement in code you're modifying | Check that package for updates |
+| Error message mentioning a package | Check that package for updates |
+| Using a CLI tool (gcloud, az, npm, etc.) | Check tool version vs latest |
+| Debugging an issue caused by a library | Check for bug fixes in newer versions |
+| Adding a new dependency | Already checking latest — this is standard |
+
+#### How to Check for Updates
+
+**For npm packages:**
+```powershell
+cd E:\GoogleDrive\Papers\03-PrixSix\03.Current\app
+npm outdated
+```
+
+**For specific package:**
+```powershell
+npm show <package-name> version
+npm show <package-name>@latest version
+```
+
+**For global tools (Azure CLI, gcloud, etc.):**
+```powershell
+az version  # Check current
+# Visit https://aka.ms/installazurecliwindows for latest
+
+gcloud version  # Check current
+# Visit https://cloud.google.com/sdk/docs/install for latest
+```
+
+#### When NOT to Update
+
+Acceptable reasons to defer:
+- **Breaking changes** require significant refactoring (document in issue/comment)
+- **Major version jump** needs dedicated testing effort (create follow-up task)
+- **Security audit required** for new version (enterprise/compliance constraint)
+- **Dependency conflict** with other packages (needs resolution plan)
+
+**Never defer for:**
+- "It works, why change it?" (technical debt accumulation)
+- "Too busy" (compounds future maintenance burden)
+- Security patches (MUST update unless breaking changes require emergency workaround)
+
+#### Reporting Updates
+
+When you update a dependency, include in commit message:
+```
+feat: improve error handling in auth flow
+
+- Updated firebase-admin 11.5.0 → 12.0.0
+- Updated express 4.18.2 → 4.19.2 (security patch CVE-2024-xxxx)
+- Deferred @google-cloud/firestore 7.1.0 → 8.0.0 (breaking: query syntax changes)
+```
+
+#### Rationale
+
+- **Security:** Outdated dependencies are attack vectors
+- **Bug fixes:** Many "mysterious" bugs are already fixed upstream
+- **Technical debt:** Small, incremental updates easier than large version jumps
+- **Maintenance cost:** Staying current reduces future migration effort
+- **Best practices:** Dependency hygiene is a sign of mature engineering
+
+#### Compliance Checklist
+
+Before marking a bug fix or feature complete:
+
+- [ ] Identified all dependencies touched by this work
+- [ ] Checked each dependency for available updates
+- [ ] Updated dependencies OR documented reason to defer
+- [ ] Tested that updates don't break existing functionality
+- [ ] Included dependency changes in commit message if updated
+
+**If ANY checkbox fails without documented justification, the work is not ready for commit.**
+
+---
+
+### 🛑 GOLDEN RULE #11: Pre-Commit Security Review
+
+**Before EVERY commit, you MUST perform threat modeling on all code changes. Ask how the change could be exploited, circumvented, or compromised. This is mandatory — no exceptions.**
+
+#### The Rule
+
+Security cannot be bolted on after the fact. Every bug fix, feature addition, or code change introduces potential attack vectors. Before committing ANY code:
+
+1. **Threat Model the Change** — Analyze how an attacker could exploit this code
+2. **Ask the Critical Questions** — Force yourself to think like an adversary
+3. **Document Security Consideration** — Log to Vestige memory with commit timestamp
+4. **Update code.json** — Ensure GUID documentation reflects security implications
+
+#### The Five Mandatory Questions
+
+Before every commit, you MUST ask and answer:
+
+| # | Question | What to Look For |
+|---|----------|------------------|
+| 1 | **How could this be exploited?** | Input validation bypass, injection attacks, authentication bypass, information disclosure |
+| 2 | **How can this be circumvented?** | Client-side checks only, missing server validation, race conditions, timing attacks |
+| 3 | **Is it secure?** | Credentials exposure, weak randomness, missing authorization, unencrypted sensitive data |
+| 4 | **How would I get around this security?** | Privilege escalation paths, token/session hijacking, direct API calls bypassing UI logic |
+| 5 | **What's the worst case if this fails?** | Data breach, account takeover, system compromise, financial loss, reputation damage |
+
+#### Attack Vectors to Always Consider
+
+Every commit must be evaluated against these threat categories:
+
+| Threat Category | What to Check |
+|----------------|---------------|
+| **Authentication Bypass** | Can auth be skipped? Are credentials properly validated server-side? |
+| **Authorization Bypass** | Can users access data/functions they shouldn't? Are permissions checked server-side? |
+| **Privilege Escalation** | Can a regular user gain admin rights? Are role checks in Firestore rules? |
+| **Client-Side Manipulation** | Are critical checks only on client? Can API be called directly? |
+| **Injection Attacks** | SQL/NoSQL injection, XSS, HTML injection, command injection in user inputs |
+| **Credential Exposure** | Are secrets in code? Logged in plaintext? Stored unencrypted? |
+| **Weak Randomness** | Using Math.random() for security? Modulo bias in token generation? |
+| **Rate Limiting** | Can endpoint be spammed? DoS/DoW attack vectors? |
+| **Data Leakage** | PII in logs? Sensitive data in error messages? Debug info in production? |
+| **Session Security** | Token expiry? Session fixation? CSRF protection? |
+
+#### When Security Review is CRITICAL
+
+Pay extra attention when code touches:
+
+- **Authentication/Authorization** — Login, signup, password reset, role checks
+- **User Input** — Forms, API parameters, file uploads, search queries
+- **Database Operations** — Firestore writes, admin SDK calls, bulk operations
+- **Sensitive Data** — Passwords, PINs, emails, API keys, tokens, personal information
+- **Admin Functions** — Anything with elevated privileges or system-wide effects
+- **External Integrations** — APIs, webhooks, third-party services
+- **Client-Side Logic** — Anything that could be bypassed by direct API calls
+
+#### Documentation Requirements
+
+After completing security review, you MUST:
+
+1. **Log to Vestige Memory** with:
+   - Commit timestamp
+   - Files changed
+   - Security considerations evaluated
+   - Threats identified and mitigated (or accepted risk with justification)
+   - Confirmation: "Security review complete for commit [hash/description]"
+
+2. **Update code.json** with:
+   - Security-relevant remarks in GUID comments
+   - Threat mitigation notes in `[Downstream Impact]`
+   - Dependencies on security controls (auth checks, rate limits, validation)
+
+#### Memory Template
+
+Use this format when logging to Vestige:
+
+```
+Pre-Commit Security Review - [Timestamp]
+
+Files Changed: [list]
+Commit: [description]
+
+Security Analysis:
+1. Exploitation vectors considered: [list]
+2. Circumvention attempts analyzed: [list]
+3. Security controls validated: [list]
+4. Attack scenarios tested: [list]
+
+Threats Identified:
+- [Threat 1]: Mitigated by [control]
+- [Threat 2]: Mitigated by [control]
+- [Accepted Risk]: [justification]
+
+Result: ✅ Security review complete. Code ready for commit.
+```
+
+#### Examples of Good Security Thinking
+
+**Example 1: Adding a "Delete Account" Feature**
+
+❌ **Bad:** Client-side button → Firestore delete → done
+✅ **Good:** Ask the questions:
+- Q1: How could this be exploited? → Any user could call the API to delete any account
+- Q2: How circumvented? → Client-side auth check bypassed by direct API call
+- Q3: Is it secure? → NO - missing server-side authorization
+- Q4: How to get around? → Craft direct Firestore request with another user's UID
+- Q5: Worst case? → Mass account deletion, data loss, service disruption
+
+**Mitigation:** Server-side API route with Firebase Auth verification + Firestore rule requiring `request.auth.uid == resource.id`
+
+**Example 2: Adding Email Notification for Score Changes**
+
+❌ **Bad:** Fetch all users, send email with score
+✅ **Good:** Ask the questions:
+- Q1: Exploited how? → Email enumeration, PII disclosure via email content
+- Q2: Circumvented? → Rate limits bypassed by triggering score recalculations
+- Q3: Secure? → Partially - need rate limiting and PII sanitization
+- Q4: Get around? → Spam endpoint to trigger DoS via email quota exhaustion
+- Q5: Worst case? → Email service ban, cost explosion, user data leaked in emails
+
+**Mitigation:** Rate limit per user, sanitize email content, queue with backoff, monitor costs
+
+#### Compliance Checklist
+
+Before marking code ready for commit:
+
+- [ ] All 5 security questions asked and answered
+- [ ] Attack vectors specific to this change identified
+- [ ] Client-side security checks verified to have server-side enforcement
+- [ ] No credentials, secrets, or PII exposed in code or logs
+- [ ] Authorization checks present for privileged operations
+- [ ] Input validation on all user-controlled data
+- [ ] Security review logged to Vestige memory with timestamp
+- [ ] code.json updated with security-relevant remarks
+
+**If ANY checkbox fails, the code is not ready for commit.**
+
+#### Rationale
+
+The plaintext PIN storage vulnerability (missed in initial review, caught by Gemini) demonstrates why this rule is mandatory:
+
+- **Reactive security fails** — Finding issues after commit wastes time and creates risk
+- **Proactive threat modeling prevents** — Asking "could PINs leak?" before commit would have caught it
+- **Attacker mindset essential** — Thinking "how would I steal credentials?" reveals flaws
+- **Memory accountability** — Timestamped security reviews create audit trail and enforce discipline
+
+This rule exists because **security is not a checkbox — it's a mindset that must be applied to every line of code before it enters the codebase.**
 
 ---
 
@@ -1430,6 +1718,7 @@ The continue URL in email verification is configured in `firebase/provider.tsx`.
 12. ✅ **GOLDEN RULE #6:** GUID comments updated on all changed/new code, `code.json` in sync
 13. ✅ **GOLDEN RULE #7:** Errors use `ERRORS.KEY` from error-registry.ts, `error-registry.ts` regenerated if code.json changed
 14. ✅ **GOLDEN RULE #8:** Prompt prefix used on every response; violations logged to Vestige memory
+15. ✅ **GOLDEN RULE #11:** Pre-commit security review completed, 5 questions answered, security consideration logged to Vestige with timestamp
 
 ---
 

@@ -1,5 +1,6 @@
-// GUID: ADMIN_ERRORLOG-000-v04
+// GUID: ADMIN_ERRORLOG-000-v05
 // @SECURITY_FIX: Added stack trace sanitization to prevent information disclosure (ADMINCOMP-011).
+// @SECURITY_FIX: Replaced direct Firestore writes with API endpoint for error resolution (ADMINCOMP-012).
 // [Intent] Admin component for viewing, searching, filtering, and resolving system error logs.
 // [Inbound Trigger] Rendered on the admin Error Logs tab.
 // [Downstream Impact] Displays error_logs Firestore collection; allows admins to mark errors resolved. Changes to error log schema or error-codes.ts categories affect display.
@@ -7,8 +8,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
+import { useCollection, useFirestore, useAuth } from '@/firebase';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -166,12 +167,13 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-// GUID: ADMIN_ERRORLOG-006-v03
+// GUID: ADMIN_ERRORLOG-006-v05
 // [Intent] Main exported component that provides a full error log viewing interface with filtering, searching, grouping, and resolution tracking.
 // [Inbound Trigger] Mounted by the admin page when the Error Logs tab is active.
 // [Downstream Impact] Reads from error_logs Firestore collection. Filter/view state changes affect which ErrorLogItem instances are rendered.
 export function ErrorLogViewer() {
   const firestore = useFirestore();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedView, setSelectedView] = useState('list');
@@ -446,7 +448,7 @@ export function ErrorLogViewer() {
                     {isExpanded && (
                       <div className="border-t bg-muted/30">
                         {logs.map(log => (
-                          <ErrorLogItem key={log.id} log={log} firestore={firestore} />
+                          <ErrorLogItem key={log.id} log={log} user={user} />
                         ))}
                       </div>
                     )}
@@ -464,7 +466,7 @@ export function ErrorLogViewer() {
             <Accordion type="single" collapsible className="w-full">
               {filteredLogs.length > 0 ? (
                 filteredLogs.map(log => (
-                  <ErrorLogItem key={log.id} log={log} accordion firestore={firestore} />
+                  <ErrorLogItem key={log.id} log={log} accordion user={user} />
                 ))
               ) : (
                 <div className="text-center text-muted-foreground p-12">
@@ -479,14 +481,15 @@ export function ErrorLogViewer() {
   );
 }
 
-// GUID: ADMIN_ERRORLOG-013-v03
+// GUID: ADMIN_ERRORLOG-013-v05
+// @SECURITY_FIX: Replaced direct Firestore writes with API endpoint call (ADMINCOMP-012).
 // [Intent] Renders a single error log entry with expandable details, copy-able correlation ID, stack trace, context, and a "Mark as Resolved" action.
 // [Inbound Trigger] Rendered by ErrorLogViewer for each error log in both list and grouped views.
-// [Downstream Impact] Writes to error_logs collection when marking resolved. Supports Golden Rule #1 by exposing copyable correlation IDs.
-function ErrorLogItem({ log, accordion, firestore, onResolved }: {
+// [Downstream Impact] Calls /api/admin/resolve-error endpoint when marking resolved. Supports Golden Rule #1 by exposing copyable correlation IDs.
+function ErrorLogItem({ log, accordion, user, onResolved }: {
   log: ErrorLog;
   accordion?: boolean;
-  firestore?: ReturnType<typeof useFirestore>;
+  user?: any;
   onResolved?: () => void;
 }) {
   const [isResolving, setIsResolving] = useState(false);
@@ -501,19 +504,29 @@ function ErrorLogItem({ log, accordion, firestore, onResolved }: {
   const errorMessage = log.error || 'Unknown error';
   const isResolved = log.resolved === true;
 
-  // GUID: ADMIN_ERRORLOG-014-v03
-  // [Intent] Marks an error log as resolved by updating the Firestore document with resolved=true and a timestamp.
+  // GUID: ADMIN_ERRORLOG-014-v05
+  // @SECURITY_FIX: Replaced direct Firestore write with API endpoint call (ADMINCOMP-012).
+  // [Intent] Marks an error log as resolved by calling the server-side API endpoint with proper authentication.
   // [Inbound Trigger] Called when the admin clicks "Mark as Resolved" on an unresolved error.
-  // [Downstream Impact] Updates the error_logs document; the real-time listener will reflect the change in the UI.
+  // [Downstream Impact] Calls /api/admin/resolve-error endpoint; real-time listener will reflect the change in the UI.
   const handleMarkResolved = async () => {
-    if (!firestore || !log.id) return;
+    if (!user || !log.id) return;
     setIsResolving(true);
     try {
-      const logRef = doc(firestore, 'error_logs', log.id);
-      await updateDoc(logRef, {
-        resolved: true,
-        resolvedAt: new Date().toISOString(),
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/resolve-error', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ errorLogId: log.id }),
       });
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to mark as resolved');
+      }
       onResolved?.();
     } catch (err) {
       console.error('Failed to mark as resolved:', err);
@@ -603,7 +616,7 @@ function ErrorLogItem({ log, accordion, firestore, onResolved }: {
         ) : (
           <div className="text-sm text-muted-foreground">Not resolved</div>
         )}
-        {!isResolved && firestore && (
+        {!isResolved && user && (
           <Button
             size="sm"
             variant="outline"

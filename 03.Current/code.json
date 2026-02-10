@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
-  "generated": "2026-01-31",
-  "total_guids": 1030,
+  "generated": "2026-02-10",
+  "total_guids": 1062,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
@@ -16607,6 +16607,440 @@
       },
       "callChain": {
         "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "WHATSAPP_WORKER_INDEX-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "WhatsApp Worker main entry point - Express server that manages WhatsApp Web.js client lifecycle, provides health/status/QR endpoints, and coordinates queue processing for outbound messages. Critical infrastructure for WhatsApp integration.",
+      "dependencies": ["WHATSAPP_CLIENT-000", "QUEUE_PROCESSOR-000", "FIREBASE_CONFIG_WORKER-000"],
+      "location": {
+        "filePath": "whatsapp-worker/src/index.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["WhatsAppClient", "QueueProcessor", "initializeFirebase"]
+      }
+    },
+    {
+      "guid": "WHATSAPP_CLIENT-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "WhatsApp Web.js client wrapper with Azure Blob Storage session persistence, keep-alive pings, QR code generation, and platform-specific Puppeteer configuration. Handles authentication, disconnection recovery, and group message sending.",
+      "dependencies": ["AZURE_STORE-000", "FIREBASE_CONFIG_WORKER-000"],
+      "location": {
+        "filePath": "whatsapp-worker/src/whatsapp-client.ts"
+      },
+      "callChain": {
+        "calledBy": ["WHATSAPP_WORKER_INDEX-000"],
+        "calls": ["AzureBlobStore", "getFirestore"]
+      }
+    },
+    {
+      "guid": "FIREBASE_STORE-000",
+      "version": 3,
+      "logic_category": "PERSISTENCE",
+      "description": "Firebase Storage adapter for WhatsApp RemoteAuth session persistence. Saves/loads session.json from Firebase Storage bucket for container-safe session recovery. Legacy fallback to Azure Blob Store.",
+      "dependencies": ["FIREBASE_CONFIG_WORKER-000"],
+      "location": {
+        "filePath": "whatsapp-worker/src/firebase-store.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["getStorage"]
+      }
+    },
+    {
+      "guid": "AZURE_STORE-000",
+      "version": 3,
+      "logic_category": "PERSISTENCE",
+      "description": "Azure Blob Storage adapter for WhatsApp RemoteAuth session persistence. Uploads/downloads session.zip to Azure container for production deployments. Used when AZURE_STORAGE_CONNECTION_STRING is set.",
+      "dependencies": [],
+      "location": {
+        "filePath": "whatsapp-worker/src/azure-store.ts"
+      },
+      "callChain": {
+        "calledBy": ["WHATSAPP_CLIENT-000"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "QUEUE_PROCESSOR-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Firestore queue listener that processes whatsapp_queue collection documents. Monitors PENDING messages, applies rate limiting (5-10s between messages), retries failures up to 3 times, and updates status to SENT/FAILED.",
+      "dependencies": ["FIREBASE_CONFIG_WORKER-000", "WHATSAPP_CLIENT-000"],
+      "location": {
+        "filePath": "whatsapp-worker/src/queue-processor.ts"
+      },
+      "callChain": {
+        "calledBy": ["WHATSAPP_WORKER_INDEX-000"],
+        "calls": ["getFirestore", "WhatsAppClient.sendMessage"]
+      }
+    },
+    {
+      "guid": "FIREBASE_CONFIG_WORKER-000",
+      "version": 3,
+      "logic_category": "INITIALIZATION",
+      "description": "Firebase Admin SDK initialization for WhatsApp worker. Supports service account JSON from env var (containerized), GOOGLE_APPLICATION_CREDENTIALS, or local service-account.json. Exports getFirestore and getStorage helpers.",
+      "dependencies": [],
+      "location": {
+        "filePath": "whatsapp-worker/src/firebase-config.ts"
+      },
+      "callChain": {
+        "calledBy": ["WHATSAPP_CLIENT-000", "FIREBASE_STORE-000", "QUEUE_PROCESSOR-000"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "WHATSAPP_WORKER_TYPES-000",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Type declaration module for qrcode-terminal package (missing TypeScript definitions). Declares generate() and setErrorLevel() functions.",
+      "dependencies": [],
+      "location": {
+        "filePath": "whatsapp-worker/src/types.d.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "DND_PREDICTION_WRAPPER-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "DnD-Kit context wrapper for drag-and-drop prediction grid. Manages drag state, parses pool/slot IDs, handles pool-to-slot drops, slot-to-slot swaps, and slot-to-pool removals. Uses PointerSensor (8px threshold) and TouchSensor (200ms delay).",
+      "dependencies": ["DRAGGABLE_DRIVER-000", "DRAG_OVERLAY_CONTENT-000"],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/DndPredictionWrapper.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["DragOverlayContent", "DraggableDriver"]
+      }
+    },
+    {
+      "guid": "DRAGGABLE_DRIVER-000",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Thin wrapper around @dnd-kit/core useDraggable hook. Applies transform CSS, 0.4 opacity when dragging, and touch-action:none. Used for both pool drivers and grid slot drivers.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/DraggableDriver.tsx"
+      },
+      "callChain": {
+        "calledBy": ["DND_PREDICTION_WRAPPER-000", "DROPPABLE_GRID_SLOT-000", "DROPPABLE_POOL_ZONE-000"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "DRAG_OVERLAY_CONTENT-000",
+      "version": 3,
+      "logic_category": "UI",
+      "description": "Drag overlay preview component displayed during drag operations. Shows driver avatar and name in a floating card with shadow-xl. Styled with pointer-events-none to prevent interaction.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/DragOverlayContent.tsx"
+      },
+      "callChain": {
+        "calledBy": ["DND_PREDICTION_WRAPPER-000"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "DROPPABLE_GRID_SLOT-000",
+      "version": 3,
+      "logic_category": "UI",
+      "description": "Droppable slot for prediction grid (P1-P6). Shows driver avatar when filled, position label (P1-P6), remove button, and up/down move arrows. Right lane slots have translate-y-6 offset. Highlights green (empty) or amber (swap) on drag-over.",
+      "dependencies": ["DRAGGABLE_DRIVER-000"],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/DroppableGridSlot.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["DraggableDriver"]
+      }
+    },
+    {
+      "guid": "DROPPABLE_POOL_ZONE-000",
+      "version": 3,
+      "logic_category": "UI",
+      "description": "Droppable pool zone containing available drivers in a 2-column scrollable grid. Each driver is wrapped in DraggableDriver and also clickable for instant selection. Highlights green with shadow glow on drag-over.",
+      "dependencies": ["DRAGGABLE_DRIVER-000"],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/DroppablePoolZone.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["DraggableDriver"]
+      }
+    },
+    {
+      "guid": "MIDDLEWARE-000",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "Next.js middleware for CSRF protection on state-changing requests (POST/PUT/PATCH/DELETE). Validates Origin header matches Host or X-Forwarded-Host. Returns 403 on mismatch. Applies security headers (X-Content-Type-Options, X-Frame-Options, Vary).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/middleware.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "ROOT_LAYOUT-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Root Next.js layout wrapping entire application. Initializes FirebaseClientProvider, FirebaseServicesTracker (Analytics + Performance), Toaster, and global dark mode. Performance instrumentation disabled to avoid Tailwind class name overflow errors.",
+      "dependencies": ["FIREBASE_CLIENT_PROVIDER-000"],
+      "location": {
+        "filePath": "app/src/app/layout.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["FirebaseClientProvider", "FirebaseServicesTracker"]
+      }
+    },
+    {
+      "guid": "APP_LAYOUT-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Authenticated app layout (wraps all /app routes). Enforces authentication, checks single-user mode, manages session heartbeat (5min intervals, 15min timeout), renders AppSidebar, displays verification/conversion/preseason banners. Wraps children in SessionProvider and LeagueProvider.",
+      "dependencies": ["SESSION_CONTEXT-000", "LEAGUE_CONTEXT-000"],
+      "location": {
+        "filePath": "app/src/app/(app)/layout.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["useAuth", "useFirestore", "SessionProvider", "LeagueProvider", "logAuditEvent"]
+      }
+    },
+    {
+      "guid": "ROOT_ERROR-000",
+      "version": 3,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Root-level error boundary for client-side errors in root layout. Generates client correlation ID, logs error to /api/log-client-error, displays AlertTriangle card with [PX-9999] code and correlation ID. Includes Reset and Home buttons.",
+      "dependencies": ["ERROR_REGISTRY-000"],
+      "location": {
+        "filePath": "app/src/app/error.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["generateClientCorrelationId", "ERRORS.UNKNOWN_ERROR"]
+      }
+    },
+    {
+      "guid": "GLOBAL_ERROR-000",
+      "version": 3,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Global error boundary that catches errors in root layout (replaces entire HTML document). Uses inline styles for dark theme. Logs [PX-2001] NETWORK_ERROR to /api/log-client-error with correlation ID. Renders complete html/body structure.",
+      "dependencies": ["ERROR_REGISTRY-000"],
+      "location": {
+        "filePath": "app/src/app/global-error.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["generateClientCorrelationId", "ERRORS.NETWORK_ERROR"]
+      }
+    },
+    {
+      "guid": "APP_ERROR-000",
+      "version": 3,
+      "logic_category": "ERROR_HANDLING",
+      "description": "App-level error boundary for authenticated routes (/app/*). Logs [PX-9999] UNKNOWN_ERROR with correlation ID. Displays AlertTriangle card with error digest (useful for stale Server Action cache). Includes Reset and Home buttons.",
+      "dependencies": ["ERROR_REGISTRY-000"],
+      "location": {
+        "filePath": "app/src/app/(app)/error.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["generateClientCorrelationId", "ERRORS.UNKNOWN_ERROR"]
+      }
+    },
+    {
+      "guid": "AUTH_ERROR-000",
+      "version": 3,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Auth route error boundary for login/signup pages. Logs [PX-9999] UNKNOWN_ERROR with correlation ID. Displays full-height centered AlertTriangle card. Includes Reset button (no Home button since user not authenticated).",
+      "dependencies": ["ERROR_REGISTRY-000"],
+      "location": {
+        "filePath": "app/src/app/(auth)/error.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["generateClientCorrelationId", "ERRORS.UNKNOWN_ERROR"]
+      }
+    },
+    {
+      "guid": "FIREBASE_CONFIG-000",
+      "version": 3,
+      "logic_category": "INITIALIZATION",
+      "description": "Firebase client config object sourced from NEXT_PUBLIC_FIREBASE_* environment variables. Exported as firebaseConfig constant. Used by client-side Firebase initialization.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/config.ts"
+      },
+      "callChain": {
+        "calledBy": ["FIREBASE_INDEX-000"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "FIREBASE_INDEX-000",
+      "version": 3,
+      "logic_category": "INITIALIZATION",
+      "description": "Firebase client SDK initialization. initializeFirebase() attempts automatic Firebase App Hosting env vars first, falls back to firebaseConfig. getSdks() returns firebaseApp, auth, firestore, storage, functions (europe-west2). Re-exports all Firebase modules.",
+      "dependencies": ["FIREBASE_CONFIG-000"],
+      "location": {
+        "filePath": "app/src/firebase/index.ts"
+      },
+      "callChain": {
+        "calledBy": ["FIREBASE_CLIENT_PROVIDER-000"],
+        "calls": ["initializeApp", "getAuth", "getFirestore", "getStorage", "getFunctions"]
+      }
+    },
+    {
+      "guid": "FIREBASE_SERVER-000",
+      "version": 3,
+      "logic_category": "INITIALIZATION",
+      "description": "Firebase client SDK initialization for server-side usage (Server Components, API routes). Initializes app once on import, exports app and firestore singletons. Used by server-only code paths.",
+      "dependencies": ["FIREBASE_CONFIG-000"],
+      "location": {
+        "filePath": "app/src/firebase/server.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["initializeApp", "getFirestore"]
+      }
+    },
+    {
+      "guid": "FIREBASE_CLIENT_PROVIDER-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Client-side Firebase provider wrapper. Calls initializeFirebase() once on mount (useMemo with empty deps) and passes services to FirebaseProvider. Wraps entire app at root layout level.",
+      "dependencies": ["FIREBASE_INDEX-000", "FIREBASE_PROVIDER-000"],
+      "location": {
+        "filePath": "app/src/firebase/client-provider.tsx"
+      },
+      "callChain": {
+        "calledBy": ["ROOT_LAYOUT-000"],
+        "calls": ["initializeFirebase", "FirebaseProvider"]
+      }
+    },
+    {
+      "guid": "FIREBASE_PROVIDER-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "CRITICAL: Central Firebase context provider managing auth state, user profile, login/signup/logout/PIN operations. Single source of truth for current user session. Exposes useAuth(), useFirebase(), useFirestore(), useStorage(), useFunctions() hooks. Referenced by FIREBASE_PROVIDER-000 through FIREBASE_PROVIDER-028 GUIDs.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/provider.tsx"
+      },
+      "callChain": {
+        "calledBy": ["FIREBASE_CLIENT_PROVIDER-000"],
+        "calls": ["onAuthStateChanged", "signInWithGoogle", "signInWithApple", "createUserWithEmailAndPassword"]
+      }
+    },
+    {
+      "guid": "USE_COLLECTION-000",
+      "version": 3,
+      "logic_category": "PERSISTENCE",
+      "description": "React hook for Firestore collection/query real-time subscriptions. Returns {data, isLoading, error}. Requires memoized query input. Handles permission errors with 3-second delay before emitting to errorEmitter (allows transient auth sync). Adds id field to each doc.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/use-collection.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["onSnapshot", "errorEmitter.emit"]
+      }
+    },
+    {
+      "guid": "USE_DOC-000",
+      "version": 3,
+      "logic_category": "PERSISTENCE",
+      "description": "React hook for Firestore document real-time subscriptions. Returns {data, isLoading, error}. Requires memoized docRef input. Handles permission errors with 3-second delay before emitting to errorEmitter. Returns null if doc doesn't exist.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/use-doc.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["onSnapshot", "errorEmitter.emit"]
+      }
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-000",
+      "version": 3,
+      "logic_category": "PERSISTENCE",
+      "description": "Firestore utility functions for app-settings documents. Handles hot news settings (content, isLocked, hotNewsFeedEnabled) and WhatsApp alert settings (master toggle, test mode, alert toggles, history). Includes default values and merge logic.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["getDoc", "setDoc", "getDocs"]
+      }
+    },
+    {
+      "guid": "SESSION_CONTEXT-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "React context for current user session ID. SessionProvider wraps app layout and passes sessionId from app layout's session heartbeat logic. useSession() hook exposes sessionId to child components.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/contexts/session-context.tsx"
+      },
+      "callChain": {
+        "calledBy": ["APP_LAYOUT-000"],
+        "calls": []
+      }
+    },
+    {
+      "guid": "LEAGUE_CONTEXT-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "React context for user's leagues and selected league. LeagueProvider subscribes to leagues collection (where memberUserIds array-contains user.id), sorts global first then alphabetically, persists selectedLeague to localStorage. useLeague() hook not exported but available.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/contexts/league-context.tsx"
+      },
+      "callChain": {
+        "calledBy": ["APP_LAYOUT-000"],
+        "calls": ["useFirestore", "useAuth", "onSnapshot"]
+      }
+    },
+    {
+      "guid": "AI_GENKIT-000",
+      "version": 3,
+      "logic_category": "INITIALIZATION",
+      "description": "Genkit AI SDK initialization for Vertex AI (Google Cloud). Configured for project studio-6033436327-281b1, location europe-west4, model vertexai/gemini-2.0-flash. Exported as ai singleton. Used by AI analysis features.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/genkit.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "ERROR_REGISTRY-000",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "AUTO-GENERATED error registry mapping error keys to ErrorDefinition objects. Sourced from code.json GUIDs' errorProfile.emits. Each ERRORS entry includes code (PX-XXXX), GUID, module, file, message, severity, recovery steps, and failure modes. Used by all catch blocks.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/error-registry.ts"
+      },
+      "callChain": {
+        "calledBy": ["ROOT_ERROR-000", "GLOBAL_ERROR-000", "APP_ERROR-000", "AUTH_ERROR-000"],
         "calls": []
       }
     }

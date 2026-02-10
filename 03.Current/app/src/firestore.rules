@@ -65,7 +65,14 @@ service cloud.firestore {
         // All signed-in users can read predictions (league members can see each other's picks)
         // Using explicit get, list instead of read shorthand for clarity
         allow get, list: if isSignedIn();
-        allow write: if isOwner(userId) || isAdmin();
+
+        // SECURITY: Predictions are write-only via server API (FIRESTORE-001 fix)
+        // All writes must go through /api/submit-prediction which validates:
+        //   1. Race timing (pitlane open/closed based on qualifying time)
+        //   2. Team ownership (user can only submit for their own teams)
+        //   3. Prediction structure and driver validity
+        // This prevents post-race prediction manipulation via direct Firestore SDK calls.
+        allow write: if false;  // Server-side only via Admin SDK
       }
     }
 
@@ -145,6 +152,13 @@ service cloud.firestore {
     }
 
     // Leagues - allows users to create private leagues and view standings filtered by membership
+    // SECURITY: FIRESTORE-003 Mitigation - inviteCode field visibility
+    // Note: Firestore doesn't support field-level security, so inviteCode is technically
+    // readable by all authenticated users. However, this is mitigated because:
+    //   1. Knowing a code doesn't grant access - must use /api/leagues/join-by-code
+    //   2. API validates capacity, membership, and logs all join attempts server-side
+    //   3. Codes are cryptographically random (32 char alphabet) - not guessable
+    // This design prioritizes security enforcement over data visibility.
     match /leagues/{leagueId} {
       function isMember() {
         return request.auth.uid in resource.data.memberUserIds;
