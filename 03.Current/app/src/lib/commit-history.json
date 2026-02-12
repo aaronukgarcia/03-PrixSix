@@ -1,7 +1,7 @@
 {
   "lastUpdated": "2026-02-12",
   "commits": [
-    {"id": "pending", "date": "2026-02-12", "version": "1.55.7", "author": "aaron garcia", "message": "fix(admin): Skip splash screen during admin verification (v1.55.7)", "major": false},
+    {"id": "4b4cac2", "date": "2026-02-12", "version": "1.55.7", "author": "aaron garcia", "message": "fix(admin): Skip splash screen and fix parameter mismatch in admin verification (v1.55.7)", "major": false},
     {"id": "ca3fcab", "date": "2026-02-12", "version": "1.55.6", "author": "aaron garcia", "message": "fix: Add error code and correlation ID to all email verification errors (v1.55.6)", "major": false},
     {"id": "5aa15ae", "date": "2026-02-12", "version": "1.55.5", "author": "aaron garcia", "message": "fix: Correct sendEmail parameter names in admin-challenge endpoint (v1.55.5)", "major": false},
     {"id": "5f13e99", "date": "2026-02-12", "version": "1.55.4", "author": "aaron garcia", "message": "docs: Update commit-history.json with 40 missing commits (v1.28.2 → v1.55.4)", "major": false},
