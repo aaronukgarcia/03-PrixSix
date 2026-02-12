@@ -57,7 +57,7 @@ import type { User } from "@/firebase/provider";
 import { logAuditEvent } from "@/lib/audit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Mail, ShieldAlert, Loader2 } from "lucide-react";
+import { AlertCircle, ShieldAlert, Loader2 } from "lucide-react";
 
 // GUID: PAGE_ADMIN-003-v03
 // [Intent] Main admin page component — enforces admin-only access, fetches all users,
