@@ -206,11 +206,61 @@ async function performBackup(db, { trigger = "scheduled" } = {}) {
       metadata: { correlationId },
     });
 
+    // GUID: BACKUP_FUNCTIONS-019-v01
+    // [Intent] Back up Firebase Storage files (profile photos and other user-uploaded content).
+    //          This backs up user-generated content that cannot be regenerated, unlike
+    //          application code which is already versioned in Git.
+    // [Inbound Trigger] Auth JSON written successfully (above).
+    // [Downstream Impact] Copies all files from Storage bucket to backup bucket under
+    //                     {date}/storage/ prefix. If Storage bucket doesn't exist or is
+    //                     empty, this is a no-op (graceful skip).
+    let storageFilesBackedUp = 0;
+    let storageBackupSizeBytes = 0;
+    try {
+      const sourceBucket = storage.bucket(`${MAIN_PROJECT}.appspot.com`);
+
+      // Check if bucket exists before attempting to list files
+      const [bucketExists] = await sourceBucket.exists();
+
+      if (bucketExists) {
+        // Get all files from Storage (currently just profile-photos/)
+        const [storageFiles] = await sourceBucket.getFiles();
+
+        if (storageFiles.length > 0) {
+          // Copy each file to backup bucket
+          for (const file of storageFiles) {
+            const destFile = bucket.file(`${folder}/storage/${file.name}`);
+            await file.copy(destFile);
+            storageFilesBackedUp++;
+            storageBackupSizeBytes += Number(file.metadata.size) || 0;
+          }
+
+          console.log(`Backed up ${storageFilesBackedUp} Storage files (${(storageBackupSizeBytes / 1024 / 1024).toFixed(2)} MB)`);
+        } else {
+          console.log('Firebase Storage is empty - no files to backup');
+        }
+      } else {
+        console.log('Firebase Storage bucket does not exist yet - skipping Storage backup');
+      }
+    } catch (storageError) {
+      // Log but don't fail the entire backup if Storage backup fails
+      console.warn('Firebase Storage backup failed (non-critical):', storageError.message);
+      // Write error to Firestore for admin visibility
+      await db.collection(HISTORY_COLLECTION).doc(`${correlationId}_storage_warning`).set({
+        timestamp: Timestamp.now(),
+        type: "storage_backup_warning",
+        status: "WARNING",
+        error: storageError.message,
+        correlationId,
+        trigger,
+      });
+    }
+
     // GUID: BACKUP_FUNCTIONS-018-v03
     // [Intent] Calculate total backup size by listing all GCS objects under the
     //          backup folder prefix and summing their sizes. This lets the admin
     //          dashboard display a human-readable backup size for verification.
-    // [Inbound Trigger] Auth JSON written successfully (above).
+    // [Inbound Trigger] Auth JSON and Storage files written successfully (above).
     // [Downstream Impact] lastBackupSizeBytes is included in the status write below.
     const [files] = await bucket.getFiles({ prefix: folder });
     let totalBytes = 0;
@@ -218,41 +268,52 @@ async function performBackup(db, { trigger = "scheduled" } = {}) {
       totalBytes += Number(file.metadata.size) || 0;
     }
 
-    // GUID: BACKUP_FUNCTIONS-013-v03
+    // GUID: BACKUP_FUNCTIONS-013-v04
     // [Intent] Persist success status so the admin dashboard can display
     //          the most recent backup result in real-time.
-    // [Inbound Trigger] Both Firestore and Auth exports completed successfully.
+    // [Inbound Trigger] Firestore, Auth, and Storage exports completed successfully.
     // [Downstream Impact] BackupHealthDashboard reads this via useDoc hook.
     //                     lastBackupError is explicitly nulled to clear any
-    //                     previous failure state.
+    //                     previous failure state. Storage stats included for visibility.
     await writeStatus(db, {
       lastBackupTimestamp: Timestamp.now(),
       lastBackupStatus: "SUCCESS",
       lastBackupPath: gcsPrefix,
       lastBackupError: null,
       lastBackupSizeBytes: totalBytes,
+      lastBackupStorageFiles: storageFilesBackedUp,
+      lastBackupStorageSizeBytes: storageBackupSizeBytes,
       backupCorrelationId: correlationId,
     });
 
-    // GUID: BACKUP_FUNCTIONS-050-v03
+    // GUID: BACKUP_FUNCTIONS-050-v04
     // [Intent] Write a history entry to the backup_history collection so admins
     //          can view all past backups in the admin dashboard, not just the latest.
     // [Inbound Trigger] Backup completed successfully (status written above).
     // [Downstream Impact] BackupHealthDashboard subscribes to backup_history collection
-    //                     to display a full backup history table.
+    //                     to display a full backup history table with Storage stats.
     await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
       timestamp: Timestamp.now(),
       type: "backup",
       status: "SUCCESS",
       path: gcsPrefix,
       sizeBytes: totalBytes,
+      storageFiles: storageFilesBackedUp,
+      storageSizeBytes: storageBackupSizeBytes,
+      usersExported: allUsers.length,
       correlationId,
       trigger,
       startedAt,
       completedAt: Timestamp.now(),
     });
 
-    return { correlationId, gcsPrefix, usersExported: allUsers.length };
+    return {
+      correlationId,
+      gcsPrefix,
+      usersExported: allUsers.length,
+      storageFilesBackedUp,
+      storageBackupSizeBytes,
+    };
   } catch (err) {
     // GUID: BACKUP_FUNCTIONS-015-v03
     // [Intent] On failure, record the error in backup_status/latest so the
