@@ -20,6 +20,7 @@ import {
   markSummarySent,
   isSummarySent
 } from "./email-tracking";
+import { APP_VERSION } from "./version";
 
 // GUID: LIB_EMAIL-000A-v01
 // [Intent] Escape HTML special characters to prevent XSS injection in email templates.
@@ -215,8 +216,11 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
       <p>- The Prix Six Team</p>
     </div>
     <div class="footer">
-      <p>Email Reference: ${emailGuid}</p>
+      <p>This is an automated security email from Prix Six</p>
+      <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
+      <p>Email Reference: ${emailGuid} | Build: ${APP_VERSION}</p>
       <p>Prix Six - F1 Prediction League</p>
+      <p>If you did not expect this email, please reply to <a href="mailto:aaron@garcia.ltd">aaron@garcia.ltd</a></p>
     </div>
   </div>
 </body>
@@ -342,11 +346,13 @@ export async function sendEmail({ toEmail, subject, htmlContent }: GenericEmailP
   const emailGuid = generateGuid();
   const senderEmail = process.env.GRAPH_SENDER_EMAIL || 'aaron@garcia.ltd';
 
-  // Add email footer with GUID
+  // Add email footer with GUID and build version
   const contentWithFooter = `
 ${htmlContent}
 <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-  <p>Email Reference: ${emailGuid}</p>
+  <p>This is an automated security email from Prix Six</p>
+  <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
+  <p>Email Reference: ${emailGuid} | Build: ${APP_VERSION}</p>
   <p>Prix Six - F1 Prediction League</p>
   <p>If you did not expect this email, please reply to <a href="mailto:aaron@garcia.ltd">aaron@garcia.ltd</a></p>
 </div>
