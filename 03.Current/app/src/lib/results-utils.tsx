@@ -10,6 +10,7 @@ import { RaceSchedule, F1Drivers } from "@/lib/data";
 import { calculateDriverPoints, SCORING_POINTS } from "@/lib/scoring-rules";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal } from "lucide-react";
+import { generateRaceId } from "@/lib/normalize-race-id";
 
 // GUID: LIB_RESULTS_UTILS-001-v01
 // [Intent] Score type enum for colour-coded display — maps position difference to grade (A=exact, E=miss).
@@ -84,7 +85,7 @@ export function buildRaceEvents(): RaceEvent[] {
         const events: RaceEvent[] = [];
         if (race.hasSprint) {
             events.push({
-                id: `${race.name.replace(/\s+/g, '-')}-Sprint`,
+                id: generateRaceId(race.name, 'sprint'),
                 label: `${race.name} - Sprint`,
                 baseName: race.name,
                 isSprint: true,
@@ -92,7 +93,7 @@ export function buildRaceEvents(): RaceEvent[] {
             });
         }
         events.push({
-            id: `${race.name.replace(/\s+/g, '-')}-GP`,
+            id: generateRaceId(race.name, 'gp'),
             label: `${race.name} - GP`,
             baseName: race.name,
             isSprint: false,

@@ -44,6 +44,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ERRORS } from '@/lib/error-registry';
 import { generateClientCorrelationId } from '@/lib/error-codes';
+import { generateRaceIdLowercase } from "@/lib/normalize-race-id";
 
 // GUID: PAGE_SUBMISSIONS-001-v03
 // [Intent] Defines the display shape for a single submission row in the table.
@@ -98,8 +99,8 @@ export default function SubmissionsPage() {
         });
 
         for (const race of RaceSchedule) {
-          const baseId = race.name.replace(/\s+/g, "-").toLowerCase();
-          const gpId = `${baseId}-gp`;
+          const gpId = generateRaceIdLowercase(race.name, 'gp');
+          const baseId = race.name.replace(/\s+/g, "-").toLowerCase(); // Keep for backward compatibility
           if (!scoredRaceIds.has(gpId) && !scoredRaceIds.has(baseId)) {
             setNextRaceName(race.name);
             setSelectedRace(race.name);

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule } from "@/lib/data";
+import { generateRaceId } from "@/lib/normalize-race-id";
 import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
@@ -232,9 +233,9 @@ export default function StandingsPage() {
         // Determine completed race weekends (races that have at least GP scores)
         const completed: RaceWeekend[] = [];
         RaceSchedule.forEach((race, index) => {
-          const baseRaceId = race.name.replace(/\s+/g, '-');
-          const sprintRaceId = race.hasSprint ? `${baseRaceId}-Sprint` : null;
-          const gpRaceId = `${baseRaceId}-GP`;
+          const baseRaceId = race.name.replace(/\s+/g, '-'); // Keep for legacy format check
+          const sprintRaceId = race.hasSprint ? generateRaceId(race.name, 'sprint') : null;
+          const gpRaceId = generateRaceId(race.name, 'gp');
 
           // Check if we have scores for this race weekend
           // A race weekend is "completed" if it has GP scores

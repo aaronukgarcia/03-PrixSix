@@ -23,7 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { normalizeRaceId as sharedNormalizeRaceId } from "@/lib/normalize-race-id";
+import { normalizeRaceId as sharedNormalizeRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id";
 
 // GUID: ADMIN_RESULTS-001-v04
 // @TECH_DEBT: Local normalizeRaceId replaced with shared import from normalize-race-id.ts (Golden Rule #3).
@@ -443,7 +443,7 @@ export function ResultsManager() {
                                         const raceEvents = RaceSchedule.flatMap(race => {
                                             const events = [];
                                             if (race.hasSprint) {
-                                                const sprintId = `${race.name.toLowerCase().replace(/\s+/g, '-')}-sprint`;
+                                                const sprintId = generateRaceIdLowercase(race.name, 'sprint');
                                                 events.push({
                                                     value: `${race.name} - Sprint`,
                                                     label: `${race.name} - Sprint`,
@@ -451,7 +451,7 @@ export function ResultsManager() {
                                                     raceTime: race.qualifyingTime, // Sprint is before GP
                                                 });
                                             }
-                                            const gpId = `${race.name.toLowerCase().replace(/\s+/g, '-')}-gp`;
+                                            const gpId = generateRaceIdLowercase(race.name, 'gp');
                                             events.push({
                                                 value: `${race.name} - GP`,
                                                 label: `${race.name} - GP`,

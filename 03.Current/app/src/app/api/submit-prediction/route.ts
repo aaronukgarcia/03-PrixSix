@@ -8,6 +8,7 @@ import { RaceSchedule } from '@/lib/data';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
+import { generateRaceIdLowercase } from '@/lib/normalize-race-id';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -120,10 +121,9 @@ export async function POST(request: NextRequest) {
     // This locks the race once results are entered (for preseason testing and normal flow)
     const race = RaceSchedule.find(r => r.name === raceName || r.name.replace(/\s+/g, '-') === raceId);
     if (race) {
-      // Check both GP and Sprint result IDs
-      const baseRaceId = race.name.toLowerCase().replace(/\s+/g, '-');
-      const gpResultId = `${baseRaceId}-gp`;
-      const sprintResultId = `${baseRaceId}-sprint`;
+      // Check both GP and Sprint result IDs (using centralized race ID generation - Golden Rule #3)
+      const gpResultId = generateRaceIdLowercase(race.name, 'gp');
+      const sprintResultId = generateRaceIdLowercase(race.name, 'sprint');
 
       // For sprint weekends, check if sprint results exist (locks sprint predictions)
       // For GP predictions, check if GP results exist

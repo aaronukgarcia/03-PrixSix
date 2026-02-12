@@ -18,6 +18,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { doc, collection, query, orderBy, limit, where } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { generateRaceIdLowercase } from "@/lib/normalize-race-id";
 
 // GUID: PAGE_PREDICTIONS-001-v03
 // [Intent] Inner content component encapsulating all prediction logic — determines next open race,
@@ -53,7 +54,7 @@ function PredictionsContent() {
 
     // Find first race in schedule without GP results
     for (const race of RaceSchedule) {
-      const gpResultId = `${race.name.toLowerCase().replace(/\s+/g, '-')}-gp`;
+      const gpResultId = generateRaceIdLowercase(race.name, 'gp');
       if (!resultIds.has(gpResultId)) {
         return race;
       }
@@ -71,7 +72,7 @@ function PredictionsContent() {
   // [Downstream Impact] Controls PredictionEditor lock state and "Pit Lane Closed" alert display.
   const isPitlaneOpen = useMemo(() => {
     const resultIds = new Set((raceResults || []).map(r => r.id.toLowerCase()));
-    const gpResultId = `${nextRace.name.toLowerCase().replace(/\s+/g, '-')}-gp`;
+    const gpResultId = generateRaceIdLowercase(nextRace.name, 'gp');
     const hasResults = resultIds.has(gpResultId);
 
     if (hasResults) return false; // Results entered = closed
@@ -213,7 +214,7 @@ function PredictionsContent() {
   const closureReason = useMemo(() => {
     if (isPitlaneOpen) return null;
     const resultIds = new Set((raceResults || []).map(r => r.id.toLowerCase()));
-    const gpResultId = `${nextRace.name.toLowerCase().replace(/\s+/g, '-')}-gp`;
+    const gpResultId = generateRaceIdLowercase(nextRace.name, 'gp');
     if (resultIds.has(gpResultId)) return 'results';
     return 'qualifying';
   }, [isPitlaneOpen, raceResults, nextRace]);

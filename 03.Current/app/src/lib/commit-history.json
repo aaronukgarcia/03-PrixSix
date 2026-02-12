@@ -1,7 +1,8 @@
 {
   "lastUpdated": "2026-02-12",
   "commits": [
-    {"id": "df316ee", "date": "2026-02-12", "version": "1.55.14", "author": "aaron garcia", "message": "chore: Session coordination improvements and security audit update (v1.55.14)", "major": false},
+    {"id": "a226c5a", "date": "2026-02-12", "version": "1.55.15", "author": "aaron garcia", "message": "refactor: Centralize race ID generation (Golden Rule #3 - v1.55.15)", "major": false},
+    {"id": "a87d64d", "date": "2026-02-12", "version": "1.55.14", "author": "aaron garcia", "message": "chore: Session coordination improvements and security audit update (v1.55.14)", "major": false},
     {"id": "4aaadde", "date": "2026-02-12", "version": "1.55.13", "author": "aaron garcia", "message": "fix: Sprint race normalization and carry-forward scoring (v1.55.13)", "major": false},
     {"id": "e5b0230", "date": "2026-02-12", "version": "1.55.9", "author": "aaron garcia", "message": "fix(admin): Set adminVerified cookie and remove duplicate email footer (v1.55.9)", "major": false},
     {"id": "9395720", "date": "2026-02-12", "version": "1.55.8", "author": "aaron garcia", "message": "feat(email): Add build version to all email footers (v1.55.8)", "major": false},

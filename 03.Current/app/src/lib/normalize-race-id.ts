@@ -35,3 +35,34 @@ export function normalizeRaceId(raceId: string): string {
 export function normalizeRaceIdForComparison(raceId: string): string {
   return normalizeRaceId(raceId).toLowerCase();
 }
+
+/**
+ * Generate a race ID from race name (preserves case).
+ * Use this to create race IDs for prediction documents or display purposes.
+ *
+ * @param raceName - Race name from RaceSchedule (e.g., "Australian Grand Prix")
+ * @param type - Race type: 'gp' or 'sprint'
+ * @returns Race ID with proper casing (e.g., "Australian-Grand-Prix-GP" or "Chinese-Grand-Prix-Sprint")
+ *
+ * @example generateRaceId("Australian Grand Prix", "gp") => "Australian-Grand-Prix-GP"
+ * @example generateRaceId("Chinese Grand Prix", "sprint") => "Chinese-Grand-Prix-Sprint"
+ */
+export function generateRaceId(raceName: string, type: 'gp' | 'sprint'): string {
+  const base = raceName.replace(/\s+/g, '-');
+  return type === 'gp' ? `${base}-GP` : `${base}-Sprint`;
+}
+
+/**
+ * Generate a lowercase race ID from race name (for Firestore document lookup).
+ * Use this when querying Firestore collections that store race IDs in lowercase.
+ *
+ * @param raceName - Race name from RaceSchedule (e.g., "Australian Grand Prix")
+ * @param type - Race type: 'gp' or 'sprint'
+ * @returns Lowercase race ID (e.g., "australian-grand-prix-gp" or "chinese-grand-prix-sprint")
+ *
+ * @example generateRaceIdLowercase("Australian Grand Prix", "gp") => "australian-grand-prix-gp"
+ * @example generateRaceIdLowercase("Chinese Grand Prix", "sprint") => "chinese-grand-prix-sprint"
+ */
+export function generateRaceIdLowercase(raceName: string, type: 'gp' | 'sprint'): string {
+  return generateRaceId(raceName, type).toLowerCase();
+}
