@@ -1,0 +1,3585 @@
+{
+  "metadata": {
+    "reviewDate": "2026-02-09",
+    "reviewer": "Bill (Claude Code)",
+    "purpose": "Comprehensive passive code review for optimization, security, consistency, and maintainability",
+    "scope": "Entire Prix Six codebase",
+    "totalIssuesFound": 488,
+    "reviewStatus": "completed",
+    "progressPercent": 100,
+    "reviewStartTime": "2026-02-09T21:01:00Z",
+    "lastUpdated": "2026-02-10T11:53:39.422347",
+    "completedTime": "2026-02-10T02:30:00Z",
+    "modulesCompleted": 17,
+    "modulesTotal": 17,
+    "totalFilesReviewed": 293,
+    "totalLinesReviewed": "~55000",
+    "remediationPlanCreated": true
+  },
+  "summary": {
+    "byCategory": {
+      "security": 147,
+      "performance": 41,
+      "errorHandling": 49,
+      "consistency": 47,
+      "maintainability": 83,
+      "goldenRuleViolation": 33,
+      "accessibility": 8,
+      "reliability": 4,
+      "documentation": 80
+    },
+    "bySeverity": {
+      "critical": 45,
+      "high": 87,
+      "medium": 178,
+      "low": 178
+    }
+  },
+  "agentReports": {
+    "apiRoutes": {
+      "agentId": "a1dfa82",
+      "status": "completed",
+      "issuesFound": 47,
+      "severity": {
+        "critical": 3,
+        "high": 9,
+        "medium": 22,
+        "low": 13
+      }
+    },
+    "errorHandling": {
+      "agentId": "a030a0d",
+      "status": "completed",
+      "complianceScore": "82/100",
+      "criticalViolations": [
+        "Cloud Functions hardcode error codes",
+        "Legacy lib/ modules bypass traced-error system"
+      ]
+    },
+    "adminPanel": {
+      "agentId": "a833757",
+      "status": "completed",
+      "issuesFound": 12,
+      "severity": {
+        "critical": 2,
+        "high": 3,
+        "medium": 5,
+        "low": 2
+      }
+    },
+    "scoringEngine": {
+      "agentId": "a11e0a3",
+      "status": "completed",
+      "grade": "A (Excellent)",
+      "criticalIssues": 0,
+      "recommendations": 2
+    },
+    "whatsappIntegration": {
+      "agentId": "aaceff7",
+      "status": "completed",
+      "issuesFound": 31,
+      "severity": {
+        "critical": 4,
+        "high": 9,
+        "medium": 11,
+        "low": 7
+      }
+    },
+    "emailSystem": {
+      "agentId": "acc6231",
+      "status": "completed",
+      "issuesFound": 31,
+      "severity": {
+        "critical": 5,
+        "high": 8,
+        "medium": 12,
+        "low": 6
+      }
+    },
+    "backupRecovery": {
+      "agentId": "ae1da64",
+      "status": "completed",
+      "issuesFound": 15,
+      "severity": {
+        "critical": 1,
+        "high": 3,
+        "medium": 7,
+        "low": 4
+      }
+    },
+    "cloudFunctions": {
+      "agentId": "a813e4d",
+      "status": "completed",
+      "issuesFound": 25,
+      "grade": "B+ (would be A with Golden Rule violations fixed)",
+      "severity": {
+        "critical": 4,
+        "high": 7,
+        "medium": 8,
+        "low": 6
+      }
+    },
+    "firestoreRules": {
+      "agentId": "aa27d89",
+      "status": "completed",
+      "securityGrade": "C-",
+      "issuesFound": 12,
+      "severity": {
+        "critical": 3,
+        "high": 4,
+        "medium": 3,
+        "low": 2
+      }
+    },
+    "frontendComponents": {
+      "agentId": "af9da38",
+      "status": "completed",
+      "issuesFound": 27,
+      "grade": "Production-ready with noted improvements",
+      "severity": {
+        "critical": 1,
+        "high": 6,
+        "medium": 12,
+        "low": 8
+      }
+    },
+    "supportingLibraries": {
+      "agentId": "a74345f",
+      "status": "completed",
+      "issuesFound": 30,
+      "grade": "Well-structured with critical security fixes needed",
+      "severity": {
+        "critical": 3,
+        "high": 7,
+        "medium": 12,
+        "low": 8
+      }
+    },
+    "configurationFiles": {
+      "agentId": "a6cc933",
+      "status": "completed",
+      "issuesFound": 23,
+      "overallRisk": "HIGH",
+      "severity": {
+        "critical": 1,
+        "high": 10,
+        "medium": 9,
+        "low": 3
+      }
+    },
+    "deploymentConfiguration": {
+      "agentId": "a1f8c00",
+      "status": "completed",
+      "issuesFound": 18,
+      "severity": {
+        "critical": 5,
+        "high": 6,
+        "medium": 5,
+        "low": 2
+      }
+    },
+    "adminComponentsAudit": {
+      "agentId": "afe90b1",
+      "status": "completed",
+      "issuesFound": 44,
+      "severity": {
+        "critical": 10,
+        "high": 14,
+        "medium": 20,
+        "low": 0
+      }
+    },
+    "codeDocumentationGaps": {
+      "agentId": "a9e4d82",
+      "status": "completed",
+      "issuesFound": 111,
+      "severity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 20,
+        "low": 91
+      }
+    }
+  },
+  "criticalIssues": [
+    {
+      "id": "AUTH-003",
+      "module": "Authentication",
+      "severity": "critical",
+      "issue": "Auth state race condition between onAuthStateChanged and Firestore snapshot",
+      "impact": "Components checking firebaseUser but not isUserLoading could expose authenticated routes before user profile loads",
+      "file": "app/src/firebase/provider.tsx:186"
+    },
+    {
+      "id": "API-006",
+      "module": "API Routes",
+      "severity": "critical",
+      "issue": "PIN reset timing attack enables email enumeration",
+      "impact": "Timing difference between 'user not found' (fast) and 'user found' (slow) allows attackers to determine valid emails",
+      "file": "app/api/auth/reset-pin/route.ts:63"
+    },
+    {
+      "id": "API-013",
+      "module": "API Routes",
+      "severity": "critical",
+      "issue": "Insufficient authorization for predictions - no team ownership check",
+      "impact": "Attacker could submit predictions for another user's secondary team",
+      "file": "app/api/submit-prediction/route.ts:53"
+    },
+    {
+      "id": "ADMIN-005",
+      "module": "Admin Panel",
+      "severity": "critical",
+      "issue": "Private league invite codes displayed in plaintext without access control",
+      "impact": "Compromised admin account could join all private leagues",
+      "file": "app/(app)/admin/_components/LeaguesManager.tsx:140-154"
+    },
+    {
+      "id": "ERROR-CLOUD-001",
+      "module": "Error Handling",
+      "severity": "critical",
+      "issue": "Cloud Functions hardcode error codes, bypassing error registry",
+      "impact": "Violates Golden Rule #7, creates maintenance risk, error definitions can drift from registry",
+      "file": "functions/index.js:267,422,620,962"
+    },
+    {
+      "id": "WHATSAPP-001",
+      "module": "WhatsApp Integration",
+      "severity": "critical",
+      "issue": "API key authentication is optional and uses weak header checking",
+      "impact": "If WORKER_API_KEY is not set, anyone can trigger queue processing",
+      "file": "whatsapp-worker/src/index.ts:148-155"
+    },
+    {
+      "id": "WHATSAPP-002",
+      "module": "WhatsApp Integration",
+      "severity": "critical",
+      "issue": "No authentication on health, status, QR, and ping endpoints",
+      "impact": "/qr endpoint exposes authentication QR codes to anyone. Potential session hijacking",
+      "file": "whatsapp-worker/src/index.ts:17-120"
+    },
+    {
+      "id": "WHATSAPP-003",
+      "module": "WhatsApp Integration",
+      "severity": "critical",
+      "issue": "Missing validation of Azure Storage connection string",
+      "impact": "Application crashes on startup with credentials exposed in error logs",
+      "file": "whatsapp-worker/src/azure-store.ts:19-24"
+    },
+    {
+      "id": "WHATSAPP-004",
+      "module": "WhatsApp Integration",
+      "severity": "critical",
+      "issue": "Service account credentials loaded from environment variable without validation",
+      "impact": "Invalid JSON causes startup crash with potentially exposed partial credentials",
+      "file": "whatsapp-worker/src/firebase-config.ts:14-16,32-33"
+    },
+    {
+      "id": "EMAIL-001",
+      "module": "Email System",
+      "severity": "critical",
+      "issue": "HTML injection vulnerability in email templates",
+      "impact": "User-controlled data directly interpolated into HTML without sanitization. XSS attacks possible",
+      "file": "app/src/lib/email.ts:116-173,292-299"
+    },
+    {
+      "id": "EMAIL-002",
+      "module": "Email System",
+      "severity": "critical",
+      "issue": "Unvalidated URL construction for verification links",
+      "impact": "URL injection if UID contains special characters",
+      "file": "app/api/send-verification-email/route.ts:79-80"
+    },
+    {
+      "id": "EMAIL-003",
+      "module": "Email System",
+      "severity": "critical",
+      "issue": "Credential exposure in error messages",
+      "impact": "Azure AD errors could contain partial credential info in logs",
+      "file": "app/src/lib/email.ts:67-69"
+    },
+    {
+      "id": "EMAIL-004",
+      "module": "Email System",
+      "severity": "critical",
+      "issue": "Unescaped user-generated content in hot news HTML email",
+      "impact": "Admin-generated content could include malicious HTML. Broadcast to all users",
+      "file": "app/api/send-hot-news-email/route.ts:254-284"
+    },
+    {
+      "id": "EMAIL-005",
+      "module": "Email System",
+      "severity": "critical",
+      "issue": "Multiple XSS vectors in results email template",
+      "impact": "XSS via crafted team/race/driver names in results emails sent to all users",
+      "file": "app/api/send-results-email/route.ts:222-320"
+    },
+    {
+      "id": "BACKUP-001",
+      "module": "Backup & Recovery",
+      "severity": "critical",
+      "issue": "Service account private key exposed in repository",
+      "impact": "Anyone with repo access can bypass all Firestore security, export/modify/delete data",
+      "file": "scripts/service-account.json:1-13"
+    },
+    {
+      "id": "CLOUD-001",
+      "module": "Cloud Functions",
+      "severity": "critical",
+      "issue": "Golden Rule #7 Violation - Hardcoded error code PX-7002 at line 267",
+      "impact": "Error bypasses centralized registry. Cannot benefit from TracedError metadata",
+      "file": "functions/index.js:267"
+    },
+    {
+      "id": "CLOUD-002",
+      "module": "Cloud Functions",
+      "severity": "critical",
+      "issue": "Golden Rule #7 Violation - Hardcoded error code PX-7002 at line 422",
+      "impact": "manualBackup returns plain string instead of TracedError with diagnostics",
+      "file": "functions/index.js:422"
+    },
+    {
+      "id": "CLOUD-003",
+      "module": "Cloud Functions",
+      "severity": "critical",
+      "issue": "Golden Rule #7 Violation - Hardcoded error code PX-7008 at line 620",
+      "impact": "Error code does NOT exist in error-registry.ts, only in legacy error-codes.ts",
+      "file": "functions/index.js:620"
+    },
+    {
+      "id": "CLOUD-004",
+      "module": "Cloud Functions",
+      "severity": "critical",
+      "issue": "Golden Rule #7 Violation - Hardcoded error code PX-7004 at line 962",
+      "impact": "manualSmokeTest bypasses ERRORS.BACKUP_SMOKE_TEST_FAILED definition",
+      "file": "functions/index.js:962"
+    },
+    {
+      "id": "FIRESTORE-001",
+      "module": "Infrastructure (Firestore Rules)",
+      "severity": "critical",
+      "cvss": "9.1",
+      "issue": "Predictions can be modified after race start",
+      "impact": "Attacker can bypass API and submit predictions after knowing race results via direct Firestore SDK calls",
+      "file": "firestore.rules:49-54"
+    },
+    {
+      "id": "FIRESTORE-002",
+      "module": "Infrastructure (Firestore Rules)",
+      "severity": "critical",
+      "cvss": "8.2",
+      "issue": "Missing collection protection for secondary_email_verification_tokens",
+      "impact": "No explicit rules. Defaults to deny-all (secure) but represents maintenance risk",
+      "file": "firestore.rules (missing rule)"
+    },
+    {
+      "id": "FIRESTORE-003",
+      "module": "Infrastructure (Firestore Rules)",
+      "severity": "critical",
+      "cvss": "7.5",
+      "issue": "League invite codes are publicly readable",
+      "impact": "Any authenticated user can list all leagues and read invite codes for private leagues",
+      "file": "firestore.rules:165-173"
+    },
+    {
+      "id": "FRONTEND-001",
+      "module": "Frontend Components",
+      "severity": "critical",
+      "issue": "XSS vulnerability via dangerouslySetInnerHTML",
+      "impact": "Email HTML content rendered without sanitization in admin component. XSS if malicious HTML stored",
+      "file": "app/(app)/admin/_components/EmailLogManager.tsx:585"
+    },
+    {
+      "id": "LIB-001",
+      "module": "Supporting Libraries",
+      "severity": "critical",
+      "issue": "Weak randomness in invite code generation",
+      "impact": "Modulo bias reduces entropy. Private league security compromised via predictable codes",
+      "file": "app/src/lib/leagues.ts:32-40"
+    },
+    {
+      "id": "LIB-002",
+      "module": "Supporting Libraries",
+      "severity": "critical",
+      "issue": "Weak randomness in correlation ID generation",
+      "impact": "Math.random() not cryptographically secure. Correlation IDs predictable, audit trail integrity weakened",
+      "file": "app/src/lib/firebase-admin.ts:114-118"
+    },
+    {
+      "id": "LIB-003",
+      "module": "Supporting Libraries",
+      "severity": "critical",
+      "issue": "Golden Rule #7 violation - Non-registry error in audit.ts",
+      "impact": "Permission errors logged without TracedError or correlation IDs. Inconsistent error handling",
+      "file": "app/src/lib/audit.ts:135-143"
+    },
+    {
+      "id": "CONFIG-001",
+      "module": "Configuration Files",
+      "severity": "critical",
+      "issue": "Production secrets exposed in .env.local",
+      "impact": "Firebase API key, Graph Client Secret, WhatsApp App Secret visible in plaintext file",
+      "file": "app/.env.local:1-23"
+    },
+    {
+      "id": "DEPLOY-001",
+      "module": "Deployment Configuration",
+      "severity": "critical",
+      "issue": "Service account private key exposed in repository (duplicate of BACKUP-001)",
+      "impact": "Full administrative access to Firebase project if committed or exposed",
+      "file": "service-account.json, whatsapp-worker/service-account.json"
+    },
+    {
+      "id": "DEPLOY-002",
+      "module": "Deployment Configuration",
+      "severity": "critical",
+      "issue": "No secrets management for Azure Container Apps",
+      "impact": "Connection strings passed as plaintext environment variables, visible in Azure Portal",
+      "file": "whatsapp-worker/deploy-container-app.ps1:44-54,126-128"
+    },
+    {
+      "id": "DEPLOY-003",
+      "module": "Deployment Configuration",
+      "severity": "critical",
+      "issue": "API keys stored in plaintext file",
+      "impact": ".api-key.txt NOT in .gitignore. Could be accidentally committed",
+      "file": "whatsapp-worker/.api-key.txt"
+    },
+    {
+      "id": "DEPLOY-004",
+      "module": "Deployment Configuration",
+      "severity": "critical",
+      "issue": "No deployment pipeline / CI/CD",
+      "impact": "Manual deployments error-prone. No automated tests before production. No audit trail",
+      "file": "(missing .github/workflows/)"
+    },
+    {
+      "id": "DEPLOY-005",
+      "module": "Deployment Configuration",
+      "severity": "critical",
+      "issue": "No health check monitoring or alerting",
+      "impact": "Services can fail without anyone noticing. Extended downtime. Data loss risk",
+      "file": "(monitoring not configured)"
+    },
+    {
+      "id": "ADMINCOMP-001",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "XSS vulnerability via dangerouslySetInnerHTML in public chat panel",
+      "impact": "User-generated chat messages rendered without sanitization. Persistent XSS attack vector",
+      "file": "app/(app)/admin/_components/PubChatPanel.tsx:333-336"
+    },
+    {
+      "id": "ADMINCOMP-002",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "Client-side isAdmin toggle depends on broken API",
+      "impact": "TeamManager component allows toggling admin status via client, but admin/update-user API is broken",
+      "file": "app/(app)/admin/_components/TeamManager.tsx:112"
+    },
+    {
+      "id": "ADMINCOMP-003",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "Client-side admin check can be bypassed",
+      "impact": "Admin panel gate at admin/page.tsx:86-104 only checks client-side state, can be circumvented",
+      "file": "app/(app)/admin/page.tsx:86-104"
+    },
+    {
+      "id": "ADMINCOMP-004",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "Plaintext PIN display in email log manager",
+      "impact": "User PINs displayed without masking or access control in admin interface",
+      "file": "app/(app)/admin/_components/EmailLogManager.tsx:565"
+    },
+    {
+      "id": "ADMINCOMP-005",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "No server-side auth for site functions, direct Firestore writes",
+      "impact": "SiteFunctionsManager performs direct Firestore writes without backend validation",
+      "file": "app/(app)/admin/_components/SiteFunctionsManager.tsx:69-70"
+    },
+    {
+      "id": "ADMINCOMP-006",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "Direct writes and mass email spam vector in HotNewsManager",
+      "impact": "No rate limiting on hot news email broadcasts, direct Firestore writes",
+      "file": "app/(app)/admin/_components/HotNewsManager.tsx:94-98,121-129"
+    },
+    {
+      "id": "ADMINCOMP-007",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "Race result tampering via direct Firestore writes",
+      "impact": "ResultsManager allows direct modification of race results without server validation",
+      "file": "app/(app)/admin/_components/ResultsManager.tsx:258-274"
+    },
+    {
+      "id": "ADMINCOMP-008",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "Score deletion without validation in ResultsManager",
+      "impact": "Admin can delete all user scores via client-side operation, depends on API validation",
+      "file": "app/(app)/admin/_components/ResultsManager.tsx:339-349"
+    },
+    {
+      "id": "ADMINCOMP-009",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "Single User Mode DoS attack vector",
+      "impact": "OnlineUsersManager allows forcing entire site into single-user mode via client",
+      "file": "app/(app)/admin/_components/OnlineUsersManager.tsx:147-195"
+    },
+    {
+      "id": "ADMINCOMP-010",
+      "module": "Admin Components Security",
+      "severity": "critical",
+      "issue": "WhatsApp QR code exposure without authentication",
+      "impact": "WhatsAppManager displays QR codes client-side only, no server-side auth check",
+      "file": "app/(app)/admin/_components/WhatsAppManager.tsx:214,283-290"
+    },
+    {
+      "id": "GEMINI-001",
+      "module": "Gemini Red Team Additional Findings",
+      "severity": "critical",
+      "issue": "Inconsistent Firestore Security Rules - Two rule files exist",
+      "impact": "app/src/firestore.rules vs app/src/firebase/firestore/rules - only weaker one deployed",
+      "file": "app/src/firestore.rules, app/src/firebase/firestore/rules"
+    },
+    {
+      "id": "GEMINI-002",
+      "module": "Gemini Red Team Additional Findings",
+      "severity": "critical",
+      "issue": "Insecure League Management Authorization",
+      "impact": "Firestore rules lack owner validation for league updates/deletes",
+      "file": "firestore.rules:165-173"
+    },
+    {
+      "id": "GEMINI-003",
+      "module": "Gemini Red Team Additional Findings",
+      "severity": "critical",
+      "issue": "HTML Injection in prix_six_engine.py",
+      "impact": "LLM-generated newsletter HTML not sanitized before sending to users",
+      "file": "prix_six_engine.py"
+    }
+  ],
+  "modules": [
+    {
+      "moduleName": "1. Authentication & Authorization",
+      "status": "completed",
+      "filesReviewed": 3,
+      "issuesFound": 15,
+      "severity": {
+        "critical": 1,
+        "high": 3,
+        "medium": 5,
+        "low": 6
+      },
+      "criticalIssuesIds": [
+        "AUTH-003"
+      ]
+    },
+    {
+      "moduleName": "2. API Routes",
+      "status": "completed",
+      "filesReviewed": 29,
+      "issuesFound": 47,
+      "severity": {
+        "critical": 3,
+        "high": 9,
+        "medium": 22,
+        "low": 13
+      },
+      "criticalIssuesIds": [
+        "API-006",
+        "API-013"
+      ],
+      "fullReportAgentId": "a1dfa82"
+    },
+    {
+      "moduleName": "3. Error Handling System",
+      "status": "completed",
+      "complianceScore": "82/100",
+      "goldenRule1Compliance": "PASS (all pillars except partial on Pillar 2)",
+      "goldenRule7Compliance": "PARTIAL (Cloud Functions bypass registry)",
+      "fullReportAgentId": "a030a0d"
+    },
+    {
+      "moduleName": "4. Admin Panel Security",
+      "status": "completed",
+      "filesReviewed": 16,
+      "vulnerabilitiesFound": 12,
+      "severity": {
+        "critical": 2,
+        "high": 3,
+        "medium": 5,
+        "low": 2
+      },
+      "criticalIssuesIds": [
+        "ADMIN-005"
+      ],
+      "fullReportAgentId": "a833757"
+    },
+    {
+      "moduleName": "5. Scoring Engine",
+      "status": "completed",
+      "grade": "A (Excellent)",
+      "filesReviewed": 4,
+      "findingsCount": 20,
+      "allFindingsPassOrObservation": true,
+      "criticalIssues": 0,
+      "fullReportAgentId": "a11e0a3"
+    },
+    {
+      "moduleName": "6. WhatsApp Integration",
+      "status": "completed",
+      "filesReviewed": 7,
+      "issuesFound": 31,
+      "severity": {
+        "critical": 4,
+        "high": 9,
+        "medium": 11,
+        "low": 7
+      },
+      "criticalIssuesIds": [
+        "WHATSAPP-001",
+        "WHATSAPP-002",
+        "WHATSAPP-003",
+        "WHATSAPP-004"
+      ],
+      "fullReportAgentId": "aaceff7"
+    },
+    {
+      "moduleName": "7. Email System",
+      "status": "completed",
+      "filesReviewed": 12,
+      "issuesFound": 31,
+      "severity": {
+        "critical": 5,
+        "high": 8,
+        "medium": 12,
+        "low": 6
+      },
+      "criticalIssuesIds": [
+        "EMAIL-001",
+        "EMAIL-002",
+        "EMAIL-003",
+        "EMAIL-004",
+        "EMAIL-005"
+      ],
+      "fullReportAgentId": "acc6231"
+    },
+    {
+      "moduleName": "8. Backup & Recovery",
+      "status": "completed",
+      "filesReviewed": 8,
+      "issuesFound": 15,
+      "severity": {
+        "critical": 1,
+        "high": 3,
+        "medium": 7,
+        "low": 4
+      },
+      "criticalIssuesIds": [
+        "BACKUP-001"
+      ],
+      "fullReportAgentId": "ae1da64",
+      "grade": "B+ - Architecturally sound with critical security issue"
+    },
+    {
+      "moduleName": "9. Frontend Components",
+      "status": "completed",
+      "filesReviewed": 67,
+      "issuesFound": 27,
+      "severity": {
+        "critical": 1,
+        "high": 6,
+        "medium": 12,
+        "low": 8
+      },
+      "criticalIssuesIds": [
+        "FRONTEND-001"
+      ],
+      "fullReportAgentId": "af9da38",
+      "grade": "Production-ready with noted improvements",
+      "linesReviewed": "~15000"
+    },
+    {
+      "moduleName": "10. Cloud Functions",
+      "status": "completed",
+      "filesReviewed": 8,
+      "issuesFound": 25,
+      "severity": {
+        "critical": 4,
+        "high": 7,
+        "medium": 8,
+        "low": 6
+      },
+      "criticalIssuesIds": [
+        "CLOUD-001",
+        "CLOUD-002",
+        "CLOUD-003",
+        "CLOUD-004"
+      ],
+      "fullReportAgentId": "a813e4d",
+      "grade": "B+ (would be A with Golden Rule violations fixed)"
+    },
+    {
+      "moduleName": "11. Supporting Libraries",
+      "status": "completed",
+      "filesReviewed": 20,
+      "issuesFound": 30,
+      "severity": {
+        "critical": 3,
+        "high": 7,
+        "medium": 12,
+        "low": 8
+      },
+      "criticalIssuesIds": [
+        "LIB-001",
+        "LIB-002",
+        "LIB-003"
+      ],
+      "fullReportAgentId": "a74345f",
+      "grade": "Well-structured with critical security fixes needed"
+    },
+    {
+      "moduleName": "12. Configuration Files",
+      "status": "completed",
+      "filesReviewed": 25,
+      "issuesFound": 23,
+      "severity": {
+        "critical": 1,
+        "high": 10,
+        "medium": 9,
+        "low": 3
+      },
+      "criticalIssuesIds": [
+        "CONFIG-001"
+      ],
+      "fullReportAgentId": "a6cc933",
+      "overallRisk": "HIGH"
+    },
+    {
+      "moduleName": "13. Infrastructure (Firestore Rules)",
+      "status": "completed",
+      "securityGrade": "C-",
+      "filesReviewed": 2,
+      "issuesFound": 12,
+      "severity": {
+        "critical": 3,
+        "high": 4,
+        "medium": 3,
+        "low": 2
+      },
+      "criticalIssuesIds": [
+        "FIRESTORE-001",
+        "FIRESTORE-002",
+        "FIRESTORE-003"
+      ],
+      "fullReportAgentId": "aa27d89"
+    },
+    {
+      "moduleName": "14. Deployment Configuration",
+      "status": "completed",
+      "filesReviewed": 15,
+      "issuesFound": 18,
+      "severity": {
+        "critical": 5,
+        "high": 6,
+        "medium": 5,
+        "low": 2
+      },
+      "criticalIssuesIds": [
+        "DEPLOY-001",
+        "DEPLOY-002",
+        "DEPLOY-003",
+        "DEPLOY-004",
+        "DEPLOY-005"
+      ],
+      "fullReportAgentId": "a1f8c00"
+    },
+    {
+      "moduleName": "15. Admin Components Security Audit",
+      "status": "completed",
+      "filesReviewed": 19,
+      "issuesFound": 44,
+      "severity": {
+        "critical": 10,
+        "high": 14,
+        "medium": 20,
+        "low": 0
+      },
+      "criticalIssuesIds": [
+        "ADMINCOMP-001",
+        "ADMINCOMP-002",
+        "ADMINCOMP-003",
+        "ADMINCOMP-004",
+        "ADMINCOMP-005",
+        "ADMINCOMP-006",
+        "ADMINCOMP-007",
+        "ADMINCOMP-008",
+        "ADMINCOMP-009",
+        "ADMINCOMP-010"
+      ],
+      "fullReportAgentId": "afe90b1",
+      "securityGrade": "F - Multiple critical vulnerabilities",
+      "findings": [
+        {
+          "id": "ADMINCOMP-001",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/PubChatPanel.tsx",
+          "line": "333-336",
+          "issue": "XSS via dangerouslySetInnerHTML",
+          "rationale": "User-generated chat messages rendered without sanitization using dangerouslySetInnerHTML",
+          "remediation": "Use DOMPurify to sanitize HTML before rendering, or use text content only"
+        },
+        {
+          "id": "ADMINCOMP-002",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/TeamManager.tsx",
+          "line": "112",
+          "issue": "Client-side isAdmin toggle depends on broken API",
+          "rationale": "Toggle admin status functionality relies on admin/update-user API which is non-functional",
+          "remediation": "Implement proper server-side admin role management API with authorization checks"
+        },
+        {
+          "id": "ADMINCOMP-003",
+          "severity": "critical",
+          "file": "app/(app)/admin/page.tsx",
+          "line": "86-104",
+          "issue": "Client-side admin check can be bypassed",
+          "rationale": "Admin panel gate only checks client-side isAdmin state which can be manipulated",
+          "remediation": "Implement server-side admin verification using middleware or API route protection"
+        },
+        {
+          "id": "ADMINCOMP-004",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/EmailLogManager.tsx",
+          "line": "565",
+          "issue": "Plaintext PIN display",
+          "rationale": "User PINs displayed in plaintext without masking in admin interface",
+          "remediation": "Mask PINs by default with click-to-reveal or implement separate secure PIN reset flow"
+        },
+        {
+          "id": "ADMINCOMP-005",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/SiteFunctionsManager.tsx",
+          "line": "69-70",
+          "issue": "No server-side auth, direct Firestore writes",
+          "rationale": "Component performs direct Firestore writes for site config without server validation",
+          "remediation": "Route all config updates through authenticated API endpoints with validation"
+        },
+        {
+          "id": "ADMINCOMP-006",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/HotNewsManager.tsx",
+          "line": "94-98,121-129",
+          "issue": "Direct writes and mass email spam vector",
+          "rationale": "No rate limiting on hot news broadcasts, allows spam attacks via admin panel",
+          "remediation": "Implement rate limiting, approval workflow, and server-side email queuing"
+        },
+        {
+          "id": "ADMINCOMP-007",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/ResultsManager.tsx",
+          "line": "258-274",
+          "issue": "Race result tampering via direct writes",
+          "rationale": "Direct Firestore writes allow race result modification without audit trail",
+          "remediation": "Use server-side API with validation, audit logging, and result locking after publication"
+        },
+        {
+          "id": "ADMINCOMP-008",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/ResultsManager.tsx",
+          "line": "339-349",
+          "issue": "Score deletion without validation",
+          "rationale": "Allows mass deletion of user scores via client-side operation",
+          "remediation": "Require server-side validation, multi-step confirmation, and backup before deletion"
+        },
+        {
+          "id": "ADMINCOMP-009",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/OnlineUsersManager.tsx",
+          "line": "147-195",
+          "issue": "Single User Mode DoS attack",
+          "rationale": "Client can force entire site into maintenance mode affecting all users",
+          "remediation": "Implement server-side flag with proper authorization and audit trail"
+        },
+        {
+          "id": "ADMINCOMP-010",
+          "severity": "critical",
+          "file": "app/(app)/admin/_components/WhatsAppManager.tsx",
+          "line": "214,283-290",
+          "issue": "Client-side auth only, QR code exposure",
+          "rationale": "WhatsApp QR codes displayed without server-side authentication verification",
+          "remediation": "Implement server-side session management with encrypted QR code delivery"
+        },
+        {
+          "id": "ADMINCOMP-011",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/ErrorLogViewer.tsx",
+          "line": "544-550",
+          "issue": "Stack traces exposed in admin UI",
+          "rationale": "Full stack traces with file paths exposed, potential information disclosure",
+          "remediation": "Sanitize stack traces to remove absolute paths and sensitive information"
+        },
+        {
+          "id": "ADMINCOMP-012",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/ErrorLogViewer.tsx",
+          "line": "475-489",
+          "issue": "Direct Firestore writes for error dismissal",
+          "rationale": "Error log modifications bypass server validation and audit trail",
+          "remediation": "Route error log operations through API with proper authorization"
+        },
+        {
+          "id": "ADMINCOMP-013",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/AttackMonitor.tsx",
+          "line": "108-113",
+          "issue": "Direct Firestore writes without server validation",
+          "rationale": "Attack log clearing and blocking operations performed client-side",
+          "remediation": "Implement server-side API for security operations with audit logging"
+        },
+        {
+          "id": "ADMINCOMP-014",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/AuditManager.tsx",
+          "line": "46-48",
+          "issue": "Direct Firestore write to global config",
+          "rationale": "Audit retention settings modified without validation or change tracking",
+          "remediation": "Use API endpoint with validation and configuration change history"
+        },
+        {
+          "id": "ADMINCOMP-015",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/WhatsAppManager.tsx",
+          "line": "593-659",
+          "issue": "Unsanitized message content",
+          "rationale": "WhatsApp message preview renders user content without sanitization",
+          "remediation": "Sanitize all message content before display using DOMPurify"
+        },
+        {
+          "id": "ADMINCOMP-016",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/WhatsAppManager.tsx",
+          "line": "541-587",
+          "issue": "Client-side alert settings",
+          "rationale": "WhatsApp alert configuration stored client-side without server validation",
+          "remediation": "Move alert settings to server-side configuration with proper persistence"
+        },
+        {
+          "id": "ADMINCOMP-017",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/BackupHealthDashboard.tsx",
+          "line": "375-433",
+          "issue": "No rate limiting on manual backup",
+          "rationale": "Manual backup trigger has no rate limiting or cooldown period",
+          "remediation": "Implement rate limiting and queue system for backup operations"
+        },
+        {
+          "id": "ADMINCOMP-018",
+          "severity": "high",
+          "file": "app/api/admin/openf1-sessions/route.ts",
+          "line": "23-134",
+          "issue": "Missing admin check on API route",
+          "rationale": "OpenF1 session management API lacks admin authorization verification",
+          "remediation": "Add admin role verification middleware to all admin API routes"
+        },
+        {
+          "id": "ADMINCOMP-019",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/LeaguesManager.tsx",
+          "line": "140-154",
+          "issue": "Private league invite codes exposed (duplicate of ADMIN-005)",
+          "rationale": "Invite codes displayed without additional access control or masking",
+          "remediation": "Mask codes by default with secure click-to-reveal mechanism"
+        },
+        {
+          "id": "ADMINCOMP-020",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/BackupHealthDashboard.tsx",
+          "line": "289-313",
+          "issue": "Backup restoration without confirmation",
+          "rationale": "Direct backup restore operation without multi-step confirmation",
+          "remediation": "Implement multi-step restore process with impact preview and confirmation"
+        },
+        {
+          "id": "ADMINCOMP-021",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/EmailLogManager.tsx",
+          "line": "585",
+          "issue": "HTML injection via dangerouslySetInnerHTML (duplicate of FRONTEND-001)",
+          "rationale": "Email content rendered without sanitization in preview",
+          "remediation": "Use DOMPurify to sanitize HTML before rendering"
+        },
+        {
+          "id": "ADMINCOMP-022",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/TeamManager.tsx",
+          "line": "89-95",
+          "issue": "Missing input validation for team name changes",
+          "rationale": "Team name updates lack length and content validation",
+          "remediation": "Add validation for team names before Firestore update"
+        },
+        {
+          "id": "ADMINCOMP-023",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/ResultsManager.tsx",
+          "line": "193-207",
+          "issue": "Race deletion without cascade handling",
+          "rationale": "Deleting races doesn't handle dependent predictions and results",
+          "remediation": "Implement cascade deletion or prevent deletion of races with existing predictions"
+        },
+        {
+          "id": "ADMINCOMP-024",
+          "severity": "high",
+          "file": "app/(app)/admin/_components/OnlineUsersManager.tsx",
+          "line": "92-121",
+          "issue": "Force logout without session cleanup",
+          "rationale": "Force logout doesn't invalidate server-side sessions or tokens",
+          "remediation": "Implement proper session invalidation through authentication API"
+        },
+        {
+          "id": "ADMINCOMP-025",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/PubChatPanel.tsx",
+          "line": "152-189",
+          "issue": "Client-side chat moderation",
+          "rationale": "Message deletion and user blocking performed client-side",
+          "remediation": "Route all moderation actions through server-side API"
+        },
+        {
+          "id": "ADMINCOMP-026",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/TeamManager.tsx",
+          "line": "135-158",
+          "issue": "No pagination for large team lists",
+          "rationale": "Loading all teams at once causes performance issues with large datasets",
+          "remediation": "Implement pagination or virtual scrolling for team list"
+        },
+        {
+          "id": "ADMINCOMP-027",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/EmailLogManager.tsx",
+          "line": "423-456",
+          "issue": "No pagination for email logs",
+          "rationale": "Loading all email logs at once impacts performance",
+          "remediation": "Implement cursor-based pagination for email log queries"
+        },
+        {
+          "id": "ADMINCOMP-028",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/ErrorLogViewer.tsx",
+          "line": "227-289",
+          "issue": "Missing error log export functionality",
+          "rationale": "No way to export error logs for external analysis",
+          "remediation": "Add CSV/JSON export with proper sanitization"
+        },
+        {
+          "id": "ADMINCOMP-029",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/AttackMonitor.tsx",
+          "line": "54-87",
+          "issue": "IP blocking without expiration",
+          "rationale": "Blocked IPs remain blocked indefinitely without review mechanism",
+          "remediation": "Add expiration time and periodic review for blocked IPs"
+        },
+        {
+          "id": "ADMINCOMP-030",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/AuditManager.tsx",
+          "line": "89-127",
+          "issue": "Audit log filtering client-side only",
+          "rationale": "All audit entries loaded before filtering, inefficient for large datasets",
+          "remediation": "Implement server-side filtering with Firestore queries"
+        },
+        {
+          "id": "ADMINCOMP-031",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/LeaguesManager.tsx",
+          "line": "189-234",
+          "issue": "League deletion without member notification",
+          "rationale": "Deleting leagues doesn't notify members or handle data migration",
+          "remediation": "Add member notification and optional data export before deletion"
+        },
+        {
+          "id": "ADMINCOMP-032",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/SiteFunctionsManager.tsx",
+          "line": "112-145",
+          "issue": "No confirmation for destructive operations",
+          "rationale": "Site-wide settings changes lack confirmation dialogs",
+          "remediation": "Add confirmation dialogs for all destructive or site-wide operations"
+        },
+        {
+          "id": "ADMINCOMP-033",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/HotNewsManager.tsx",
+          "line": "156-189",
+          "issue": "Hot news preview missing recipient count",
+          "rationale": "No indication of how many users will receive the broadcast",
+          "remediation": "Show estimated recipient count before sending"
+        },
+        {
+          "id": "ADMINCOMP-034",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/ResultsManager.tsx",
+          "line": "145-178",
+          "issue": "Missing validation for race results",
+          "rationale": "Race results lack validation (e.g., position uniqueness, valid driver IDs)",
+          "remediation": "Add comprehensive validation before saving race results"
+        },
+        {
+          "id": "ADMINCOMP-035",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/BackupHealthDashboard.tsx",
+          "line": "156-203",
+          "issue": "Backup size metrics client-side only",
+          "rationale": "Backup size calculations performed in browser, inefficient for large backups",
+          "remediation": "Calculate and store backup metrics server-side during backup creation"
+        },
+        {
+          "id": "ADMINCOMP-036",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/WhatsAppManager.tsx",
+          "line": "345-389",
+          "issue": "WhatsApp connection state not persisted",
+          "rationale": "Connection status lost on page refresh, no server-side tracking",
+          "remediation": "Store connection state in Firestore with regular health checks"
+        },
+        {
+          "id": "ADMINCOMP-037",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/OnlineUsersManager.tsx",
+          "line": "56-89",
+          "issue": "Active user count client-side calculation",
+          "rationale": "Loading all user sessions to calculate count is inefficient",
+          "remediation": "Implement server-side aggregation for user count metrics"
+        },
+        {
+          "id": "ADMINCOMP-038",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/PubChatPanel.tsx",
+          "line": "245-278",
+          "issue": "Chat history not paginated",
+          "rationale": "Loading entire chat history causes performance issues",
+          "remediation": "Implement infinite scroll with cursor-based pagination"
+        },
+        {
+          "id": "ADMINCOMP-039",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/TeamManager.tsx",
+          "line": "178-212",
+          "issue": "Missing bulk operations for teams",
+          "rationale": "No way to perform bulk updates (e.g., mass email to teams)",
+          "remediation": "Add bulk operation support with preview and confirmation"
+        },
+        {
+          "id": "ADMINCOMP-040",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/EmailLogManager.tsx",
+          "line": "312-345",
+          "issue": "Email retry without failure analysis",
+          "rationale": "Retry mechanism doesn't analyze or display previous failure reasons",
+          "remediation": "Display failure reason and allow editing before retry"
+        },
+        {
+          "id": "ADMINCOMP-041",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/ErrorLogViewer.tsx",
+          "line": "389-423",
+          "issue": "Error grouping logic client-side",
+          "rationale": "Error grouping performed in browser, inefficient for large error sets",
+          "remediation": "Implement server-side error aggregation and grouping"
+        },
+        {
+          "id": "ADMINCOMP-042",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/AttackMonitor.tsx",
+          "line": "156-189",
+          "issue": "Attack pattern detection client-side",
+          "rationale": "Attack detection logic in client code can be studied by attackers",
+          "remediation": "Move attack detection to server-side Cloud Functions"
+        },
+        {
+          "id": "ADMINCOMP-043",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/AuditManager.tsx",
+          "line": "167-201",
+          "issue": "Missing audit log export",
+          "rationale": "No way to export audit logs for compliance or external analysis",
+          "remediation": "Add secure audit log export with proper authorization"
+        },
+        {
+          "id": "ADMINCOMP-044",
+          "severity": "medium",
+          "file": "app/(app)/admin/_components/BackupHealthDashboard.tsx",
+          "line": "445-478",
+          "issue": "Backup comparison functionality missing",
+          "rationale": "No way to compare backup states or see what changed between backups",
+          "remediation": "Add diff view showing changes between backup versions"
+        }
+      ]
+    },
+    {
+      "moduleName": "16. Code Documentation Gaps",
+      "status": "completed",
+      "filesReviewed": 90,
+      "issuesFound": 111,
+      "severity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 20,
+        "low": 91
+      },
+      "fullReportAgentId": "a9e4d82",
+      "findings": [
+        {
+          "id": "DOCGAP-001",
+          "severity": "medium",
+          "category": "WhatsApp Worker - Complete Missing",
+          "file": "whatsapp-worker/src/index.ts",
+          "issue": "Core worker file not documented in code.json",
+          "rationale": "Main entry point with 7 total files completely missing from documentation",
+          "remediation": "Add all WhatsApp Worker files to code.json with proper GUID documentation"
+        },
+        {
+          "id": "DOCGAP-002",
+          "severity": "medium",
+          "category": "WhatsApp Worker - Complete Missing",
+          "file": "whatsapp-worker/src/firebase-config.ts",
+          "issue": "Firebase configuration file undocumented",
+          "rationale": "Critical infrastructure file missing from code.json",
+          "remediation": "Document Firebase configuration setup and service account handling"
+        },
+        {
+          "id": "DOCGAP-003",
+          "severity": "medium",
+          "category": "WhatsApp Worker - Complete Missing",
+          "file": "whatsapp-worker/src/queue-manager.ts",
+          "issue": "Queue management system undocumented",
+          "rationale": "Core message queue logic not in code.json",
+          "remediation": "Document queue management architecture and message processing flow"
+        },
+        {
+          "id": "DOCGAP-004",
+          "severity": "medium",
+          "category": "WhatsApp Worker - Complete Missing",
+          "file": "whatsapp-worker/src/whatsapp-client.ts",
+          "issue": "WhatsApp client wrapper undocumented",
+          "rationale": "Primary WhatsApp integration not documented",
+          "remediation": "Add documentation for WhatsApp client initialization and message handling"
+        },
+        {
+          "id": "DOCGAP-005",
+          "severity": "medium",
+          "category": "WhatsApp Worker - Complete Missing",
+          "file": "whatsapp-worker/src/azure-store.ts",
+          "issue": "Azure storage integration undocumented",
+          "rationale": "Session storage mechanism not in code.json",
+          "remediation": "Document Azure Blob Storage integration for WhatsApp sessions"
+        },
+        {
+          "id": "DOCGAP-006",
+          "severity": "medium",
+          "category": "WhatsApp Worker - Complete Missing",
+          "file": "whatsapp-worker/src/message-handler.ts",
+          "issue": "Message handler logic undocumented",
+          "rationale": "Core message processing not in code.json",
+          "remediation": "Document message handling pipeline and business logic"
+        },
+        {
+          "id": "DOCGAP-007",
+          "severity": "medium",
+          "category": "WhatsApp Worker - Complete Missing",
+          "file": "whatsapp-worker/src/template-manager.ts",
+          "issue": "Template system undocumented",
+          "rationale": "Message template management not documented",
+          "remediation": "Add documentation for template rendering and management"
+        },
+        {
+          "id": "DOCGAP-008",
+          "severity": "medium",
+          "category": "Prediction Drag-and-Drop - Complete Missing",
+          "file": "app/(app)/predictions/_components/DraggableDriverCard.tsx",
+          "issue": "Draggable driver component undocumented",
+          "rationale": "Core prediction UI component not in code.json (5 files total missing)",
+          "remediation": "Document drag-and-drop component architecture"
+        },
+        {
+          "id": "DOCGAP-009",
+          "severity": "medium",
+          "category": "Prediction Drag-and-Drop - Complete Missing",
+          "file": "app/(app)/predictions/_components/DroppablePositionSlot.tsx",
+          "issue": "Drop target component undocumented",
+          "rationale": "Position slot component missing from documentation",
+          "remediation": "Add documentation for drop zone handling"
+        },
+        {
+          "id": "DOCGAP-010",
+          "severity": "medium",
+          "category": "Prediction Drag-and-Drop - Complete Missing",
+          "file": "app/(app)/predictions/_components/PredictionBoard.tsx",
+          "issue": "Prediction board container undocumented",
+          "rationale": "Main prediction interface not documented",
+          "remediation": "Document prediction board state management and layout"
+        },
+        {
+          "id": "DOCGAP-011",
+          "severity": "medium",
+          "category": "Prediction Drag-and-Drop - Complete Missing",
+          "file": "app/(app)/predictions/_components/DriverPool.tsx",
+          "issue": "Driver pool component undocumented",
+          "rationale": "Available drivers list not in code.json",
+          "remediation": "Document driver pool filtering and selection logic"
+        },
+        {
+          "id": "DOCGAP-012",
+          "severity": "medium",
+          "category": "Prediction Drag-and-Drop - Complete Missing",
+          "file": "app/(app)/predictions/_components/useDragAndDrop.ts",
+          "issue": "Drag-and-drop hook undocumented",
+          "rationale": "Custom React hook for DnD not documented",
+          "remediation": "Add documentation for drag-and-drop state management hook"
+        },
+        {
+          "id": "DOCGAP-013",
+          "severity": "medium",
+          "category": "Infrastructure - Critical Missing",
+          "file": "app/middleware.ts",
+          "issue": "Middleware not documented",
+          "rationale": "Request/response pipeline middleware missing (19 critical files total)",
+          "remediation": "Document middleware for auth, rate limiting, and request processing"
+        },
+        {
+          "id": "DOCGAP-014",
+          "severity": "medium",
+          "category": "Infrastructure - Critical Missing",
+          "file": "app/layout.tsx",
+          "issue": "Root layout undocumented",
+          "rationale": "Application root layout missing from code.json",
+          "remediation": "Document root layout structure and global providers"
+        },
+        {
+          "id": "DOCGAP-015",
+          "severity": "medium",
+          "category": "Infrastructure - Critical Missing",
+          "file": "app/(app)/layout.tsx",
+          "issue": "Authenticated layout undocumented",
+          "rationale": "Protected route layout not documented",
+          "remediation": "Add documentation for authenticated layout and navigation"
+        },
+        {
+          "id": "DOCGAP-016",
+          "severity": "medium",
+          "category": "Infrastructure - Critical Missing",
+          "file": "app/src/contexts/FirebaseContext.tsx",
+          "issue": "Firebase context undocumented",
+          "rationale": "Core Firebase state management not in code.json",
+          "remediation": "Document Firebase context and provider pattern"
+        },
+        {
+          "id": "DOCGAP-017",
+          "severity": "medium",
+          "category": "Infrastructure - Critical Missing",
+          "file": "app/src/contexts/TeamContext.tsx",
+          "issue": "Team context undocumented",
+          "rationale": "Team state management context missing",
+          "remediation": "Add documentation for team selection and state"
+        },
+        {
+          "id": "DOCGAP-018",
+          "severity": "medium",
+          "category": "Infrastructure - Critical Missing",
+          "file": "app/src/contexts/ThemeContext.tsx",
+          "issue": "Theme context undocumented",
+          "rationale": "Theme management not documented",
+          "remediation": "Document theme context and dark mode support"
+        },
+        {
+          "id": "DOCGAP-019",
+          "severity": "medium",
+          "category": "Infrastructure - Critical Missing",
+          "file": "app/src/components/error-boundary.tsx",
+          "issue": "Error boundary undocumented",
+          "rationale": "React error boundary not in code.json",
+          "remediation": "Document error boundary implementation and fallback UI"
+        },
+        {
+          "id": "DOCGAP-020",
+          "severity": "medium",
+          "category": "Infrastructure - Critical Missing",
+          "file": "app/src/lib/firebase-client.ts",
+          "issue": "Firebase client library undocumented",
+          "rationale": "Client-side Firebase utilities missing",
+          "remediation": "Add documentation for Firebase client initialization and helpers"
+        },
+        {
+          "id": "DOCGAP-021",
+          "severity": "low",
+          "category": "Custom Components",
+          "file": "app/src/components/ui/custom/LoadingSpinner.tsx",
+          "issue": "Loading spinner not documented",
+          "rationale": "20 custom UI components missing from code.json",
+          "remediation": "Document custom component library"
+        },
+        {
+          "id": "DOCGAP-022",
+          "severity": "low",
+          "category": "Custom Components",
+          "file": "app/src/components/ui/custom/Toast.tsx",
+          "issue": "Toast notification system undocumented",
+          "rationale": "Custom toast implementation not in code.json",
+          "remediation": "Add toast notification documentation"
+        },
+        {
+          "id": "DOCGAP-023",
+          "severity": "low",
+          "category": "Library Components (shadcn/ui)",
+          "file": "app/src/components/ui/button.tsx",
+          "issue": "Button component not documented",
+          "rationale": "39 shadcn/ui components missing from code.json",
+          "remediation": "Document shadcn/ui component library usage (low priority as these are third-party)"
+        }
+      ],
+      "summary": "90 files identified as missing from code.json documentation. 31 are critical (WhatsApp Worker + Prediction DnD + Infrastructure), 20 are custom components, and 39 are third-party library components (shadcn/ui). Prioritize documenting critical infrastructure and custom business logic files."
+    },
+    {
+      "moduleName": "17. Gemini Red Team Additional Findings",
+      "status": "completed",
+      "description": "Security vulnerabilities discovered by Gemini Red Team that were missed in initial Claude review",
+      "issuesFound": 12,
+      "severity": {
+        "critical": 3,
+        "high": 4,
+        "medium": 4,
+        "low": 1
+      },
+      "criticalIssuesIds": [
+        "GEMINI-001",
+        "GEMINI-002",
+        "GEMINI-003"
+      ],
+      "citation": "Gemini Red Team",
+      "findings": [
+        {
+          "id": "GEMINI-001",
+          "severity": "critical",
+          "file": "app/src/firestore.rules, app/src/firebase/firestore/rules",
+          "line": null,
+          "issue": "Inconsistent Firestore Security Rules - Two rule files exist",
+          "rationale": "Two separate firestore.rules files exist in the codebase. Only one is deployed. Risk that the weaker rule set is deployed instead of the intended secure version.",
+          "remediation": "Consolidate to single source of truth for Firestore rules. Add deployment verification to ensure correct file is deployed.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-002",
+          "severity": "critical",
+          "file": "firestore.rules",
+          "line": "165-173",
+          "issue": "Insecure League Management Authorization",
+          "rationale": "Firestore rules allow any authenticated user to update/delete leagues. Missing owner validation check (request.auth.uid == resource.data.ownerId).",
+          "remediation": "Add owner validation: allow update, delete: if request.auth.uid == resource.data.ownerId;",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-003",
+          "severity": "critical",
+          "file": "prix_six_engine.py",
+          "line": null,
+          "issue": "HTML Injection in prix_six_engine.py",
+          "rationale": "LLM-generated newsletter HTML is not sanitized before being sent via email. Malicious prompts could generate XSS payloads in newsletters sent to all users.",
+          "remediation": "Sanitize all LLM-generated HTML using DOMPurify or equivalent before email transmission. Implement output validation for LLM responses.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-004",
+          "severity": "high",
+          "file": "scripts/",
+          "line": null,
+          "issue": "Unprotected Destructive Scripts",
+          "rationale": "16 scripts (reset-db.ts, delete-all-scores.ts, etc.) can run on production without environment checks or confirmation prompts. No safety mechanisms to prevent accidental data loss.",
+          "remediation": "Add environment validation (FIREBASE_PROJECT check). Require explicit --production flag and confirmation prompt for destructive operations.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-005",
+          "severity": "high",
+          "file": "app/api/auth/login/route.ts",
+          "line": null,
+          "issue": "No CSRF Protection on Auth Endpoints",
+          "rationale": "Login endpoint lacks anti-CSRF tokens. Vulnerable to cross-site request forgery attacks that could authenticate attacker sessions.",
+          "remediation": "Implement CSRF tokens for all state-changing authentication operations. Use SameSite cookies.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-006",
+          "severity": "high",
+          "file": "app/api/admin/delete-account/route.ts",
+          "line": null,
+          "issue": "Account Deletion Cascade - isAdmin privilege escalation enables mass account deletion",
+          "rationale": "Account deletion cascades to owned leagues. If attacker gains isAdmin privilege, they can delete all user accounts by creating a league, making all users members, then deleting their own account.",
+          "remediation": "Remove cascade deletion or require explicit ownership transfer before account deletion. Add rate limiting on account deletion.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-007",
+          "severity": "high",
+          "file": "app/storage.rules",
+          "line": null,
+          "issue": "Profile Photos Publicly Readable",
+          "rationale": "Firebase Storage rules allow public read access to profile_photos/. Any unauthenticated user can enumerate and download all user profile photos.",
+          "remediation": "Restrict read access to authenticated users only: allow read: if request.auth != null;",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-008",
+          "severity": "medium",
+          "file": "app/(app)/standings/page.tsx",
+          "line": null,
+          "issue": "Denial of Wallet - Standings page fetches entire scores collection",
+          "rationale": "Standings page fetches entire scores collection for all users. With 1000+ users, this costs $0.36 per page load. Attack vector: automated page refreshes drain Firebase budget.",
+          "remediation": "Implement pagination or server-side aggregation. Cache standings data with TTL. Add rate limiting on standings endpoint.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-009",
+          "severity": "medium",
+          "file": "app/api/auth/verify-admin.ts",
+          "line": null,
+          "issue": "Low-Entropy PIN Architecture",
+          "rationale": "6-digit PIN with no rate limiting = 1M combinations. Admin PIN hardcoded in verify-admin.ts as 123456. Brute-force attack takes <10 minutes.",
+          "remediation": "Replace PIN with proper password authentication (min 12 chars, complexity requirements). Implement rate limiting and account lockout.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-010",
+          "severity": "medium",
+          "file": "app/src/lib/attack-detection.ts",
+          "line": null,
+          "issue": "Attack Detection Fails Open",
+          "rationale": "IDS implementation in attack-detection.ts catches all errors and logs them silently. If IDS crashes, attacks pass through undetected without alerting admins.",
+          "remediation": "Change to fail-closed: if IDS errors, reject the request. Implement health check monitoring for IDS system.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-011",
+          "severity": "medium",
+          "file": "app/api/users/list/route.ts",
+          "line": null,
+          "issue": "User Enumeration via List",
+          "rationale": "Any signed-in user can call /api/users/list to enumerate all user emails, names, and team names. No legitimate use case for non-admin users.",
+          "remediation": "Restrict /api/users/list to admin users only. Add isAdmin check in route handler.",
+          "citation": "Gemini Red Team"
+        },
+        {
+          "id": "GEMINI-012",
+          "severity": "low",
+          "file": "scripts/cleanup-old-data.ts",
+          "line": null,
+          "issue": "Hardcoded Protected User Lists",
+          "rationale": "Scripts like cleanup-old-data.ts have hardcoded email addresses for protected accounts. Changes to protected users require code changes in multiple files.",
+          "remediation": "Move protected user list to Firestore config collection. Query at runtime instead of hardcoding.",
+          "citation": "Gemini Red Team"
+        }
+      ]
+    }
+  ],
+  "recommendations": {
+    "immediatePriority": [
+      "\ud83d\udd25 BACKUP-001/DEPLOY-001: Verify service account key never committed to git. If found, revoke IMMEDIATELY and rotate all keys",
+      "\ud83d\udd25 CONFIG-001: Rotate all exposed secrets in .env.local (Firebase API key, Graph Client Secret, WhatsApp App Secret)",
+      "\ud83d\udd25 FIRESTORE-001: Add time-based prediction locking to Firestore rules to prevent post-race submissions",
+      "\ud83d\udd25 FIRESTORE-003: Protect league invite codes from unauthorized reads",
+      "\ud83d\udd25 EMAIL-001, 004, 005: Implement HTML escaping for all email templates using DOMPurify or equivalent",
+      "\ud83d\udd25 WHATSAPP-001, 002: Make WORKER_API_KEY mandatory and add authentication to all endpoints",
+      "\ud83d\udd25 DEPLOY-003: Add .api-key.txt to .gitignore immediately",
+      "\ud83d\udd25 DEPLOY-002: Implement Azure Key Vault for secrets management",
+      "\ud83d\udd25 LIB-001: Fix weak randomness in invite code generation using rejection sampling",
+      "\ud83d\udd25 LIB-002: Replace Math.random() with crypto.randomUUID() in correlation ID generation",
+      "\ud83d\udd25 ADMINCOMP-001: Fix XSS vulnerability in PubChatPanel dangerouslySetInnerHTML",
+      "\ud83d\udd25 ADMINCOMP-003: Implement server-side admin verification middleware for admin panel",
+      "\ud83d\udd25 ADMINCOMP-005-010: Route all admin operations through authenticated API endpoints instead of direct Firestore writes",
+      "\ud83d\udd25 ADMINCOMP-004: Mask PINs in EmailLogManager or remove display entirely",
+      "\ud83d\udd25 GEMINI-001: Consolidate Firestore rules to single source of truth and verify deployment",
+      "\ud83d\udd25 GEMINI-002: Add owner validation to league update/delete rules",
+      "\ud83d\udd25 GEMINI-003: Sanitize LLM-generated HTML in prix_six_engine.py before email transmission"
+    ],
+    "highPriority": [
+      "CLOUD-001 through 004: Replace 4 hardcoded error codes with ERRORS.* imports from error registry",
+      "FRONTEND-001: Sanitize HTML before rendering in EmailLogManager using DOMPurify",
+      "EMAIL-002: Add URL encoding for verification links using encodeURIComponent()",
+      "EMAIL-006 through 008: Replace console.error with TracedError throughout email system",
+      "EMAIL-009: Implement async/background email sending via queue",
+      "WHATSAPP-005: Implement error registry and correlation IDs in WhatsApp worker",
+      "WHATSAPP-008: Add input validation for message content",
+      "WHATSAPP-010: Remove sensitive message logging",
+      "CONFIG-003: Remove TypeScript build error ignores and fix all type errors",
+      "CONFIG-010: Update all outdated dependencies (Firebase 12.x, Next.js 16.x, etc.)",
+      "DEPLOY-004: Implement CI/CD pipeline with GitHub Actions",
+      "DEPLOY-005: Deploy backup Dead Man's Switch and configure monitoring alerts",
+      "LIB-003: Fix Golden Rule #7 violation in audit.ts to use error registry",
+      "ADMINCOMP-011-024: Fix 14 high-severity admin component issues (stack traces, validation, authorization)",
+      "ADMINCOMP-018: Add admin authorization middleware to all admin API routes",
+      "DOCGAP-001-020: Document 20 critical infrastructure files in code.json (WhatsApp Worker, Prediction DnD, core infrastructure)",
+      "GEMINI-004: Add environment validation and confirmation prompts to all destructive scripts",
+      "GEMINI-005: Implement CSRF protection on all authentication endpoints",
+      "GEMINI-006: Fix account deletion cascade or require explicit ownership transfer",
+      "GEMINI-007: Restrict Storage rules to authenticated users only"
+    ],
+    "mediumPriority": [
+      "EMAIL-011: Implement parallel email sending with concurrency limits",
+      "EMAIL-013: Centralize rate limit constants",
+      "WHATSAPP-007: Fix queue processing concurrency issues",
+      "BACKUP-002: Implement TracedError in Cloud Functions",
+      "BACKUP-004: Document RTO/RPO and disaster recovery procedures",
+      "CONFIG-002: Add security headers to next.config.ts",
+      "CONFIG-004: Implement centralized env validation with Zod",
+      "DEPLOY-006: Document rollback procedures for all deployment targets",
+      "DEPLOY-007: Create staging environment separate from production",
+      "FRONTEND-003: Add correlation IDs to client-side fetch error handlers",
+      "FRONTEND-010: Add keyboard navigation for drag-and-drop predictions (accessibility)",
+      "LIB-011: Implement caching for driver lookups using Maps",
+      "Split provider.tsx into smaller modules (currently 1269 lines)",
+      "ADMINCOMP-025-044: Address 20 medium-severity admin component issues (pagination, performance, UX)",
+      "DOCGAP-021-022: Document 20 custom UI components in code.json",
+      "GEMINI-008: Implement pagination/caching for standings page to prevent denial-of-wallet",
+      "GEMINI-009: Replace PIN authentication with proper password system and rate limiting",
+      "GEMINI-010: Change attack detection to fail-closed instead of fail-open",
+      "GEMINI-011: Restrict user list API to admin users only"
+    ],
+    "lowPriority": [
+      "Extract duplicate validation logic to shared utilities",
+      "Document O(N*M) standings calculation tradeoff",
+      "Add role hierarchy (super-admin vs admin)",
+      "WHATSAPP-026: Remove unused FirebaseSessionStore class",
+      "EMAIL-026: Move ADMIN_EMAIL to central configuration",
+      "BACKUP-010: Add backup size growth monitoring",
+      "CLOUD-021: Centralize magic numbers as constants",
+      "FRONTEND-020: Standardize button disabled state patterns",
+      "LIB-028: Add unit tests for all library functions",
+      "CONFIG-018: Add Prettier configuration for consistent formatting",
+      "DEPLOY-017: Create unified deployment CLI",
+      "DOCGAP-023: Document shadcn/ui library components (39 files, low priority as third-party)",
+      "GEMINI-012: Move protected user lists from scripts to Firestore config collection"
+    ]
+  },
+  "nextSteps": [
+    "\u2705 COMPLETE: All 17 modules reviewed (including admin components audit, documentation gaps, and Gemini Red Team findings)",
+    "\ud83d\udd25 IMMEDIATE: Rotate all exposed credentials (BACKUP-001, CONFIG-001, DEPLOY-001, 002, 003)",
+    "\ud83d\udd25 IMMEDIATE: Fix 10 critical admin component vulnerabilities (ADMINCOMP-001 through 010)",
+    "\ud83d\udd25 IMMEDIATE: Fix 3 critical Gemini Red Team findings (GEMINI-001, 002, 003)",
+    "\ud83d\udcca Generate executive summary report with prioritized remediation roadmap",
+    "\ud83d\udcbe Store final review completion in Vestige memory",
+    "\ud83d\udce7 Prepare findings summary for stakeholder review",
+    "\ud83d\udee0\ufe0f Create GitHub issues for all 45 critical and 87 high-priority findings",
+    "\ud83d\udcc5 Schedule remediation sprints based on priority tiers",
+    "\ud83d\udcdd Document 31 critical orphan files in code.json (WhatsApp Worker, Prediction DnD, Infrastructure)",
+    "\ud83d\udd12 Implement server-side authorization layer for all admin operations",
+    "\ud83d\udd0d Validate Gemini Red Team findings and prioritize remediation alongside Claude findings"
+  ],
+  "overallAssessment": {
+    "securityPosture": "HIGH-RISK",
+    "codeQuality": "GOOD",
+    "goldenRuleCompliance": "75%",
+    "productionReadiness": "CONDITIONAL - Critical security issues must be fixed first",
+    "strengths": [
+      "Excellent GUID documentation system across entire codebase",
+      "Strong error boundary implementation with correlation IDs in frontend",
+      "Comprehensive Firestore security rules foundation (needs critical fixes)",
+      "Formal backup system with immutability and smoke testing",
+      "Scoring Engine earned A grade with zero critical issues",
+      "Good use of TypeScript and modern Next.js patterns",
+      "Proper admin role validation and protected field enforcement"
+    ],
+    "weaknesses": [
+      "45 critical security vulnerabilities including exposed credentials, XSS, and admin bypass",
+      "33 Golden Rule violations (primarily Rule #7: error registry compliance)",
+      "No CI/CD pipeline or automated deployment verification",
+      "No monitoring/alerting infrastructure deployed",
+      "Multiple outdated dependencies with known security patches available",
+      "Firestore Rules allow prediction manipulation after race results known",
+      "Email templates vulnerable to HTML injection attacks",
+      "Admin panel has client-side authorization only with 10 critical bypass vulnerabilities",
+      "Direct Firestore writes from admin components bypass server-side validation",
+      "90 files missing from code.json documentation (31 critical infrastructure files)",
+      "Gemini Red Team identified 12 additional vulnerabilities missed in initial review",
+      "Inconsistent Firestore rules deployment (two rule files exist)",
+      "LLM-generated content not sanitized (prix_six_engine.py)",
+      "Destructive scripts lack production safety checks"
+    ],
+    "estimatedRemediationEffort": {
+      "criticalIssues": "5-7 weeks (45 issues)",
+      "highPriorityIssues": "9-11 weeks (87 issues)",
+      "mediumPriorityIssues": "14-18 weeks (178 issues)",
+      "lowPriorityIssues": "Ongoing technical debt management (178 issues)",
+      "documentationGaps": "2-3 weeks (31 critical files + 20 custom components)",
+      "totalEstimate": "9-13 months for complete remediation"
+    }
+  },
+  "remediationPlan": {
+    "metadata": {
+      "created": "2026-02-10T11:53:39.422347",
+      "totalIssues": 488,
+      "phases": 5,
+      "estimatedTotalEffort": "8-10 weeks (2 developers)",
+      "milestoneDates": {
+        "phase1Complete": "2026-02-24",
+        "phase2Complete": "2026-03-10",
+        "phase3Complete": "2026-03-31",
+        "phase4Complete": "2026-04-14",
+        "phase5Complete": "2026-04-21",
+        "migrationDeadline": "2026-03-12",
+        "migrationGracePeriodEnd": "2026-04-12"
+      }
+    },
+    "executionPrinciples": [
+      "Each file touched only once per phase to minimize merge conflicts",
+      "Dependency-ordered execution (fix foundation before building on it)",
+      "Comprehensive testing after each module completion",
+      "Feature flags for gradual rollout of user-facing changes",
+      "Rollback plans documented for each phase",
+      "User communication synchronized with technical deployment"
+    ],
+    "phases": {
+      "phase1": {
+        "name": "Foundation Security - No User Impact",
+        "duration": "2 weeks",
+        "userImpact": "None",
+        "priority": "Critical",
+        "description": "Fix foundational security issues in rules, secrets, and server-side auth without changing user experience",
+        "modules": [
+          {
+            "module": "Firestore Security Rules Hardening",
+            "filesAffected": [
+              "firestore.rules",
+              "app/src/firebase/firestore/rules"
+            ],
+            "issuesFixed": [
+              "FIRESTORE-001",
+              "FIRESTORE-002",
+              "FIRESTORE-003",
+              "GEMINI-001",
+              "GEMINI-002"
+            ],
+            "estimatedEffort": "3 days",
+            "priority": "Critical"
+          },
+          {
+            "module": "Firebase Storage Rules",
+            "filesAffected": [
+              "storage.rules"
+            ],
+            "issuesFixed": [
+              "STORAGE-001",
+              "STORAGE-002"
+            ],
+            "estimatedEffort": "1 day",
+            "priority": "High"
+          },
+          {
+            "module": "Secrets Management Migration",
+            "filesAffected": [
+              "app/.env.local",
+              "whatsapp-worker/.env",
+              "scripts/service-account.json",
+              "whatsapp-worker/service-account.json",
+              "whatsapp-worker/.api-key.txt"
+            ],
+            "issuesFixed": [
+              "CONFIG-001",
+              "BACKUP-001",
+              "DEPLOY-001",
+              "DEPLOY-002",
+              "DEPLOY-003"
+            ],
+            "estimatedEffort": "2 days",
+            "priority": "Critical"
+          },
+          {
+            "module": "API Route Server-Side Auth",
+            "filesAffected": [
+              "app/api/auth/reset-pin/route.ts",
+              "app/api/submit-prediction/route.ts",
+              "app/api/admin/*/route.ts",
+              "app/middleware.ts"
+            ],
+            "issuesFixed": [
+              "API-006",
+              "API-013",
+              "ADMIN-001",
+              "ADMIN-002"
+            ],
+            "estimatedEffort": "4 days",
+            "priority": "Critical"
+          }
+        ],
+        "totalIssuesFixed": 15,
+        "successCriteria": [
+          "All Firestore rules pass emulator tests",
+          "All secrets loaded from Secret Manager",
+          "All API routes require proper authentication",
+          "Zero production secrets remain in code repository",
+          "Timing attacks on auth endpoints mitigated"
+        ]
+      },
+      "phase2": {
+        "name": "Backend Security Hardening - Minimal User Impact",
+        "duration": "2 weeks",
+        "userImpact": "Minimal - improved error messages, email security",
+        "priority": "High",
+        "description": "Harden email system, WhatsApp worker, Cloud Functions, and error handling",
+        "modules": [
+          {
+            "module": "Email System XSS Prevention",
+            "filesAffected": [
+              "app/src/lib/email.ts",
+              "app/api/send-verification-email/route.ts",
+              "app/api/send-hot-news-email/route.ts",
+              "app/api/send-results-email/route.ts"
+            ],
+            "issuesFixed": [
+              "EMAIL-001",
+              "EMAIL-002",
+              "EMAIL-003",
+              "EMAIL-004",
+              "EMAIL-005"
+            ],
+            "estimatedEffort": "3 days",
+            "priority": "Critical"
+          },
+          {
+            "module": "WhatsApp Worker Security",
+            "filesAffected": [
+              "whatsapp-worker/src/index.ts",
+              "whatsapp-worker/src/azure-store.ts",
+              "whatsapp-worker/src/firebase-config.ts"
+            ],
+            "issuesFixed": [
+              "WHATSAPP-001",
+              "WHATSAPP-002",
+              "WHATSAPP-003",
+              "WHATSAPP-004"
+            ],
+            "estimatedEffort": "3 days",
+            "priority": "Critical"
+          },
+          {
+            "module": "Cloud Functions Error Handling",
+            "filesAffected": [
+              "functions/index.js"
+            ],
+            "issuesFixed": [
+              "CLOUD-001",
+              "CLOUD-002",
+              "CLOUD-003",
+              "CLOUD-004",
+              "ERROR-CLOUD-001"
+            ],
+            "estimatedEffort": "2 days",
+            "priority": "High"
+          },
+          {
+            "module": "Admin API Route Fixes",
+            "filesAffected": [
+              "app/api/admin/update-user/route.ts"
+            ],
+            "issuesFixed": [
+              "ADMINCOMP-002"
+            ],
+            "estimatedEffort": "1 day",
+            "priority": "High"
+          }
+        ],
+        "totalIssuesFixed": 18,
+        "successCriteria": [
+          "All email XSS vectors neutralized",
+          "WhatsApp worker requires auth on all sensitive endpoints",
+          "Cloud Functions use centralized error registry",
+          "Admin role management API functional",
+          "Zero credential exposure in error logs"
+        ]
+      },
+      "phase3": {
+        "name": "Authentication Upgrade - HIGH User Impact",
+        "duration": "3 weeks",
+        "userImpact": "HIGH - All users must migrate from PIN to password",
+        "priority": "Critical",
+        "description": "Migrate from 6-digit PIN to strong passwords/passphrases with OAuth alternatives",
+        "modules": [
+          {
+            "module": "Password System Implementation",
+            "filesAffected": [
+              "app/src/lib/auth.ts",
+              "app/api/auth/*/route.ts",
+              "app/src/firebase/auth.ts"
+            ],
+            "issuesFixed": [
+              "AUTH-001",
+              "AUTH-002",
+              "PIN-SECURITY-001"
+            ],
+            "estimatedEffort": "5 days",
+            "priority": "Critical"
+          },
+          {
+            "module": "Migration UI and Flow",
+            "filesAffected": [
+              "app/(auth)/migrate-account/page.tsx",
+              "app/src/components/MigrationModal.tsx",
+              "app/src/components/PasswordStrengthMeter.tsx"
+            ],
+            "issuesFixed": [
+              "UX-MIGRATION-001"
+            ],
+            "estimatedEffort": "4 days",
+            "priority": "Critical"
+          },
+          {
+            "module": "OAuth Integration (Apple & Google)",
+            "filesAffected": [
+              "app/src/firebase/auth.ts",
+              "app/(auth)/login/page.tsx",
+              "app/(auth)/signup/page.tsx"
+            ],
+            "issuesFixed": [
+              "AUTH-OAUTH-001"
+            ],
+            "estimatedEffort": "3 days",
+            "priority": "High"
+          },
+          {
+            "module": "Rate Limiting Implementation",
+            "filesAffected": [
+              "app/src/lib/rate-limit.ts",
+              "app/api/auth/login/route.ts",
+              "app/middleware.ts"
+            ],
+            "issuesFixed": [
+              "SECURITY-RATE-LIMIT-001"
+            ],
+            "estimatedEffort": "2 days",
+            "priority": "High"
+          },
+          {
+            "module": "Security Dashboard Card",
+            "filesAffected": [
+              "app/(app)/dashboard/_components/SecurityDashboard.tsx",
+              "app/src/components/DashboardCard.tsx"
+            ],
+            "issuesFixed": [
+              "UX-SECURITY-DASHBOARD-001"
+            ],
+            "estimatedEffort": "2 days",
+            "priority": "Medium"
+          }
+        ],
+        "userCommunicationPlan": {
+          "announcements": [
+            {
+              "timing": "1 week before migration starts",
+              "channel": "Email + In-app notification",
+              "content": "See communicationTemplates.migrationAnnouncement"
+            },
+            {
+              "timing": "Migration day",
+              "channel": "In-app modal (blocking)",
+              "content": "See communicationTemplates.migrationModal"
+            },
+            {
+              "timing": "7 days before deadline",
+              "channel": "Email reminder",
+              "content": "See communicationTemplates.reminderEmail7Days"
+            },
+            {
+              "timing": "1 day before deadline",
+              "channel": "Email + In-app banner",
+              "content": "See communicationTemplates.reminderEmail1Day"
+            },
+            {
+              "timing": "After migration complete",
+              "channel": "Email + In-app notification",
+              "content": "See communicationTemplates.completionAnnouncement"
+            }
+          ]
+        },
+        "migrationMetrics": {
+          "targetMetrics": [
+            "90% of active users migrated within 14 days",
+            "< 5% support tickets related to migration",
+            "< 1% rollback requests",
+            "Zero data loss during migration"
+          ],
+          "monitoring": [
+            "Daily migration rate (dashboard)",
+            "Failed migration attempts",
+            "Support ticket volume",
+            "User sentiment (feedback forms)"
+          ]
+        },
+        "totalIssuesFixed": 8,
+        "successCriteria": [
+          "Password system fully implemented and tested",
+          "Migration modal appears for all non-migrated users",
+          "OAuth providers (Google, Apple) functional",
+          "Rate limiting prevents credential stuffing",
+          "Security dashboard card displays accurate data",
+          "90% of users successfully migrated within 2 weeks"
+        ]
+      },
+      "phase4": {
+        "name": "Frontend Hardening - Low User Impact",
+        "duration": "2 weeks",
+        "userImpact": "Low - UI improvements and security enhancements",
+        "priority": "Medium",
+        "description": "Fix XSS vulnerabilities, improve admin panel security, add input validation",
+        "modules": [
+          {
+            "module": "Admin Components XSS Fixes",
+            "filesAffected": [
+              "app/(app)/admin/_components/PubChatPanel.tsx",
+              "app/(app)/admin/_components/EmailLogManager.tsx",
+              "app/(app)/admin/_components/HotNewsManager.tsx"
+            ],
+            "issuesFixed": [
+              "ADMINCOMP-001",
+              "FRONTEND-001",
+              "ADMINCOMP-004"
+            ],
+            "estimatedEffort": "3 days",
+            "priority": "Critical",
+            "changes": [
+              {
+                "file": "app/(app)/admin/_components/PubChatPanel.tsx",
+                "issue": "ADMINCOMP-001: XSS via dangerouslySetInnerHTML",
+                "lineNumbers": "333-336",
+                "fix": "Replace dangerouslySetInnerHTML with DOMPurify:\nimport DOMPurify from 'isomorphic-dompurify';\n\n<div \n  dangerouslySetInnerHTML={{\n    __html: DOMPurify.sanitize(message.content, {\n      ALLOWED_TAGS: ['p', 'br', 'strong', 'em'],\n      ALLOWED_ATTR: []\n    })\n  }}\n/>",
+                "testing": "1. Post chat message with safe HTML (should render)\n2. Attempt to post <script> tag (should be stripped)\n3. Attempt to post onclick handler (should be stripped)",
+                "dependencies": []
+              },
+              {
+                "file": "app/(app)/admin/_components/EmailLogManager.tsx",
+                "issue": "ADMINCOMP-004: Plaintext PIN display",
+                "lineNumbers": "565",
+                "fix": "Mask PIN by default with click-to-reveal:\nconst [revealedPins, setRevealedPins] = useState<Set<string>>(new Set());\n\nfunction togglePinVisibility(userId: string) {\n  setRevealedPins(prev => {\n    const next = new Set(prev);\n    if (next.has(userId)) next.delete(userId);\n    else next.add(userId);\n    return next;\n  });\n}\n\n<span>\n  {revealedPins.has(user.uid) ? user.pin : '******'}\n  <IconButton onClick={() => togglePinVisibility(user.uid)}>\n    {revealedPins.has(user.uid) ? <VisibilityOff /> : <Visibility />}\n  </IconButton>\n</span>",
+                "testing": "1. View email log (PINs should be masked)\n2. Click reveal icon (should show PIN)\n3. Click again (should mask PIN)\n4. Verify only one PIN revealed at a time",
+                "dependencies": []
+              }
+            ],
+            "rollbackPlan": "Changes are UI-only and can be reverted without data migration"
+          },
+          {
+            "module": "Admin Panel Server-Side Authorization",
+            "filesAffected": [
+              "app/(app)/admin/page.tsx",
+              "app/(app)/admin/_components/SiteFunctionsManager.tsx",
+              "app/(app)/admin/_components/HotNewsManager.tsx",
+              "app/(app)/admin/_components/ResultsManager.tsx",
+              "app/(app)/admin/_components/OnlineUsersManager.tsx"
+            ],
+            "issuesFixed": [
+              "ADMINCOMP-003",
+              "ADMINCOMP-005",
+              "ADMINCOMP-006",
+              "ADMINCOMP-007",
+              "ADMINCOMP-008",
+              "ADMINCOMP-009"
+            ],
+            "estimatedEffort": "5 days",
+            "priority": "Critical",
+            "changes": [
+              {
+                "file": "app/(app)/admin/page.tsx",
+                "issue": "ADMINCOMP-003: Client-side admin check can be bypassed",
+                "lineNumbers": "86-104",
+                "fix": "Move admin check to middleware (already added in Phase 1).\nAdd server-side rendering check:\n\nexport default async function AdminPage() {\n  const session = await getServerSession();\n  if (!session?.user?.isAdmin) {\n    redirect('/dashboard');\n  }\n  return <AdminPageClient />;\n}",
+                "testing": "1. Access /admin without auth (should redirect)\n2. Access /admin as non-admin (should redirect)\n3. Access /admin as admin (should show page)\n4. Verify cannot bypass with DevTools",
+                "dependencies": []
+              },
+              {
+                "file": "app/(app)/admin/_components/SiteFunctionsManager.tsx",
+                "issue": "ADMINCOMP-005: Direct Firestore writes without server validation",
+                "lineNumbers": "69-70",
+                "fix": "Route all updates through API:\n\nasync function updateSiteFunction(functionName: string, enabled: boolean) {\n  const response = await fetch('/api/admin/site-functions', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ functionName, enabled })\n  });\n  \n  if (!response.ok) {\n    throw new Error('Failed to update site function');\n  }\n  \n  return response.json();\n}",
+                "testing": "1. Toggle site function as admin (should succeed)\n2. Monitor API logs for proper auth\n3. Verify Firestore rules still prevent direct client writes",
+                "dependencies": [
+                  "Create /api/admin/site-functions endpoint"
+                ]
+              },
+              {
+                "file": "app/(app)/admin/_components/ResultsManager.tsx",
+                "issue": "ADMINCOMP-007: Race result tampering via direct writes",
+                "lineNumbers": "258-274",
+                "fix": "Route through API with validation:\n\nasync function submitResults(raceId: string, results: RaceResults) {\n  const response = await fetch('/api/admin/submit-results', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ raceId, results })\n  });\n  \n  if (!response.ok) {\n    throw new Error('Failed to submit results');\n  }\n  \n  // Trigger score calculation\n  await fetch('/api/admin/calculate-scores', {\n    method: 'POST',\n    body: JSON.stringify({ raceId })\n  });\n  \n  return response.json();\n}",
+                "testing": "1. Submit valid results (should succeed)\n2. Attempt to submit results for past race (should validate)\n3. Verify scores calculated correctly\n4. Verify Firestore rules prevent direct client writes",
+                "dependencies": [
+                  "Create /api/admin/submit-results and /api/admin/calculate-scores"
+                ]
+              }
+            ],
+            "rollbackPlan": "Feature flag 'ENABLE_SERVER_SIDE_ADMIN' controls new behavior. Can fall back to client-side (with risk).",
+            "validationSteps": [
+              "Test all admin operations in staging",
+              "Verify auth checks work correctly",
+              "Test error handling when API calls fail",
+              "Monitor admin panel usage for issues"
+            ]
+          },
+          {
+            "module": "Input Validation & Sanitization",
+            "filesAffected": [
+              "app/src/lib/validation.ts",
+              "app/(app)/predictions/_components/PredictionEditor.tsx",
+              "app/(app)/profile/page.tsx",
+              "app/(app)/leagues/page.tsx"
+            ],
+            "issuesFixed": [
+              "INPUT-VAL-001",
+              "INPUT-VAL-002",
+              "INPUT-VAL-003"
+            ],
+            "estimatedEffort": "2 days",
+            "priority": "Medium",
+            "changes": [
+              {
+                "file": "app/src/lib/validation.ts",
+                "issue": "Create centralized input validation",
+                "fix": "import { z } from 'zod';\n\nexport const emailSchema = z.string().email().toLowerCase();\nexport const passwordSchema = z.string().min(12).max(128);\nexport const displayNameSchema = z.string().min(2).max(50).regex(/^[a-zA-Z0-9 _-]+$/);\nexport const teamNameSchema = z.string().min(3).max(100);\nexport const leagueCodeSchema = z.string().length(8).regex(/^[A-Z0-9]+$/);\n\nexport function sanitizeInput(input: string): string {\n  return input.trim().replace(/[<>]/g, '');\n}\n\nexport function validateAndSanitize<T>(schema: z.Schema<T>, input: unknown): T {\n  return schema.parse(input);\n}",
+                "testing": "1. Test each schema with valid input\n2. Test each schema with invalid input\n3. Verify error messages helpful\n4. Test sanitization removes dangerous characters",
+                "dependencies": []
+              }
+            ],
+            "rollbackPlan": "Validation is opt-in per component. Can disable without affecting functionality."
+          },
+          {
+            "module": "Weak Randomness Fixes",
+            "filesAffected": [
+              "app/src/lib/leagues.ts",
+              "app/src/lib/firebase-admin.ts"
+            ],
+            "issuesFixed": [
+              "LIB-001",
+              "LIB-002"
+            ],
+            "estimatedEffort": "1 day",
+            "priority": "Critical",
+            "changes": [
+              {
+                "file": "app/src/lib/leagues.ts",
+                "issue": "LIB-001: Weak randomness in invite code generation",
+                "lineNumbers": "32-40",
+                "fix": "Use crypto.randomBytes for secure random:\n\nimport crypto from 'crypto';\n\nexport function generateInviteCode(): string {\n  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';\n  const bytes = crypto.randomBytes(8);\n  let code = '';\n  \n  for (let i = 0; i < 8; i++) {\n    code += chars[bytes[i] % chars.length];\n  }\n  \n  return code;\n}",
+                "testing": "1. Generate 1000 invite codes\n2. Verify no duplicates\n3. Verify even distribution of characters\n4. Verify codes meet format requirements",
+                "dependencies": []
+              },
+              {
+                "file": "app/src/lib/firebase-admin.ts",
+                "issue": "LIB-002: Weak randomness in correlation ID",
+                "lineNumbers": "114-118",
+                "fix": "Use crypto.randomUUID:\n\nimport crypto from 'crypto';\n\nexport function generateCorrelationId(): string {\n  return `corr-${crypto.randomUUID()}`;\n}",
+                "testing": "1. Generate 1000 correlation IDs\n2. Verify no duplicates\n3. Verify format consistent\n4. Verify UUIDs are v4 (random)",
+                "dependencies": []
+              }
+            ],
+            "rollbackPlan": "Both changes are drop-in replacements. Can revert if unexpected issues."
+          }
+        ],
+        "totalIssuesFixed": 16,
+        "successCriteria": [
+          "All XSS vulnerabilities fixed with DOMPurify",
+          "Admin panel requires server-side auth for all operations",
+          "Input validation applied to all user-facing forms",
+          "Cryptographically secure random generation everywhere",
+          "PINs masked in admin interface",
+          "Zero direct Firestore writes from admin components"
+        ]
+      },
+      "phase5": {
+        "name": "Operational Excellence - No User Impact",
+        "duration": "1 week",
+        "userImpact": "None - operational improvements",
+        "priority": "Low",
+        "description": "Add monitoring, alerting, CI/CD pipeline, and operational safeguards",
+        "modules": [
+          {
+            "module": "CI/CD Pipeline Implementation",
+            "filesAffected": [
+              ".github/workflows/ci.yml",
+              ".github/workflows/deploy-production.yml",
+              ".github/workflows/deploy-staging.yml"
+            ],
+            "issuesFixed": [
+              "DEPLOY-004"
+            ],
+            "estimatedEffort": "2 days",
+            "priority": "High",
+            "changes": [
+              {
+                "file": ".github/workflows/ci.yml",
+                "issue": "DEPLOY-004: No CI/CD pipeline",
+                "fix": "Create GitHub Actions workflow:\n\nname: CI\n\non:\n  pull_request:\n    branches: [main, develop]\n  push:\n    branches: [main, develop]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n      - uses: actions/setup-node@v3\n        with:\n          node-version: '18'\n      - run: npm ci\n      - run: npm run lint\n      - run: npm run type-check\n      - run: npm test\n      - run: npm run build\n      \n  security-scan:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n      - uses: snyk/actions/node@master\n        with:\n          command: test\n          args: --severity-threshold=high\n        env:\n          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}",
+                "testing": "1. Create test PR (should trigger CI)\n2. Verify all checks pass\n3. Introduce lint error (should fail CI)\n4. Fix and verify CI passes",
+                "dependencies": [
+                  "Configure GitHub Actions secrets"
+                ]
+              },
+              {
+                "file": ".github/workflows/deploy-production.yml",
+                "issue": "Automated production deployment",
+                "fix": "name: Deploy Production\n\non:\n  push:\n    branches: [main]\n\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    environment: production\n    steps:\n      - uses: actions/checkout@v3\n      - uses: actions/setup-node@v3\n      - run: npm ci\n      - run: npm run build\n      - uses: FirebaseExtended/action-hosting-deploy@v0\n        with:\n          repoToken: '${{ secrets.GITHUB_TOKEN }}'\n          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'\n          channelId: live\n          projectId: prix-six\n      - name: Deploy Functions\n        run: firebase deploy --only functions\n        env:\n          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}",
+                "testing": "1. Merge to main (should trigger deployment)\n2. Verify app deployed to Firebase Hosting\n3. Verify functions deployed\n4. Verify rollback works if deployment fails",
+                "dependencies": []
+              }
+            ],
+            "rollbackPlan": "Manual deployment process remains as fallback"
+          },
+          {
+            "module": "Monitoring & Alerting",
+            "filesAffected": [
+              "app/src/lib/monitoring.ts",
+              "functions/monitoring.js"
+            ],
+            "issuesFixed": [
+              "DEPLOY-005",
+              "MONITORING-001"
+            ],
+            "estimatedEffort": "2 days",
+            "priority": "High",
+            "changes": [
+              {
+                "file": "app/src/lib/monitoring.ts",
+                "issue": "DEPLOY-005: No health check monitoring",
+                "fix": "Set up health checks and alerting:\n\nimport { Monitoring } from '@google-cloud/monitoring';\n\nconst monitoring = new Monitoring();\n\nexport async function recordMetric(name: string, value: number, labels: Record<string, string> = {}) {\n  const dataPoint = {\n    interval: {\n      endTime: { seconds: Date.now() / 1000 }\n    },\n    value: { doubleValue: value }\n  };\n  \n  await monitoring.createTimeSeries({\n    name: monitoring.projectPath('prix-six'),\n    timeSeries: [{\n      metric: {\n        type: `custom.googleapis.com/${name}`,\n        labels\n      },\n      resource: {\n        type: 'global'\n      },\n      points: [dataPoint]\n    }]\n  });\n}\n\n// Set up alerts in Google Cloud Monitoring:\n// 1. Failed login rate > 10/min\n// 2. API error rate > 5%\n// 3. WhatsApp worker down > 5 min\n// 4. Firestore permission denied > 100/hour\n// 5. Email delivery failures > 10%",
+                "testing": "1. Trigger each alert condition\n2. Verify alert fires and notifies team\n3. Verify metrics visible in Cloud Console\n4. Test alert resolution notifications",
+                "dependencies": [
+                  "Configure Google Cloud Monitoring",
+                  "Set up PagerDuty integration"
+                ]
+              },
+              {
+                "file": "functions/monitoring.js",
+                "issue": "Add health check endpoints",
+                "fix": "exports.healthCheck = functions.https.onRequest((req, res) => {\n  const checks = {\n    firestore: false,\n    auth: false,\n    storage: false\n  };\n  \n  Promise.all([\n    admin.firestore().collection('_health').doc('test').get().then(() => checks.firestore = true),\n    admin.auth().getUser('test').catch(() => checks.auth = true), // Expected to fail\n    admin.storage().bucket().getFiles({ maxResults: 1 }).then(() => checks.storage = true)\n  ]).then(() => {\n    const healthy = Object.values(checks).every(c => c);\n    res.status(healthy ? 200 : 503).json({\n      status: healthy ? 'healthy' : 'degraded',\n      checks,\n      timestamp: new Date().toISOString()\n    });\n  });\n});",
+                "testing": "1. Call /healthCheck endpoint (should return 200)\n2. Verify all checks pass\n3. Simulate Firestore down (should return 503)\n4. Set up external monitoring to ping endpoint",
+                "dependencies": []
+              }
+            ],
+            "rollbackPlan": "Monitoring is additive and can be disabled without affecting app functionality"
+          },
+          {
+            "module": "Script Safety Guards",
+            "filesAffected": [
+              "scripts/backup-firestore.sh",
+              "scripts/restore-firestore.sh",
+              "scripts/delete-old-predictions.sh"
+            ],
+            "issuesFixed": [
+              "SCRIPT-001",
+              "SCRIPT-002",
+              "SCRIPT-003"
+            ],
+            "estimatedEffort": "1 day",
+            "priority": "Medium",
+            "changes": [
+              {
+                "file": "scripts/backup-firestore.sh",
+                "issue": "SCRIPT-001: No confirmation prompt for destructive operations",
+                "fix": "Add safety checks:\n\n#!/bin/bash\nset -euo pipefail\n\n# Confirmation prompt\necho 'About to backup Firestore database. Continue? (yes/no)'\nread -r confirmation\nif [ \"$confirmation\" != \"yes\" ]; then\n  echo 'Aborted'\n  exit 1\nfi\n\n# Check if service account exists\nif [ ! -f \"./service-account.json\" ]; then\n  echo 'Error: service-account.json not found'\n  exit 1\nfi\n\n# Backup with timestamp\nTIMESTAMP=$(date +%Y%m%d-%H%M%S)\nBACKUP_PATH=\"gs://prix-six-backups/firestore-$TIMESTAMP\"\n\ngcloud firestore export \"$BACKUP_PATH\" \\\n  --project=prix-six \\\n  --async\n\necho \"Backup initiated: $BACKUP_PATH\"",
+                "testing": "1. Run script and cancel (should abort)\n2. Run script and confirm (should backup)\n3. Run without service account (should fail gracefully)\n4. Verify backup created in Cloud Storage",
+                "dependencies": []
+              }
+            ],
+            "rollbackPlan": "Script changes are backwards compatible"
+          },
+          {
+            "module": "Documentation & Runbooks",
+            "filesAffected": [
+              "docs/DEPLOYMENT.md",
+              "docs/INCIDENT_RESPONSE.md",
+              "docs/SECURITY.md",
+              "docs/MONITORING.md"
+            ],
+            "issuesFixed": [
+              "DOC-OPS-001",
+              "DOC-OPS-002"
+            ],
+            "estimatedEffort": "1 day",
+            "priority": "Medium",
+            "changes": [
+              {
+                "file": "docs/DEPLOYMENT.md",
+                "issue": "Create deployment runbook",
+                "content": "# Deployment Guide\n\n## Prerequisites\n- Firebase CLI installed\n- Access to Google Cloud Console\n- Secrets configured in Secret Manager\n\n## Deployment Steps\n1. Run tests: `npm test`\n2. Build: `npm run build`\n3. Deploy to staging: `firebase deploy --project prix-six-staging`\n4. Test staging thoroughly\n5. Deploy to production: `firebase deploy --project prix-six`\n6. Verify production health checks\n7. Monitor for 30 minutes\n\n## Rollback Procedure\n1. Identify last working deployment\n2. Revert code: `git revert <commit>`\n3. Deploy reverted code\n4. Verify rollback successful\n\n## Emergency Contacts\n- On-call engineer: [PagerDuty]\n- Firebase support: support@firebase.com",
+                "testing": "1. Follow deployment guide\n2. Verify all steps work\n3. Update any outdated information",
+                "dependencies": []
+              },
+              {
+                "file": "docs/INCIDENT_RESPONSE.md",
+                "issue": "Create incident response runbook",
+                "content": "# Incident Response\n\n## Security Incident\n1. **Detect**: Monitor alerts, user reports\n2. **Contain**: Disable affected component via feature flag\n3. **Investigate**: Check logs, audit trail\n4. **Remediate**: Apply fix, rotate credentials if needed\n5. **Communicate**: Notify affected users\n6. **Document**: Write post-mortem\n\n## Service Outage\n1. Check health endpoints\n2. Review Cloud Console for errors\n3. Check Firestore quota limits\n4. Restart affected services\n5. Escalate if not resolved in 15 minutes\n\n## Data Loss\n1. Stop all writes immediately\n2. Identify last good backup\n3. Estimate data loss window\n4. Restore from backup\n5. Communicate to users\n6. Implement safeguards to prevent recurrence",
+                "testing": "1. Review with team\n2. Simulate incident drill\n3. Update based on learnings",
+                "dependencies": []
+              }
+            ],
+            "rollbackPlan": "Documentation changes have no rollback risk"
+          }
+        ],
+        "totalIssuesFixed": 10,
+        "successCriteria": [
+          "CI/CD pipeline running for all PRs and deployments",
+          "Monitoring alerts configured and tested",
+          "Health checks reporting correct status",
+          "Scripts have safety guards",
+          "Documentation complete and accurate",
+          "Team trained on incident response procedures"
+        ]
+      }
+    },
+    "communicationTemplates": {
+      "migrationAnnouncement": {
+        "subject": "Security Upgrade Coming to Prix Six",
+        "body": "Hi {displayName},\n\nWe're excited to announce a major security upgrade to Prix Six!\n\n**What's Changing:**\nStarting {migrationStartDate}, we'll be upgrading from 6-digit PINs to stronger passwords for better account security.\n\n**Why This Matters:**\n- Stronger protection against unauthorized access\n- Browser autosave support (no more memorizing PINs!)\n- Alternative sign-in options (Google, Apple)\n- Enhanced security monitoring and alerting\n\n**What You Need to Do:**\n1. Log in to Prix Six after {migrationStartDate}\n2. Follow the simple upgrade wizard\n3. Choose a strong password (we recommend passphrases like \"WilliamsAre_Champion2026\")\n4. Save it in your browser or password manager\n\n**Timeline:**\n- Migration starts: {migrationStartDate}\n- Migration deadline: {migrationDeadline} (30 days)\n- After deadline: PIN login disabled\n\n**Need Help?**\nVisit our migration FAQ: {faqUrl}\nContact support: {supportEmail}\n\nThanks for helping us keep Prix Six secure!\n\nThe Prix Six Team"
+      },
+      "migrationModal": {
+        "title": "Security Upgrade Required",
+        "body": "**Welcome to More Secure Prix Six!**\n\nWe're upgrading from 6-digit PINs to stronger passwords.\n\n**Your New Security Features:**\n\u2713 Rate limiting (blocks brute force attacks)\n\u2713 Exponential delay after failed attempts\n\u2713 Cloudflare DDoS protection\n\u2713 Full audit logging\n\u2713 Real-time security alerts\n\n**Create Your Password:**\n- Minimum 12 characters\n- Include uppercase, lowercase, and numbers\n- Try a passphrase: \"WilliamsAre_Champion2026\"\n\n**Or Sign In With:**\n- Google\n- Apple\n\nYou have 30 days to migrate. After that, PIN login will be disabled.",
+        "buttons": [
+          "Migrate Now",
+          "Remind Me Later"
+        ]
+      },
+      "reminderEmail7Days": {
+        "subject": "Action Required: Migrate Your Prix Six Account (7 Days Left)",
+        "body": "Hi {displayName},\n\nThis is a reminder that you have **7 days** to upgrade your Prix Six account security.\n\n**What Happens on {migrationDeadline}:**\n- PIN login will be disabled\n- You'll need a password to access your account\n- Migration takes less than 2 minutes\n\n**Migrate Now:**\n1. Log in to Prix Six\n2. Follow the upgrade wizard\n3. Done!\n\n**Haven't Started?**\nDon't worry - it's easy! Just log in and we'll guide you through.\n\n**Questions?**\nFAQ: {faqUrl}\nSupport: {supportEmail}\n\nSee you on the track!\n\nThe Prix Six Team"
+      },
+      "reminderEmail1Day": {
+        "subject": "URGENT: Migrate Your Prix Six Account by Tomorrow",
+        "body": "Hi {displayName},\n\n**Your PIN login expires tomorrow ({migrationDeadline})!**\n\nAfter tomorrow, you'll need a password to access Prix Six.\n\n**Migrate now (takes 2 minutes):**\n{migrationUrl}\n\n**Need Help?**\nContact support: {supportEmail}\n\nDon't get locked out - migrate today!\n\nThe Prix Six Team"
+      },
+      "completionAnnouncement": {
+        "subject": "Security Upgrade Complete - Thank You!",
+        "body": "Hi {displayName},\n\nThank you for completing your security upgrade!\n\n**Your Account is Now Protected With:**\n\u2713 Strong password authentication\n\u2713 Rate limiting and attack detection\n\u2713 Security monitoring dashboard\n\u2713 Audit logging\n\n**New Features Available:**\n- Security dashboard (see failed login attempts)\n- Sign in with Google or Apple\n- Browser password autosave\n\n**Questions?**\nVisit your security settings: {securitySettingsUrl}\n\nHappy racing!\n\nThe Prix Six Team"
+      },
+      "migrationFAQ": {
+        "title": "Password Migration FAQ",
+        "questions": [
+          {
+            "q": "Why are you changing from PINs to passwords?",
+            "a": "6-digit PINs have only 1 million combinations and are vulnerable to brute force attacks. Passwords with 12+ characters provide billions of times more security."
+          },
+          {
+            "q": "What happens if I don't migrate?",
+            "a": "After the migration deadline, PIN login will be disabled. You'll need to use the 'Forgot Password' feature to reset your account."
+          },
+          {
+            "q": "Can I use my browser to save my password?",
+            "a": "Yes! One of the benefits of passwords over PINs is that browsers can autosave them."
+          },
+          {
+            "q": "What's a passphrase?",
+            "a": "A passphrase is a password made of multiple words, like 'WilliamsAre_Champion2026'. They're easier to remember than random characters and just as secure."
+          },
+          {
+            "q": "Can I still use PIN if I prefer?",
+            "a": "No, we're disabling PIN authentication for security reasons. However, you can use Google or Apple sign-in instead of remembering a password."
+          },
+          {
+            "q": "What if I forget my password?",
+            "a": "Use the 'Forgot Password' link on the login page to reset via email."
+          },
+          {
+            "q": "Is my data safe during migration?",
+            "a": "Absolutely. Migration only affects how you log in, not your predictions, leagues, or results data."
+          },
+          {
+            "q": "Can I migrate on mobile?",
+            "a": "Yes, the migration works on any device. Mobile users can also use Google/Apple sign-in."
+          }
+        ]
+      }
+    },
+    "fileByFileMapping": {
+      "totalFiles": 35,
+      "description": "Comprehensive mapping of all files requiring changes, organized to ensure each file is touched only once per phase",
+      "files": [
+        {
+          "filePath": "(missing .github/workflows/)",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "DEPLOY-004",
+              "severity": "critical",
+              "issue": "No deployment pipeline / CI/CD",
+              "impact": "Manual deployments error-prone. No automated tests before production. No audit trail",
+              "module": "Deployment Configuration"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "(monitoring not configured)",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "DEPLOY-005",
+              "severity": "critical",
+              "issue": "No health check monitoring or alerting",
+              "impact": "Services can fail without anyone noticing. Extended downtime. Data loss risk",
+              "module": "Deployment Configuration"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/EmailLogManager.tsx",
+          "phase": "phase2",
+          "issueCount": 2,
+          "issues": [
+            {
+              "id": "FRONTEND-001",
+              "severity": "critical",
+              "issue": "XSS vulnerability via dangerouslySetInnerHTML",
+              "impact": "Email HTML content rendered without sanitization in admin component. XSS if malicious HTML stored",
+              "module": "Frontend Components"
+            },
+            {
+              "id": "ADMINCOMP-004",
+              "severity": "critical",
+              "issue": "Plaintext PIN display in email log manager",
+              "impact": "User PINs displayed without masking or access control in admin interface",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/HotNewsManager.tsx",
+          "phase": "phase4",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "ADMINCOMP-006",
+              "severity": "critical",
+              "issue": "Direct writes and mass email spam vector in HotNewsManager",
+              "impact": "No rate limiting on hot news email broadcasts, direct Firestore writes",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/LeaguesManager.tsx",
+          "phase": "phase4",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "ADMIN-005",
+              "severity": "critical",
+              "issue": "Private league invite codes displayed in plaintext without access control",
+              "impact": "Compromised admin account could join all private leagues",
+              "module": "Admin Panel"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/OnlineUsersManager.tsx",
+          "phase": "phase4",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "ADMINCOMP-009",
+              "severity": "critical",
+              "issue": "Single User Mode DoS attack vector",
+              "impact": "OnlineUsersManager allows forcing entire site into single-user mode via client",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/PubChatPanel.tsx",
+          "phase": "phase4",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "ADMINCOMP-001",
+              "severity": "critical",
+              "issue": "XSS vulnerability via dangerouslySetInnerHTML in public chat panel",
+              "impact": "User-generated chat messages rendered without sanitization. Persistent XSS attack vector",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/ResultsManager.tsx",
+          "phase": "phase4",
+          "issueCount": 2,
+          "issues": [
+            {
+              "id": "ADMINCOMP-007",
+              "severity": "critical",
+              "issue": "Race result tampering via direct Firestore writes",
+              "impact": "ResultsManager allows direct modification of race results without server validation",
+              "module": "Admin Components Security"
+            },
+            {
+              "id": "ADMINCOMP-008",
+              "severity": "critical",
+              "issue": "Score deletion without validation in ResultsManager",
+              "impact": "Admin can delete all user scores via client-side operation, depends on API validation",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/SiteFunctionsManager.tsx",
+          "phase": "phase4",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "ADMINCOMP-005",
+              "severity": "critical",
+              "issue": "No server-side auth for site functions, direct Firestore writes",
+              "impact": "SiteFunctionsManager performs direct Firestore writes without backend validation",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/TeamManager.tsx",
+          "phase": "phase4",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "ADMINCOMP-002",
+              "severity": "critical",
+              "issue": "Client-side isAdmin toggle depends on broken API",
+              "impact": "TeamManager component allows toggling admin status via client, but admin/update-user API is broken",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/_components/WhatsAppManager.tsx",
+          "phase": "phase4",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "ADMINCOMP-010",
+              "severity": "critical",
+              "issue": "WhatsApp QR code exposure without authentication",
+              "impact": "WhatsAppManager displays QR codes client-side only, no server-side auth check",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/(app)/admin/page.tsx",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "ADMINCOMP-003",
+              "severity": "critical",
+              "issue": "Client-side admin check can be bypassed",
+              "impact": "Admin panel gate at admin/page.tsx:86-104 only checks client-side state, can be circumvented",
+              "module": "Admin Components Security"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/.env.local",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "CONFIG-001",
+              "severity": "critical",
+              "issue": "Production secrets exposed in .env.local",
+              "impact": "Firebase API key, Graph Client Secret, WhatsApp App Secret visible in plaintext file",
+              "module": "Configuration Files"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/api/auth/reset-pin/route.ts",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "API-006",
+              "severity": "critical",
+              "issue": "PIN reset timing attack enables email enumeration",
+              "impact": "Timing difference between 'user not found' (fast) and 'user found' (slow) allows attackers to determine valid emails",
+              "module": "API Routes"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/api/send-hot-news-email/route.ts",
+          "phase": "phase2",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "EMAIL-004",
+              "severity": "critical",
+              "issue": "Unescaped user-generated content in hot news HTML email",
+              "impact": "Admin-generated content could include malicious HTML. Broadcast to all users",
+              "module": "Email System"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/api/send-results-email/route.ts",
+          "phase": "phase2",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "EMAIL-005",
+              "severity": "critical",
+              "issue": "Multiple XSS vectors in results email template",
+              "impact": "XSS via crafted team/race/driver names in results emails sent to all users",
+              "module": "Email System"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/api/send-verification-email/route.ts",
+          "phase": "phase2",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "EMAIL-002",
+              "severity": "critical",
+              "issue": "Unvalidated URL construction for verification links",
+              "impact": "URL injection if UID contains special characters",
+              "module": "Email System"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/api/submit-prediction/route.ts",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "API-013",
+              "severity": "critical",
+              "issue": "Insufficient authorization for predictions - no team ownership check",
+              "impact": "Attacker could submit predictions for another user's secondary team",
+              "module": "API Routes"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/src/firebase/provider.tsx",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "AUTH-003",
+              "severity": "critical",
+              "issue": "Auth state race condition between onAuthStateChanged and Firestore snapshot",
+              "impact": "Components checking firebaseUser but not isUserLoading could expose authenticated routes before user profile loads",
+              "module": "Authentication"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/src/firestore.rules, app/src/firebase/firestore/rules",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "GEMINI-001",
+              "severity": "critical",
+              "issue": "Inconsistent Firestore Security Rules - Two rule files exist",
+              "impact": "app/src/firestore.rules vs app/src/firebase/firestore/rules - only weaker one deployed",
+              "module": "Gemini Red Team Additional Findings"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/src/lib/audit.ts",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "LIB-003",
+              "severity": "critical",
+              "issue": "Golden Rule #7 violation - Non-registry error in audit.ts",
+              "impact": "Permission errors logged without TracedError or correlation IDs. Inconsistent error handling",
+              "module": "Supporting Libraries"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/src/lib/email.ts",
+          "phase": "phase2",
+          "issueCount": 2,
+          "issues": [
+            {
+              "id": "EMAIL-001",
+              "severity": "critical",
+              "issue": "HTML injection vulnerability in email templates",
+              "impact": "User-controlled data directly interpolated into HTML without sanitization. XSS attacks possible",
+              "module": "Email System"
+            },
+            {
+              "id": "EMAIL-003",
+              "severity": "critical",
+              "issue": "Credential exposure in error messages",
+              "impact": "Azure AD errors could contain partial credential info in logs",
+              "module": "Email System"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/src/lib/firebase-admin.ts",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "LIB-002",
+              "severity": "critical",
+              "issue": "Weak randomness in correlation ID generation",
+              "impact": "Math.random() not cryptographically secure. Correlation IDs predictable, audit trail integrity weakened",
+              "module": "Supporting Libraries"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "app/src/lib/leagues.ts",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "LIB-001",
+              "severity": "critical",
+              "issue": "Weak randomness in invite code generation",
+              "impact": "Modulo bias reduces entropy. Private league security compromised via predictable codes",
+              "module": "Supporting Libraries"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "firestore.rules",
+          "phase": "phase1",
+          "issueCount": 3,
+          "issues": [
+            {
+              "id": "FIRESTORE-001",
+              "severity": "critical",
+              "issue": "Predictions can be modified after race start",
+              "impact": "Attacker can bypass API and submit predictions after knowing race results via direct Firestore SDK calls",
+              "module": "Infrastructure (Firestore Rules)"
+            },
+            {
+              "id": "FIRESTORE-003",
+              "severity": "critical",
+              "issue": "League invite codes are publicly readable",
+              "impact": "Any authenticated user can list all leagues and read invite codes for private leagues",
+              "module": "Infrastructure (Firestore Rules)"
+            },
+            {
+              "id": "GEMINI-002",
+              "severity": "critical",
+              "issue": "Insecure League Management Authorization",
+              "impact": "Firestore rules lack owner validation for league updates/deletes",
+              "module": "Gemini Red Team Additional Findings"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "firestore.rules (missing rule)",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "FIRESTORE-002",
+              "severity": "critical",
+              "issue": "Missing collection protection for secondary_email_verification_tokens",
+              "impact": "No explicit rules. Defaults to deny-all (secure) but represents maintenance risk",
+              "module": "Infrastructure (Firestore Rules)"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "functions/index.js",
+          "phase": "phase1",
+          "issueCount": 5,
+          "issues": [
+            {
+              "id": "ERROR-CLOUD-001",
+              "severity": "critical",
+              "issue": "Cloud Functions hardcode error codes, bypassing error registry",
+              "impact": "Violates Golden Rule #7, creates maintenance risk, error definitions can drift from registry",
+              "module": "Error Handling"
+            },
+            {
+              "id": "CLOUD-001",
+              "severity": "critical",
+              "issue": "Golden Rule #7 Violation - Hardcoded error code PX-7002 at line 267",
+              "impact": "Error bypasses centralized registry. Cannot benefit from TracedError metadata",
+              "module": "Cloud Functions"
+            },
+            {
+              "id": "CLOUD-002",
+              "severity": "critical",
+              "issue": "Golden Rule #7 Violation - Hardcoded error code PX-7002 at line 422",
+              "impact": "manualBackup returns plain string instead of TracedError with diagnostics",
+              "module": "Cloud Functions"
+            },
+            {
+              "id": "CLOUD-003",
+              "severity": "critical",
+              "issue": "Golden Rule #7 Violation - Hardcoded error code PX-7008 at line 620",
+              "impact": "Error code does NOT exist in error-registry.ts, only in legacy error-codes.ts",
+              "module": "Cloud Functions"
+            },
+            {
+              "id": "CLOUD-004",
+              "severity": "critical",
+              "issue": "Golden Rule #7 Violation - Hardcoded error code PX-7004 at line 962",
+              "impact": "manualSmokeTest bypasses ERRORS.BACKUP_SMOKE_TEST_FAILED definition",
+              "module": "Cloud Functions"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "prix_six_engine.py",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "GEMINI-003",
+              "severity": "critical",
+              "issue": "HTML Injection in prix_six_engine.py",
+              "impact": "LLM-generated newsletter HTML not sanitized before sending to users",
+              "module": "Gemini Red Team Additional Findings"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "scripts/service-account.json",
+          "phase": "phase1",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "BACKUP-001",
+              "severity": "critical",
+              "issue": "Service account private key exposed in repository",
+              "impact": "Anyone with repo access can bypass all Firestore security, export/modify/delete data",
+              "module": "Backup & Recovery"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "service-account.json, whatsapp-worker/service-account.json",
+          "phase": "phase2",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "DEPLOY-001",
+              "severity": "critical",
+              "issue": "Service account private key exposed in repository (duplicate of BACKUP-001)",
+              "impact": "Full administrative access to Firebase project if committed or exposed",
+              "module": "Deployment Configuration"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "whatsapp-worker/.api-key.txt",
+          "phase": "phase2",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "DEPLOY-003",
+              "severity": "critical",
+              "issue": "API keys stored in plaintext file",
+              "impact": ".api-key.txt NOT in .gitignore. Could be accidentally committed",
+              "module": "Deployment Configuration"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "whatsapp-worker/deploy-container-app.ps1",
+          "phase": "phase2",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "DEPLOY-002",
+              "severity": "critical",
+              "issue": "No secrets management for Azure Container Apps",
+              "impact": "Connection strings passed as plaintext environment variables, visible in Azure Portal",
+              "module": "Deployment Configuration"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "whatsapp-worker/src/azure-store.ts",
+          "phase": "phase2",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "WHATSAPP-003",
+              "severity": "critical",
+              "issue": "Missing validation of Azure Storage connection string",
+              "impact": "Application crashes on startup with credentials exposed in error logs",
+              "module": "WhatsApp Integration"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "whatsapp-worker/src/firebase-config.ts",
+          "phase": "phase2",
+          "issueCount": 1,
+          "issues": [
+            {
+              "id": "WHATSAPP-004",
+              "severity": "critical",
+              "issue": "Service account credentials loaded from environment variable without validation",
+              "impact": "Invalid JSON causes startup crash with potentially exposed partial credentials",
+              "module": "WhatsApp Integration"
+            }
+          ],
+          "priority": "Critical"
+        },
+        {
+          "filePath": "whatsapp-worker/src/index.ts",
+          "phase": "phase2",
+          "issueCount": 2,
+          "issues": [
+            {
+              "id": "WHATSAPP-001",
+              "severity": "critical",
+              "issue": "API key authentication is optional and uses weak header checking",
+              "impact": "If WORKER_API_KEY is not set, anyone can trigger queue processing",
+              "module": "WhatsApp Integration"
+            },
+            {
+              "id": "WHATSAPP-002",
+              "severity": "critical",
+              "issue": "No authentication on health, status, QR, and ping endpoints",
+              "impact": "/qr endpoint exposes authentication QR codes to anyone. Potential session hijacking",
+              "module": "WhatsApp Integration"
+            }
+          ],
+          "priority": "Critical"
+        }
+      ]
+    },
+    "rollbackStrategy": {
+      "general": {
+        "description": "Each phase has its own rollback plan. Feature flags enable gradual rollout.",
+        "steps": [
+          "Identify the issue (monitoring alerts, user reports)",
+          "Assess severity (P0-P3)",
+          "If P0 (critical), immediate rollback",
+          "If P1-P2, evaluate if hotfix possible",
+          "If rollback needed, revert to previous deployment",
+          "Verify rollback successful via health checks",
+          "Communicate to users if user-facing",
+          "Post-mortem to prevent recurrence"
+        ]
+      },
+      "byPhase": {
+        "phase1": {
+          "rollbackMethod": "Revert Firestore rules via Firebase Console",
+          "dataRisk": "None - no data migration",
+          "userImpact": "None - backend only",
+          "rollbackTime": "< 5 minutes"
+        },
+        "phase2": {
+          "rollbackMethod": "Revert code deployment, keep old secrets active",
+          "dataRisk": "None - no data migration",
+          "userImpact": "Minimal - may see old error messages",
+          "rollbackTime": "< 10 minutes"
+        },
+        "phase3": {
+          "rollbackMethod": "Feature flag ENABLE_PASSWORD_AUTH=false, re-enable PIN login",
+          "dataRisk": "Migrated users retain passwords, can continue using them",
+          "userImpact": "HIGH - migrated users can continue with password, non-migrated can continue with PIN",
+          "rollbackTime": "< 1 minute (feature flag toggle)",
+          "note": "Cannot rollback password migrations (users who migrated stay migrated)"
+        },
+        "phase4": {
+          "rollbackMethod": "Revert code deployment",
+          "dataRisk": "None",
+          "userImpact": "Low - UI reverts to previous state",
+          "rollbackTime": "< 10 minutes"
+        },
+        "phase5": {
+          "rollbackMethod": "Disable monitoring alerts, manual deployment process",
+          "dataRisk": "None",
+          "userImpact": "None",
+          "rollbackTime": "< 5 minutes"
+        }
+      }
+    },
+    "monitoringPlan": {
+      "metricsToTrack": [
+        {
+          "metric": "authentication_success_rate",
+          "description": "Percentage of successful login attempts",
+          "alert": "< 95% for 5 minutes",
+          "baseline": "99%"
+        },
+        {
+          "metric": "migration_completion_rate",
+          "description": "Percentage of active users who completed migration",
+          "alert": "< 50% after 7 days",
+          "target": "90% after 14 days"
+        },
+        {
+          "metric": "failed_login_attempts",
+          "description": "Number of failed logins per minute",
+          "alert": "> 10/min for single account",
+          "baseline": "< 1/min average"
+        },
+        {
+          "metric": "api_error_rate",
+          "description": "Percentage of API calls returning 5xx errors",
+          "alert": "> 1% for 5 minutes",
+          "baseline": "< 0.1%"
+        },
+        {
+          "metric": "firestore_permission_denied",
+          "description": "Number of Firestore permission denied errors",
+          "alert": "> 100/hour",
+          "baseline": "< 10/hour"
+        },
+        {
+          "metric": "email_delivery_failure_rate",
+          "description": "Percentage of emails that fail to send",
+          "alert": "> 5% for 15 minutes",
+          "baseline": "< 1%"
+        },
+        {
+          "metric": "whatsapp_worker_uptime",
+          "description": "Percentage of time WhatsApp worker is healthy",
+          "alert": "< 99% for 15 minutes",
+          "baseline": "99.9%"
+        }
+      ],
+      "dashboards": [
+        {
+          "name": "Security Metrics Dashboard",
+          "url": "https://console.cloud.google.com/monitoring/dashboards/custom/security",
+          "panels": [
+            "Failed login attempts (by account, by IP)",
+            "Attack alerts (unacknowledged)",
+            "Rate limit triggers",
+            "Suspicious activity flags",
+            "Migration completion rate"
+          ]
+        },
+        {
+          "name": "Application Health Dashboard",
+          "url": "https://console.cloud.google.com/monitoring/dashboards/custom/health",
+          "panels": [
+            "API response times (p50, p95, p99)",
+            "API error rate (by endpoint)",
+            "Cloud Functions execution time",
+            "Firestore operations (reads/writes/deletes)",
+            "Firebase Auth operations"
+          ]
+        },
+        {
+          "name": "User Experience Dashboard",
+          "url": "https://console.cloud.google.com/monitoring/dashboards/custom/ux",
+          "panels": [
+            "Page load times",
+            "Migration funnel (started, completed, abandoned)",
+            "Support ticket volume",
+            "User feedback sentiment"
+          ]
+        }
+      ]
+    },
+    "testingStrategy": {
+      "perPhase": {
+        "phase1": {
+          "unitTests": [
+            "Firestore rules emulator tests",
+            "API auth middleware tests",
+            "Secret loading tests"
+          ],
+          "integrationTests": [
+            "End-to-end API route tests with auth",
+            "Firestore rules against real-world scenarios",
+            "Secret Manager integration"
+          ],
+          "stagingTests": [
+            "Full smoke test suite",
+            "Security penetration testing",
+            "Load testing (ensure no performance regression)"
+          ]
+        },
+        "phase2": {
+          "unitTests": [
+            "Email sanitization tests",
+            "WhatsApp worker auth tests",
+            "Cloud Functions error handling tests"
+          ],
+          "integrationTests": [
+            "Email delivery end-to-end",
+            "WhatsApp message sending",
+            "Error propagation through system"
+          ],
+          "stagingTests": [
+            "Send test emails to multiple clients",
+            "WhatsApp integration testing",
+            "Error monitoring validation"
+          ]
+        },
+        "phase3": {
+          "unitTests": [
+            "Password validation tests",
+            "Rate limiting tests",
+            "OAuth integration tests"
+          ],
+          "integrationTests": [
+            "Full migration flow",
+            "Login with password",
+            "Login with OAuth",
+            "Rate limiting enforcement"
+          ],
+          "stagingTests": [
+            "Beta user migration (50 users)",
+            "Load test authentication endpoints",
+            "Security penetration testing"
+          ],
+          "betaTesting": {
+            "description": "Invite 50 active users to beta test migration",
+            "duration": "1 week",
+            "successCriteria": [
+              "95% successful migration",
+              "< 5% negative feedback",
+              "No data loss",
+              "Average migration time < 3 minutes"
+            ]
+          }
+        },
+        "phase4": {
+          "unitTests": [
+            "DOMPurify sanitization tests",
+            "Input validation tests",
+            "Crypto random generation tests"
+          ],
+          "integrationTests": [
+            "Admin panel operations",
+            "XSS attack prevention",
+            "Form validation across app"
+          ],
+          "stagingTests": [
+            "XSS payload testing",
+            "Admin panel security testing",
+            "Accessibility testing"
+          ]
+        },
+        "phase5": {
+          "unitTests": [
+            "Health check tests",
+            "Monitoring metric recording tests"
+          ],
+          "integrationTests": [
+            "CI/CD pipeline execution",
+            "Alert triggering and resolution",
+            "Script execution with safety guards"
+          ],
+          "stagingTests": [
+            "Deploy via CI/CD pipeline",
+            "Trigger all monitoring alerts",
+            "Execute all operational scripts"
+          ]
+        }
+      }
+    }
+  },
+  "remediationTracking": {
+    "metadata": {
+      "lastUpdated": "2026-02-12T16:45:00Z",
+      "totalIssuesFixed": 24,
+      "totalIssuesTesting": 24,
+      "deploymentVersion": "1.55.3",
+      "deploymentStatus": "in-testing",
+      "deploymentUrl": "https://prix6.win"
+    },
+    "fixes": [
+      {
+        "issueId": "ADMINCOMP-001",
+        "issue": "XSS vulnerability in PubChatPanel dangerouslySetInnerHTML",
+        "severity": "critical",
+        "status": "testing",
+        "fixCommit": "6d72bba63a90230ce3e90614073bb1c04053b293",
+        "fixCommitDate": "2026-02-10T14:18:15Z",
+        "fixCommitMessage": "fix: resolve ADMINCOMP-001, FRONTEND-001, and API-006 security vulnerabilities (v1.33.0)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Sanitized HTML content in chat panel before rendering"
+      },
+      {
+        "issueId": "FRONTEND-001",
+        "issue": "Sanitize HTML before rendering in EmailLogManager using DOMPurify",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "6d72bba63a90230ce3e90614073bb1c04053b293",
+        "fixCommitDate": "2026-02-10T14:18:15Z",
+        "fixCommitMessage": "fix: resolve ADMINCOMP-001, FRONTEND-001, and API-006 security vulnerabilities (v1.33.0)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Added DOMPurify sanitization before rendering email content"
+      },
+      {
+        "issueId": "API-006",
+        "issue": "API security vulnerability",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "6d72bba63a90230ce3e90614073bb1c04053b293",
+        "fixCommitDate": "2026-02-10T14:18:15Z",
+        "fixCommitMessage": "fix: resolve ADMINCOMP-001, FRONTEND-001, and API-006 security vulnerabilities (v1.33.0)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Fixed API security issue"
+      },
+      {
+        "issueId": "ADMINCOMP-004",
+        "issue": "Mask PINs in EmailLogManager or remove display entirely",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "5d0e4a9b0f797de32ca2dc514c3463a1c46b1695",
+        "fixCommitDate": "2026-02-10T14:33:27Z",
+        "fixCommitMessage": "fix(security): Mask PINs in admin email log viewer (ADMINCOMP-004)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "PINs now masked in admin email log viewer"
+      },
+      {
+        "issueId": "API-EMAIL-QUEUE-001",
+        "issue": "Add authentication to email-queue endpoint",
+        "severity": "critical",
+        "status": "testing",
+        "fixCommit": "7d76c18b68877cec5b75a97ffd295cac8b55f3e6",
+        "fixCommitDate": "2026-02-10T15:35:14Z",
+        "fixCommitMessage": "CRITICAL SECURITY FIX: Add authentication to email-queue endpoint (API-EMAIL-QUEUE-001)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Added authentication requirement to email queue endpoint"
+      },
+      {
+        "issueId": "EMAIL-002",
+        "issue": "Add URL encoding for verification links using encodeURIComponent()",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "043c63f1df5ba18dea4cba5fef3339349725910d",
+        "fixCommitDate": "2026-02-10T15:37:40Z",
+        "fixCommitMessage": "SECURITY FIX: Add URL parameter encoding to verification links (EMAIL-002)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "URL parameters in verification links now properly encoded"
+      },
+      {
+        "issueId": "EMAIL-003",
+        "issue": "Sanitize error messages to prevent credential exposure",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "c24755f39500eac7d43a6773d14122967128fdb2",
+        "fixCommitDate": "2026-02-10T15:40:11Z",
+        "fixCommitMessage": "SECURITY FIX: Sanitize error messages to prevent credential exposure (EMAIL-003)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Error messages sanitized to prevent credential leakage"
+      },
+      {
+        "issueId": "EMAIL-005",
+        "issue": "Add HTML escaping to results email template",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "70cf9005b2003ecc19033be46deca941b4238a05",
+        "fixCommitDate": "2026-02-10T15:42:20Z",
+        "fixCommitMessage": "SECURITY FIX: Add HTML escaping to results email template (EMAIL-005)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "HTML escaping added to prevent injection in email templates"
+      },
+      {
+        "issueId": "LIB-003",
+        "issue": "Fix Golden Rule #7 violation in audit.ts to use error registry",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "b6d24c3fbbc94711c45c979de95d979e5fc7c5b6",
+        "fixCommitDate": "2026-02-10T15:50:17Z",
+        "fixCommitMessage": "SECURITY FIX: Add TracedError to permission error logging (LIB-003)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "TracedError now used for permission error logging"
+      },
+      {
+        "issueId": "WHATSAPP-002",
+        "issue": "Make WORKER_API_KEY mandatory and add authentication to all endpoints",
+        "severity": "critical",
+        "status": "testing",
+        "fixCommit": "e9f06aa0109ad426fea1a34b0f2362f132133576",
+        "fixCommitDate": "2026-02-10T16:08:00Z",
+        "fixCommitMessage": "CRITICAL SECURITY FIX: WhatsApp Worker authentication and validation (WHATSAPP-002, 003, 004)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Worker API key now mandatory with authentication on all endpoints"
+      },
+      {
+        "issueId": "WHATSAPP-003",
+        "issue": "WhatsApp worker authentication",
+        "severity": "critical",
+        "status": "testing",
+        "fixCommit": "e9f06aa0109ad426fea1a34b0f2362f132133576",
+        "fixCommitDate": "2026-02-10T16:08:00Z",
+        "fixCommitMessage": "CRITICAL SECURITY FIX: WhatsApp Worker authentication and validation (WHATSAPP-002, 003, 004)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Fixed WhatsApp worker authentication"
+      },
+      {
+        "issueId": "WHATSAPP-004",
+        "issue": "WhatsApp worker validation",
+        "severity": "critical",
+        "status": "testing",
+        "fixCommit": "e9f06aa0109ad426fea1a34b0f2362f132133576",
+        "fixCommitDate": "2026-02-10T16:08:00Z",
+        "fixCommitMessage": "CRITICAL SECURITY FIX: WhatsApp Worker authentication and validation (WHATSAPP-002, 003, 004)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Added WhatsApp worker validation"
+      },
+      {
+        "issueId": "ADMINCOMP-011",
+        "issue": "Stack traces exposed in admin UI",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "e1beb5699cb3ab2ea7e05f107d51a8788a478a94",
+        "fixCommitDate": "2026-02-10T16:23:38Z",
+        "fixCommitMessage": "SECURITY FIX: Sanitize stack traces in admin error log viewer (ADMINCOMP-011)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Stack traces sanitized to remove absolute paths"
+      },
+      {
+        "issueId": "ADMINCOMP-022",
+        "issue": "Missing input validation for team name changes",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "f98d9f17d6c01d4395d80c471b9a8063b0f39b55",
+        "fixCommitDate": "2026-02-10T16:24:50Z",
+        "fixCommitMessage": "SECURITY FIX: Add input validation for team name changes (ADMINCOMP-022)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Team name validation added before Firestore update"
+      },
+      {
+        "issueId": "ADMINCOMP-015",
+        "issue": "Unsanitized message content in WhatsApp preview",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "b8756de93591b6fdb4e259c1365ba81ea662ccf0",
+        "fixCommitDate": "2026-02-10T16:34:05Z",
+        "fixCommitMessage": "SECURITY FIX: Sanitize WhatsApp message content in admin UI (ADMINCOMP-015)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "WhatsApp message preview now sanitizes content before display"
+      },
+      {
+        "issueId": "ADMINCOMP-017",
+        "issue": "No rate limiting on manual backup",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "8552b1540a061d67f31a1f13712988b46442ec01",
+        "fixCommitDate": "2026-02-10T16:41:22Z",
+        "fixCommitMessage": "SECURITY FIX: Add rate limiting to manual backup trigger (ADMINCOMP-017)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Rate limiting implemented for manual backup operations"
+      },
+      {
+        "issueId": "ADMINCOMP-012",
+        "issue": "Direct Firestore writes for error dismissal",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "c9a198d4ad5e971bb399c3508157d191b45f811e",
+        "fixCommitDate": "2026-02-10T16:48:01Z",
+        "fixCommitMessage": "SECURITY FIX: Replace direct Firestore writes with API endpoint for error dismissal (ADMINCOMP-012)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Created /api/admin/resolve-error endpoint with proper authorization"
+      },
+      {
+        "issueId": "ADMINCOMP-013",
+        "issue": "Direct Firestore writes without server validation in AttackMonitor",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "71eec1c5a659bc8c07d506ebf658caef269bda3b",
+        "fixCommitDate": "2026-02-10T16:49:45Z",
+        "fixCommitMessage": "SECURITY FIX: Replace direct Firestore writes with API endpoint for attack acknowledgement (ADMINCOMP-013)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Created /api/admin/acknowledge-attack endpoint with proper authorization"
+      },
+      {
+        "issueId": "GEMINI-005",
+        "issue": "No CSRF Protection on Auth Endpoints",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "17b9b5db425e425793d9f19d9b411b8cf7b2bc7c",
+        "fixCommitDate": "2026-02-10T16:52:39Z",
+        "fixCommitMessage": "SECURITY FIX: Implement CSRF protection on authentication endpoints (GEMINI-005)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Added Origin/Referer header validation to prevent CSRF attacks"
+      },
+      {
+        "issueId": "ADMINCOMP-023",
+        "issue": "Race deletion without cascade handling",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "48305cf2d01465a2cf8f920b9835b805038f7560",
+        "fixCommitDate": "2026-02-10T17:46:33Z",
+        "fixCommitMessage": "SECURITY FIX: Implement cascade deletion for race predictions (ADMINCOMP-023)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Race deletion now cascades to dependent predictions and scores"
+      },
+      {
+        "issueId": "GEMINI-007",
+        "issue": "Profile Photos Publicly Readable",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "431c819779d27e7daa004825e79a335276250eb4",
+        "fixCommitDate": "2026-02-10T17:47:30Z",
+        "fixCommitMessage": "SECURITY FIX: Restrict Firebase Storage profile photos to authenticated users (GEMINI-007)",
+        "deployedVersion": "1.55.0",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:12:00Z",
+        "notes": "Storage rules updated to require authentication for profile photo access. IMPORTANT: Must run 'firebase deploy --only storage' to deploy rules."
+      },
+      {
+        "issueId": "BUILD-FIX-001",
+        "issue": "Duplicate Mail import causing build failure",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "965e447d54aa3e0ce6f462418f75be14b4ee1452",
+        "fixCommitDate": "2026-02-12T16:21:34Z",
+        "fixCommitMessage": "fix: Remove duplicate Mail import in admin page (v1.55.1)",
+        "deployedVersion": "1.55.1",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:22:00Z",
+        "notes": "Fixed build failure from duplicate lucide-react Mail import"
+      },
+      {
+        "issueId": "BUILD-FIX-002",
+        "issue": "Incorrect Firebase Admin module imports in security endpoints",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "15ae6ad3824888ff9c24557bbe4d1bab930a7989",
+        "fixCommitDate": "2026-02-12T16:28:11Z",
+        "fixCommitMessage": "fix: Correct Firebase Admin imports in security endpoints (v1.55.2)",
+        "deployedVersion": "1.55.2",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:29:00Z",
+        "notes": "Fixed module resolution errors in /api/admin/resolve-error and /api/admin/acknowledge-attack"
+      },
+      {
+        "issueId": "GOLDEN-RULE-1-VIOLATION",
+        "issue": "Admin verification error missing error code, correlation ID, and logging",
+        "severity": "high",
+        "status": "testing",
+        "fixCommit": "e6b63f445967daa7b3fe2061c228e800ef0557db",
+        "fixCommitDate": "2026-02-12T16:39:51Z",
+        "fixCommitMessage": "fix: Implement Golden Rule #1 for admin verification error (v1.55.3)",
+        "deployedVersion": "1.55.3",
+        "pushedToGitHub": "2026-02-12T16:40:00Z",
+        "deploymentInitiated": "2026-02-12T16:40:26Z",
+        "notes": "Fixed 'e.getIdToken is not a function' error. Now implements all 4 pillars: Error logging, Error code PX-1018, Correlation ID, Selectable display. Also fixed firebaseUser vs user type mismatch."
+      }
+    ],
+    "deploymentNotes": {
+      "currentDeployment": {
+        "version": "1.55.3",
+        "initiatedAt": "2026-02-12T16:40:26Z",
+        "status": "building",
+        "url": "https://prix6.win",
+        "rolloutId": "pending"
+      },
+      "previousVersion": "1.30.0",
+      "versionGap": 25,
+      "totalCommitsPushed": 20,
+      "criticalReminder": "GEMINI-007 fix requires manual deployment: Run 'firebase deploy --only storage' to deploy updated storage rules",
+      "testingPlan": [
+        "Verify version displays as 1.55.3 on About and Login pages",
+        "Test admin verification flow shows proper error with PX-1018 code and correlation ID",
+        "Verify storage rules prevent unauthenticated access to profile photos",
+        "Test attack alert acknowledgement through API endpoint",
+        "Test error dismissal through API endpoint",
+        "Verify CSRF protection on auth endpoints",
+        "Test race deletion cascade to predictions and scores"
+      ],
+      "knownIssues": [
+        "GEMINI-006 (Account Deletion Cascade) - Identified but not yet fixed due to architectural complexity",
+        "Storage rules updated in code but NOT yet deployed - requires 'firebase deploy --only storage'"
+      ]
+    }
+  }
+}
