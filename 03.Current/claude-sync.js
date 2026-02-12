@@ -32,6 +32,7 @@
 const admin = require('firebase-admin');
 const { execSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 // Configuration
 const PROJECT_ID = 'studio-6033436327-281b1';
@@ -42,6 +43,45 @@ const PINGS_COLLECTION = 'session_pings';
 const STALE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours - sessions inactive longer are stale
 const SLEEP_THRESHOLD_MS = 5 * 60 * 1000;    // 5 minutes - peer considered sleeping
 const DEEP_SLEEP_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes - peer considered deeply sleeping
+const SESSION_FILE = path.join(__dirname, '.claude-session-id'); // Persistent session ID storage
+
+/**
+ * Load session ID from local file (for same-process re-checkins)
+ */
+function loadSessionId() {
+  try {
+    if (fs.existsSync(SESSION_FILE)) {
+      return fs.readFileSync(SESSION_FILE, 'utf8').trim();
+    }
+  } catch (error) {
+    // Ignore read errors
+  }
+  return null;
+}
+
+/**
+ * Save session ID to local file (for same-process re-checkins)
+ */
+function saveSessionId(sessionId) {
+  try {
+    fs.writeFileSync(SESSION_FILE, sessionId, 'utf8');
+  } catch (error) {
+    // Ignore write errors (non-critical)
+  }
+}
+
+/**
+ * Delete session ID file (on checkout)
+ */
+function deleteSessionId() {
+  try {
+    if (fs.existsSync(SESSION_FILE)) {
+      fs.unlinkSync(SESSION_FILE);
+    }
+  } catch (error) {
+    // Ignore delete errors
+  }
+}
 
 // Initialise Firebase Admin
 let db;
@@ -386,6 +426,48 @@ async function cmdCheckin() {
   }
 
   state.sessions = state.sessions || {};
+
+  // Step 1.5: Check for existing session (same-process re-checkin)
+  const existingSessionId = loadSessionId();
+  if (existingSessionId && state.sessions[existingSessionId]?.status === 'active') {
+    const existingSession = state.sessions[existingSessionId];
+
+    // Same process re-checking in — update lastActivity and return
+    state.sessions[existingSessionId].lastActivity = now;
+
+    // Log the re-checkin
+    state.activityLog = state.activityLog || [];
+    state.activityLog.push({
+      sessionId: existingSessionId,
+      name: existingSession.name,
+      branch: existingSession.branch,
+      message: `${existingSession.name} re-checked in (same process)`,
+      timestamp: now
+    });
+
+    await saveState(state);
+
+    console.log('');
+    console.log('='.repeat(60));
+    console.log(`YOU ARE STILL: ${existingSession.name}`);
+    console.log('='.repeat(60));
+    console.log(`Session ID: ${existingSessionId}`);
+    console.log(`Branch: ${existingSession.branch}`);
+    console.log(`Started: ${formatTime(existingSession.startedAt)}`);
+    console.log(`Last activity: ${formatTime(now)}`);
+    console.log('');
+    console.log(`MANDATORY: Prefix ALL responses with: ${existingSession.name.toLowerCase()}>`);
+    console.log('');
+    console.log('Valid names: Bill (1st), Bob (2nd), Ben (3rd). No exceptions.');
+    console.log('Remember to poll with "read" and ping every 5 minutes!');
+    console.log('');
+    console.log('🛑 GOLDEN RULES REMINDER:');
+    console.log('Read golden-rules-reminder.md to load all 13 rules into memory');
+    console.log('Location: C:\\Users\\aarongarcia\\.claude\\projects\\E--GoogleDrive-Tools-Memory-source\\memory\\golden-rules-reminder.md');
+    console.log('='.repeat(60));
+    console.log('');
+    return;
+  }
 
   // Step 2: Evict any sessions with invalid names (Guest-X or names not in VALID_NAMES)
   for (const [sessionId, session] of Object.entries(state.sessions)) {

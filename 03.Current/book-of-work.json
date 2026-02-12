@@ -328,6 +328,14 @@
       "file": "RedTeam.json"
     },
     {
+        "id": "GEMINI-AUDIT-010",
+        "module": "Frontend Components",
+        "severity": "critical",
+        "issue": "Unauthenticated AI Analysis Request from Prediction Editor",
+        "impact": "The `handleAnalysis` function in the `PredictionEditor` component makes a `POST` request to `/api/ai/analysis` without including an `Authorization` header. This means the request is unauthenticated, allowing any user to trigger the expensive AI analysis, leading to a Denial of Wallet (DoW) vulnerability. The `idToken` from the authenticated user should be included in the request header.",
+        "file": "app/src/app/(app)/predictions/_components/PredictionEditor.tsx"
+    },
+    {
         "id": "GEMINI-AUDIT-009",
         "module": "Cloud Functions",
         "severity": "critical",
