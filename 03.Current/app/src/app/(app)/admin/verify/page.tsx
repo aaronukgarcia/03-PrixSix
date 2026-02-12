@@ -57,10 +57,10 @@ export default function AdminVerifyPage() {
         setCorrelationId(data.correlationId || '');
         setStatus('success');
 
-        // Redirect to admin panel after 2 seconds
+        // Redirect to admin panel after 5 seconds
         setTimeout(() => {
           router.push('/admin');
-        }, 2000);
+        }, 5000);
 
       } catch (error) {
         console.error('Verification failed:', error);

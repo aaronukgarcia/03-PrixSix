@@ -162,10 +162,12 @@ export async function POST(request: NextRequest) {
       correlationId,
     });
 
-    // GUID: API_ADMIN_VERIFY_ACCESS-007-v01
-    // [Intent] Set adminVerified cookie to grant admin panel access.
+    // GUID: API_ADMIN_VERIFY_ACCESS-007-v03
+    // [Intent] Set httpOnly adminVerified cookie to grant admin panel access.
+    //          Server Component reads this cookie securely - no client-readable cookie needed.
     // [Inbound Trigger] All verification checks passed, audit logged.
-    // [Downstream Impact] Cookie read by /admin page to bypass verification gate.
+    // [Downstream Impact] httpOnly cookie prevents XSS manipulation. Server Component wrapper
+    //                     reads cookie and passes verification status to client component.
     //                     Cookie expires in 24 hours for security.
     const response = NextResponse.json({
       success: true,
@@ -173,7 +175,8 @@ export async function POST(request: NextRequest) {
       correlationId,
     });
 
-    // Set secure HTTP-only cookie (24 hour expiry)
+    // Set secure HTTP-only cookie (24 hour expiry) - server-side only
+    // SECURITY: httpOnly=true prevents JavaScript access, stopping XSS-based bypass attacks
     response.cookies.set('adminVerified', 'true', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

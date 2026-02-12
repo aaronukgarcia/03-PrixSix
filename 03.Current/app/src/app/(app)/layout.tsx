@@ -38,8 +38,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { showSplash, isChecked, handleComplete } = useSplashScreen();
   useAuditNavigation(); // Add the audit logging hook here.
 
-  // Skip splash screen for admin verification page
-  const skipSplash = pathname === '/admin/verify';
+  // Skip splash screen for all admin pages (verification flow and admin panel)
+  const skipSplash = pathname.startsWith('/admin');
 
   useEffect(() => {
     // Only redirect if loading is finished and there's no user AND no firebaseUser

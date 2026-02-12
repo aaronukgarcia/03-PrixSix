@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
@@ -178,6 +178,15 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized', correlationId },
+        { status: 401 }
+      );
+    }
     // Note: Firebase App Hosting uses Application Default Credentials (ADC) automatically.
     // genkit.ts has a fallback projectId, so we don't need to check env vars here.
     // If credentials are missing, Vertex AI will return a meaningful error.

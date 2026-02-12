@@ -8,7 +8,7 @@
 //                     Updates the global league memberUserIds array. Triggers welcome email.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
@@ -40,8 +40,25 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized', correlationId },
+        { status: 401 }
+      );
+    }
+
     const data: CompleteOAuthProfileRequest = await request.json();
     const { uid, teamName, email, photoUrl, providers } = data;
+
+    if (verifiedUser.uid !== uid) {
+        return NextResponse.json(
+            { success: false, error: 'Forbidden', correlationId },
+            { status: 403 }
+        );
+    }
 
     // GUID: API_AUTH_COMPLETE_OAUTH-003-v03
     // [Intent] Validate required fields.
