@@ -50,7 +50,12 @@ export async function POST(request: NextRequest) {
 
     if (!tokenDoc.exists) {
       return NextResponse.json(
-        { success: false, error: 'Invalid verification link' },
+        {
+          success: false,
+          error: 'Invalid verification link',
+          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
@@ -59,7 +64,12 @@ export async function POST(request: NextRequest) {
 
     if (!tokenData) {
       return NextResponse.json(
-        { success: false, error: 'Invalid verification link' },
+        {
+          success: false,
+          error: 'Invalid verification link',
+          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
@@ -67,7 +77,12 @@ export async function POST(request: NextRequest) {
     // Check if token matches (constant-time comparison to prevent timing attacks)
     if (!crypto.timingSafeEqual(Buffer.from(tokenData.token), Buffer.from(token))) {
       return NextResponse.json(
-        { success: false, error: 'Invalid verification link' },
+        {
+          success: false,
+          error: 'Invalid verification link',
+          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
@@ -75,7 +90,12 @@ export async function POST(request: NextRequest) {
     // Check if already used
     if (tokenData.used) {
       return NextResponse.json(
-        { success: false, error: 'Email already verified' },
+        {
+          success: false,
+          error: 'Email already verified',
+          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
@@ -84,7 +104,12 @@ export async function POST(request: NextRequest) {
     const now = Timestamp.now();
     if (tokenData.expiresAt && tokenData.expiresAt.toMillis() < now.toMillis()) {
       return NextResponse.json(
-        { success: false, error: 'Token expired' },
+        {
+          success: false,
+          error: 'Token expired',
+          errorCode: ERROR_CODES.AUTH_SESSION_EXPIRED.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }

@@ -29,6 +29,8 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<VerificationStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [errorCode, setErrorCode] = useState<string>("");
+  const [correlationId, setCorrelationId] = useState<string>("");
 
   const token = searchParams.get("token");
   const uid = searchParams.get("uid");
@@ -64,6 +66,8 @@ function VerifyEmailContent() {
         } else {
           setStatus("error");
           setErrorMessage(result.error || "Verification failed");
+          setErrorCode(result.errorCode || "");
+          setCorrelationId(result.correlationId || "");
         }
       } catch (error: any) {
         setStatus("error");
@@ -103,7 +107,16 @@ function VerifyEmailContent() {
             {status === "loading" && "Please wait while we verify your email address."}
             {status === "success" && "Your email has been successfully verified. You can now access all features of Prix Six."}
             {status === "already-verified" && "Your email was already verified. No action needed."}
-            {status === "error" && errorMessage}
+            {status === "error" && (
+              <div className="space-y-2">
+                <p>{errorMessage}</p>
+                {errorCode && (
+                  <p className="text-xs font-mono bg-muted p-2 rounded">
+                    {errorCode}{correlationId && ` (Ref: ${correlationId})`}
+                  </p>
+                )}
+              </div>
+            )}
             {status === "expired" && "This verification link has expired. Please request a new one from your profile settings."}
           </CardDescription>
         </CardHeader>
