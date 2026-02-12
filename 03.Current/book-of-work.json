@@ -328,6 +328,38 @@
       "file": "RedTeam.json"
     },
     {
+        "id": "GEMINI-AUDIT-009",
+        "module": "Cloud Functions",
+        "severity": "critical",
+        "issue": "Hardcoded Error Codes in Cloud Functions",
+        "impact": "Multiple Cloud Functions hardcode error codes (e.g., PX-7002, PX-7008) instead of importing them from the central `ERRORS` registry. This violates 'Golden Rule #7', creates a maintenance risk, and means error definitions can drift from the centralized source of truth, hindering debugging and consistent error handling.",
+        "file": "functions/index.js"
+    },
+    {
+        "id": "GEMINI-AUDIT-008",
+        "module": "API Routes",
+        "severity": "medium",
+        "issue": "Secondary Email Verification Endpoint Relies Solely on Token Authentication.",
+        "impact": "The `/api/verify-secondary-email` endpoint uses a token-based authentication mechanism, which is a common and valid pattern. However, it does not require the user to be logged in. An attacker who gains access to a user's email account could verify the secondary email address without the user's knowledge. Requiring a logged-in session to complete the verification would add an extra layer of security.",
+        "file": "app/src/app/api/verify-secondary-email/route.ts"
+    },
+    {
+        "id": "GEMINI-AUDIT-007",
+        "module": "API Routes",
+        "severity": "medium",
+        "issue": "Email Verification Endpoint Relies Solely on Token Authentication.",
+        "impact": "The `/api/verify-email` endpoint uses a token-based authentication mechanism, which is a common and valid pattern. However, it does not require the user to be logged in. An attacker who gains access to a user's email account could verify the email address without the user's knowledge. Requiring a logged-in session to complete the verification would add an extra layer of security.",
+        "file": "app/src/app/api/verify-email/route.ts"
+    },
+    {
+      "id": "GEMINI-AUDIT-006",
+      "module": "API Routes",
+      "severity": "critical",
+      "issue": "Unauthenticated Secondary Email Manipulation and Potential Account Takeover Vector",
+      "impact": "The `/api/update-secondary-email` endpoint is unauthenticated. It accepts a `uid` from the request body and proceeds to change the secondary email for that user account. An attacker who can guess or obtain a user's UID can call this endpoint to set the secondary email to an address they control. If secondary email is used for any password reset or notification mechanisms, this could serve as a vector for account takeover. The endpoint MUST be protected and verify that the authenticated user's UID matches the UID in the request body.",
+      "file": "app/src/app/api/update-secondary-email/route.ts"
+    },
+    {
       "id": "GEMINI-AUDIT-005",
       "module": "Admin Components",
       "severity": "high",

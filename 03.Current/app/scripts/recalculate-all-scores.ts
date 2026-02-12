@@ -13,6 +13,9 @@
 import * as admin from 'firebase-admin';
 import * as path from 'path';
 
+// Import shared normalization functions (Golden Rule #3: Single Source of Truth)
+import { normalizeRaceId, normalizeRaceIdForComparison } from '../src/lib/normalize-race-id';
+
 // Initialize Firebase Admin
 const serviceAccountPath = path.resolve(__dirname, '../../service-account.json');
 const serviceAccount = require(serviceAccountPath);
@@ -74,12 +77,12 @@ function calculateDriverPoints(predictedPosition: number, actualPosition: number
   return SCORING_POINTS.threeOrMoreOff;
 }
 
-function normalizeRaceIdForPredictions(raceId: string): string {
-  let baseName = raceId
-    .replace(/\s*-\s*gp$/i, '')
-    .replace(/\s*-\s*sprint$/i, '');
-  // Convert to title case
-  return baseName.split('-').map(word =>
+// Removed duplicate normalizeRaceId function - now using shared normalizeRaceId from lib
+// (Golden Rule #3: Single Source of Truth - no duplication)
+
+// Helper to convert race ID to Title-Case for prediction document storage (matches existing prediction format)
+function toTitleCase(raceId: string): string {
+  return raceId.split('-').map(word =>
     word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
   ).join('-');
 }
@@ -130,6 +133,12 @@ async function recalculateAllScores() {
       return;
     }
 
+    // CRITICAL: Skip carry-forward predictions - only use real user predictions as sources for carry-forwards
+    // Otherwise we create circular carry-forwards that perpetuate wrong data
+    if (predData.isCarryForward === true) {
+      return;
+    }
+
     const pathParts = predDoc.ref.path.split('/');
     const userId = pathParts[1];
 
@@ -146,7 +155,8 @@ async function recalculateAllScores() {
     }
 
     const timestamp = predData.submittedAt?.toDate?.() || predData.createdAt?.toDate?.() || new Date(0);
-    const predRaceId = predData.raceId ? normalizeRaceIdForPredictions(predData.raceId) : null;
+    // Use case-insensitive normalization for map keys to match race results (lowercase) with predictions (Title-Case)
+    const predRaceId = predData.raceId ? normalizeRaceIdForComparison(predData.raceId) : null;
 
     if (!teamPredictionsByRace.has(teamId)) {
       teamPredictionsByRace.set(teamId, new Map());
@@ -187,7 +197,8 @@ async function recalculateAllScores() {
       resultData.driver6,
     ];
 
-    const normalizedRaceId = normalizeRaceIdForPredictions(resultDocId);
+    // Use case-insensitive normalization to match predictions (case-insensitive lookup)
+    const normalizedRaceId = normalizeRaceIdForComparison(resultDocId);
 
     // Resolve predictions for this race
     const latestPredictions = new Map<string, {
@@ -260,14 +271,16 @@ async function recalculateAllScores() {
       if (predData.isCarryForward) {
         const isSecondary = teamId.endsWith('-secondary');
         const baseUserId = isSecondary ? teamId.replace(/-secondary$/, '') : teamId;
-        const predDocId = `${teamId}_${normalizedRaceId}`;
+        // Use Title-Case for prediction document IDs and raceId field (matches existing prediction format)
+        const titleCaseRaceId = toTitleCase(normalizedRaceId);
+        const predDocId = `${teamId}_${titleCaseRaceId}`;
         const predDocRef = db.collection('users').doc(baseUserId).collection('predictions').doc(predDocId);
 
         batch.set(predDocRef, {
           userId: baseUserId,
           teamId: teamId,
           teamName: predData.teamName || userMap.get(teamId) || 'Unknown',
-          raceId: normalizedRaceId,
+          raceId: titleCaseRaceId,
           raceName: raceName.replace(/\s*-\s*(GP|Sprint)$/i, ''),
           predictions: predData.predictions,
           submittedAt: FieldValue.serverTimestamp(),

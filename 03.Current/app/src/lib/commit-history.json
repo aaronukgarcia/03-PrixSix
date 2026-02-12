@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-12",
   "commits": [
+    {"id": "cebf610", "date": "2026-02-12", "version": "1.55.13", "author": "aaron garcia", "message": "fix: Sprint race normalization and carry-forward scoring (v1.55.13)", "major": false},
     {"id": "e5b0230", "date": "2026-02-12", "version": "1.55.9", "author": "aaron garcia", "message": "fix(admin): Set adminVerified cookie and remove duplicate email footer (v1.55.9)", "major": false},
     {"id": "9395720", "date": "2026-02-12", "version": "1.55.8", "author": "aaron garcia", "message": "feat(email): Add build version to all email footers (v1.55.8)", "major": false},
     {"id": "4b4cac2", "date": "2026-02-12", "version": "1.55.7", "author": "aaron garcia", "message": "fix(admin): Skip splash screen and fix parameter mismatch in admin verification (v1.55.7)", "major": false},

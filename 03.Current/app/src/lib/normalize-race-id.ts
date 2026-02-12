@@ -10,18 +10,18 @@
 
 /**
  * Normalize a raceId to canonical dash-separated format.
- * Strips trailing " - GP" and " - Sprint" suffixes, replaces spaces with hyphens.
+ * Strips trailing " - GP" suffix, converts " - Sprint" to "-Sprint" to distinguish Sprint races.
  * Does NOT lowercase -- predictions store race IDs with original casing.
  *
  * @example normalizeRaceId("Australian Grand Prix - GP") => "Australian-Grand-Prix"
- * @example normalizeRaceId("Chinese Grand Prix - Sprint") => "Chinese-Grand-Prix"
+ * @example normalizeRaceId("Chinese Grand Prix - Sprint") => "Chinese-Grand-Prix-Sprint"
  * @example normalizeRaceId("Monaco-Grand-Prix") => "Monaco-Grand-Prix"
  */
 export function normalizeRaceId(raceId: string): string {
   return raceId
-    .replace(/\s*-\s*GP$/i, '')
-    .replace(/\s*-\s*Sprint$/i, '')
-    .replace(/\s+/g, '-');
+    .replace(/\s*-\s*GP$/i, '')              // Strip " - GP" suffix for main races
+    .replace(/\s*-\s*Sprint$/i, '-Sprint')  // Convert " - Sprint" to "-Sprint" to preserve Sprint identifier
+    .replace(/\s+/g, '-');                   // Replace all spaces with hyphens
 }
 
 /**
@@ -30,6 +30,7 @@ export function normalizeRaceId(raceId: string): string {
  * in different casing (e.g., consistency checker matching predictions to results).
  *
  * @example normalizeRaceIdForComparison("Australian Grand Prix - GP") => "australian-grand-prix"
+ * @example normalizeRaceIdForComparison("Chinese Grand Prix - Sprint") => "chinese-grand-prix-sprint"
  */
 export function normalizeRaceIdForComparison(raceId: string): string {
   return normalizeRaceId(raceId).toLowerCase();
