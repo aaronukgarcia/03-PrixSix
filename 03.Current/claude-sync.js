@@ -485,6 +485,10 @@ async function cmdCheckin() {
   console.log('');
   console.log('Valid names: Bill (1st), Bob (2nd), Ben (3rd). No exceptions.');
   console.log('Remember to poll with "read" and ping every 5 minutes!');
+  console.log('');
+  console.log('🛑 GOLDEN RULES REMINDER:');
+  console.log('Read golden-rules-reminder.md to load all 13 rules into memory');
+  console.log('Location: C:\\Users\\aarongarcia\\.claude\\projects\\E--GoogleDrive-Tools-Memory-source\\memory\\golden-rules-reminder.md');
   console.log('='.repeat(60));
   console.log('');
 }
