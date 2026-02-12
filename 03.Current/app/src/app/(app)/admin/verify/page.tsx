@@ -30,12 +30,12 @@ export default function AdminVerifyPage() {
   useEffect(() => {
     const verifyToken = async () => {
       const token = searchParams.get('token');
-      const email = searchParams.get('email');
+      const uid = searchParams.get('uid');
 
       // Validate URL parameters
-      if (!token || !email) {
+      if (!token || !uid) {
         setStatus('error');
-        setErrorMessage('Invalid verification link. Missing token or email parameter.');
+        setErrorMessage('Invalid verification link. Missing token or uid parameter.');
         return;
       }
 
@@ -45,7 +45,7 @@ export default function AdminVerifyPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ token, email }),
+          body: JSON.stringify({ token, uid }),
         });
 
         const data = await response.json();

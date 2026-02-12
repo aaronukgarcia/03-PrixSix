@@ -4,7 +4,7 @@
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth, useFirestore } from "@/firebase";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
@@ -32,10 +32,14 @@ function generateGuid() {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, isUserLoading, userError, logout, isNewOAuthUser } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const firestore = useFirestore();
   const sessionIdRef = useRef<string | null>(null);
   const { showSplash, isChecked, handleComplete } = useSplashScreen();
   useAuditNavigation(); // Add the audit logging hook here.
+
+  // Skip splash screen for admin verification page
+  const skipSplash = pathname === '/admin/verify';
 
   useEffect(() => {
     // Only redirect if loading is finished and there's no user AND no firebaseUser
@@ -228,8 +232,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // If we get here, we have a user. Render the app.
   return (
     <SessionProvider sessionId={sessionIdRef.current}>
-      {/* F1-style splash screen - shows once per session */}
-      {isChecked && showSplash && <SplashScreen onComplete={handleComplete} />}
+      {/* F1-style splash screen - shows once per session (skipped for admin verification) */}
+      {isChecked && showSplash && !skipSplash && <SplashScreen onComplete={handleComplete} />}
       <LeagueProvider>
         <SidebarProvider>
           <AppSidebar />
