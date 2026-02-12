@@ -1,0 +1,14 @@
+{
+  "BACKUP_EXPORT_FAILED": {
+    "code": "PX-7002",
+    "message": "Firestore backup export failed"
+  },
+  "BACKUP_SMOKE_TEST_FAILED": {
+    "code": "PX-7004",
+    "message": "Backup smoke test failed"
+  },
+  "BACKUP_BACKFILL_FAILED": {
+    "code": "PX-7008",
+    "message": "Backup history backfill failed"
+  }
+}

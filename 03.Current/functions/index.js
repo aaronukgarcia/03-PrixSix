@@ -24,7 +24,7 @@ const { getAuth } = require("firebase-admin/auth");
 const { Firestore: FirestoreDataClient } = require("@google-cloud/firestore");
 const { FirestoreAdminClient } = require("@google-cloud/firestore").v1;
 const { Storage } = require("@google-cloud/storage");
-const ERROR_CODES = require("../shared/error-codes.json");
+const ERROR_CODES = require("./error-codes.json");
 
 // GUID: BACKUP_FUNCTIONS-001-v03
 // [Intent] Initialise the Firebase Admin SDK once at cold-start so all
