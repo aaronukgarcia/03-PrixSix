@@ -55,6 +55,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, query } from "firebase/firestore";
 import type { User } from "@/firebase/provider";
 import { logAuditEvent } from "@/lib/audit";
+import { ERROR_CODES, generateClientCorrelationId } from "@/lib/error-codes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, ShieldAlert, Loader2 } from "lucide-react";
@@ -66,7 +67,7 @@ import { AlertCircle, ShieldAlert, Loader2 } from "lucide-react";
 // [Downstream Impact] Non-admin users trigger ACCESS_DENIED audit event and redirect to /dashboard.
 //                     Admin users see full tabbed interface with all management tools.
 export default function AdminPage() {
-    const { user, isUserLoading: isAuthLoading } = useAuth();
+    const { user, firebaseUser, isUserLoading: isAuthLoading } = useAuth();
     const router = useRouter();
     const firestore = useFirestore();
 
@@ -143,18 +144,20 @@ export default function AdminPage() {
     // [Inbound Trigger] User clicks "Send Verification Link" button.
     // [Downstream Impact] Calls POST /api/auth/admin-challenge, sends email with magic link.
     const requestAdminLink = async () => {
-        if (!user) return;
+        if (!firebaseUser) return;
 
         setIsRequestingLink(true);
         setLinkRequestStatus('idle');
         setErrorMessage('');
+
+        const correlationId = generateClientCorrelationId();
 
         try {
             const response = await fetch('/api/auth/admin-challenge', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${await user.getIdToken()}`,
+                    'Authorization': `Bearer ${await firebaseUser.getIdToken()}`,
                 },
             });
 
@@ -167,8 +170,26 @@ export default function AdminPage() {
             setLinkRequestStatus('success');
         } catch (error) {
             console.error('Failed to request admin link:', error);
+
+            // Log error to server (fire-and-forget)
+            fetch('/api/log-client-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    correlationId,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    errorCode: ERROR_CODES.AUTH_ADMIN_VERIFICATION_FAILED.code,
+                    context: {
+                        component: 'AdminPage',
+                        function: 'requestAdminLink',
+                        userId: user?.uid
+                    }
+                })
+            }).catch(() => {}); // Silent fail on logging error
+
             setLinkRequestStatus('error');
-            setErrorMessage(error instanceof Error ? error.message : 'Failed to send verification link');
+            const errorMsg = error instanceof Error ? error.message : 'Failed to send verification link';
+            setErrorMessage(`${ERROR_CODES.AUTH_ADMIN_VERIFICATION_FAILED.code}: ${errorMsg} (Ref: ${correlationId})`);
         } finally {
             setIsRequestingLink(false);
         }
@@ -270,7 +291,7 @@ export default function AdminPage() {
                                         <p className="text-sm font-medium text-red-900 dark:text-red-100">
                                             Failed to send verification link
                                         </p>
-                                        <p className="text-sm text-red-700 dark:text-red-300">
+                                        <p className="text-sm text-red-700 dark:text-red-300 select-all cursor-text font-mono">
                                             {errorMessage}
                                         </p>
                                         <Button
