@@ -1,6 +1,6 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-02-01  00:30
+> **Last updated:** 2026-02-12  (MCP versions updated)
 > **Current production version:** Check `package.json` and verify at https://prix6.win/about
 > **Read this entire file at the start of every session.**
 
@@ -998,15 +998,18 @@ The following MCP servers are configured globally in `C:\Users\aarongarcia\.clau
 |:---|:---|:---|:---|
 | **Vestige** (Memory) | v1.1.2 | Persistent memory across sessions | Core - session context retention |
 | **Sequential Thinking** | 2025.12.18 | Structured reasoning for complex tasks | Useful for architecture decisions |
-| **GitHub MCP** | Remote HTTP | GitHub operations (PRs, issues, code search) | Git workflow automation |
+| **GitHub MCP** | Go binary | GitHub operations (PRs, issues, code search) | Git workflow automation |
 | **Firebase MCP** | 15.5.1 | Firebase project management, Firestore ops | Direct PrixSix Firebase integration |
-| **Sentry MCP** | 0.29.0 | Error monitoring and tracking | Error analysis if Sentry is configured |
-| **Semgrep MCP** | 0.9.0 | Static code analysis | Security/code quality scanning |
 | **Context7** | 2.1.1 | Up-to-date library documentation | Docs for Next.js, Firebase, React |
+| **Azure MCP** | 0.0.4 | Azure resource management | Available for infrastructure tasks |
+| **MS 365 MCP** | 0.40.0 | Microsoft 365 operations | Available if needed |
+| **Semgrep** (standalone) | 1.151.0 | Static code analysis | CLI tool - Semgrep MCP removed due to version conflicts |
 
-**Tokens Required:** GitHub, Sentry, and Semgrep MCPs need API tokens set in `.mcp.json` env vars. Firebase MCP uses existing `GOOGLE_APPLICATION_CREDENTIALS`.
+**Tokens Required:** GitHub MCP needs API token set in `~/.claude.json` env vars. Firebase MCP uses existing `GOOGLE_APPLICATION_CREDENTIALS`. Azure and MS 365 MCPs have configured credentials.
 
 **MCP Install Location:** `E:\GoogleDrive\Tools\MCP\` (with local npm installs for offline fallback)
+
+**MCP Config:** User-level MCP configuration is in `C:\Users\aarongarcia\.claude.json` (NOT `.claude\.mcp.json` which is for Claude Desktop only). All servers are configured using `claude mcp add` or `claude mcp add-json` for user-level availability across all Claude Code sessions.
 
 ---
 
