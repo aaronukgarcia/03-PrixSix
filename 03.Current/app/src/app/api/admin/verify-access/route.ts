@@ -162,11 +162,27 @@ export async function POST(request: NextRequest) {
       correlationId,
     });
 
-    return NextResponse.json({
+    // GUID: API_ADMIN_VERIFY_ACCESS-007-v01
+    // [Intent] Set adminVerified cookie to grant admin panel access.
+    // [Inbound Trigger] All verification checks passed, audit logged.
+    // [Downstream Impact] Cookie read by /admin page to bypass verification gate.
+    //                     Cookie expires in 24 hours for security.
+    const response = NextResponse.json({
       success: true,
       message: 'Admin access verified successfully',
       correlationId,
     });
+
+    // Set secure HTTP-only cookie (24 hour expiry)
+    response.cookies.set('adminVerified', 'true', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60, // 24 hours
+      path: '/',
+    });
+
+    return response;
 
   } catch (error: any) {
     console.error('Admin verification error:', error);

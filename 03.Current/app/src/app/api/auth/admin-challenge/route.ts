@@ -148,10 +148,6 @@ export async function POST(request: NextRequest) {
         ${verificationUrl}
       </p>
     </div>
-    <div class="footer">
-      <p>This is an automated security email from Prix Six</p>
-      <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
-    </div>
   </div>
 </body>
 </html>
