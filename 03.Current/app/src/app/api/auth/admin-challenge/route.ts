@@ -183,11 +183,9 @@ This is an automated security email from Prix Six
     // [Inbound Trigger] HTML and text content prepared.
     // [Downstream Impact] Email queued via sendEmail. Returns email GUID or error.
     const emailResult = await sendEmail({
-      to: email,
+      toEmail: email,
       subject: '🔒 Prix Six Admin Verification Required',
-      html: htmlContent,
-      text: textContent,
-      correlationId,
+      htmlContent: htmlContent,
     });
 
     if (!emailResult.success) {
