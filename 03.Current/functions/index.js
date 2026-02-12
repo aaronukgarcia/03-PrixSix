@@ -789,6 +789,64 @@ exports.runRecoveryTest = onSchedule(
         );
       }
 
+      // GUID: BACKUP_FUNCTIONS-023A-v01
+      // [Intent] Verify Auth backup file exists and contains user records.
+      //          Auth data is critical for account recovery — if backup exists
+      //          but Auth JSON is missing, the backup is incomplete.
+      // [Inbound Trigger] Firestore verification passed.
+      // [Downstream Impact] Warns if Auth backup missing but doesn't fail smoke test
+      //                     (maintains backward compatibility with old backups).
+      let authFileExists = false;
+      let authUserCount = 0;
+      try {
+        const storage = new Storage();
+        const bucket = storage.bucket(BUCKET);
+        const authFilePath = `${backupPath.replace('gs://' + BUCKET + '/', '')}/auth/users.json`;
+        const authFile = bucket.file(authFilePath);
+        const [exists] = await authFile.exists();
+
+        if (exists) {
+          authFileExists = true;
+          const [contents] = await authFile.download();
+          const authData = JSON.parse(contents.toString());
+          authUserCount = Array.isArray(authData) ? authData.length : 0;
+          console.log(`Auth backup verified: ${authUserCount} users`);
+        } else {
+          console.warn('Auth backup file not found (may be old backup format)');
+        }
+      } catch (authError) {
+        console.warn('Auth verification failed (non-critical):', authError.message);
+      }
+
+      // GUID: BACKUP_FUNCTIONS-023B-v01
+      // [Intent] Verify Storage backup exists and contains files.
+      //          Storage files are user-generated content (profile photos) that
+      //          cannot be regenerated — critical for complete recovery.
+      // [Inbound Trigger] Firestore and Auth verification completed.
+      // [Downstream Impact] Warns if Storage backup missing but doesn't fail smoke test
+      //                     (Storage backup is new feature, old backups won't have it).
+      let storageFileCount = 0;
+      let storageTotalBytes = 0;
+      try {
+        const storage = new Storage();
+        const bucket = storage.bucket(BUCKET);
+        const storagePrefix = `${backupPath.replace('gs://' + BUCKET + '/', '')}/storage/`;
+        const [storageFiles] = await bucket.getFiles({ prefix: storagePrefix });
+
+        storageFileCount = storageFiles.length;
+        for (const file of storageFiles) {
+          storageTotalBytes += Number(file.metadata.size) || 0;
+        }
+
+        if (storageFileCount > 0) {
+          console.log(`Storage backup verified: ${storageFileCount} files, ${(storageTotalBytes / 1024 / 1024).toFixed(2)} MB`);
+        } else {
+          console.log('Storage backup is empty (no files uploaded yet)');
+        }
+      } catch (storageError) {
+        console.warn('Storage verification failed (non-critical):', storageError.message);
+      }
+
       // GUID: BACKUP_FUNCTIONS-024-v03
       // [Intent] Delete all data in the recovery project to avoid accumulating
       //          stale copies. The recovery project is purely ephemeral — it
@@ -799,9 +857,10 @@ exports.runRecoveryTest = onSchedule(
       //                     (see deleteAllCollections error handling).
       await deleteAllCollections(recoveryDb);
 
-      // GUID: BACKUP_FUNCTIONS-025-v03
+      // GUID: BACKUP_FUNCTIONS-025-v04
       // [Intent] Write smoke test success to backup_status/latest so the
       //          admin dashboard Smoke Test card shows a green badge.
+      //          Includes verification results for Firestore, Auth, and Storage.
       // [Inbound Trigger] All smoke test steps completed successfully.
       // [Downstream Impact] BackupHealthDashboard reads this via useDoc.
       await writeStatus(db, {
@@ -809,6 +868,14 @@ exports.runRecoveryTest = onSchedule(
         lastSmokeTestStatus: "SUCCESS",
         lastSmokeTestError: null,
         smokeTestCorrelationId: correlationId,
+        lastSmokeTestVerification: {
+          heartbeatExists,
+          usersHaveData,
+          authFileExists,
+          authUserCount,
+          storageFileCount,
+          storageTotalBytes,
+        },
       });
 
       // GUID: BACKUP_FUNCTIONS-060-v03

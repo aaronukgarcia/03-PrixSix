@@ -170,6 +170,22 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Admin verification error:', error);
+
+    // GOLDEN RULE #1: Log error to error_logs collection
+    const { db } = await getFirebaseAdmin();
+    await db.collection('error_logs').add({
+      timestamp: Timestamp.now(),
+      correlationId,
+      errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
+      errorMessage: error.message || 'Internal server error',
+      context: {
+        endpoint: '/api/admin/verify-access',
+        method: 'POST',
+        stack: error.stack,
+      },
+      severity: 'high',
+    }).catch(() => {}); // Silent fail on logging error
+
     return NextResponse.json(
       {
         success: false,

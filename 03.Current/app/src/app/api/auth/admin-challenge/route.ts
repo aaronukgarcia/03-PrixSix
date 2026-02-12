@@ -228,6 +228,22 @@ This is an automated security email from Prix Six
 
   } catch (error: any) {
     console.error('Admin challenge error:', error);
+
+    // GOLDEN RULE #1: Log error to error_logs collection
+    const { db } = await getFirebaseAdmin();
+    await db.collection('error_logs').add({
+      timestamp: Timestamp.now(),
+      correlationId,
+      errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
+      errorMessage: error.message || 'Internal server error',
+      context: {
+        endpoint: '/api/auth/admin-challenge',
+        method: 'POST',
+        stack: error.stack,
+      },
+      severity: 'high',
+    }).catch(() => {}); // Silent fail on logging error
+
     return NextResponse.json(
       {
         success: false,
