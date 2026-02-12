@@ -6,9 +6,7 @@
 // [Downstream Impact] Updates attack_alerts Firestore collection. Requires admin authentication.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/firebase/admin';
-import { verifyAuthToken } from '@/lib/auth';
-import { FieldValue } from 'firebase-admin/firestore';
+import { getFirebaseAdmin, verifyAuthToken } from '@/lib/firebase-admin';
 
 // GUID: API_ADMIN_ACK_ATTACK-001-v01
 // [Intent] POST handler that authenticates the user, verifies admin status, and acknowledges one or more attack alerts.
@@ -16,6 +14,9 @@ import { FieldValue } from 'firebase-admin/firestore';
 // [Downstream Impact] Updates attack_alerts documents with acknowledged=true, acknowledgedBy, and acknowledgedAt timestamp.
 export async function POST(request: NextRequest) {
   try {
+    // Get Firestore instance and FieldValue
+    const { db, FieldValue } = await getFirebaseAdmin();
+
     // GUID: API_ADMIN_ACK_ATTACK-002-v01
     // [Intent] Authenticate the user via Authorization header token.
     // [Inbound Trigger] Extract Authorization header from request.

@@ -6,8 +6,7 @@
 // [Downstream Impact] Updates error_logs Firestore collection. Requires admin authentication.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/firebase/admin';
-import { verifyAuthToken } from '@/lib/auth';
+import { getFirebaseAdmin, verifyAuthToken } from '@/lib/firebase-admin';
 
 // GUID: API_ADMIN_RESOLVE-001-v01
 // [Intent] POST handler that authenticates the user, verifies admin status, and marks an error log as resolved.
@@ -15,6 +14,9 @@ import { verifyAuthToken } from '@/lib/auth';
 // [Downstream Impact] Updates error_logs/{errorLogId} document with resolved=true and timestamp.
 export async function POST(request: NextRequest) {
   try {
+    // Get Firestore instance
+    const { db } = await getFirebaseAdmin();
+
     // GUID: API_ADMIN_RESOLVE-002-v01
     // [Intent] Authenticate the user via Authorization header token.
     // [Inbound Trigger] Extract Authorization header from request.
