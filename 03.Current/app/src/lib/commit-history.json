@@ -1,6 +1,9 @@
 {
   "lastUpdated": "2026-02-12",
   "commits": [
+    {"id": "ca3fcab", "date": "2026-02-12", "version": "1.55.6", "author": "aaron garcia", "message": "fix: Add error code and correlation ID to all email verification errors (v1.55.6)", "major": false},
+    {"id": "5aa15ae", "date": "2026-02-12", "version": "1.55.5", "author": "aaron garcia", "message": "fix: Correct sendEmail parameter names in admin-challenge endpoint (v1.55.5)", "major": false},
+    {"id": "5f13e99", "date": "2026-02-12", "version": "1.55.4", "author": "aaron garcia", "message": "docs: Update commit-history.json with 40 missing commits (v1.28.2 → v1.55.4)", "major": false},
     {"id": "9f34359", "date": "2026-02-12", "version": "1.55.4", "author": "aaron garcia", "message": "fix: Copy error-codes.json to functions directory to resolve deployment failure", "major": false},
     {"id": "75f7b13", "date": "2026-02-12", "version": "1.55.4", "author": "aaron garcia", "message": "fix: Add Golden Rule #1 error logging and complete smoke test verification", "major": false},
     {"id": "1c79380", "date": "2026-02-12", "version": "1.55.4", "author": "aaron garcia", "message": "fix: Create missing admin verification endpoints and add Storage backup (v1.55.4)", "major": false},
