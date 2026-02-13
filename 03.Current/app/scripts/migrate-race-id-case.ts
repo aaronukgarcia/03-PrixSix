@@ -15,7 +15,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
-  const serviceAccount = require(path.resolve(__dirname, '../service-account.json'));
+  const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });

@@ -15,7 +15,7 @@
 
 import { F1Drivers, RaceSchedule, type Driver, type Race } from './data';
 import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scoring-rules';
-import { normalizeRaceIdForComparison } from './normalize-race-id';
+import { normalizeRaceIdForComparison, generateRaceId } from './normalize-race-id';
 
 // --- Types ---
 
@@ -272,19 +272,35 @@ export function getValidRaceNames(): Set<string> {
   return new Set(RaceSchedule.map(r => r.name));
 }
 
-// GUID: LIB_CONSISTENCY-018-v03
-// [Intent] Build a Set of all valid race IDs in normalized form (lowercase, hyphenated)
-//   from the static RaceSchedule. This is the primary lookup for race ID validation,
-//   using normalizeRaceId() for consistent comparison.
+// GUID: LIB_CONSISTENCY-018-v04
+// @CASE_FIX: Now generates Title-Case race IDs with GP/Sprint suffixes to match prediction format.
+// [Intent] Build a Set of all valid race IDs with both GP and Sprint variants (when applicable).
+//   Each race gets a GP variant (e.g., "British-Grand-Prix-GP") and Sprint races also get
+//   a Sprint variant (e.g., "British-Grand-Prix-Sprint"). Uses Title-Case format.
 // [Inbound Trigger] Called by checkPredictions() and checkRaceResults() to validate
 //   race references in Firestore documents.
-// [Downstream Impact] Depends on normalizeRaceId() (LIB_CONSISTENCY-015). Changes to
-//   normalization logic would cascade through this function to all callers.
+// [Downstream Impact] Validation now accepts Title-Case race IDs with suffixes. This matches
+//   the format used by predictions and results after the v1.55.19 case handling fix.
 /**
- * Get valid normalized race IDs from static data
+ * Get valid race IDs with GP and Sprint variants in Title-Case
  */
 export function getValidRaceIds(): Set<string> {
-  return new Set(RaceSchedule.map(r => normalizeRaceId(r.name)));
+  const raceIds = new Set<string>();
+
+  for (const race of RaceSchedule) {
+    // Add GP variant for all races
+    raceIds.add(generateRaceId(race.name, 'gp'));
+
+    // Add Sprint variant for races with sprints
+    if (race.hasSprint) {
+      raceIds.add(generateRaceId(race.name, 'sprint'));
+    }
+
+    // Also add legacy format (lowercase without suffix) for backward compatibility
+    raceIds.add(normalizeRaceId(race.name));
+  }
+
+  return raceIds;
 }
 
 // --- Check Functions ---

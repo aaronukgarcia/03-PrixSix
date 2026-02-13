@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-13",
   "commits": [
+    {"id": "PENDING", "date": "2026-02-13", "version": "1.55.20", "author": "aaron garcia", "message": "fix: Consistency Checker race ID validation (v1.55.20)", "major": false},
     {"id": "4b88022", "date": "2026-02-13", "version": "1.55.19", "author": "aaron garcia", "message": "fix: Race ID case handling - enforce Title-Case everywhere (v1.55.19)", "major": false},
     {"id": "1199209", "date": "2026-02-13", "version": "1.55.18", "author": "aaron garcia", "message": "fix: Signup performance bottleneck and atomicity (v1.55.18)", "major": false},
     {"id": "59be019", "date": "2026-02-13", "version": "1.55.17", "author": "aaron garcia", "message": "feat: Aggressive zombie session detection in claude-sync.js (v1.55.17)", "major": false},
