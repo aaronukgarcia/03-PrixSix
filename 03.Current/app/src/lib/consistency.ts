@@ -834,7 +834,7 @@ export function checkPredictions(
         message: 'Missing raceId',
       });
       isValid = false;
-    } else if (!validRaceIds.has(normalizeRaceId(pred.raceId))) {
+    } else if (!validRaceIds.has(pred.raceId)) {
       issues.push({
         severity: 'warning',
         entity: entityName,
