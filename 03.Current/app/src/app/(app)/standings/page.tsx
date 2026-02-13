@@ -214,7 +214,7 @@ export default function StandingsPage() {
               if (!data) return;
               const userId = data.oduserId || data.userId;
               if (!userId) return; // Skip invalid scores
-              const raceId = (data.raceId || '').toLowerCase();
+              const raceId = data.raceId || ''; // Keep Title-Case (Golden Rule #3)
               scores.push({
                 userId,
                 raceId,

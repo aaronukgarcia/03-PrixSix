@@ -1784,18 +1784,20 @@ export function checkScores(
   };
 }
 
-// GUID: LIB_CONSISTENCY-029-v04
-// [Intent] Validate that standings (cumulative points per user) are internally consistent.
-//   Calculates each user's total points by summing all their score documents and verifies
-//   the sum is self-consistent. This catches scenarios where individual score documents
-//   might have been modified without updating totals.
+// GUID: LIB_CONSISTENCY-029-v05
+// [Intent] Validate that standings (cumulative points per user) are internally consistent AND
+//   that the standings page will be able to display data. Checks:
+//   1. Mathematical consistency: sum of scores matches expected totals
+//   2. Race completeness: at least one race weekend is completed (has scores)
+//   3. Race ID format: scores use Title-Case format matching RaceSchedule/generateRaceId
 // [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with arrays
 //   of score documents and user documents from Firestore.
 // [Downstream Impact] Standings validation ensures the leaderboard displayed to users
 //   is accurate. Mismatches flagged here indicate score documents were modified or
-//   deleted without recalculating standings.
+//   deleted without recalculating standings. Format issues would cause standings page
+//   to show "no data" even when scores exist.
 /**
- * Validate standings consistency (sum of scores matches expected)
+ * Validate standings consistency and displayability
  */
 export function checkStandings(
   scores: ScoreData[],
@@ -1811,6 +1813,50 @@ export function checkStandings(
       const current = userTotals.get(score.userId) || 0;
       userTotals.set(score.userId, current + score.totalPoints);
     }
+  }
+
+  // Check race completeness and ID format
+  // Build set of raceIds from scores
+  const scoreRaceIds = new Set<string>();
+  for (const score of scores) {
+    if (score.raceId) {
+      scoreRaceIds.add(score.raceId);
+    }
+  }
+
+  // Determine completed race weekends (races that have GP scores)
+  let completedRaceWeekends = 0;
+  for (const race of RaceSchedule) {
+    const gpRaceId = generateRaceId(race.name, 'gp');
+    const legacyId = race.name.replace(/\s+/g, '-'); // Legacy format without suffix
+
+    // Check if this race has scores (Title-Case GP or legacy format)
+    if (scoreRaceIds.has(gpRaceId) || scoreRaceIds.has(legacyId)) {
+      completedRaceWeekends++;
+    }
+  }
+
+  // Race completeness check
+  if (scores.length > 0 && completedRaceWeekends === 0) {
+    issues.push({
+      severity: 'error',
+      entity: 'Standings',
+      field: 'completedRaceWeekends',
+      message: `${scores.length} scores exist but no completed race weekends detected — standings page will show no data`,
+      details: {
+        totalScores: scores.length,
+        completedRaceWeekends,
+        sampleScoreRaceIds: Array.from(scoreRaceIds).slice(0, 5),
+      },
+    });
+  } else if (completedRaceWeekends === 0) {
+    // No scores yet — expected for pre-season
+    issues.push({
+      severity: 'info',
+      entity: 'Standings',
+      field: 'completedRaceWeekends',
+      message: 'No completed race weekends yet — expected for pre-season',
+    });
   }
 
   // Validate each user has consistent standings

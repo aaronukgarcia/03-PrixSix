@@ -948,6 +948,294 @@
       "impact": "The `runChecks` function in `ConsistencyChecker.tsx` fetches entire Firestore collections (e.g., `predictions` via `collectionGroup`, `race_results`, `scores`, `leagues`) without pagination or limits. A malicious or careless administrator could repeatedly trigger this function, causing an enormous number of document reads, leading to excessive Firebase billing and a Denial of Wallet (DoW) attack. Server-side aggregation or pagination should be enforced to prevent unbounded reads.",
       "file": "app/src/app/(app)/admin/_components/ConsistencyChecker.tsx",
       "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-018",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Plaintext PIN Display in Email Log Manager",
+      "impact": "The `EmailLog` interface and the underlying `email_logs` Firestore collection store user 6-digit PINs in plaintext. Although the UI masks the PIN, an attacker with read access to the Firestore collection could easily retrieve these credentials, leading to account takeover. PINs should never be stored or logged in plaintext; only strong hashes should be used for storage.",
+      "file": "app/src/app/(app)/admin/_components/EmailLogManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-019",
+      "module": "Admin Components",
+      "severity": "high",
+      "issue": "Stored XSS Vulnerability in Email Log Body Preview (Overly Permissive Sanitization)",
+      "rationale": "The `EmailLogManager` component uses `dangerouslySetInnerHTML` to render `log.html` in the admin panel. While `DOMPurify.sanitize` is applied, the `ALLOWED_TAGS` and `ALLOWED_ATTR` configurations are broad (`style`, `class` allowed). This increases the attack surface for Stored XSS. An attacker who can inject malicious HTML into an email's body (e.g., through user-controlled inputs that feed into email templates) could potentially bypass `DOMPurify` and execute arbitrary JavaScript in an administrator's browser, leading to session hijacking or UI defacement.",
+      "file": "app/src/app/(app)/admin/_components/EmailLogManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-020",
+      "module": "Admin Components",
+      "severity": "low",
+      "issue": "Incomplete Stack Trace Sanitization for Windows Paths with Drive Letters",
+      "rationale": "The `sanitizeStackTrace` function, intended to remove absolute paths, has a regex for Windows paths (`.replace(/[A-Z]:\\\\S*\\\\app\\\\/gi, 'app/')`) that specifically targets the `\\app\\` segment. This means if a sensitive path on Windows does not explicitly contain `\\app\\` (e.g., `C:\\Users\\SecretProject\\data\\private.js`), it might not be fully sanitized, potentially exposing sensitive local directory structures to administrators viewing error logs. The sanitization should be more robust to redact or abstract all sensitive local file system paths comprehensively.",
+      "file": "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-021",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Insecure Direct Object Modification of Feedback Items",
+      "rationale": "The `updateStatus` and `deleteFeedback` functions in `FeedbackManager.tsx` perform direct Firestore `updateDoc` and `deleteDoc` operations on the `feedback` collection from the client. There are no server-side authorization checks to ensure that the requesting user has administrative privileges to perform these actions. An attacker who bypasses client-side controls could craft direct Firestore API calls from their browser to arbitrarily change the status or delete any feedback item, compromising the integrity of the feedback system.",
+      "file": "app/src/app/(app)/admin/_components/FeedbackManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-022",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Critical Content Injection via Direct Client-Side Firestore Writes",
+      "rationale": "The `handleSave` function in `HotNewsManager.tsx` directly modifies the `hot_news/global` Firestore document from the client via `updateHotNewsContent`. This operation lacks server-side authentication and authorization. A malicious actor could bypass client-side UI controls and directly invoke `updateHotNewsContent` to inject arbitrary or inappropriate content into the public-facing news feed, defacing the application without needing administrative privileges.",
+      "file": "app/src/app/(app)/admin/_components/HotNewsManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-023",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Mass Email SPAM Vector (Missing Client-Side Rate-Limiting for 'Send All' Feature)",
+      "rationale": "The `handleSave` function, when `sendEmails` is checked, triggers an API call to `/api/send-hot-news-email`. The `HotNewsManager.tsx` component itself does not implement any client-side rate-limiting or debounce for this action. While the server-side API may have its own controls, the lack of client-side safeguards allows a malicious administrator (or an attacker with admin access) to repeatedly click the 'Send email to all subscribed users' button in rapid succession. This could potentially overwhelm the email sending service, incur significant costs, and lead to mass spamming of users and email blacklisting if the server-side endpoint's rate limits are insufficient or improperly configured.",
+      "file": "app/src/app/(app)/admin/_components/HotNewsManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-024",
+      "module": "Admin Components",
+      "severity": "low",
+      "issue": "Information Disclosure of Invite Code Length in Admin Panel",
+      "rationale": "In `LeaguesManager.tsx`, the invite code for private leagues is displayed as `••••••••`. While the code itself is masked, the fixed number of masking characters (8 asterisks) always reveals the exact length of the invite code. If the invite code generation process in `app/src/lib/leagues.ts` (GUID `LIB_LEAGUES-001`) uses variable-length codes, or if this length information could assist an attacker in reducing the search space for brute-force attacks or guessing patterns, this constitutes a minor information leak. For improved security, a generic placeholder of variable length or a non-length-revealing string should be used.",
+      "file": "app/src/app/(app)/admin/_components/LeaguesManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-025",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Single User Mode DoS Attack Vector (Client-Side Control of Global System State)",
+      "rationale": "The `activateSingleUserMode` function in `OnlineUsersManager.tsx` directly modifies the `admin_configuration/global` Firestore document from the client to enable Single User Mode. This operation is not protected by server-side authentication or authorization. An attacker could bypass the client-side UI, craft a direct Firestore `setDoc` call to `admin_configuration/global` with `singleUserModeEnabled: true`, thereby initiating a Denial of Service (DoS) attack that disconnects all legitimate users from the application. This is a severe vulnerability as it allows an unprivileged client-side action to disrupt global application availability.",
+      "file": "app/src/app/(app)/admin/_components/OnlineUsersManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-027",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Race Result Tampering via Direct Client-Side API Calls and Incomplete Server-Side Validation",
+      "rationale": "The `handleConfirmedSubmit` function in `ResultsManager.tsx` initiates score calculation by making a `POST` request to `/api/calculate-scores`. While a Firebase ID token is sent, the server-side endpoint might not sufficiently re-validate critical parameters such as: 1) whether the user is an *authorized administrator*, 2) if the race is actually eligible for scoring (e.g., not yet started, or already scored), and 3) if the provided driver IDs are valid. An attacker bypassing the client-side UI could craft direct API requests to inject fabricated race results, overwrite existing legitimate results, or prematurely trigger scoring for active races. This severely compromises the integrity of game scoring and standings.",
+      "file": "app/src/app/(app)/admin/_components/ResultsManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-028",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Authorization Bypass by Direct Client-Side Firestore Writes to admin_configuration/global for Site Functions",
+      "rationale": "The `handleSave` function in `SiteFunctionsManager.tsx` directly modifies the `admin_configuration/global` Firestore document via `setDoc` to update `userLoginEnabled` and `newUserSignupEnabled`. This operation is initiated from the client-side without any server-side authentication or authorization checks. An attacker could bypass client-side UI controls and directly craft a Firestore `setDoc` call to `admin_configuration/global`, enabling them to disable (or enable) user login and new user sign-ups. This constitutes a severe Denial of Service (DoS) attack for user login and registration, impacting global application availability and user management.",
+      "file": "app/src/app/(app)/admin/_components/SiteFunctionsManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-028",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Authorization Bypass by Direct Client-Side Firestore Writes to admin_configuration/global for Site Functions",
+      "rationale": "The `handleSave` function in `SiteFunctionsManager.tsx` directly modifies the `admin_configuration/global` Firestore document via `setDoc` to update `userLoginEnabled` and `newUserSignupEnabled`. This operation is initiated from the client-side without any server-side authentication or authorization checks. An attacker could bypass client-side UI controls and directly craft a Firestore `setDoc` call to `admin_configuration/global`, enabling them to disable (or enable) user login and new user sign-ups. This constitutes a severe Denial of Service (DoS) attack for user login and registration, impacting global application availability and user management.",
+      "file": "app/src/app/(app)/admin/_components/SiteFunctionsManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-029",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Authorization Bypass for `isAdmin` Toggle in Team Manager",
+      "rationale": "The `handleToggleAdmin` function in `TeamManager.tsx` directly calls the client-side `updateUser` function (from `useAuth()`) to change a user's `isAdmin` status in Firestore. This operation is initiated from the client without sufficient server-side authorization. An attacker who bypasses client-side UI controls could craft direct calls to `updateUser` or its underlying API endpoint, setting `isAdmin: true` for any user, including themselves. This allows for unauthorized privilege escalation and full administrative compromise of the application. Robust server-side checks must enforce that only authorized administrators can modify other users' administrative privileges.",
+      "file": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-030",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Unauthenticated WhatsApp QR Code Exposure via Proxy API",
+      "rationale": "The `fetchQRCode` function in `WhatsAppManager.tsx` makes a `GET` request to `${WHATSAPP_PROXY_URL}?endpoint=qr`. While an authorization token is sent, the `API_WHATSAPP_PROXY-003` description in `code.json` states that the `qr` endpoint is whitelisted for GET requests. If the `/api/whatsapp-proxy` endpoint does not rigorously enforce *admin-level authorization* (beyond just authentication) for this specific endpoint, any authenticated user could potentially retrieve the WhatsApp QR code. This would allow a non-admin to link their WhatsApp account to the application's WhatsApp worker, leading to unauthorized access, message interception, and compromise of the WhatsApp integration.",
+      "file": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-030",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Unauthenticated WhatsApp QR Code Exposure via Proxy API",
+      "rationale": "The `fetchQRCode` function in `WhatsAppManager.tsx` makes a `GET` request to `${WHATSAPP_PROXY_URL}?endpoint=qr`. While an authorization token is sent, the `API_WHATSAPP_PROXY-003` description in `code.json` states that the `qr` endpoint is whitelisted for GET requests. If the `/api/whatsapp-proxy` endpoint does not rigorously enforce *admin-level authorization* (beyond just authentication) for this specific endpoint, any authenticated user could potentially retrieve the WhatsApp QR code. This would allow a non-admin to link their WhatsApp account to the application's WhatsApp worker, leading to unauthorized access, message interception, and compromise of the WhatsApp integration.",
+      "file": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-030",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Unauthenticated WhatsApp QR Code Exposure via Proxy API",
+      "rationale": "The `fetchQRCode` function in `WhatsAppManager.tsx` makes a `GET` request to `${WHATSAPP_PROXY_URL}?endpoint=qr`. While an authorization token is sent, the `API_WHATSAPP_PROXY-003` description in `code.json` states that the `qr` endpoint is whitelisted for GET requests. If the `/api/whatsapp-proxy` endpoint does not rigorously enforce *admin-level authorization* (beyond just authentication) for this specific endpoint, any authenticated user could potentially retrieve the WhatsApp QR code. This would allow a non-admin to link their WhatsApp account to the application's WhatsApp worker, leading to unauthorized access, message interception, and compromise of the WhatsApp integration.",
+      "file": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-030",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Unauthenticated WhatsApp QR Code Exposure via Proxy API",
+      "rationale": "The `fetchQRCode` function in `WhatsAppManager.tsx` makes a `GET` request to `${WHATSAPP_PROXY_URL}?endpoint=qr`. While an authorization token is sent, the `API_WHATSAPP_PROXY-003` description in `code.json` states that the `qr` endpoint is whitelisted for GET requests. If the `/api/whatsapp-proxy` endpoint does not rigorously enforce *admin-level authorization* (beyond just authentication) for this specific endpoint, any authenticated user could potentially retrieve the WhatsApp QR code. This would allow a non-admin to link their WhatsApp account to the application's WhatsApp worker, leading to unauthorized access, message interception, and compromise of the WhatsApp integration.",
+      "file": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-030",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Unauthenticated WhatsApp QR Code Exposure via Proxy API",
+      "rationale": "The `fetchQRCode` function in `WhatsAppManager.tsx` makes a `GET` request to `${WHATSAPP_PROXY_URL}?endpoint=qr`. While an authorization token is sent, the `API_WHATSAPP_PROXY-003` description in `code.json` states that the `qr` endpoint is whitelisted for GET requests. If the `/api/whatsapp-proxy` endpoint does not rigorously enforce *admin-level authorization* (beyond just authentication) for this specific endpoint, any authenticated user could potentially retrieve the WhatsApp QR code. This would allow a non-admin to link their WhatsApp account to the application's WhatsApp worker, leading to unauthorized access, message interception, and compromise of the WhatsApp integration.",
+      "file": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-030",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Unauthenticated WhatsApp QR Code Exposure via Proxy API",
+      "rationale": "The `fetchQRCode` function in `WhatsAppManager.tsx` makes a `GET` request to `${WHATSAPP_PROXY_URL}?endpoint=qr`. While an authorization token is sent, the `API_WHATSAPP_PROXY-003` description in `code.json` states that the `qr` endpoint is whitelisted for GET requests. If the `/api/whatsapp-proxy` endpoint does not rigorously enforce *admin-level authorization* (beyond just authentication) for this specific endpoint, any authenticated user could potentially retrieve the WhatsApp QR code. This would allow a non-admin to link their WhatsApp account to the application's WhatsApp worker, leading to unauthorized access, message interception, and compromise of the WhatsApp integration.",
+      "file": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-030",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Unauthenticated WhatsApp QR Code Exposure via Proxy API",
+      "rationale": "The `fetchQRCode` function in `WhatsAppManager.tsx` makes a `GET` request to `${WHATSAPP_PROXY_URL}?endpoint=qr`. While an authorization token is sent, the `API_WHATSAPP_PROXY-003` description in `code.json` states that the `qr` endpoint is whitelisted for GET requests. If the `/api/whatsapp-proxy` endpoint does not rigorously enforce *admin-level authorization* (beyond just authentication) for this specific endpoint, any authenticated user could potentially retrieve the WhatsApp QR code. This would allow a non-admin to link their WhatsApp account to the application's WhatsApp worker, leading to unauthorized access, message interception, and compromise of the WhatsApp integration.",
+      "file": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-035",
+      "module": "Frontend Components",
+      "severity": "high",
+      "issue": "Direct Exposure of Raw Error Messages to Client (handleSubmit and handleAnalysis)",
+      "rationale": "The `handleSubmit` and `handleAnalysis` functions catch all exceptions and directly display `e.message` or `err.message` in a toast notification. This can expose sensitive internal server-side error messages, stack traces, or database query details to the end-user. Such information could be used by an attacker to understand the backend architecture, identify vulnerable components, or craft more targeted attacks. While `handleAnalysis` attempts to use `errorCode` and `correlationId`, it falls back to raw `err.message`, and `handleSubmit` consistently uses it. Generic error messages with correlation IDs should be shown to users, with detailed errors logged on the server.",
+      "file": "app/src/app/(app)/predictions/_components/PredictionEditor.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-037",
+      "module": "Frontend Components",
+      "severity": "high",
+      "issue": "Client-Side Controlled `applyToAll` Feature without Server-Side Re-validation",
+      "rationale": "The `applyToAll` checkbox, controlled entirely client-side, allows a user to submit their prediction to \"all teams\". There is no indication that the `/api/submit-prediction` endpoint re-validates whether the authenticated `user.id` is authorized to submit predictions for *all* the `teamId`s passed in the loop, especially for secondary teams. A sophisticated attacker could manipulate the `teamsToSubmit` array to submit predictions for other users' secondary teams (or even primary teams if `teamId` is not rigorously validated against the authenticated user's known teams on the server). The server-side must verify that the `teamId` in the request body is genuinely owned by (or linked to) the `userId` from the `idToken`.",
+      "file": "app/src/app/(app)/predictions/_components/PredictionEditor.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-038",
+      "module": "Frontend Components",
+      "severity": "high",
+      "issue": "Direct Exposure of Raw Error Messages to Client (handleUpgrade)",
+      "rationale": "The `handleUpgrade` function catches exceptions during the OAuth linking process and directly assigns `err.message` to `setErrorMsg`. This can expose internal details about authentication failures, rate-limiting messages, or other sensitive information that could assist an attacker in understanding the system's vulnerabilities or limitations. The component should present generic, user-friendly error messages, while logging detailed, sensitive error information securely on the server with a correlation ID.",
+      "file": "app/src/components/SecurityUpgradeCard.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-038",
+      "module": "Frontend Components",
+      "severity": "high",
+      "issue": "Direct Exposure of Raw Error Messages to Client (handleUpgrade)",
+      "rationale": "The `handleUpgrade` function catches exceptions during the OAuth linking process and directly assigns `err.message` to `setErrorMsg`. This can expose internal details about authentication failures, rate-limiting messages, or other sensitive information that could assist an attacker in understanding the system's vulnerabilities or limitations. The component should present generic, user-friendly error messages, while logging detailed, sensitive error information securely on the server with a correlation ID.",
+      "file": "app/src/components/SecurityUpgradeCard.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-039",
+      "module": "Frontend Components",
+      "severity": "high",
+      "issue": "Client-Side Loading of Unsanitized Static Commit Data (Potential Stored XSS)",
+      "rationale": "The `VersionHistory` component directly imports and renders commit messages from `commit-history.json`. The `cleanMessage` function strips conventional commit prefixes but does not sanitize arbitrary HTML or script injection. If an attacker could inject malicious content into a commit message (e.g., via compromised CI/CD or direct file edit), this content would be rendered directly into the browser on the developer-facing 'Version History' page, leading to Stored Cross-Site Scripting (XSS). Even for static data, proper output encoding or a robust sanitization library should be used for potentially user-controlled text rendered as HTML.",
+      "file": "app/src/app/(app)/about/dev/_components/VersionHistory.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-041",
+      "module": "Firebase Provider",
+      "severity": "critical",
+      "issue": "Direct Exposure of Raw Error Messages from API Calls (Multiple Functions)",
+      "rationale": "Across numerous authentication and user management functions (e.g., `login`, `signup`, `updateUser`, `deleteUser`, `addSecondaryTeam`, `resetPin`, `sendVerificationEmail`, `updateSecondaryEmail`, `sendSecondaryVerificationEmail`), the `provider.tsx` module directly exposes error messages (`result.error` or `result.message`) received from server-side API endpoints to the client-side UI. This is a consistent pattern of information disclosure. If a server-side API returns a detailed error message, this information could be sent directly to the end-user, providing attackers with insights into backend architecture, database schemas, or specific vulnerabilities. Even with `errorCode` and `correlationId`, the raw `errorMessage` often accompanies them. For all API call failures, the client should receive only generic error messages, with detailed error messages logged exclusively server-side and referenced by a unique correlation ID.",
+      "file": "app/src/firebase/provider.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-042",
+      "module": "Firebase Provider",
+      "severity": "critical",
+      "issue": "Client-Side Console Error Logging of Full Error Objects (Multiple Functions)",
+      "rationale": "Many `catch` blocks across the `provider.tsx` module (e.g., `login`, `signup`, `updateUser`, `deleteUser`, `addSecondaryTeam`, `resetPin`, `changePin`, `sendVerificationEmail`, `refreshEmailVerificationStatus`, `updateSecondaryEmail`, `sendSecondaryVerificationEmail`, `onDocSnapshot` callbacks, `getRedirectResult`) log the raw `error` object or `e` object directly to the client-side browser console using `console.error`. These error objects can contain full stack traces, internal Firebase error codes, network request details, and other sensitive information. In a production environment, this is a significant information disclosure risk, as attackers can use browser developer tools to extract valuable reconnaissance data about the application's internal workings. Sensitive error information should be logged exclusively on the server-side, with client-side logging minimized or restricted to generic messages, or completely disabled in production.",
+      "file": "app/src/firebase/provider.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-041",
+      "module": "Firebase Provider",
+      "severity": "critical",
+      "issue": "Direct Exposure of Raw Error Messages from API Calls (Multiple Functions)",
+      "rationale": "Across numerous authentication and user management functions (e.g., `login`, `signup`, `updateUser`, `deleteUser`, `addSecondaryTeam`, `resetPin`, `sendVerificationEmail`, `updateSecondaryEmail`, `sendSecondaryVerificationEmail`), the `provider.tsx` module directly exposes error messages (`result.error` or `result.message`) received from server-side API endpoints to the client-side UI. This is a consistent pattern of information disclosure. If a server-side API returns a detailed error message, this information could be sent directly to the end-user, providing attackers with insights into backend architecture, database schemas, or specific vulnerabilities. Even with `errorCode` and `correlationId`, the raw `errorMessage` often accompanies them. For all API call failures, the client should receive only generic error messages, with detailed error messages logged exclusively server-side and referenced by a unique correlation ID.",
+      "file": "app/src/firebase/provider.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-042",
+      "module": "Firebase Provider",
+      "severity": "critical",
+      "issue": "Client-Side Console Error Logging of Full Error Objects (Multiple Functions)",
+      "rationale": "Many `catch` blocks across the `provider.tsx` module (e.g., `login`, `signup`, `updateUser`, `deleteUser`, `addSecondaryTeam`, `resetPin`, `changePin`, `sendVerificationEmail`, `refreshEmailVerificationStatus`, `updateSecondaryEmail`, `sendSecondaryVerificationEmail`, `onDocSnapshot` callbacks, `getRedirectResult`) log the raw `error` object or `e` object directly to the client-side browser console using `console.error`. These error objects can contain full stack traces, internal Firebase error codes, network request details, and other sensitive information. In a production environment, this is a significant information disclosure risk, as attackers can use browser developer tools to extract valuable reconnaissance data about the application's internal workings. Sensitive error information should be logged exclusively on the server-side, with client-side logging minimized or restricted to generic messages, or completely disabled in production.",
+      "file": "app/src/firebase/provider.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-044",
+      "module": "Attack Detection",
+      "severity": "critical",
+      "issue": "Client-Side Console Error Logging of Full Error Objects (Multiple Functions)",
+      "rationale": "The `attack-detection.ts` module consistently logs raw `error` objects (including full stack traces and internal Firebase errors) directly to the server-side console (`console.error` and `console.warn`). While this code runs server-side (in API routes or Cloud Functions), logging sensitive information directly to `console.error` in a production environment is still an information disclosure risk if server logs are accessible or if an attacker gains control over the server environment. Best practice dictates that sensitive details should be logged to a structured logging system (like Google Cloud Logging with appropriate redaction and access controls) rather than raw console output that might expose more than necessary.",
+      "file": "app/src/lib/attack-detection.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-045",
+      "module": "Attack Detection",
+      "severity": "critical",
+      "issue": "No Account Lockout/Blocking for Detected Attacks",
+      "rationale": "The `attack-detection.ts` module explicitly states that account lockout is \"not implemented\". This means that even when various attack types (bot, credential stuffing, distributed) are detected and alerts are created, the system does not automatically block or temporarily lock the affected user accounts or IP addresses. Attackers can continue brute-forcing credentials or attempting credential stuffing attacks indefinitely, even after detection, until manual intervention occurs. This significantly weakens the authentication system's resilience against automated attacks. Implementing an automated account lockout mechanism is crucial for effective attack mitigation.",
+      "file": "app/src/lib/attack-detection.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-044",
+      "module": "Attack Detection",
+      "severity": "critical",
+      "issue": "Client-Side Console Error Logging of Full Error Objects (Multiple Functions)",
+      "rationale": "The `attack-detection.ts` module consistently logs raw `error` objects (including full stack traces and internal Firebase errors) directly to the server-side console (`console.error` and `console.warn`). While this code runs server-side (in API routes or Cloud Functions), logging sensitive information directly to `console.error` in a production environment is still an information disclosure risk if server logs are accessible or if an attacker gains control over the server environment. Best practice dictates that sensitive details should be logged to a structured logging system (like Google Cloud Logging with appropriate redaction and access controls) rather than raw console output that might expose more than necessary.",
+      "file": "app/src/lib/attack-detection.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-045",
+      "module": "Attack Detection",
+      "severity": "critical",
+      "issue": "No Account Lockout/Blocking for Detected Attacks",
+      "rationale": "The `attack-detection.ts` module explicitly states that account lockout is \"not implemented\". This means that even when various attack types (bot, credential stuffing, distributed) are detected and alerts are created, the system does not automatically block or temporarily lock the affected user accounts or IP addresses. Attackers can continue brute-forcing credentials or attempting credential stuffing attacks indefinitely, even after detection, until manual intervention occurs. This significantly weakens the authentication system's resilience against automated attacks. Implementing an automated account lockout mechanism is crucial for effective attack mitigation.",
+      "file": "app/src/lib/attack-detection.ts",
+      "citation": "Gemini Red Team"
     }
   ]
 }
