@@ -288,8 +288,13 @@ export function getValidRaceIds(): Set<string> {
   const raceIds = new Set<string>();
 
   for (const race of RaceSchedule) {
-    // Add GP variant for all races
+    // Add new GP variant with -GP suffix
     raceIds.add(generateRaceId(race.name, 'gp'));
+
+    // Add old GP variant WITHOUT suffix (for backward compatibility with existing predictions)
+    // Old format: "British-Grand-Prix" (no suffix)
+    const baseRaceId = race.name.replace(/\s+/g, '-');
+    raceIds.add(baseRaceId);
 
     // Add Sprint variant for races with sprints
     if (race.hasSprint) {
