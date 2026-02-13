@@ -182,26 +182,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_SIGNUP-010-v04
+    // GUID: API_AUTH_SIGNUP-010-v05
+    // @PERFORMANCE_FIX: Replaced getAllUsers() with indexed queries (was fetching ALL users causing 5-30s hangs).
     // [Intent] Check for duplicate team names (case-insensitive) across all existing users'
     //          primary AND secondary team names to ensure team name uniqueness.
     // [Inbound Trigger] Runs after the email uniqueness check passes.
     // [Downstream Impact] Returns 409 with VALIDATION_DUPLICATE_ENTRY if the team name is already taken.
-    // Check if team name already exists (case-insensitive) — checks both teamName and secondaryTeamName
-    const allUsersSnapshot = await db.collection('users').get();
+    // Check if team name already exists (case-insensitive)
     const normalizedNewName = normalizedTeamName.toLowerCase();
-    let teamNameExists = false;
 
-    allUsersSnapshot.forEach(doc => {
-      const data = doc.data();
-      const existingPrimary = data.teamName?.toLowerCase()?.trim();
-      const existingSecondary = data.secondaryTeamName?.toLowerCase()?.trim();
-      if (existingPrimary === normalizedNewName || existingSecondary === normalizedNewName) {
-        teamNameExists = true;
-      }
-    });
+    // Strategy: Use two targeted queries instead of fetching all users (performance fix)
+    // Query 1: Check primary team names
+    const primaryQuery = db.collection('users')
+      .where('teamNameLower', '==', normalizedNewName)
+      .limit(1);
 
-    if (teamNameExists) {
+    // Query 2: Check secondary team names
+    const secondaryQuery = db.collection('users')
+      .where('secondaryTeamNameLower', '==', normalizedNewName)
+      .limit(1);
+
+    // Execute both queries in parallel
+    const [primarySnapshot, secondarySnapshot] = await Promise.all([
+      primaryQuery.get(),
+      secondaryQuery.get()
+    ]);
+
+    if (!primarySnapshot.empty || !secondarySnapshot.empty) {
       return NextResponse.json(
         {
           success: false,
@@ -260,35 +267,79 @@ export async function POST(request: NextRequest) {
 
     const uid = userRecord.uid;
 
-    // GUID: API_AUTH_SIGNUP-012-v03
-    // [Intent] Create the Firestore user document and presence document for the newly registered user. The user document stores profile and state data; the presence document tracks online status.
+    // GUID: API_AUTH_SIGNUP-012-v05
+    // @PERFORMANCE_FIX: Added teamNameLower field for indexed queries (prevents getAllUsers() bottleneck).
+    // @ATOMICITY_FIX: Wrapped critical Firestore writes in try/catch with Auth user rollback to prevent orphaned accounts.
+    // [Intent] Create the Firestore user document and presence document for the newly registered user. The user document stores profile and state data; the presence document tracks online status. If Firestore writes fail, delete the Auth user to maintain atomicity.
     // [Inbound Trigger] Runs after Firebase Auth user is successfully created.
-    // [Downstream Impact] The users document is read by many parts of the application (login, dashboard, admin panels). The presence document is used by the online status system. Both documents are keyed by the Firebase Auth uid.
-    // Create Firestore user document
-    const newUser = {
-      id: uid,
-      email: normalizedEmail,
-      teamName: normalizedTeamName,
-      isAdmin: false,
-      mustChangePin: false,
-      badLoginAttempts: 0,
-      emailVerified: false,
-      createdAt: FieldValue.serverTimestamp(),
-    };
+    // [Downstream Impact] The users document is read by many parts of the application (login, dashboard, admin panels). The presence document is used by the online status system. Both documents are keyed by the Firebase Auth uid. If this fails, the Auth user is deleted to prevent orphaned accounts.
+    // Create Firestore user document (with rollback on failure)
+    try {
+      const newUser = {
+        id: uid,
+        email: normalizedEmail,
+        teamName: normalizedTeamName,
+        teamNameLower: normalizedTeamName.toLowerCase().trim(), // For indexed duplicate check
+        isAdmin: false,
+        mustChangePin: false,
+        badLoginAttempts: 0,
+        emailVerified: false,
+        createdAt: FieldValue.serverTimestamp(),
+      };
 
-    await db.collection('users').doc(uid).set(newUser);
+      await db.collection('users').doc(uid).set(newUser);
 
-    // Create presence document
-    await db.collection('presence').doc(uid).set({
-      online: false,
-      sessions: [],
-    });
+      // Create presence document
+      await db.collection('presence').doc(uid).set({
+        online: false,
+        sessions: [],
+      });
+    } catch (firestoreError: any) {
+      // CRITICAL: Rollback Auth user creation to prevent orphaned accounts
+      console.error(`[Signup ${correlationId}] Firestore write failed, rolling back Auth user:`, firestoreError);
+      try {
+        await auth.deleteUser(uid);
+        console.log(`[Signup ${correlationId}] Auth user ${uid} deleted successfully`);
+      } catch (deleteError: any) {
+        console.error(`[Signup ${correlationId}] CRITICAL: Failed to delete Auth user during rollback:`, deleteError);
+        // Log the orphaned account for manual cleanup
+        await db.collection('error_logs').add({
+          errorCode: 'ORPHANED_AUTH_ACCOUNT',
+          message: `Auth user ${uid} (${normalizedEmail}) created but Firestore write failed and rollback also failed. REQUIRES MANUAL CLEANUP.`,
+          correlationId,
+          uid,
+          email: normalizedEmail,
+          firestoreError: firestoreError.message,
+          deleteError: deleteError.message,
+          timestamp: FieldValue.serverTimestamp(),
+        });
+      }
 
-    // GUID: API_AUTH_SIGNUP-013-v03
-    // [Intent] Add the new user to the global league by appending their uid to the memberUserIds array. Fails silently if the global league document does not exist (non-blocking).
+      const traced = createTracedError(ERRORS.DATABASE_ERROR, {
+        correlationId,
+        context: { route: '/api/auth/signup', action: 'create_user_document', requestData: { email: normalizedEmail, teamName: normalizedTeamName } },
+        cause: firestoreError instanceof Error ? firestoreError : undefined,
+      });
+      await logTracedError(traced, db);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Failed to create user account. Please try again.',
+          errorCode: traced.definition.code,
+          correlationId: traced.correlationId,
+        },
+        { status: 500 }
+      );
+    }
+
+    // GUID: API_AUTH_SIGNUP-013-v04
+    // @BUG_FIX: Track partial failures and warn user instead of silent failure.
+    // [Intent] Add the new user to the global league by appending their uid to the memberUserIds array. Non-blocking, but now warns user if it fails.
     // [Inbound Trigger] Runs after user and presence documents are created.
     // [Downstream Impact] If this fails, the user will not appear in the global league standings until manually added. The global league document must have a memberUserIds array field.
     // Add user to global league
+    const warnings: string[] = [];
     try {
       const globalLeagueRef = db.collection('leagues').doc(GLOBAL_LEAGUE_ID);
       await globalLeagueRef.update({
@@ -297,7 +348,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (leagueError: any) {
       console.warn('[Signup] Could not add user to global league:', leagueError.message);
-      // Don't fail signup if global league doesn't exist
+      warnings.push('League enrollment pending - you may not appear in standings immediately.');
     }
 
     // GUID: API_AUTH_SIGNUP-014-v03
@@ -352,17 +403,18 @@ export async function POST(request: NextRequest) {
       console.warn('[Signup] Could not calculate late joiner handicap:', handicapError.message);
     }
 
-    // GUID: API_AUTH_SIGNUP-015-v04
-    // [Intent] Send a verification email to the new user via internal API endpoint. Fire-and-forget;
-    //          failure is logged but does not block signup completion. The verification email serves
-    //          as both welcome and verification (branded template with CTA button).
+    // GUID: API_AUTH_SIGNUP-015-v05
+    // @BUG_FIX: Track email failure and warn user instead of silent failure.
+    // [Intent] Send a verification email to the new user via internal API endpoint. Non-blocking,
+    //          but now warns user if it fails. The verification email serves as both welcome
+    //          and verification (branded template with CTA button).
     // [Inbound Trigger] Runs after all Firestore documents and handicap scoring are complete.
     // [Downstream Impact] Calls /api/send-verification-email. If the endpoint is down, the user
     //                     will not receive the email but the account is still fully created.
     // Send verification email (also serves as welcome email — no separate welcome needed)
     try {
       const baseUrl = request.headers.get('origin') || 'https://prix6.win';
-      await fetch(`${baseUrl}/api/send-verification-email`, {
+      const emailResponse = await fetch(`${baseUrl}/api/send-verification-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -371,8 +423,13 @@ export async function POST(request: NextRequest) {
           teamName: normalizedTeamName,
         }),
       });
+
+      if (!emailResponse.ok) {
+        warnings.push('Verification email may be delayed - check your inbox in a few minutes.');
+      }
     } catch (verifyError: any) {
       console.warn('[Signup] Failed to send verification email:', verifyError.message);
+      warnings.push('Verification email may be delayed - check your inbox in a few minutes.');
     }
 
     // GUID: API_AUTH_SIGNUP-016-v03
@@ -398,6 +455,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Registration successful!',
+      warnings: warnings.length > 0 ? warnings : undefined,
       customToken,
       uid,
     });

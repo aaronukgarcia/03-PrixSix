@@ -505,11 +505,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const signup = async (email: string, teamName: string, pin?: string): Promise<AuthResult> => {
     // Use server-side API for signup (handles permission checks with Admin SDK)
     try {
+      // Add 30s timeout for signup (longer than login due to email sending, league enrollment, etc.)
+      const SIGNUP_TIMEOUT = 30000;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), SIGNUP_TIMEOUT);
+
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, teamName, pin }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const result = await response.json();
 
@@ -530,12 +538,24 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         await signInWithCustomToken(auth, result.customToken);
       }
 
-      return { success: true, message: result.message || 'Registration successful!' };
+      // Build success message with warnings if present
+      let message = result.message || 'Registration successful!';
+      if (result.warnings && result.warnings.length > 0) {
+        message = `${message}\n\nNote: ${result.warnings.join(' ')}`;
+      }
+
+      return { success: true, message };
 
     } catch (error: any) {
       // Generate client-side correlation ID for network/client errors
       const correlationId = generateClientCorrelationId();
       console.error(`[Signup Error ${correlationId}]`, error);
+
+      // Check if this is a timeout error
+      const isTimeout = error.name === 'AbortError';
+      const errorMessage = isTimeout
+        ? 'Registration request timed out after 30 seconds. This may be due to high server load. Please try again.'
+        : error?.message || 'Network error during signup';
 
       // Log via API
       fetch('/api/log-client-error', {
@@ -543,20 +563,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           correlationId,
-          errorCode: ERRORS.NETWORK_ERROR.code,
-          error: error?.message || 'Network error during signup',
+          errorCode: isTimeout ? 'TIMEOUT_ERROR' : ERRORS.NETWORK_ERROR.code,
+          error: errorMessage,
           stack: error?.stack,
           context: {
             route: 'provider/signup',
             action: 'api_call',
             email: email?.toLowerCase(),
+            timeout: isTimeout,
           },
         }),
       }).catch(() => {});
 
       return {
         success: false,
-        message: `Registration failed - network error. Please check your connection and try again. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})`,
+        message: `Registration failed - ${isTimeout ? 'request timeout' : 'network error'}. Please ${isTimeout ? 'try again' : 'check your connection and try again'}. [${isTimeout ? 'TIMEOUT' : ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})`,
       };
     }
   };
