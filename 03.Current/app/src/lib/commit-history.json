@@ -1,7 +1,8 @@
 {
   "lastUpdated": "2026-02-13",
   "commits": [
-    {"id": "5ed8d14", "date": "2026-02-13", "version": "1.55.24", "author": "aaron garcia", "message": "fix: Add Spanish GP II mixed-case variant to validator (v1.55.24)", "major": false},
+    {"id": "PENDING", "date": "2026-02-13", "version": "1.55.25", "author": "aaron garcia", "message": "fix: Migrate Spanish GP II to canonical format - Single Source of Truth (v1.55.25)", "major": false},
+    {"id": "5ed8d14", "date": "2026-02-13", "version": "1.55.24", "author": "aaron garcia", "message": "REVERTED: Mixed-case hack violated Golden Rule #3", "major": false},
     {"id": "415c3db", "date": "2026-02-13", "version": "1.55.23", "author": "aaron garcia", "message": "fix: Add backward compatibility for GP race IDs without suffix (v1.55.23)", "major": false},
     {"id": "be346fc", "date": "2026-02-13", "version": "1.55.22", "author": "aaron garcia", "message": "fix: Race result raceId field - use Title-Case hyphenated format (v1.55.22)", "major": false},
     {"id": "291a103", "date": "2026-02-13", "version": "1.55.21", "author": "aaron garcia", "message": "fix: Remove normalizeRaceId from prediction validation check (v1.55.21)", "major": false},

@@ -288,26 +288,19 @@ export function getValidRaceIds(): Set<string> {
   const raceIds = new Set<string>();
 
   for (const race of RaceSchedule) {
-    // Add new GP variant with -GP suffix
+    // Single Source of Truth: RaceSchedule defines valid race IDs
+    // GP races: "Race-Name-GP" format
     raceIds.add(generateRaceId(race.name, 'gp'));
 
-    // Add old GP variant WITHOUT suffix (for backward compatibility with existing predictions)
-    // Old format: "British-Grand-Prix" (no suffix)
-    const baseRaceId = race.name.replace(/\s+/g, '-');
-    raceIds.add(baseRaceId);
-
-    // Special case: Spanish GP II has "II" but old predictions stored it as "Ii" (mixed case)
-    if (race.name === "Spanish Grand Prix II") {
-      raceIds.add("Spanish-Grand-Prix-Ii");
-    }
-
-    // Add Sprint variant for races with sprints
+    // Sprint races: "Race-Name-Sprint" format
     if (race.hasSprint) {
       raceIds.add(generateRaceId(race.name, 'sprint'));
     }
 
-    // Also add legacy format (lowercase without suffix) for backward compatibility
-    raceIds.add(normalizeRaceId(race.name));
+    // Legacy format without suffix (for old predictions created before suffix was added)
+    // This is the ONLY backward compatibility needed: "British-Grand-Prix" (no suffix)
+    const legacyId = race.name.replace(/\s+/g, '-');
+    raceIds.add(legacyId);
   }
 
   return raceIds;
