@@ -175,6 +175,7 @@
     {"id": "63d22b4", "date": "2026-01-22", "version": "1.20.17", "author": "aaron garcia", "message": "feat: Switch AI to Vertex AI with service account auth", "major": true},
     {"id": "1c5e54b", "date": "2026-01-22", "version": "1.20.16", "author": "aaron garcia", "message": "feat: Add AI-powered race prediction analysis with weighted facets", "major": true},
     {"id": "d4fba7a", "date": "2026-01-22", "version": "1.20.15", "author": "aaron garcia", "message": "feat: Implement late joiner penalty rule (BATCH 8)", "major": true},
-    {"id": "abad8a3", "date": "2026-01-22", "version": "1.20.14", "author": "aaron garcia", "message": "fix: Implement proper tie-breaking in standings page", "major": false}
+    {"id": "abad8a3", "date": "2026-01-22", "version": "1.20.14", "author": "aaron garcia", "message": "fix: Implement proper tie-breaking in standings page", "major": false},
+    {"id": "1e49d58", "date": "2026-02-13", "version": "1.55.26", "author": "aaron garcia", "message": "fix: Consistency checker race result validation", "major": false}
   ]
 }
