@@ -4,11 +4,11 @@
     "reviewer": "Bill (Claude Code)",
     "purpose": "Comprehensive passive code review for optimization, security, consistency, and maintainability",
     "scope": "Entire Prix Six codebase",
-    "totalIssuesFound": 502,
+    "totalIssuesFound": 505,
     "reviewStatus": "in_progress",
     "progressPercent": 100,
     "reviewStartTime": "2026-02-09T21:01:00Z",
-    "lastUpdated": "2026-02-12T23:02:57Z",
+    "lastUpdated": "2026-02-13T00:10:00Z",
     "completedTime": "2026-02-10T02:30:00Z",
     "modulesCompleted": 17,
     "modulesTotal": 17,
@@ -326,6 +326,30 @@
       "issue": "Remediation Plan for Critical Vulnerabilities",
       "impact": "This plan outlines the steps to remediate critical vulnerabilities found in the system.",
       "file": "RedTeam.json"
+    },
+    {
+        "id": "GEMINI-AUDIT-013",
+        "module": "Supporting Libraries",
+        "severity": "low",
+        "issue": "Inconsistent Correlation ID Generation",
+        "impact": "The `generateGuid` function uses `Math.random()` to generate a GUID, which is not cryptographically secure. The `logPermissionError` function uses `crypto.randomUUID()`, which is a cryptographically secure method. This is an inconsistency that could be improved by using `crypto.randomUUID()` everywhere for generating correlation IDs.",
+        "file": "app/src/lib/audit.ts"
+    },
+    {
+        "id": "GEMINI-AUDIT-012",
+        "module": "Security / Attack Detection",
+        "severity": "critical",
+        "issue": "Missing Account Lockout Mechanism",
+        "impact": "The attack detection system identifies various types of attacks, but it does not implement any account lockout mechanism. This means that even if an attack is detected, the attacker can continue to try to log in. A proper implementation should temporarily or permanently lock the account after a certain number of failed login attempts. The code itself acknowledges this with the comment `@AUDIT_NOTE: Account lockout (auto-locking accounts after repeated failures) not implemented`.",
+        "file": "app/src/lib/attack-detection.ts"
+    },
+    {
+        "id": "GEMINI-AUDIT-011",
+        "module": "Frontend Components",
+        "severity": "high",
+        "issue": "Missing CSRF Protection in Login Function",
+        "impact": "The `login` function in the `FirebaseProvider` makes a `POST` request to `/api/auth/login` without including a CSRF token. While modern browsers have SameSite cookie policies, this is not a complete defense. An attacker could still trick a user's browser into submitting malicious requests to this endpoint under certain conditions, potentially leading to unauthorized actions. A double-submit cookie or a token-based approach should be implemented to mitigate this risk.",
+        "file": "app/src/firebase/provider.tsx"
     },
     {
         "id": "GEMINI-AUDIT-010",
@@ -850,6 +874,44 @@
       "impact": "Scripts contain hardcoded lists of specific email addresses (PROTECTED_EMAILS) to identify 'protected users' for administrative data corrections. This brittle practice is prone to errors, makes maintenance difficult, and indicates poor operational security hygiene. The app/scripts/verify-admin.ts script uses a hardcoded ADMIN_EMAIL that serves a similar purpose for specific identity management. The app/scripts/verify-big-shakedown.ts script also uses hardcoded user IDs for verification checks",
       "file": "app/scripts/fix-protected-scores.ts, app/scripts/seed-big-shakedown.ts, app/scripts/verify-admin.ts, app/scripts/verify-big-shakedown.ts",
       "citation": "Gemini Red Team (RedTeam.json e6f7a8b9-c0d1-e2f3-a4b5c6d7e8f9)"
+    },
+    {
+      "id": "FRONTEND-PERF-001",
+      "module": "Frontend Performance",
+      "severity": "medium",
+      "issue": "Next.js Chunk Loading Timeouts",
+      "impact": "Users experiencing slow connections get ChunkLoadError preventing page load. Multiple reports from production (chunks 5239, 5463, 2992, 9268) across signup, forgot-pin, and home routes. Network timeout issues causing poor UX for users on slow connections or unstable networks.",
+      "file": "Next.js webpack configuration",
+      "recommendation": "Investigate CDN performance, implement chunk loading retry logic with exponential backoff, or increase webpack chunk timeout threshold. Consider code-splitting optimization to reduce chunk sizes.",
+      "errorLogs": ["MeLO5qEnbl9pD3InZMLE", "tUFRzXlSKPe2QEMIKJUT", "ymWCi7LRuhQkxDXhePAx", "JxAVotVuZXVD6ovDU5E6", "5VjFkZP4kcNLIZ4ONckX", "pHxo5mK0N2CNcOw5zOGo"]
+    },
+    {
+      "id": "FRONTEND-COMPAT-001",
+      "module": "Frontend Compatibility",
+      "severity": "low",
+      "issue": "Old Browser Compatibility - instanceof Errors",
+      "impact": "Users with very old browsers (Chrome 45 from 2015, Chrome 116) experiencing crashes with 'Right-hand side of instanceof is not an object' error. Affects small percentage of users but results in complete application failure for them.",
+      "file": "Next.js compiled bundles",
+      "recommendation": "Add browser version detection on entry and show upgrade message for unsupported browsers, or add polyfills for older browsers. Consider setting minimum browser version requirement and displaying graceful degradation message.",
+      "errorLogs": ["pTdUSzR1TFUHIVjD0xuq", "NyWABVtLY5C8YAhxbrfI", "jNT027RsrOg2q0H2B76F"]
+    },
+    {
+      "id": "FIRESTORE-007",
+      "module": "Firebase Firestore",
+      "severity": "critical",
+      "issue": "Audit Log Write Permission Denied for Admin User",
+      "impact": "Admin user aaron@garcia.ltd cannot write navigation logs to audit_logs collection when authenticated via Apple provider. Firestore Security Rules are rejecting create operations for audit_logs collection despite user being authenticated. This breaks the audit trail functionality for admin users.",
+      "file": "firestore.rules",
+      "recommendation": "Review audit_logs Firestore Security Rules. Current rules may not properly allow write access for authenticated users. Need to ensure audit logging works for all authentication providers (Apple, Google, password).",
+      "errorLog": "VA3fnT4Zs7YTpMHDD97U",
+      "context": {
+        "userId": "caPArwBSQHaZU48HHF2YjFDoxo93",
+        "email": "aaron@garcia.ltd",
+        "provider": "apple.com",
+        "action": "navigate",
+        "path": "/about",
+        "timestamp": "2026-02-12T22:30:32.444Z"
+      }
     }
   ]
 }
