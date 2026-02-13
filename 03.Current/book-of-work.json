@@ -912,6 +912,42 @@
         "path": "/about",
         "timestamp": "2026-02-12T22:30:32.444Z"
       }
+    },
+    {
+      "id": "GEMINI-AUDIT-014",
+      "module": "Admin Components",
+      "severity": "low",
+      "issue": "Information Disclosure via Client-Side Console Error Logging",
+      "impact": "The `console.error('[AttackMonitor] Firestore error:', error);` statement in `AttackMonitor.tsx` directly logs the raw Firestore error object to the client-side browser console. This can expose sensitive internal application details, database structure, or partial data, which could be exploited by malicious actors in a production environment. Error messages should be sanitized or abstracted before being logged to client-side consoles.",
+      "file": "app/src/app/(app)/admin/_components/AttackMonitor.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-015",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Authorization Bypass by Direct Client-Side Firestore Writes to admin_configuration/global",
+      "impact": "The `updateAuditSettings` function in `AuditManager.tsx` directly modifies the `admin_configuration/global` Firestore document via `setDoc` from the client. This client-side operation lacks server-side authentication and authorization checks. A malicious actor could bypass the UI, invoke `updateAuditSettings` directly, and set `auditLoggingEnabled: false`, effectively disabling audit logging system-wide without administrative privileges. This mirrors `GEMINI-AUDIT-002` but targets a different administrative control.",
+      "file": "app/src/app/(app)/admin/_components/AuditManager.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-016",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Stored XSS via Unescaped Team Name in Audit Log Viewer",
+      "impact": "The `AuditLogViewer` component directly renders `user?.teamName` without any HTML escaping. Since users can set their own team names, an attacker could set their team name to a malicious JavaScript payload (e.g., `<script>alert('XSS')</script>`). When an administrator views the audit log for an action performed by this user, the malicious script will execute in the administrator's browser, leading to potential session hijacking, unauthorized actions, and full admin account compromise.",
+      "file": "app/src/app/(app)/admin/_components/AuditLogViewer.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-017",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Denial of Wallet via Unbounded Admin-Triggered Read Operations",
+      "impact": "The `runChecks` function in `ConsistencyChecker.tsx` fetches entire Firestore collections (e.g., `predictions` via `collectionGroup`, `race_results`, `scores`, `leagues`) without pagination or limits. A malicious or careless administrator could repeatedly trigger this function, causing an enormous number of document reads, leading to excessive Firebase billing and a Denial of Wallet (DoW) attack. Server-side aggregation or pagination should be enforced to prevent unbounded reads.",
+      "file": "app/src/app/(app)/admin/_components/ConsistencyChecker.tsx",
+      "citation": "Gemini Red Team"
     }
   ]
 }

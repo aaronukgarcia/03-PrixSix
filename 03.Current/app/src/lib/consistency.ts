@@ -1018,7 +1018,7 @@ export function checkRaceResults(results: RaceResultData[]): CheckResult {
     let isValid = true;
     const entityName = `Race Result ${result.id}`;
 
-    // Check race reference
+    // Check race reference (direct Title-Case match, consistent with checkPredictions)
     if (!result.raceId) {
       issues.push({
         severity: 'error',
@@ -1027,17 +1027,14 @@ export function checkRaceResults(results: RaceResultData[]): CheckResult {
         message: 'Missing raceId',
       });
       isValid = false;
-    } else {
-      const normalizedId = normalizeRaceId(result.raceId);
-      if (!validRaceIds.has(normalizedId)) {
-        issues.push({
-          severity: 'warning',
-          entity: entityName,
-          field: 'raceId',
-          message: `Unknown raceId: ${result.raceId}`,
-          details: { raceId: result.raceId, normalizedId },
-        });
-      }
+    } else if (!validRaceIds.has(result.raceId)) {
+      issues.push({
+        severity: 'warning',
+        entity: entityName,
+        field: 'raceId',
+        message: `Unknown raceId: ${result.raceId}`,
+        details: { raceId: result.raceId },
+      });
     }
 
     // Check all 6 driver positions
