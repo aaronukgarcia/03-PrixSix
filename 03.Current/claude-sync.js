@@ -516,30 +516,39 @@ async function cmdCheckin() {
     }
   }
 
-  // Step 3.5: SMART CLEANUP — If all slots occupied but all sessions inactive >30min, force clear them
+  // Step 3.5: ZOMBIE DETECTION & CLEANUP
+  // If all slots occupied, check for zombie sessions (inactive >10 min = 2x ping interval)
+  // Aggressively clear zombies so you always get Bill when you're the only live instance
   const activeSessions = Object.values(state.sessions).filter(s => s.status === 'active');
-  if (activeSessions.length === 3) {
+  if (activeSessions.length >= 1) {
     const now = new Date();
-    const allInactive = activeSessions.every(s => {
-      const lastActive = new Date(s.lastActivity);
-      const inactiveMinutes = (now - lastActive) / (1000 * 60);
-      return inactiveMinutes > 30; // All inactive for >30 min
-    });
+    const ZOMBIE_THRESHOLD_MIN = 10; // 2x the 5-min recommended ping interval
 
-    if (allInactive) {
-      console.log('[AUTO-CLEANUP] All 3 sessions inactive >30 min. Force clearing...');
-      for (const [sessionId, session] of Object.entries(state.sessions)) {
-        if (session.status === 'active') {
-          state.sessions[sessionId].status = 'auto-cleared';
-          state.sessions[sessionId].endedAt = now.toISOString();
-          console.log(`  Cleared: ${session.name} (inactive ${Math.round((now - new Date(session.lastActivity)) / (1000 * 60))} min)`);
-        }
+    // Find and evict zombie sessions
+    let zombiesCleared = 0;
+    for (const [sessionId, session] of Object.entries(state.sessions)) {
+      if (session.status !== 'active') continue;
+
+      const lastActive = new Date(session.lastActivity);
+      const inactiveMinutes = (now - lastActive) / (1000 * 60);
+
+      if (inactiveMinutes > ZOMBIE_THRESHOLD_MIN) {
+        console.log(`[ZOMBIE DETECTED] ${session.name} inactive ${Math.round(inactiveMinutes)} min — evicting`);
+        state.sessions[sessionId].status = 'zombie-cleared';
+        state.sessions[sessionId].endedAt = now.toISOString();
+        state.activityLog = state.activityLog || [];
+        state.activityLog.push({
+          sessionId,
+          name: session.name,
+          message: `${session.name} evicted: zombie (inactive ${Math.round(inactiveMinutes)} min)`,
+          timestamp: now.toISOString()
+        });
+        zombiesCleared++;
       }
-      state.activityLog = state.activityLog || [];
-      state.activityLog.push({
-        message: 'AUTO-CLEANUP: Force cleared all inactive sessions (>30 min)',
-        timestamp: now.toISOString()
-      });
+    }
+
+    if (zombiesCleared > 0) {
+      console.log(`[AUTO-CLEANUP] Cleared ${zombiesCleared} zombie session(s). You should get Bill now.`);
     }
   }
 

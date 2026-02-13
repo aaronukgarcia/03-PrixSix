@@ -1,7 +1,8 @@
 {
   "lastUpdated": "2026-02-13",
   "commits": [
-    {"id": "0ed8fbf", "date": "2026-02-13", "version": "1.55.16", "author": "aaron garcia", "message": "fix: claude-sync.js auto-cleanup for stale sessions (v1.55.16)", "major": false},
+    {"id": "59be019", "date": "2026-02-13", "version": "1.55.17", "author": "aaron garcia", "message": "feat: Aggressive zombie session detection in claude-sync.js (v1.55.17)", "major": false},
+    {"id": "2462a80", "date": "2026-02-13", "version": "1.55.16", "author": "aaron garcia", "message": "fix: claude-sync.js auto-cleanup for stale sessions (v1.55.16)", "major": false},
     {"id": "43f529c", "date": "2026-02-12", "version": "1.55.15", "author": "aaron garcia", "message": "refactor: Centralize race ID generation (Golden Rule #3 - v1.55.15)", "major": false},
     {"id": "a87d64d", "date": "2026-02-12", "version": "1.55.14", "author": "aaron garcia", "message": "chore: Session coordination improvements and security audit update (v1.55.14)", "major": false},
     {"id": "4aaadde", "date": "2026-02-12", "version": "1.55.13", "author": "aaron garcia", "message": "fix: Sprint race normalization and carry-forward scoring (v1.55.13)", "major": false},
