@@ -296,6 +296,11 @@ export function getValidRaceIds(): Set<string> {
     const baseRaceId = race.name.replace(/\s+/g, '-');
     raceIds.add(baseRaceId);
 
+    // Special case: Spanish GP II has "II" but old predictions stored it as "Ii" (mixed case)
+    if (race.name === "Spanish Grand Prix II") {
+      raceIds.add("Spanish-Grand-Prix-Ii");
+    }
+
     // Add Sprint variant for races with sprints
     if (race.hasSprint) {
       raceIds.add(generateRaceId(race.name, 'sprint'));
