@@ -9,7 +9,7 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { F1Drivers } from '@/lib/data';
 import { SCORING_POINTS, calculateDriverPoints } from '@/lib/scoring-rules';
-import { normalizeRaceId } from '@/lib/normalize-race-id';
+import { normalizeRaceId, generateRaceId } from '@/lib/normalize-race-id';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -56,23 +56,23 @@ interface StandingEntry {
 // [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
 const normalizeRaceIdForPredictions = normalizeRaceId;
 
-// GUID: API_CALCULATE_SCORES-005-v03
-// [Intent] Creates a Firestore document ID for race results that preserves GP vs Sprint distinction (e.g. "australia-gp" or "australia-sprint").
+// GUID: API_CALCULATE_SCORES-005-v04
+// @CASE_FIX: Now uses generateRaceId() for Title-Case consistency (Golden Rule #3).
+// [Intent] Creates a Firestore document ID for race results that preserves GP vs Sprint distinction (e.g. "British-Grand-Prix-GP" or "British-Grand-Prix-Sprint").
 // [Inbound Trigger] Called once per scoring request to determine where to store the race result and score documents.
 // [Downstream Impact] Score documents use this ID as a prefix. The delete-scores route and results display pages depend on this format. Changes here break score lookups and deletion.
 /**
- * Create document ID for race results - preserves GP/Sprint distinction.
- * Sprint races get "-sprint" suffix, GP races get "-gp" suffix.
+ * Create document ID for race results - preserves GP/Sprint distinction in Title-Case.
+ * Sprint races get "-Sprint" suffix, GP races get "-GP" suffix.
  */
 function createRaceResultDocId(raceName: string): string {
   const isSprint = /\s*-\s*Sprint$/i.test(raceName);
   const baseName = raceName
     .replace(/\s*-\s*GP$/i, '')
     .replace(/\s*-\s*Sprint$/i, '')
-    .replace(/\s+/g, '-')
-    .toLowerCase();
+    .trim();
 
-  return isSprint ? `${baseName}-sprint` : `${baseName}-gp`;
+  return generateRaceId(baseName, isSprint ? 'sprint' : 'gp');
 }
 
 // GUID: API_CALCULATE_SCORES-006-v03

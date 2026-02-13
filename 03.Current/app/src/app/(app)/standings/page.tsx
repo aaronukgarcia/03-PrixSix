@@ -239,20 +239,20 @@ export default function StandingsPage() {
 
           // Check if we have scores for this race weekend
           // A race weekend is "completed" if it has GP scores
-          // Note: Scores are stored with lowercase raceId, so we lowercase for comparison
-          const hasGpScores = raceIdsWithScores.has(gpRaceId.toLowerCase());
-          const hasSprintScores = sprintRaceId ? raceIdsWithScores.has(sprintRaceId.toLowerCase()) : false;
+          // @CASE_FIX: Now uses Title-Case throughout (removed .toLowerCase() calls)
+          const hasGpScores = raceIdsWithScores.has(gpRaceId);
+          const hasSprintScores = sprintRaceId ? raceIdsWithScores.has(sprintRaceId) : false;
 
-          // Also check for legacy format (without -GP suffix)
-          const hasLegacyScores = raceIdsWithScores.has(baseRaceId.toLowerCase());
+          // Also check for legacy format (without -GP suffix, Title-Case)
+          const hasLegacyScores = raceIdsWithScores.has(baseRaceId);
 
           if (hasGpScores || hasLegacyScores) {
-            // Store lowercase IDs to match against score.raceId which is lowercase
+            // Store Title-Case IDs to match score.raceId format (Golden Rule #3)
             completed.push({
               name: race.name,
-              baseRaceId: baseRaceId.toLowerCase(),
-              sprintRaceId: sprintRaceId?.toLowerCase() || null,
-              gpRaceId: hasGpScores ? gpRaceId.toLowerCase() : baseRaceId.toLowerCase(),
+              baseRaceId: baseRaceId,
+              sprintRaceId: sprintRaceId || null,
+              gpRaceId: hasGpScores ? gpRaceId : baseRaceId,
               hasSprint: race.hasSprint,
               index,
               hasSprintScores,

@@ -8,7 +8,7 @@ import { RaceSchedule } from '@/lib/data';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
-import { generateRaceIdLowercase } from '@/lib/normalize-race-id';
+import { generateRaceId, generateRaceIdLowercase } from '@/lib/normalize-race-id';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -148,13 +148,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // GUID: API_SUBMIT_PREDICTION-006-v03
+    // GUID: API_SUBMIT_PREDICTION-005a-v01
+    // [Intent] Normalize raceId to Title-Case format (e.g., "British-Grand-Prix-Sprint") for consistency.
+    //          Client may send any case format, so we enforce single source of truth here.
+    // [Inbound Trigger] After all validation passes, before storing prediction.
+    // [Downstream Impact] Ensures all predictions use consistent Title-Case race IDs, matching the format
+    //                     required for scoring and consistency checking.
+    const isSprintRace = raceId.toLowerCase().includes('sprint') || raceName.toLowerCase().includes('sprint');
+    const baseRaceName = raceName.replace(/\s*-\s*(GP|Sprint)\s*$/i, '').trim();
+    const normalizedRaceId = generateRaceId(baseRaceName, isSprintRace ? 'sprint' : 'gp');
+
+    // GUID: API_SUBMIT_PREDICTION-006-v04
+    // @CASE_FIX: Now stores normalized Title-Case raceId instead of raw client input (Golden Rule #3).
     // [Intent] Atomically writes the prediction document to the user's predictions subcollection (using merge to allow updates) and creates an audit log entry, committed as a single batch.
     // [Inbound Trigger] After all validation and lockout checks pass.
-    // [Downstream Impact] The prediction document (keyed as {teamId}_{raceId}) becomes the source of truth for scoring. The merge strategy allows users to update their prediction by re-submitting. The audit log provides a submission trail.
+    // [Downstream Impact] The prediction document (keyed as {teamId}_{normalizedRaceId}) becomes the source of truth for scoring. The merge strategy allows users to update their prediction by re-submitting. The audit log provides a submission trail.
     const batch = db.batch();
 
-    const predictionId = `${teamId}_${raceId}`;
+    const predictionId = `${teamId}_${normalizedRaceId}`;
     const predictionRef = db.collection('users').doc(userId).collection('predictions').doc(predictionId);
     const auditRef = db.collection('audit_logs').doc();
 
@@ -164,7 +175,7 @@ export async function POST(request: NextRequest) {
       userId,
       teamId,
       teamName,
-      raceId,
+      raceId: normalizedRaceId,
       raceName,
       predictions,
       submittedAt: FieldValue.serverTimestamp(),
@@ -177,7 +188,7 @@ export async function POST(request: NextRequest) {
       details: {
         teamName,
         raceName,
-        raceId,
+        raceId: normalizedRaceId,
         predictions,
         submittedAt: new Date().toISOString(),
       },

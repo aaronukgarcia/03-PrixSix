@@ -23,7 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { normalizeRaceId as sharedNormalizeRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id";
+import { normalizeRaceId as sharedNormalizeRaceId, generateRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id";
 
 // GUID: ADMIN_RESULTS-001-v04
 // @TECH_DEBT: Local normalizeRaceId replaced with shared import from normalize-race-id.ts (Golden Rule #3).
@@ -249,7 +249,10 @@ export function ResultsManager() {
         setIsSubmitting(true);
 
         try {
-            const raceId = selectedRace.replace(/\s+/g, '-').toLowerCase();
+            // Determine race type and generate Title-Case race ID
+            const isSprintRace = selectedRace.includes('Sprint');
+            const raceName = selectedRace.replace(/\s*-\s*(GP|Sprint)\s*$/i, '').trim();
+            const raceId = generateRaceId(raceName, isSprintRace ? 'sprint' : 'gp');
 
             // SECURITY: Get Firebase ID token for server-side verification
             const idToken = await firebaseUser.getIdToken();

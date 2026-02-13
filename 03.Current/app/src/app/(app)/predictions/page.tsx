@@ -18,7 +18,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { doc, collection, query, orderBy, limit, where } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
-import { generateRaceIdLowercase } from "@/lib/normalize-race-id";
+import { generateRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id";
 
 // GUID: PAGE_PREDICTIONS-001-v03
 // [Intent] Inner content component encapsulating all prediction logic — determines next open race,
@@ -63,7 +63,8 @@ function PredictionsContent() {
     return findNextRace();
   }, [raceResults]);
 
-  const raceId = nextRace.name.replace(/\s+/g, '-');
+  // @CASE_FIX: Use generateRaceId() for Title-Case consistency (Golden Rule #3)
+  const raceId = generateRaceId(nextRace.name, 'gp');
 
   // GUID: PAGE_PREDICTIONS-004-v03
   // [Intent] Determines if the pit lane is open (predictions allowed) by checking both
