@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-13",
   "commits": [
+    {"id": "PENDING", "date": "2026-02-13", "version": "1.55.22", "author": "aaron garcia", "message": "fix: Race result raceId field - use Title-Case hyphenated format (v1.55.22)", "major": false},
     {"id": "291a103", "date": "2026-02-13", "version": "1.55.21", "author": "aaron garcia", "message": "fix: Remove normalizeRaceId from prediction validation check (v1.55.21)", "major": false},
     {"id": "b612507", "date": "2026-02-13", "version": "1.55.20", "author": "aaron garcia", "message": "fix: Consistency Checker race ID validation (v1.55.20)", "major": false},
     {"id": "4b88022", "date": "2026-02-13", "version": "1.55.19", "author": "aaron garcia", "message": "fix: Race ID case handling - enforce Title-Case everywhere (v1.55.19)", "major": false},

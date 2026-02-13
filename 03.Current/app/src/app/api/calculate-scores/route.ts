@@ -423,7 +423,7 @@ export async function POST(request: NextRequest) {
     const resultDocRef = db.collection('race_results').doc(resultDocId);
     batch.set(resultDocRef, {
       id: resultDocId,
-      raceId: raceName,
+      raceId: resultDocId,
       driver1,
       driver2,
       driver3,

@@ -1,11 +1,11 @@
 {
   "module": "Prix Six Application",
-  "generated": "2026-02-10",
-  "total_guids": 1062,
+  "generated": "2026-02-13",
+  "total_guids": 1002,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin security component that displays unacknowledged attack alerts (bot attacks, credential stuffing, distributed attacks) with severity-coded UI and acknowledgement controls.",
       "dependencies": [],
@@ -91,7 +91,7 @@
     },
     {
       "guid": "ADMIN_ATTACK_MONITOR-006",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Acknowledges a single attack alert by updating its Firestore document with acknowledged=true, the admin's user ID, and a timestamp.",
       "dependencies": [],
@@ -106,7 +106,7 @@
     },
     {
       "guid": "ADMIN_ATTACK_MONITOR-007",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Acknowledges all currently visible attack alerts in parallel using Promise.all.",
       "dependencies": [],
@@ -776,7 +776,7 @@
     },
     {
       "guid": "ADMIN_ERRORLOG-000",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for viewing, searching, filtering, and resolving system error logs.",
       "dependencies": [],
@@ -796,6 +796,21 @@
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      }
+    },
+    {
+      "guid": "ADMIN_ERRORLOG-001a",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Sanitizes stack traces to remove absolute paths and sensitive information before display. Prevents information disclosure of server directory structure and file paths.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx",
+        "functionName": "sanitizeStackTrace"
       },
       "callChain": {
         "calledBy": [],
@@ -862,7 +877,7 @@
     },
     {
       "guid": "ADMIN_ERRORLOG-006",
-      "version": 3,
+      "version": 5,
       "logic_category": "VALIDATION",
       "description": "Main exported component that provides a full error log viewing interface with filtering, searching, grouping, and resolution tracking.",
       "dependencies": [],
@@ -963,7 +978,7 @@
     },
     {
       "guid": "ADMIN_ERRORLOG-013",
-      "version": 3,
+      "version": 5,
       "logic_category": "TRANSFORMATION",
       "description": "Renders a single error log entry with expandable details, copy-able correlation ID, stack trace, context, and a \"Mark as Resolved\" action.",
       "dependencies": [],
@@ -978,7 +993,7 @@
     },
     {
       "guid": "ADMIN_ERRORLOG-014",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Marks an error log as resolved by updating the Firestore document with resolved=true and a timestamp.",
       "dependencies": [],
@@ -1967,7 +1982,7 @@
     },
     {
       "guid": "ADMIN_RESULTS-018",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Delete a race result and its associated scores via the server-side /api/delete-scores endpoint.",
       "dependencies": [],
@@ -2244,7 +2259,7 @@
     },
     {
       "guid": "ADMIN_TEAM-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for managing user teams: view, edit, delete, toggle admin status, and unlock locked accounts.",
       "dependencies": [],
@@ -2317,7 +2332,7 @@
     },
     {
       "guid": "ADMIN_TEAM-005",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Persists edited user fields (teamName, email, isAdmin) to Firestore and closes the dialog.",
       "dependencies": [],
@@ -2391,7 +2406,7 @@
     },
     {
       "guid": "ADMIN_WHATSAPP-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for managing WhatsApp integration: worker status monitoring, alert configuration, custom message sending, message queue viewing, and alert history.",
       "dependencies": [],
@@ -2921,7 +2936,7 @@
       "guid": "API_ADMIN_DELETE_USER-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Admin API route for deleting a user account \u00e2\u20ac\u201d coordinates removal from Firebase Auth, Firestore users/presence collections, and league memberships with full audit logging.",
+      "description": "Admin API route for deleting a user account â€” coordinates removal from Firebase Auth, Firestore users/presence collections, and league memberships with full audit logging.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/delete-user/route.ts",
@@ -2936,7 +2951,7 @@
       "guid": "API_ADMIN_DELETE_USER-001",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Zod schema for validating delete request \u00e2\u20ac\u201d ensures both userId and adminUid are present and non-empty.",
+      "description": "Zod schema for validating delete request â€” ensures both userId and adminUid are present and non-empty.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/delete-user/route.ts",
@@ -2966,7 +2981,7 @@
       "guid": "API_ADMIN_DELETE_USER-003",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Early return on Zod validation failure \u00e2\u20ac\u201d provides field-level errors to the caller.",
+      "description": "Early return on Zod validation failure â€” provides field-level errors to the caller.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/delete-user/route.ts"
@@ -2994,7 +3009,7 @@
       "guid": "API_ADMIN_DELETE_USER-005",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Safety guard \u00e2\u20ac\u201d prevent admins from accidentally deleting their own account.",
+      "description": "Safety guard â€” prevent admins from accidentally deleting their own account.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/delete-user/route.ts"
@@ -3050,7 +3065,7 @@
       "guid": "API_ADMIN_DELETE_USER-009",
       "version": 3,
       "logic_category": "RECOVERY",
-      "description": "Remove the deleted user's ID from all league memberUserIds arrays. Best-effort \u00e2\u20ac\u201d failure is logged but does not block the response.",
+      "description": "Remove the deleted user's ID from all league memberUserIds arrays. Best-effort â€” failure is logged but does not block the response.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/delete-user/route.ts"
@@ -3078,7 +3093,7 @@
       "guid": "API_ADMIN_DELETE_USER-011",
       "version": 4,
       "logic_category": "RECOVERY",
-      "description": "Top-level error handler \u00e2\u20ac\u201d catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
+      "description": "Top-level error handler â€” catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/delete-user/route.ts"
@@ -3106,7 +3121,7 @@
       "guid": "API_ADMIN_FETCH_TIMING_DATA-001",
       "version": 1,
       "logic_category": "VALIDATION",
-      "description": "Zod schema for validating the fetch request \u2014 requires sessionKey and adminUid.",
+      "description": "Zod schema for validating the fetch request — requires sessionKey and adminUid.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/fetch-timing-data/route.ts",
@@ -3270,7 +3285,7 @@
       "guid": "API_ADMIN_FETCH_TIMING_DATA-012",
       "version": 2,
       "logic_category": "ORCHESTRATION",
-      "description": "Top-level error handler \u2014 catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
+      "description": "Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/fetch-timing-data/route.ts"
@@ -3341,7 +3356,7 @@
       "guid": "API_ADMIN_OPENF1_SESSIONS-004",
       "version": 2,
       "logic_category": "ORCHESTRATION",
-      "description": "Top-level error handler \u2014 logs to error_logs and returns safe 500 response.",
+      "description": "Top-level error handler — logs to error_logs and returns safe 500 response.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/openf1-sessions/route.ts"
@@ -3370,7 +3385,7 @@
       "guid": "API_ADMIN_UPDATE_USER-001",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Zod schema for strict request validation \u00e2\u20ac\u201d prevents mass assignment by only allowing known fields.",
+      "description": "Zod schema for strict request validation â€” prevents mass assignment by only allowing known fields.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/update-user/route.ts"
@@ -3399,7 +3414,7 @@
       "guid": "API_ADMIN_UPDATE_USER-003",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Early return on Zod validation failure \u00e2\u20ac\u201d provides detailed field-level errors to the caller.",
+      "description": "Early return on Zod validation failure â€” provides detailed field-level errors to the caller.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/update-user/route.ts"
@@ -3469,7 +3484,7 @@
       "guid": "API_ADMIN_UPDATE_USER-008",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Propagate teamName changes to all of the user's prediction documents (Golden Rule #3: Single Source of Truth \u00e2\u20ac\u201d denormalised teamName must stay in sync).",
+      "description": "Propagate teamName changes to all of the user's prediction documents (Golden Rule #3: Single Source of Truth â€” denormalised teamName must stay in sync).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/update-user/route.ts"
@@ -3497,7 +3512,7 @@
       "guid": "API_ADMIN_UPDATE_USER-010",
       "version": 4,
       "logic_category": "RECOVERY",
-      "description": "Top-level error handler \u00e2\u20ac\u201d catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
+      "description": "Top-level error handler â€” catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/admin/update-user/route.ts"
@@ -3525,7 +3540,7 @@
       "guid": "API_AI_ANALYSIS-001",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "TypeScript interface for a single driver in the user's prediction \u00e2\u20ac\u201d position, driver code, full name, and constructor team.",
+      "description": "TypeScript interface for a single driver in the user's prediction â€” position, driver code, full name, and constructor team.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/ai/analysis/route.ts"
@@ -3539,7 +3554,7 @@
       "guid": "API_AI_ANALYSIS-002",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "TypeScript interface for analysis weight sliders \u00e2\u20ac\u201d each facet (0-10) controls how much emphasis the AI gives to that analysis dimension. Includes two pundit personas (jackSparrow, rowanHornblower) with extended word budgets.",
+      "description": "TypeScript interface for analysis weight sliders â€” each facet (0-10) controls how much emphasis the AI gives to that analysis dimension. Includes two pundit personas (jackSparrow, rowanHornblower) with extended word budgets.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/ai/analysis/route.ts"
@@ -3553,7 +3568,7 @@
       "guid": "API_AI_ANALYSIS-003",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "TypeScript interface for the full analysis request payload \u00e2\u20ac\u201d race metadata, driver predictions, weight configuration, and pre-calculated total weight.",
+      "description": "TypeScript interface for the full analysis request payload â€” race metadata, driver predictions, weight configuration, and pre-calculated total weight.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/ai/analysis/route.ts"
@@ -3567,7 +3582,7 @@
       "guid": "API_AI_ANALYSIS-004",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Constants defining word budgets per facet type \u00e2\u20ac\u201d standard facets get 50 words each, pundit personas get up to 250 words scaled by weight.",
+      "description": "Constants defining word budgets per facet type â€” standard facets get 50 words each, pundit personas get up to 250 words scaled by weight.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/ai/analysis/route.ts",
@@ -3655,7 +3670,7 @@
       "guid": "API_AI_ANALYSIS-010",
       "version": 4,
       "logic_category": "VALIDATION",
-      "description": "Top-level error handler \u00e2\u20ac\u201d catches any unhandled exceptions outside of the AI call (e.g., JSON parse, validation). Logs to error_logs and returns a safe 500 response with a fallback analysis message.",
+      "description": "Top-level error handler â€” catches any unhandled exceptions outside of the AI call (e.g., JSON parse, validation). Logs to error_logs and returns a safe 500 response with a fallback analysis message.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/ai/analysis/route.ts"
@@ -4071,7 +4086,7 @@
       "guid": "API_AUTH_LOGIN-013",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Record a logon event in user_logons for session tracking after successful PIN authentication. Includes IP and user agent. Non-blocking \u00e2\u20ac\u201d login succeeds even if tracking fails.",
+      "description": "Record a logon event in user_logons for session tracking after successful PIN authentication. Includes IP and user agent. Non-blocking â€” login succeeds even if tracking fails.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/auth/login/route.ts"
@@ -4090,7 +4105,7 @@
             "key": "LOGON_RECORD_FAILED",
             "message": "Failed to record logon event",
             "severity": "warning",
-            "recovery": "Non-blocking \u00e2\u20ac\u201d login succeeds even if tracking fails. Session will expire via scheduled function.",
+            "recovery": "Non-blocking â€” login succeeds even if tracking fails. Session will expire via scheduled function.",
             "failureModes": [
               "Firestore write timeout",
               "Admin SDK initialization failure"
@@ -4124,7 +4139,7 @@
             "key": "LOGON_RECORD_FAILED",
             "message": "Failed to record logon event",
             "severity": "error",
-            "recovery": "Non-blocking \u00e2\u20ac\u201d OAuth login continues even if logon recording fails.",
+            "recovery": "Non-blocking â€” OAuth login continues even if logon recording fails.",
             "failureModes": [
               "Token verification failure",
               "Firestore write failure",
@@ -4159,7 +4174,7 @@
             "key": "LOGON_LOGOUT_FAILED",
             "message": "Failed to record logout event",
             "severity": "error",
-            "recovery": "Non-blocking \u00e2\u20ac\u201d logout proceeds. Session will expire via scheduled function after 24h.",
+            "recovery": "Non-blocking â€” logout proceeds. Session will expire via scheduled function after 24h.",
             "failureModes": [
               "Token verification failure",
               "Logon document not found",
@@ -4988,7 +5003,7 @@
       "guid": "API_EMAIL_HEALTH-001",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Type definition for the health check response \u00e2\u20ac\u201d structured result with overall status and individual check statuses for Graph credentials, Firebase Admin, recent emails, and queued emails.",
+      "description": "Type definition for the health check response â€” structured result with overall status and individual check statuses for Graph credentials, Firebase Admin, recent emails, and queued emails.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/email-health/route.ts"
@@ -5000,9 +5015,9 @@
     },
     {
       "guid": "API_EMAIL_HEALTH-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
-      "description": "GET handler \u00e2\u20ac\u201d authenticates the caller via Bearer token, checks admin status, then assembles a health report by inspecting Graph API env vars, querying email_logs for failures in the last 24 hours, and checking email_queue for pending items. Returns overall status as healthy/degraded/unhealthy.",
+      "description": "GET handler â€” authenticates the caller via Bearer token, checks admin status, then assembles a health report by inspecting Graph API env vars, querying email_logs for failures in the last 24 hours, and checking email_queue for pending items. Returns overall status as healthy/degraded/unhealthy.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/email-health/route.ts",
@@ -5017,7 +5032,7 @@
       "guid": "API_EMAIL_QUEUE-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "API route that manages the email queue \u00e2\u20ac\u201d supports fetching queued/failed emails (GET), sending or re-queuing emails with retry logic (POST), and deleting queued emails (DELETE). Central to the email delivery reliability system.",
+      "description": "API route that manages the email queue â€” supports fetching queued/failed emails (GET), sending or re-queuing emails with retry logic (POST), and deleting queued emails (DELETE). Central to the email delivery reliability system.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/email-queue/route.ts",
@@ -5032,7 +5047,7 @@
       "guid": "API_EMAIL_QUEUE-001",
       "version": 3,
       "logic_category": "RECOVERY",
-      "description": "Retry configuration constants \u00e2\u20ac\u201d limits retry attempts to 3 and spaces retries 5 minutes apart to avoid hammering the Graph API during transient failures.",
+      "description": "Retry configuration constants â€” limits retry attempts to 3 and spaces retries 5 minutes apart to avoid hammering the Graph API during transient failures.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/email-queue/route.ts"
@@ -5046,7 +5061,7 @@
       "guid": "API_EMAIL_QUEUE-002",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Type definition for a queued email document \u00e2\u20ac\u201d represents an email in the email_queue Firestore collection with its delivery status, retry metadata, and content.",
+      "description": "Type definition for a queued email document â€” represents an email in the email_queue Firestore collection with its delivery status, retry metadata, and content.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/email-queue/route.ts"
@@ -5058,9 +5073,9 @@
     },
     {
       "guid": "API_EMAIL_QUEUE-003",
-      "version": 3,
+      "version": 4,
       "logic_category": "RECOVERY",
-      "description": "GET handler \u00e2\u20ac\u201d fetches queued emails from Firestore. In admin mode (includeAll=true), returns up to 100 emails regardless of status. In normal mode, returns only pending emails whose nextRetryAt has passed (ready to process).",
+      "description": "GET handler â€” fetches queued emails from Firestore. In admin mode (includeAll=true), returns up to 100 emails regardless of status. In normal mode, returns only pending emails whose nextRetryAt has passed (ready to process).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/email-queue/route.ts",
@@ -5073,9 +5088,9 @@
     },
     {
       "guid": "API_EMAIL_QUEUE-004",
-      "version": 3,
+      "version": 4,
       "logic_category": "RECOVERY",
-      "description": "POST handler \u00e2\u20ac\u201d processes email queue actions. \"resend\" action re-queues failed emails by resetting their retry count and status to pending. \"push\" action sends pending emails via Graph API, recording successes in email_daily_stats and handling failures with exponential retry logic via handleEmailFailure.",
+      "description": "POST handler â€” processes email queue actions. \"resend\" action re-queues failed emails by resetting their retry count and status to pending. \"push\" action sends pending emails via Graph API, recording successes in email_daily_stats and handling failures with exponential retry logic via handleEmailFailure.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/email-queue/route.ts",
@@ -5103,9 +5118,9 @@
     },
     {
       "guid": "API_EMAIL_QUEUE-006",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "DELETE handler \u00e2\u20ac\u201d removes queued emails from Firestore. If specific emailIds are provided, deletes those; otherwise deletes all pending emails. Used by admins to clear the queue.",
+      "description": "DELETE handler â€” removes queued emails from Firestore. If specific emailIds are provided, deletes those; otherwise deletes all pending emails. Used by admins to clear the queue.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/email-queue/route.ts",
@@ -5160,9 +5175,9 @@
     },
     {
       "guid": "API_LOG_CLIENT_ERROR-003",
-      "version": 4,
+      "version": 5,
       "logic_category": "VALIDATION",
-      "description": "POST handler that validates the incoming client error payload and writes it to the Firestore error_logs collection. Designed to be resilient \u00e2\u20ac\u201d never returns an error that would worsen the client's already-errored state.",
+      "description": "POST handler that validates the incoming client error payload and writes it to the Firestore error_logs collection. Designed to be resilient â€” never returns an error that would worsen the client's already-errored state.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/log-client-error/route.ts",
@@ -5175,9 +5190,9 @@
     },
     {
       "guid": "API_LOG_CLIENT_ERROR-004",
-      "version": 4,
+      "version": 5,
       "logic_category": "VALIDATION",
-      "description": "Basic validation \u00e2\u20ac\u201d ensures the minimum required fields (correlationId and error message) are present.",
+      "description": "Basic validation â€” ensures the minimum required fields (correlationId and error message) are present.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/log-client-error/route.ts",
@@ -5190,7 +5205,7 @@
     },
     {
       "guid": "API_LOG_CLIENT_ERROR-005",
-      "version": 5,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
       "description": "Persist the client error to Firestore error_logs collection with full context, defaulting errorCode to PX-9001 (unknown) if not provided.",
       "dependencies": [],
@@ -5224,7 +5239,7 @@
       "guid": "API_LOG_CLIENT_ERROR-006",
       "version": 3,
       "logic_category": "RECOVERY",
-      "description": "Catch-all error handler \u00e2\u20ac\u201d logs to console but returns a simple 500. Intentionally does NOT call logError() to avoid recursive error logging. The client is already in an error state.",
+      "description": "Catch-all error handler â€” logs to console but returns a simple 500. Intentionally does NOT call logError() to avoid recursive error logging. The client is already in an error state.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/log-client-error/route.ts"
@@ -5236,7 +5251,7 @@
     },
     {
       "guid": "API_LOG_CLIENT_ERROR-007",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Persist a TracedError payload with full diagnostic metadata to error_logs. Stores all four diagnostic answers: where (file, functionName, guid), what (message, context), known failures (recovery, failureModes), and who triggered (calledBy, calls).",
       "dependencies": [],
@@ -5267,7 +5282,7 @@
       "guid": "API_SEND_HOT_NEWS_EMAIL-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Rate-limiting constants \u00e2\u20ac\u201d caps total daily emails at 30 globally and 5 per individual address to prevent abuse and protect Graph API quotas.",
+      "description": "Rate-limiting constants â€” caps total daily emails at 30 globally and 5 per individual address to prevent abuse and protect Graph API quotas.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-hot-news-email/route.ts"
@@ -5281,7 +5296,7 @@
       "guid": "API_SEND_HOT_NEWS_EMAIL-002",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Type definition for the incoming request body \u00e2\u20ac\u201d content of the hot news, plus who triggered the update.",
+      "description": "Type definition for the incoming request body â€” content of the hot news, plus who triggered the update.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-hot-news-email/route.ts"
@@ -5295,7 +5310,7 @@
       "guid": "API_SEND_HOT_NEWS_EMAIL-003",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Type definition for an entry in the email_daily_stats.emailsSent array \u00e2\u20ac\u201d tracks each sent email for rate-limiting and audit.",
+      "description": "Type definition for an entry in the email_daily_stats.emailsSent array â€” tracks each sent email for rate-limiting and audit.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-hot-news-email/route.ts"
@@ -5324,7 +5339,7 @@
       "guid": "API_SEND_HOT_NEWS_EMAIL-005",
       "version": 4,
       "logic_category": "VALIDATION",
-      "description": "POST handler \u00e2\u20ac\u201d orchestrates the entire hot news email broadcast: validates input, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.",
+      "description": "POST handler â€” orchestrates the entire hot news email broadcast: validates input, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-hot-news-email/route.ts",
@@ -5383,7 +5398,7 @@
       "guid": "API_SEND_PROVIDER_LINKED_EMAIL-002",
       "version": 4,
       "logic_category": "TRANSFORMATION",
-      "description": "POST handler \u2014 validates required fields, builds a branded confirmation email, and sends to primary (and optionally secondary) email addresses.",
+      "description": "POST handler — validates required fields, builds a branded confirmation email, and sends to primary (and optionally secondary) email addresses.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-provider-linked-email/route.ts",
@@ -5396,7 +5411,7 @@
     },
     {
       "guid": "API_SEND_RESULTS_EMAIL-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "API route that sends race results emails to all users who have opted in (or not opted out) of results notifications. Each email is personalised with the user's prediction, score, and current standings.",
       "dependencies": [],
@@ -5428,7 +5443,7 @@
       "guid": "API_SEND_RESULTS_EMAIL-002",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Type definition for the incoming request body \u00e2\u20ac\u201d identifies the race, its official result, per-team scores, and current season standings.",
+      "description": "Type definition for the incoming request body â€” identifies the race, its official result, per-team scores, and current season standings.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-results-email/route.ts"
@@ -5442,7 +5457,7 @@
       "guid": "API_SEND_RESULTS_EMAIL-003",
       "version": 4,
       "logic_category": "TRANSFORMATION",
-      "description": "POST handler \u00e2\u20ac\u201d queries all users who have not opted out of results notifications, builds a personalised results email for each (showing their prediction, score, race scores table, and season standings), sends via Graph API, and records delivery in email-tracking.",
+      "description": "POST handler â€” queries all users who have not opted out of results notifications, builds a personalised results email for each (showing their prediction, score, race scores table, and season standings), sends via Graph API, and records delivery in email-tracking.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-results-email/route.ts",
@@ -5455,7 +5470,7 @@
     },
     {
       "guid": "API_SEND_RESULTS_EMAIL-004",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Builds the full HTML email body for race results, including the user's score hero section, official result table, user prediction, race scores table (sorted by points, user highlighted), and season standings table (user highlighted).",
       "dependencies": [],
@@ -5501,7 +5516,7 @@
       "guid": "API_SEND_SECONDARY_VERIFICATION-002",
       "version": 4,
       "logic_category": "VALIDATION",
-      "description": "POST handler \u00e2\u20ac\u201d validates required fields (uid, secondaryEmail), checks Graph API config, verifies user exists and secondary email matches their record, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.",
+      "description": "POST handler â€” validates required fields (uid, secondaryEmail), checks Graph API config, verifies user exists and secondary email matches their record, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-secondary-email-verification/route.ts",
@@ -5514,7 +5529,7 @@
     },
     {
       "guid": "API_SEND_VERIFICATION_EMAIL-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "API route that sends a primary email verification link to a user. Generates a CSPRNG token, stores it in Firestore with a 2-hour expiry, builds a branded HTML email, and sends via Graph API.",
       "dependencies": [],
@@ -5543,9 +5558,9 @@
     },
     {
       "guid": "API_SEND_VERIFICATION_EMAIL-002",
-      "version": 4,
+      "version": 5,
       "logic_category": "VALIDATION",
-      "description": "POST handler \u00e2\u20ac\u201d validates required fields (uid, email), checks Graph API config, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.",
+      "description": "POST handler â€” validates required fields (uid, email), checks Graph API config, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-verification-email/route.ts",
@@ -5575,7 +5590,7 @@
       "guid": "API_SEND_WELCOME_EMAIL-001",
       "version": 4,
       "logic_category": "VALIDATION",
-      "description": "POST handler \u00e2\u20ac\u201d validates required fields (toEmail, teamName, pin), delegates to sendWelcomeEmail, and returns the result.",
+      "description": "POST handler â€” validates required fields (toEmail, teamName, pin), delegates to sendWelcomeEmail, and returns the result.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/send-welcome-email/route.ts",
@@ -5674,7 +5689,7 @@
     },
     {
       "guid": "API_SUBMIT_PREDICTION-006",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Atomically writes the prediction document to the user's predictions subcollection (using merge to allow updates) and creates an audit log entry, committed as a single batch.",
       "dependencies": [],
@@ -5747,7 +5762,7 @@
       "guid": "API_UPDATE_SECONDARY_EMAIL-001",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Regex for basic email format validation \u00e2\u20ac\u201d ensures the input looks like a valid email before database operations.",
+      "description": "Regex for basic email format validation â€” ensures the input looks like a valid email before database operations.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/update-secondary-email/route.ts",
@@ -5805,7 +5820,7 @@
       "guid": "API_UPDATE_SECONDARY_EMAIL-005",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Handle removal of secondary email \u00e2\u20ac\u201d deletes both secondaryEmail and secondaryEmailVerified fields from the user document, logs removal to audit_logs.",
+      "description": "Handle removal of secondary email â€” deletes both secondaryEmail and secondaryEmailVerified fields from the user document, logs removal to audit_logs.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/update-secondary-email/route.ts"
@@ -5847,7 +5862,7 @@
       "guid": "API_UPDATE_SECONDARY_EMAIL-008",
       "version": 4,
       "logic_category": "RECOVERY",
-      "description": "Top-level error handler \u00e2\u20ac\u201d catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
+      "description": "Top-level error handler â€” catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/update-secondary-email/route.ts"
@@ -5932,7 +5947,7 @@
       "guid": "API_VERIFY_EMAIL-005",
       "version": 4,
       "logic_category": "VALIDATION",
-      "description": "Also mark as verified in Firebase Auth for consistency (Golden Rule #3). Auth failure is non-fatal \u00e2\u20ac\u201d Firestore was already updated.",
+      "description": "Also mark as verified in Firebase Auth for consistency (Golden Rule #3). Auth failure is non-fatal â€” Firestore was already updated.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/verify-email/route.ts"
@@ -5960,7 +5975,7 @@
       "guid": "API_VERIFY_EMAIL-007",
       "version": 4,
       "logic_category": "RECOVERY",
-      "description": "Top-level error handler \u00e2\u20ac\u201d catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
+      "description": "Top-level error handler â€” catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/verify-email/route.ts"
@@ -6045,7 +6060,7 @@
       "guid": "API_VERIFY_SECONDARY_EMAIL-005",
       "version": 4,
       "logic_category": "VALIDATION",
-      "description": "Mark the user's secondary email as verified in Firestore. NOTE: Does NOT update Firebase Auth \u00e2\u20ac\u201d secondary email is for communications only, not login.",
+      "description": "Mark the user's secondary email as verified in Firestore. NOTE: Does NOT update Firebase Auth â€” secondary email is for communications only, not login.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/verify-secondary-email/route.ts"
@@ -6073,7 +6088,7 @@
       "guid": "API_VERIFY_SECONDARY_EMAIL-007",
       "version": 4,
       "logic_category": "RECOVERY",
-      "description": "Top-level error handler \u00e2\u20ac\u201d catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
+      "description": "Top-level error handler â€” catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/verify-secondary-email/route.ts"
@@ -6102,7 +6117,7 @@
       "guid": "API_WHATSAPP_PROXY-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Internal URL constant for the WhatsApp worker \u00e2\u20ac\u201d HTTP-only, not exposed to browsers. Traffic flows: Browser -> this proxy (HTTPS) -> worker (HTTP).",
+      "description": "Internal URL constant for the WhatsApp worker â€” HTTP-only, not exposed to browsers. Traffic flows: Browser -> this proxy (HTTPS) -> worker (HTTP).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/whatsapp-proxy/route.ts",
@@ -6132,7 +6147,7 @@
       "guid": "API_WHATSAPP_PROXY-003",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "GET handler \u00e2\u20ac\u201d proxies read-only requests to the WhatsApp worker. Verifies admin auth, whitelists allowed endpoints (health, status, qr), signs the request, and returns the worker's response. QR endpoint returns plain text; others return JSON.",
+      "description": "GET handler â€” proxies read-only requests to the WhatsApp worker. Verifies admin auth, whitelists allowed endpoints (health, status, qr), signs the request, and returns the worker's response. QR endpoint returns plain text; others return JSON.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/whatsapp-proxy/route.ts",
@@ -6189,7 +6204,7 @@
       "guid": "API_WHATSAPP_PROXY-007",
       "version": 3,
       "logic_category": "RECOVERY",
-      "description": "Catch-all error handler for GET requests \u00e2\u20ac\u201d logs to console and returns a generic proxy error.",
+      "description": "Catch-all error handler for GET requests â€” logs to console and returns a generic proxy error.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/whatsapp-proxy/route.ts"
@@ -6203,7 +6218,7 @@
       "guid": "API_WHATSAPP_PROXY-008",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "POST handler \u00e2\u20ac\u201d proxies write requests to the WhatsApp worker. Verifies admin auth, whitelists allowed POST endpoints (ping, trigger-test), signs the request, and returns the worker's JSON response.",
+      "description": "POST handler â€” proxies write requests to the WhatsApp worker. Verifies admin auth, whitelists allowed POST endpoints (ping, trigger-test), signs the request, and returns the worker's JSON response.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/whatsapp-proxy/route.ts",
@@ -6260,7 +6275,7 @@
       "guid": "API_WHATSAPP_PROXY-012",
       "version": 3,
       "logic_category": "RECOVERY",
-      "description": "Catch-all error handler for POST requests \u00e2\u20ac\u201d logs to console and returns a generic proxy error.",
+      "description": "Catch-all error handler for POST requests â€” logs to console and returns a generic proxy error.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/whatsapp-proxy/route.ts"
@@ -6526,7 +6541,7 @@
       "guid": "BACKUP_DASHBOARD-013",
       "version": 3,
       "logic_category": "RECOVERY",
-      "description": "Error state: creates PX-7001 (BACKUP_STATUS_READ_FAILED) with correlation ID and renders a destructive Alert with copyable error details. Client-side only \u00e2\u20ac\u201d does not write to error_logs.",
+      "description": "Error state: creates PX-7001 (BACKUP_STATUS_READ_FAILED) with correlation ID and renders a destructive Alert with copyable error details. Client-side only â€” does not write to error_logs.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx"
@@ -6637,7 +6652,7 @@
       "guid": "BACKUP_DASHBOARD-032",
       "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "handleBackfill callback \u00e2\u20ac\u201d triggers listBackupHistory callable Cloud Function to backfill backup_history from existing GCS backup folders. Error paths now use PX-7008 (BACKUP_BACKFILL_FAILED) with correlation ID and selectable copyable text per Golden Rule #1.",
+      "description": "handleBackfill callback â€” triggers listBackupHistory callable Cloud Function to backfill backup_history from existing GCS backup folders. Error paths now use PX-7008 (BACKUP_BACKFILL_FAILED) with correlation ID and selectable copyable text per Golden Rule #1.",
       "dependencies": [
         "BACKUP_FUNCTIONS-055"
       ],
@@ -6888,7 +6903,7 @@
       "guid": "BACKUP_FUNCTIONS-004",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Generates date-based GCS folder names (YYYY-MM-DD or YYYY-MM-DD-SUNDAY). Sunday suffix is cosmetic only \u00e2\u20ac\u201d retention is identical for all days.",
+      "description": "Generates date-based GCS folder names (YYYY-MM-DD or YYYY-MM-DD-SUNDAY). Sunday suffix is cosmetic only â€” retention is identical for all days.",
       "dependencies": [],
       "location": {
         "filePath": "functions/src/index.ts"
@@ -6984,7 +6999,7 @@
       "guid": "BACKUP_FUNCTIONS-011",
       "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Firestore managed export via FirestoreAdminClient.exportDocuments() (v1 admin API). The regular Firestore data client does NOT have exportDocuments() or databasePath() \u00e2\u20ac\u201d must use the admin client from @google-cloud/firestore v1 namespace.",
+      "description": "Firestore managed export via FirestoreAdminClient.exportDocuments() (v1 admin API). The regular Firestore data client does NOT have exportDocuments() or databasePath() â€” must use the admin client from @google-cloud/firestore v1 namespace.",
       "dependencies": [
         "PROVISION_RECOVERY-062",
         "PROVISION_RECOVERY-064"
@@ -7008,7 +7023,7 @@
       "guid": "BACKUP_FUNCTIONS-012",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Auth user export via Admin SDK listUsers() pagination (1000/page). Serialises user metadata (uid, email, displayName, providers, customClaims) to JSON in GCS. Does NOT include password hashes \u00e2\u20ac\u201d Firebase Auth does not expose them.",
+      "description": "Auth user export via Admin SDK listUsers() pagination (1000/page). Serialises user metadata (uid, email, displayName, providers, customClaims) to JSON in GCS. Does NOT include password hashes â€” Firebase Auth does not expose them.",
       "dependencies": [
         "PROVISION_RECOVERY-063"
       ],
@@ -7168,7 +7183,7 @@
       "guid": "BACKUP_FUNCTIONS-021",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Reads lastBackupPath from backup_status/latest. Guards against the case where no backup has ever run \u00e2\u20ac\u201d fails loudly so ops investigates rather than silently skipping the smoke test.",
+      "description": "Reads lastBackupPath from backup_status/latest. Guards against the case where no backup has ever run â€” fails loudly so ops investigates rather than silently skipping the smoke test.",
       "dependencies": [
         "BACKUP_FUNCTIONS-005"
       ],
@@ -7209,7 +7224,7 @@
       "guid": "BACKUP_FUNCTIONS-023",
       "version": 4,
       "logic_category": "VALIDATION",
-      "description": "Smoke test verification using the regular Firestore data client (not admin client \u00e2\u20ac\u201d data reads use collection/doc/get). Checks system_status/heartbeat exists AND users collection has at least one document. Both failing = backup is empty or corrupt.",
+      "description": "Smoke test verification using the regular Firestore data client (not admin client â€” data reads use collection/doc/get). Checks system_status/heartbeat exists AND users collection has at least one document. Both failing = backup is empty or corrupt.",
       "dependencies": [
         "PROVISION_RECOVERY-066"
       ],
@@ -7230,7 +7245,7 @@
       "guid": "BACKUP_FUNCTIONS-024",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Post-verification cleanup: deletes all data in the recovery project Firestore. Non-fatal \u00e2\u20ac\u201d cleanup failure is logged but does not fail the smoke test because the primary goal (verification) has already succeeded.",
+      "description": "Post-verification cleanup: deletes all data in the recovery project Firestore. Non-fatal â€” cleanup failure is logged but does not fail the smoke test because the primary goal (verification) has already succeeded.",
       "dependencies": [
         "BACKUP_FUNCTIONS-030"
       ],
@@ -7291,7 +7306,7 @@
       "guid": "BACKUP_FUNCTIONS-030",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "deleteAllCollections: enumerates all top-level collections in recovery Firestore and batch-deletes every document. Errors are caught and logged (non-fatal by design \u00e2\u20ac\u201d next import overwrites anyway).",
+      "description": "deleteAllCollections: enumerates all top-level collections in recovery Firestore and batch-deletes every document. Errors are caught and logged (non-fatal by design â€” next import overwrites anyway).",
       "dependencies": [
         "BACKUP_FUNCTIONS-031"
       ],
@@ -7880,7 +7895,7 @@
       "guid": "COMPONENT_DASHBOARD_CLIENT-004",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main client dashboard component \u00e2\u20ac\u201d renders countdown timer, deadline warnings,",
+      "description": "Main client dashboard component â€” renders countdown timer, deadline warnings,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/dashboard/_components/DashboardClient.tsx",
@@ -8492,7 +8507,7 @@
       "guid": "COMPONENT_WELCOME_CTA-003",
       "version": 1,
       "logic_category": "ORCHESTRATION",
-      "description": "Dismiss handler \u2014 persists to localStorage and triggers exit animation.",
+      "description": "Dismiss handler — persists to localStorage and triggers exit animation.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx"
@@ -9295,7 +9310,7 @@
       "guid": "FIREBASE_PROVIDER-061",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Record logon event for OAuth logins in the onAuthStateChanged first snapshot. Fires when currentLogonId is null (OAuth path). Uses pendingLoginMethod or falls back to provider detection. Fire-and-forget \u00e2\u20ac\u201d does not block auth state resolution.",
+      "description": "Record logon event for OAuth logins in the onAuthStateChanged first snapshot. Fires when currentLogonId is null (OAuth path). Uses pendingLoginMethod or falls back to provider detection. Fire-and-forget â€” does not block auth state resolution.",
       "dependencies": [
         "FIREBASE_PROVIDER-008",
         "API_AUTH_RECORD_LOGON-000"
@@ -9321,7 +9336,7 @@
             "key": "LOGON_RECORD_FAILED",
             "message": "Failed to record logon event",
             "severity": "warning",
-            "recovery": "Non-blocking \u00e2\u20ac\u201d OAuth login continues. Session will expire via scheduled function.",
+            "recovery": "Non-blocking â€” OAuth login continues. Session will expire via scheduled function.",
             "failureModes": [
               "Token fetch failure",
               "Network error calling record-logon API"
@@ -10098,7 +10113,7 @@
       "guid": "LIB_CONSISTENCY-028",
       "version": 7,
       "logic_category": "VALIDATION",
-      "description": "The most comprehensive check function. Validates all score documents against race results and predictions. predictionMap stores PredictionData[] per key to handle Sprint/GP prediction collisions. v07 adds comprehensive double cross-check: breakdown math verification, ghost point detection, per-driver point accuracy (reverse Team\u00e2\u2020\u2019Admin), forward Admin\u00e2\u2020\u2019Team check, and bonus verification.",
+      "description": "The most comprehensive check function. Validates all score documents against race results and predictions. predictionMap stores PredictionData[] per key to handle Sprint/GP prediction collisions. v07 adds comprehensive double cross-check: breakdown math verification, ghost point detection, per-driver point accuracy (reverse Teamâ†’Admin), forward Adminâ†’Team check, and bonus verification.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/consistency.ts"
@@ -10901,7 +10916,7 @@
           },
           "PX-1016": {
             "key": "AUTH_OAUTH_PROFILE_INCOMPLETE",
-            "message": "Profile incomplete \u00e2\u20ac\u201d please enter your team name",
+            "message": "Profile incomplete â€” please enter your team name",
             "severity": "error",
             "recovery": "User needs to complete their profile (enter team name) to continue.",
             "failureModes": [
@@ -11775,7 +11790,7 @@
       "guid": "LIB_RESULTS_UTILS-001",
       "version": 1,
       "logic_category": "VALIDATION",
-      "description": "Score type enum for colour-coded display \u2014 maps position difference to grade (A=exact, E=miss).",
+      "description": "Score type enum for colour-coded display — maps position difference to grade (A=exact, E=miss).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -11790,7 +11805,7 @@
       "guid": "LIB_RESULTS_UTILS-002",
       "version": 1,
       "logic_category": "ORCHESTRATION",
-      "description": "Type for a single driver within a team's prediction \u2014 includes predicted/actual positions, points scored, and the score type grade for colour coding.",
+      "description": "Type for a single driver within a team's prediction — includes predicted/actual positions, points scored, and the score type grade for colour coding.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -11805,7 +11820,7 @@
       "guid": "LIB_RESULTS_UTILS-003",
       "version": 1,
       "logic_category": "ORCHESTRATION",
-      "description": "Type for the official race result document \u2014 stores the actual top-6 driver finish order.",
+      "description": "Type for the official race result document — stores the actual top-6 driver finish order.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -11880,7 +11895,7 @@
       "guid": "LIB_RESULTS_UTILS-008",
       "version": 1,
       "logic_category": "PRESENTATION",
-      "description": "Module-level constant of all race events \u2014 avoids recomputation on every render.",
+      "description": "Module-level constant of all race events — avoids recomputation on every render.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -11925,7 +11940,7 @@
       "guid": "LIB_RESULTS_UTILS-011",
       "version": 1,
       "logic_category": "TRANSFORMATION",
-      "description": "Parse a team's raw predictions and compare against actual top-6 results to produce per-driver scoring with points and score types. Pure function \u2014 no hooks.",
+      "description": "Parse a team's raw predictions and compare against actual top-6 results to produce per-driver scoring with points and score types. Pure function — no hooks.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -11940,7 +11955,7 @@
       "guid": "LIB_RESULTS_UTILS-012",
       "version": 1,
       "logic_category": "TRANSFORMATION",
-      "description": "Calculate bonus points \u2014 awards 10 points if all 6 predicted drivers are in the top 6.",
+      "description": "Calculate bonus points — awards 10 points if all 6 predicted drivers are in the top 6.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -11955,7 +11970,7 @@
       "guid": "LIB_RESULTS_UTILS-013",
       "version": 1,
       "logic_category": "TRANSFORMATION",
-      "description": "Calculate effective points for a team \u2014 uses stored score if available, otherwise calculates from predictions + bonus when race results exist.",
+      "description": "Calculate effective points for a team — uses stored score if available, otherwise calculates from predictions + bonus when race results exist.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -12730,7 +12745,7 @@
       "guid": "PAGE_ADMIN-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Admin panel page \u00e2\u20ac\u201d tabbed interface providing access to all league management tools.",
+      "description": "Admin panel page â€” tabbed interface providing access to all league management tools.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/page.tsx"
@@ -12772,7 +12787,7 @@
       "guid": "PAGE_ADMIN-003",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Main admin page component \u00e2\u20ac\u201d enforces admin-only access, fetches all users,",
+      "description": "Main admin page component â€” enforces admin-only access, fetches all users,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/page.tsx",
@@ -12787,7 +12802,7 @@
       "guid": "PAGE_ADMIN-004",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Memoised Firestore query for all users \u00e2\u20ac\u201d only created when user is confirmed admin.",
+      "description": "Memoised Firestore query for all users â€” only created when user is confirmed admin.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/page.tsx"
@@ -12801,7 +12816,7 @@
       "guid": "PAGE_ADMIN-005",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Admin access guard \u00e2\u20ac\u201d redirects non-admin users to /dashboard and logs an",
+      "description": "Admin access guard â€” redirects non-admin users to /dashboard and logs an",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/page.tsx"
@@ -12815,7 +12830,7 @@
       "guid": "PAGE_ADMIN-006",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Loading/access-denied guard render \u00e2\u20ac\u201d shows \"Verifying access...\" while auth loads",
+      "description": "Loading/access-denied guard render â€” shows \"Verifying access...\" while auth loads",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/page.tsx"
@@ -12829,7 +12844,7 @@
       "guid": "PAGE_ADMIN-007",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Main admin panel render \u00e2\u20ac\u201d AttackMonitor at top, then 16-tab interface covering",
+      "description": "Main admin panel render â€” AttackMonitor at top, then 16-tab interface covering",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/page.tsx"
@@ -12843,7 +12858,7 @@
       "guid": "PAGE_AUDIT-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Submission audit page \u00e2\u20ac\u201d displays a paginated table of all prediction submissions",
+      "description": "Submission audit page â€” displays a paginated table of all prediction submissions",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/audit/page.tsx"
@@ -12871,7 +12886,7 @@
       "guid": "PAGE_AUDIT-002",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "TypeScript interface for audit log entries \u00e2\u20ac\u201d defines the shape of prediction_submitted events.",
+      "description": "TypeScript interface for audit log entries â€” defines the shape of prediction_submitted events.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/audit/page.tsx"
@@ -12885,7 +12900,7 @@
       "guid": "PAGE_AUDIT-003",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Main audit page component \u00e2\u20ac\u201d manages paginated audit log fetching, user lookup,",
+      "description": "Main audit page component â€” manages paginated audit log fetching, user lookup,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/audit/page.tsx",
@@ -12900,7 +12915,7 @@
       "guid": "PAGE_AUDIT-004",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Real-time query for all users \u00e2\u20ac\u201d provides team name lookup for audit log entries.",
+      "description": "Real-time query for all users â€” provides team name lookup for audit log entries.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/audit/page.tsx",
@@ -12915,7 +12930,7 @@
       "guid": "PAGE_AUDIT-005",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Paginated fetch function for audit logs \u00e2\u20ac\u201d queries prediction_submitted events",
+      "description": "Paginated fetch function for audit logs â€” queries prediction_submitted events",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/audit/page.tsx",
@@ -12930,7 +12945,7 @@
       "guid": "PAGE_AUDIT-006",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Initial data load \u00e2\u20ac\u201d triggers fetchAuditLogs once when Firestore is ready.",
+      "description": "Initial data load â€” triggers fetchAuditLogs once when Firestore is ready.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/audit/page.tsx",
@@ -12945,7 +12960,7 @@
       "guid": "PAGE_AUDIT-007",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Load more button handler \u00e2\u20ac\u201d fetches the next page of audit logs.",
+      "description": "Load more button handler â€” fetches the next page of audit logs.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/audit/page.tsx",
@@ -13018,7 +13033,7 @@
       "guid": "PAGE_COMPLETE_PROFILE-002",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Zod schema for team name \u2014 minimum 3 characters.",
+      "description": "Zod schema for team name — minimum 3 characters.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/complete-profile/page.tsx",
@@ -13105,7 +13120,7 @@
       "guid": "PAGE_DASHBOARD-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Pre-season flag \u00e2\u20ac\u201d controls visibility of the pre-season testing banner.",
+      "description": "Pre-season flag â€” controls visibility of the pre-season testing banner.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/dashboard/page.tsx",
@@ -13135,7 +13150,7 @@
       "guid": "PAGE_DASHBOARD-003",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main dashboard page component \u00e2\u20ac\u201d computes next race dates, renders countdown client,",
+      "description": "Main dashboard page component â€” computes next race dates, renders countdown client,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/dashboard/page.tsx",
@@ -13150,7 +13165,7 @@
       "guid": "PAGE_DEV-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Developer info page \u00e2\u20ac\u201d displays current build information (version, framework, backend, AI)",
+      "description": "Developer info page â€” displays current build information (version, framework, backend, AI)",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/about/dev/page.tsx"
@@ -13164,7 +13179,7 @@
       "guid": "PAGE_DEV-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Next.js page metadata for SEO \u00e2\u20ac\u201d sets title and description for the dev info page.",
+      "description": "Next.js page metadata for SEO â€” sets title and description for the dev info page.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/about/dev/page.tsx",
@@ -13179,7 +13194,7 @@
       "guid": "PAGE_DEV-002",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main dev page component \u00e2\u20ac\u201d renders build info grid (version, framework, backend, AI),",
+      "description": "Main dev page component â€” renders build info grid (version, framework, backend, AI),",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/about/dev/page.tsx",
@@ -13194,7 +13209,7 @@
       "guid": "PAGE_FORGOT_PIN-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Forgot PIN page \u00e2\u20ac\u201d allows users to request a temporary PIN reset email.",
+      "description": "Forgot PIN page â€” allows users to request a temporary PIN reset email.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/forgot-pin/page.tsx"
@@ -13208,7 +13223,7 @@
       "guid": "PAGE_FORGOT_PIN-001",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Zod validation schema for forgot PIN form \u00e2\u20ac\u201d requires a valid email address.",
+      "description": "Zod validation schema for forgot PIN form â€” requires a valid email address.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/forgot-pin/page.tsx",
@@ -13223,7 +13238,7 @@
       "guid": "PAGE_FORGOT_PIN-002",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main forgot PIN page component \u00e2\u20ac\u201d renders email input form, calls resetPin API,",
+      "description": "Main forgot PIN page component â€” renders email input form, calls resetPin API,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/forgot-pin/page.tsx",
@@ -13238,7 +13253,7 @@
       "guid": "PAGE_FORGOT_PIN-003",
       "version": 4,
       "logic_category": "RECOVERY",
-      "description": "Form submission handler \u00e2\u20ac\u201d calls resetPin API, shows toast on success/failure,",
+      "description": "Form submission handler â€” calls resetPin API, shows toast on success/failure,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/forgot-pin/page.tsx",
@@ -13271,7 +13286,7 @@
       "guid": "PAGE_LEAGUES-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Leagues listing page \u00e2\u20ac\u201d displays all leagues the current user belongs to as cards,",
+      "description": "Leagues listing page â€” displays all leagues the current user belongs to as cards,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/leagues/page.tsx"
@@ -13390,7 +13405,7 @@
       "guid": "PAGE_LEAGUE_DETAIL-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "League detail page \u00e2\u20ac\u201d displays a single league's information including name, invite code,",
+      "description": "League detail page â€” displays a single league's information including name, invite code,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/leagues/[leagueId]/page.tsx"
@@ -13596,7 +13611,7 @@
       "guid": "PAGE_LOGIN-001",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Zod validation schema for login form \u00e2\u20ac\u201d enforces valid email and exactly 6-digit PIN.",
+      "description": "Zod validation schema for login form â€” enforces valid email and exactly 6-digit PIN.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/login/page.tsx"
@@ -13610,7 +13625,7 @@
       "guid": "PAGE_LOGIN-002",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main login page component \u00e2\u20ac\u201d renders email/PIN form, handles authentication,",
+      "description": "Main login page component â€” renders email/PIN form, handles authentication,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/login/page.tsx",
@@ -13625,7 +13640,7 @@
       "guid": "PAGE_LOGIN-003",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Form submission handler \u00e2\u20ac\u201d calls login API, manages submit/redirect states,",
+      "description": "Form submission handler â€” calls login API, manages submit/redirect states,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/login/page.tsx",
@@ -13690,7 +13705,7 @@
       "guid": "PAGE_MY_RESULTS-000",
       "version": 1,
       "logic_category": "PRESENTATION",
-      "description": "My Results page \u2014 displays the logged-in user's prediction results across ALL races, with colour-coded scoring breakdowns, season total, and team toggle for secondary teams. Includes bar chart, narrative stats, and team search to view other teams. No write operations \u2014 this is a read-only view.",
+      "description": "My Results page — displays the logged-in user's prediction results across ALL races, with colour-coded scoring breakdowns, season total, and team toggle for secondary teams. Includes bar chart, narrative stats, and team search to view other teams. No write operations — this is a read-only view.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/my-results/page.tsx"
@@ -13704,7 +13719,7 @@
       "guid": "PAGE_MY_RESULTS-001",
       "version": 1,
       "logic_category": "PRESENTATION",
-      "description": "Type for a processed race card \u2014 one per race that has both results and user predictions.",
+      "description": "Type for a processed race card — one per race that has both results and user predictions.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/my-results/page.tsx",
@@ -13719,7 +13734,7 @@
       "guid": "PAGE_MY_RESULTS-002",
       "version": 1,
       "logic_category": "PRESENTATION",
-      "description": "Main page component \u2014 fetches all user predictions, race results, and scores, then renders per-race cards with scoring breakdowns ordered most recent first.",
+      "description": "Main page component — fetches all user predictions, race results, and scores, then renders per-race cards with scoring breakdowns ordered most recent first.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/my-results/page.tsx",
@@ -13734,7 +13749,7 @@
       "guid": "PAGE_MY_RESULTS-003",
       "version": 1,
       "logic_category": "ORCHESTRATION",
-      "description": "Active team ID \u2014 primary is user.id, secondary is \"${user.id}-secondary\".",
+      "description": "Active team ID — primary is user.id, secondary is \"${user.id}-secondary\".",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/my-results/page.tsx"
@@ -13791,7 +13806,7 @@
       "guid": "PAGE_MY_RESULTS-007",
       "version": 1,
       "logic_category": "IO",
-      "description": "Debounced team search handler \u2014 Firestore prefix query on teamName.",
+      "description": "Debounced team search handler — Firestore prefix query on teamName.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/my-results/page.tsx",
@@ -13806,7 +13821,7 @@
       "guid": "PAGE_MY_RESULTS-008",
       "version": 1,
       "logic_category": "ORCHESTRATION",
-      "description": "Chart data \u2014 sort chronologically, compute running average.",
+      "description": "Chart data — sort chronologically, compute running average.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/my-results/page.tsx",
@@ -13821,7 +13836,7 @@
       "guid": "PAGE_MY_RESULTS-009",
       "version": 1,
       "logic_category": "ORCHESTRATION",
-      "description": "Narrative stats \u2014 score-type breakdown, best race, bonus total, top drivers.",
+      "description": "Narrative stats — score-type breakdown, best race, bonus total, top drivers.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/my-results/page.tsx",
@@ -14004,7 +14019,7 @@
       "guid": "PAGE_PREDICTIONS-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Predictions page \u00e2\u20ac\u201d allows users to view, submit, and edit their driver predictions",
+      "description": "Predictions page â€” allows users to view, submit, and edit their driver predictions",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/predictions/page.tsx"
@@ -14018,165 +14033,11 @@
       "guid": "PAGE_PREDICTIONS-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Inner content component encapsulating all prediction logic \u00e2\u20ac\u201d determines next open race,",
+      "description": "Inner content component encapsulating all prediction logic â€” determines next open race,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/predictions/page.tsx",
         "functionName": "PredictionsContent"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-002",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Real-time query for all race_results documents to determine which races are complete.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-003",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Computes the next open race by finding the first race in the schedule without",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-004",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Determines if the pit lane is open (predictions allowed) by checking both",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-005",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Constructs the Firestore prediction document ID from team ID and race ID.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-006",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Memoised Firestore document reference for the user's prediction for the current race/team.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-007",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Query to fetch recent predictions for the selected team, used for carry-over logic",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-008",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Logs errors from the allPredictions query (e.g., missing composite index, permissions).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-009",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Finds the most recent previous prediction (not for the current race) to carry over",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-010",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Builds the initial 6-slot driver prediction array from either the current race",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-011",
-      "version": 3,
-      "logic_category": "VALIDATION",
-      "description": "Ensures selectedTeam is set once user data loads (handles initial mount race condition).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PREDICTIONS-012",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Determines why the pit lane is closed \u00e2\u20ac\u201d either race results entered or qualifying started.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/predictions/page.tsx"
       },
       "callChain": {
         "calledBy": [],
@@ -14202,7 +14063,7 @@
       "guid": "PAGE_PROFILE-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Profile & Settings page \u00e2\u20ac\u201d allows users to manage their account, notification preferences,",
+      "description": "Profile & Settings page â€” allows users to manage their account, notification preferences,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/profile/page.tsx"
@@ -14244,7 +14105,7 @@
       "guid": "PAGE_PROFILE-003",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Zod schema for the secondary team name form \u00e2\u20ac\u201d enforces minimum 3-character name.",
+      "description": "Zod schema for the secondary team name form â€” enforces minimum 3-character name.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/profile/page.tsx"
@@ -14258,7 +14119,7 @@
       "guid": "PAGE_PROFILE-004",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Zod schema for PIN change form \u00e2\u20ac\u201d enforces 6-digit length and match between new/confirm.",
+      "description": "Zod schema for PIN change form â€” enforces 6-digit length and match between new/confirm.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/profile/page.tsx"
@@ -14272,7 +14133,7 @@
       "guid": "PAGE_PROFILE-005",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main Profile page component \u00e2\u20ac\u201d renders all profile management cards and handles all",
+      "description": "Main Profile page component â€” renders all profile management cards and handles all",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/profile/page.tsx",
@@ -14284,405 +14145,10 @@
       }
     },
     {
-      "guid": "PAGE_PROFILE-006",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Initialise notification preferences form with user's saved values or sensible defaults.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-007",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Reset form values when user data loads or changes (e.g. after Firestore round-trip).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-008",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Initialise secondary team form with existing secondary team name if one exists.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-009",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Initialise change PIN form with empty defaults.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-010",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Sync secondary team name into form when user data loads.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-011",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Sync secondary email into local state when user data loads.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-012",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Save notification preferences to Firestore and log audit event.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "onProfileSubmit"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-013",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Request a new temporary PIN to be emailed to the user.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "which"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-014",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Permanently close the user's account by deleting presence and user documents, then logging out.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleCloseAccount"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-015",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Use AI to suggest a fun secondary team name based on the user's primary team name.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleSuggestName"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-016",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Create the user's secondary team via the auth context function.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "onSecondTeamSubmit"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-017",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Change the user's PIN and force re-login for security.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "onChangePinSubmit"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-018",
-      "version": 3,
-      "logic_category": "VALIDATION",
-      "description": "Send a verification email to the user's primary email address.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleSendVerificationEmail"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-019",
-      "version": 3,
-      "logic_category": "VALIDATION",
-      "description": "Refresh the email verification status from Firebase Auth.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleRefreshVerificationStatus"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-020",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Save or update the user's secondary email address.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleSaveSecondaryEmail"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-021",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Remove the user's secondary email by passing null to the update function.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleRemoveSecondaryEmail"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-022",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Remove the user's secondary team by deleting the secondaryTeamName field from Firestore.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleRemoveSecondaryTeam"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-023",
-      "version": 3,
-      "logic_category": "VALIDATION",
-      "description": "Send a verification email to the user's secondary email address.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleSendSecondaryVerification"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-024",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Save a profile photo URL (from manual entry or preset selection) to Firestore.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleSavePhoto"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-025",
-      "version": 3,
-      "logic_category": "VALIDATION",
-      "description": "Handle file upload for profile photo \u00e2\u20ac\u201d validates, compresses, uploads to Firebase Storage,",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleFileUpload"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-026",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Preset avatar options generated from external avatar services using the user's ID/team name.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-027",
-      "version": 3,
-      "logic_category": "RECOVERY",
-      "description": "Derive the current avatar URL \u00e2\u20ac\u201d user's saved photo or a fallback generated avatar.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-028",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Link Google account to current user from profile page.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleLinkGoogle"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-029",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Link Apple account to current user from profile page.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleLinkApple"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-030",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Unlink a provider from the current user, preventing unlinking the last provider.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx",
-        "functionName": "handleUnlinkProvider"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-040",
-      "version": 4,
-      "logic_category": "DATA_FETCH",
-      "description": "Memoised Firestore query for the current user's last 10 logon records from user_logons, ordered by logonTimestamp descending. Returns null when user is unavailable so useCollection gracefully waits.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_PROFILE-041",
-      "version": 4,
-      "logic_category": "DATA_FETCH",
-      "description": "Fetch total logon count for badge display via getDocs. Uses a one-shot query instead of a real-time listener to avoid a second subscription for a simple count.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/profile/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
       "guid": "PAGE_RESULTS-000",
       "version": 6,
       "logic_category": "ORCHESTRATION",
-      "description": "Race Results page \u00e2\u20ac\u201d displays per-race points breakdowns for all teams' predictions,",
+      "description": "Race Results page â€” displays per-race points breakdowns for all teams' predictions,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/results/page.tsx"
@@ -14711,7 +14177,7 @@
       "guid": "PAGE_RESULTS-010",
       "version": 3,
       "logic_category": "RECOVERY",
-      "description": "Suspense loading fallback \u00e2\u20ac\u201d skeleton UI shown while ResultsContent loads (required by",
+      "description": "Suspense loading fallback â€” skeleton UI shown while ResultsContent loads (required by",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/results/page.tsx",
@@ -14726,7 +14192,7 @@
       "guid": "PAGE_RESULTS-011",
       "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Main results content component \u00e2\u20ac\u201d fetches race results, scores, and predictions from",
+      "description": "Main results content component â€” fetches race results, scores, and predictions from",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/results/page.tsx",
@@ -14770,7 +14236,7 @@
       "guid": "PAGE_RESULTS-014",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Calculate the default race ID to display \u00e2\u20ac\u201d prioritises URL parameter, then most recent",
+      "description": "Calculate the default race ID to display â€” prioritises URL parameter, then most recent",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/results/page.tsx"
@@ -14856,7 +14322,7 @@
       "guid": "PAGE_RESULTS-025",
       "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Fetch all data for the selected race in parallel \u00e2\u20ac\u201d count, scores, and first page of",
+      "description": "Fetch all data for the selected race in parallel â€” count, scores, and first page of",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/results/page.tsx",
@@ -14899,7 +14365,7 @@
       "guid": "PAGE_RESULTS-028",
       "version": 5,
       "logic_category": "TRANSFORMATION",
-      "description": "Calculate effective points for a team \u00e2\u20ac\u201d uses stored score if available, otherwise",
+      "description": "Calculate effective points for a team â€” uses stored score if available, otherwise",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/results/page.tsx"
@@ -14942,7 +14408,7 @@
       "guid": "PAGE_RESULTS-031",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Exported page component \u00e2\u20ac\u201d wraps ResultsContent in a Suspense boundary as required by",
+      "description": "Exported page component â€” wraps ResultsContent in a Suspense boundary as required by",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/results/page.tsx",
@@ -14957,7 +14423,7 @@
       "guid": "PAGE_ROOT-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Root page component \u00e2\u20ac\u201d renders the login page as the application entry point.",
+      "description": "Root page component â€” renders the login page as the application entry point.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/page.tsx",
@@ -14987,7 +14453,7 @@
       "guid": "PAGE_RULES-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Rules page \u00e2\u20ac\u201d displays the league gameplay rules, scoring system, and tie-breaker rule",
+      "description": "Rules page â€” displays the league gameplay rules, scoring system, and tie-breaker rule",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/rules/page.tsx"
@@ -15030,7 +14496,7 @@
       "guid": "PAGE_SCHEDULE-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Schedule page \u00e2\u20ac\u201d displays the full 2026 F1 race calendar with qualifying, sprint, and GP times.",
+      "description": "Schedule page â€” displays the full 2026 F1 race calendar with qualifying, sprint, and GP times.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/schedule/page.tsx"
@@ -15102,7 +14568,7 @@
       "guid": "PAGE_SIGNUP-003",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Zod schema for signup form \u00e2\u20ac\u201d validates team name (min 3 chars), email,",
+      "description": "Zod schema for signup form â€” validates team name (min 3 chars), email,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/signup/page.tsx"
@@ -15116,7 +14582,7 @@
       "guid": "PAGE_SIGNUP-004",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main signup page component \u00e2\u20ac\u201d renders registration form with team name suggestion,",
+      "description": "Main signup page component â€” renders registration form with team name suggestion,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/signup/page.tsx",
@@ -15160,7 +14626,7 @@
       "guid": "PAGE_SIGNUP-007",
       "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Form submission handler \u00e2\u20ac\u201d calls signup API, shows success toast and redirects",
+      "description": "Form submission handler â€” calls signup API, shows success toast and redirects",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(auth)/signup/page.tsx",
@@ -15223,7 +14689,7 @@
       "guid": "PAGE_STANDINGS-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Season Standings page \u00e2\u20ac\u201d displays cumulative league standings after each race weekend,",
+      "description": "Season Standings page â€” displays cumulative league standings after each race weekend,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/standings/page.tsx"
@@ -15237,7 +14703,7 @@
       "guid": "PAGE_STANDINGS-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Visual indicator for rank changes between race weekends \u00e2\u20ac\u201d shows arrows/chevrons based",
+      "description": "Visual indicator for rank changes between race weekends â€” shows arrows/chevrons based",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/standings/page.tsx",
@@ -15252,7 +14718,7 @@
       "guid": "PAGE_STANDINGS-002",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Badge for top-3 ranked teams \u00e2\u20ac\u201d gold for 1st, silver for 2nd, bronze for 3rd.",
+      "description": "Badge for top-3 ranked teams â€” gold for 1st, silver for 2nd, bronze for 3rd.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/standings/page.tsx",
@@ -15340,7 +14806,7 @@
       "guid": "PAGE_STANDINGS-008",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Type for a completed race weekend \u00e2\u20ac\u201d tracks base, sprint, and GP race IDs along with",
+      "description": "Type for a completed race weekend â€” tracks base, sprint, and GP race IDs along with",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/standings/page.tsx"
@@ -15369,7 +14835,7 @@
       "guid": "PAGE_STANDINGS-010",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main Standings page component \u00e2\u20ac\u201d subscribes to scores in real-time, computes cumulative",
+      "description": "Main Standings page component â€” subscribes to scores in real-time, computes cumulative",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/standings/page.tsx",
@@ -15381,220 +14847,10 @@
       }
     },
     {
-      "guid": "PAGE_STANDINGS-011",
-      "version": 4,
-      "logic_category": "ORCHESTRATION",
-      "description": "Real-time subscription to the entire scores collection \u00e2\u20ac\u201d processes raw score documents,",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "errorProfile": {
-        "throws": [
-          "PX-9001",
-          "PX-4004",
-          "PX-1001"
-        ],
-        "handles": [],
-        "emits": {
-          "PX-9001": {
-            "key": "UNKNOWN_ERROR",
-            "message": "An unexpected error occurred",
-            "severity": "error",
-            "recovery": "Check server logs with the correlation ID for root cause.",
-            "failureModes": [
-              "Unclassified error",
-              "Third-party library exception"
-            ]
-          },
-          "PX-4004": {
-            "key": "FIRESTORE_INDEX_REQUIRED",
-            "message": "Database index required",
-            "severity": "error",
-            "recovery": "Create the required composite index in Firebase Console.",
-            "failureModes": [
-              "Missing composite index for query"
-            ]
-          },
-          "PX-1001": {
-            "key": "AUTH_INVALID_TOKEN",
-            "message": "Invalid or missing authentication token",
-            "severity": "error",
-            "recovery": "User should log out and log in again. Check token expiry.",
-            "failureModes": [
-              "Token expired",
-              "Token malformed",
-              "Clock skew between client and server"
-            ]
-          }
-        }
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-012",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Filter raw scores by the selected league's member user IDs (or pass all if global).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-013",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Calculate cumulative standings for the selected race weekend \u00e2\u20ac\u201d computes old/new overall",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-014",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Determine the race winners (highest GP and Sprint points) for the selected race weekend,",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-015",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Build chart data for season progression \u00e2\u20ac\u201d cumulative points per team after each race",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-016",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Derive the current user's primary and secondary userIds for chart line filtering.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-017",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Filter chart lines to approximately 11 teams based on chartMode (top10 or myPosition).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-018",
-      "version": 3,
-      "logic_category": "VALIDATION",
-      "description": "Generate a deterministic HSL colour for each team name \u00e2\u20ac\u201d ensures the same team always",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx",
-        "functionName": "hue"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-019",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Calculate maximum points for the chart Y-axis with a 10% buffer for visual headroom.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-020",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Client-side pagination \u00e2\u20ac\u201d tracks how many standings rows to display and whether more exist.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-021",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Load the next page of standings rows with a small delay for smooth UX.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_STANDINGS-022",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Navigate to the Results page for a specific race, optionally filtering by team.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/standings/page.tsx",
-        "functionName": "navigateToResults"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
       "guid": "PAGE_SUBMISSIONS-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Submissions page \u00e2\u20ac\u201d displays locked-in predictions for all teams for a selected race in a sortable,",
+      "description": "Submissions page â€” displays locked-in predictions for all teams for a selected race in a sortable,",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/submissions/page.tsx"
@@ -15809,7 +15065,7 @@
       "guid": "PAGE_TEAMS-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Teams page \u00e2\u20ac\u201d displays all team predictions for a selected race in an expandable accordion.",
+      "description": "Teams page â€” displays all team predictions for a selected race in an expandable accordion.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/teams/page.tsx"
@@ -15871,203 +15127,6 @@
       "location": {
         "filePath": "app/src/app/(app)/teams/page.tsx",
         "functionName": "TeamsPage"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-005",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Fetches race_results on mount to determine which race to show by default (most recent with results).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx",
-        "functionName": "fetchDefaultRace"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-006",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Fetches the total user count using Firestore server-side aggregation (no document downloads).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx",
-        "functionName": "fetchCount"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-007",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Converts raw Firestore prediction data into an array of F1Driver objects for display.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-008",
-      "version": 4,
-      "logic_category": "ORCHESTRATION",
-      "description": "Fetches paginated team list from Firestore users collection WITHOUT predictions (fast initial load).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx"
-      },
-      "errorProfile": {
-        "throws": [
-          "PX-4004",
-          "PX-1001",
-          "PX-9001"
-        ],
-        "handles": [],
-        "emits": {
-          "PX-4004": {
-            "key": "FIRESTORE_INDEX_REQUIRED",
-            "message": "Database index required",
-            "severity": "error",
-            "recovery": "Create the required composite index in Firebase Console.",
-            "failureModes": [
-              "Missing composite index for query"
-            ]
-          },
-          "PX-1001": {
-            "key": "AUTH_INVALID_TOKEN",
-            "message": "Invalid or missing authentication token",
-            "severity": "error",
-            "recovery": "User should log out and log in again. Check token expiry.",
-            "failureModes": [
-              "Token expired",
-              "Token malformed",
-              "Clock skew between client and server"
-            ]
-          },
-          "PX-9001": {
-            "key": "UNKNOWN_ERROR",
-            "message": "An unexpected error occurred",
-            "severity": "error",
-            "recovery": "Check server logs with the correlation ID for root cause.",
-            "failureModes": [
-              "Unclassified error",
-              "Third-party library exception"
-            ]
-          }
-        }
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-009",
-      "version": 3,
-      "logic_category": "VALIDATION",
-      "description": "Checks whether a team's createdAt timestamp is after the selected race's qualifying time.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-010",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Fetches predictions for a single team on-demand when the user expands an accordion item.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-011",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Handles accordion open/close events and triggers on-demand prediction fetching for the opened team.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-012",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Triggers the initial team list fetch once the default race has been determined.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-013",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Resets all team prediction data and closes the accordion when the selected race changes.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-014",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Delegates to fetchTeams with isLoadMore=true for paginated loading.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx",
-        "functionName": "loadMore"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      }
-    },
-    {
-      "guid": "PAGE_TEAMS-015",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Filters the full teams list to only members of the selected league (or shows all if global).",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/teams/page.tsx"
       },
       "callChain": {
         "calledBy": [],
@@ -16284,7 +15343,7 @@
       "guid": "PUBCHAT_PANEL-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "PubChatPanel component \u00e2\u20ac\u201d centres the pub chat animation and shows",
+      "description": "PubChatPanel component â€” centres the pub chat animation and shows",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
@@ -16615,13 +15674,21 @@
       "version": 3,
       "logic_category": "ORCHESTRATION",
       "description": "WhatsApp Worker main entry point - Express server that manages WhatsApp Web.js client lifecycle, provides health/status/QR endpoints, and coordinates queue processing for outbound messages. Critical infrastructure for WhatsApp integration.",
-      "dependencies": ["WHATSAPP_CLIENT-000", "QUEUE_PROCESSOR-000", "FIREBASE_CONFIG_WORKER-000"],
+      "dependencies": [
+        "WHATSAPP_CLIENT-000",
+        "QUEUE_PROCESSOR-000",
+        "FIREBASE_CONFIG_WORKER-000"
+      ],
       "location": {
         "filePath": "whatsapp-worker/src/index.ts"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["WhatsAppClient", "QueueProcessor", "initializeFirebase"]
+        "calls": [
+          "WhatsAppClient",
+          "QueueProcessor",
+          "initializeFirebase"
+        ]
       }
     },
     {
@@ -16629,13 +15696,21 @@
       "version": 3,
       "logic_category": "ORCHESTRATION",
       "description": "WhatsApp Web.js client wrapper with Azure Blob Storage session persistence, keep-alive pings, QR code generation, and platform-specific Puppeteer configuration. Handles authentication, disconnection recovery, and group message sending.",
-      "dependencies": ["AZURE_STORE-000", "FIREBASE_CONFIG_WORKER-000"],
+      "dependencies": [
+        "AZURE_STORE-000",
+        "FIREBASE_CONFIG_WORKER-000"
+      ],
       "location": {
         "filePath": "whatsapp-worker/src/whatsapp-client.ts"
       },
       "callChain": {
-        "calledBy": ["WHATSAPP_WORKER_INDEX-000"],
-        "calls": ["AzureBlobStore", "getFirestore"]
+        "calledBy": [
+          "WHATSAPP_WORKER_INDEX-000"
+        ],
+        "calls": [
+          "AzureBlobStore",
+          "getFirestore"
+        ]
       }
     },
     {
@@ -16643,13 +15718,17 @@
       "version": 3,
       "logic_category": "PERSISTENCE",
       "description": "Firebase Storage adapter for WhatsApp RemoteAuth session persistence. Saves/loads session.json from Firebase Storage bucket for container-safe session recovery. Legacy fallback to Azure Blob Store.",
-      "dependencies": ["FIREBASE_CONFIG_WORKER-000"],
+      "dependencies": [
+        "FIREBASE_CONFIG_WORKER-000"
+      ],
       "location": {
         "filePath": "whatsapp-worker/src/firebase-store.ts"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["getStorage"]
+        "calls": [
+          "getStorage"
+        ]
       }
     },
     {
@@ -16662,7 +15741,9 @@
         "filePath": "whatsapp-worker/src/azure-store.ts"
       },
       "callChain": {
-        "calledBy": ["WHATSAPP_CLIENT-000"],
+        "calledBy": [
+          "WHATSAPP_CLIENT-000"
+        ],
         "calls": []
       }
     },
@@ -16671,13 +15752,21 @@
       "version": 3,
       "logic_category": "ORCHESTRATION",
       "description": "Firestore queue listener that processes whatsapp_queue collection documents. Monitors PENDING messages, applies rate limiting (5-10s between messages), retries failures up to 3 times, and updates status to SENT/FAILED.",
-      "dependencies": ["FIREBASE_CONFIG_WORKER-000", "WHATSAPP_CLIENT-000"],
+      "dependencies": [
+        "FIREBASE_CONFIG_WORKER-000",
+        "WHATSAPP_CLIENT-000"
+      ],
       "location": {
         "filePath": "whatsapp-worker/src/queue-processor.ts"
       },
       "callChain": {
-        "calledBy": ["WHATSAPP_WORKER_INDEX-000"],
-        "calls": ["getFirestore", "WhatsAppClient.sendMessage"]
+        "calledBy": [
+          "WHATSAPP_WORKER_INDEX-000"
+        ],
+        "calls": [
+          "getFirestore",
+          "WhatsAppClient.sendMessage"
+        ]
       }
     },
     {
@@ -16690,7 +15779,11 @@
         "filePath": "whatsapp-worker/src/firebase-config.ts"
       },
       "callChain": {
-        "calledBy": ["WHATSAPP_CLIENT-000", "FIREBASE_STORE-000", "QUEUE_PROCESSOR-000"],
+        "calledBy": [
+          "WHATSAPP_CLIENT-000",
+          "FIREBASE_STORE-000",
+          "QUEUE_PROCESSOR-000"
+        ],
         "calls": []
       }
     },
@@ -16713,13 +15806,19 @@
       "version": 3,
       "logic_category": "ORCHESTRATION",
       "description": "DnD-Kit context wrapper for drag-and-drop prediction grid. Manages drag state, parses pool/slot IDs, handles pool-to-slot drops, slot-to-slot swaps, and slot-to-pool removals. Uses PointerSensor (8px threshold) and TouchSensor (200ms delay).",
-      "dependencies": ["DRAGGABLE_DRIVER-000", "DRAG_OVERLAY_CONTENT-000"],
+      "dependencies": [
+        "DRAGGABLE_DRIVER-000",
+        "DRAG_OVERLAY_CONTENT-000"
+      ],
       "location": {
         "filePath": "app/src/app/(app)/predictions/_components/DndPredictionWrapper.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["DragOverlayContent", "DraggableDriver"]
+        "calls": [
+          "DragOverlayContent",
+          "DraggableDriver"
+        ]
       }
     },
     {
@@ -16732,7 +15831,11 @@
         "filePath": "app/src/app/(app)/predictions/_components/DraggableDriver.tsx"
       },
       "callChain": {
-        "calledBy": ["DND_PREDICTION_WRAPPER-000", "DROPPABLE_GRID_SLOT-000", "DROPPABLE_POOL_ZONE-000"],
+        "calledBy": [
+          "DND_PREDICTION_WRAPPER-000",
+          "DROPPABLE_GRID_SLOT-000",
+          "DROPPABLE_POOL_ZONE-000"
+        ],
         "calls": []
       }
     },
@@ -16746,7 +15849,9 @@
         "filePath": "app/src/app/(app)/predictions/_components/DragOverlayContent.tsx"
       },
       "callChain": {
-        "calledBy": ["DND_PREDICTION_WRAPPER-000"],
+        "calledBy": [
+          "DND_PREDICTION_WRAPPER-000"
+        ],
         "calls": []
       }
     },
@@ -16755,13 +15860,17 @@
       "version": 3,
       "logic_category": "UI",
       "description": "Droppable slot for prediction grid (P1-P6). Shows driver avatar when filled, position label (P1-P6), remove button, and up/down move arrows. Right lane slots have translate-y-6 offset. Highlights green (empty) or amber (swap) on drag-over.",
-      "dependencies": ["DRAGGABLE_DRIVER-000"],
+      "dependencies": [
+        "DRAGGABLE_DRIVER-000"
+      ],
       "location": {
         "filePath": "app/src/app/(app)/predictions/_components/DroppableGridSlot.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["DraggableDriver"]
+        "calls": [
+          "DraggableDriver"
+        ]
       }
     },
     {
@@ -16769,13 +15878,17 @@
       "version": 3,
       "logic_category": "UI",
       "description": "Droppable pool zone containing available drivers in a 2-column scrollable grid. Each driver is wrapped in DraggableDriver and also clickable for instant selection. Highlights green with shadow glow on drag-over.",
-      "dependencies": ["DRAGGABLE_DRIVER-000"],
+      "dependencies": [
+        "DRAGGABLE_DRIVER-000"
+      ],
       "location": {
         "filePath": "app/src/app/(app)/predictions/_components/DroppablePoolZone.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["DraggableDriver"]
+        "calls": [
+          "DraggableDriver"
+        ]
       }
     },
     {
@@ -16797,13 +15910,18 @@
       "version": 3,
       "logic_category": "ORCHESTRATION",
       "description": "Root Next.js layout wrapping entire application. Initializes FirebaseClientProvider, FirebaseServicesTracker (Analytics + Performance), Toaster, and global dark mode. Performance instrumentation disabled to avoid Tailwind class name overflow errors.",
-      "dependencies": ["FIREBASE_CLIENT_PROVIDER-000"],
+      "dependencies": [
+        "FIREBASE_CLIENT_PROVIDER-000"
+      ],
       "location": {
         "filePath": "app/src/app/layout.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["FirebaseClientProvider", "FirebaseServicesTracker"]
+        "calls": [
+          "FirebaseClientProvider",
+          "FirebaseServicesTracker"
+        ]
       }
     },
     {
@@ -16811,13 +15929,22 @@
       "version": 3,
       "logic_category": "ORCHESTRATION",
       "description": "Authenticated app layout (wraps all /app routes). Enforces authentication, checks single-user mode, manages session heartbeat (5min intervals, 15min timeout), renders AppSidebar, displays verification/conversion/preseason banners. Wraps children in SessionProvider and LeagueProvider.",
-      "dependencies": ["SESSION_CONTEXT-000", "LEAGUE_CONTEXT-000"],
+      "dependencies": [
+        "SESSION_CONTEXT-000",
+        "LEAGUE_CONTEXT-000"
+      ],
       "location": {
         "filePath": "app/src/app/(app)/layout.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["useAuth", "useFirestore", "SessionProvider", "LeagueProvider", "logAuditEvent"]
+        "calls": [
+          "useAuth",
+          "useFirestore",
+          "SessionProvider",
+          "LeagueProvider",
+          "logAuditEvent"
+        ]
       }
     },
     {
@@ -16825,13 +15952,18 @@
       "version": 3,
       "logic_category": "ERROR_HANDLING",
       "description": "Root-level error boundary for client-side errors in root layout. Generates client correlation ID, logs error to /api/log-client-error, displays AlertTriangle card with [PX-9999] code and correlation ID. Includes Reset and Home buttons.",
-      "dependencies": ["ERROR_REGISTRY-000"],
+      "dependencies": [
+        "ERROR_REGISTRY-000"
+      ],
       "location": {
         "filePath": "app/src/app/error.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["generateClientCorrelationId", "ERRORS.UNKNOWN_ERROR"]
+        "calls": [
+          "generateClientCorrelationId",
+          "ERRORS.UNKNOWN_ERROR"
+        ]
       }
     },
     {
@@ -16839,13 +15971,18 @@
       "version": 3,
       "logic_category": "ERROR_HANDLING",
       "description": "Global error boundary that catches errors in root layout (replaces entire HTML document). Uses inline styles for dark theme. Logs [PX-2001] NETWORK_ERROR to /api/log-client-error with correlation ID. Renders complete html/body structure.",
-      "dependencies": ["ERROR_REGISTRY-000"],
+      "dependencies": [
+        "ERROR_REGISTRY-000"
+      ],
       "location": {
         "filePath": "app/src/app/global-error.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["generateClientCorrelationId", "ERRORS.NETWORK_ERROR"]
+        "calls": [
+          "generateClientCorrelationId",
+          "ERRORS.NETWORK_ERROR"
+        ]
       }
     },
     {
@@ -16853,13 +15990,18 @@
       "version": 3,
       "logic_category": "ERROR_HANDLING",
       "description": "App-level error boundary for authenticated routes (/app/*). Logs [PX-9999] UNKNOWN_ERROR with correlation ID. Displays AlertTriangle card with error digest (useful for stale Server Action cache). Includes Reset and Home buttons.",
-      "dependencies": ["ERROR_REGISTRY-000"],
+      "dependencies": [
+        "ERROR_REGISTRY-000"
+      ],
       "location": {
         "filePath": "app/src/app/(app)/error.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["generateClientCorrelationId", "ERRORS.UNKNOWN_ERROR"]
+        "calls": [
+          "generateClientCorrelationId",
+          "ERRORS.UNKNOWN_ERROR"
+        ]
       }
     },
     {
@@ -16867,13 +16009,18 @@
       "version": 3,
       "logic_category": "ERROR_HANDLING",
       "description": "Auth route error boundary for login/signup pages. Logs [PX-9999] UNKNOWN_ERROR with correlation ID. Displays full-height centered AlertTriangle card. Includes Reset button (no Home button since user not authenticated).",
-      "dependencies": ["ERROR_REGISTRY-000"],
+      "dependencies": [
+        "ERROR_REGISTRY-000"
+      ],
       "location": {
         "filePath": "app/src/app/(auth)/error.tsx"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["generateClientCorrelationId", "ERRORS.UNKNOWN_ERROR"]
+        "calls": [
+          "generateClientCorrelationId",
+          "ERRORS.UNKNOWN_ERROR"
+        ]
       }
     },
     {
@@ -16886,7 +16033,9 @@
         "filePath": "app/src/firebase/config.ts"
       },
       "callChain": {
-        "calledBy": ["FIREBASE_INDEX-000"],
+        "calledBy": [
+          "FIREBASE_INDEX-000"
+        ],
         "calls": []
       }
     },
@@ -16895,13 +16044,23 @@
       "version": 3,
       "logic_category": "INITIALIZATION",
       "description": "Firebase client SDK initialization. initializeFirebase() attempts automatic Firebase App Hosting env vars first, falls back to firebaseConfig. getSdks() returns firebaseApp, auth, firestore, storage, functions (europe-west2). Re-exports all Firebase modules.",
-      "dependencies": ["FIREBASE_CONFIG-000"],
+      "dependencies": [
+        "FIREBASE_CONFIG-000"
+      ],
       "location": {
         "filePath": "app/src/firebase/index.ts"
       },
       "callChain": {
-        "calledBy": ["FIREBASE_CLIENT_PROVIDER-000"],
-        "calls": ["initializeApp", "getAuth", "getFirestore", "getStorage", "getFunctions"]
+        "calledBy": [
+          "FIREBASE_CLIENT_PROVIDER-000"
+        ],
+        "calls": [
+          "initializeApp",
+          "getAuth",
+          "getFirestore",
+          "getStorage",
+          "getFunctions"
+        ]
       }
     },
     {
@@ -16909,13 +16068,18 @@
       "version": 3,
       "logic_category": "INITIALIZATION",
       "description": "Firebase client SDK initialization for server-side usage (Server Components, API routes). Initializes app once on import, exports app and firestore singletons. Used by server-only code paths.",
-      "dependencies": ["FIREBASE_CONFIG-000"],
+      "dependencies": [
+        "FIREBASE_CONFIG-000"
+      ],
       "location": {
         "filePath": "app/src/firebase/server.ts"
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["initializeApp", "getFirestore"]
+        "calls": [
+          "initializeApp",
+          "getFirestore"
+        ]
       }
     },
     {
@@ -16923,13 +16087,21 @@
       "version": 3,
       "logic_category": "ORCHESTRATION",
       "description": "Client-side Firebase provider wrapper. Calls initializeFirebase() once on mount (useMemo with empty deps) and passes services to FirebaseProvider. Wraps entire app at root layout level.",
-      "dependencies": ["FIREBASE_INDEX-000", "FIREBASE_PROVIDER-000"],
+      "dependencies": [
+        "FIREBASE_INDEX-000",
+        "FIREBASE_PROVIDER-000"
+      ],
       "location": {
         "filePath": "app/src/firebase/client-provider.tsx"
       },
       "callChain": {
-        "calledBy": ["ROOT_LAYOUT-000"],
-        "calls": ["initializeFirebase", "FirebaseProvider"]
+        "calledBy": [
+          "ROOT_LAYOUT-000"
+        ],
+        "calls": [
+          "initializeFirebase",
+          "FirebaseProvider"
+        ]
       }
     },
     {
@@ -16942,8 +16114,15 @@
         "filePath": "app/src/firebase/provider.tsx"
       },
       "callChain": {
-        "calledBy": ["FIREBASE_CLIENT_PROVIDER-000"],
-        "calls": ["onAuthStateChanged", "signInWithGoogle", "signInWithApple", "createUserWithEmailAndPassword"]
+        "calledBy": [
+          "FIREBASE_CLIENT_PROVIDER-000"
+        ],
+        "calls": [
+          "onAuthStateChanged",
+          "signInWithGoogle",
+          "signInWithApple",
+          "createUserWithEmailAndPassword"
+        ]
       }
     },
     {
@@ -16957,7 +16136,10 @@
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["onSnapshot", "errorEmitter.emit"]
+        "calls": [
+          "onSnapshot",
+          "errorEmitter.emit"
+        ]
       }
     },
     {
@@ -16971,7 +16153,10 @@
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["onSnapshot", "errorEmitter.emit"]
+        "calls": [
+          "onSnapshot",
+          "errorEmitter.emit"
+        ]
       }
     },
     {
@@ -16985,7 +16170,11 @@
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["getDoc", "setDoc", "getDocs"]
+        "calls": [
+          "getDoc",
+          "setDoc",
+          "getDocs"
+        ]
       }
     },
     {
@@ -16998,7 +16187,9 @@
         "filePath": "app/src/contexts/session-context.tsx"
       },
       "callChain": {
-        "calledBy": ["APP_LAYOUT-000"],
+        "calledBy": [
+          "APP_LAYOUT-000"
+        ],
         "calls": []
       }
     },
@@ -17012,8 +16203,14 @@
         "filePath": "app/src/contexts/league-context.tsx"
       },
       "callChain": {
-        "calledBy": ["APP_LAYOUT-000"],
-        "calls": ["useFirestore", "useAuth", "onSnapshot"]
+        "calledBy": [
+          "APP_LAYOUT-000"
+        ],
+        "calls": [
+          "useFirestore",
+          "useAuth",
+          "onSnapshot"
+        ]
       }
     },
     {
@@ -17040,7 +16237,12 @@
         "filePath": "app/src/lib/error-registry.ts"
       },
       "callChain": {
-        "calledBy": ["ROOT_ERROR-000", "GLOBAL_ERROR-000", "APP_ERROR-000", "AUTH_ERROR-000"],
+        "calledBy": [
+          "ROOT_ERROR-000",
+          "GLOBAL_ERROR-000",
+          "APP_ERROR-000",
+          "AUTH_ERROR-000"
+        ],
         "calls": []
       }
     }
