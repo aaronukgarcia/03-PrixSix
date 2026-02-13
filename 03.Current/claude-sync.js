@@ -516,6 +516,33 @@ async function cmdCheckin() {
     }
   }
 
+  // Step 3.5: SMART CLEANUP — If all slots occupied but all sessions inactive >30min, force clear them
+  const activeSessions = Object.values(state.sessions).filter(s => s.status === 'active');
+  if (activeSessions.length === 3) {
+    const now = new Date();
+    const allInactive = activeSessions.every(s => {
+      const lastActive = new Date(s.lastActivity);
+      const inactiveMinutes = (now - lastActive) / (1000 * 60);
+      return inactiveMinutes > 30; // All inactive for >30 min
+    });
+
+    if (allInactive) {
+      console.log('[AUTO-CLEANUP] All 3 sessions inactive >30 min. Force clearing...');
+      for (const [sessionId, session] of Object.entries(state.sessions)) {
+        if (session.status === 'active') {
+          state.sessions[sessionId].status = 'auto-cleared';
+          state.sessions[sessionId].endedAt = now.toISOString();
+          console.log(`  Cleared: ${session.name} (inactive ${Math.round((now - new Date(session.lastActivity)) / (1000 * 60))} min)`);
+        }
+      }
+      state.activityLog = state.activityLog || [];
+      state.activityLog.push({
+        message: 'AUTO-CLEANUP: Force cleared all inactive sessions (>30 min)',
+        timestamp: now.toISOString()
+      });
+    }
+  }
+
   // Step 4: Assign name — first available from [Bill, Bob, Ben]
   const sessionId = `session-${Date.now()}`;
   const name = assignName(state.sessions, sessionId);
