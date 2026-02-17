@@ -4,7 +4,9 @@
 // [Downstream Impact] Returns a HealthCheckResult JSON with overall status (healthy/degraded/unhealthy) and per-check details. Admin UI uses this to display system health indicators.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, verifyAuthToken } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, verifyAuthToken } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -32,6 +34,8 @@ interface HealthCheckResult {
 // [Inbound Trigger] HTTP GET with Authorization header containing a valid Firebase ID token for an admin user.
 // [Downstream Impact] Reads from email_logs (filtered by timestamp >= 24h ago) and email_queue (filtered by status == pending). Admin access is verified via users collection isAdmin flag. Returns 401 if unauthenticated, 403 if non-admin.
 export async function GET(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   // SECURITY: Verify authentication AND admin status BEFORE any health checks
   const authHeader = request.headers.get('Authorization');
   const verifiedUser = await verifyAuthToken(authHeader);
@@ -54,8 +58,21 @@ export async function GET(request: NextRequest) {
       );
     }
   } catch (error) {
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.AUTH_ADMIN_VERIFICATION_FAILED, {
+      correlationId,
+      context: { route: '/api/email-health', action: 'GET', phase: 'admin_check' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, errorDb);
     return NextResponse.json(
-      { success: false, error: 'Failed to verify admin status' },
+      {
+        success: false,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
+      },
       { status: 500 }
     );
   }
@@ -128,12 +145,21 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error: any) {
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.DATABASE_READ_FAILED, {
+      correlationId,
+      context: { route: '/api/email-health', action: 'GET', phase: 'health_checks' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, errorDb);
+
     result.checks.firebaseAdmin = {
       status: 'error',
-      message: `Firebase Admin error: ${error.message}`,
+      message: traced.definition.message,
     };
     result.overall = 'unhealthy';
   }
 
-  return NextResponse.json({ success: true, health: result });
+  return NextResponse.json({ success: true, health: result, correlationId });
 }

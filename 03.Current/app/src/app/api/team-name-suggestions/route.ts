@@ -6,8 +6,10 @@
 //                     the signup page is public.
 
 import { NextResponse } from 'next/server';
-import { getFirebaseAdmin } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId } from '@/lib/firebase-admin';
 import { generateSuggestions } from '@/lib/team-name-suggestions';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +20,8 @@ export const dynamic = 'force-dynamic';
 // [Downstream Impact] Returns { suggestions: string[] }. On error, returns empty array
 //                     so the client can fall back gracefully.
 export async function GET() {
+  const correlationId = generateCorrelationId();
+
   try {
     const { db } = await getFirebaseAdmin();
 
@@ -32,9 +36,23 @@ export async function GET() {
 
     const suggestions = generateSuggestions(existingNames, 50);
 
-    return NextResponse.json({ suggestions });
+    return NextResponse.json({ suggestions, correlationId });
   } catch (error) {
-    console.error('[Team Name Suggestions] Error fetching suggestions:', error);
-    return NextResponse.json({ suggestions: [] });
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.DATABASE_READ_FAILED, {
+      correlationId,
+      context: { route: '/api/team-name-suggestions', action: 'GET' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, errorDb);
+
+    // Return empty suggestions array for graceful degradation, but include error details for debugging
+    return NextResponse.json({
+      suggestions: [],
+      error: traced.definition.message,
+      errorCode: traced.definition.code,
+      correlationId: traced.correlationId,
+    });
   }
 }

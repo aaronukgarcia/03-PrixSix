@@ -5,7 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
-import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, verifyAuthToken } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -43,8 +45,10 @@ interface QueuedEmail {
 //   - Data breach via unauthenticated access
 // [Intent] GET handler — fetches queued emails from Firestore. In admin mode (includeAll=true), returns up to 100 emails regardless of status. In normal mode, returns only pending emails whose nextRetryAt has passed (ready to process).
 // [Inbound Trigger] HTTP GET, optionally with ?includeAll=true query parameter for admin view.
-// [Downstream Impact] Returns email queue data to the admin UI. The filtering logic determines which emails appear as processable. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
+// [Downstream Impact] Returns email queue data to the admin UI. The filtering logic determines which emails appear as processable.
 export async function GET(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     // SECURITY: Verify authentication and admin status FIRST
     const authHeader = request.headers.get('Authorization');
@@ -100,11 +104,23 @@ export async function GET(request: NextRequest) {
         });
     }
 
-    return NextResponse.json({ success: true, emails: queuedEmails });
+    return NextResponse.json({ success: true, emails: queuedEmails, correlationId });
   } catch (error: any) {
-    console.error('Error fetching email queue:', error);
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.DATABASE_READ_FAILED, {
+      correlationId,
+      context: { route: '/api/email-queue', action: 'GET' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, errorDb);
     return NextResponse.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
+      },
       { status: 500 }
     );
   }
@@ -118,8 +134,10 @@ export async function GET(request: NextRequest) {
 //   - Resource exhaustion
 // [Intent] POST handler — processes email queue actions. "resend" action re-queues failed emails by resetting their retry count and status to pending. "push" action sends pending emails via Graph API, recording successes in email_daily_stats and handling failures with exponential retry logic via handleEmailFailure.
 // [Inbound Trigger] HTTP POST with JSON body containing action ("push" or "resend") and optional emailIds array.
-// [Downstream Impact] "push" sends emails via sendEmail, updates email_queue documents to sent/failed, and records successful sends in email_daily_stats. "resend" resets failed emails to pending. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
+// [Downstream Impact] "push" sends emails via sendEmail, updates email_queue documents to sent/failed, and records successful sends in email_daily_stats. "resend" resets failed emails to pending.
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     // SECURITY: Verify authentication and admin status FIRST
     const authHeader = request.headers.get('Authorization');
@@ -173,6 +191,7 @@ export async function POST(request: NextRequest) {
         success: true,
         message: `Re-queued ${resendCount} email(s) for sending`,
         resendCount,
+        correlationId,
       });
     }
 
@@ -273,17 +292,30 @@ export async function POST(request: NextRequest) {
         message: `Processed ${emailsToProcess.length} emails: ${successCount} sent, ${retriedCount} scheduled for retry, ${failedCount} failed permanently`,
         results,
         summary: { sent: successCount, retrying: retriedCount, failed: failedCount },
+        correlationId,
       });
     }
 
     return NextResponse.json(
-      { success: false, error: 'Invalid action. Use "push" or "resend"' },
+      { success: false, error: 'Invalid action. Use "push" or "resend"', correlationId },
       { status: 400 }
     );
   } catch (error: any) {
-    console.error('Error processing email queue:', error);
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
+      correlationId,
+      context: { route: '/api/email-queue', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, errorDb);
     return NextResponse.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
+      },
       { status: 500 }
     );
   }
@@ -335,8 +367,10 @@ async function handleEmailFailure(
 //   - Permanent data loss
 // [Intent] DELETE handler — removes queued emails from Firestore. If specific emailIds are provided, deletes those; otherwise deletes all pending emails. Used by admins to clear the queue.
 // [Inbound Trigger] HTTP DELETE with JSON body containing optional emailIds array.
-// [Downstream Impact] Permanently removes documents from the email_queue collection. Deleted emails cannot be recovered. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
+// [Downstream Impact] Permanently removes documents from the email_queue collection. Deleted emails cannot be recovered.
 export async function DELETE(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     // SECURITY: Verify authentication and admin status FIRST
     const authHeader = request.headers.get('Authorization');
@@ -386,11 +420,24 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: `Deleted ${deletedCount} queued email(s)`,
       deletedCount,
+      correlationId,
     });
   } catch (error: any) {
-    console.error('Error deleting from email queue:', error);
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    const { db: errorDb } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
+      correlationId,
+      context: { route: '/api/email-queue', action: 'DELETE' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, errorDb);
     return NextResponse.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
+      },
       { status: 500 }
     );
   }
