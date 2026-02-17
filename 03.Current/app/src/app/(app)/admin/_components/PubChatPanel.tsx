@@ -1,4 +1,9 @@
-// GUID: PUBCHAT_PANEL-000-v03
+// GUID: PUBCHAT_PANEL-000-v04
+// @SECURITY_FIX: Added authentication headers to all API calls. Previous version had no auth,
+//   causing all API calls to fail with 401 Unauthorized:
+//   - Meeting fetch (/api/admin/openf1-sessions?year=) → 401
+//   - Session fetch (/api/admin/openf1-sessions?meetingKey=) → 401
+//   - Timing data fetch (/api/admin/fetch-timing-data) → 401
 // [Intent] Admin panel for the PubChat tab. Renders the ThePaddockPubChat
 //          animation at the top (with live or fallback timing data), provides
 //          OpenF1 fetch controls (meeting + session dropdowns, fetch button),
@@ -40,7 +45,8 @@ interface SessionOption {
     dateStart: string;
 }
 
-// GUID: PUBCHAT_PANEL-001-v03
+// GUID: PUBCHAT_PANEL-001-v04
+// @SECURITY_FIX: Added authToken state and retrieval for API authentication.
 // [Intent] PubChatPanel component — centres the pub chat animation, provides OpenF1
 //          fetch controls for live timing data, and shows newsletter HTML.
 // [Inbound Trigger] Mounted by TabsContent value="pubchat" in admin/page.tsx.
@@ -50,6 +56,9 @@ export function PubChatPanel() {
     const firestore = useFirestore();
     const { firebaseUser } = useAuth();
     const { toast } = useToast();
+
+    // Authentication state
+    const [authToken, setAuthToken] = useState<string | null>(null);
 
     // Newsletter state
     const [settings, setSettings] = useState<PubChatSettings | null>(null);
@@ -69,6 +78,18 @@ export function PubChatPanel() {
     const [loadingMeetings, setLoadingMeetings] = useState(false);
     const [loadingSessions, setLoadingSessions] = useState(false);
     const [fetching, setFetching] = useState(false);
+
+    // Fetch auth token when firebaseUser changes
+    useEffect(() => {
+        if (firebaseUser) {
+            firebaseUser.getIdToken().then(setAuthToken).catch(err => {
+                console.error('Failed to get auth token:', err);
+                setAuthToken(null);
+            });
+        } else {
+            setAuthToken(null);
+        }
+    }, [firebaseUser]);
 
     // GUID: PUBCHAT_PANEL-002-v03
     // [Intent] Fetch newsletter content and timing data from Firestore on mount / refresh.
@@ -106,35 +127,55 @@ export function PubChatPanel() {
         return ts.toDate().toLocaleString();
     };
 
-    // GUID: PUBCHAT_PANEL-003-v03
+    // GUID: PUBCHAT_PANEL-003-v04
+    // @SECURITY_FIX: Added Authorization header with Firebase auth token.
     // [Intent] Fetch meeting list from OpenF1 via the proxy API route for the current year.
-    // [Inbound Trigger] Component mount.
+    // [Inbound Trigger] Component mount and authToken availability.
     // [Downstream Impact] Populates the meeting dropdown.
     useEffect(() => {
+        if (!authToken) return;
+
         const fetchMeetings = async () => {
             setLoadingMeetings(true);
             try {
                 const year = new Date().getFullYear();
-                const res = await fetch(`/api/admin/openf1-sessions?year=${year}`);
+                const res = await fetch(`/api/admin/openf1-sessions?year=${year}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                    },
+                });
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
                     setMeetings(json.data);
+                } else if (json.error) {
+                    console.error('API error fetching meetings:', json.error);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Failed to load meetings',
+                        description: json.error,
+                    });
                 }
             } catch (err) {
                 console.error('Failed to fetch meetings:', err);
+                toast({
+                    variant: 'destructive',
+                    title: 'Network error',
+                    description: 'Could not load meetings. Please refresh the page.',
+                });
             } finally {
                 setLoadingMeetings(false);
             }
         };
         fetchMeetings();
-    }, []);
+    }, [authToken, toast]);
 
-    // GUID: PUBCHAT_PANEL-004-v03
+    // GUID: PUBCHAT_PANEL-004-v04
+    // @SECURITY_FIX: Added Authorization header with Firebase auth token.
     // [Intent] Fetch session list from OpenF1 when a meeting is selected.
     // [Inbound Trigger] selectedMeetingKey changes to a non-empty value.
     // [Downstream Impact] Populates the session dropdown and resets the selected session.
     useEffect(() => {
-        if (!selectedMeetingKey) {
+        if (!selectedMeetingKey || !authToken) {
             setSessions([]);
             setSelectedSessionKey('');
             return;
@@ -143,27 +184,45 @@ export function PubChatPanel() {
             setLoadingSessions(true);
             setSelectedSessionKey('');
             try {
-                const res = await fetch(`/api/admin/openf1-sessions?meetingKey=${selectedMeetingKey}`);
+                const res = await fetch(`/api/admin/openf1-sessions?meetingKey=${selectedMeetingKey}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                    },
+                });
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
                     setSessions(json.data);
+                } else if (json.error) {
+                    console.error('API error fetching sessions:', json.error);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Failed to load sessions',
+                        description: json.error,
+                    });
                 }
             } catch (err) {
                 console.error('Failed to fetch sessions:', err);
+                toast({
+                    variant: 'destructive',
+                    title: 'Network error',
+                    description: 'Could not load sessions. Please try again.',
+                });
             } finally {
                 setLoadingSessions(false);
             }
         };
         fetchSessions();
-    }, [selectedMeetingKey]);
+    }, [selectedMeetingKey, authToken, toast]);
 
-    // GUID: PUBCHAT_PANEL-005-v03
+    // GUID: PUBCHAT_PANEL-005-v04
+    // @SECURITY_FIX: Added Authorization header with Firebase auth token. Removed unused adminUid
+    //   parameter (API route uses authenticated user's UID instead).
     // [Intent] Fetch timing data from OpenF1 and write to Firestore via the API route.
     // [Inbound Trigger] Admin clicks "Fetch from OpenF1" button.
     // [Downstream Impact] POSTs to /api/admin/fetch-timing-data, then refreshes timing data
     //                     from Firestore to update the ThePaddockPubChat component.
     const handleFetchTimingData = async () => {
-        if (!selectedSessionKey || !firebaseUser?.uid) return;
+        if (!selectedSessionKey || !authToken) return;
 
         setFetching(true);
         const correlationId = generateClientCorrelationId();
@@ -171,10 +230,12 @@ export function PubChatPanel() {
         try {
             const res = await fetch('/api/admin/fetch-timing-data', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                },
                 body: JSON.stringify({
                     sessionKey: Number(selectedSessionKey),
-                    adminUid: firebaseUser.uid,
                 }),
             });
 
@@ -246,10 +307,10 @@ export function PubChatPanel() {
                             <Select
                                 value={selectedMeetingKey}
                                 onValueChange={setSelectedMeetingKey}
-                                disabled={loadingMeetings}
+                                disabled={!authToken || loadingMeetings}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder={loadingMeetings ? 'Loading...' : 'Select meeting'} />
+                                    <SelectValue placeholder={!authToken ? 'Authenticating...' : loadingMeetings ? 'Loading...' : 'Select meeting'} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {meetings.map(m => (
@@ -267,10 +328,10 @@ export function PubChatPanel() {
                             <Select
                                 value={selectedSessionKey}
                                 onValueChange={setSelectedSessionKey}
-                                disabled={!selectedMeetingKey || loadingSessions}
+                                disabled={!authToken || !selectedMeetingKey || loadingSessions}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder={loadingSessions ? 'Loading...' : 'Select session'} />
+                                    <SelectValue placeholder={!authToken ? 'Authenticating...' : loadingSessions ? 'Loading...' : 'Select session'} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {sessions.map(s => (
@@ -286,10 +347,10 @@ export function PubChatPanel() {
                 <CardFooter>
                     <Button
                         onClick={handleFetchTimingData}
-                        disabled={!selectedSessionKey || fetching}
+                        disabled={!authToken || !selectedSessionKey || fetching}
                     >
                         <Download className={`h-4 w-4 mr-2 ${fetching ? 'animate-spin' : ''}`} />
-                        {fetching ? 'Fetching...' : 'Fetch from OpenF1'}
+                        {!authToken ? 'Authenticating...' : fetching ? 'Fetching...' : 'Fetch from OpenF1'}
                     </Button>
                 </CardFooter>
             </Card>
