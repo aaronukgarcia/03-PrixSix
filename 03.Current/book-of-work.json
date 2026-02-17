@@ -136,7 +136,7 @@
       "status": "completed",
       "version": "1.55.28",
       "date": "2026-02-17",
-      "commitHash": "82f6998",
+      "commitHash": "efaa3d0",
       "description": "Added maskPin() utility to prevent plaintext PIN logging in email_logs collection. Created maskPin() in utils.ts, applied to sendWelcomeEmail(), updated .env.example with secret placeholders.",
       "severity": "critical",
       "note": "Phase 1A: Safe code changes completed. Migration script and secret rotation pending."
@@ -1316,6 +1316,15 @@
       "issue": "Auto-Generated File with Sensitive Information (Information Disclosure)",
       "rationale": "The `error-registry.ts` file is auto-generated and contains detailed information about various error conditions, including `module` and `file` paths, `guid` values, `recovery` steps, and `failureModes`. This granular detail, if exposed client-side or accessible in server logs, provides an attacker with a \"roadmap\" of potential failure points and internal workings, greatly aiding reconnaissance and targeted attacks. Auto-generated files with internal system details should be strictly controlled, with only generic, user-safe information exposed client-side. Detailed metadata (`module`, `file`, `functionName`, `guid`, `calledBy`, `calls`) is highly internal and should not be exposed.",
       "file": "app/src/lib/error-registry.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-059",
+      "module": "Firebase Admin Library",
+      "severity": "critical",
+      "issue": "Improper Handling of Sensitive Information (Firebase Private Key)",
+      "rationale": "The `getFirebaseAdmin` function explicitly handles the `FIREBASE_PRIVATE_KEY` environment variable, replacing `\\n` with `\n` to parse it. This pattern strongly suggests that the raw private key, a highly sensitive credential, is being stored directly in an environment variable. Storing unencrypted multi-line secrets in environment variables is a high-risk practice due to potential exposure in logs, `phpinfo()`-style information disclosures, or insecure configuration management. It is strongly recommended to use a secret management service (like Google Secret Manager, Azure Key Vault, or AWS Secrets Manager) to store the private key and fetch it at runtime. This avoids direct exposure of the key in environment variables.",
+      "file": "app/src/lib/firebase-admin.ts",
       "citation": "Gemini Red Team"
     }
   ]
