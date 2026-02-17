@@ -271,13 +271,6 @@ export default function StandingsPage() {
 
         // Real-time auto-focus: Jump to latest race when new races added
         setSelectedRaceIndex(prev => {
-          console.log('🔍 AUTO-FOCUS DEBUG:', {
-            prev,
-            'completed.length': completed.length,
-            'prevCount': prevCompletedCountRef.current,
-            'completed': completed.map((r, i) => `${i}:${r.name}`)
-          });
-
           if (completed.length === 0) return -1;
 
           const prevCount = prevCompletedCountRef.current;
@@ -287,8 +280,6 @@ export default function StandingsPage() {
           // 2. New races added (completed.length > prevCount) → jump to latest
           // 3. Out of bounds (prev >= completed.length) → jump to latest
           const shouldAutoFocus = (prev < 0) || (completed.length > prevCount) || (prev >= completed.length);
-
-          console.log('🔍 shouldAutoFocus:', shouldAutoFocus, 'will return:', shouldAutoFocus ? completed.length - 1 : prev);
 
           if (shouldAutoFocus) {
             prevCompletedCountRef.current = completed.length; // Update ref ONLY when auto-focusing
