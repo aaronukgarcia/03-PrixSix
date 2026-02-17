@@ -77697,7 +77697,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -77709,11 +77709,11 @@
         "calls": []
       },
       "created": "2026-01-19T16:21:56Z",
-      "lastUpdated": "2026-02-17T23:09:01Z"
+      "lastUpdated": "2026-02-17T23:42:30.681546Z"
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -77726,7 +77726,7 @@
         "calls": []
       },
       "created": "2026-01-19T16:21:56Z",
-      "lastUpdated": "2026-02-17T23:09:01Z"
+      "lastUpdated": "2026-02-17T23:42:30.681578Z"
     },
     {
       "guid": "PAGE_ABOUT-000",
