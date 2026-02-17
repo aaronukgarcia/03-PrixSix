@@ -1326,6 +1326,42 @@
       "rationale": "The `getFirebaseAdmin` function explicitly handles the `FIREBASE_PRIVATE_KEY` environment variable, replacing `\\n` with `\n` to parse it. This pattern strongly suggests that the raw private key, a highly sensitive credential, is being stored directly in an environment variable. Storing unencrypted multi-line secrets in environment variables is a high-risk practice due to potential exposure in logs, `phpinfo()`-style information disclosures, or insecure configuration management. It is strongly recommended to use a secret management service (like Google Secret Manager, Azure Key Vault, or AWS Secrets Manager) to store the private key and fetch it at runtime. This avoids direct exposure of the key in environment variables.",
       "file": "app/src/lib/firebase-admin.ts",
       "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-062",
+      "module": "Leagues Library",
+      "severity": "high",
+      "issue": "Information Disclosure via Client-Side Console Error Logging",
+      "rationale": "Throughout the `leagues.ts` module, multiple functions (`createLeague`, `joinLeagueByCode`, `leaveLeague`, `deleteLeague`) catch errors and return a sanitized error message to the user that includes the raw `error.message`. This practice can leak sensitive internal details about the Firestore database, security rules, or application logic.",
+      "file": "app/src/lib/leagues.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-063",
+      "module": "Leagues Library",
+      "severity": "high",
+      "issue": "Missing Server-Side Authorization",
+      "rationale": "All functions in `leagues.ts` are designed to be called directly from the client. While they perform some client-side checks (e.g., \"Only the league owner can delete the league\"), these checks can be bypassed by a malicious user who crafts their own requests to Firestore. There is no server-side validation to ensure that the user performing the action is authorized to do so. This could allow a user to delete a league they don't own, remove members from a league they don't own, or rename a league they don't own.",
+      "file": "app/src/lib/leagues.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-067",
+      "module": "Scoring Library",
+      "severity": "critical",
+      "issue": "Denial of Wallet (Unbounded Read Operations)",
+      "rationale": "The `calculateRaceScores` function fetches all predictions for a given race using a `collectionGroup` query without any limits or pagination. A malicious or careless administrator could repeatedly trigger this function, causing an enormous number of document reads, leading to excessive Firebase billing and a Denial of Wallet (DoW) attack.",
+      "file": "app/src/lib/scoring.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-068",
+      "module": "Scoring Library",
+      "severity": "high",
+      "issue": "Insecure Randomness (Fallback to Weak PRNG)",
+      "rationale": "The `calculateRaceScores`, `updateRaceScores`, and `deleteRaceScores` functions use `require('crypto')` inline. While this is not a direct security vulnerability if the `crypto` module is always available, it is an insecure pattern. If `require('crypto')` were to fail (e.g., in a non-Node.js environment or a misconfigured environment), the code does not handle the failure, which could lead to unpredictable behavior. More importantly, this signals a lack of robust dependency management and could easily lead to situations where a developer accidentally introduces a non-cryptographically secure random number generator if this pattern is replicated.",
+      "file": "app/src/lib/scoring.ts",
+      "citation": "Gemini Red Team"
     }
   ]
 }

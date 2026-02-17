@@ -1,7 +1,7 @@
-// GUID: ADMIN_CONSISTENCY-000-v03
+// GUID: ADMIN_CONSISTENCY-000-v04
 // [Intent] Admin component for running data integrity checks across all Firestore collections and displaying results. Validates users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues.
 // [Inbound Trigger] Lazy-loaded and rendered when admin navigates to the Consistency Checker tab in the admin panel.
-// [Downstream Impact] Read-only validation component. Can export issues to error_logs collection. Does not modify source data. Check functions are defined in @/lib/consistency.
+// [Downstream Impact] Read-only validation component. Can export reports to consistency_reports collection. Does not modify source data. Check functions are defined in @/lib/consistency.
 
 'use client';
 
@@ -159,10 +159,10 @@ function getSeverityBadge(severity: Issue['severity']) {
   }
 }
 
-// GUID: ADMIN_CONSISTENCY-008-v03
-// [Intent] Main Consistency Checker component. Orchestrates on-demand data fetching, sequential validation checks across 9 categories, progress display, summary table, score type breakdown, issue details, and export to error_logs.
+// GUID: ADMIN_CONSISTENCY-008-v04
+// [Intent] Main Consistency Checker component. Orchestrates on-demand data fetching, sequential validation checks across 9 categories, progress display, summary table, score type breakdown, issue details, and export to consistency_reports.
 // [Inbound Trigger] Rendered by the admin page when the Consistency Checker tab is selected. Receives allUsers prop from parent.
-// [Downstream Impact] Fetches predictions, race_results, scores, and leagues collections ON-DEMAND when running checks. Can write to error_logs collection via export function. Does not modify source data.
+// [Downstream Impact] Fetches predictions, race_results, scores, and leagues collections ON-DEMAND when running checks. Can write to consistency_reports collection via export function. Does not modify source data.
 export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheckerProps) {
   const firestore = useFirestore();
   const { user } = useAuth();
@@ -348,10 +348,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     }
   }, [allUsers, firestore, toast]);
 
-  // GUID: ADMIN_CONSISTENCY-010-v03
-  // [Intent] Export all detected issues to the error_logs Firestore collection with a correlation ID for tracking.
-  // [Inbound Trigger] Called when admin clicks "Export Issues to Error Log" button (only visible when issues exist).
-  // [Downstream Impact] Creates a document in error_logs with type 'consistency_check', summary counts, all issues, and correlation ID. This is the only write operation in this component.
+  // GUID: ADMIN_CONSISTENCY-010-v04
+  // [Intent] Export all detected issues to the consistency_reports Firestore collection with a correlation ID for tracking.
+  // FIXED: Changed from error_logs to consistency_reports - these are validation reports, not errors.
+  // [Inbound Trigger] Called when admin clicks "Export Report" button (only visible when issues exist).
+  // [Downstream Impact] Creates a document in consistency_reports with type 'consistency_check', summary counts, all issues, correlation ID, and timestamp. This is the only write operation in this component.
   const exportToErrorLog = useCallback(async () => {
     if (!firestore || !summary || !user) return;
 
@@ -378,7 +379,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         exportedBy: user.id,
       };
 
-      await addDoc(collection(firestore, 'error_logs'), errorLogEntry);
+      await addDoc(collection(firestore, 'consistency_reports'), errorLogEntry);
 
       toast({
         title: 'Export Successful',

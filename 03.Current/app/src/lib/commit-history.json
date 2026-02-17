@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-13",
   "commits": [
+    {"id": "69a7199", "date": "2026-02-13", "version": "1.55.30", "author": "aaron garcia", "message": "fix: Move consistency reports from error_logs to dedicated collection (v1.55.30)", "major": false},
     {"id": "4dea7c6", "date": "2026-02-13", "version": "1.55.25", "author": "aaron garcia", "message": "fix: Migrate Spanish GP II to canonical format - Single Source of Truth (v1.55.25)", "major": false},
     {"id": "5ed8d14", "date": "2026-02-13", "version": "1.55.24", "author": "aaron garcia", "message": "REVERTED: Mixed-case hack violated Golden Rule #3", "major": false},
     {"id": "415c3db", "date": "2026-02-13", "version": "1.55.23", "author": "aaron garcia", "message": "fix: Add backward compatibility for GP race IDs without suffix (v1.55.23)", "major": false},

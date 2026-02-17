@@ -370,7 +370,7 @@
     },
     {
       "guid": "ADMIN_CONSISTENCY-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for running data integrity checks across all Firestore collections and displaying results. Validates users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues.",
       "dependencies": [],
@@ -485,7 +485,7 @@
     },
     {
       "guid": "ADMIN_CONSISTENCY-008",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "Main Consistency Checker component. Orchestrates on-demand data fetching, sequential validation checks across 9 categories, progress display, summary table, score type breakdown, issue details, and export to error_logs.",
       "dependencies": [],
@@ -514,7 +514,7 @@
     },
     {
       "guid": "ADMIN_CONSISTENCY-010",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Export all detected issues to the error_logs Firestore collection with a correlation ID for tracking.",
       "dependencies": [],
