@@ -1,10 +1,14 @@
-/**
- * Delete all race_results from production database
- * Part of backup/restore validation cycle
- */
+// GUID: SCRIPTS_DELETE_RACE_RESULTS-000-v02
+// @PHASE_4B: Added safety checks to prevent production execution (DEPLOY-003 mitigation).
+// [Intent] DESTRUCTIVE: Delete all race_results from database. For dev/test environments ONLY.
+// [Inbound Trigger] Manual execution by developer during backup/restore validation.
+// [Downstream Impact] All race results deleted. Now blocked on production.
+//
+// Part of backup/restore validation cycle
 
 import * as admin from 'firebase-admin';
 import * as path from 'path';
+import { runSafetyChecks } from './_safety-checks';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
 if (!admin.apps.length) {
@@ -17,6 +21,14 @@ const db = admin.firestore();
 const DRY_RUN = process.argv.includes('--dry-run') || !process.argv.includes('--live');
 
 async function deleteRaceResults() {
+  // GUID: SCRIPTS_DELETE_RACE_RESULTS-001-v02
+  // [Intent] Safety checks - prevent production execution (unless DRY_RUN mode).
+  // [Inbound Trigger] First action before any database operations (skipped in DRY_RUN).
+  // [Downstream Impact] Exits with error if production detected or user cancels.
+  if (!DRY_RUN) {
+    await runSafetyChecks('DELETE ALL RACE RESULTS (race_results collection)');
+  }
+
   console.log('\n🗑️  DELETE ALL RACE RESULTS');
   console.log(`Mode: ${DRY_RUN ? '⚠️  DRY RUN' : '🔴 LIVE DELETE'}\n`);
 

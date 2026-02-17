@@ -1,12 +1,15 @@
-/**
- * Delete ALL scores to start fresh
- *
- * Run with: npx ts-node --project tsconfig.scripts.json scripts/delete-all-scores.ts
- */
+// GUID: SCRIPTS_DELETE_SCORES-000-v02
+// @PHASE_4B: Added safety checks to prevent production execution (DEPLOY-003 mitigation).
+// [Intent] DESTRUCTIVE: Delete ALL scores from Firestore. For dev/test environments ONLY.
+// [Inbound Trigger] Manual execution by developer before recalculation.
+// [Downstream Impact] All user scores deleted. Now blocked on production.
+//
+// Run with: npx ts-node --project tsconfig.scripts.json scripts/delete-all-scores.ts
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as path from 'path';
+import { runSafetyChecks } from './_safety-checks';
 
 // Initialize Firebase Admin
 const serviceAccountPath = path.join(__dirname, '..', '..', 'service-account.json');
@@ -20,6 +23,12 @@ if (getApps().length === 0) {
 const db = getFirestore();
 
 async function deleteAllScores() {
+  // GUID: SCRIPTS_DELETE_SCORES-001-v02
+  // [Intent] Safety checks - prevent production execution and require user confirmation.
+  // [Inbound Trigger] First action before any database operations.
+  // [Downstream Impact] Exits with error if production detected or user cancels.
+  await runSafetyChecks('DELETE ALL SCORES (entire scores collection)');
+
   console.log('Deleting ALL scores for fresh recalculation...\n');
 
   // Fetch all scores

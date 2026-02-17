@@ -1,26 +1,30 @@
-/**
- * Season Reset Script - Delete all race results, scores, and audit logs
- *
- * PURPOSE: Reset Prix Six to start of season while preserving predictions
- *
- * DELETES:
- *   - All race_results collection documents
- *   - All scores collection documents
- *   - All audit_logs collection documents
- *
- * PRESERVES:
- *   - All users
- *   - All predictions
- *   - All leagues
- *   - Static data (drivers, race schedule)
- *
- * Usage:
- *   DRY RUN: npx ts-node --project tsconfig.scripts.json scripts/reset-season-delete-results.ts --dry-run
- *   LIVE:    npx ts-node --project tsconfig.scripts.json scripts/reset-season-delete-results.ts --live
- */
+// GUID: SCRIPTS_RESET_SEASON-000-v02
+// @PHASE_4B: Added safety checks to prevent production execution (DEPLOY-003 mitigation).
+// [Intent] DESTRUCTIVE: Season reset - delete race results, scores, audit logs.
+//          Preserves users, predictions, leagues. For dev/test environments ONLY.
+// [Inbound Trigger] Manual execution by developer to reset season data.
+// [Downstream Impact] Major data deletion (race_results, scores, audit_logs). Now blocked on production.
+//
+// PURPOSE: Reset Prix Six to start of season while preserving predictions
+//
+// DELETES:
+//   - All race_results collection documents
+//   - All scores collection documents
+//   - All audit_logs collection documents
+//
+// PRESERVES:
+//   - All users
+//   - All predictions
+//   - All leagues
+//   - Static data (drivers, race schedule)
+//
+// Usage:
+//   DRY RUN: npx ts-node --project tsconfig.scripts.json scripts/reset-season-delete-results.ts --dry-run
+//   LIVE:    npx ts-node --project tsconfig.scripts.json scripts/reset-season-delete-results.ts --live
 
 import * as admin from 'firebase-admin';
 import * as path from 'path';
+import { runSafetyChecks } from './_safety-checks';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
 if (!admin.apps.length) {
@@ -35,10 +39,14 @@ async function resetSeason() {
     console.log('\n🔥 SEASON RESET - DELETE ALL RESULTS, SCORES, AND AUDIT LOGS 🔥');
     console.log(`Mode: ${DRY_RUN ? 'DRY RUN (--dry-run)' : '🔴 LIVE DELETION (--live)'}\n`);
 
+    // GUID: SCRIPTS_RESET_SEASON-001-v02
+    // [Intent] Safety checks - prevent production execution (unless DRY_RUN mode).
+    // [Inbound Trigger] First action before any database operations (skipped in DRY_RUN).
+    // [Downstream Impact] Exits with error if production detected or user cancels.
     if (!DRY_RUN) {
-      console.log('⚠️  WARNING: This will PERMANENTLY DELETE data!');
-      console.log('⚠️  Press Ctrl+C now to cancel...\n');
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await runSafetyChecks(
+        'SEASON RESET: Delete all race_results, scores, and audit_logs collections'
+      );
     }
 
     // Collection stats

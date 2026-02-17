@@ -1,13 +1,16 @@
-/**
- * Cleanup script to delete scores with invalid format
- * (missing userId, wrong ID format)
- *
- * Run with: npx ts-node --project tsconfig.scripts.json scripts/cleanup-bad-scores.ts
- */
+// GUID: SCRIPTS_CLEANUP_BAD_SCORES-000-v02
+// @PHASE_4B: Added safety checks to prevent production execution (DEPLOY-003 mitigation).
+// [Intent] DESTRUCTIVE: Delete scores with invalid format (missing userId, wrong ID format).
+//          For dev/test environments ONLY.
+// [Inbound Trigger] Manual execution by developer to clean up malformed score data.
+// [Downstream Impact] Selective deletion of invalid scores. Now blocked on production.
+//
+// Run with: npx ts-node --project tsconfig.scripts.json scripts/cleanup-bad-scores.ts
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as path from 'path';
+import { runSafetyChecks } from './_safety-checks';
 
 // Initialize Firebase Admin
 const serviceAccountPath = path.join(__dirname, '..', '..', 'service-account.json');
@@ -21,6 +24,12 @@ if (getApps().length === 0) {
 const db = getFirestore();
 
 async function cleanupBadScores() {
+  // GUID: SCRIPTS_CLEANUP_BAD_SCORES-001-v02
+  // [Intent] Safety checks - prevent production execution and require user confirmation.
+  // [Inbound Trigger] First action before any database operations.
+  // [Downstream Impact] Exits with error if production detected or user cancels.
+  await runSafetyChecks('CLEANUP INVALID SCORES: Delete scores with missing userId or wrong format');
+
   console.log('Starting cleanup of invalid scores...\n');
 
   // Fetch all scores

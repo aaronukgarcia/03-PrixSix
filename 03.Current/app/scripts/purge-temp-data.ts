@@ -1,14 +1,17 @@
-/**
- * Purge temp data (teams and submissions) from Firestore - FAST VERSION
- * PRESERVES: aaron@garcia.ltd and aaron.garcia@hotmail.co.uk
- *
- * Run:
- *   $env:GOOGLE_APPLICATION_CREDENTIALS = ".\service-account.json"
- *   npx ts-node --project tsconfig.scripts.json scripts/purge-temp-data.ts
- */
+// GUID: SCRIPTS_PURGE_TEMP-000-v02
+// @PHASE_4B: Added safety checks to prevent production execution (DEPLOY-003 mitigation).
+// [Intent] DESTRUCTIVE: Purge temp data (users, predictions, submissions, scores, race_results).
+//          PRESERVES protected emails only. For dev/test environments ONLY.
+// [Inbound Trigger] Manual execution by developer to clean test data.
+// [Downstream Impact] Bulk deletion of non-protected users and related data. Now blocked on production.
+//
+// Run:
+//   $env:GOOGLE_APPLICATION_CREDENTIALS = ".\service-account.json"
+//   npx ts-node --project tsconfig.scripts.json scripts/purge-temp-data.ts
 
 import * as admin from 'firebase-admin';
 import * as path from 'path';
+import { runSafetyChecks } from './_safety-checks';
 
 const PROTECTED_EMAILS = [
   'aaron@garcia.ltd',
@@ -52,6 +55,15 @@ async function deleteCollection(collectionRef: admin.firestore.CollectionReferen
 }
 
 async function purge() {
+  // GUID: SCRIPTS_PURGE_TEMP-001-v02
+  // [Intent] Safety checks - prevent production execution and require user confirmation.
+  // [Inbound Trigger] First action before any database operations.
+  // [Downstream Impact] Exits with error if production detected or user cancels.
+  await runSafetyChecks(
+    `PURGE TEMP DATA: Delete all users except ${PROTECTED_EMAILS.join(', ')} ` +
+    `and their predictions, submissions, scores, and race results`
+  );
+
   console.log('=== PURGE TEMP DATA (FAST) ===');
   console.log('Protected emails:', PROTECTED_EMAILS.join(', '));
   console.log('');

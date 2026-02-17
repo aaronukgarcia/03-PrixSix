@@ -1,14 +1,17 @@
-// GUID: SCRIPT_MIGRATE_RACE_ID-000-v01
-// [Intent] Migration script to normalize all prediction race IDs to Title-Case format.
+// GUID: SCRIPT_MIGRATE_RACE_ID-000-v02
+// @PHASE_4B: Added safety checks to prevent production execution (DEPLOY-003 mitigation).
+// [Intent] MIGRATION: Normalize all prediction race IDs to Title-Case format.
 //          Fixes lowercase race IDs like "british-grand-prix-sprint" to "British-Grand-Prix-Sprint".
+//          For dev/test environments ONLY (unless explicitly approved for production migration).
 // [Inbound Trigger] Manually run via: npx ts-node --project tsconfig.scripts.json scripts/migrate-race-id-case.ts
 // [Downstream Impact] Updates predictions collection with Title-Case race IDs. Improves consistency
-//                     and resolves Consistency Checker warnings.
+//                     and resolves Consistency Checker warnings. Now blocked on production.
 
 import * as admin from 'firebase-admin';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { generateRaceId } from '../src/lib/normalize-race-id';
+import { runSafetyChecks } from './_safety-checks';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
@@ -104,11 +107,12 @@ async function migratePredictions() {
   console.log(`Mode: ${DRY_RUN ? 'DRY RUN (no changes will be made)' : 'APPLY (will update database)'}`);
   console.log('');
 
+  // GUID: SCRIPT_MIGRATE_RACE_ID-001-v02
+  // [Intent] Safety checks - prevent production execution (unless DRY_RUN mode).
+  // [Inbound Trigger] First action before any database operations (skipped in DRY_RUN).
+  // [Downstream Impact] Exits with error if production detected or user cancels.
   if (!DRY_RUN) {
-    console.log('⚠️  WARNING: This will modify production data!');
-    console.log('   Press Ctrl+C within 5 seconds to cancel...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    console.log('   Proceeding with migration...\n');
+    await runSafetyChecks('MIGRATE RACE IDS: Update all predictions to Title-Case race ID format');
   }
 
   let totalScanned = 0;

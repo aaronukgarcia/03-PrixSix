@@ -1,17 +1,22 @@
-/**
- * Recalculate All Scores Script
- *
- * This script re-runs the scoring logic for all existing race results.
- * It will:
- * 1. Use the existing race results (no changes to results)
- * 2. Recalculate scores using the current carry-forward logic
- * 3. Create missing prediction documents for carry-forward teams
- *
- * Run with: npx ts-node --project tsconfig.scripts.json scripts/recalculate-all-scores.ts
- */
+// GUID: SCRIPTS_RECALC_SCORES-000-v02
+// @PHASE_4B: Added safety checks to prevent production execution (DEPLOY-003 mitigation).
+// [Intent] DESTRUCTIVE: Recalculate all scores using current carry-forward logic.
+//          Deletes existing scores and recalculates from race results.
+//          For dev/test environments ONLY.
+// [Inbound Trigger] Manual execution by developer after scoring logic changes.
+// [Downstream Impact] All scores regenerated - may change user standings. Now blocked on production.
+//
+// This script re-runs the scoring logic for all existing race results.
+// It will:
+// 1. Use the existing race results (no changes to results)
+// 2. Recalculate scores using the current carry-forward logic
+// 3. Create missing prediction documents for carry-forward teams
+//
+// Run with: npx ts-node --project tsconfig.scripts.json scripts/recalculate-all-scores.ts
 
 import * as admin from 'firebase-admin';
 import * as path from 'path';
+import { runSafetyChecks } from './_safety-checks';
 
 // Import shared normalization functions (Golden Rule #3: Single Source of Truth)
 import { normalizeRaceId, normalizeRaceIdForComparison } from '../src/lib/normalize-race-id';
@@ -88,6 +93,12 @@ function toTitleCase(raceId: string): string {
 }
 
 async function recalculateAllScores() {
+  // GUID: SCRIPTS_RECALC_SCORES-001-v02
+  // [Intent] Safety checks - prevent production execution and require user confirmation.
+  // [Inbound Trigger] First action before any database operations.
+  // [Downstream Impact] Exits with error if production detected or user cancels.
+  await runSafetyChecks('RECALCULATE ALL SCORES: Delete and regenerate all scores using current logic');
+
   console.log('Starting score recalculation for all races...\n');
 
   // Step 1: Get all race results
