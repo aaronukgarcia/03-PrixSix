@@ -257,7 +257,7 @@ async function recalculateAllScores() {
       const scoreDocRef = db.collection('scores').doc(`${resultDocId}_${teamId}`);
       batch.set(scoreDocRef, {
         userId: teamId,
-        raceId: resultDocId,
+        raceId: raceName,  // Use Title-Case raceName to match race_results and RaceSchedule
         raceName: raceName,
         totalPoints,
         calculatedAt: FieldValue.serverTimestamp(),
