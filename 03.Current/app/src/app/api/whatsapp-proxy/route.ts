@@ -10,11 +10,11 @@ import { verifyAuthToken, getFirebaseAdmin, generateCorrelationId } from '@/lib/
 // Force dynamic to skip static analysis
 export const dynamic = 'force-dynamic';
 
-// GUID: API_WHATSAPP_PROXY-001-v03
-// [Intent] Internal URL constant for the WhatsApp worker — HTTP-only, not exposed to browsers. Traffic flows: Browser -> this proxy (HTTPS) -> worker (HTTP).
+// GUID: API_WHATSAPP_PROXY-001-v04
+// [Intent] Internal URL constant for the WhatsApp worker — HTTPS on Azure Container Apps. Traffic flows: Browser -> this proxy (HTTPS) -> worker (HTTPS).
 // [Inbound Trigger] Referenced by GET and POST handlers when constructing fetch URLs.
-// [Downstream Impact] Changing this URL requires the WhatsApp worker to be redeployed at the new address. Azure Container Instance DNS name.
-const WHATSAPP_WORKER_INTERNAL_URL = 'http://prixsix-whatsapp.uksouth.azurecontainer.io:3000';
+// [Downstream Impact] Changing this URL requires the WhatsApp worker to be redeployed at the new address. Azure Container Apps FQDN.
+const WHATSAPP_WORKER_INTERNAL_URL = 'https://prixsix-whatsapp.delightfulmushroom-6fa10cd0.uksouth.azurecontainerapps.io';
 
 // GUID: API_WHATSAPP_PROXY-002-v03
 // [Intent] Generate HMAC SHA-256 signature for outgoing worker requests so the worker can verify requests originate from this trusted proxy.
