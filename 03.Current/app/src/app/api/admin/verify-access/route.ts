@@ -8,7 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getFirebaseAdmin, generateCorrelationId } from '@/lib/firebase-admin';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERRORS } from '@/lib/error-registry';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
 import crypto from 'crypto';
 
 // GUID: API_ADMIN_VERIFY_ACCESS-001-v01
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Missing required fields: token and uid',
-          errorCode: ERROR_CODES.VALIDATION_MISSING_FIELDS.code,
+          errorCode: ERRORS.VALIDATION_MISSING_FIELDS.code,
           correlationId,
         },
         { status: 400 }
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Invalid verification link',
-          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          errorCode: ERRORS.AUTH_INVALID_TOKEN.code,
           correlationId,
         },
         { status: 400 }
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Invalid verification link',
-          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          errorCode: ERRORS.AUTH_INVALID_TOKEN.code,
           correlationId,
         },
         { status: 400 }
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Invalid verification link',
-          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          errorCode: ERRORS.AUTH_INVALID_TOKEN.code,
           correlationId,
         },
         { status: 400 }
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Verification link already used',
-          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          errorCode: ERRORS.AUTH_INVALID_TOKEN.code,
           correlationId,
         },
         { status: 400 }
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Verification link expired. Please request a new one.',
-          errorCode: ERROR_CODES.AUTH_SESSION_EXPIRED.code,
+          errorCode: ERRORS.AUTH_SESSION_EXPIRED.code,
           correlationId,
         },
         { status: 400 }
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Admin privileges revoked',
-          errorCode: ERROR_CODES.AUTH_ADMIN_REQUIRED.code,
+          errorCode: ERRORS.AUTH_ADMIN_REQUIRED.code,
           correlationId,
         },
         { status: 403 }
@@ -188,29 +189,26 @@ export async function POST(request: NextRequest) {
     return response;
 
   } catch (error: any) {
-    console.error('Admin verification error:', error);
-
-    // GOLDEN RULE #1: Log error to error_logs collection
+    // GUID: API_ADMIN_VERIFY_ACCESS-008-v02
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    // [Intent] Log error to error_logs collection using createTracedError/logTracedError infrastructure.
+    //          Replaces direct db.collection('error_logs').add() with centralized error handling.
+    // [Inbound Trigger] Any uncaught exception during admin verification token validation.
+    // [Downstream Impact] Error logged for debugging, correlation ID returned to client for support tracking.
+    //                     No raw error.message exposed (security compliance).
     const { db } = await getFirebaseAdmin();
-    await db.collection('error_logs').add({
-      timestamp: Timestamp.now(),
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
-      errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-      errorMessage: error.message || 'Internal server error',
-      context: {
-        endpoint: '/api/admin/verify-access',
-        method: 'POST',
-        stack: error.stack,
-      },
-      severity: 'high',
-    }).catch(() => {}); // Silent fail on logging error
-
+      context: { route: '/api/admin/verify-access', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, db);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Internal server error',
-        errorCode: ERROR_CODES.UNKNOWN_ERROR.code,
-        correlationId,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
       },
       { status: 500 }
     );

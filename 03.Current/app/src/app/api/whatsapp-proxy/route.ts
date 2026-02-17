@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { verifyAuthToken, getFirebaseAdmin } from '@/lib/firebase-admin';
+import { verifyAuthToken, getFirebaseAdmin, generateCorrelationId } from '@/lib/firebase-admin';
 
 // Force dynamic to skip static analysis
 export const dynamic = 'force-dynamic';
@@ -33,6 +33,8 @@ function signRequest(payload: string): string {
 // [Inbound Trigger] GET /api/whatsapp-proxy?endpoint=health|status|qr from the admin UI.
 // [Downstream Impact] Returns worker health/status JSON or QR code text. If worker is down, returns the worker's HTTP error. Admin UI displays connection status based on these responses.
 export async function GET(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     // GUID: API_WHATSAPP_PROXY-004-v03
     // [Intent] Verify the caller has a valid Firebase Auth token and is an admin user. Two-step check: token verification then Firestore isAdmin lookup.
@@ -97,13 +99,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, { status: workerResponse.status });
 
   } catch (error: any) {
-    // GUID: API_WHATSAPP_PROXY-007-v03
-    // [Intent] Catch-all error handler for GET requests — logs to console and returns a generic proxy error.
-    // [Inbound Trigger] Any uncaught exception (network failure, JSON parse error, etc.).
-    // [Downstream Impact] Returns 500 to admin UI. Does not write to error_logs (lightweight proxy pattern).
-    console.error('[WhatsApp Proxy] Error:', error);
+    // GUID: API_WHATSAPP_PROXY-007-v04
+    // @GOLDEN_RULE_1: Add correlation ID for admin troubleshooting (Phase 4 compliance).
+    // [Intent] Catch-all error handler for GET requests with correlation ID tracking.
+    //          Lightweight (no error_logs writes - proxy pattern) but traceable.
+    // [Inbound Trigger] Any uncaught exception (network failure, JSON parse error, WhatsApp worker down).
+    // [Downstream Impact] Returns 500 to admin UI with correlation ID. Admin can reference ID for support.
+    //                     Does not expose raw error.message (security compliance).
+    console.error(`[WhatsApp Proxy GET] correlationId: ${correlationId}`, error);
     return NextResponse.json(
-      { error: error.message || 'Proxy error' },
+      {
+        error: 'WhatsApp proxy communication error',
+        correlationId,
+      },
       { status: 500 }
     );
   }
@@ -114,6 +122,8 @@ export async function GET(request: NextRequest) {
 // [Inbound Trigger] POST /api/whatsapp-proxy?endpoint=ping|trigger-test from the admin UI.
 // [Downstream Impact] Triggers actions on the WhatsApp worker (ping to test connectivity, trigger-test to send test messages). Worker state may change as a result.
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     // GUID: API_WHATSAPP_PROXY-009-v03
     // [Intent] Verify the caller has a valid Firebase Auth token and is an admin user. Same two-step check as GET handler.
@@ -161,13 +171,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: workerResponse.status });
 
   } catch (error: any) {
-    // GUID: API_WHATSAPP_PROXY-012-v03
-    // [Intent] Catch-all error handler for POST requests — logs to console and returns a generic proxy error.
-    // [Inbound Trigger] Any uncaught exception (network failure, JSON parse error, etc.).
-    // [Downstream Impact] Returns 500 to admin UI. Does not write to error_logs (lightweight proxy pattern).
-    console.error('[WhatsApp Proxy] Error:', error);
+    // GUID: API_WHATSAPP_PROXY-012-v04
+    // @GOLDEN_RULE_1: Add correlation ID for admin troubleshooting (Phase 4 compliance).
+    // [Intent] Catch-all error handler for POST requests with correlation ID tracking.
+    //          Lightweight (no error_logs writes - proxy pattern) but traceable.
+    // [Inbound Trigger] Any uncaught exception (network failure, JSON parse error, WhatsApp worker down).
+    // [Downstream Impact] Returns 500 to admin UI with correlation ID. Admin can reference ID for support.
+    //                     Does not expose raw error.message (security compliance).
+    console.error(`[WhatsApp Proxy POST] correlationId: ${correlationId}`, error);
     return NextResponse.json(
-      { error: error.message || 'Proxy error' },
+      {
+        error: 'WhatsApp proxy communication error',
+        correlationId,
+      },
       { status: 500 }
     );
   }
