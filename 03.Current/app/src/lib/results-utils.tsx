@@ -44,25 +44,25 @@ export interface RaceResult {
     submittedAt: any;
 }
 
-// GUID: LIB_RESULTS_UTILS-004-v01
+// GUID: LIB_RESULTS_UTILS-004-v02
 // [Intent] Type for a score document associated with a team's race performance.
+// Golden Rule #3: Removed breakdown field (denormalized data) - calculate in real-time instead.
 export interface Score {
     id: string;
     oduserId: string;
     teamName: string;
     raceId: string;
     totalPoints: number;
-    breakdown: string;
 }
 
-// GUID: LIB_RESULTS_UTILS-005-v01
+// GUID: LIB_RESULTS_UTILS-005-v02
 // [Intent] Type for a team's complete result for a race.
+// Golden Rule #3: Removed breakdown field - use predictions array for display instead.
 export interface TeamResult {
     teamName: string;
     oduserId: string;
     predictions: DriverPrediction[];
     totalPoints: number | null;
-    breakdown: string;
     hasScore: boolean;
     bonusPoints: number;
     rank?: number;

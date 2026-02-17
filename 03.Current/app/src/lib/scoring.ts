@@ -52,17 +52,17 @@ interface Prediction {
 // [Inbound Trigger] n/a -- import at top of file.
 // [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
 
-// GUID: LIB_SCORING-004-v04
+// GUID: LIB_SCORING-004-v05
 // @SECURITY_RISK: Previously silently swallowed collectionGroup failures, masking missing index or permission errors.
 // @ERROR_PRONE: Previously accepted null/duplicate drivers without validation.
 // [Intent] Core scoring engine: fetches all predictions for a given race from Firestore
 // using a collectionGroup query, then iterates each user's prediction array applying
 // the hybrid position-based scoring model (exact/1-off/2-off/3+-off) plus the all-6 bonus.
-// Returns an array of per-user score objects with total points and human-readable breakdown.
+// Returns only totalPoints per user (Golden Rule #3: breakdown is NOT stored as duplicate data).
 // [Inbound Trigger] Called by updateRaceScores when admin triggers score calculation.
 // [Downstream Impact] The returned scores are written to the 'scores' collection by
-// updateRaceScores. Breakdown strings are stored and displayed in the admin UI.
-// Depends on calculateDriverPoints from scoring-rules.ts and F1Drivers from data.ts.
+// updateRaceScores. Breakdown display is calculated in real-time from race_results source of truth.
+// Depends on calculateDriverPoints from scoring-rules.ts.
 
 /**
  * Calculate scores for a specific race based on Prix Six Hybrid rules:
@@ -73,11 +73,14 @@ interface Prediction {
  * - 0 points if driver not in top 6
  * - +10 bonus if all 6 predictions are in the top 6 (regardless of position)
  * - Max possible: 36 (all exact) + 10 (bonus) = 46 points
+ *
+ * Golden Rule #3: Returns only totalPoints, not breakdown (breakdown is calculated
+ * in real-time from race_results source of truth, not stored as duplicate data).
  */
 export async function calculateRaceScores(
   firestore: any,
   raceResult: RaceResult
-): Promise<{ userId: string; totalPoints: number; breakdown: string }[]> {
+): Promise<{ userId: string; totalPoints: number }[]> {
   const correlationId = `score_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   const actualResults = [
@@ -123,7 +126,7 @@ export async function calculateRaceScores(
 
   console.log(`[Scoring] Found ${predictionsSnapshot.size} predictions`);
 
-  const scores: { userId: string; totalPoints: number; breakdown: string }[] = [];
+  const scores: { userId: string; totalPoints: number }[] = [];
 
   predictionsSnapshot.forEach((predDoc: QueryDocumentSnapshot<DocumentData>) => {
     const data = predDoc.data();
@@ -149,11 +152,9 @@ export async function calculateRaceScores(
 
     let totalPoints = 0;
     let correctCount = 0;
-    const breakdownParts: string[] = [];
 
     // Prix Six Hybrid scoring: check each prediction position
     userPredictions.forEach((driverId, predictedPosition) => {
-      const driverName = F1Drivers.find(d => d.id === driverId)?.name || driverId;
       const actualPosition = actualResults.indexOf(driverId);
 
       // Calculate points using hybrid position-based system
@@ -164,37 +165,33 @@ export async function calculateRaceScores(
         // Driver is in top 6
         correctCount++;
       }
-
-      breakdownParts.push(`${driverName}+${points}`);
     });
 
     // Bonus: +10 if all 6 predictions are in the top 6
     if (correctCount === 6) {
       totalPoints += SCORING_POINTS.bonusAll6;
-      breakdownParts.push(`BonusAll6+${SCORING_POINTS.bonusAll6}`);
     }
 
     scores.push({
       userId,
-      totalPoints,
-      breakdown: breakdownParts.join(', ')
+      totalPoints
     });
   });
 
   return scores;
 }
 
-// GUID: LIB_SCORING-005-v04
+// GUID: LIB_SCORING-005-v05
 // [Intent] Define auxiliary TypeScript interfaces for the score-with-team-name
 // shape (used in email/report output), the standings entry shape (rank + team + points),
 // and the combined result returned by updateRaceScores.
+// Golden Rule #3: Removed prediction/breakdown fields - these are calculated in real-time.
 // [Inbound Trigger] Used as return types by updateRaceScores.
 // [Downstream Impact] Consumers of updateRaceScores (admin API routes, email templates)
 // depend on these shapes for rendering scores and standings.
 
 interface ScoreWithTeam {
   teamName: string;
-  prediction: string;
   points: number;
 }
 
@@ -210,15 +207,16 @@ interface UpdateScoresResult {
   standings: StandingEntry[];
 }
 
-// GUID: LIB_SCORING-006-v04
+// GUID: LIB_SCORING-006-v05
 // @AUDIT_NOTE: Removed `oduserId` typo field that was being written to Firestore alongside `userId`.
 // [Intent] End-to-end orchestrator: calculates scores for a race, persists each
 // user's score document to the 'scores' collection, then recomputes the full league
 // standings across all races. Returns the race scores and updated standings.
+// Golden Rule #3: Stores only totalPoints, not breakdown (calculated in real-time from race_results).
 // [Inbound Trigger] Called from admin API route when race results are submitted/recalculated.
 // [Downstream Impact] Writes score documents (keyed as {raceId}_{userId}) to Firestore.
 // Reads the entire 'scores' collection to compute league standings with tie-aware ranking.
-// Depends on calculateRaceScores (LIB_SCORING-004) and normalizeRaceId (LIB_NORMALIZE_RACE_ID-000).
+// Depends on calculateRaceScores (LIB_SCORING-004-v05) and normalizeRaceId (LIB_NORMALIZE_RACE_ID-000).
 
 /**
  * Update scores collection for a race
@@ -244,6 +242,8 @@ export async function updateRaceScores(
   });
 
   // Write scores to Firestore and build scores list for email
+  // Golden Rule #3: Store only totalPoints (aggregate), not breakdown (denormalized data)
+  // Breakdown is calculated in real-time from race_results source of truth
   const scores: ScoreWithTeam[] = [];
   for (const score of calculatedScores) {
     const scoreDocRef = doc(firestore, 'scores', `${normalizedRaceId}_${score.userId}`);
@@ -251,8 +251,7 @@ export async function updateRaceScores(
       await setDoc(scoreDocRef, {
         userId: score.userId,
         raceId: normalizedRaceId,
-        totalPoints: score.totalPoints,
-        breakdown: score.breakdown
+        totalPoints: score.totalPoints
       });
     } catch (error: any) {
       console.error(`[Scoring] [${correlationId}] Failed to write score for user ${score.userId}:`, error);
@@ -261,7 +260,6 @@ export async function updateRaceScores(
 
     scores.push({
       teamName: userMap.get(score.userId) || 'Unknown',
-      prediction: score.breakdown,
       points: score.totalPoints,
     });
   }

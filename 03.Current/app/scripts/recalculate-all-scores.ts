@@ -236,10 +236,8 @@ async function recalculateAllScores() {
 
       let totalPoints = 0;
       let correctCount = 0;
-      const breakdownParts: string[] = [];
 
       userPredictions.forEach((driverId, predictedPosition) => {
-        const driverName = F1_DRIVERS[driverId] || driverId;
         const actualPosition = actualResults.indexOf(driverId);
         const points = calculateDriverPoints(predictedPosition, actualPosition);
         totalPoints += points;
@@ -247,22 +245,21 @@ async function recalculateAllScores() {
         if (actualPosition !== -1) {
           correctCount++;
         }
-        breakdownParts.push(`${driverName}+${points}`);
       });
 
       if (correctCount === 6) {
         totalPoints += SCORING_POINTS.bonusAll6;
-        breakdownParts.push(`BonusAll6+${SCORING_POINTS.bonusAll6}`);
       }
 
       // Write score
+      // Golden Rule #3: Store only totalPoints (aggregate), not breakdown (denormalized data)
+      // Breakdown is calculated in real-time from race_results source of truth
       const scoreDocRef = db.collection('scores').doc(`${resultDocId}_${teamId}`);
       batch.set(scoreDocRef, {
         userId: teamId,
         raceId: resultDocId,
         raceName: raceName,
         totalPoints,
-        breakdown: breakdownParts.join(', '),
         calculatedAt: FieldValue.serverTimestamp(),
       });
       scoresInBatch++;

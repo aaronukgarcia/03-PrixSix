@@ -11833,9 +11833,9 @@
     },
     {
       "guid": "LIB_RESULTS_UTILS-004",
-      "version": 1,
+      "version": 2,
       "logic_category": "ORCHESTRATION",
-      "description": "Type for a score document associated with a team's race performance.",
+      "description": "Type for a score document associated with a team's race performance. Golden Rule #3: Removed breakdown field (denormalized data).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -11848,9 +11848,9 @@
     },
     {
       "guid": "LIB_RESULTS_UTILS-005",
-      "version": 1,
+      "version": 2,
       "logic_category": "ORCHESTRATION",
-      "description": "Type for a team's complete result for a race.",
+      "description": "Type for a team's complete result for a race. Golden Rule #3: Removed breakdown field.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
@@ -12084,9 +12084,9 @@
     },
     {
       "guid": "LIB_SCORING-004",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Core scoring engine: fetches all predictions for a given race from Firestore",
+      "description": "Core scoring engine: fetches all predictions for a given race from Firestore. Golden Rule #3: Returns only totalPoints, not breakdown (calculated in real-time from race_results).",
       "security_notes": "CollectionGroup failure now throws instead of silently returning empty results. Race result validation added for null/duplicate drivers.",
       "dependencies": [],
       "location": {
@@ -12139,9 +12139,9 @@
     },
     {
       "guid": "LIB_SCORING-005",
-      "version": 4,
+      "version": 5,
       "logic_category": "VALIDATION",
-      "description": "Define auxiliary TypeScript interfaces for the score-with-team-name",
+      "description": "Define auxiliary TypeScript interfaces for the score-with-team-name. Golden Rule #3: Removed prediction/breakdown fields.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/scoring.ts"
@@ -12153,9 +12153,9 @@
     },
     {
       "guid": "LIB_SCORING-006",
-      "version": 4,
+      "version": 5,
       "logic_category": "TRANSFORMATION",
-      "description": "End-to-end orchestrator: calculates scores for a race, persists each",
+      "description": "End-to-end orchestrator: calculates scores for a race, persists each. Golden Rule #3: Stores only totalPoints, not breakdown.",
       "security_notes": "Removed oduserId typo field from Firestore writes. Score write failures now throw with correlation ID.",
       "dependencies": [],
       "location": {

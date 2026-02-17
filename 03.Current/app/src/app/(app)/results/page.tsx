@@ -333,12 +333,13 @@ function ResultsContent() {
             const score = scoresMap.get(oduserId);
             const predictions = parsePredictions(data.predictions, actualTop6);
             const correctCount = predictions.filter(p => p.isCorrect).length;
+            // Golden Rule #3: breakdown is calculated in real-time from predictions vs actualTop6,
+            // not stored as duplicate data in scores collection
             return {
                 teamName: data.teamName || "Unknown Team",
                 oduserId,
                 predictions,
                 totalPoints: score?.totalPoints ?? null,
-                breakdown: score?.breakdown || '',
                 hasScore: !!score,
                 bonusPoints: calculateBonus(correctCount),
             };
