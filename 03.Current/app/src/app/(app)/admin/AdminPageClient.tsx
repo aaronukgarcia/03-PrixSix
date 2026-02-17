@@ -14,7 +14,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText, Activity } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -49,6 +49,11 @@ import { LeaguesManager } from "./_components/LeaguesManager";
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders centralized book of work management UI in TabsContent value="bookofwork".
 import { BookOfWorkManager } from "./_components/BookOfWorkManager";
+// GUID: PAGE_ADMIN-HEALTH-001-v01
+// [Intent] Import InterfaceHealthMonitor for the 18th admin tab (Health monitoring).
+// [Inbound Trigger] Admin page load.
+// [Downstream Impact] Renders RAG health status for PubChat, WhatsApp, and Email interfaces.
+import { InterfaceHealthMonitor } from "./_components/InterfaceHealthMonitor";
 // GUID: PAGE_ADMIN-002-v03
 // [Intent] Import AttackMonitor component for security monitoring displayed above the tabs.
 // [Inbound Trigger] Admin page load.
@@ -374,6 +379,13 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                         [Downstream Impact] Activates TabsContent value="bookofwork" which mounts
                                             BookOfWorkManager (ADMIN_BOOKOFWORK-000). */}
                     <TabsTrigger value="bookofwork" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white"><FileText className="w-4 h-4 mr-2"/>Book of Work</TabsTrigger>
+                    {/* GUID: PAGE_ADMIN-HEALTH-002-v01
+                        [Intent] 18th tab trigger for Interface Health monitoring. Green-600 colour
+                                 signals health/status checking. Activity icon indicates real-time monitoring.
+                        [Inbound Trigger] User clicks the "Health" tab in the admin TabsList.
+                        [Downstream Impact] Activates TabsContent value="health" which mounts
+                                            InterfaceHealthMonitor (ADMIN_INTERFACE_HEALTH-001). */}
+                    <TabsTrigger value="health" className="data-[state=active]:bg-green-600 data-[state=active]:text-white"><Activity className="w-4 h-4 mr-2"/>Health</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
@@ -443,6 +455,14 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                                         error logs, and feedback into single management view. */}
                 <TabsContent value="bookofwork">
                     <BookOfWorkManager />
+                </TabsContent>
+                {/* GUID: PAGE_ADMIN-HEALTH-003-v01
+                    [Intent] Mount the InterfaceHealthMonitor when the Health tab is active.
+                    [Inbound Trigger] TabsTrigger value="health" selected (PAGE_ADMIN-HEALTH-002).
+                    [Downstream Impact] InterfaceHealthMonitor displays RAG health status for PubChat,
+                                        WhatsApp, and Email interfaces (ADMIN_INTERFACE_HEALTH-001). */}
+                <TabsContent value="health">
+                    <InterfaceHealthMonitor />
                 </TabsContent>
             </Tabs>
       </div>
