@@ -269,22 +269,24 @@ export default function StandingsPage() {
 
         setCompletedRaceWeekends(completed);
 
-        // Real-time auto-focus: Move to latest race as each new race's scores arrive
+        // Real-time auto-focus: Jump to latest race when new races added
         setSelectedRaceIndex(prev => {
           if (completed.length === 0) return -1;
 
-          // Track previous count for next comparison
           const prevCount = prevCompletedCountRef.current;
-          prevCompletedCountRef.current = completed.length;
 
-          // ALWAYS jump to latest race when completed races increase
-          // This creates the "R1 → R2 → R3 → ... → R24" progression
-          // as scores arrive in real-time during restore or admin entry
-          if (completed.length > prevCount || prev < 0 || prev >= completed.length) {
-            return completed.length - 1; // Always show latest race
+          // Auto-focus on latest race when:
+          // 1. First load (prev < 0) → jump to latest
+          // 2. New races added (completed.length > prevCount) → jump to latest
+          // 3. Out of bounds (prev >= completed.length) → jump to latest
+          const shouldAutoFocus = (prev < 0) || (completed.length > prevCount) || (prev >= completed.length);
+
+          if (shouldAutoFocus) {
+            prevCompletedCountRef.current = completed.length; // Update ref ONLY when auto-focusing
+            return completed.length - 1; // Jump to latest race (e.g., R24)
           }
 
-          // Keep selection only if no new races added
+          // User manually selected a race - preserve their selection
           return prev;
         });
 
