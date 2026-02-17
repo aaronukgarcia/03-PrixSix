@@ -1,6 +1,12 @@
 {
   "lastUpdated": "2026-02-17",
   "commits": [
+    {"id": "98aec85", "date": "2026-02-17", "version": "1.56.6", "author": "aaron garcia", "message": "fix: Correct version.ts to match package.json (Golden Rule #2 - v1.56.6)", "major": false},
+    {"id": "47c1ec9", "date": "2026-02-17", "version": "1.56.6", "author": "aaron garcia", "message": "fix: Remove debug logging from auto-focus (v1.56.6)", "major": false},
+    {"id": "61b71e7", "date": "2026-02-17", "version": "1.56.5", "author": "aaron garcia", "message": "debug: Add console logging to auto-focus logic + UX fixes (Getting Started link, Help rename, scoring link, smart WelcomeCTA, login tagline) (v1.56.5)", "major": false},
+    {"id": "68284f2", "date": "2026-02-17", "version": "1.56.4", "author": "aaron garcia", "message": "fix: Move ref update inside state setter for correct auto-focus (v1.56.4)", "major": false},
+    {"id": "676984a", "date": "2026-02-17", "version": "1.56.2", "author": "aaron garcia", "message": "fix: Real-time auto-focus progression (R1→R2→...→R24) v1.56.2", "major": false},
+    {"id": "a34c3f7", "date": "2026-02-17", "version": "1.56.1", "author": "aaron garcia", "message": "feat: Auto-focus on latest race in standings page (v1.56.1)", "major": false},
     {"id": "03ac60d", "date": "2026-02-17", "version": "1.56.0", "author": "aaron garcia", "message": "Phase 2B: Architecture verification & audit settings API - ADMINCOMP-002, 009, 010 + GEMINI-002, GEMINI-AUDIT-002, FIRESTORE-003 (v1.56.0)", "major": true},
     {"id": "628cdc4", "date": "2026-02-17", "version": "1.56.0", "author": "aaron garcia", "message": "refactor: Scoring logic updates and code.json changes (v1.56.0)", "major": false},
     {"id": "649cb2b", "date": "2026-02-13", "version": "1.55.31", "author": "aaron garcia", "message": "feat: Add auto-recovery for chunk load errors (v1.55.31)", "major": false},
