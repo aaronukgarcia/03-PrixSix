@@ -4,11 +4,11 @@
     "reviewer": "Bill (Claude Code)",
     "purpose": "Comprehensive passive code review for optimization, security, consistency, and maintainability",
     "scope": "Entire Prix Six codebase",
-    "totalIssuesFound": 505,
+    "totalIssuesFound": 525,
     "reviewStatus": "in_progress",
     "progressPercent": 100,
     "reviewStartTime": "2026-02-09T21:01:00Z",
-    "lastUpdated": "2026-02-13T00:10:00Z",
+    "lastUpdated": "2026-02-17T18:00:00Z",
     "completedTime": "2026-02-10T02:30:00Z",
     "modulesCompleted": 17,
     "modulesTotal": 17,
@@ -16,11 +16,11 @@
     "totalLinesReviewed": "~55000",
     "remediationPlanCreated": true,
     "issuesRemediated": 12,
-    "remediationPercent": 2.4,
+    "remediationPercent": 2.3,
     "lastMergeFrom": "RedTeam.json",
-    "lastMergeDate": "2026-02-12T23:02:57Z",
-    "lastMergeBy": "Ben (Claude Code)",
-    "issuesAddedFromRedTeam": 9,
+    "lastMergeDate": "2026-02-17T18:00:00Z",
+    "lastMergeBy": "Bill (Claude Code)",
+    "issuesAddedFromRedTeam": 20,
     "geminiAudit": {
       "guid": "gemini-audit-progress-tracker-2026-02-12",
       "task": "Your role is the security auditor. First task 01 - I want you to read the book-of-work.json and be mindful of its content its the work which claude code is working on right now it changes - then task 2 with it in mind - I want you to read the file \"code.json\" and then open the source code that the modules point too,  you are to scrutinise and scour the whole code base looking for security issues (think like a hacker OSWAP ++)  when you find a flaw which does not already exist within the RedTeam.json or does not already exist in the book of work.json then add it to BOTH  as new entries following the existing patterns. Use aggressive checkpointing as required. Write in the RedTeam.json a new section when you start to describe what it is you have been asked to do and how much progress you have made. Be verbose in your standard output so you show me here what module/file you're working on, and how many new flaws/bugs/exploits you have found in this session. Expect to crash and have to pick it up from last check point so write yourself some good notes. When you restart I will point you (red team) at red-team.json - now go for it Red Team go get them..",
@@ -144,7 +144,7 @@
   },
   "summary": {
     "byCategory": {
-      "security": 160,
+      "security": 180,
       "performance": 41,
       "errorHandling": 49,
       "consistency": 47,
@@ -155,10 +155,11 @@
       "documentation": 80
     },
     "bySeverity": {
-      "critical": 50,
-      "high": 90,
-      "medium": 183,
-      "low": 179
+      "critical": 51,
+      "high": 91,
+      "medium": 191,
+      "low": 183,
+      "informational": 6
     }
   },
   "agentReports": {
@@ -1260,7 +1261,7 @@
       "module": "Consistency Library",
       "severity": "critical",
       "issue": "Hardcoded \"system\" OwnerId for Global League (Potential for Privilege Escalation/Bypass if not strictly controlled)",
-      "rationale": "The `checkLeagues` function explicitly recognizes \'system\' as a valid `ownerId` for a league, bypassing the check for a valid `userId` in the `users` collection. If application's Firestore Security Rules or server-side logic do not strictly enforce that only *truly privileged* entities can create or modify leagues with `ownerId: \'system\'`, a malicious actor could attempt to create a league with `ownerId: \'system\'` to gain elevated privileges or bypass normal ownership constraints. The creation and modification of entities with special `ownerId`s like \'system\' must be exclusively controlled by trusted server-side processes with robust authorization checks.",
+      "rationale": "The `checkLeagues` function explicitly recognizes 'system' as a valid `ownerId` for a league, bypassing the check for a valid `userId` in the `users` collection. If application's Firestore Security Rules or server-side logic do not strictly enforce that only *truly privileged* entities can create or modify leagues with `ownerId: 'system'`, a malicious actor could attempt to create a league with `ownerId: 'system'` to gain elevated privileges or bypass normal ownership constraints. The creation and modification of entities with special `ownerId`s like 'system' must be exclusively controlled by trusted server-side processes with robust authorization checks.",
       "file": "app/src/lib/consistency.ts",
       "citation": "Gemini Red Team"
     },
@@ -1278,7 +1279,7 @@
       "module": "Consistency Library",
       "severity": "critical",
       "issue": "Hardcoded \"system\" OwnerId for Global League (Potential for Privilege Escalation/Bypass if not strictly controlled)",
-      "rationale": "The `checkLeagues` function explicitly recognizes \'system\' as a valid `ownerId` for a league, bypassing the check for a valid `userId` in the `users` collection. If application's Firestore Security Rules or server-side logic do not strictly enforce that only *truly privileged* entities can create or modify leagues with `ownerId: \'system\'`, a malicious actor could attempt to create a league with `ownerId: \'system\'` to gain elevated privileges or bypass normal ownership constraints. The creation and modification of entities with special `ownerId`s like \'system\' must be exclusively controlled by trusted server-side processes with robust authorization checks.",
+      "rationale": "The `checkLeagues` function explicitly recognizes 'system' as a valid `ownerId` for a league, bypassing the check for a valid `userId` in the `users` collection. If application's Firestore Security Rules or server-side logic do not strictly enforce that only *truly privileged* entities can create or modify leagues with `ownerId: 'system'`, a malicious actor could attempt to create a league with `ownerId: 'system'` to gain elevated privileges or bypass normal ownership constraints. The creation and modification of entities with special `ownerId`s like 'system' must be exclusively controlled by trusted server-side processes with robust authorization checks.",
       "file": "app/src/lib/consistency.ts",
       "citation": "Gemini Red Team"
     },
@@ -1361,6 +1362,186 @@
       "issue": "Insecure Randomness (Fallback to Weak PRNG)",
       "rationale": "The `calculateRaceScores`, `updateRaceScores`, and `deleteRaceScores` functions use `require('crypto')` inline. While this is not a direct security vulnerability if the `crypto` module is always available, it is an insecure pattern. If `require('crypto')` were to fail (e.g., in a non-Node.js environment or a misconfigured environment), the code does not handle the failure, which could lead to unpredictable behavior. More importantly, this signals a lack of robust dependency management and could easily lead to situations where a developer accidentally introduces a non-cryptographically secure random number generator if this pattern is replicated.",
       "file": "app/src/lib/scoring.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-026",
+      "module": "Admin Components",
+      "severity": "critical",
+      "issue": "Stored XSS Vulnerability in Newsletter HTML Content (Insufficient Sanitization)",
+      "rationale": "The `PubChatPanel` component uses `dangerouslySetInnerHTML` to render `settings.content` (newsletter HTML) from Firestore. While `DOMPurify.sanitize` is applied, the `ALLOWED_TAGS` and `ALLOWED_ATTR` configurations are broad (`style`, `class` allowed). This increases the attack surface for Stored XSS. An attacker who can inject malicious HTML into an email's body (e.g., through user-controlled inputs that feed into email templates) could potentially bypass `DOMPurify` and execute arbitrary JavaScript in an administrator's browser, leading to session hijacking or UI defacement.",
+      "file": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-031",
+      "module": "Frontend Components",
+      "severity": "informational",
+      "issue": "File Not Found during Audit",
+      "rationale": "The file 'app/src/components/predictions/PredictionForm.tsx', specified in 'code.json' for security audit, could not be found on the file system. This prevents a complete security review of the module. It might indicate a stale entry in 'code.json', a moved file, or a deleted file. The audit could not proceed for this component.",
+      "file": "app/src/components/predictions/PredictionForm.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-032",
+      "module": "Frontend Components",
+      "severity": "informational",
+      "issue": "File Not Found during Audit",
+      "rationale": "The file 'app/src/components/predictions/DriverPredictionInputs.tsx', specified in 'code.json' for security audit, could not be found on the file system. This prevents a complete security review of the module. It might indicate a stale entry in 'code.json', a moved file, or a deleted file. The audit could not proceed for this component.",
+      "file": "app/src/components/predictions/DriverPredictionInputs.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-033",
+      "module": "Frontend Components",
+      "severity": "informational",
+      "issue": "File Not Found during Audit",
+      "rationale": "The file 'app/src/components/predictions/PredictionHistory.tsx', specified in 'code.json' for security audit, could not be found on the file system. This prevents a complete security review of the module. It might indicate a stale entry in 'code.json', a moved file, or a deleted file. The audit could not proceed for this component.",
+      "file": "app/src/components/predictions/PredictionHistory.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-034",
+      "module": "Frontend Components",
+      "severity": "high",
+      "issue": "Critical Directory Not Found during Audit",
+      "rationale": "The directory 'app/src/components/predictions/', which contains several modules specified in 'code.json' for security audit, could not be found on the file system. This prevents a complete security review of multiple related components. It strongly indicates stale entries in 'code.json' and requires investigation into the current location or status of the predictions module. The audit cannot proceed for any components within this missing directory path.",
+      "file": "app/src/components/predictions/",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-036",
+      "module": "Frontend Components",
+      "severity": "medium",
+      "issue": "Client-Side AI Weight Persistence Without Server-Side Validation (saveWeights)",
+      "rationale": "The `saveWeights` function directly updates the `aiAnalysisWeights` field in the user's Firestore document (`users/{userId}`) without any server-side validation or authorization. A malicious client could potentially send malformed or excessively large `aiAnalysisWeights` objects, leading to data corruption or abuse of Firestore resources, or even attempt to write to another user's document if Firestore rules are not sufficiently strict. Although the current implementation targets the current `user.id`, the client-side nature of this write means it bypasses any API route validation.",
+      "file": "app/src/app/(app)/predictions/_components/PredictionEditor.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-040",
+      "module": "Frontend Components",
+      "severity": "low",
+      "issue": "Client-Side Dismissal State (No Server-Side Enforcement)",
+      "rationale": "The dismissal state of the welcome CTA is stored purely client-side in `localStorage`. While acceptable for UI preferences, it establishes a pattern of client-side-only control for UI elements that might ideally be managed by a server-side user preference for consistency across devices or for unskippable critical alerts. If this pattern were to be applied to a feature with actual security implications (e.g., dismissing a critical security warning that *should* persist across sessions or devices), it could lead to users bypassing important security prompts.",
+      "file": "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-043",
+      "module": "Firebase Provider",
+      "severity": "medium",
+      "issue": "Client-Side onAuthStateChanged Race Condition / Timeout Handling (AUTH-003)",
+      "rationale": "The `useEffect` block for the `onAuthStateChanged` listener (`FIREBASE_PROVIDER-008-v05`) notes a `@SECURITY_RISK @AUDIT_NOTE (PARTIALLY FIXED - AUTH-003): Auth state race condition -- between onAuthStateChanged firing and the Firestore snapshot resolving, there is a window where firebaseUser is set but user is null.` While a 10-second timeout is implemented to prevent indefinite loading, it doesn't fully mitigate the race condition. Components relying on both `firebaseUser` and `user` could still encounter temporary inconsistent states or crashes if they don't explicitly check `isUserLoading` or `user` for nullability. A sophisticated attacker might attempt to exploit this window if sensitive client-side logic is exposed before full user profile data is loaded and validated. A more robust solution involves server-side session management where the full user profile is loaded and attached to the session *before* any client-side components can access it, or ensuring all client-side logic is highly defensive against incomplete user data.",
+      "file": "app/src/firebase/provider.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-046",
+      "module": "Audit Library",
+      "severity": "medium",
+      "issue": "Client-Side generateGuid for Session Correlation ID (Predictability Risk)",
+      "rationale": "The `generateGuid()` function uses `Math.random()` to generate UUIDs (GUIDs) for `sessionCorrelationId`. `Math.random()` is not cryptographically secure, posing a predictability risk if these IDs are ever used in security-sensitive contexts. Although currently for audit correlation, it's a weak primitive. For cryptographic or security-sensitive random number generation, `crypto.randomUUID()` (Node.js) or `window.crypto.getRandomValues()` (browser) should be used.",
+      "file": "app/src/lib/audit.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-048",
+      "module": "Consistency Library",
+      "severity": "medium",
+      "issue": "Client-Side generateConsistencyCorrelationId uses Math.random() (Predictability Risk)",
+      "rationale": "The `generateConsistencyCorrelationId()` function and its usage within `generateSummary` rely on `Math.random()` for generating correlation IDs. `Math.random()` is not cryptographically secure. While these IDs are for internal audit traceability, using a non-cryptographically secure random number generator is a weak primitive. If these correlation IDs were ever exposed or used in a context requiring strong unpredictability, an attacker could potentially guess valid IDs. For cryptographic or security-sensitive random number generation, `crypto.randomUUID()` (Node.js) or `window.crypto.getRandomValues()` (browser) should be used.",
+      "file": "app/src/lib/consistency.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-051",
+      "module": "Data Library",
+      "severity": "low",
+      "issue": "Direct Exposure of Driver imageId (Potential for Enumeration/Reconnaissance)",
+      "rationale": "The `F1Drivers` array directly exposes `imageId` for each driver. While currently used for internal placeholder image lookup, if these `imageId` values map to a non-public or sensitive asset naming convention, or could be used to enumerate internal resource paths not intended for public access, it becomes an information disclosure risk. An attacker could potentially use these IDs to infer the structure of a CDN or internal asset storage, and then attempt to brute-force or guess other sensitive asset names.",
+      "file": "app/src/lib/data.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-052",
+      "module": "Data Library",
+      "severity": "low",
+      "issue": "Hardcoded Sensitive Race Timing Data (RaceSchedule)",
+      "rationale": "All race timing data (qualifyingTime, sprintTime, raceTime) is hardcoded directly into `RaceSchedule` within this client-side module. This allows client-side tampering of displayed deadlines, potential information leakage for reconnaissance, and increased maintenance overhead as schedule changes require code deploys. Server-side APIs consuming this data should always re-validate against a trusted, server-side source of truth.",
+      "file": "app/src/lib/data.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-053",
+      "module": "Email Library",
+      "severity": "medium",
+      "issue": "Client-Side generateGuid for Email Tracking (Predictability Risk)",
+      "rationale": "The `generateGuid()` function uses `Math.random()` to generate GUIDs for `emailGuid`. These are used for unique identification of sent emails and are embedded in the email footer and stored in `email_logs`. `Math.random()` is not cryptographically secure, posing a predictability risk if these GUIDs are ever used in contexts requiring strong unpredictability (e.g., sensitive verification links) or if an attacker could guess valid GUIDs to access email log entries.",
+      "file": "app/src/lib/email.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-055",
+      "module": "Email Library",
+      "severity": "low",
+      "issue": "Hardcoded Admin Email (ADMIN_EMAIL) as Fallback (Information Disclosure/Misconfiguration Risk)",
+      "rationale": "The `ADMIN_EMAIL` (`aaron@garcia.ltd`) is hardcoded as a fallback sender email and explicitly referenced as a contact address in the welcome email. Hardcoding specific administrative email addresses can be an information disclosure risk, making them targets for phishing, spam, or social engineering. If this email address were to change, it would require a code modification instead of a configuration update.",
+      "file": "app/src/lib/email.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-056",
+      "module": "Email Library",
+      "severity": "medium",
+      "issue": "Inconsistent Error Handling for Email Service Configuration (getGraphClient and sendSecondaryVerificationEmail)",
+      "rationale": "There is an inconsistency in how missing email service configuration is handled. `getGraphClient` throws a raw `Error` with a potentially sensitive message (e.g., \"Microsoft Graph credentials not configured\"), which could leak internal configuration details if propagated without sanitization. In contrast, `sendSecondaryVerificationEmail` correctly maps a 503 status to a generic error code. This inconsistency means that specific internal configuration details could be exposed through raw error messages if `getGraphClient`'s error is caught and propagated without further sanitization upstream.",
+      "file": "app/src/lib/email.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-060",
+      "module": "Firebase Admin Library",
+      "severity": "medium",
+      "issue": "Insecure Randomness (Fallback to Weak PRNG)",
+      "rationale": "The `generateCorrelationId` function uses `require('crypto')` inline. While this is not a direct security vulnerability if the `crypto` module is always available, it is an insecure pattern. If `require('crypto')` were to fail (e.g., in a non-Node.js environment or a misconfigured environment), the code does not handle the failure, which could lead to unpredictable behavior. More importantly, this signals a lack of robust dependency management and could easily lead to situations where a developer accidentally introduces a non-cryptographically secure random number generator if this pattern is replicated.",
+      "file": "app/src/lib/firebase-admin.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-061",
+      "module": "Library Hooks",
+      "severity": "informational",
+      "issue": "File Not Found during Audit",
+      "rationale": "The file 'app/src/lib/hooks.ts', specified in 'code.json' for security audit, could not be found on the file system. This prevents a complete security review of the module. It might indicate a stale entry in 'code.json', a moved file, or a deleted file. The audit could not proceed for this component.",
+      "file": "app/src/lib/hooks.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-064",
+      "module": "Leagues Library",
+      "severity": "medium",
+      "issue": "Insecure Randomness (Fallback to Weak PRNG)",
+      "rationale": "The `generateInviteCode` function uses `crypto.getRandomValues()`, which is a secure method for generating random numbers. However, this function is not available in all browsers, and there is no polyfill or fallback mechanism in place. If a user on an older browser attempts to create a league, the function will fail, and the user will not be able to create a league. While not a direct security vulnerability, this is an insecure pattern that could lead to unpredictable behavior.",
+      "file": "app/src/lib/leagues.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-065",
+      "module": "Library Predictions",
+      "severity": "informational",
+      "issue": "File Not Found during Audit",
+      "rationale": "The file 'app/src/lib/predictions.ts', specified in 'code.json' for security audit, could not be found on the file system. This prevents a complete security review of the module. It might indicate a stale entry in 'code.json', a moved file, or a deleted file. The audit could not proceed for this component.",
+      "file": "app/src/lib/predictions.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-066",
+      "module": "Library Rate Limiting",
+      "severity": "informational",
+      "issue": "File Not Found during Audit",
+      "rationale": "The file 'app/src/lib/rate-limiting.ts', specified in 'code.json' for security audit, could not be found on the file system. This prevents a complete security review of the module. It might indicate a stale entry in 'code.json', a moved file, or a deleted file. The audit could not proceed for this component.",
+      "file": "app/src/lib/rate-limiting.ts",
       "citation": "Gemini Red Team"
     },
     {
