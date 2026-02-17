@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-17",
   "commits": [
+    {"id": "60680dd", "date": "2026-02-17", "version": "1.57.0", "author": "aaron garcia", "message": "Phase 3: Infrastructure Hardening - Health check, CI/CD, Secrets manager (v1.57.0)", "major": true},
     {"id": "98aec85", "date": "2026-02-17", "version": "1.56.6", "author": "aaron garcia", "message": "fix: Correct version.ts to match package.json (Golden Rule #2 - v1.56.6)", "major": false},
     {"id": "47c1ec9", "date": "2026-02-17", "version": "1.56.6", "author": "aaron garcia", "message": "fix: Remove debug logging from auto-focus (v1.56.6)", "major": false},
     {"id": "61b71e7", "date": "2026-02-17", "version": "1.56.5", "author": "aaron garcia", "message": "debug: Add console logging to auto-focus logic + UX fixes (Getting Started link, Help rename, scoring link, smart WelcomeCTA, login tagline) (v1.56.5)", "major": false},
