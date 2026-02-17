@@ -1,0 +1,550 @@
+{
+  "app/src/ai/genkit.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-22T10:06:25Z"
+  },
+  "app/src/app/(app)/about/_components/CinematicIntro.tsx": {
+    "created": "2026-01-23T05:54:37Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/about/dev/_components/VersionHistory.tsx": {
+    "created": "2026-01-26T12:49:46Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/about/dev/page.tsx": {
+    "created": "2026-01-26T12:49:46Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/about/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-01T23:02:07Z"
+  },
+  "app/src/app/(app)/admin/_components/AttackMonitor.tsx": {
+    "created": "2026-01-26T02:13:39Z",
+    "lastUpdated": "2026-02-10T16:49:45Z"
+  },
+  "app/src/app/(app)/admin/_components/AuditLogViewer.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T18:09:29Z"
+  },
+  "app/src/app/(app)/admin/_components/AuditManager.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx": {
+    "created": "2026-01-29T15:39:26Z",
+    "lastUpdated": "2026-02-10T16:41:22Z"
+  },
+  "app/src/app/(app)/admin/_components/ConsistencyChecker.tsx": {
+    "created": "2026-01-19T20:10:52Z",
+    "lastUpdated": "2026-02-17T17:52:57Z"
+  },
+  "app/src/app/(app)/admin/_components/EmailLogManager.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-10T14:33:27Z"
+  },
+  "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx": {
+    "created": "2026-01-22T10:54:37Z",
+    "lastUpdated": "2026-02-10T16:48:01Z"
+  },
+  "app/src/app/(app)/admin/_components/FeedbackManager.tsx": {
+    "created": "2026-01-22T09:29:43Z",
+    "lastUpdated": "2026-02-01T23:02:07Z"
+  },
+  "app/src/app/(app)/admin/_components/HotNewsManager.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T18:21:46Z"
+  },
+  "app/src/app/(app)/admin/_components/LeaguesManager.tsx": {
+    "created": "2026-01-29T19:34:25Z",
+    "lastUpdated": "2026-02-10T14:34:41Z"
+  },
+  "app/src/app/(app)/admin/_components/OnlineUsersManager.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-01T15:29:16Z"
+  },
+  "app/src/app/(app)/admin/_components/PubChatPanel.tsx": {
+    "created": "2026-01-29T19:25:02Z",
+    "lastUpdated": "2026-02-10T14:18:15Z"
+  },
+  "app/src/app/(app)/admin/_components/ResultsManager.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-13T00:50:21Z"
+  },
+  "app/src/app/(app)/admin/_components/ScoringManager.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/admin/_components/SiteFunctionsManager.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T18:21:46Z"
+  },
+  "app/src/app/(app)/admin/_components/StandingDataManager.tsx": {
+    "created": "2026-01-21T11:57:50Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/admin/_components/TeamManager.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-10T16:24:50Z"
+  },
+  "app/src/app/(app)/admin/_components/WhatsAppManager.tsx": {
+    "created": "2026-01-20T23:50:13Z",
+    "lastUpdated": "2026-02-10T16:34:05Z"
+  },
+  "app/src/app/(app)/admin/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-12T22:59:58Z"
+  },
+  "app/src/app/(app)/audit/page.tsx": {
+    "created": "2026-01-19T00:03:55Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/dashboard/_components/DashboardClient.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx": {
+    "created": "2026-01-31T17:44:31Z",
+    "lastUpdated": "2026-02-17T21:44:19Z"
+  },
+  "app/src/app/(app)/dashboard/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-01T23:02:07Z"
+  },
+  "app/src/app/(app)/error.tsx": {
+    "created": "2026-01-22T11:40:20Z",
+    "lastUpdated": "2026-01-31T19:42:15Z"
+  },
+  "app/src/app/(app)/layout.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-12T22:59:58Z"
+  },
+  "app/src/app/(app)/leagues/[leagueId]/page.tsx": {
+    "created": "2026-01-21T17:27:48Z",
+    "lastUpdated": "2026-01-31T11:16:47Z"
+  },
+  "app/src/app/(app)/leagues/page.tsx": {
+    "created": "2026-01-21T17:27:48Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/my-results/page.tsx": {
+    "created": "2026-01-31T21:27:42Z",
+    "lastUpdated": "2026-02-01T19:09:56Z"
+  },
+  "app/src/app/(app)/onboarding/page.tsx": {
+    "created": "2026-01-31T17:44:31Z",
+    "lastUpdated": "2026-02-01T23:02:07Z"
+  },
+  "app/src/app/(app)/predictions/_components/DndPredictionWrapper.tsx": {
+    "created": "2026-02-01T17:44:04Z",
+    "lastUpdated": "2026-02-01T17:44:04Z"
+  },
+  "app/src/app/(app)/predictions/_components/DragOverlayContent.tsx": {
+    "created": "2026-02-01T17:44:04Z",
+    "lastUpdated": "2026-02-01T17:44:04Z"
+  },
+  "app/src/app/(app)/predictions/_components/DraggableDriver.tsx": {
+    "created": "2026-02-01T17:44:04Z",
+    "lastUpdated": "2026-02-01T17:44:04Z"
+  },
+  "app/src/app/(app)/predictions/_components/DroppableGridSlot.tsx": {
+    "created": "2026-02-01T17:44:04Z",
+    "lastUpdated": "2026-02-01T17:44:04Z"
+  },
+  "app/src/app/(app)/predictions/_components/DroppablePoolZone.tsx": {
+    "created": "2026-02-01T17:44:04Z",
+    "lastUpdated": "2026-02-01T17:44:04Z"
+  },
+  "app/src/app/(app)/predictions/_components/PredictionEditor.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-01T17:44:04Z"
+  },
+  "app/src/app/(app)/predictions/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T19:14:37Z"
+  },
+  "app/src/app/(app)/profile/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-01T15:28:07Z"
+  },
+  "app/src/app/(app)/results/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T18:36:01Z"
+  },
+  "app/src/app/(app)/rules/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/schedule/page.tsx": {
+    "created": "2026-01-19T22:19:29Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/(app)/standings/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T19:16:44Z"
+  },
+  "app/src/app/(app)/submissions/page.tsx": {
+    "created": "2026-01-19T00:03:55Z",
+    "lastUpdated": "2026-02-12T23:56:09Z"
+  },
+  "app/src/app/(app)/teams/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-31T21:14:53Z"
+  },
+  "app/src/app/(auth)/complete-profile/page.tsx": {
+    "created": "2026-01-30T20:21:35Z",
+    "lastUpdated": "2026-02-01T15:28:07Z"
+  },
+  "app/src/app/(auth)/error.tsx": {
+    "created": "2026-01-22T11:40:20Z",
+    "lastUpdated": "2026-01-31T19:42:15Z"
+  },
+  "app/src/app/(auth)/forgot-pin/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-31T11:16:47Z"
+  },
+  "app/src/app/(auth)/login/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T19:14:37Z"
+  },
+  "app/src/app/(auth)/signup/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-01T15:28:07Z"
+  },
+  "app/src/app/(auth)/verify-email/page.tsx": {
+    "created": "2026-01-21T21:08:25Z",
+    "lastUpdated": "2026-02-12T18:36:51Z"
+  },
+  "app/src/app/(auth)/verify-secondary-email/page.tsx": {
+    "created": "2026-01-21T21:08:25Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/app/api/add-secondary-team/route.ts": {
+    "created": "2026-01-22T21:11:53Z",
+    "lastUpdated": "2026-01-31T10:55:25Z"
+  },
+  "app/src/app/api/admin/delete-user/route.ts": {
+    "created": "2026-01-22T12:25:00Z",
+    "lastUpdated": "2026-01-31T10:55:25Z"
+  },
+  "app/src/app/api/admin/fetch-timing-data/route.ts": {
+    "created": "2026-01-30T22:04:44Z",
+    "lastUpdated": "2026-02-10T15:31:06Z"
+  },
+  "app/src/app/api/admin/openf1-sessions/route.ts": {
+    "created": "2026-01-30T22:04:44Z",
+    "lastUpdated": "2026-02-10T15:31:06Z"
+  },
+  "app/src/app/api/admin/update-user/route.ts": {
+    "created": "2026-01-22T12:20:34Z",
+    "lastUpdated": "2026-01-31T10:55:25Z"
+  },
+  "app/src/app/api/ai/analysis/route.ts": {
+    "created": "2026-01-22T09:29:43Z",
+    "lastUpdated": "2026-02-12T22:59:58Z"
+  },
+  "app/src/app/api/auth/complete-oauth-profile/route.ts": {
+    "created": "2026-01-30T20:21:35Z",
+    "lastUpdated": "2026-02-17T20:40:25Z"
+  },
+  "app/src/app/api/auth/login/route.ts": {
+    "created": "2026-01-21T12:17:07Z",
+    "lastUpdated": "2026-02-17T18:09:29Z"
+  },
+  "app/src/app/api/auth/record-logon/route.ts": {
+    "created": "2026-01-31T17:44:31Z",
+    "lastUpdated": "2026-01-31T17:44:31Z"
+  },
+  "app/src/app/api/auth/record-logout/route.ts": {
+    "created": "2026-01-31T17:44:31Z",
+    "lastUpdated": "2026-01-31T17:44:31Z"
+  },
+  "app/src/app/api/auth/reset-pin/route.ts": {
+    "created": "2026-01-22T18:51:23Z",
+    "lastUpdated": "2026-02-10T16:52:39Z"
+  },
+  "app/src/app/api/auth/signup/route.ts": {
+    "created": "2026-01-22T11:53:24Z",
+    "lastUpdated": "2026-02-13T00:23:43Z"
+  },
+  "app/src/app/api/calculate-scores/route.ts": {
+    "created": "2026-01-21T12:17:07Z",
+    "lastUpdated": "2026-02-13T01:18:16Z"
+  },
+  "app/src/app/api/delete-scores/route.ts": {
+    "created": "2026-01-21T12:17:07Z",
+    "lastUpdated": "2026-02-10T17:46:33Z"
+  },
+  "app/src/app/api/email-health/route.ts": {
+    "created": "2026-01-21T19:17:13Z",
+    "lastUpdated": "2026-02-17T20:19:04Z"
+  },
+  "app/src/app/api/email-queue/route.ts": {
+    "created": "2026-01-19T00:38:00Z",
+    "lastUpdated": "2026-02-17T20:19:04Z"
+  },
+  "app/src/app/api/log-client-error/route.ts": {
+    "created": "2026-01-22T11:40:20Z",
+    "lastUpdated": "2026-02-10T15:22:47Z"
+  },
+  "app/src/app/api/send-hot-news-email/route.ts": {
+    "created": "2026-01-20T23:50:13Z",
+    "lastUpdated": "2026-02-17T18:21:46Z"
+  },
+  "app/src/app/api/send-provider-linked-email/route.ts": {
+    "created": "2026-01-30T22:02:15Z",
+    "lastUpdated": "2026-02-10T14:02:19Z"
+  },
+  "app/src/app/api/send-results-email/route.ts": {
+    "created": "2026-01-19T00:38:00Z",
+    "lastUpdated": "2026-02-10T15:42:20Z"
+  },
+  "app/src/app/api/send-secondary-email-verification/route.ts": {
+    "created": "2026-01-21T21:08:25Z",
+    "lastUpdated": "2026-02-10T14:02:19Z"
+  },
+  "app/src/app/api/send-verification-email/route.ts": {
+    "created": "2026-01-21T21:08:25Z",
+    "lastUpdated": "2026-02-10T15:37:40Z"
+  },
+  "app/src/app/api/send-welcome-email/route.ts": {
+    "created": "2026-01-19T00:03:55Z",
+    "lastUpdated": "2026-01-31T10:55:25Z"
+  },
+  "app/src/app/api/submit-prediction/route.ts": {
+    "created": "2026-01-19T01:12:05Z",
+    "lastUpdated": "2026-02-17T22:33:06Z"
+  },
+  "app/src/app/api/team-name-suggestions/route.ts": {
+    "created": "2026-02-01T15:28:07Z",
+    "lastUpdated": "2026-02-17T20:19:04Z"
+  },
+  "app/src/app/api/update-secondary-email/route.ts": {
+    "created": "2026-01-22T19:11:02Z",
+    "lastUpdated": "2026-02-17T18:09:29Z"
+  },
+  "app/src/app/api/verify-email/route.ts": {
+    "created": "2026-01-21T21:08:25Z",
+    "lastUpdated": "2026-02-12T18:36:51Z"
+  },
+  "app/src/app/api/verify-secondary-email/route.ts": {
+    "created": "2026-01-21T21:08:25Z",
+    "lastUpdated": "2026-01-31T10:55:25Z"
+  },
+  "app/src/app/api/whatsapp-proxy/route.ts": {
+    "created": "2026-01-26T12:21:50Z",
+    "lastUpdated": "2026-02-17T23:09:01Z"
+  },
+  "app/src/app/error.tsx": {
+    "created": "2026-01-22T11:40:20Z",
+    "lastUpdated": "2026-01-31T19:42:15Z"
+  },
+  "app/src/app/global-error.tsx": {
+    "created": "2026-01-26T12:40:44Z",
+    "lastUpdated": "2026-01-31T11:16:47Z"
+  },
+  "app/src/app/layout.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T18:02:54Z"
+  },
+  "app/src/app/page.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/components/ChunkErrorHandler.tsx": {
+    "created": "2026-02-17T18:02:54Z",
+    "lastUpdated": "2026-02-17T18:02:54Z"
+  },
+  "app/src/components/ConversionBanner.tsx": {
+    "created": "2026-01-30T20:21:35Z",
+    "lastUpdated": "2026-02-01T23:02:07Z"
+  },
+  "app/src/components/EmailVerificationBanner.tsx": {
+    "created": "2026-01-21T19:10:00Z",
+    "lastUpdated": "2026-02-01T23:02:07Z"
+  },
+  "app/src/components/SecurityUpgradeCard.tsx": {
+    "created": "2026-01-30T20:21:35Z",
+    "lastUpdated": "2026-01-30T20:21:35Z"
+  },
+  "app/src/components/icons/OAuthIcons.tsx": {
+    "created": "2026-01-30T20:21:35Z",
+    "lastUpdated": "2026-01-30T20:21:35Z"
+  },
+  "app/src/components/layout/AppSidebar.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T19:14:37Z"
+  },
+  "app/src/contexts/league-context.tsx": {
+    "created": "2026-01-21T17:27:48Z",
+    "lastUpdated": "2026-01-21T17:27:48Z"
+  },
+  "app/src/contexts/session-context.tsx": {
+    "created": "2026-01-19T00:38:00Z",
+    "lastUpdated": "2026-01-19T00:38:00Z"
+  },
+  "app/src/features/auth/AccountLinker.ts": {
+    "created": "2026-01-30T20:21:35Z",
+    "lastUpdated": "2026-01-30T20:21:35Z"
+  },
+  "app/src/firebase/client-provider.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-29T20:02:28Z"
+  },
+  "app/src/firebase/config.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-29T19:41:45Z"
+  },
+  "app/src/firebase/firestore/settings.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T18:37:00Z"
+  },
+  "app/src/firebase/firestore/use-collection.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-31T21:21:08Z"
+  },
+  "app/src/firebase/firestore/use-doc.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-31T21:21:08Z"
+  },
+  "app/src/firebase/index.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-29T20:02:28Z"
+  },
+  "app/src/firebase/provider.tsx": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-13T00:23:43Z"
+  },
+  "app/src/firebase/server.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-18T19:25:01Z"
+  },
+  "app/src/lib/attack-detection.ts": {
+    "created": "2026-01-26T02:13:39Z",
+    "lastUpdated": "2026-01-31T11:16:47Z"
+  },
+  "app/src/lib/audit.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T18:37:00Z"
+  },
+  "app/src/lib/consistency.ts": {
+    "created": "2026-01-19T20:10:52Z",
+    "lastUpdated": "2026-02-13T12:00:34Z"
+  },
+  "app/src/lib/data.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T21:44:19Z"
+  },
+  "app/src/lib/email-tracking.ts": {
+    "created": "2026-01-19T00:03:55Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/lib/email.ts": {
+    "created": "2026-01-19T00:03:55Z",
+    "lastUpdated": "2026-02-17T21:44:19Z"
+  },
+  "app/src/lib/error-codes.ts": {
+    "created": "2026-01-21T20:42:43Z",
+    "lastUpdated": "2026-02-12T16:39:51Z"
+  },
+  "app/src/lib/error-registry.ts": {
+    "created": "2026-01-31T10:28:33Z",
+    "lastUpdated": "2026-01-31T17:59:45Z"
+  },
+  "app/src/lib/file-upload.ts": {
+    "created": "2026-01-29T19:41:45Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/lib/firebase-admin.ts": {
+    "created": "2026-01-19T18:44:38Z",
+    "lastUpdated": "2026-02-10T14:25:40Z"
+  },
+  "app/src/lib/leagues.ts": {
+    "created": "2026-01-21T17:27:48Z",
+    "lastUpdated": "2026-02-10T14:25:40Z"
+  },
+  "app/src/lib/normalize-race-id.ts": {
+    "created": "2026-01-31T10:28:33Z",
+    "lastUpdated": "2026-02-12T23:56:09Z"
+  },
+  "app/src/lib/placeholder-images.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/lib/results-utils.tsx": {
+    "created": "2026-01-31T21:27:42Z",
+    "lastUpdated": "2026-02-17T18:36:01Z"
+  },
+  "app/src/lib/scoring-rules.ts": {
+    "created": "2026-01-21T13:07:59Z",
+    "lastUpdated": "2026-01-30T17:28:25Z"
+  },
+  "app/src/lib/scoring.ts": {
+    "created": "2026-01-19T00:03:55Z",
+    "lastUpdated": "2026-02-17T18:36:01Z"
+  },
+  "app/src/lib/team-name-suggestions.ts": {
+    "created": "2026-02-01T15:28:07Z",
+    "lastUpdated": "2026-02-01T15:28:07Z"
+  },
+  "app/src/lib/traced-error.ts": {
+    "created": "2026-01-31T10:28:33Z",
+    "lastUpdated": "2026-02-10T14:25:40Z"
+  },
+  "app/src/lib/utils.ts": {
+    "created": "2026-01-18T19:25:01Z",
+    "lastUpdated": "2026-02-17T17:38:42Z"
+  },
+  "app/src/lib/version.ts": {
+    "created": "2026-01-19T16:21:56Z",
+    "lastUpdated": "2026-02-17T23:09:01Z"
+  },
+  "app/src/middleware.ts": {
+    "created": "2026-01-29T15:23:38Z",
+    "lastUpdated": "2026-01-29T15:42:30Z"
+  },
+  "app/src/services/authService.ts": {
+    "created": "2026-01-30T20:21:35Z",
+    "lastUpdated": "2026-01-31T22:04:08Z"
+  },
+  "app/src/types/errors.ts": {
+    "created": "2026-01-31T10:28:33Z",
+    "lastUpdated": "2026-01-31T10:28:33Z"
+  },
+  "functions/index.js": {
+    "created": "2026-01-29T15:39:26Z",
+    "lastUpdated": "2026-02-17T18:09:29Z"
+  },
+  "functions/src/index.ts": {
+    "created": null,
+    "lastUpdated": null
+  },
+  "whatsapp-worker/src/azure-store.ts": {
+    "created": "2026-01-20T23:50:13Z",
+    "lastUpdated": "2026-02-10T16:08:00Z"
+  },
+  "whatsapp-worker/src/firebase-config.ts": {
+    "created": "2026-01-20T21:14:30Z",
+    "lastUpdated": "2026-02-10T16:08:00Z"
+  },
+  "whatsapp-worker/src/firebase-store.ts": {
+    "created": "2026-01-20T21:14:30Z",
+    "lastUpdated": "2026-01-20T21:14:30Z"
+  },
+  "whatsapp-worker/src/index.ts": {
+    "created": "2026-01-20T21:14:30Z",
+    "lastUpdated": "2026-02-10T16:08:00Z"
+  },
+  "whatsapp-worker/src/queue-processor.ts": {
+    "created": "2026-01-20T21:14:30Z",
+    "lastUpdated": "2026-01-20T21:14:30Z"
+  },
+  "whatsapp-worker/src/types.d.ts": {
+    "created": "2026-01-20T21:53:51Z",
+    "lastUpdated": "2026-01-20T21:53:51Z"
+  },
+  "whatsapp-worker/src/whatsapp-client.ts": {
+    "created": "2026-01-20T21:14:30Z",
+    "lastUpdated": "2026-01-26T01:56:48Z"
+  }
+}

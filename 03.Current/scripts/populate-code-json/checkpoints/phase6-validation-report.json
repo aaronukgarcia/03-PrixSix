@@ -1,0 +1,20 @@
+{
+  "completeness": {
+    "timestamps": "1007/1007 (100.0%)",
+    "dependencies": "1007/1007 (100.0%)",
+    "callChain": "1007/1007 (100.0%)"
+  },
+  "consistency": {
+    "orphanedDependencies": 0,
+    "orphanedCalls": 0,
+    "orphanedCalledBy": 0,
+    "symmetryErrors": 0
+  },
+  "coverage": {
+    "emptyDependencies": 179,
+    "emptyCalls": 453,
+    "emptyCalledBy": 160
+  },
+  "errors": [],
+  "warnings": []
+}
