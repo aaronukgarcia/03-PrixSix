@@ -22,12 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { HotNewsSettings, updateHotNewsContent, getHotNewsSettings } from "@/firebase/firestore/settings";
+import { HotNewsSettings, getHotNewsSettings } from "@/firebase/firestore/settings";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, RefreshCw, Mail, Copy, Check, RotateCcw } from "lucide-react";
 import { hotNewsFeedFlow } from "@/ai/flows/hot-news-feed";
-import { serverTimestamp } from "firebase/firestore";
 import { logAuditEvent } from "@/lib/audit";
 import { ERROR_CODES, generateClientCorrelationId } from "@/lib/error-codes";
 import { ToastAction } from "@/components/ui/toast";
@@ -82,29 +81,40 @@ export function HotNewsManager() {
   }, [firestore]);
 
 
-  // GUID: ADMIN_HOT_NEWS-004-v03
-  // [Intent] Saves manual content edits and the AI toggle to Firestore, logs an audit event, and optionally sends emails to all subscribers.
+  // GUID: ADMIN_HOT_NEWS-004-v04
+  // @SECURITY_FIX: Replaced direct Firestore write with authenticated API call (ADMINCOMP-006).
+  // [Intent] Saves manual content edits and the AI toggle via secure API endpoint, and optionally sends emails to all subscribers.
   // [Inbound Trigger] Clicking the "Save Settings" button.
-  // [Downstream Impact] Updates hot news content in Firestore (visible on dashboard). If sendEmails is checked, triggers /api/send-hot-news-email to dispatch emails. Audit trail created.
+  // [Downstream Impact] Updates hot news content via API (visible on dashboard). If sendEmails is checked, triggers /api/send-hot-news-email to dispatch emails. Audit trail created server-side.
   const handleSave = async () => {
-    if (!firestore || !firebaseUser) return;
+    if (!firebaseUser) return;
     setIsSaving(true);
     try {
-      // Save the manual edits, enabled toggle, and update the timestamp
-      await updateHotNewsContent(firestore, {
-        content,
-        hotNewsFeedEnabled,
-        lastUpdated: serverTimestamp() as any // Update timestamp on every save
+      // Get Firebase Auth token for API authentication
+      const idToken = await firebaseUser?.getIdToken();
+      if (!idToken) {
+        throw new Error('Authentication token not available');
+      }
+
+      // Call secure API endpoint to update hot news content
+      const response = await fetch('/api/admin/update-hot-news', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          adminUid: firebaseUser.uid,
+          content,
+          hotNewsFeedEnabled,
+        }),
       });
 
-      // Audit log the update
-      await logAuditEvent(firestore, firebaseUser.uid, 'UPDATE_HOT_NEWS', {
-        email: user?.email,
-        teamName: user?.teamName,
-        contentPreview: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
-        contentLength: content.length,
-        hotNewsFeedEnabled,
-      });
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update hot news');
+      }
 
       toast({
         title: "Success",
@@ -196,19 +206,40 @@ export function HotNewsManager() {
   // GUID: ADMIN_HOT_NEWS-006-v04
   // [Intent] Triggers the AI-powered hot news generation flow, updates the textarea content, and persists the result to Firestore.
   // [Inbound Trigger] Clicking the "Refresh Now" button.
-  // [Downstream Impact] Overwrites the content textarea and Firestore hot news content with AI-generated text. Audit event logged with source 'ai_generated'.
+  // [Downstream Impact] Overwrites the content textarea and saves AI-generated hot news content via API. Audit event logged with source 'ai_generated'.
   // [Error Handling] Detects stale Server Action hash (post-deployment cache mismatch) and prompts user to refresh the page.
   const handleRefresh = async () => {
-    if (!firestore || !firebaseUser) return;
+    if (!firebaseUser) return;
     setIsRefreshing(true);
     try {
       const output = await hotNewsFeedFlow();
       if (output?.newsFeed) {
         setContent(output.newsFeed);
-        await updateHotNewsContent(firestore, {
+
+        // Get Firebase Auth token for API authentication
+        const idToken = await firebaseUser?.getIdToken();
+        if (!idToken) {
+          throw new Error('Authentication token not available');
+        }
+
+        // Call secure API endpoint to update with AI-generated content
+        const response = await fetch('/api/admin/update-hot-news', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            adminUid: firebaseUser.uid,
             content: output.newsFeed,
-            lastUpdated: serverTimestamp() as any // Cast because SDK types differ
+            hotNewsFeedEnabled, // Keep existing toggle state
+          }),
         });
+
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to save AI-generated content');
+        }
 
         // Audit log the AI refresh
         await logAuditEvent(firestore, firebaseUser.uid, 'REFRESH_HOT_NEWS_AI', {

@@ -1,6 +1,7 @@
 
-// GUID: ADMIN_SITE_FUNCTIONS-000-v03
-// [Intent] Admin component for toggling global site functions: user login and new user sign-up. Reads and writes admin_configuration/global in Firestore.
+// GUID: ADMIN_SITE_FUNCTIONS-000-v04
+// @SECURITY_FIX: Replaced direct Firestore writes with authenticated API endpoint (ADMINCOMP-005).
+// [Intent] Admin component for toggling global site functions: user login and new user sign-up. Uses secure API endpoint with business rule enforcement.
 // [Inbound Trigger] Rendered within the admin panel when the "Site Functions" tab is selected.
 // [Downstream Impact] Changes to userLoginEnabled and newUserSignupEnabled affect the login and registration flows site-wide. Audit events are logged on save.
 
@@ -13,9 +14,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useFirestore, useAuth } from "@/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
-import { logAuditEvent } from "@/lib/audit";
 
 // GUID: ADMIN_SITE_FUNCTIONS-001-v03
 // [Intent] Type definition for the global site settings stored in admin_configuration/global.
@@ -58,25 +58,40 @@ export function SiteFunctionsManager() {
     }, [firestore]);
 
 
-    // GUID: ADMIN_SITE_FUNCTIONS-004-v03
-    // [Intent] Persists the current toggle states to Firestore and logs an audit event for the change.
+    // GUID: ADMIN_SITE_FUNCTIONS-004-v04
+    // @SECURITY_FIX: Replaced direct Firestore write with authenticated API call (ADMINCOMP-005).
+    // [Intent] Persists the current toggle states via secure API endpoint with business rule enforcement.
     // [Inbound Trigger] Clicking the "Save Settings" button.
-    // [Downstream Impact] Updates admin_configuration/global document; login/signup flows will read these values. Audit trail is created via logAuditEvent.
+    // [Downstream Impact] Updates admin_configuration/global document via API; login/signup flows will read these values. Audit trail is created server-side.
     const handleSave = async () => {
-        if (!firestore || !settings || !user) return;
+        if (!settings || !user) return;
         setIsSaving(true);
         try {
-            const docRef = doc(firestore, "admin_configuration", "global");
-            await setDoc(docRef, settings, { merge: true });
+            // Get Firebase Auth token for API authentication
+            const idToken = await user.firebaseUser?.getIdToken();
+            if (!idToken) {
+                throw new Error('Authentication token not available');
+            }
 
-            // Log SYSTEM_INIT audit event when admin settings are saved
-            logAuditEvent(firestore, user.id, 'SYSTEM_INIT', {
-                action: 'site_settings_updated',
-                settings: {
+            // Call secure API endpoint
+            const response = await fetch('/api/admin/update-site-functions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    adminUid: user.id,
                     userLoginEnabled: settings.userLoginEnabled,
                     newUserSignupEnabled: settings.newUserSignupEnabled,
-                },
+                }),
             });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to update site functions');
+            }
 
             toast({
                 title: "Settings Saved",

@@ -1,7 +1,8 @@
-// GUID: API_SEND_HOT_NEWS_EMAIL-000-v04
-// [Intent] API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces daily global and per-address rate limits, logs audit events, and tracks email stats.
+// GUID: API_SEND_HOT_NEWS_EMAIL-000-v05
+// @SECURITY_FIX: Added 1-hour broadcast cooldown to prevent email spam (ADMINCOMP-006).
+// [Intent] API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces 1-hour broadcast cooldown, daily global and per-address rate limits, logs audit events, and tracks email stats.
 // [Inbound Trigger] POST request from the admin hot news editor (typically the HotNewsEditor component).
-// [Downstream Impact] Sends emails via sendEmail (email lib); writes to audit_logs and email_daily_stats collections. Frontend relies on results array and success counts.
+// [Downstream Impact] Sends emails via sendEmail (email lib); writes to audit_logs, email_daily_stats, and admin_configuration/hot_news_email_throttle collections. Frontend relies on results array and success counts.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
@@ -12,13 +13,15 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-// GUID: API_SEND_HOT_NEWS_EMAIL-001-v03
-// [Intent] Rate-limiting constants — caps total daily emails at 30 globally and 5 per individual address to prevent abuse and protect Graph API quotas.
-// [Inbound Trigger] Referenced during the email send loop in the POST handler.
-// [Downstream Impact] Changing these values directly affects how many hot news emails can be sent per day. Admin email (aaron@garcia.ltd) is exempt from per-address limit.
+// GUID: API_SEND_HOT_NEWS_EMAIL-001-v04
+// @SECURITY_FIX: Added broadcast cooldown constant (ADMINCOMP-006).
+// [Intent] Rate-limiting constants — caps total daily emails at 30 globally and 5 per individual address to prevent abuse and protect Graph API quotas. Also enforces 1-hour cooldown between broadcasts to prevent email spam.
+// [Inbound Trigger] Referenced during the email send loop in the POST handler and broadcast throttle check.
+// [Downstream Impact] Changing these values directly affects how many hot news emails can be sent per day and how frequently broadcasts can occur. Admin email (aaron@garcia.ltd) is exempt from per-address limit.
 const DAILY_GLOBAL_LIMIT = 30;
 const DAILY_PER_ADDRESS_LIMIT = 5;
 const ADMIN_EMAIL = 'aaron@garcia.ltd';
+const BROADCAST_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 
 // GUID: API_SEND_HOT_NEWS_EMAIL-001A-v01
 // [Intent] Escape HTML special characters to prevent XSS injection in hot news email content.
@@ -71,10 +74,11 @@ function getTodayDateString(): string {
   return now.toISOString().split('T')[0];
 }
 
-// GUID: API_SEND_HOT_NEWS_EMAIL-005-v04
-// [Intent] POST handler — orchestrates the entire hot news email broadcast: validates input, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.
+// GUID: API_SEND_HOT_NEWS_EMAIL-005-v05
+// @SECURITY_FIX: Added broadcast cooldown check (ADMINCOMP-006).
+// [Intent] POST handler — orchestrates the entire hot news email broadcast: validates input, checks broadcast cooldown, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.
 // [Inbound Trigger] HTTP POST with JSON body containing content, updatedBy, and updatedByEmail.
-// [Downstream Impact] Writes to audit_logs (two entries per invocation), email_daily_stats, and sends emails via Graph API. Errors logged to error_logs with correlation ID.
+// [Downstream Impact] Writes to audit_logs (two entries per invocation), email_daily_stats, admin_configuration/hot_news_email_throttle, and sends emails via Graph API. Errors logged to error_logs with correlation ID.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -90,6 +94,33 @@ export async function POST(request: NextRequest) {
     }
 
     const { db, FieldValue } = await getFirebaseAdmin();
+
+    // SECURITY: Check broadcast cooldown to prevent email spam (ADMINCOMP-006)
+    const throttleRef = db.collection('admin_configuration').doc('hot_news_email_throttle');
+    const throttleDoc = await throttleRef.get();
+
+    if (throttleDoc.exists) {
+      const lastBroadcastTime = throttleDoc.data()?.lastBroadcastAt?.toMillis?.() || 0;
+      const timeSinceLastBroadcast = Date.now() - lastBroadcastTime;
+
+      if (timeSinceLastBroadcast < BROADCAST_COOLDOWN_MS) {
+        const remainingMinutes = Math.ceil((BROADCAST_COOLDOWN_MS - timeSinceLastBroadcast) / 60000);
+        return NextResponse.json({
+          success: false,
+          error: `Rate limit: Hot news broadcasts are limited to once per hour. Please wait ${remainingMinutes} more minutes before sending another broadcast.`,
+          errorCode: 'RATE_LIMIT_BROADCAST_COOLDOWN',
+          correlationId,
+          remainingMinutes,
+        }, { status: 429 });
+      }
+    }
+
+    // Update throttle state to record this broadcast
+    await throttleRef.set({
+      lastBroadcastAt: FieldValue.serverTimestamp(),
+      lastBroadcastBy: updatedBy,
+      correlationId,
+    }, { merge: true });
 
     // Log audit event for hot news update
     await db.collection('audit_logs').add({
