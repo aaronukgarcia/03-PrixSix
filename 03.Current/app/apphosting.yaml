@@ -36,3 +36,6 @@ env:
     secret: GRAPH_CLIENT_SECRET
   - variable: GRAPH_SENDER_EMAIL
     secret: GRAPH_SENDER_EMAIL
+  # WhatsApp Worker authentication secret (for HMAC proxy verification)
+  - variable: WHATSAPP_APP_SECRET
+    secret: WHATSAPP_APP_SECRET
