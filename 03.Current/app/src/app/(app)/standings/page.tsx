@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useAuth } from "@/firebase";
 import { useLeague } from "@/contexts/league-context";
@@ -165,9 +165,10 @@ interface RaceWeekend {
 // [Downstream Impact] Controls how many standings rows are shown before "Load More".
 const PAGE_SIZE = 25;
 
-// GUID: PAGE_STANDINGS-010-v03
+// GUID: PAGE_STANDINGS-010-v04
 // [Intent] Main Standings page component — subscribes to scores in real-time, computes cumulative
 //   standings per race weekend, renders the progression chart and sortable standings table.
+//   Auto-focuses on latest race when new race results are added.
 // [Inbound Trigger] React Router renders this component when user navigates to /standings.
 // [Downstream Impact] Real-time Firestore listener on scores collection; reads users collection
 //   for team names; navigates to /results page on score cell clicks.
@@ -188,13 +189,18 @@ export default function StandingsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // GUID: PAGE_STANDINGS-011-v04
+  // Track previous completed race count for auto-focus on new races
+  const prevCompletedCountRef = useRef<number>(0);
+
+  // GUID: PAGE_STANDINGS-011-v05
   // [Intent] Real-time subscription to the entire scores collection — processes raw score documents,
   //   determines which race weekends are completed, and fetches team names for all scoring users.
+  //   Auto-focuses on latest race when new race results are added (real-time update).
   // [Inbound Trigger] Fires on component mount and whenever firestore reference changes; re-fires
   //   on any score document change in the scores collection.
   // [Downstream Impact] Populates allScores, completedRaceWeekends, userNames, and lastUpdated state.
-  //   All downstream memos (standings, chartData, raceWinners) depend on these.
+  //   All downstream memos (standings, chartData, raceWinners) depend on these. When new race added,
+  //   automatically focuses on that race to show updated overall scores.
   useEffect(() => {
     if (!firestore) return;
 
@@ -262,10 +268,27 @@ export default function StandingsPage() {
         });
 
         setCompletedRaceWeekends(completed);
-        // Only set selectedRaceIndex if it's not already set or if there are no completed races
+
+        // Auto-focus on latest race when new race is added (real-time update)
+        const prevCount = prevCompletedCountRef.current;
+        prevCompletedCountRef.current = completed.length;
+
         setSelectedRaceIndex(prev => {
           if (completed.length === 0) return -1;
-          if (prev < 0 || prev >= completed.length) return completed.length - 1;
+
+          // ALWAYS focus on latest race if:
+          // 1. First load (prev < 0)
+          // 2. Out of bounds (prev >= completed.length)
+          if (prev < 0 || prev >= completed.length) {
+            return completed.length - 1;
+          }
+
+          // Auto-focus on latest race when NEW RACE ADDED
+          if (completed.length > prevCount) {
+            return completed.length - 1;
+          }
+
+          // Keep current selection if no new race
           return prev;
         });
 
