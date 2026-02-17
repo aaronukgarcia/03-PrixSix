@@ -241,6 +241,57 @@ export async function updatePubChatContent(
 }
 
 // ============================================
+// Audit Logging Settings
+// ============================================
+
+export interface AuditSettings {
+    auditLoggingEnabled: boolean;
+    lastUpdated: Timestamp;
+    updatedBy: string;
+}
+
+const defaultAuditSettings: AuditSettings = {
+    auditLoggingEnabled: true,
+    lastUpdated: new Timestamp(0, 0),
+    updatedBy: '',
+};
+
+/**
+ * Retrieves audit logging settings from Firestore.
+ * @param {Firestore} db - The Firestore instance.
+ * @returns {Promise<AuditSettings>} The current audit settings.
+ */
+export async function getAuditSettings(db: Firestore): Promise<AuditSettings> {
+    const settingsRef = doc(db, "admin_configuration", "audit_settings");
+    try {
+        const docSnap = await getDoc(settingsRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return { ...defaultAuditSettings, ...data } as AuditSettings;
+        } else {
+            await setDoc(settingsRef, { ...defaultAuditSettings, lastUpdated: serverTimestamp() });
+            return defaultAuditSettings;
+        }
+    } catch (error) {
+        console.error("Error getting audit settings: ", error);
+        return defaultAuditSettings;
+    }
+}
+
+/**
+ * Updates audit logging settings in Firestore.
+ * @param {Firestore} db - The Firestore instance.
+ * @param {Partial<AuditSettings>} data - The data to update.
+ */
+export async function updateAuditSettings(
+    db: Firestore,
+    data: Partial<Omit<AuditSettings, 'lastUpdated'> & { lastUpdated?: FieldValue }>
+) {
+    const settingsRef = doc(db, "admin_configuration", "audit_settings");
+    await setDoc(settingsRef, data, { merge: true });
+}
+
+// ============================================
 // Pub Chat Timing Data (OpenF1)
 // ============================================
 

@@ -74,8 +74,11 @@ export async function logAuditEvent(
     action: string,
     details: object
 ) {
-  // TODO: Implement fetching the auditLoggingEnabled flag from a global config/context
-  const isEnabled = true; // For now, assume it's enabled.
+  // TODO (GEMINI-AUDIT-002 / Phase 4): Implement React Context to fetch auditLoggingEnabled
+  //       from admin_configuration/audit_settings (see firebase/firestore/settings.ts).
+  //       Admins can update via /api/admin/update-audit-settings endpoint.
+  //       Current: Hardcoded to true (safe default - logging always enabled).
+  const isEnabled = true;
 
   if (!isEnabled || !userId) {
     return;
