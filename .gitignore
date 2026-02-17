@@ -11,6 +11,7 @@
 !03.Current/README.md
 !03.Current/Claude-Read-First.md
 !03.Current/CLAUDE.md
+!03.Current/PHASE3-SETUP-GUIDE.md
 !03.Current/claude-sync.js
 !03.Current/firebase.json
 !03.Current/provision_recovery_env.sh
@@ -20,6 +21,8 @@
 !03.Current/functions/**
 !03.Current/docs/
 !03.Current/docs/**
+!03.Current/.github/
+!03.Current/.github/**
 !03.Current/code.json
 !03.Current/code-index.json
 !03.Current/module-indexer.md
