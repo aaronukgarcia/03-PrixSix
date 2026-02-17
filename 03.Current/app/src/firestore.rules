@@ -255,6 +255,21 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    // GUID: FIRESTORE_BOOKOFWORK-001-v01
+    // [Intent] Firestore security rules for book_of_work collection (centralized issue tracking).
+    //          Grants admin-only full access. All work items (security audits, UX findings,
+    //          error logs, feedback) are consolidated here for centralized tracking.
+    // [Inbound Trigger] BookOfWorkManager admin component subscription and mutations.
+    // [Downstream Impact] Without these rules, book_of_work would be inaccessible.
+    //                     Delete denial prevents accidental loss of historical work tracking.
+    match /book_of_work/{entryId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      // Allow update only if ID field remains unchanged (prevents ID manipulation)
+      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
+      allow delete: if false; // Prevent accidental deletion - use status='wont_fix' instead
+    }
+
     // Login attempts - server-side only (Admin SDK bypasses rules)
     // Used for attack detection
     match /login_attempts/{attemptId} {

@@ -47,6 +47,23 @@
         { "fieldPath": "sessionStatus", "order": "ASCENDING" },
         { "fieldPath": "logonTimestamp", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "book_of_work",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "book_of_work",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

@@ -14,7 +14,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -44,6 +44,11 @@ import { PubChatPanel } from "./_components/PubChatPanel";
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders leagues management UI in TabsContent value="leagues".
 import { LeaguesManager } from "./_components/LeaguesManager";
+// GUID: PAGE_ADMIN-BOOKOFWORK-001-v01
+// [Intent] Import BookOfWorkManager for the 17th admin tab.
+// [Inbound Trigger] Admin page load.
+// [Downstream Impact] Renders centralized book of work management UI in TabsContent value="bookofwork".
+import { BookOfWorkManager } from "./_components/BookOfWorkManager";
 // GUID: PAGE_ADMIN-002-v03
 // [Intent] Import AttackMonitor component for security monitoring displayed above the tabs.
 // [Inbound Trigger] Admin page load.
@@ -362,6 +367,13 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                                             PubChatPanel (PUBCHAT_PANEL-001). */}
                     <TabsTrigger value="pubchat" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Beer className="w-4 h-4 mr-2"/>PubChat</TabsTrigger>
                     <TabsTrigger value="leagues" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white"><UsersRound className="w-4 h-4 mr-2"/>Leagues</TabsTrigger>
+                    {/* GUID: PAGE_ADMIN-BOOKOFWORK-002-v01
+                        [Intent] 17th tab trigger for the Book of Work centralized issue tracker. Amber-600 colour
+                                 distinguishes it as a work management tool. FileText icon signals documentation/tracking.
+                        [Inbound Trigger] User clicks the "Book of Work" tab in the admin TabsList.
+                        [Downstream Impact] Activates TabsContent value="bookofwork" which mounts
+                                            BookOfWorkManager (ADMIN_BOOKOFWORK-000). */}
+                    <TabsTrigger value="bookofwork" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white"><FileText className="w-4 h-4 mr-2"/>Book of Work</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
@@ -421,6 +433,16 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                 </TabsContent>
                 <TabsContent value="leagues">
                     <LeaguesManager allUsers={allUsers} isUserLoading={isUserLoading} />
+                </TabsContent>
+                {/* GUID: PAGE_ADMIN-BOOKOFWORK-003-v01
+                    [Intent] Mount the BookOfWorkManager when the Book of Work tab is active.
+                    [Inbound Trigger] TabsTrigger value="bookofwork" selected (PAGE_ADMIN-BOOKOFWORK-002).
+                    [Downstream Impact] BookOfWorkManager subscribes to book_of_work collection
+                                        via onSnapshot (ADMIN_BOOKOFWORK-007) and renders centralized
+                                        issue tracking interface consolidating security audits, UX findings,
+                                        error logs, and feedback into single management view. */}
+                <TabsContent value="bookofwork">
+                    <BookOfWorkManager />
                 </TabsContent>
             </Tabs>
       </div>
