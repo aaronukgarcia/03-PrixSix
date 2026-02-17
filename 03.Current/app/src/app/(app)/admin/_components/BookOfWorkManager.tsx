@@ -1,7 +1,9 @@
-// GUID: ADMIN_BOOKOFWORK-000-v01
-// [Intent] Admin component for centralized book of work tracking - consolidates security audits, UX findings, error logs, and feedback into single management interface
+// GUID: ADMIN_BOOKOFWORK-000-v02
+// [Intent] Admin component for centralized book of work tracking - consolidates security audits, UX findings, error logs, and feedback into single management interface.
+//          All error handlers use 4-pillar error handling (log, type, correlation ID, selectable display) per Golden Rule #1.
 // [Inbound Trigger] Rendered within the admin panel when the "Book of Work" tab is selected
-// [Downstream Impact] Reads and writes to the book_of_work Firestore collection. Provides filtering, search, inline editing, and status management for all work items
+// [Downstream Impact] Reads and writes to the book_of_work Firestore collection. Provides filtering, search, inline editing, and status management for all work items.
+//                     Error logs written to error_logs collection with correlation IDs for support debugging.
 
 'use client';
 
@@ -21,6 +23,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { FileText, CheckCircle2, Clock, X, AlertTriangle, Shield, Palette, Zap, Server, Bug, User, Search, Plus, Edit2, Save, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { BookOfWorkEntry, BookOfWorkCategory, BookOfWorkStatus, BookOfWorkSeverity } from '@/lib/types/book-of-work';
+import { ERRORS } from '@/lib/error-registry';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
 
 // GUID: ADMIN_BOOKOFWORK-001-v01
 // [Intent] Extends BookOfWorkEntry interface with Firestore document ID for client-side usage
@@ -132,12 +136,26 @@ export function BookOfWorkManager() {
         setEntries(items);
         setLoading(false);
       },
-      (error) => {
-        console.error('Error fetching book of work:', error);
+      async (error) => {
+        // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
+        const tracedError = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+          context: { collection: 'book_of_work', operation: 'onSnapshot' },
+          cause: error,
+        });
+
+        await logTracedError(tracedError);
+
         toast({
           variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to load work items',
+          title: `Error ${tracedError.definition.code}`,
+          description: (
+            <div className="space-y-1">
+              <p>{tracedError.definition.message}</p>
+              <p className="text-xs font-mono select-all cursor-text">
+                Correlation ID: {tracedError.correlationId}
+              </p>
+            </div>
+          ),
         });
         setLoading(false);
       }
@@ -241,11 +259,25 @@ export function BookOfWorkManager() {
         description: `Work item status changed to ${statusConfig[newStatus].label}`,
       });
     } catch (error) {
-      console.error('Error updating status:', error);
+      // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
+      const tracedError = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
+        context: { collection: 'book_of_work', operation: 'updateStatus', entryId, newStatus },
+        cause: error as Error,
+      });
+
+      await logTracedError(tracedError);
+
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update status',
+        title: `Error ${tracedError.definition.code}`,
+        description: (
+          <div className="space-y-1">
+            <p>{tracedError.definition.message}</p>
+            <p className="text-xs font-mono select-all cursor-text">
+              Correlation ID: {tracedError.correlationId}
+            </p>
+          </div>
+        ),
       });
     }
   };
@@ -290,11 +322,25 @@ export function BookOfWorkManager() {
       setEditingId(null);
       setEditForm({});
     } catch (error) {
-      console.error('Error saving edit:', error);
+      // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
+      const tracedError = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
+        context: { collection: 'book_of_work', operation: 'saveEdit', editingId },
+        cause: error as Error,
+      });
+
+      await logTracedError(tracedError);
+
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save changes',
+        title: `Error ${tracedError.definition.code}`,
+        description: (
+          <div className="space-y-1">
+            <p>{tracedError.definition.message}</p>
+            <p className="text-xs font-mono select-all cursor-text">
+              Correlation ID: {tracedError.correlationId}
+            </p>
+          </div>
+        ),
       });
     }
   };
