@@ -39,6 +39,8 @@ import {
   Calendar,
   ChevronRight,
   User,
+  BookOpen,
+  HelpCircle,
 } from "lucide-react";
 import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { Logo } from "@/components/Logo";
@@ -63,15 +65,18 @@ const menuItemsTop = [
   { href: "/standings", label: "Standings", icon: Trophy },
 ];
 
-// GUID: COMPONENT_APP_SIDEBAR-001B-v04
+// GUID: COMPONENT_APP_SIDEBAR-001B-v05
 // [Intent] Menu items rendered BELOW the Results collapsible group.
+// @FIX(v05) Added "Getting Started" link to surface onboarding permanently in navigation.
+// Renamed "About" to "Help" with HelpCircle icon for clearer discoverability.
 const menuItemsBottom = [
+  { href: "/onboarding", label: "Getting Started", icon: BookOpen },
   { href: "/submissions", label: "Submissions", icon: FileCheck },
   { href: "/audit", label: "Audit", icon: History },
   { href: "/teams", label: "Teams", icon: Users },
   { href: "/leagues", label: "Leagues", icon: Users2 },
   { href: "/rules", label: "Rules", icon: ScrollText },
-  { href: "/about", label: "About", icon: Info },
+  { href: "/about", label: "Help", icon: HelpCircle },
 ];
 
 // GUID: COMPONENT_APP_SIDEBAR-002-v04

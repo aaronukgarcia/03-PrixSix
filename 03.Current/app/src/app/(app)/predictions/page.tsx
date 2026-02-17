@@ -1,10 +1,11 @@
-// GUID: PAGE_PREDICTIONS-000-v03
+// GUID: PAGE_PREDICTIONS-000-v04
 // [Intent] Predictions page — allows users to view, submit, and edit their driver predictions
 //          for the next open race. Supports multiple teams, prediction carry-over from previous
 //          races, and pit lane open/closed status based on qualifying time and race results.
 // [Inbound Trigger] User navigates to /predictions from dashboard or navigation.
 // [Downstream Impact] Renders PredictionEditor with driver data, lock state, and initial predictions.
 //                     Reads from Firestore: race_results, user predictions. Writes via PredictionEditor.
+// @FIX(v04) Added "How Scoring Works" contextual help link to surface /rules page where users need it most.
 
 'use client';
 
@@ -12,7 +13,8 @@ import { findNextRace, RaceSchedule, F1Drivers, Driver } from "@/lib/data";
 import { PredictionEditor } from "./_components/PredictionEditor";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { AlertCircle, Users, Info } from "lucide-react";
+import { AlertCircle, Users, Info, HelpCircle } from "lucide-react";
+import Link from "next/link";
 import { useAuth, useDoc, useFirestore, useCollection } from "@/firebase";
 import { useState, useMemo, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -230,6 +232,10 @@ function PredictionsContent() {
           <p className="text-muted-foreground">
             Set your grid for the {nextRace.name}.
           </p>
+          <Link href="/rules" className="text-sm text-accent hover:underline inline-flex items-center gap-1">
+            <HelpCircle className="h-3.5 w-3.5" />
+            <span>How Scoring Works</span>
+          </Link>
         </div>
         {userTeams.length > 1 && (
             <div className="flex items-center gap-2">

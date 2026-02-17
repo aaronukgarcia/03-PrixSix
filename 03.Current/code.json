@@ -8463,7 +8463,7 @@
     },
     {
       "guid": "COMPONENT_WELCOME_CTA-000",
-      "version": 1,
+      "version": 3,
       "logic_category": "PRESENTATION",
       "description": "Dismissible welcome CTA card for the dashboard. Encourages new users to visit the onboarding checklist at /onboarding. Persists dismiss state in localStorage.",
       "dependencies": [],
@@ -13595,7 +13595,7 @@
     },
     {
       "guid": "PAGE_LOGIN-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Login page for Prix Six. Authenticates users via email + 6-digit PIN,",
       "dependencies": [],
@@ -14017,9 +14017,9 @@
     },
     {
       "guid": "PAGE_PREDICTIONS-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Predictions page â€” allows users to view, submit, and edit their driver predictions",
+      "description": "Predictions page â€" allows users to view, submit, and edit their driver predictions",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/predictions/page.tsx"

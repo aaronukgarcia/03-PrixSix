@@ -1,9 +1,10 @@
-// GUID: PAGE_LOGIN-000-v03
+// GUID: PAGE_LOGIN-000-v04
 // [Intent] Login page for Prix Six. Authenticates users via email + 6-digit PIN,
 //          displays version number, and redirects to dashboard on success.
 // [Inbound Trigger] User navigates to /login or root route (/ renders this page).
 // [Downstream Impact] Successful login sets auth context (useAuth), redirects to /dashboard.
 //                     Failed login displays selectable error with correlation ID.
+// @FIX(v04) Added "Formula 1 Prediction Game" tagline to CardDescription for clearer value prop.
 
 "use client";
 
@@ -183,7 +184,7 @@ export default function LoginPage() {
                     <Logo size="md" />
                 </div>
                 <CardTitle className="text-3xl font-headline">Welcome to Prix Six</CardTitle>
-                <CardDescription>Enter your credentials to access your team.</CardDescription>
+                <CardDescription>Formula 1 Prediction Game — Enter your credentials to access your team.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>

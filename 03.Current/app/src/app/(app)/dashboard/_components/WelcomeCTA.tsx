@@ -1,8 +1,9 @@
-// GUID: COMPONENT_WELCOME_CTA-000
+// GUID: COMPONENT_WELCOME_CTA-000-v03
 // [Intent] Dismissible welcome CTA card for the dashboard. Encourages new users to visit
 //          the onboarding checklist at /onboarding. Persists dismiss state in localStorage.
 // [Inbound Trigger] Rendered on the dashboard page between pre-season alert and race cards.
 // [Downstream Impact] Routes user to /onboarding on click. Dismiss writes to localStorage.
+// @FIX(v03) Smart completion check — only shows if onboarding incomplete AND not dismissed.
 
 "use client";
 
@@ -13,10 +14,11 @@ import { Sparkles, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // GUID: COMPONENT_WELCOME_CTA-001
-// [Intent] localStorage key for persisting the dismissed state of the welcome CTA.
-// [Inbound Trigger] Read on mount, written on dismiss.
-// [Downstream Impact] When set to 'true', the CTA will not render.
+// [Intent] localStorage keys for persisting dismissed state and onboarding progress.
+// [Inbound Trigger] Read on mount, written on dismiss or onboarding completion.
+// [Downstream Impact] When dismiss is 'true' OR onboarding complete, the CTA will not render.
 const DISMISS_KEY = "prix-six-onboarding-dismissed";
+const ONBOARDING_PROGRESS_KEY = "prix-six-onboarding-progress";
 
 // GUID: COMPONENT_WELCOME_CTA-002
 // [Intent] Main WelcomeCTA component. Shows a gradient-bordered card with shimmer effect
@@ -29,8 +31,32 @@ export function WelcomeCTA() {
   const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
-    const val = localStorage.getItem(DISMISS_KEY);
-    if (val !== "true") {
+    // Check if user manually dismissed
+    const dismissedVal = localStorage.getItem(DISMISS_KEY);
+    const isDismissed = dismissedVal === "true";
+
+    // Check if onboarding is complete
+    const progressData = localStorage.getItem(ONBOARDING_PROGRESS_KEY);
+    let isOnboardingComplete = false;
+
+    if (progressData) {
+      try {
+        const progress = JSON.parse(progressData);
+        isOnboardingComplete = Boolean(
+          progress.emailVerified &&
+          progress.gameLearned &&
+          progress.predictionMade &&
+          progress.paddockExplored &&
+          progress.gridJoined
+        );
+      } catch (e) {
+        // Invalid JSON, treat as incomplete
+        isOnboardingComplete = false;
+      }
+    }
+
+    // Only show if NOT dismissed AND onboarding NOT complete
+    if (!isDismissed && !isOnboardingComplete) {
       setDismissed(false);
     }
     setHasChecked(true);
