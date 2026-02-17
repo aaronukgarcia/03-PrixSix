@@ -13,8 +13,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// GUID: COMPONENT_WELCOME_CTA-001
+// GUID: COMPONENT_WELCOME_CTA-001-v02
+// @SECURITY_WARNING (GEMINI-AUDIT-040): Client-side-only dismissal pattern.
+//   This pattern is ACCEPTABLE for non-critical UI preferences like this welcome CTA.
+//   HOWEVER, this pattern should NOT be used for security-critical dismissals such as:
+//   - Security warnings or vulnerability notifications
+//   - Terms of Service / Privacy Policy acceptance
+//   - Mandatory compliance notices
+//   - Data breach notifications
+//   - Account suspension warnings
+//   For critical alerts, ALWAYS use server-side user preferences (Firestore users collection)
+//   to ensure dismissal persists across devices and cannot be bypassed by clearing localStorage.
 // [Intent] localStorage keys for persisting dismissed state and onboarding progress.
+//          Client-side-only storage is appropriate here because:
+//          1. This is a non-critical UI enhancement (welcome message)
+//          2. Re-showing on new devices is acceptable (helps onboarding)
+//          3. No security implications if user clears localStorage
 // [Inbound Trigger] Read on mount, written on dismiss or onboarding completion.
 // [Downstream Impact] When dismiss is 'true' OR onboarding complete, the CTA will not render.
 const DISMISS_KEY = "prix-six-onboarding-dismissed";

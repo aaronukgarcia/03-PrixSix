@@ -8477,9 +8477,9 @@
     },
     {
       "guid": "COMPONENT_WELCOME_CTA-001",
-      "version": 1,
+      "version": 2,
       "logic_category": "ORCHESTRATION",
-      "description": "localStorage key for persisting the dismissed state of the welcome CTA.",
+      "description": "localStorage keys for persisting dismissed state and onboarding progress. Client-side-only storage acceptable for non-critical UI preferences. Security warning added: this pattern should NOT be used for security-critical dismissals (use Firestore user preferences instead). Security fix: GEMINI-AUDIT-040.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx"
@@ -10183,9 +10183,9 @@
     },
     {
       "guid": "LIB_DATA-001",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Define the shape of a Driver object used across the application.",
+      "description": "Define the shape of a Driver object used across the application (public fields only). imageId removed to prevent asset enumeration attacks. Components must use getDriverImage() instead. Security fix: GEMINI-AUDIT-051.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/data.ts"
@@ -10197,9 +10197,9 @@
     },
     {
       "guid": "LIB_DATA-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Master list of all F1 drivers for the 2026 season with their team assignments,",
+      "description": "Internal master list of all F1 drivers for the 2026 season with team assignments and imageId. Now InternalF1Drivers (private). Public export F1Drivers strips imageId. Security fix: GEMINI-AUDIT-051.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/data.ts"
@@ -10211,9 +10211,9 @@
     },
     {
       "guid": "LIB_DATA-003",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Resolve a driver ID to their profile image URL via the placeholder images lookup.",
+      "description": "Resolve a driver ID to their profile image URL via the placeholder images lookup. Uses InternalF1Drivers (only sanctioned way to access driver images). Abstracts imageId lookup to prevent enumeration. Security fix: GEMINI-AUDIT-051.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/data.ts",
@@ -10226,9 +10226,9 @@
     },
     {
       "guid": "LIB_DATA-004",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
-      "description": "Resolve a driver ID (lowercase) to their display name (proper case).",
+      "description": "Resolve a driver ID (lowercase) to their display name (proper case). Uses InternalF1Drivers for consistency. Security fix: GEMINI-AUDIT-051.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/data.ts",
@@ -10241,9 +10241,9 @@
     },
     {
       "guid": "LIB_DATA-005",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
-      "description": "Derive a 3-letter uppercase code from a driver ID (e.g., \"hamilton\" -> \"HAM\").",
+      "description": "Derive a 3-letter uppercase code from a driver ID (e.g., \"hamilton\" -> \"HAM\"). Uses InternalF1Drivers for consistency. Security fix: GEMINI-AUDIT-051.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/data.ts",
@@ -10343,9 +10343,9 @@
     },
     {
       "guid": "LIB_EMAIL-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "RECOVERY",
-      "description": "Admin email address constant used as the default sender fallback.",
+      "description": "Admin email address constant used as the default sender fallback. Uses ADMIN_EMAIL environment variable if set, otherwise falls back to hardcoded value. Single source of truth for admin email (Golden Rule #3). Security fix: GEMINI-AUDIT-055.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/email.ts",

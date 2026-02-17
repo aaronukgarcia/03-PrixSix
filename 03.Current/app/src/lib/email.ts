@@ -65,11 +65,15 @@ function getAdminDb() {
   return getFirestore();
 }
 
-// GUID: LIB_EMAIL-002-v03
-// [Intent] Admin email address constant used as the default sender fallback.
+// GUID: LIB_EMAIL-002-v04
+// @SECURITY_FIX: Moved hardcoded admin email to environment variable (GEMINI-AUDIT-055).
+//   Prevents information disclosure and reduces phishing/spam targeting risk.
+// [Intent] Admin email address constant used as the default sender fallback. Uses ADMIN_EMAIL
+//          environment variable if set, otherwise falls back to hardcoded value. Single source
+//          of truth for admin email (Golden Rule #3).
 // [Inbound Trigger] Referenced when GRAPH_SENDER_EMAIL environment variable is not set.
-// [Downstream Impact] Changing this affects the default sender address for all outbound emails.
-const ADMIN_EMAIL = 'aaron@garcia.ltd';
+// [Downstream Impact] Changing ADMIN_EMAIL env var affects the default sender address for all outbound emails.
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'aaron@garcia.ltd';
 
 // GUID: LIB_EMAIL-003-v03
 // [Intent] Generate a RFC 4122 v4-style GUID for uniquely identifying each email sent, enabling tracking and audit trail lookup.
@@ -164,7 +168,7 @@ interface WelcomeEmailParams {
 // [Downstream Impact] On success, the user receives their PIN and login link. On rate-limit, the email is queued in email_queue collection. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004), canSendEmail/recordSentEmail/queueEmail from email-tracking, and getAdminDb (LIB_EMAIL-001).
 export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: WelcomeEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
-  const senderEmail = process.env.GRAPH_SENDER_EMAIL || 'aaron@garcia.ltd';
+  const senderEmail = process.env.GRAPH_SENDER_EMAIL || ADMIN_EMAIL;
   const subject = "Welcome to Prix Six - Your Account is Ready!";
   const emailType = "welcome";
 
@@ -347,7 +351,7 @@ interface GenericEmailParams {
 // [Downstream Impact] On success, the recipient receives the email. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004) and getAdminDb (LIB_EMAIL-001). Does not use rate limiting (unlike sendWelcomeEmail).
 export async function sendEmail({ toEmail, subject, htmlContent }: GenericEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
-  const senderEmail = process.env.GRAPH_SENDER_EMAIL || 'aaron@garcia.ltd';
+  const senderEmail = process.env.GRAPH_SENDER_EMAIL || ADMIN_EMAIL;
 
   // Add email footer with GUID and build version
   const contentWithFooter = `

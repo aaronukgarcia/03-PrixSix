@@ -9,27 +9,42 @@
 
 import { PlaceHolderImages } from './placeholder-images';
 
-// GUID: LIB_DATA-001-v03
-// [Intent] Define the shape of a Driver object used across the application.
+// GUID: LIB_DATA-001-v04
+// @SECURITY_FIX (GEMINI-AUDIT-051): Removed imageId from public Driver interface.
+//   imageId now internal-only to prevent enumeration of CDN paths/assets. Components
+//   MUST use getDriverImage() function to retrieve driver images - direct access blocked.
+// [Intent] Define the shape of a Driver object used across the application (public fields only).
+//          imageId is intentionally excluded to prevent potential asset enumeration attacks.
 // [Inbound Trigger] Used by F1Drivers array and any component consuming driver data.
-// [Downstream Impact] Changing this interface requires updating all components that destructure Driver objects.
+// [Downstream Impact] Components can no longer access driver.imageId directly. Use getDriverImage(driverId) instead.
 export interface Driver {
   id: string;
   name: string;
   number: number;
   team: string;
+}
+
+// GUID: LIB_DATA-001A-v01
+// [Intent] Internal driver type that includes imageId mapping. Used only within this module
+//          for the F1Drivers array and getDriverImage() function. NOT exported.
+// [Security] imageId must remain internal to prevent enumeration of placeholder image IDs.
+interface InternalDriver extends Driver {
   imageId: string;
 }
 
-// GUID: LIB_DATA-002-v03
+// GUID: LIB_DATA-002-v04
+// @SECURITY_FIX (GEMINI-AUDIT-051): Changed to InternalDriver[] to maintain imageId internally.
+//   While exported as Driver[] publicly (without imageId), internally uses InternalDriver to
+//   preserve image mappings. getDriverImage() is the only sanctioned way to access driver images.
 // [Intent] Master list of all F1 drivers for the 2026 season with their team assignments,
-//          car numbers, and image IDs. This is the single source of truth for driver standing data.
+//          car numbers, and internal image IDs. This is the single source of truth for driver standing data.
 // [Inbound Trigger] Referenced by getDriverImage, getDriverName, getDriverCode, formatDriverPredictions,
 //                   and any component displaying driver information.
 // [Downstream Impact] Adding, removing, or renaming drivers here propagates to all predictions,
 //                     scoring, submissions, and UI displays. The Consistency Checker validates
 //                     driver reference integrity against this list.
-export const F1Drivers: Driver[] = [
+// [Security] imageId field is internal-only. External access via getDriverImage() prevents enumeration.
+const InternalF1Drivers: InternalDriver[] = [
   // Red Bull Racing
   { id: 'verstappen', name: 'Verstappen', number: 3, team: 'Red Bull Racing', imageId: 'max-verstappen' },
   { id: 'hadjar', name: 'Hadjar', number: 6, team: 'Red Bull Racing', imageId: 'isack-hadjar' },
@@ -65,19 +80,32 @@ export const F1Drivers: Driver[] = [
   { id: 'bottas', name: 'Bottas', number: 77, team: 'Cadillac F1 Team', imageId: 'valtteri-bottas' },
 ];
 
-// GUID: LIB_DATA-003-v03
+// GUID: LIB_DATA-002A-v01
+// @SECURITY_FIX (GEMINI-AUDIT-051): Public F1Drivers export without imageId field.
+//   Strips internal imageId to prevent enumeration of asset paths. Components can access
+//   id, name, number, team but CANNOT access imageId directly. Use getDriverImage() instead.
+// [Intent] Publicly-exported driver array without sensitive imageId field.
+// [Security] Prevents components from enumerating internal CDN paths or placeholder image IDs.
+export const F1Drivers: Driver[] = InternalF1Drivers.map(({ imageId, ...driver }) => driver);
+
+// GUID: LIB_DATA-003-v04
+// @SECURITY_FIX (GEMINI-AUDIT-051): Changed to use InternalF1Drivers instead of F1Drivers.
+//   This is the ONLY sanctioned way to access driver images. Direct imageId access blocked.
 // [Intent] Resolve a driver ID to their profile image URL via the placeholder images lookup.
 //          Falls back to a generic placeholder if the driver or image is not found.
 // [Inbound Trigger] Called by UI components that render driver avatars/photos (e.g., prediction cards, standings).
 // [Downstream Impact] If PlaceHolderImages data changes or driver imageId mappings change,
 //                     displayed driver images will change across the app.
+// [Security] Abstracts imageId lookup to prevent enumeration attacks.
 export const getDriverImage = (driverId: string) => {
-    const driver = F1Drivers.find(d => d.id === driverId);
+    const driver = InternalF1Drivers.find(d => d.id === driverId);
     const image = PlaceHolderImages.find(p => p.id === driver?.imageId);
     return image?.imageUrl || 'https://picsum.photos/seed/placeholder/100/100';
 }
 
-// GUID: LIB_DATA-004-v03
+// GUID: LIB_DATA-004-v04
+// @SECURITY_FIX (GEMINI-AUDIT-051): Changed to use InternalF1Drivers for consistency.
+//   Uses internal source data to avoid potential issues with stripped public array.
 // [Intent] Resolve a driver ID (lowercase) to their display name (proper case).
 //          Falls back to the raw ID if the driver is not found in the master list.
 // [Inbound Trigger] Called by formatDriverPredictions and any UI displaying driver names from stored IDs.
@@ -90,11 +118,13 @@ export const getDriverImage = (driverId: string) => {
  */
 export const getDriverName = (driverId: string): string => {
     if (!driverId) return 'N/A';
-    const driver = F1Drivers.find(d => d.id === driverId.toLowerCase());
+    const driver = InternalF1Drivers.find(d => d.id === driverId.toLowerCase());
     return driver?.name || driverId;
 }
 
-// GUID: LIB_DATA-005-v03
+// GUID: LIB_DATA-005-v04
+// @SECURITY_FIX (GEMINI-AUDIT-051): Changed to use InternalF1Drivers for consistency.
+//   Uses internal source data to avoid potential issues with stripped public array.
 // [Intent] Derive a 3-letter uppercase code from a driver ID (e.g., "hamilton" -> "HAM").
 //          Uses the first 3 letters of the driver's name, or truncates the raw ID as fallback.
 // [Inbound Trigger] Called by compact UI displays (e.g., scoring grids, leaderboard columns) that
@@ -106,7 +136,7 @@ export const getDriverName = (driverId: string): string => {
  */
 export const getDriverCode = (driverId: string): string => {
     if (!driverId) return 'N/A';
-    const driver = F1Drivers.find(d => d.id === driverId.toLowerCase());
+    const driver = InternalF1Drivers.find(d => d.id === driverId.toLowerCase());
     if (!driver) return driverId.substring(0, 3).toUpperCase();
     // Use first 3 letters of name as code
     return driver.name.substring(0, 3).toUpperCase();
