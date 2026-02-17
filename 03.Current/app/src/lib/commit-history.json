@@ -1,6 +1,8 @@
 {
-  "lastUpdated": "2026-02-13",
+  "lastUpdated": "2026-02-17",
   "commits": [
+    {"id": "03ac60d", "date": "2026-02-17", "version": "1.56.0", "author": "aaron garcia", "message": "Phase 2B: Architecture verification & audit settings API - ADMINCOMP-002, 009, 010 + GEMINI-002, GEMINI-AUDIT-002, FIRESTORE-003 (v1.56.0)", "major": true},
+    {"id": "628cdc4", "date": "2026-02-17", "version": "1.56.0", "author": "aaron garcia", "message": "Phase 2B: Architecture verification & audit settings API (v1.56.0)", "major": true},
     {"id": "649cb2b", "date": "2026-02-13", "version": "1.55.31", "author": "aaron garcia", "message": "feat: Add auto-recovery for chunk load errors (v1.55.31)", "major": false},
     {"id": "69a7199", "date": "2026-02-13", "version": "1.55.30", "author": "aaron garcia", "message": "fix: Move consistency reports from error_logs to dedicated collection (v1.55.30)", "major": false},
     {"id": "4dea7c6", "date": "2026-02-13", "version": "1.55.25", "author": "aaron garcia", "message": "fix: Migrate Spanish GP II to canonical format - Single Source of Truth (v1.55.25)", "major": false},
