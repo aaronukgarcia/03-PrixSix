@@ -1,6 +1,8 @@
-// GUID: LIB_EMAIL-000-v04
+// GUID: LIB_EMAIL-000-v05
 // @SECURITY_FIX: Added error message sanitization to prevent credential exposure (EMAIL-003).
 //   Azure AD/Graph API errors may contain tenant IDs, client IDs, or partial credentials.
+// @SECURITY_FIX: Added PIN masking to prevent plaintext credential logging (EMAIL-006).
+//   All PIN values logged to email_logs collection are now masked with maskPin().
 // [Intent] Server-side email sending module using Microsoft Graph API via Azure AD credentials. Provides welcome emails and generic email dispatch with rate-limiting, queuing, and Firestore logging.
 // [Inbound Trigger] Called by API routes (e.g., user registration, admin actions) that need to send transactional emails.
 // [Downstream Impact] Depends on email-tracking.ts for rate limiting and queuing. Writes to email_logs Firestore collection. Failures affect user onboarding and admin notifications.
@@ -21,6 +23,7 @@ import {
   isSummarySent
 } from "./email-tracking";
 import { APP_VERSION } from "./version";
+import { maskPin } from "./utils";
 
 // GUID: LIB_EMAIL-000A-v01
 // [Intent] Escape HTML special characters to prevent XSS injection in email templates.
@@ -289,7 +292,7 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
         to: toEmail,
         subject,
         html: htmlContent,
-        pin,
+        pin: maskPin(pin), // SECURITY: Mask PIN to prevent credential exposure (EMAIL-006)
         status: 'sent',
         timestamp: Timestamp.now(),
         emailGuid,
@@ -312,7 +315,7 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
         to: toEmail,
         subject,
         html: htmlContent,
-        pin,
+        pin: maskPin(pin), // SECURITY: Mask PIN to prevent credential exposure (EMAIL-006)
         status: 'failed',
         timestamp: Timestamp.now(),
         emailGuid,

@@ -131,6 +131,15 @@
       "commitHash": "75f7b13",
       "description": "Added Firebase Storage backup to daily backup job with smoke test verification",
       "severity": "high"
+    },
+    "EMAIL-006": {
+      "status": "completed",
+      "version": "1.55.28",
+      "date": "2026-02-17",
+      "commitHash": "82f6998",
+      "description": "Added maskPin() utility to prevent plaintext PIN logging in email_logs collection. Created maskPin() in utils.ts, applied to sendWelcomeEmail(), updated .env.example with secret placeholders.",
+      "severity": "critical",
+      "note": "Phase 1A: Safe code changes completed. Migration script and secret rotation pending."
     }
   },
   "summary": {
@@ -1235,6 +1244,78 @@
       "issue": "No Account Lockout/Blocking for Detected Attacks",
       "rationale": "The `attack-detection.ts` module explicitly states that account lockout is \"not implemented\". This means that even when various attack types (bot, credential stuffing, distributed) are detected and alerts are created, the system does not automatically block or temporarily lock the affected user accounts or IP addresses. Attackers can continue brute-forcing credentials or attempting credential stuffing attacks indefinitely, even after detection, until manual intervention occurs. This significantly weakens the authentication system's resilience against automated attacks. Implementing an automated account lockout mechanism is crucial for effective attack mitigation.",
       "file": "app/src/lib/attack-detection.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-047",
+      "module": "Audit Library",
+      "severity": "high",
+      "issue": "Uncontrolled Client-Side Console Logging of Sensitive Error Context (logPermissionError)",
+      "rationale": "The `logPermissionError` function logs a structured error to `console.error` on the client-side, including `userId`, `path` (Firestore path), and `method`. This exposes sensitive details about users, data paths, and attempted operations to anyone with browser console access, aiding attackers in understanding the application's data model and security rules. Client-side console logging should be minimized, generic, or disabled in production, with sensitive details logged securely server-side.",
+      "file": "app/src/lib/audit.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-049",
+      "module": "Consistency Library",
+      "severity": "critical",
+      "issue": "Hardcoded \"system\" OwnerId for Global League (Potential for Privilege Escalation/Bypass if not strictly controlled)",
+      "rationale": "The `checkLeagues` function explicitly recognizes \'system\' as a valid `ownerId` for a league, bypassing the check for a valid `userId` in the `users` collection. If application's Firestore Security Rules or server-side logic do not strictly enforce that only *truly privileged* entities can create or modify leagues with `ownerId: \'system\'`, a malicious actor could attempt to create a league with `ownerId: \'system\'` to gain elevated privileges or bypass normal ownership constraints. The creation and modification of entities with special `ownerId`s like \'system\' must be exclusively controlled by trusted server-side processes with robust authorization checks.",
+      "file": "app/src/lib/consistency.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-050",
+      "module": "Consistency Library",
+      "severity": "high",
+      "issue": "Fragile Breakdown String Parsing for Score Verification (`parseBreakdown` and `checkScores`)",
+      "rationale": "The `parseBreakdown` function relies on a specific, fragile string format to extract scoring details, with an explicit audit note stating it will \"silently break\" if the format changes. This fragility is a security risk if the breakdown string is ever influenced by user input or if a malformed string leads to incorrect score verification. A bug in parsing could cause incorrect flagging of valid scores, or validation of manipulated scores, leading to undetected data integrity issues. Robust parsing of structured data should use well-defined data formats (e.g., JSON) or more resilient parsing techniques, with explicit error handling for unexpected formats.",
+      "file": "app/src/lib/consistency.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-049",
+      "module": "Consistency Library",
+      "severity": "critical",
+      "issue": "Hardcoded \"system\" OwnerId for Global League (Potential for Privilege Escalation/Bypass if not strictly controlled)",
+      "rationale": "The `checkLeagues` function explicitly recognizes \'system\' as a valid `ownerId` for a league, bypassing the check for a valid `userId` in the `users` collection. If application's Firestore Security Rules or server-side logic do not strictly enforce that only *truly privileged* entities can create or modify leagues with `ownerId: \'system\'`, a malicious actor could attempt to create a league with `ownerId: \'system\'` to gain elevated privileges or bypass normal ownership constraints. The creation and modification of entities with special `ownerId`s like \'system\' must be exclusively controlled by trusted server-side processes with robust authorization checks.",
+      "file": "app/src/lib/consistency.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-050",
+      "module": "Consistency Library",
+      "severity": "high",
+      "issue": "Fragile Breakdown String Parsing for Score Verification (`parseBreakdown` and `checkScores`)",
+      "rationale": "The `parseBreakdown` function relies on a specific, fragile string format to extract scoring details, with an explicit audit note stating it will \"silently break\" if the format changes. This fragility is a security risk if the breakdown string is ever influenced by user input or if a malformed string leads to incorrect score verification. A bug in parsing could cause incorrect flagging of valid scores, or validation of manipulated scores, leading to undetected data integrity issues. Robust parsing of structured data should use well-defined data formats (e.g., JSON) or more resilient parsing techniques, with explicit error handling for unexpected formats.",
+      "file": "app/src/lib/consistency.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-054",
+      "module": "Email Library",
+      "severity": "high",
+      "issue": "Potential for XSS via `APP_VERSION` in Email Footer (Injection Risk)",
+      "rationale": "The `APP_VERSION` constant is directly interpolated into the HTML email content without being HTML-escaped. If `APP_VERSION` were ever to contain malicious HTML or JavaScript (e.g., sourced from an untrusted build pipeline or compromised environment variable), it could lead to an XSS vulnerability in the rendered email. This would allow an attacker to execute arbitrary script in the email client of the recipient, potentially leading to phishing, defacement, or other attacks. The existing `escapeHtml` function should be applied to `APP_VERSION` before interpolation.",
+      "file": "app/src/lib/email.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-057",
+      "module": "Email Tracking Library",
+      "severity": "critical",
+      "issue": "Direct Interpolation of `teamName`, `type`, `toEmail`, `sentAt` into HTML Email (Potential Stored XSS)",
+      "rationale": "User-controlled or potentially dynamic data such as `e.teamName`, `e.type`, `e.toEmail`, and `e.sentAt` (from `EmailLogEntry` and `QueuedEmail` interfaces) are directly interpolated into the HTML template for the daily summary email without proper HTML escaping. If an attacker could inject malicious content into any of these fields, this content would be rendered directly into the admin's email client when the daily summary is viewed. This could lead to Stored Cross-Site Scripting (XSS) within the admin's email, allowing arbitrary script execution, phishing, or other attacks. All dynamic data must be rigorously HTML-escaped before being inserted into HTML templates.",
+      "file": "app/src/lib/email-tracking.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-058",
+      "module": "Error Registry Library",
+      "severity": "critical",
+      "issue": "Auto-Generated File with Sensitive Information (Information Disclosure)",
+      "rationale": "The `error-registry.ts` file is auto-generated and contains detailed information about various error conditions, including `module` and `file` paths, `guid` values, `recovery` steps, and `failureModes`. This granular detail, if exposed client-side or accessible in server logs, provides an attacker with a \"roadmap\" of potential failure points and internal workings, greatly aiding reconnaissance and targeted attacks. Auto-generated files with internal system details should be strictly controlled, with only generic, user-safe information exposed client-side. Detailed metadata (`module`, `file`, `functionName`, `guid`, `calledBy`, `calls`) is highly internal and should not be exposed.",
+      "file": "app/src/lib/error-registry.ts",
       "citation": "Gemini Red Team"
     }
   ]
