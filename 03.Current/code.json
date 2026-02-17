@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
-  "generated": "2026-02-13",
-  "total_guids": 1002,
+  "generated": "2026-02-17",
+  "total_guids": 1005,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
@@ -16244,6 +16244,63 @@
           "AUTH_ERROR-000"
         ],
         "calls": []
+      }
+    },
+    {
+      "guid": "COMPONENT_CHUNK_ERROR_HANDLER-000",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Client-side chunk load error detector that auto-refreshes the page when Next.js fails to load a webpack chunk (typically due to stale build after deployment).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/ChunkErrorHandler.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "Root layout"
+        ],
+        "calls": [
+          "useToast",
+          "window.location.reload"
+        ]
+      }
+    },
+    {
+      "guid": "COMPONENT_CHUNK_ERROR_HANDLER-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Detects if an error is a webpack chunk loading failure by checking error message and error type.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/ChunkErrorHandler.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "ChunkErrorHandler error listener"
+        ],
+        "calls": []
+      }
+    },
+    {
+      "guid": "COMPONENT_CHUNK_ERROR_HANDLER-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main component that sets up global error listener on mount, detects chunk errors, shows user-friendly toast, and auto-refreshes after 1.5s delay.",
+      "dependencies": [
+        "useToast"
+      ],
+      "location": {
+        "filePath": "app/src/components/ChunkErrorHandler.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "Root layout"
+        ],
+        "calls": [
+          "isChunkLoadError",
+          "toast",
+          "window.location.reload"
+        ]
       }
     }
   ]
