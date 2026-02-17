@@ -5675,9 +5675,9 @@
     },
     {
       "guid": "API_SUBMIT_PREDICTION-005",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
-      "description": "Server-side lockout enforcement: checks if race results already exist in Firestore (locks predictions once results are entered) and if qualifying has started based on the RaceSchedule (time-based lockout). Two independent checks provide defence-in-depth.",
+      "description": "Server-side lockout enforcement: checks if race results already exist in Firestore and if qualifying has started based on Firestore race_schedule (trusted source). Uses getRaceByName() from race-schedule-server.ts instead of hardcoded RaceSchedule. Security fix: GEMINI-AUDIT-052.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/submit-prediction/route.ts"

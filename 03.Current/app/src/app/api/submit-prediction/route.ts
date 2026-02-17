@@ -4,11 +4,11 @@
 // [Downstream Impact] Writes to users/{userId}/predictions subcollection and audit_logs. Predictions are consumed by the calculate-scores route at scoring time. Lockout enforcement prevents late submissions.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { RaceSchedule } from '@/lib/data';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { generateRaceId, generateRaceIdLowercase } from '@/lib/normalize-race-id';
+import { getRaceByName } from '@/lib/race-schedule-server';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -113,13 +113,15 @@ export async function POST(request: NextRequest) {
     // SECURITY: Use atomic batch write to prevent partial failures
     const { db, FieldValue } = await getFirebaseAdmin();
 
-    // GUID: API_SUBMIT_PREDICTION-005-v03
-    // [Intent] Server-side lockout enforcement: checks if race results already exist in Firestore (locks predictions once results are entered) and if qualifying has started based on the RaceSchedule (time-based lockout). Two independent checks provide defence-in-depth.
+    // GUID: API_SUBMIT_PREDICTION-005-v04
+    // @SECURITY_FIX: GEMINI-AUDIT-052 - Use Firestore race schedule instead of hardcoded RaceSchedule.
+    //   Fetches race timing from trusted server-side Firestore source to prevent client tampering.
+    // [Intent] Server-side lockout enforcement: checks if race results already exist in Firestore (locks predictions once results are entered) and if qualifying has started based on Firestore race_schedule (time-based lockout). Two independent checks provide defence-in-depth.
     // [Inbound Trigger] After payload validation, before writing the prediction.
     // [Downstream Impact] Returns 403 if the pit lane is closed. Without this, users could submit predictions after results are known, undermining the fantasy league's integrity. The race_results check depends on the document ID format from API_CALCULATE_SCORES-005.
     // SERVER-SIDE LOCKOUT ENFORCEMENT 1: Check if race results already exist
     // This locks the race once results are entered (for preseason testing and normal flow)
-    const race = RaceSchedule.find(r => r.name === raceName || r.name.replace(/\s+/g, '-') === raceId);
+    const race = await getRaceByName(raceName);
     if (race) {
       // Check both GP and Sprint result IDs (using centralized race ID generation - Golden Rule #3)
       const gpResultId = generateRaceIdLowercase(race.name, 'gp');
