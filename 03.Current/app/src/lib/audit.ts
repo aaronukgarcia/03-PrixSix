@@ -1,5 +1,6 @@
-// GUID: LIB_AUDIT-000-v04
+// GUID: LIB_AUDIT-000-v05
 // @SECURITY_FIX: Permission errors now use TracedError and correlation IDs (LIB-003).
+// @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID() in generateGuid() (LIB-002).
 // [Intent] Client-side audit logging module providing session correlation IDs, Firestore audit event logging, automatic navigation tracking, and permission error reporting.
 // [Inbound Trigger] Imported by React components and pages that need audit trail functionality.
 // [Downstream Impact] Writes to audit_logs Firestore collection. Navigation tracking depends on Next.js routing. Changes affect audit trail completeness and compliance reporting.
@@ -22,15 +23,14 @@ import { ERRORS } from '@/lib/error-registry';
 // [Downstream Impact] All audit_logs entries reference this ID. If reset unexpectedly, audit trail continuity for the session is broken.
 let sessionCorrelationId: string | null = null;
 
-// GUID: LIB_AUDIT-002-v03
-// [Intent] Generates a RFC 4122 v4 GUID string using Math.random for use as session correlation IDs.
+// GUID: LIB_AUDIT-002-v04
+// @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID() to prevent predictable token generation (LIB-002).
+// [Intent] Generates a cryptographically secure RFC 4122 v4 UUID for use as session correlation IDs.
+//          Uses Web Crypto API which is available in all modern browsers.
 // [Inbound Trigger] Called by getCorrelationId when no session correlation ID exists yet.
-// [Downstream Impact] Provides the unique identifier used across all audit events in a session. Not cryptographically secure but sufficient for audit correlation purposes.
+// [Downstream Impact] Provides the unique identifier used across all audit events in a session. Now cryptographically secure, preventing token prediction attacks.
 function generateGuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+  return crypto.randomUUID();
 }
 
 // GUID: LIB_AUDIT-003-v03

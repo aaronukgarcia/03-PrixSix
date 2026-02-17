@@ -1,4 +1,5 @@
-// GUID: ADMIN_AUDITLOG-000-v03
+// GUID: ADMIN_AUDITLOG-000-v04
+// @SECURITY_FIX: Added DOMPurify sanitization for team names to prevent XSS (GEMINI-AUDIT-003).
 // [Intent] Admin component for viewing the system audit log of user activity and system events.
 // [Inbound Trigger] Rendered on the admin Audit Logs tab; receives allUsers and loading state as props.
 // [Downstream Impact] Reads from audit_logs Firestore collection; depends on User type from firebase/provider for user lookup.
@@ -28,6 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { User } from '@/firebase/provider';
+import DOMPurify from 'isomorphic-dompurify';
 
 // GUID: ADMIN_AUDITLOG-001-v03
 // [Intent] Type definition for an audit log document from the audit_logs Firestore collection.
@@ -127,11 +129,13 @@ export function AuditLogViewer({ allUsers, isUserLoading }: AuditLogViewerProps)
                         ) : auditLogs && auditLogs.length > 0 ? (
                             auditLogs.map((log) => {
                                 const user = findUser(log.userId);
+                                // SECURITY: Sanitize team name to prevent XSS (GEMINI-AUDIT-003)
+                                const displayName = DOMPurify.sanitize(user?.teamName || log.userId, { ALLOWED_TAGS: [] });
                                 return (
                                     <AccordionItem value={log.id} key={log.id}>
                                         <AccordionTrigger className="p-4 hover:no-underline">
                                             <div className="flex items-center justify-between w-full">
-                                                <div className="flex-1 text-left font-medium">{user?.teamName || log.userId}</div>
+                                                <div className="flex-1 text-left font-medium">{displayName}</div>
                                                 <div className="flex-1 text-left">
                                                     <Badge variant={getActionVariant(log.action)}>{log.action.replace(/_/g, ' ')}</Badge>
                                                 </div>

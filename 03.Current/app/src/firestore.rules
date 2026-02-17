@@ -21,8 +21,9 @@ service cloud.firestore {
     // These are synced client-side by onAuthStateChanged (owner-level update of non-protected
     // fields, already permitted by existing rules). OAuth user doc creation happens via
     // Admin SDK (bypasses rules entirely).
+    // @SECURITY_FIX: Added lastFailedLoginAt to prevent lockout bypass (GEMINI-AUDIT-012).
     function userNotChangingProtectedFields() {
-      let protectedFields = ['isAdmin', 'points', 'badLoginAttempts', 'id', 'createdAt'];
+      let protectedFields = ['isAdmin', 'points', 'badLoginAttempts', 'lastFailedLoginAt', 'id', 'createdAt'];
       let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
       return !affectedKeys.hasAny(protectedFields);
     }

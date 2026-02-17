@@ -24,6 +24,7 @@ const { getAuth } = require("firebase-admin/auth");
 const { Firestore: FirestoreDataClient } = require("@google-cloud/firestore");
 const { FirestoreAdminClient } = require("@google-cloud/firestore").v1;
 const { Storage } = require("@google-cloud/storage");
+const crypto = require("crypto");
 const ERROR_CODES = require("./error-codes.json");
 
 // GUID: BACKUP_FUNCTIONS-001-v03
@@ -50,11 +51,12 @@ const HISTORY_COLLECTION = "backup_history";
 
 // ── Shared helpers ─────────────────────────────────────────────
 
-// GUID: BACKUP_FUNCTIONS-003-v03
+// GUID: BACKUP_FUNCTIONS-003-v04
+// @SECURITY_FIX: Replaced Math.random() with crypto.randomBytes() to prevent predictable token generation (LIB-002).
 /**
  * generateCorrelationId
  *
- * [Intent] Produce a short, unique, human-readable ID that ties together
+ * [Intent] Produce a short, unique, cryptographically secure human-readable ID that ties together
  *          the Cloud Function invocation, its Firestore status write, and
  *          any GCS object metadata — enabling end-to-end tracing.
  * [Inbound Trigger] Called at the start of dailyBackup and runRecoveryTest.
@@ -64,11 +66,11 @@ const HISTORY_COLLECTION = "backup_history";
  *
  * @param {string} prefix - Short label (e.g. "bkp", "smoke") to distinguish
  *                          backup vs smoke-test correlation IDs at a glance.
- * @returns {string} e.g. "bkp_m3k9x1_a7b2c4"
+ * @returns {string} e.g. "bkp_m3k9x1_a7b2c4de"
  */
 function generateCorrelationId(prefix) {
   const ts = Date.now().toString(36);
-  const rand = Math.random().toString(36).substring(2, 8);
+  const rand = crypto.randomBytes(4).toString('hex');
   return `${prefix}_${ts}_${rand}`;
 }
 

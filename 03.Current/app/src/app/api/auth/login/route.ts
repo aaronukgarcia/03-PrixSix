@@ -1,6 +1,7 @@
-// GUID: API_AUTH_LOGIN-000-v05
+// GUID: API_AUTH_LOGIN-000-v06
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
-// [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces account lockout after repeated failures, logs all attempts for attack detection, and returns a Firebase custom token on success.
+// @SECURITY_FIX: Implemented progressive account lockout to prevent brute-force attacks (GEMINI-AUDIT-012).
+// [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces progressive account lockout after repeated failures, logs all attempts for attack detection, and returns a Firebase custom token on success.
 // [Inbound Trigger] POST request from the client-side login form (LoginPage component).
 // [Downstream Impact] Returns a customToken used by the client to call Firebase signInWithCustomToken(). Writes to audit_logs, login_attempts, and users collections. Lockout state affects future login attempts.
 
@@ -46,15 +47,40 @@ function getClientIP(request: NextRequest): string {
   return 'unknown';
 }
 
-// GUID: API_AUTH_LOGIN-002-v03
-// [Intent] Define the brute-force protection thresholds: max allowed failed attempts and lockout window duration.
-// [Inbound Trigger] Referenced by the lockout check logic and lockout trigger logic within the POST handler.
+// GUID: API_AUTH_LOGIN-002-v04
+// @SECURITY_FIX: Changed from fixed lockout to progressive lockout (GEMINI-AUDIT-012).
+// [Intent] Define the brute-force protection thresholds with progressive lockout durations.
+//          5-9 attempts = 15min lockout, 10-14 attempts = 1hr lockout, 15+ attempts = 24hr lockout.
+// [Inbound Trigger] Referenced by calculateLockoutDuration() and the lockout check logic.
 // [Downstream Impact] Changing these values directly affects when users get locked out and for how long. Alters the security posture of the entire login flow.
-// Maximum login attempts before lockout
-const MAX_LOGIN_ATTEMPTS = 5;
+// Progressive lockout thresholds
+const LOCKOUT_THRESHOLD_1 = 5;   // First lockout tier
+const LOCKOUT_THRESHOLD_2 = 10;  // Second lockout tier
+const LOCKOUT_THRESHOLD_3 = 15;  // Maximum lockout tier
 
-// Lockout duration in milliseconds (30 minutes)
-const LOCKOUT_DURATION_MS = 30 * 60 * 1000;
+// Progressive lockout durations in milliseconds
+const LOCKOUT_DURATION_TIER_1 = 15 * 60 * 1000;  // 15 minutes
+const LOCKOUT_DURATION_TIER_2 = 60 * 60 * 1000;  // 1 hour
+const LOCKOUT_DURATION_TIER_3 = 24 * 60 * 60 * 1000; // 24 hours
+
+// GUID: API_AUTH_LOGIN-015-v01
+// @SECURITY_FIX: Progressive lockout calculation (GEMINI-AUDIT-012).
+// [Intent] Calculate lockout duration based on number of failed login attempts.
+//          Implements progressive penalty: more attempts = longer lockout.
+// [Inbound Trigger] Called during lockout check when user has failed attempts.
+// [Downstream Impact] Determines how long a user is locked out. Progressive approach
+//                     deters automated brute-force attacks while being lenient on legitimate users.
+function calculateLockoutDuration(attempts: number): number {
+  if (attempts < LOCKOUT_THRESHOLD_1) {
+    return 0; // No lockout yet
+  } else if (attempts < LOCKOUT_THRESHOLD_2) {
+    return LOCKOUT_DURATION_TIER_1; // 15 minutes
+  } else if (attempts < LOCKOUT_THRESHOLD_3) {
+    return LOCKOUT_DURATION_TIER_2; // 1 hour
+  } else {
+    return LOCKOUT_DURATION_TIER_3; // 24 hours
+  }
+}
 
 // GUID: API_AUTH_LOGIN-003-v03
 // [Intent] Type contract for the expected JSON body of the login request.
@@ -123,8 +149,11 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .get();
 
-    // GUID: API_AUTH_LOGIN-007-v03
-    // [Intent] Enforce account lockout: if the user has exceeded MAX_LOGIN_ATTEMPTS within the LOCKOUT_DURATION_MS window, reject the login and log the blocked attempt. Also auto-reset the counter once the lockout window expires.
+    // GUID: API_AUTH_LOGIN-007-v04
+    // @SECURITY_FIX: Upgraded to progressive lockout (GEMINI-AUDIT-012).
+    // [Intent] Enforce progressive account lockout: lockout duration increases with failed attempts.
+    //          5-9 attempts = 15min, 10-14 attempts = 1hr, 15+ attempts = 24hr.
+    //          Rejects the login and logs the blocked attempt. Auto-resets counter once lockout expires.
     // [Inbound Trigger] Runs when the Firestore user document exists (email found).
     // [Downstream Impact] A locked-out user receives HTTP 429 and cannot proceed to credential verification. The lockout state persists in the users document (badLoginAttempts, lastFailedLoginAt). Attack detection is also triggered for pattern analysis.
     // SECURITY: Check if account exists and lockout status BEFORE attempting auth
@@ -133,14 +162,15 @@ export async function POST(request: NextRequest) {
       const userData = userDoc.data();
       const userId = userDoc.id;
 
-      // Check if account is locked
+      // Check if account is locked (progressive lockout)
       const badAttempts = userData.badLoginAttempts || 0;
       const lastAttemptTime = userData.lastFailedLoginAt?.toMillis?.() || 0;
       const timeSinceLastAttempt = Date.now() - lastAttemptTime;
+      const lockoutDuration = calculateLockoutDuration(badAttempts);
 
       // If locked and lockout period hasn't expired
-      if (badAttempts >= MAX_LOGIN_ATTEMPTS && timeSinceLastAttempt < LOCKOUT_DURATION_MS) {
-        const remainingMinutes = Math.ceil((LOCKOUT_DURATION_MS - timeSinceLastAttempt) / 60000);
+      if (badAttempts >= LOCKOUT_THRESHOLD_1 && timeSinceLastAttempt < lockoutDuration) {
+        const remainingMinutes = Math.ceil((lockoutDuration - timeSinceLastAttempt) / 60000);
 
         // Log the failed attempt for attack detection
         await logLoginAttempt(db, FieldValue, {

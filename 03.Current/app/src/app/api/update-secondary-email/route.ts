@@ -1,11 +1,12 @@
-// GUID: API_UPDATE_SECONDARY_EMAIL-000-v03
+// GUID: API_UPDATE_SECONDARY_EMAIL-000-v04
+// @SECURITY_FIX: Added authentication and authorization checks to prevent account takeover (GEMINI-AUDIT-006).
 // [Intent] API route for adding, updating, or removing a user's secondary (communications) email address. Validates format, prevents duplicate/same-as-primary usage, resets verification status on change, and logs all changes to audit_logs.
 // [Inbound Trigger] POST request from the user profile page when a user sets or clears their secondary email.
 // [Downstream Impact] Updates Firestore users/{uid}.secondaryEmail and secondaryEmailVerified fields. Writes audit_logs. After update, the user must re-verify via the verify-secondary-email route.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
@@ -16,7 +17,8 @@ import { ERRORS } from '@/lib/error-registry';
 // [Downstream Impact] Rejects clearly invalid email formats. Not exhaustive — does not cover all edge cases of RFC 5322.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// GUID: API_UPDATE_SECONDARY_EMAIL-002-v03
+// GUID: API_UPDATE_SECONDARY_EMAIL-002-v04
+// @SECURITY_FIX: Added authentication and authorization checks before processing request (GEMINI-AUDIT-006).
 // [Intent] POST handler that orchestrates secondary email management: validates uid, handles removal (null/empty), validates email format, checks for same-as-primary and in-use conflicts, updates Firestore, and logs audit events.
 // [Inbound Trigger] POST /api/update-secondary-email with JSON body containing uid and secondaryEmail (string, null, or empty string).
 // [Downstream Impact] Writes to Firestore users/{uid} (secondaryEmail, secondaryEmailVerified) and audit_logs. On removal, deletes both fields using FieldValue.delete(). On update, resets secondaryEmailVerified to false.
@@ -24,13 +26,30 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // SECURITY: Verify Firebase Auth token (GEMINI-AUDIT-006 fix)
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: ERRORS.AUTH_INVALID_TOKEN.message,
+          errorCode: ERRORS.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { uid, secondaryEmail } = body;
 
-    // GUID: API_UPDATE_SECONDARY_EMAIL-003-v03
-    // [Intent] Validate that uid is present in the request.
-    // [Inbound Trigger] Missing uid in the request body.
-    // [Downstream Impact] Returns 400 with VALIDATION_MISSING_FIELDS. No database lookups occur.
+    // GUID: API_UPDATE_SECONDARY_EMAIL-003-v04
+    // @SECURITY_FIX: Added authorization check to prevent cross-user email changes (GEMINI-AUDIT-006).
+    // [Intent] Validate that uid is present in the request and matches the authenticated user.
+    // [Inbound Trigger] Missing uid in the request body or uid mismatch.
+    // [Downstream Impact] Returns 400 with VALIDATION_MISSING_FIELDS or 403 with AUTH_PERMISSION_DENIED. No database lookups occur.
     if (!uid) {
       return NextResponse.json(
         {
@@ -40,6 +59,19 @@ export async function POST(request: NextRequest) {
           correlationId,
         },
         { status: 400 }
+      );
+    }
+
+    // SECURITY: Verify the uid matches the authenticated user (prevent account takeover)
+    if (uid !== verifiedUser.uid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Forbidden: Cannot modify another user\'s email',
+          errorCode: ERRORS.AUTH_PERMISSION_DENIED.code,
+          correlationId,
+        },
+        { status: 403 }
       );
     }
 
