@@ -1362,6 +1362,15 @@
       "rationale": "The `calculateRaceScores`, `updateRaceScores`, and `deleteRaceScores` functions use `require('crypto')` inline. While this is not a direct security vulnerability if the `crypto` module is always available, it is an insecure pattern. If `require('crypto')` were to fail (e.g., in a non-Node.js environment or a misconfigured environment), the code does not handle the failure, which could lead to unpredictable behavior. More importantly, this signals a lack of robust dependency management and could easily lead to situations where a developer accidentally introduces a non-cryptographically secure random number generator if this pattern is replicated.",
       "file": "app/src/lib/scoring.ts",
       "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-070",
+      "module": "Traced Error Library",
+      "severity": "high",
+      "issue": "Insecure Randomness (Fallback to Weak PRNG)",
+      "rationale": "The `generateCorrelationId` function uses `require('crypto')` inline. While this is not a direct security vulnerability if the `crypto` module is always available, it is an insecure pattern. If `require('crypto')` were to fail (e.g., in a non-Node.js environment or a misconfigured environment), the code does not handle the failure, which could lead to unpredictable behavior. More importantly, this signals a lack of robust dependency management and could easily lead to situations where a developer accidentally introduces a non-cryptographically secure random number generator if this pattern is replicated.",
+      "file": "app/src/lib/traced-error.ts",
+      "citation": "Gemini Red Team"
     }
   ]
 }
