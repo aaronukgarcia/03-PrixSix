@@ -6,13 +6,17 @@
 // [Downstream Impact] Updates error_logs Firestore collection. Requires admin authentication.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, verifyAuthToken } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // GUID: API_ADMIN_RESOLVE-001-v01
 // [Intent] POST handler that authenticates the user, verifies admin status, and marks an error log as resolved.
 // [Inbound Trigger] POST request with { errorLogId: string } in body.
 // [Downstream Impact] Updates error_logs/{errorLogId} document with resolved=true and timestamp.
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     // Get Firestore instance
     const { db } = await getFirebaseAdmin();
@@ -86,9 +90,25 @@ export async function POST(request: NextRequest) {
       message: 'Error log marked as resolved',
     });
   } catch (error: any) {
-    console.error('Error resolving error log:', error);
+    // GUID: API_ADMIN_RESOLVE-007-v02
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    // [Intent] Log error to error_logs collection with correlation ID and traced error context.
+    // [Inbound Trigger] Any uncaught exception during error log resolution.
+    // [Downstream Impact] Error logged for debugging, correlation ID returned to client for support tracking.
+    const { db } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
+      correlationId,
+      context: { route: '/api/admin/resolve-error', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, db);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      {
+        success: false,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
+      },
       { status: 500 }
     );
   }

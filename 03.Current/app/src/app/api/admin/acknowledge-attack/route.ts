@@ -6,13 +6,17 @@
 // [Downstream Impact] Updates attack_alerts Firestore collection. Requires admin authentication.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, verifyAuthToken } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 
 // GUID: API_ADMIN_ACK_ATTACK-001-v01
 // [Intent] POST handler that authenticates the user, verifies admin status, and acknowledges one or more attack alerts.
 // [Inbound Trigger] POST request with { alertId: string } or { alertIds: string[] } in body.
 // [Downstream Impact] Updates attack_alerts documents with acknowledged=true, acknowledgedBy, and acknowledgedAt timestamp.
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     // Get Firestore instance and FieldValue
     const { db, FieldValue } = await getFirebaseAdmin();
@@ -106,9 +110,25 @@ export async function POST(request: NextRequest) {
       acknowledgedCount: targetAlertIds.length,
     });
   } catch (error: any) {
-    console.error('Error acknowledging attack alert(s):', error);
+    // GUID: API_ADMIN_ACK_ATTACK-003-v02
+    // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
+    // [Intent] Log error to error_logs collection with correlation ID and traced error context.
+    // [Inbound Trigger] Any uncaught exception during attack alert acknowledgement.
+    // [Downstream Impact] Error logged for debugging, correlation ID returned to client for support tracking.
+    const { db } = await getFirebaseAdmin();
+    const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
+      correlationId,
+      context: { route: '/api/admin/acknowledge-attack', action: 'POST' },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced, db);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      {
+        success: false,
+        error: traced.definition.message,
+        errorCode: traced.definition.code,
+        correlationId: traced.correlationId,
+      },
       { status: 500 }
     );
   }

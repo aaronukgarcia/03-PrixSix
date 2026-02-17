@@ -7,7 +7,7 @@
 //                     Does not require authentication - public endpoint for monitoring.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId } from '@/lib/firebase-admin';
 
 // Force dynamic to prevent static optimization
 export const dynamic = 'force-dynamic';
@@ -40,6 +40,7 @@ interface ServiceStatus {
 // [Downstream Impact] Response time should be <200ms for accurate health monitoring.
 //                     503 responses trigger alerts in monitoring systems.
 export async function GET(request: NextRequest) {
+  const correlationId = generateCorrelationId();
   const startTime = Date.now();
 
   try {
@@ -89,17 +90,22 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    // GUID: API_HEALTH-006-v01
+    // GUID: API_HEALTH-006-v02
+    // @GOLDEN_RULE_1: Add correlation ID for monitoring system tracing (Phase 4 compliance).
     // [Intent] Catch-all error handler for unexpected failures in the health check itself.
+    //          Does not write to error_logs (high-frequency endpoint) but includes correlation ID.
     // [Inbound Trigger] Any uncaught exception during health checks.
-    // [Downstream Impact] Returns 503 with error details. Indicates health check infrastructure failure.
+    // [Downstream Impact] Returns 503 with correlation ID. Monitoring systems can track repeated failures.
+    //                     Does not expose raw error.message (security compliance).
     const responseTime = Date.now() - startTime;
+    console.error(`[Health Check Failed] correlationId: ${correlationId}`, error);
     return NextResponse.json(
       {
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
-        version: process.env.npm_package_version || '1.56.0',
-        error: error.message || 'Health check failed',
+        version: process.env.npm_package_version || '1.57.0',
+        error: 'Health check infrastructure failure',
+        correlationId,
         responseTime,
       },
       {
