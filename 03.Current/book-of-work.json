@@ -1552,6 +1552,114 @@
       "rationale": "The `generateCorrelationId` function uses `require('crypto')` inline. While this is not a direct security vulnerability if the `crypto` module is always available, it is an insecure pattern. If `require('crypto')` were to fail (e.g., in a non-Node.js environment or a misconfigured environment), the code does not handle the failure, which could lead to unpredictable behavior. More importantly, this signals a lack of robust dependency management and could easily lead to situations where a developer accidentally introduces a non-cryptographically secure random number generator if this pattern is replicated.",
       "file": "app/src/lib/traced-error.ts",
       "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-074",
+      "module": "Middleware",
+      "severity": "critical",
+      "issue": "Cross-Site Request Forgery (CSRF)",
+      "rationale": "The CSRF protection in the middleware is insufficient. It only checks the `origin` and `host` headers, which can be spoofed. It also does not check for the presence of a CSRF token. This makes the application vulnerable to CSRF attacks. An attacker could craft a malicious website that sends requests to the application's API endpoints, and if a user is logged in to the application, the requests will be executed with the user's privileges.",
+      "file": "app/src/middleware.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-074",
+      "module": "Middleware",
+      "severity": "critical",
+      "issue": "Cross-Site Request Forgery (CSRF)",
+      "rationale": "The CSRF protection in the middleware is insufficient. It only checks the `origin` and `host` headers, which can be spoofed. It also does not check for the presence of a CSRF token. This makes the application vulnerable to CSRF attacks. An attacker could craft a malicious website that sends requests to the application's API endpoints, and if a user is logged in to the application, the requests will be executed with the user's privileges.",
+      "file": "app/src/middleware.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-031",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/components/predictions/PredictionForm.tsx', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/components/predictions/PredictionForm.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-032",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/components/predictions/DriverPredictionInputs.tsx', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/components/predictions/DriverPredictionInputs.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-033",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/components/predictions/PredictionHistory.tsx', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/components/predictions/PredictionHistory.tsx",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-034",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "Directory Not Found during Audit: Stale reference in code.json",
+      "rationale": "The directory 'app/src/components/predictions/', which contains several modules specified in 'code.json' for security audit, could not be found. This indicates multiple stale entries in the project's code manifest.",
+      "file": "app/src/components/predictions/",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-061",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/lib/hooks.ts', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/lib/hooks.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-065",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/lib/predictions.ts', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/lib/predictions.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-066",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/lib/rate-limiting.ts', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/lib/rate-limiting.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-071",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/lib/types/errors.ts', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/lib/types/errors.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-072",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/lib/types/races.ts', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/lib/types/races.ts",
+      "citation": "Gemini Red Team"
+    },
+    {
+      "id": "GEMINI-AUDIT-073",
+      "module": "Technical Debt",
+      "severity": "informational",
+      "issue": "File Not Found during Audit: Stale reference in code.json",
+      "rationale": "The file 'app/src/lib/whatsapp-admin.ts', specified in 'code.json' for security audit, could not be found. This indicates a stale entry in the project's code manifest.",
+      "file": "app/src/lib/whatsapp-admin.ts",
+      "citation": "Gemini Red Team"
     }
   ]
 }
