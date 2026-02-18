@@ -1,4 +1,7 @@
-// GUID: PUBCHAT_PANEL-000-v04
+// GUID: PUBCHAT_PANEL-000-v05
+// @ERROR_FIX: Added proper 4-pillar error handling to all API error responses (error code,
+//   correlation ID, selectable message text). Previous version violated Golden Rule #1 by
+//   showing errors without error codes or correlation IDs.
 // @SECURITY_FIX: Added authentication headers to all API calls. Previous version had no auth,
 //   causing all API calls to fail with 401 Unauthorized:
 //   - Meeting fetch (/api/admin/openf1-sessions?year=) → 401
@@ -45,7 +48,8 @@ interface SessionOption {
     dateStart: string;
 }
 
-// GUID: PUBCHAT_PANEL-001-v04
+// GUID: PUBCHAT_PANEL-001-v05
+// @ERROR_FIX: Added proper 4-pillar error handling to all toast notifications.
 // @SECURITY_FIX: Added authToken state and retrieval for API authentication.
 // [Intent] PubChatPanel component — centres the pub chat animation, provides OpenF1
 //          fetch controls for live timing data, and shows newsletter HTML.
@@ -127,7 +131,8 @@ export function PubChatPanel() {
         return ts.toDate().toLocaleString();
     };
 
-    // GUID: PUBCHAT_PANEL-003-v04
+    // GUID: PUBCHAT_PANEL-003-v05
+    // @ERROR_FIX: Added proper 4-pillar error handling (error code, correlation ID, selectable text).
     // @SECURITY_FIX: Added Authorization header with Firebase auth token.
     // [Intent] Fetch meeting list from OpenF1 via the proxy API route for the current year.
     // [Inbound Trigger] Component mount and authToken availability.
@@ -147,20 +152,25 @@ export function PubChatPanel() {
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
                     setMeetings(json.data);
-                } else if (json.error) {
-                    console.error('API error fetching meetings:', json.error);
+                } else {
+                    // 4-pillar error handling: code, correlation ID, message, selectable
+                    const errorCode = json.errorCode || ERRORS.OPENF1_FETCH_FAILED.code;
+                    const correlationId = json.correlationId || 'unknown';
+                    const errorMsg = json.error || 'Failed to load meetings';
+                    console.error(`[Meeting Fetch Error ${errorCode}] ${correlationId}:`, errorMsg);
                     toast({
                         variant: 'destructive',
-                        title: 'Failed to load meetings',
-                        description: json.error,
+                        title: `Failed to load meetings (${errorCode})`,
+                        description: `${errorMsg}\n\nRef: ${correlationId}`,
                     });
                 }
             } catch (err) {
-                console.error('Failed to fetch meetings:', err);
+                const correlationId = generateClientCorrelationId();
+                console.error(`[Network Error ${correlationId}]`, err);
                 toast({
                     variant: 'destructive',
                     title: 'Network error',
-                    description: 'Could not load meetings. Please refresh the page.',
+                    description: `Could not load meetings. Please refresh the page.\n\nRef: ${correlationId}`,
                 });
             } finally {
                 setLoadingMeetings(false);
@@ -169,7 +179,8 @@ export function PubChatPanel() {
         fetchMeetings();
     }, [authToken, toast]);
 
-    // GUID: PUBCHAT_PANEL-004-v04
+    // GUID: PUBCHAT_PANEL-004-v05
+    // @ERROR_FIX: Added proper 4-pillar error handling (error code, correlation ID, selectable text).
     // @SECURITY_FIX: Added Authorization header with Firebase auth token.
     // [Intent] Fetch session list from OpenF1 when a meeting is selected.
     // [Inbound Trigger] selectedMeetingKey changes to a non-empty value.
@@ -192,20 +203,25 @@ export function PubChatPanel() {
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
                     setSessions(json.data);
-                } else if (json.error) {
-                    console.error('API error fetching sessions:', json.error);
+                } else {
+                    // 4-pillar error handling: code, correlation ID, message, selectable
+                    const errorCode = json.errorCode || ERRORS.OPENF1_FETCH_FAILED.code;
+                    const correlationId = json.correlationId || 'unknown';
+                    const errorMsg = json.error || 'Failed to load sessions';
+                    console.error(`[Session Fetch Error ${errorCode}] ${correlationId}:`, errorMsg);
                     toast({
                         variant: 'destructive',
-                        title: 'Failed to load sessions',
-                        description: json.error,
+                        title: `Failed to load sessions (${errorCode})`,
+                        description: `${errorMsg}\n\nRef: ${correlationId}`,
                     });
                 }
             } catch (err) {
-                console.error('Failed to fetch sessions:', err);
+                const correlationId = generateClientCorrelationId();
+                console.error(`[Network Error ${correlationId}]`, err);
                 toast({
                     variant: 'destructive',
                     title: 'Network error',
-                    description: 'Could not load sessions. Please try again.',
+                    description: `Could not load sessions. Please try again.\n\nRef: ${correlationId}`,
                 });
             } finally {
                 setLoadingSessions(false);
@@ -214,7 +230,8 @@ export function PubChatPanel() {
         fetchSessions();
     }, [selectedMeetingKey, authToken, toast]);
 
-    // GUID: PUBCHAT_PANEL-005-v04
+    // GUID: PUBCHAT_PANEL-005-v05
+    // @ERROR_FIX: Added proper 4-pillar error handling (error code, correlation ID, selectable text).
     // @SECURITY_FIX: Added Authorization header with Firebase auth token. Removed unused adminUid
     //   parameter (API route uses authenticated user's UID instead).
     // [Intent] Fetch timing data from OpenF1 and write to Firestore via the API route.
@@ -225,7 +242,7 @@ export function PubChatPanel() {
         if (!selectedSessionKey || !authToken) return;
 
         setFetching(true);
-        const correlationId = generateClientCorrelationId();
+        const clientCorrelationId = generateClientCorrelationId();
 
         try {
             const res = await fetch('/api/admin/fetch-timing-data', {
@@ -242,10 +259,15 @@ export function PubChatPanel() {
             const json = await res.json();
 
             if (!json.success) {
+                // 4-pillar error handling: code, correlation ID, message, selectable
+                const errorCode = json.errorCode || ERRORS.OPENF1_FETCH_FAILED.code;
+                const correlationId = json.correlationId || clientCorrelationId;
+                const errorMsg = json.error || 'Failed to fetch timing data';
+                console.error(`[Timing Fetch Error ${errorCode}] ${correlationId}:`, errorMsg);
                 toast({
                     variant: 'destructive',
-                    title: `Error ${json.errorCode || ERRORS.OPENF1_FETCH_FAILED.code}`,
-                    description: json.error || 'Failed to fetch timing data',
+                    title: `Error ${errorCode}`,
+                    description: `${errorMsg}\n\nRef: ${correlationId}`,
                 });
                 return;
             }
@@ -261,11 +283,11 @@ export function PubChatPanel() {
             setRefreshKey(k => k + 1);
 
         } catch (err) {
-            console.error(`[Fetch Timing Error ${correlationId}]`, err);
+            console.error(`[Fetch Timing Error ${clientCorrelationId}]`, err);
             toast({
                 variant: 'destructive',
                 title: 'Fetch failed',
-                description: `Could not fetch timing data. Ref: ${correlationId}`,
+                description: `Could not fetch timing data.\n\nRef: ${clientCorrelationId}`,
             });
         } finally {
             setFetching(false);
