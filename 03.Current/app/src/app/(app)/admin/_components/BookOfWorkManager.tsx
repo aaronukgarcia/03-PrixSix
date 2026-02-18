@@ -96,13 +96,13 @@ export function BookOfWorkManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<BookOfWorkEntryWithId>>({});
 
-  // GUID: ADMIN_BOOKOFWORK-007-v05
+  // GUID: ADMIN_BOOKOFWORK-007-v06
   // [Intent] Sets up real-time Firestore listener on book_of_work collection, ordered by last update descending
   //          Shows loading progress "record X of Y" during initial load
   //          Added timeout fallback to detect hanging Firestore connections
   // [Inbound Trigger] Runs when firestore instance becomes available (useEffect dependency)
   // [Downstream Impact] Keeps entries state in sync with Firestore in real-time. Returns cleanup unsubscribe function
-  // @FIX(v05) Use useRef instead of stale closure to track first load - prevents infinite loading loop
+  // @FIX(v06) Removed setTimeout complexity - set loading=false immediately to prevent stuck loading state
   useEffect(() => {
     if (!firestore) {
       console.warn('[BookOfWork] Firestore instance not available');
@@ -110,8 +110,6 @@ export function BookOfWorkManager() {
     }
 
     console.log('[BookOfWork] Starting Firestore listener...');
-
-    let progressTimeoutId: NodeJS.Timeout | null = null;
 
     // Set a timeout to detect if the listener never responds
     const timeoutId = setTimeout(() => {
@@ -178,16 +176,12 @@ export function BookOfWorkManager() {
 
         setEntries(items);
 
-        // Delay clearing loading state only on first load to show progress
-        // Subsequent real-time updates skip the delay
+        // Set loading false immediately - no setTimeout delay
+        // Progress updates will batch together but at least the table loads
         if (isFirstLoadRef.current) {
-          progressTimeoutId = setTimeout(() => {
-            setLoading(false);
-            setLoadingProgress(null);
-            isFirstLoadRef.current = false;
-          }, 400); // Show completed progress for 400ms
-        } else {
+          setLoading(false);
           setLoadingProgress(null);
+          isFirstLoadRef.current = false;
         }
       },
       async (error) => {
@@ -220,7 +214,6 @@ export function BookOfWorkManager() {
 
     return () => {
       clearTimeout(timeoutId);
-      if (progressTimeoutId) clearTimeout(progressTimeoutId);
       unsubscribe();
     };
   }, [firestore, toast]);

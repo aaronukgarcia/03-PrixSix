@@ -1,0 +1,8 @@
+2026/02/18-12:14:09.666 c8c0 Creating DB E:\GoogleDrive\Papers\03-PrixSix\03.Current\app\scripts\.puppeteer-test-profile\Default\IndexedDB\http_localhost_9002.indexeddb.leveldb since it was missing.
+2026/02/18-12:14:09.670 c8c0 Reusing MANIFEST E:\GoogleDrive\Papers\03-PrixSix\03.Current\app\scripts\.puppeteer-test-profile\Default\IndexedDB\http_localhost_9002.indexeddb.leveldb/MANIFEST-000001
+2026/02/18-12:14:09.701 c8c0 Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/18-12:14:09.946 d990 Manual compaction at level-0 from '\x00\x04\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x05\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/18-12:14:10.102 d990 Level-0 table #5: started
+2026/02/18-12:14:10.122 d990 Level-0 table #5: 4013 bytes OK
+2026/02/18-12:14:10.131 d990 Delete type=0 #3
+2026/02/18-12:14:10.136 d990 Manual compaction at level-0 from '\x00\x06\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at (end)
