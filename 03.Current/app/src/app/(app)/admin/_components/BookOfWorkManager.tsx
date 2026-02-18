@@ -96,13 +96,14 @@ export function BookOfWorkManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<BookOfWorkEntryWithId>>({});
 
-  // GUID: ADMIN_BOOKOFWORK-007-v06
+  // GUID: ADMIN_BOOKOFWORK-007-v07
   // [Intent] Sets up real-time Firestore listener on book_of_work collection, ordered by last update descending
   //          Shows loading progress "record X of Y" during initial load
   //          Added timeout fallback to detect hanging Firestore connections
   // [Inbound Trigger] Runs when firestore instance becomes available (useEffect dependency)
   // [Downstream Impact] Keeps entries state in sync with Firestore in real-time. Returns cleanup unsubscribe function
   // @FIX(v06) Removed setTimeout complexity - set loading=false immediately to prevent stuck loading state
+  // @FIX(v07) Move setLoading(false) outside isFirstLoadRef check - fixes infinite loading on remount/reconnect
   useEffect(() => {
     if (!firestore) {
       console.warn('[BookOfWork] Firestore instance not available');
@@ -176,10 +177,12 @@ export function BookOfWorkManager() {
 
         setEntries(items);
 
-        // Set loading false immediately - no setTimeout delay
-        // Progress updates will batch together but at least the table loads
+        // Always clear loading state when data is received
+        // This ensures the component recovers from remounts or reconnections
+        setLoading(false);
+
+        // Clear progress and mark first load complete
         if (isFirstLoadRef.current) {
-          setLoading(false);
           setLoadingProgress(null);
           isFirstLoadRef.current = false;
         }
