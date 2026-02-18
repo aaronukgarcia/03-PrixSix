@@ -15,6 +15,14 @@ import { validateCsrfProtection } from '@/lib/csrf-protection';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
+// GUID: API_AUTH_LOGIN-014-v01
+// [Intent] Account lockout configuration constants for brute-force attack prevention.
+// [Inbound Trigger] Used by lockout logic at lines 213 and 346 to enforce progressive account lockout.
+// [Downstream Impact] After MAX_LOGIN_ATTEMPTS failures, account is locked for LOCKOUT_DURATION_MS.
+//                     Prevents brute-force PIN guessing attacks (GEMINI-AUDIT-012 security fix).
+const MAX_LOGIN_ATTEMPTS = 5; // Lock account after 5 failed attempts
+const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes lockout
+
 // GUID: API_AUTH_LOGIN-001-v03
 // [Intent] Extract the real client IP address from incoming requests, accounting for various proxy/CDN header conventions.
 // [Inbound Trigger] Called at the start of the POST handler to identify the client for rate limiting and audit logging.
