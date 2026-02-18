@@ -1,4 +1,7 @@
-// GUID: PUBCHAT_PANEL-000-v05
+// GUID: PUBCHAT_PANEL-000-v06
+// @UX_IMPROVEMENT: Added "Pub Closed" friendly state when OpenF1 free tier is blocked during
+//   active F1 sessions. Shows pub-themed overlay with desaturated background instead of scary
+//   error messages. Detects "session in progress" errors and displays next available time.
 // @ERROR_FIX: Added proper 4-pillar error handling to all API error responses (error code,
 //   correlation ID, selectable message text). Previous version violated Golden Rule #1 by
 //   showing errors without error codes or correlation IDs.
@@ -48,7 +51,8 @@ interface SessionOption {
     dateStart: string;
 }
 
-// GUID: PUBCHAT_PANEL-001-v05
+// GUID: PUBCHAT_PANEL-001-v06
+// @UX_IMPROVEMENT: Added pubClosed and nextAvailableTime state for friendly "pub closed" UI.
 // @ERROR_FIX: Added proper 4-pillar error handling to all toast notifications.
 // @SECURITY_FIX: Added authToken state and retrieval for API authentication.
 // [Intent] PubChatPanel component — centres the pub chat animation, provides OpenF1
@@ -82,6 +86,10 @@ export function PubChatPanel() {
     const [loadingMeetings, setLoadingMeetings] = useState(false);
     const [loadingSessions, setLoadingSessions] = useState(false);
     const [fetching, setFetching] = useState(false);
+
+    // Pub closed state (OpenF1 session active)
+    const [pubClosed, setPubClosed] = useState(false);
+    const [nextAvailableTime, setNextAvailableTime] = useState<string | null>(null);
 
     // Fetch auth token when firebaseUser changes
     useEffect(() => {
@@ -131,12 +139,13 @@ export function PubChatPanel() {
         return ts.toDate().toLocaleString();
     };
 
-    // GUID: PUBCHAT_PANEL-003-v05
+    // GUID: PUBCHAT_PANEL-003-v06
+    // @UX_IMPROVEMENT: Detects "session in progress" errors and sets pubClosed state for friendly UI.
     // @ERROR_FIX: Added proper 4-pillar error handling (error code, correlation ID, selectable text).
     // @SECURITY_FIX: Added Authorization header with Firebase auth token.
     // [Intent] Fetch meeting list from OpenF1 via the proxy API route for the current year.
     // [Inbound Trigger] Component mount and authToken availability.
-    // [Downstream Impact] Populates the meeting dropdown.
+    // [Downstream Impact] Populates the meeting dropdown or sets pubClosed state.
     useEffect(() => {
         if (!authToken) return;
 
@@ -152,17 +161,32 @@ export function PubChatPanel() {
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
                     setMeetings(json.data);
+                    setPubClosed(false); // Pub is open!
                 } else {
-                    // 4-pillar error handling: code, correlation ID, message, selectable
-                    const errorCode = json.errorCode || ERRORS.OPENF1_FETCH_FAILED.code;
-                    const correlationId = json.correlationId || 'unknown';
+                    // Check if this is a "session active" restriction (pub closed) vs real error
                     const errorMsg = json.error || 'Failed to load meetings';
-                    console.error(`[Meeting Fetch Error ${errorCode}] ${correlationId}:`, errorMsg);
-                    toast({
-                        variant: 'destructive',
-                        title: `Failed to load meetings (${errorCode})`,
-                        description: `${errorMsg}\n\nRef: ${correlationId}`,
-                    });
+                    const isSessionActive = errorMsg.toLowerCase().includes('session in progress') ||
+                                           errorMsg.toLowerCase().includes('restricted to authenticated users') ||
+                                           errorMsg.toLowerCase().includes('access is restricted');
+
+                    if (isSessionActive) {
+                        // Pub is closed - F1 session active, free tier blocked
+                        setPubClosed(true);
+                        setNextAvailableTime('after the current F1 session ends');
+                        console.log('[PubChat] Pub closed - OpenF1 session active (free tier blocked)');
+                        // Don't show error toast - we'll show friendly UI instead
+                    } else {
+                        // Real error - show 4-pillar error handling
+                        const errorCode = json.errorCode || ERRORS.OPENF1_FETCH_FAILED.code;
+                        const correlationId = json.correlationId || 'unknown';
+                        console.error(`[Meeting Fetch Error ${errorCode}] ${correlationId}:`, errorMsg);
+                        setPubClosed(false);
+                        toast({
+                            variant: 'destructive',
+                            title: `Failed to load meetings (${errorCode})`,
+                            description: `${errorMsg}\n\nRef: ${correlationId}`,
+                        });
+                    }
                 }
             } catch (err) {
                 const correlationId = generateClientCorrelationId();
@@ -295,15 +319,56 @@ export function PubChatPanel() {
     };
 
     return (
-        <div className="space-y-6">
-            {/* GUID: PUBCHAT_PANEL-006-v03
-                [Intent] Centre the ThePaddockPubChat animation at the top of the panel,
-                         passing live timing data when available.
-                [Inbound Trigger] Component mount / timing data update.
-                [Downstream Impact] Renders the F1 timing animation with live or fallback data. */}
-            <div className="flex justify-center">
-                <ThePaddockPubChat key={refreshKey} timingData={timingData} />
-            </div>
+        <div className="relative space-y-6">
+            {/* GUID: PUBCHAT_PANEL-009-v01
+                [Intent] "Pub Closed" overlay when OpenF1 free tier is blocked during active F1 sessions.
+                [Inbound Trigger] pubClosed state is true (detected "session in progress" error).
+                [Downstream Impact] Friendly UX - shows pub-themed message instead of scary error. */}
+            {pubClosed && (
+                <div className="absolute inset-0 z-10 flex items-start justify-center pt-20 bg-background/95 backdrop-blur-sm">
+                    <Card className="w-full max-w-2xl border-amber-600 shadow-xl">
+                        <CardHeader className="text-center pb-4">
+                            <div className="flex justify-center mb-4">
+                                <Beer className="h-16 w-16 text-amber-600 opacity-50" />
+                            </div>
+                            <CardTitle className="text-2xl text-amber-600">
+                                🍺 The Paddock Pub is Closed
+                            </CardTitle>
+                            <CardDescription className="text-base mt-2">
+                                F1 session in progress - free tier access temporarily unavailable
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4 text-center">
+                            <div className="bg-muted rounded-lg p-4 space-y-2">
+                                <p className="text-sm text-muted-foreground">
+                                    <strong className="text-foreground">Why?</strong> OpenF1 restricts free tier access during active race weekends and testing.
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    <strong className="text-foreground">When will it open?</strong> {nextAvailableTime || 'Between race weekends'}
+                                </p>
+                            </div>
+
+                            <div className="pt-2 space-y-2">
+                                <p className="text-sm font-medium">Want 24/7 access?</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Sponsor OpenF1 (€9.90/month) for always-on access + live data during races
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Main content - desaturated when pub closed */}
+            <div className={pubClosed ? 'opacity-30 pointer-events-none saturate-0' : ''}>
+                {/* GUID: PUBCHAT_PANEL-006-v03
+                    [Intent] Centre the ThePaddockPubChat animation at the top of the panel,
+                             passing live timing data when available.
+                    [Inbound Trigger] Component mount / timing data update.
+                    [Downstream Impact] Renders the F1 timing animation with live or fallback data. */}
+                <div className="flex justify-center">
+                    <ThePaddockPubChat key={refreshKey} timingData={timingData} />
+                </div>
 
             {/* GUID: PUBCHAT_PANEL-007-v03
                 [Intent] OpenF1 fetch controls — meeting/session dropdowns and fetch button.
@@ -437,6 +502,7 @@ export function PubChatPanel() {
                     </Button>
                 </CardFooter>
             </Card>
+            </div> {/* End desaturated wrapper */}
         </div>
     );
 }
