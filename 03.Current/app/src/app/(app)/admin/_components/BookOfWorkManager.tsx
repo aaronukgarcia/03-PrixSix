@@ -94,18 +94,40 @@ export function BookOfWorkManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<BookOfWorkEntryWithId>>({});
 
-  // GUID: ADMIN_BOOKOFWORK-007-v02
+  // GUID: ADMIN_BOOKOFWORK-007-v03
   // [Intent] Sets up real-time Firestore listener on book_of_work collection, ordered by last update descending
   //          Shows loading progress "record X of Y" during initial load
+  //          Added timeout fallback to detect hanging Firestore connections
   // [Inbound Trigger] Runs when firestore instance becomes available (useEffect dependency)
   // [Downstream Impact] Keeps entries state in sync with Firestore in real-time. Returns cleanup unsubscribe function
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+      console.warn('[BookOfWork] Firestore instance not available');
+      return;
+    }
+
+    console.log('[BookOfWork] Starting Firestore listener...');
+
+    // Set a timeout to detect if the listener never responds
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.error('[BookOfWork] Firestore listener timeout - no response after 10 seconds');
+        toast({
+          variant: 'destructive',
+          title: 'Connection Timeout',
+          description: 'Unable to connect to the database. Please refresh the page.',
+        });
+        setLoading(false);
+      }
+    }, 10000); // 10 second timeout
 
     const q = query(collection(firestore, 'book_of_work'), orderBy('updatedAt', 'desc'));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        clearTimeout(timeoutId); // Clear the timeout since we got a response
+        console.log(`[BookOfWork] Received ${snapshot.docs.length} documents`);
+
         const totalDocs = snapshot.docs.length;
         const items: BookOfWorkEntryWithId[] = [];
 
@@ -150,6 +172,9 @@ export function BookOfWorkManager() {
         setLoadingProgress(null);
       },
       async (error) => {
+        clearTimeout(timeoutId); // Clear the timeout since we got an error response
+        console.error('[BookOfWork] Firestore listener error:', error);
+
         // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
         const tracedError = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
           context: { collection: 'book_of_work', operation: 'onSnapshot' },
@@ -174,7 +199,10 @@ export function BookOfWorkManager() {
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, [firestore, toast]);
 
   // GUID: ADMIN_BOOKOFWORK-008-v01
