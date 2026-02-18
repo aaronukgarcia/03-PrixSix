@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Activity,
+    AlertCircle,
     CheckCircle2,
     XCircle,
     AlertTriangle,
