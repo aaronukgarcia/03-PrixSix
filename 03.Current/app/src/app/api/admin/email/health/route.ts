@@ -1,8 +1,9 @@
-// GUID: API_ADMIN_EMAIL_HEALTH-000-v01
+// GUID: API_ADMIN_EMAIL_HEALTH-000-v02
 // [Intent] Health check endpoint for Email/Graph API interface. Returns connectivity status
 //          by making a lightweight test call to Microsoft Graph API.
 // [Inbound Trigger] GET request from InterfaceHealthMonitor component (auto-refresh every 30s).
 // [Downstream Impact] Read-only health check - makes GET /me call to Graph API to verify credentials.
+// @FIX(v02) Added detailed error messaging from Microsoft OAuth response for better diagnostics.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
@@ -64,12 +65,23 @@ export async function GET(request: NextRequest) {
             });
 
             if (!tokenRes.ok) {
+                // Get error details from Microsoft's response
+                let errorDetails = 'Unknown error';
+                try {
+                    const errorData = await tokenRes.json();
+                    errorDetails = errorData.error_description || errorData.error || 'No error details provided';
+                } catch {
+                    errorDetails = `HTTP ${tokenRes.status} - ${tokenRes.statusText}`;
+                }
+
                 return NextResponse.json({
                     healthy: false,
                     error: `Failed to get access token: HTTP ${tokenRes.status}`,
                     details: {
                         configured: true,
                         authFailed: true,
+                        microsoftError: errorDetails,
+                        hint: 'Check Azure AD app registration: client secret may be expired, or credentials may be incorrect',
                     },
                 });
             }
