@@ -167,7 +167,9 @@ export function PubChatPanel() {
                     const errorMsg = json.error || 'Failed to load meetings';
                     const isSessionActive = errorMsg.toLowerCase().includes('session in progress') ||
                                            errorMsg.toLowerCase().includes('restricted to authenticated users') ||
-                                           errorMsg.toLowerCase().includes('access is restricted');
+                                           errorMsg.toLowerCase().includes('access is restricted') ||
+                                           errorMsg.toLowerCase().includes('requires authentication') ||
+                                           errorMsg.toLowerCase().includes('openf1_username');
 
                     if (isSessionActive) {
                         // Pub is closed - F1 session active, free tier blocked
