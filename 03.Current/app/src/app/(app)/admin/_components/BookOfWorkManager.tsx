@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,13 +72,15 @@ const severityColors: Record<BookOfWorkSeverity, string> = {
   informational: 'bg-gray-500/90 text-white border-gray-500',
 };
 
-// GUID: ADMIN_BOOKOFWORK-005-v01
+// GUID: ADMIN_BOOKOFWORK-005-v02
 // [Intent] Main BookOfWorkManager component providing centralized work item tracking with filtering, search, and inline editing
 // [Inbound Trigger] Rendered by the admin page when the Book of Work tab is active
 // [Downstream Impact] Uses real-time onSnapshot listener on book_of_work collection. Updates write back to Firestore
+// @FIX(v02) Added useRef to track first load without stale closure issues
 export function BookOfWorkManager() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const isFirstLoadRef = useRef(true);
 
   // GUID: ADMIN_BOOKOFWORK-006-v02
   // [Intent] Local state for work items, loading flag, filter selections, search query, and editing state
@@ -94,13 +96,13 @@ export function BookOfWorkManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<BookOfWorkEntryWithId>>({});
 
-  // GUID: ADMIN_BOOKOFWORK-007-v04
+  // GUID: ADMIN_BOOKOFWORK-007-v05
   // [Intent] Sets up real-time Firestore listener on book_of_work collection, ordered by last update descending
   //          Shows loading progress "record X of Y" during initial load
   //          Added timeout fallback to detect hanging Firestore connections
   // [Inbound Trigger] Runs when firestore instance becomes available (useEffect dependency)
   // [Downstream Impact] Keeps entries state in sync with Firestore in real-time. Returns cleanup unsubscribe function
-  // @FIX(v04) Delay final state cleanup to allow React to render progress indicator
+  // @FIX(v05) Use useRef instead of stale closure to track first load - prevents infinite loading loop
   useEffect(() => {
     if (!firestore) {
       console.warn('[BookOfWork] Firestore instance not available');
@@ -109,17 +111,18 @@ export function BookOfWorkManager() {
 
     console.log('[BookOfWork] Starting Firestore listener...');
 
+    let progressTimeoutId: NodeJS.Timeout | null = null;
+
     // Set a timeout to detect if the listener never responds
     const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.error('[BookOfWork] Firestore listener timeout - no response after 10 seconds');
-        toast({
-          variant: 'destructive',
-          title: 'Connection Timeout',
-          description: 'Unable to connect to the database. Please refresh the page.',
-        });
-        setLoading(false);
-      }
+      console.error('[BookOfWork] Firestore listener timeout - no response after 10 seconds');
+      toast({
+        variant: 'destructive',
+        title: 'Connection Timeout',
+        description: 'Unable to connect to the database. Please refresh the page.',
+      });
+      setLoading(false);
+      isFirstLoadRef.current = false;
     }, 10000); // 10 second timeout
 
     const q = query(collection(firestore, 'book_of_work'), orderBy('updatedAt', 'desc'));
@@ -132,15 +135,15 @@ export function BookOfWorkManager() {
         const totalDocs = snapshot.docs.length;
         const items: BookOfWorkEntryWithId[] = [];
 
-        // Show initial progress immediately for initial load
-        if (loading) {
+        // Show initial progress only on first load
+        if (isFirstLoadRef.current) {
           setLoadingProgress({ current: 0, total: totalDocs });
         }
 
         // Process documents with progress tracking
         snapshot.forEach((docSnap, index) => {
-          // Update progress for initial load
-          if (loading) {
+          // Update progress only on first load
+          if (isFirstLoadRef.current) {
             setLoadingProgress({ current: index + 1, total: totalDocs });
           }
 
@@ -175,15 +178,15 @@ export function BookOfWorkManager() {
 
         setEntries(items);
 
-        // Delay clearing loading state to allow React to render progress indicator
-        // Without this delay, React batches all state updates and never shows progress
-        if (loading) {
-          setTimeout(() => {
+        // Delay clearing loading state only on first load to show progress
+        // Subsequent real-time updates skip the delay
+        if (isFirstLoadRef.current) {
+          progressTimeoutId = setTimeout(() => {
             setLoading(false);
             setLoadingProgress(null);
+            isFirstLoadRef.current = false;
           }, 400); // Show completed progress for 400ms
         } else {
-          // Subsequent real-time updates don't need loading delay
           setLoadingProgress(null);
         }
       },
@@ -217,6 +220,7 @@ export function BookOfWorkManager() {
 
     return () => {
       clearTimeout(timeoutId);
+      if (progressTimeoutId) clearTimeout(progressTimeoutId);
       unsubscribe();
     };
   }, [firestore, toast]);

@@ -77697,7 +77697,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 8,
+      "version": 9,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -77709,11 +77709,11 @@
         "calls": []
       },
       "created": "2026-01-19T16:21:56Z",
-      "lastUpdated": "2026-02-18T11:15:00.000000Z"
+      "lastUpdated": "2026-02-18T11:25:00.000000Z"
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 8,
+      "version": 9,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -77726,7 +77726,7 @@
         "calls": []
       },
       "created": "2026-01-19T16:21:56Z",
-      "lastUpdated": "2026-02-18T11:15:00.000000Z"
+      "lastUpdated": "2026-02-18T11:25:00.000000Z"
     },
     {
       "guid": "PAGE_ABOUT-000",
@@ -101434,9 +101434,9 @@
     },
     {
       "guid": "ADMIN_BOOKOFWORK-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Admin component for centralized book of work tracking with 4-pillar error handling and loading progress indicator 'record X of Y'",
+      "description": "Admin component for centralized book of work tracking with 4-pillar error handling and loading progress using useRef to prevent infinite loop",
       "dependencies": [
         "LIB_ERROR_REGISTRY-000",
         "LIB_TRACED_ERROR-001",
@@ -101457,7 +101457,7 @@
         ]
       },
       "created": "2026-02-17T23:39:06.655917Z",
-      "lastUpdated": "2026-02-18T11:15:00.000000Z"
+      "lastUpdated": "2026-02-18T11:25:00.000000Z"
     }
   ]
 }
