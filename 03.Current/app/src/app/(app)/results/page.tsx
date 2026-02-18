@@ -1,12 +1,13 @@
-// GUID: PAGE_RESULTS-000-v06
+// GUID: PAGE_RESULTS-000-v07
 // [Intent] Race Results page — displays per-race points breakdowns for all teams' predictions,
 //   with official race results, colour-coded scoring, rank badges, sorting, and pagination.
 // [Inbound Trigger] Navigation to /results route; optionally receives ?race= URL parameter from
 //   Standings page navigation.
-// [Downstream Impact] Reads from Firestore race_results, scores, and predictions collections.
-//   No write operations — this is a read-only view.
+// [Downstream Impact] Real-time listener on scores collection updates automatically when admin
+//   submits race results. Reads from race_results and predictions collections. Read-only view.
 // @FIX(v05) Extracted shared types, functions, and constants to @/lib/results-utils for reuse
 //   by the new /my-results page. No behaviour change — imports replace inline definitions.
+// @FIX(v07) Task #8: Converted scores fetch from getDocs to onSnapshot for real-time updates.
 
 "use client";
 
@@ -34,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collectionGroup, collection, query, where, doc, getDoc, getDocs, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
+import { collectionGroup, collection, query, where, doc, getDoc, getDocs, onSnapshot, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag, Lock } from "lucide-react";
@@ -243,30 +244,67 @@ function ResultsContent() {
         return parsePredictionsPure(predictions, actualTop6);
     }, []);
 
-    // GUID: PAGE_RESULTS-025-v04
+    // GUID: PAGE_RESULTS-025A-v05
+    // [Intent] Real-time listener for scores collection - updates automatically when admin submits results.
+    //          Task #8 fix: Converted from getDocs to onSnapshot for automatic score updates.
+    // [Inbound Trigger] Runs when firestore or selectedRaceId changes.
+    // [Downstream Impact] Keeps scoresMap in sync with Firestore scores collection in real-time.
+    useEffect(() => {
+        if (!firestore || !selectedRaceId) return;
+
+        const scoreRaceId = selectedRaceId.toLowerCase();
+        setScoresLoaded(false);
+
+        const unsubscribe = onSnapshot(
+            query(
+                collection(firestore, "scores"),
+                where("raceId", "==", scoreRaceId)
+            ),
+            (snapshot) => {
+                const newScoresMap = new Map<string, Score>();
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    newScoresMap.set(data.oduserId, {
+                        id: doc.id,
+                        ...data,
+                    } as Score);
+                });
+                setScoresMap(newScoresMap);
+                setScoresLoaded(true);
+                setLastUpdated(new Date());
+            },
+            (error) => {
+                console.error("Error fetching scores:", error);
+                setScoresMap(new Map());
+                setScoresLoaded(true);
+            }
+        );
+
+        return () => unsubscribe();
+    }, [firestore, selectedRaceId]);
+
+    // GUID: PAGE_RESULTS-025B-v05
+    // [Intent] Fetch predictions and count for the selected race (one-time fetch with pagination).
+    //          Separated from scores listener to keep pagination working while scores update in real-time.
+    // [Inbound Trigger] Runs when firestore or selectedRaceId changes.
+    // [Downstream Impact] Loads first page of predictions and total count.
     useEffect(() => {
         if (!firestore || !selectedRaceId) return;
 
         let cancelled = false;
 
-        const fetchAllData = async () => {
+        const fetchPredictions = async () => {
             setIsLoading(true);
             setRawPredictionDocs([]);
             setLastDoc(null);
-            setScoresLoaded(false);
 
             const baseRaceId = getBaseRaceId(selectedRaceId);
-            const scoreRaceId = selectedRaceId.toLowerCase();
 
             try {
-                const [countResult, scoresResult, submissionsResult] = await Promise.all([
+                const [countResult, submissionsResult] = await Promise.all([
                     getCountFromServer(query(
                         collectionGroup(firestore, "predictions"),
                         where("raceId", "==", baseRaceId)
-                    )),
-                    getDocs(query(
-                        collection(firestore, "scores"),
-                        where("raceId", "==", scoreRaceId)
                     )),
                     getDocs(query(
                         collectionGroup(firestore, "predictions"),
@@ -280,17 +318,6 @@ function ResultsContent() {
 
                 setTotalCount(countResult.data().count);
 
-                const newScoresMap = new Map<string, Score>();
-                scoresResult.forEach(doc => {
-                    const data = doc.data();
-                    newScoresMap.set(data.oduserId, {
-                        id: doc.id,
-                        ...data,
-                    } as Score);
-                });
-                setScoresMap(newScoresMap);
-                setScoresLoaded(true);
-
                 if (submissionsResult.empty) {
                     setHasMore(false);
                     setRawPredictionDocs([]);
@@ -299,13 +326,10 @@ function ResultsContent() {
                     setHasMore(submissionsResult.docs.length === PAGE_SIZE);
                     setRawPredictionDocs(submissionsResult.docs.map(d => d.data()));
                 }
-
-                setLastUpdated(new Date());
             } catch (error) {
-                console.error("Error fetching data:", error);
+                console.error("Error fetching predictions:", error);
                 if (!cancelled) {
                     setTotalCount(null);
-                    setScoresMap(new Map());
                     setRawPredictionDocs([]);
                 }
             } finally {
@@ -315,11 +339,11 @@ function ResultsContent() {
             }
         };
 
-        fetchAllData();
+        fetchPredictions();
         return () => { cancelled = true; };
     }, [firestore, selectedRaceId]);
 
-    // GUID: PAGE_RESULTS-025B-v04
+    // GUID: PAGE_RESULTS-026-v05
     const teams = useMemo(() => {
         if (rawPredictionDocs.length === 0) return [] as TeamResult[];
 
@@ -346,7 +370,7 @@ function ResultsContent() {
         });
     }, [rawPredictionDocs, raceResult, scoresMap, parsePredictions]);
 
-    // GUID: PAGE_RESULTS-026-v04
+    // GUID: PAGE_RESULTS-027-v04
     const loadMore = useCallback(async () => {
         if (!firestore || !lastDoc || isLoadingMore) return;
 

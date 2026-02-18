@@ -77697,7 +77697,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 5,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -77709,11 +77709,11 @@
         "calls": []
       },
       "created": "2026-01-19T16:21:56Z",
-      "lastUpdated": "2026-02-18T09:48:04.068129Z"
+      "lastUpdated": "2026-02-18T10:23:19.141894Z"
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 5,
+      "version": 6,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -77726,7 +77726,7 @@
         "calls": []
       },
       "created": "2026-01-19T16:21:56Z",
-      "lastUpdated": "2026-02-18T09:48:04.068162Z"
+      "lastUpdated": "2026-02-18T10:23:19.141925Z"
     },
     {
       "guid": "PAGE_ABOUT-000",
@@ -89669,7 +89669,7 @@
     },
     {
       "guid": "PAGE_RESULTS-000",
-      "version": 6,
+      "version": 7,
       "logic_category": "ORCHESTRATION",
       "description": "Race Results page \u00e2\u20ac\u201d displays per-race points breakdowns for all teams' predictions,",
       "dependencies": [
@@ -89741,7 +89741,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:36:01Z"
+      "lastUpdated": "2026-02-18T10:23:19.141943Z"
     },
     {
       "guid": "PAGE_RESULTS-006",
