@@ -94,12 +94,13 @@ export function BookOfWorkManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<BookOfWorkEntryWithId>>({});
 
-  // GUID: ADMIN_BOOKOFWORK-007-v03
+  // GUID: ADMIN_BOOKOFWORK-007-v04
   // [Intent] Sets up real-time Firestore listener on book_of_work collection, ordered by last update descending
   //          Shows loading progress "record X of Y" during initial load
   //          Added timeout fallback to detect hanging Firestore connections
   // [Inbound Trigger] Runs when firestore instance becomes available (useEffect dependency)
   // [Downstream Impact] Keeps entries state in sync with Firestore in real-time. Returns cleanup unsubscribe function
+  // @FIX(v04) Delay final state cleanup to allow React to render progress indicator
   useEffect(() => {
     if (!firestore) {
       console.warn('[BookOfWork] Firestore instance not available');
@@ -130,6 +131,11 @@ export function BookOfWorkManager() {
 
         const totalDocs = snapshot.docs.length;
         const items: BookOfWorkEntryWithId[] = [];
+
+        // Show initial progress immediately for initial load
+        if (loading) {
+          setLoadingProgress({ current: 0, total: totalDocs });
+        }
 
         // Process documents with progress tracking
         snapshot.forEach((docSnap, index) => {
@@ -168,8 +174,18 @@ export function BookOfWorkManager() {
         });
 
         setEntries(items);
-        setLoading(false);
-        setLoadingProgress(null);
+
+        // Delay clearing loading state to allow React to render progress indicator
+        // Without this delay, React batches all state updates and never shows progress
+        if (loading) {
+          setTimeout(() => {
+            setLoading(false);
+            setLoadingProgress(null);
+          }, 400); // Show completed progress for 400ms
+        } else {
+          // Subsequent real-time updates don't need loading delay
+          setLoadingProgress(null);
+        }
       },
       async (error) => {
         clearTimeout(timeoutId); // Clear the timeout since we got an error response
