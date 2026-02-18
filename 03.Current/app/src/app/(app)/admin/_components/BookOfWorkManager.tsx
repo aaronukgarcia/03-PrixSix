@@ -107,6 +107,7 @@ export function BookOfWorkManager() {
   useEffect(() => {
     if (!firestore) {
       console.warn('[BookOfWork] Firestore instance not available');
+      setLoading(false); // Clear loading if Firestore unavailable
       return;
     }
 
