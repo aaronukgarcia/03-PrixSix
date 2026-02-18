@@ -1,4 +1,7 @@
-// GUID: API_ADMIN_FETCH_TIMING_DATA-000-v01
+// GUID: API_ADMIN_FETCH_TIMING_DATA-000-v02
+// @AUTH_FIX: Added OpenF1 OAuth2 authentication with token caching. OpenF1 API changed from
+//   public to authenticated access, requiring username/password → access token flow.
+//   Requires env vars: OPENF1_USERNAME, OPENF1_PASSWORD
 // [Intent] Admin API route for fetching F1 timing data from the OpenF1 API and storing it in Firestore.
 //          Fetches session metadata, driver list, and lap times, computes best laps, and writes the
 //          result to app-settings/pub-chat-timing for the ThePaddockPubChat component.
@@ -17,6 +20,64 @@ import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 const OPENF1_BASE = 'https://api.openf1.org/v1';
+const OPENF1_TOKEN_URL = 'https://api.openf1.org/token';
+
+// In-memory token cache (shared module-level cache, expires after 55 minutes)
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// GUID: API_ADMIN_FETCH_TIMING_DATA-013-v01
+// [Intent] Get OpenF1 OAuth2 access token with caching to avoid repeated auth requests.
+// [Inbound Trigger] Called before each OpenF1 API request (session, meeting, drivers, laps).
+// [Downstream Impact] Returns cached token if valid, otherwise fetches new token from OpenF1.
+async function getOpenF1Token(): Promise<string | null> {
+  const correlationId = generateCorrelationId();
+
+  // Check cache first
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    return cachedToken.token;
+  }
+
+  // Check if credentials are configured
+  const username = process.env.OPENF1_USERNAME;
+  const password = process.env.OPENF1_PASSWORD;
+
+  if (!username || !password) {
+    console.warn(`[OpenF1 Auth ${correlationId}] Credentials not configured (OPENF1_USERNAME/OPENF1_PASSWORD)`);
+    return null; // Not configured - will fall back to public API (may get 401)
+  }
+
+  try {
+    const res = await fetch(OPENF1_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        username,
+        password,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error(`[OpenF1 Auth ${correlationId}] Token fetch failed: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const token = data.access_token;
+
+    // Cache token for 55 minutes (tokens expire after 1 hour)
+    cachedToken = {
+      token,
+      expiresAt: Date.now() + 55 * 60 * 1000,
+    };
+
+    console.log(`[OpenF1 Auth ${correlationId}] Token refreshed, expires in 55 minutes`);
+    return token;
+
+  } catch (err) {
+    console.error(`[OpenF1 Auth ${correlationId}]`, err);
+    return null;
+  }
+}
 
 // GUID: API_ADMIN_FETCH_TIMING_DATA-001-v02
 // @SECURITY_FIX: Removed adminUid from schema - now uses authenticated user's UID instead.
@@ -104,12 +165,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-005-v01
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-005-v02
+    // @AUTH_FIX: Added OpenF1 OAuth2 authentication. OpenF1 API now requires auth tokens.
     // [Intent] Fetch session metadata from OpenF1 to populate the session header in the UI.
     // [Inbound Trigger] Admin check passed; sessionKey is valid.
     // [Downstream Impact] Session data is stored in Firestore and rendered as the card header.
-    const sessionRes = await fetch(`${OPENF1_BASE}/sessions?session_key=${sessionKey}`);
+    const openf1Token = await getOpenF1Token();
+    const authHeaders: HeadersInit = {};
+    if (openf1Token) {
+      authHeaders['Authorization'] = `Bearer ${openf1Token}`;
+    }
+
+    const sessionRes = await fetch(`${OPENF1_BASE}/sessions?session_key=${sessionKey}`, {
+      headers: authHeaders,
+    });
     if (!sessionRes.ok) {
+      if (sessionRes.status === 401 && !openf1Token) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'OpenF1 API requires authentication. Please configure OPENF1_USERNAME and OPENF1_PASSWORD environment variables.',
+            errorCode: ERROR_CODES.OPENF1_FETCH_FAILED.code,
+            correlationId,
+          },
+          { status: 502 }
+        );
+      }
       return NextResponse.json(
         {
           success: false,
@@ -136,12 +217,15 @@ export async function POST(request: NextRequest) {
 
     const session = sessions[0];
 
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-006-v01
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-006-v02
+    // @AUTH_FIX: Added OpenF1 OAuth2 authentication. OpenF1 API now requires auth tokens.
     // [Intent] Fetch the meeting metadata to get the meeting name, location, circuit, and country.
     // [Inbound Trigger] Session data fetched successfully; need meeting context.
     // [Downstream Impact] Meeting data populates the session header fields in Firestore.
     const meetingKey = session.meeting_key;
-    const meetingRes = await fetch(`${OPENF1_BASE}/meetings?meeting_key=${meetingKey}`);
+    const meetingRes = await fetch(`${OPENF1_BASE}/meetings?meeting_key=${meetingKey}`, {
+      headers: authHeaders,
+    });
     if (!meetingRes.ok) {
       return NextResponse.json(
         {
@@ -157,11 +241,14 @@ export async function POST(request: NextRequest) {
     const meetings = await meetingRes.json();
     const meeting = meetings[0] || {};
 
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-007-v01
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-007-v02
+    // @AUTH_FIX: Added OpenF1 OAuth2 authentication. OpenF1 API now requires auth tokens.
     // [Intent] Fetch all drivers who participated in the session.
     // [Inbound Trigger] Session and meeting data fetched successfully.
     // [Downstream Impact] Driver list determines how many lap-data requests are made.
-    const driversRes = await fetch(`${OPENF1_BASE}/drivers?session_key=${sessionKey}`);
+    const driversRes = await fetch(`${OPENF1_BASE}/drivers?session_key=${sessionKey}`, {
+      headers: authHeaders,
+    });
     if (!driversRes.ok) {
       return NextResponse.json(
         {
@@ -198,7 +285,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-009-v01
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-009-v02
+    // @AUTH_FIX: Added OpenF1 OAuth2 authentication. OpenF1 API now requires auth tokens.
     // [Intent] Fetch lap data for each driver in parallel, compute best lap excluding pit-out laps.
     // [Inbound Trigger] Deduplicated driver list ready.
     // [Downstream Impact] Produces the sorted timing data written to Firestore.
@@ -206,7 +294,8 @@ export async function POST(request: NextRequest) {
       Array.from(uniqueDrivers.values()).map(async (driver) => {
         try {
           const lapsRes = await fetch(
-            `${OPENF1_BASE}/laps?session_key=${sessionKey}&driver_number=${driver.driver_number}`
+            `${OPENF1_BASE}/laps?session_key=${sessionKey}&driver_number=${driver.driver_number}`,
+            { headers: authHeaders }
           );
           if (!lapsRes.ok) return null;
 

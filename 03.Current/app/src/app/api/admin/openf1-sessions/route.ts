@@ -1,4 +1,7 @@
-// GUID: API_ADMIN_OPENF1_SESSIONS-000-v01
+// GUID: API_ADMIN_OPENF1_SESSIONS-000-v02
+// @AUTH_FIX: Added OpenF1 OAuth2 authentication with token caching. OpenF1 API changed from
+//   public to authenticated access, requiring username/password → access token flow.
+//   Requires env vars: OPENF1_USERNAME, OPENF1_PASSWORD
 // [Intent] Admin API route that proxies OpenF1 meetings and sessions endpoints for the PubChatPanel
 //          dropdown selectors. Avoids CORS issues and allows admin auth verification.
 // [Inbound Trigger] GET request from PubChatPanel when populating meeting/session dropdowns.
@@ -14,6 +17,64 @@ import { ERRORS } from '@/lib/error-registry';
 export const dynamic = 'force-dynamic';
 
 const OPENF1_BASE = 'https://api.openf1.org/v1';
+const OPENF1_TOKEN_URL = 'https://api.openf1.org/token';
+
+// In-memory token cache (expires after 55 minutes, OpenF1 tokens last 1 hour)
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// GUID: API_ADMIN_OPENF1_SESSIONS-005-v01
+// [Intent] Get OpenF1 OAuth2 access token with caching to avoid repeated auth requests.
+// [Inbound Trigger] Called before each OpenF1 API request.
+// [Downstream Impact] Returns cached token if valid, otherwise fetches new token from OpenF1.
+async function getOpenF1Token(): Promise<string | null> {
+  const correlationId = generateCorrelationId();
+
+  // Check cache first
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    return cachedToken.token;
+  }
+
+  // Check if credentials are configured
+  const username = process.env.OPENF1_USERNAME;
+  const password = process.env.OPENF1_PASSWORD;
+
+  if (!username || !password) {
+    console.warn(`[OpenF1 Auth ${correlationId}] Credentials not configured (OPENF1_USERNAME/OPENF1_PASSWORD)`);
+    return null; // Not configured - will fall back to public API (may get 401)
+  }
+
+  try {
+    const res = await fetch(OPENF1_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        username,
+        password,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error(`[OpenF1 Auth ${correlationId}] Token fetch failed: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const token = data.access_token;
+
+    // Cache token for 55 minutes (tokens expire after 1 hour)
+    cachedToken = {
+      token,
+      expiresAt: Date.now() + 55 * 60 * 1000,
+    };
+
+    console.log(`[OpenF1 Auth ${correlationId}] Token refreshed, expires in 55 minutes`);
+    return token;
+
+  } catch (err) {
+    console.error(`[OpenF1 Auth ${correlationId}]`, err);
+    return null;
+  }
+}
 
 // GUID: API_ADMIN_OPENF1_SESSIONS-001-v02
 // @SECURITY_FIX: Added authentication and admin verification. Previous version had NO AUTH,
@@ -66,13 +127,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // GUID: API_ADMIN_OPENF1_SESSIONS-002-v01
+    // GUID: API_ADMIN_OPENF1_SESSIONS-002-v02
+    // @AUTH_FIX: Added OpenF1 OAuth2 authentication. OpenF1 API now requires auth tokens.
     // [Intent] Fetch meetings for a given year from OpenF1.
     // [Inbound Trigger] ?year= query parameter present.
     // [Downstream Impact] Returns meeting list for the dropdown.
     if (year) {
-      const res = await fetch(`${OPENF1_BASE}/meetings?year=${encodeURIComponent(year)}`);
+      // Get OpenF1 access token (cached or fresh)
+      const openf1Token = await getOpenF1Token();
+
+      const headers: HeadersInit = {};
+      if (openf1Token) {
+        headers['Authorization'] = `Bearer ${openf1Token}`;
+      }
+
+      const res = await fetch(`${OPENF1_BASE}/meetings?year=${encodeURIComponent(year)}`, {
+        headers,
+      });
+
       if (!res.ok) {
+        // If 401 and no token configured, provide helpful error message
+        if (res.status === 401 && !openf1Token) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'OpenF1 API requires authentication. Please configure OPENF1_USERNAME and OPENF1_PASSWORD environment variables.',
+              errorCode: ERROR_CODES.OPENF1_FETCH_FAILED.code,
+              correlationId,
+            },
+            { status: 502 }
+          );
+        }
+
         return NextResponse.json(
           {
             success: false,
@@ -100,13 +186,38 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // GUID: API_ADMIN_OPENF1_SESSIONS-003-v01
+    // GUID: API_ADMIN_OPENF1_SESSIONS-003-v02
+    // @AUTH_FIX: Added OpenF1 OAuth2 authentication. OpenF1 API now requires auth tokens.
     // [Intent] Fetch sessions for a given meeting from OpenF1.
     // [Inbound Trigger] ?meetingKey= query parameter present.
     // [Downstream Impact] Returns session list for the dropdown.
     if (meetingKey) {
-      const res = await fetch(`${OPENF1_BASE}/sessions?meeting_key=${encodeURIComponent(meetingKey)}`);
+      // Get OpenF1 access token (cached or fresh)
+      const openf1Token = await getOpenF1Token();
+
+      const headers: HeadersInit = {};
+      if (openf1Token) {
+        headers['Authorization'] = `Bearer ${openf1Token}`;
+      }
+
+      const res = await fetch(`${OPENF1_BASE}/sessions?meeting_key=${encodeURIComponent(meetingKey)}`, {
+        headers,
+      });
+
       if (!res.ok) {
+        // If 401 and no token configured, provide helpful error message
+        if (res.status === 401 && !openf1Token) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'OpenF1 API requires authentication. Please configure OPENF1_USERNAME and OPENF1_PASSWORD environment variables.',
+              errorCode: ERROR_CODES.OPENF1_FETCH_FAILED.code,
+              correlationId,
+            },
+            { status: 502 }
+          );
+        }
+
         return NextResponse.json(
           {
             success: false,

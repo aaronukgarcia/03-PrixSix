@@ -39,3 +39,8 @@ env:
   # WhatsApp Worker authentication secret (for HMAC proxy verification)
   - variable: WHATSAPP_APP_SECRET
     secret: WHATSAPP_APP_SECRET
+  # OpenF1 API OAuth2 credentials (required as of 2026-02 for all API access)
+  - variable: OPENF1_USERNAME
+    secret: OPENF1_USERNAME
+  - variable: OPENF1_PASSWORD
+    secret: OPENF1_PASSWORD
