@@ -80,20 +80,23 @@ export function BookOfWorkManager() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  // GUID: ADMIN_BOOKOFWORK-006-v01
+  // GUID: ADMIN_BOOKOFWORK-006-v02
   // [Intent] Local state for work items, loading flag, filter selections, search query, and editing state
+  //          Added loadingProgress to track "record X of Y" during initial load
   // [Inbound Trigger] Populated by onSnapshot listener; filters/search updated by user interactions
   // [Downstream Impact] Drives the work item list display, statistics counts, and filter UI states
   const [entries, setEntries] = useState<BookOfWorkEntryWithId[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState<{ current: number; total: number } | null>(null);
   const [filterCategory, setFilterCategory] = useState<BookOfWorkCategory | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<BookOfWorkStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<BookOfWorkEntryWithId>>({});
 
-  // GUID: ADMIN_BOOKOFWORK-007-v01
+  // GUID: ADMIN_BOOKOFWORK-007-v02
   // [Intent] Sets up real-time Firestore listener on book_of_work collection, ordered by last update descending
+  //          Shows loading progress "record X of Y" during initial load
   // [Inbound Trigger] Runs when firestore instance becomes available (useEffect dependency)
   // [Downstream Impact] Keeps entries state in sync with Firestore in real-time. Returns cleanup unsubscribe function
   useEffect(() => {
@@ -103,8 +106,16 @@ export function BookOfWorkManager() {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        const totalDocs = snapshot.docs.length;
         const items: BookOfWorkEntryWithId[] = [];
-        snapshot.forEach((docSnap) => {
+
+        // Process documents with progress tracking
+        snapshot.forEach((docSnap, index) => {
+          // Update progress for initial load
+          if (loading) {
+            setLoadingProgress({ current: index + 1, total: totalDocs });
+          }
+
           const data = docSnap.data();
           items.push({
             id: docSnap.id,
@@ -133,8 +144,10 @@ export function BookOfWorkManager() {
             referenceId: data.referenceId,
           } as BookOfWorkEntryWithId);
         });
+
         setEntries(items);
         setLoading(false);
+        setLoadingProgress(null);
       },
       async (error) => {
         // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
@@ -354,13 +367,20 @@ export function BookOfWorkManager() {
     setEditForm({});
   };
 
-  // Loading skeleton
+  // GUID: ADMIN_BOOKOFWORK-017-v01
+  // [Intent] Loading skeleton with progress indicator showing "Loading record X of Y"
+  // [Inbound Trigger] Displayed while initial Firestore query is in progress
+  // [Downstream Impact] Provides user feedback during data loading phase
   if (loading) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Book of Work</CardTitle>
-          <CardDescription>Loading work items...</CardDescription>
+          <CardDescription>
+            {loadingProgress
+              ? `Loading record ${loadingProgress.current} of ${loadingProgress.total}...`
+              : 'Loading work items...'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -368,6 +388,24 @@ export function BookOfWorkManager() {
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
+          {loadingProgress && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                <span>Progress</span>
+                <span>
+                  {Math.round((loadingProgress.current / loadingProgress.total) * 100)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${(loadingProgress.current / loadingProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
