@@ -345,39 +345,6 @@ export function PubChatPanel() {
         fetchDrivers();
     }, [selectedSessionKey, authToken]);
 
-    // GUID: PUBCHAT_PANEL-014-v01
-    // [Intent] Auto-refresh mechanism for near real-time data updates when toggle is enabled.
-    // [Inbound Trigger] autoRefresh toggle enabled, selectedSessionKey present.
-    // [Downstream Impact] Automatically fetches timing data at specified interval.
-    useEffect(() => {
-        if (!autoRefresh || !selectedSessionKey) {
-            setAutoRefreshCountdown(0);
-            return;
-        }
-
-        // Initial countdown
-        setAutoRefreshCountdown(refreshInterval);
-
-        // Countdown timer (every second)
-        const countdownTimer = setInterval(() => {
-            setAutoRefreshCountdown(prev => {
-                if (prev <= 1) return refreshInterval;
-                return prev - 1;
-            });
-        }, 1000);
-
-        // Refresh timer (at interval)
-        const refreshTimer = setInterval(() => {
-            console.log('[Auto-Refresh] Fetching timing data...');
-            handleFetchTimingData();
-        }, refreshInterval * 1000);
-
-        return () => {
-            clearInterval(countdownTimer);
-            clearInterval(refreshTimer);
-        };
-    }, [autoRefresh, selectedSessionKey, refreshInterval, handleFetchTimingData]);
-
     // GUID: PUBCHAT_PANEL-005-v07
     // @ENHANCEMENT: Added dataType and driverNumber parameters for rich OpenF1 API exploitation.
     // @ERROR_FIX: Added proper 4-pillar error handling (error code, correlation ID, selectable text).
@@ -444,6 +411,39 @@ export function PubChatPanel() {
             setFetching(false);
         }
     }, [selectedSessionKey, authToken, selectedDataType, selectedDriverNumber, firestore, toast]);
+
+    // GUID: PUBCHAT_PANEL-014-v01
+    // [Intent] Auto-refresh mechanism for near real-time data updates when toggle is enabled.
+    // [Inbound Trigger] autoRefresh toggle enabled, selectedSessionKey present.
+    // [Downstream Impact] Automatically fetches timing data at specified interval.
+    useEffect(() => {
+        if (!autoRefresh || !selectedSessionKey) {
+            setAutoRefreshCountdown(0);
+            return;
+        }
+
+        // Initial countdown
+        setAutoRefreshCountdown(refreshInterval);
+
+        // Countdown timer (every second)
+        const countdownTimer = setInterval(() => {
+            setAutoRefreshCountdown(prev => {
+                if (prev <= 1) return refreshInterval;
+                return prev - 1;
+            });
+        }, 1000);
+
+        // Refresh timer (at interval)
+        const refreshTimer = setInterval(() => {
+            console.log('[Auto-Refresh] Fetching timing data...');
+            handleFetchTimingData();
+        }, refreshInterval * 1000);
+
+        return () => {
+            clearInterval(countdownTimer);
+            clearInterval(refreshTimer);
+        };
+    }, [autoRefresh, selectedSessionKey, refreshInterval, handleFetchTimingData]);
 
     return (
         <div className="relative space-y-6">
