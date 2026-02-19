@@ -78,6 +78,9 @@ service-account.json
 bill-vestige-export.db
 *vestige-export.db
 
+# Bertie onboarding files (contains credentials, share manually)
+BERTIE-MEMORY-DUMP.json
+
 # API keys and secrets (SECURITY: never commit credentials)
 *.api-key.txt
 .api-key.txt
