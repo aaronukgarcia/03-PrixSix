@@ -52,13 +52,16 @@ async function testBookOfWork() {
 
     console.log('✓ Login detected, navigating to admin panel...');
 
-    await page.goto('https://prix6.win/admin', { waitUntil: 'networkidle2', timeout: 30000 });
+    await page.goto('https://prix6.win/admin', { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    // Wait for the page to be ready
+    await page.waitForTimeout(3000);
 
     console.log('Waiting for Book of Work tab...');
-    await page.waitForSelector('text/Book of Work', { timeout: 10000 });
+    await page.waitForSelector('button[value="bookofwork"]', { timeout: 10000 });
 
     console.log('Clicking Book of Work tab...');
-    await page.click('button:has-text("Book of Work")');
+    await page.click('button[value="bookofwork"]');
 
     // Wait a moment for tab content to load
     await page.waitForTimeout(2000);
