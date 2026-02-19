@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
-  "generated": "2026-02-17",
-  "total_guids": 1008,
+  "generated": "2026-02-19",
+  "total_guids": 1013,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
@@ -28525,9 +28525,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-000",
-      "version": 1,
-      "logic_category": "PRESENTATION",
-      "description": "Admin API route for fetching F1 timing data from the OpenF1 API and storing it in Firestore. Fetches session metadata, driver list, and lap times, computes best laps, and writes the result to app-settings/pub-chat-timing for the ThePaddockPubChat component. document to render live timing data.",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Module-level file header for fetch-timing-data route. Declares OPENF1_BASE, OPENF1_TOKEN_URL, FETCH_TIMEOUT_MS (10s), and the in-memory OAuth2 token cache. gill 2026-02-19: added FETCH_TIMEOUT_MS constant and fetchWithTimeout/safeParseJson helpers to fix indefinite-hang and non-JSON-response bugs.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -28565,16 +28565,20 @@
           "USE_DOC-000",
           "LEAGUE_CONTEXT-000"
         ],
-        "calls": []
+        "calls": [
+          "API_ADMIN_FETCH_TIMING_DATA-013",
+          "API_ADMIN_FETCH_TIMING_DATA-014",
+          "API_ADMIN_FETCH_TIMING_DATA-015"
+        ]
       },
       "created": "2026-01-30T22:04:44Z",
-      "lastUpdated": "2026-02-10T15:31:06Z"
+      "lastUpdated": "2026-02-19T18:00:00Z"
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-001",
-      "version": 1,
+      "version": 2,
       "logic_category": "VALIDATION",
-      "description": "Zod schema for validating the fetch request \u2014 requires sessionKey and adminUid.",
+      "description": "Zod schema validating the POST request body — requires sessionKey (positive integer) only. adminUid was removed in a prior security fix; gill 2026-02-19 updated description to reflect this.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -28668,9 +28672,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-003",
-      "version": 1,
-      "logic_category": "IO",
-      "description": "POST handler that orchestrates the OpenF1 fetch pipeline: validates input, checks admin permissions, fetches session/driver/lap data, computes best laps, and writes to Firestore.",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler orchestrating the full OpenF1 fetch pipeline. gill 2026-02-19: all fetch() calls replaced with fetchWithTimeout() (10s timeout); all .json() calls replaced with safeParseJson(); per-step try/catch for timeouts returns 504 instead of unhandled exception; verbose console logging added throughout.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -28716,9 +28720,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-004",
-      "version": 1,
-      "logic_category": "IO",
-      "description": "Verify the requesting user has admin privileges before allowing the fetch.",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Verify the requesting user has isAdmin=true in Firestore before allowing the fetch. Uses authenticated UID from token (not request body). gill 2026-02-19: added verbose logging.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -28764,9 +28768,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-005",
-      "version": 1,
+      "version": 3,
       "logic_category": "IO",
-      "description": "Fetch session metadata from OpenF1 to populate the session header in the UI.",
+      "description": "Acquire OpenF1 token then fetch session metadata for the given sessionKey. gill 2026-02-19: fetch() replaced with fetchWithTimeout() (returns 504 on abort); .json() replaced with safeParseJson(); AbortError caught and returned as distinct 504 vs 502.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -28812,9 +28816,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-006",
-      "version": 1,
+      "version": 3,
       "logic_category": "IO",
-      "description": "Fetch the meeting metadata to get the meeting name, location, circuit, and country.",
+      "description": "Fetch meeting metadata (name, location, circuit, country) for the session's meetingKey. gill 2026-02-19: fetch() replaced with fetchWithTimeout(); .json() replaced with safeParseJson(); timeout/network error returns 504.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -28860,9 +28864,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-007",
-      "version": 1,
+      "version": 3,
       "logic_category": "IO",
-      "description": "Fetch all drivers who participated in the session.",
+      "description": "Fetch all drivers who participated in the session. gill 2026-02-19: fetch() replaced with fetchWithTimeout(); .json() replaced with safeParseJson(); timeout/network error returns 504.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -28908,9 +28912,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-008",
-      "version": 1,
-      "logic_category": "ORCHESTRATION",
-      "description": "Deduplicate drivers by driver_number (OpenF1 may return duplicates).",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Deduplicate drivers by driver_number, keeping first occurrence. gill 2026-02-19: added verbose log of unique driver count after deduplication.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -28956,9 +28960,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-009",
-      "version": 1,
+      "version": 3,
       "logic_category": "IO",
-      "description": "Fetch lap data for each driver in parallel, compute best lap excluding pit-out laps.",
+      "description": "Fetch lap data for each driver in parallel (Promise.all), compute best valid lap. gill 2026-02-19: fetch() replaced with fetchWithTimeout() per-driver; .json() replaced with inline text()+JSON.parse() guard; individual driver timeout/parse failures return null (graceful) instead of propagating.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29004,9 +29008,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-010",
-      "version": 1,
+      "version": 2,
       "logic_category": "IO",
-      "description": "Write the computed timing data to Firestore for ThePaddockPubChat to read.",
+      "description": "Write computed timing data to Firestore app-settings/pub-chat-timing using .set() to fully overwrite. gill 2026-02-19: added verbose logging before and after write.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29052,9 +29056,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-011",
-      "version": 1,
+      "version": 2,
       "logic_category": "IO",
-      "description": "Audit log the fetch operation for compliance and traceability.",
+      "description": "Write audit log entry to audit_logs recording the admin timing fetch. gill 2026-02-19: added verbose log confirmation after write.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29099,9 +29103,9 @@
     },
     {
       "guid": "API_ADMIN_FETCH_TIMING_DATA-012",
-      "version": 2,
-      "logic_category": "ORCHESTRATION",
-      "description": "Top-level error handler \u2014 catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
+      "version": 3,
+      "logic_category": "RECOVERY",
+      "description": "Top-level catch block — catches any unhandled exception, logs traced error to error_logs, returns safe 500. gill 2026-02-19: nested try/catch added so a Firebase Admin failure during logging does not cause a second uncaught exception; fallback minimal response added.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29142,13 +29146,83 @@
         "calls": []
       },
       "created": "2026-01-30T22:04:44Z",
-      "lastUpdated": "2026-02-10T15:31:06Z"
+      "lastUpdated": "2026-02-19T18:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_FETCH_TIMING_DATA-013",
+      "version": 2,
+      "logic_category": "IO",
+      "description": "OpenF1 OAuth2 token acquisition with 55-minute module-level cache. Returns null if credentials are absent or the token endpoint fails. gill 2026-02-19: fetch() replaced with fetchWithTimeout(); token response parsed via safeParseJson(); added guard for missing access_token field; verbose logging added.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_ERROR_CODES-000",
+        "API_ADMIN_FETCH_TIMING_DATA-014",
+        "API_ADMIN_FETCH_TIMING_DATA-015"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/fetch-timing-data/route.ts",
+        "functionName": "getOpenF1Token"
+      },
+      "callChain": {
+        "calledBy": ["API_ADMIN_FETCH_TIMING_DATA-005"],
+        "calls": [
+          "API_ADMIN_FETCH_TIMING_DATA-014",
+          "API_ADMIN_FETCH_TIMING_DATA-015"
+        ]
+      },
+      "created": "2026-01-30T22:04:44Z",
+      "lastUpdated": "2026-02-19T18:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_FETCH_TIMING_DATA-014",
+      "version": 1,
+      "logic_category": "IO",
+      "description": "fetchWithTimeout() helper — wraps native fetch() with an AbortController timeout. After FETCH_TIMEOUT_MS (10s) the request is aborted, causing fetch() to throw a DOMException named AbortError. Callers catch this and return HTTP 504. gill 2026-02-19: new function added to fix indefinite-hang bug.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/fetch-timing-data/route.ts",
+        "functionName": "fetchWithTimeout"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_FETCH_TIMING_DATA-013",
+          "API_ADMIN_FETCH_TIMING_DATA-005",
+          "API_ADMIN_FETCH_TIMING_DATA-006",
+          "API_ADMIN_FETCH_TIMING_DATA-007",
+          "API_ADMIN_FETCH_TIMING_DATA-009"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-19T18:00:00Z",
+      "lastUpdated": "2026-02-19T18:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_FETCH_TIMING_DATA-015",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "safeParseJson() helper — reads response body as text then calls JSON.parse(). If parsing fails (e.g. OpenF1 returned an HTML error page), throws a descriptive Error including the HTTP status and a 300-char body preview. Replaces direct .json() calls to prevent SyntaxError propagating to top-level catch. gill 2026-02-19: new function added to fix non-JSON-response bug.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/fetch-timing-data/route.ts",
+        "functionName": "safeParseJson"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_FETCH_TIMING_DATA-013",
+          "API_ADMIN_FETCH_TIMING_DATA-005",
+          "API_ADMIN_FETCH_TIMING_DATA-006",
+          "API_ADMIN_FETCH_TIMING_DATA-007"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-19T18:00:00Z",
+      "lastUpdated": "2026-02-19T18:00:00Z"
     },
     {
       "guid": "API_ADMIN_OPENF1_SESSIONS-000",
-      "version": 1,
+      "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Admin API route that proxies OpenF1 meetings and sessions endpoints for the PubChatPanel dropdown selectors. Avoids CORS issues and allows admin auth verification.",
+      "description": "Module-level file header for openf1-sessions proxy route. Declares OPENF1_BASE, OPENF1_TOKEN_URL, FETCH_TIMEOUT_MS (10s), and independent module-level OAuth2 token cache. gill 2026-02-19: added FETCH_TIMEOUT_MS and fetchWithTimeout/safeParseJson helpers; documented that token cache is independent of fetch-timing-data route.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29183,9 +29257,9 @@
     },
     {
       "guid": "API_ADMIN_OPENF1_SESSIONS-001",
-      "version": 1,
-      "logic_category": "PRESENTATION",
-      "description": "GET handler that proxies OpenF1 meetings (when ?year= is provided) or sessions (when ?meetingKey= is provided) to populate admin UI dropdowns.",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "GET handler proxying OpenF1 meetings (?year=) or sessions (?meetingKey=) for admin UI dropdowns. gill 2026-02-19: all fetch() replaced with fetchWithTimeout(); all .json() replaced with safeParseJson(); timeout returns 504 with clear message; verbose logging added throughout.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29221,9 +29295,9 @@
     },
     {
       "guid": "API_ADMIN_OPENF1_SESSIONS-002",
-      "version": 1,
+      "version": 3,
       "logic_category": "IO",
-      "description": "Fetch meetings for a given year from OpenF1.",
+      "description": "Fetch and return meetings for a given year from OpenF1 (?year= branch). gill 2026-02-19: fetch() replaced with fetchWithTimeout(); .json() replaced with safeParseJson(); timeout/network errors return 504.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29258,9 +29332,9 @@
     },
     {
       "guid": "API_ADMIN_OPENF1_SESSIONS-003",
-      "version": 1,
+      "version": 3,
       "logic_category": "IO",
-      "description": "Fetch sessions for a given meeting from OpenF1.",
+      "description": "Fetch and return sessions for a given meeting from OpenF1 (?meetingKey= branch). gill 2026-02-19: fetch() replaced with fetchWithTimeout(); .json() replaced with safeParseJson(); timeout/network errors return 504.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29295,9 +29369,9 @@
     },
     {
       "guid": "API_ADMIN_OPENF1_SESSIONS-004",
-      "version": 2,
-      "logic_category": "ORCHESTRATION",
-      "description": "Top-level error handler \u2014 logs to error_logs and returns safe 500 response.",
+      "version": 3,
+      "logic_category": "RECOVERY",
+      "description": "Top-level catch block — logs traced error to error_logs and returns safe 500. gill 2026-02-19: nested try/catch added so Firebase Admin failure during logging does not cause second uncaught exception; fallback minimal response added.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -29328,7 +29402,75 @@
         "calls": []
       },
       "created": "2026-01-30T22:04:44Z",
-      "lastUpdated": "2026-02-10T15:31:06Z"
+      "lastUpdated": "2026-02-19T18:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_SESSIONS-005",
+      "version": 2,
+      "logic_category": "IO",
+      "description": "OpenF1 OAuth2 token acquisition with 55-minute module-level cache for openf1-sessions route. Independent of the cache in fetch-timing-data route. gill 2026-02-19: fetch() replaced with fetchWithTimeout(); token response parsed via safeParseJson(); added guard for missing access_token; verbose logging added.",
+      "dependencies": [
+        "API_ADMIN_OPENF1_SESSIONS-006",
+        "API_ADMIN_OPENF1_SESSIONS-007"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-sessions/route.ts",
+        "functionName": "getOpenF1Token"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_OPENF1_SESSIONS-002",
+          "API_ADMIN_OPENF1_SESSIONS-003"
+        ],
+        "calls": [
+          "API_ADMIN_OPENF1_SESSIONS-006",
+          "API_ADMIN_OPENF1_SESSIONS-007"
+        ]
+      },
+      "created": "2026-01-30T22:04:44Z",
+      "lastUpdated": "2026-02-19T18:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_SESSIONS-006",
+      "version": 1,
+      "logic_category": "IO",
+      "description": "fetchWithTimeout() helper for openf1-sessions route — wraps native fetch() with AbortController timeout. After FETCH_TIMEOUT_MS (10s) the request is aborted, throwing AbortError. Callers catch this and return HTTP 504. gill 2026-02-19: new function added to fix indefinite-hang bug.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-sessions/route.ts",
+        "functionName": "fetchWithTimeout"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_OPENF1_SESSIONS-005",
+          "API_ADMIN_OPENF1_SESSIONS-002",
+          "API_ADMIN_OPENF1_SESSIONS-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-19T18:00:00Z",
+      "lastUpdated": "2026-02-19T18:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_SESSIONS-007",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "safeParseJson() helper for openf1-sessions route — reads response body as text then calls JSON.parse(). Throws descriptive Error with HTTP status and 300-char body preview if parsing fails. Prevents SyntaxError from non-JSON responses propagating to top-level catch. gill 2026-02-19: new function added to fix non-JSON-response bug.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-sessions/route.ts",
+        "functionName": "safeParseJson"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_OPENF1_SESSIONS-005",
+          "API_ADMIN_OPENF1_SESSIONS-002",
+          "API_ADMIN_OPENF1_SESSIONS-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-19T18:00:00Z",
+      "lastUpdated": "2026-02-19T18:00:00Z"
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-000",
