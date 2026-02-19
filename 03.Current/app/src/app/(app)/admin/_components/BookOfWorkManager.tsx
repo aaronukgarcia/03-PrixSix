@@ -72,6 +72,19 @@ const severityColors: Record<BookOfWorkSeverity, string> = {
   informational: 'bg-gray-500/90 text-white border-gray-500',
 };
 
+// GUID: ADMIN_BOOKOFWORK-004A-v01
+// [Intent] Helper function to safely convert Firestore Timestamp or Date to Date object
+// [Inbound Trigger] Called when displaying updatedAt/createdAt fields
+// [Downstream Impact] Handles both Firestore Timestamp objects and plain Date objects
+function toDate(timestamp: any): Date {
+  if (!timestamp) return new Date();
+  if (timestamp instanceof Date) return timestamp;
+  if (typeof timestamp.toDate === 'function') return timestamp.toDate();
+  if (typeof timestamp === 'string') return new Date(timestamp);
+  if (typeof timestamp === 'number') return new Date(timestamp);
+  return new Date();
+}
+
 // GUID: ADMIN_BOOKOFWORK-005-v02
 // [Intent] Main BookOfWorkManager component providing centralized work item tracking with filtering, search, and inline editing
 // [Inbound Trigger] Rendered by the admin page when the Book of Work tab is active
@@ -288,7 +301,7 @@ export function BookOfWorkManager() {
       byCategory[entry.category]++;
     });
 
-    const lastUpdated = entries.length > 0 ? entries[0].updatedAt.toDate() : new Date();
+    const lastUpdated = entries.length > 0 ? toDate(entries[0].updatedAt) : new Date();
 
     return {
       total: entries.length,
@@ -686,7 +699,7 @@ export function BookOfWorkManager() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {entry.updatedAt.toDate().toLocaleDateString()}
+                      {toDate(entry.updatedAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
                       {editingId === entry.id ? (
