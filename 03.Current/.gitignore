@@ -74,6 +74,10 @@ node_modules/
 service-account.json
 **/service-account.json
 
+# Vestige memory exports (contains credentials, share manually)
+bill-vestige-export.db
+*vestige-export.db
+
 # API keys and secrets (SECURITY: never commit credentials)
 *.api-key.txt
 .api-key.txt
