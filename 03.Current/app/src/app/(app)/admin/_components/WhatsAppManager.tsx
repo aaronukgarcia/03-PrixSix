@@ -110,6 +110,8 @@ import {
   addWhatsAppAlertHistoryEntry,
 } from "@/firebase/firestore/settings";
 import { logAuditEvent } from "@/lib/audit";
+import { createTracedError, logTracedError } from "@/lib/traced-error";
+import { ERRORS } from "@/lib/error-registry";
 
 // GUID: ADMIN_WHATSAPP-002-v03
 // [Intent] Constants for the WhatsApp proxy API endpoint and message length limit.
@@ -495,8 +497,16 @@ export function WhatsAppManager() {
       });
       setRecentMessages(messages);
       setQueueLoading(false);
-    }, (error) => {
+    }, async (error) => {
       console.error('Error listening to queue:', error);
+
+      // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
+      const tracedError = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+        context: { collection: 'whatsapp_queue', operation: 'onSnapshot' },
+        cause: error,
+      });
+
+      await logTracedError(tracedError);
       setQueueLoading(false);
     });
 
@@ -520,8 +530,16 @@ export function WhatsAppManager() {
       });
       setAlertHistory(entries);
       setHistoryLoading(false);
-    }, (error) => {
+    }, async (error) => {
       console.error('Error listening to alert history:', error);
+
+      // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
+      const tracedError = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+        context: { collection: 'whatsapp_alert_history', operation: 'onSnapshot' },
+        cause: error,
+      });
+
+      await logTracedError(tracedError);
       setHistoryLoading(false);
     });
 
@@ -545,8 +563,16 @@ export function WhatsAppManager() {
       });
       setStatusLog(entries);
       setStatusLogLoading(false);
-    }, (error) => {
+    }, async (error) => {
       console.error('Error listening to status log:', error);
+
+      // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
+      const tracedError = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+        context: { collection: 'whatsapp_status_log', operation: 'onSnapshot' },
+        cause: error,
+      });
+
+      await logTracedError(tracedError);
       setStatusLogLoading(false);
     });
 

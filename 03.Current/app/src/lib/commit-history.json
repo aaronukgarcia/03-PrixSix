@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-19",
   "commits": [
+    {"id": "PENDING", "date": "2026-02-19", "version": "1.58.28", "author": "aaron garcia", "message": "fix: WhatsApp admin panel error logging + Firestore rules (v1.58.28)", "major": false},
     {"id": "deda18c", "date": "2026-02-19", "version": "1.58.22", "author": "Garth McLaughlin", "message": "Merge origin/main — resolve fetch-timing-data conflict", "major": false},
     {"id": "407c76a", "date": "2026-02-19", "version": "1.58.22", "author": "Garth McLaughlin", "message": "fix(pub-chat): Add fetch timeouts and safe JSON parsing to OpenF1 routes", "major": false},
     {"id": "0355595", "date": "2026-02-19", "version": "1.58.22", "author": "aaron garcia", "message": "fix: Function ordering in PubChatPanel (v1.58.22)", "major": false},
