@@ -79,14 +79,17 @@ async function getOpenF1Token(): Promise<string | null> {
   }
 }
 
-// GUID: API_ADMIN_FETCH_TIMING_DATA-001-v02
+// GUID: API_ADMIN_FETCH_TIMING_DATA-001-v03
+// @ENHANCEMENT: Added dataType and driverNumber parameters for rich OpenF1 API exploitation.
 // @SECURITY_FIX: Removed adminUid from schema - now uses authenticated user's UID instead.
 //   Previous version allowed parameter tampering: attacker could submit any admin UID.
-// [Intent] Zod schema for validating the fetch request — requires sessionKey only.
+// [Intent] Zod schema for validating the fetch request — requires sessionKey, optional dataType and driverNumber.
 // [Inbound Trigger] Every incoming POST request body is parsed against this schema.
 // [Downstream Impact] Rejects malformed requests before any OpenF1 API calls are made.
 const fetchTimingRequestSchema = z.object({
   sessionKey: z.number().int().positive(),
+  dataType: z.enum(['laps', 'positions', 'car_data', 'pit', 'stints', 'intervals', 'race_control', 'team_radio', 'weather', 'location']).optional().default('laps'),
+  driverNumber: z.number().int().positive().optional(),
 }).strict();
 
 // GUID: API_ADMIN_FETCH_TIMING_DATA-002-v01
@@ -100,6 +103,29 @@ function formatLapDuration(seconds: number): string {
   // Pad seconds to ensure "M:SS.mmm" format (e.g. 1:02.345 not 1:2.345)
   const paddedSecs = secs < 10 ? `0${secsStr}` : secsStr;
   return `${mins}:${paddedSecs}`;
+}
+
+// GUID: API_ADMIN_FETCH_TIMING_DATA-014-v01
+// [Intent] Fetch data from OpenF1 API based on data type and optional driver filter.
+// [Inbound Trigger] Called by POST handler with sessionKey, dataType, and optional driverNumber.
+// [Downstream Impact] Returns raw data from OpenF1 API for the selected data type.
+async function fetchOpenF1Data(
+  sessionKey: number,
+  dataType: string,
+  driverNumber: number | undefined,
+  authHeaders: HeadersInit
+): Promise<any[]> {
+  const baseUrl = `${OPENF1_BASE}/${dataType}?session_key=${sessionKey}`;
+  const url = driverNumber ? `${baseUrl}&driver_number=${driverNumber}` : baseUrl;
+
+  const res = await fetch(url, { headers: authHeaders });
+
+  if (!res.ok) {
+    throw new Error(`OpenF1 ${dataType} endpoint returned ${res.status}`);
+  }
+
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 }
 
 // GUID: API_ADMIN_FETCH_TIMING_DATA-003-v02
@@ -143,8 +169,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { sessionKey } = parsed.data;
+    const { sessionKey, dataType = 'laps', driverNumber } = parsed.data;
     const { db, FieldValue } = await getFirebaseAdmin();
+
+    // Log the data type and filter being requested
+    console.log(`[Fetch Timing ${correlationId}] Session ${sessionKey}, Type: ${dataType}, Driver: ${driverNumber || 'all'}`);
 
     // GUID: API_ADMIN_FETCH_TIMING_DATA-004-v02
     // @SECURITY_FIX: Now uses authenticated user's UID instead of user-controlled adminUid parameter.
@@ -241,12 +270,17 @@ export async function POST(request: NextRequest) {
     const meetings = await meetingRes.json();
     const meeting = meetings[0] || {};
 
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-007-v02
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-007-v03
+    // @ENHANCEMENT: Added driver number filtering for focused data queries.
     // @AUTH_FIX: Added OpenF1 OAuth2 authentication. OpenF1 API now requires auth tokens.
-    // [Intent] Fetch all drivers who participated in the session.
+    // [Intent] Fetch all drivers (or specific driver if filtered) who participated in the session.
     // [Inbound Trigger] Session and meeting data fetched successfully.
     // [Downstream Impact] Driver list determines how many lap-data requests are made.
-    const driversRes = await fetch(`${OPENF1_BASE}/drivers?session_key=${sessionKey}`, {
+    const driversUrl = driverNumber
+      ? `${OPENF1_BASE}/drivers?session_key=${sessionKey}&driver_number=${driverNumber}`
+      : `${OPENF1_BASE}/drivers?session_key=${sessionKey}`;
+
+    const driversRes = await fetch(driversUrl, {
       headers: authHeaders,
     });
     if (!driversRes.ok) {
@@ -266,7 +300,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'No drivers found for this session',
+          error: driverNumber ? `Driver #${driverNumber} not found in this session` : 'No drivers found for this session',
           errorCode: ERROR_CODES.OPENF1_NO_DATA.code,
           correlationId,
         },
@@ -348,7 +382,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-010-v01
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-010-v02
+    // @ENHANCEMENT: Added dataType and driverNumber metadata for display context.
     // [Intent] Write the computed timing data to Firestore for ThePaddockPubChat to read.
     // [Inbound Trigger] Valid timing results computed and sorted.
     // [Downstream Impact] Overwrites app-settings/pub-chat-timing. ThePaddockPubChat renders this data.
@@ -363,6 +398,8 @@ export async function POST(request: NextRequest) {
         countryName: meeting.country_name || '',
         dateStart: session.date_start || '',
       },
+      dataType,
+      driverFilter: driverNumber || null,
       drivers: validResults,
       fetchedAt: FieldValue.serverTimestamp(),
       fetchedBy: adminUid,
