@@ -51,15 +51,57 @@ interface SessionOption {
     dateStart: string;
 }
 
-// GUID: PUBCHAT_PANEL-001-v06
+// GUID: PUBCHAT_PANEL-010-v01
+// [Intent] Data type options for exploiting the rich OpenF1 API beyond just lap times.
+// [Inbound Trigger] Used to populate the "Data Type" dropdown in the fetch controls.
+// [Downstream Impact] Determines which OpenF1 endpoint to call and how to display data.
+type DataTypeOption =
+    | 'laps'           // Lap times and stint data
+    | 'positions'      // Position changes throughout session
+    | 'car_data'       // Telemetry (speed, RPM, gear, throttle, brake)
+    | 'pit'            // Pit stop data
+    | 'stints'         // Stint information (tire compounds, lap counts)
+    | 'intervals'      // Time gaps between cars
+    | 'race_control'   // Race control messages (flags, investigations)
+    | 'team_radio'     // Team radio messages
+    | 'weather'        // Weather data (track temp, air temp, humidity, rainfall)
+    | 'location';      // GPS position data (for track maps)
+
+interface DataTypeDescriptor {
+    value: DataTypeOption;
+    label: string;
+    description: string;
+    supportsDriverFilter: boolean;
+}
+
+// GUID: PUBCHAT_PANEL-011-v01
+// [Intent] Available data types that can be fetched from OpenF1 API.
+// [Inbound Trigger] Used to populate the "Data Type" dropdown.
+// [Downstream Impact] Defines which data types are available and their metadata.
+const DATA_TYPES: DataTypeDescriptor[] = [
+    { value: 'laps', label: 'Lap Times', description: 'Driver lap times and best laps', supportsDriverFilter: true },
+    { value: 'positions', label: 'Positions', description: 'Position changes throughout session', supportsDriverFilter: true },
+    { value: 'car_data', label: 'Car Data', description: 'Telemetry (speed, RPM, gear, throttle)', supportsDriverFilter: true },
+    { value: 'pit', label: 'Pit Stops', description: 'Pit stop timings and durations', supportsDriverFilter: true },
+    { value: 'stints', label: 'Stints', description: 'Tire compound and stint data', supportsDriverFilter: true },
+    { value: 'intervals', label: 'Intervals', description: 'Time gaps between cars', supportsDriverFilter: false },
+    { value: 'race_control', label: 'Race Control', description: 'Flags and race director messages', supportsDriverFilter: false },
+    { value: 'team_radio', label: 'Team Radio', description: 'Radio messages', supportsDriverFilter: true },
+    { value: 'weather', label: 'Weather', description: 'Track and air conditions', supportsDriverFilter: false },
+    { value: 'location', label: 'Track Position', description: 'GPS position data', supportsDriverFilter: true },
+];
+
+// GUID: PUBCHAT_PANEL-001-v07
+// @ENHANCEMENT: Added data type selection, driver filtering, and auto-refresh capabilities
+//   to exploit the rich OpenF1 API beyond just lap times.
 // @UX_IMPROVEMENT: Added pubClosed and nextAvailableTime state for friendly "pub closed" UI.
 // @ERROR_FIX: Added proper 4-pillar error handling to all toast notifications.
 // @SECURITY_FIX: Added authToken state and retrieval for API authentication.
 // [Intent] PubChatPanel component — centres the pub chat animation, provides OpenF1
-//          fetch controls for live timing data, and shows newsletter HTML.
+//          fetch controls for live timing data with rich data type selection, and shows newsletter HTML.
 // [Inbound Trigger] Mounted by TabsContent value="pubchat" in admin/page.tsx.
 // [Downstream Impact] Reads app-settings/pub-chat and app-settings/pub-chat-timing from Firestore.
-//                     POSTs to /api/admin/fetch-timing-data to update timing data.
+//                     POSTs to /api/admin/fetch-timing-data to update timing data with selected data type.
 export function PubChatPanel() {
     const firestore = useFirestore();
     const { firebaseUser } = useAuth();
@@ -86,6 +128,18 @@ export function PubChatPanel() {
     const [loadingMeetings, setLoadingMeetings] = useState(false);
     const [loadingSessions, setLoadingSessions] = useState(false);
     const [fetching, setFetching] = useState(false);
+
+    // GUID: PUBCHAT_PANEL-012-v01
+    // [Intent] Enhanced fetch controls state for rich OpenF1 API exploitation.
+    // [Inbound Trigger] User selections in dropdowns and toggles.
+    // [Downstream Impact] Determines which API endpoint to call and how to display data.
+    const [selectedDataType, setSelectedDataType] = useState<DataTypeOption>('laps');
+    const [availableDrivers, setAvailableDrivers] = useState<Array<{ number: number; name: string }>>([]);
+    const [selectedDriverNumber, setSelectedDriverNumber] = useState<string>('all');
+    const [loadingDrivers, setLoadingDrivers] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(false);
+    const [refreshInterval, setRefreshInterval] = useState<number>(30); // seconds
+    const [autoRefreshCountdown, setAutoRefreshCountdown] = useState<number>(0);
 
     // Pub closed state (OpenF1 session active)
     const [pubClosed, setPubClosed] = useState(false);
@@ -256,15 +310,51 @@ export function PubChatPanel() {
         fetchSessions();
     }, [selectedMeetingKey, authToken, toast]);
 
-    // GUID: PUBCHAT_PANEL-005-v05
+    // GUID: PUBCHAT_PANEL-013-v01
+    // [Intent] Fetch driver list when a session is selected to populate driver filter dropdown.
+    // [Inbound Trigger] selectedSessionKey changes to a non-empty value.
+    // [Downstream Impact] Populates the driver filter dropdown for driver-specific data queries.
+    useEffect(() => {
+        if (!selectedSessionKey || !authToken) {
+            setAvailableDrivers([]);
+            setSelectedDriverNumber('all');
+            return;
+        }
+
+        const fetchDrivers = async () => {
+            setLoadingDrivers(true);
+            try {
+                const res = await fetch(`/api/admin/openf1-drivers?sessionKey=${selectedSessionKey}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                    },
+                });
+                const json = await res.json();
+                if (json.success && Array.isArray(json.data)) {
+                    setAvailableDrivers(json.data);
+                } else {
+                    console.warn('[Driver Fetch]', json.error || 'Failed to load drivers');
+                    // Don't show error toast - drivers are optional
+                }
+            } catch (err) {
+                console.warn('[Driver Fetch Error]', err);
+            } finally {
+                setLoadingDrivers(false);
+            }
+        };
+        fetchDrivers();
+    }, [selectedSessionKey, authToken]);
+
+    // GUID: PUBCHAT_PANEL-005-v07
+    // @ENHANCEMENT: Added dataType and driverNumber parameters for rich OpenF1 API exploitation.
     // @ERROR_FIX: Added proper 4-pillar error handling (error code, correlation ID, selectable text).
     // @SECURITY_FIX: Added Authorization header with Firebase auth token. Removed unused adminUid
     //   parameter (API route uses authenticated user's UID instead).
     // [Intent] Fetch timing data from OpenF1 and write to Firestore via the API route.
-    // [Inbound Trigger] Admin clicks "Fetch from OpenF1" button.
-    // [Downstream Impact] POSTs to /api/admin/fetch-timing-data, then refreshes timing data
-    //                     from Firestore to update the ThePaddockPubChat component.
-    const handleFetchTimingData = async () => {
+    // [Inbound Trigger] Admin clicks "Fetch from OpenF1" button or auto-refresh triggers.
+    // [Downstream Impact] POSTs to /api/admin/fetch-timing-data with dataType and driver filter,
+    //                     then refreshes timing data from Firestore to update display.
+    const handleFetchTimingData = useCallback(async () => {
         if (!selectedSessionKey || !authToken) return;
 
         setFetching(true);
@@ -279,6 +369,8 @@ export function PubChatPanel() {
                 },
                 body: JSON.stringify({
                     sessionKey: Number(selectedSessionKey),
+                    dataType: selectedDataType,
+                    driverNumber: selectedDriverNumber === 'all' ? undefined : Number(selectedDriverNumber),
                 }),
             });
 
@@ -318,7 +410,40 @@ export function PubChatPanel() {
         } finally {
             setFetching(false);
         }
-    };
+    }, [selectedSessionKey, authToken, selectedDataType, selectedDriverNumber, firestore, toast]);
+
+    // GUID: PUBCHAT_PANEL-014-v01
+    // [Intent] Auto-refresh mechanism for near real-time data updates when toggle is enabled.
+    // [Inbound Trigger] autoRefresh toggle enabled, selectedSessionKey present.
+    // [Downstream Impact] Automatically fetches timing data at specified interval.
+    useEffect(() => {
+        if (!autoRefresh || !selectedSessionKey) {
+            setAutoRefreshCountdown(0);
+            return;
+        }
+
+        // Initial countdown
+        setAutoRefreshCountdown(refreshInterval);
+
+        // Countdown timer (every second)
+        const countdownTimer = setInterval(() => {
+            setAutoRefreshCountdown(prev => {
+                if (prev <= 1) return refreshInterval;
+                return prev - 1;
+            });
+        }, 1000);
+
+        // Refresh timer (at interval)
+        const refreshTimer = setInterval(() => {
+            console.log('[Auto-Refresh] Fetching timing data...');
+            handleFetchTimingData();
+        }, refreshInterval * 1000);
+
+        return () => {
+            clearInterval(countdownTimer);
+            clearInterval(refreshTimer);
+        };
+    }, [autoRefresh, selectedSessionKey, refreshInterval, handleFetchTimingData]);
 
     return (
         <div className="relative space-y-6">
@@ -389,6 +514,10 @@ export function PubChatPanel() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {/* GUID: PUBCHAT_PANEL-015-v01
+                        [Intent] Enhanced dropdown controls for exploiting rich OpenF1 API options.
+                        [Inbound Trigger] User interactions with dropdowns and toggles.
+                        [Downstream Impact] Determines API request parameters and display mode. */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Meeting dropdown */}
                         <div className="space-y-1.5">
@@ -431,6 +560,97 @@ export function PubChatPanel() {
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Data Type dropdown */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Data Type</label>
+                            <Select
+                                value={selectedDataType}
+                                onValueChange={(value) => setSelectedDataType(value as DataTypeOption)}
+                                disabled={!authToken}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select data type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {DATA_TYPES.map(dt => (
+                                        <SelectItem key={dt.value} value={dt.value}>
+                                            <div className="flex flex-col">
+                                                <span>{dt.label}</span>
+                                                <span className="text-xs text-muted-foreground">{dt.description}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Driver Filter dropdown (conditional) */}
+                        {DATA_TYPES.find(dt => dt.value === selectedDataType)?.supportsDriverFilter && (
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Driver Filter</label>
+                                <Select
+                                    value={selectedDriverNumber}
+                                    onValueChange={setSelectedDriverNumber}
+                                    disabled={!authToken || !selectedSessionKey || loadingDrivers}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={loadingDrivers ? 'Loading...' : 'All drivers'} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Drivers</SelectItem>
+                                        {availableDrivers.map(d => (
+                                            <SelectItem key={d.number} value={String(d.number)}>
+                                                #{d.number} {d.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Auto-Refresh Controls */}
+                    <div className="border-t pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <label className="text-sm font-medium">Auto-Refresh</label>
+                                <p className="text-xs text-muted-foreground">
+                                    {autoRefresh
+                                        ? `Next refresh in ${autoRefreshCountdown}s`
+                                        : 'Enable for near real-time updates'}
+                                </p>
+                            </div>
+                            <Button
+                                variant={autoRefresh ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setAutoRefresh(!autoRefresh)}
+                                disabled={!selectedSessionKey}
+                            >
+                                {autoRefresh ? 'Enabled' : 'Disabled'}
+                            </Button>
+                        </div>
+
+                        {autoRefresh && (
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Refresh Interval</label>
+                                <Select
+                                    value={String(refreshInterval)}
+                                    onValueChange={(value) => setRefreshInterval(Number(value))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="5">5 seconds</SelectItem>
+                                        <SelectItem value="10">10 seconds</SelectItem>
+                                        <SelectItem value="15">15 seconds</SelectItem>
+                                        <SelectItem value="30">30 seconds</SelectItem>
+                                        <SelectItem value="60">60 seconds</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                     </div>
                 </CardContent>
                 <CardFooter>

@@ -185,12 +185,21 @@ This is an automated security email from Prix Six
     });
 
     if (!emailResult.success) {
+      // Log the actual email error for diagnostics
+      console.error('[Admin Challenge] Email send failed:', {
+        correlationId,
+        emailError: emailResult.error,
+        queued: emailResult.queued,
+        queueReason: emailResult.queueReason,
+      });
+
       return NextResponse.json(
         {
           success: false,
-          error: 'Failed to send verification email',
+          error: emailResult.error || 'Failed to send verification email',
           errorCode: ERROR_CODES.EMAIL_SEND_FAILED.code,
           correlationId,
+          details: emailResult.queueReason, // Include queue reason if rate limited
         },
         { status: 500 }
       );
