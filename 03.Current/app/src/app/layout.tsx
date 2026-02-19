@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ChunkErrorHandler } from '@/components/ChunkErrorHandler';
+import { GlobalErrorLogger } from '@/components/GlobalErrorLogger';
 import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
 import { getPerformance } from 'firebase/performance';
 import { useEffect } from 'react';
@@ -54,6 +55,7 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <FirebaseServicesTracker />
           <ChunkErrorHandler />
+          <GlobalErrorLogger />
           {children}
           <Toaster />
         </FirebaseClientProvider>
