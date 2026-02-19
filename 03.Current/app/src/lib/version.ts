@@ -14,4 +14,5 @@
 //                     deployed About and Login pages. A stale value here means deployment verification fails.
 // Single source of truth for app version
 // IMPORTANT: Update this when you bump the version in package.json
-export const APP_VERSION = "1.58.24";
+export const APP_VERSION = "1.58.26";
+>>>>>>> d15e26d (v1.58.26 - Fix Book of Work UI Permissions & Browser Compatibility)

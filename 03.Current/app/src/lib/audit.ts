@@ -23,14 +23,34 @@ import { ERRORS } from '@/lib/error-registry';
 // [Downstream Impact] All audit_logs entries reference this ID. If reset unexpectedly, audit trail continuity for the session is broken.
 let sessionCorrelationId: string | null = null;
 
-// GUID: LIB_AUDIT-002-v04
+// GUID: LIB_AUDIT-002-v05
 // @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID() to prevent predictable token generation (LIB-002).
+// @BUG_FIX: Added browser compatibility check for crypto.randomUUID() with fallback (v1.58.25).
 // [Intent] Generates a cryptographically secure RFC 4122 v4 UUID for use as session correlation IDs.
-//          Uses Web Crypto API which is available in all modern browsers.
+//          Uses Web Crypto API which is available in all modern browsers, with polyfill fallback.
 // [Inbound Trigger] Called by getCorrelationId when no session correlation ID exists yet.
 // [Downstream Impact] Provides the unique identifier used across all audit events in a session. Now cryptographically secure, preventing token prediction attacks.
 function generateGuid() {
-  return crypto.randomUUID();
+  // Use native crypto.randomUUID() if available (modern browsers)
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  // Fallback: Manual UUID v4 generation using crypto.getRandomValues()
+  // Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (globalThis.crypto.getRandomValues(new Uint8Array(1))[0] % 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  // Last resort fallback (should never happen in modern browsers)
+  console.warn('[Audit] crypto API not available, using timestamp-based UUID');
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 15);
+  return `${timestamp}-${random}-${Math.random().toString(36).substring(2, 15)}`;
 }
 
 // GUID: LIB_AUDIT-003-v03
@@ -145,7 +165,7 @@ export function logPermissionError(firestore: any, userId: string | undefined, e
     // We use ERRORS.AUTH_PERMISSION_DENIED from the error registry rather than a plain console.error
     // This ensures permission errors follow Golden Rule #7 (centralized error definitions)
     // We only log to console to avoid circular permission errors (don't write to Firestore)
-    const correlationId = crypto.randomUUID();
+    const correlationId = generateGuid();
     const traced = createTracedError(ERRORS.AUTH_PERMISSION_DENIED, {
         correlationId,
         context: {
