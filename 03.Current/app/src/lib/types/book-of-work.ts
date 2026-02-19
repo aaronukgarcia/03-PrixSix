@@ -61,7 +61,23 @@ export type BookOfWorkSource =
   | 'error-log'          // From error_logs Firestore collection
   | 'feedback'           // From feedback Firestore collection
   | 'manual'             // Manually created by admin
-  | 'historical';        // Completed work from previous sessions
+  | 'historical'         // Completed work from previous sessions
+  | 'firestore-existing' // Already existed in Firestore
+  | 'archived-security-audit'; // From archived book-of-works files
+
+/**
+ * GUID: TYPES_BOOKOFWORK-004A
+ * Intent: Package types for filtering different work item collections
+ * Trigger: User wants to filter by audit type (UX vs Security critical vs Security medium, etc.)
+ * Impact: Enables drill-down filtering in admin UI by package/audit type
+ */
+export type BookOfWorkPackage =
+  | 'virgin-ux-audit'     // UX audit findings from virgin users
+  | 'security-critical'   // CRITICAL severity security issues
+  | 'security-high'       // HIGH severity security issues
+  | 'security-medium'     // MEDIUM severity security issues
+  | 'security-low'        // LOW severity security issues
+  | 'vestige-audit';      // Items from Vestige memory
 
 /**
  * GUID: TYPES_BOOKOFWORK-005
@@ -89,6 +105,7 @@ export interface BookOfWorkEntry {
 
   // Metadata
   source: BookOfWorkSource;
+  package?: BookOfWorkPackage;         // Package/audit type for filtering
   sourceData?: {                       // Original source metadata
     correlationId?: string;            // From error_logs
     userId?: string;                   // From feedback

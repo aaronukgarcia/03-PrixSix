@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { FileText, CheckCircle2, Clock, X, AlertTriangle, Shield, Palette, Zap, Server, Bug, User, Search, Plus, Edit2, Save, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { BookOfWorkEntry, BookOfWorkCategory, BookOfWorkStatus, BookOfWorkSeverity } from '@/lib/types/book-of-work';
+import type { BookOfWorkEntry, BookOfWorkCategory, BookOfWorkStatus, BookOfWorkSeverity, BookOfWorkPackage } from '@/lib/types/book-of-work';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 
@@ -92,6 +92,7 @@ export function BookOfWorkManager() {
   const [loadingProgress, setLoadingProgress] = useState<{ current: number; total: number } | null>(null);
   const [filterCategory, setFilterCategory] = useState<BookOfWorkCategory | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<BookOfWorkStatus | 'all'>('all');
+  const [filterPackage, setFilterPackage] = useState<BookOfWorkPackage | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<BookOfWorkEntryWithId>>({});
@@ -157,6 +158,7 @@ export function BookOfWorkManager() {
             status: data.status,
             priority: data.priority,
             source: data.source,
+            package: data.package,
             sourceData: data.sourceData,
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
@@ -239,6 +241,11 @@ export function BookOfWorkManager() {
       filtered = filtered.filter((e) => e.status === filterStatus);
     }
 
+    // Filter by package
+    if (filterPackage !== 'all') {
+      filtered = filtered.filter((e) => e.package === filterPackage);
+    }
+
     // Search in title and description
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -252,7 +259,7 @@ export function BookOfWorkManager() {
     }
 
     return filtered;
-  }, [entries, filterCategory, filterStatus, searchQuery]);
+  }, [entries, filterCategory, filterStatus, filterPackage, searchQuery]);
 
   // GUID: ADMIN_BOOKOFWORK-009-v01
   // [Intent] Calculates summary statistics (total count, by status, by category, last updated)
@@ -530,6 +537,20 @@ export function BookOfWorkManager() {
                     {config.label}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterPackage} onValueChange={(v) => setFilterPackage(v as BookOfWorkPackage | 'all')}>
+              <SelectTrigger className="w-full md:w-[220px]">
+                <SelectValue placeholder="Package" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Packages</SelectItem>
+                <SelectItem value="virgin-ux-audit">UX Audit</SelectItem>
+                <SelectItem value="security-critical">Security (Critical)</SelectItem>
+                <SelectItem value="security-high">Security (High)</SelectItem>
+                <SelectItem value="security-medium">Security (Medium)</SelectItem>
+                <SelectItem value="security-low">Security (Low)</SelectItem>
+                <SelectItem value="vestige-audit">Vestige Audit</SelectItem>
               </SelectContent>
             </Select>
           </div>
