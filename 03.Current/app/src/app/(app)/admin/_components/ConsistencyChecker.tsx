@@ -1,11 +1,12 @@
-// GUID: ADMIN_CONSISTENCY-000-v04
+// GUID: ADMIN_CONSISTENCY-000-v05
+// @SECURITY_FIX: Added 5-minute cooldown rate limit to runChecks (GEMINI-AUDIT-017). Prevents Denial of Wallet via repeated unbounded Firestore collection reads.
 // [Intent] Admin component for running data integrity checks across all Firestore collections and displaying results. Validates users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues.
 // [Inbound Trigger] Lazy-loaded and rendered when admin navigates to the Consistency Checker tab in the admin panel.
 // [Downstream Impact] Read-only validation component. Can export reports to consistency_reports collection. Does not modify source data. Check functions are defined in @/lib/consistency.
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useFirestore, useAuth } from '@/firebase';
 import { collection, query, collectionGroup, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -169,6 +170,32 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
   const { toast } = useToast();
 
   const [isRunning, setIsRunning] = useState(false);
+
+  // GUID: ADMIN_CONSISTENCY-012-v01
+  // [Intent] Enforce 5-minute cooldown between runs to prevent Denial of Wallet via repeated unbounded Firestore reads (GEMINI-AUDIT-017).
+  // [Inbound Trigger] Set when runChecks completes. Read before each run and by countdown timer.
+  // [Downstream Impact] Controls Run button disabled state and drives cooldown countdown UI.
+  const COOLDOWN_MS = 5 * 60 * 1000;
+  const LOCALSTORAGE_KEY = 'cc_last_run';
+  const [lastRunTime, setLastRunTime] = useState<number | null>(() => {
+    try { const s = localStorage.getItem(LOCALSTORAGE_KEY); return s ? parseInt(s, 10) : null; } catch { return null; }
+  });
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
+
+  // GUID: ADMIN_CONSISTENCY-013-v01
+  // [Intent] Live countdown timer — updates cooldownRemaining every second while cooldown is active.
+  // [Inbound Trigger] Runs whenever lastRunTime changes.
+  // [Downstream Impact] Re-enables Run button automatically when cooldown expires.
+  useEffect(() => {
+    if (!lastRunTime) return;
+    const update = () => {
+      const elapsed = Date.now() - lastRunTime;
+      setCooldownRemaining(Math.max(0, COOLDOWN_MS - elapsed));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [lastRunTime]);
   const [currentPhase, setCurrentPhase] = useState<CheckPhase>('idle');
   const [summary, setSummary] = useState<ConsistencyCheckSummary | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -176,12 +203,20 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
   // Data is now fetched ON-DEMAND when running checks, not on component mount
   // This prevents loading 4+ MB of Firestore data just by viewing the CC tab
 
-  // GUID: ADMIN_CONSISTENCY-009-v03
+  // GUID: ADMIN_CONSISTENCY-009-v04
+  // @SECURITY_FIX: Rate-limited to once per 5 minutes per session (GEMINI-AUDIT-017).
   // [Intent] Execute the full consistency check pipeline: users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues. Fetches Firestore data on-demand per phase to minimise memory usage.
   // [Inbound Trigger] Called when admin clicks "Run Consistency Check" button.
   // [Downstream Impact] Sets summary state with all check results, which drives the Summary Table, Score Type Breakdown, Issues Detail, and Export button. Fetches from collectionGroup('predictions'), collection('race_results'), collection('scores'), and collection('leagues').
   const runChecks = useCallback(async () => {
     if (!allUsers || !firestore) return;
+
+    // Rate limit: enforce 5-minute cooldown between runs (GEMINI-AUDIT-017 fix)
+    if (lastRunTime && Date.now() - lastRunTime < COOLDOWN_MS) {
+      const remaining = Math.ceil((COOLDOWN_MS - (Date.now() - lastRunTime)) / 60000);
+      toast({ variant: 'destructive', title: 'Rate Limited', description: `Please wait ${remaining} more minute(s) before running again.` });
+      return;
+    }
 
     setIsRunning(true);
     setSummary(null);
@@ -345,8 +380,12 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       });
     } finally {
       setIsRunning(false);
+      // Record timestamp for cooldown enforcement (GEMINI-AUDIT-017)
+      const now = Date.now();
+      setLastRunTime(now);
+      try { localStorage.setItem(LOCALSTORAGE_KEY, String(now)); } catch { /* ignore */ }
     }
-  }, [allUsers, firestore, toast]);
+  }, [allUsers, firestore, toast, lastRunTime]);
 
   // GUID: ADMIN_CONSISTENCY-010-v04
   // [Intent] Export all detected issues to the consistency_reports Firestore collection with a correlation ID for tracking.
@@ -434,7 +473,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
           <div className="flex flex-wrap gap-4">
             <Button
               onClick={runChecks}
-              disabled={isRunning || isUserLoading || !allUsers}
+              disabled={isRunning || isUserLoading || !allUsers || cooldownRemaining > 0}
             >
               {isRunning ? (
                 <>

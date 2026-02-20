@@ -1,15 +1,16 @@
 
-// GUID: ADMIN_ONLINE_USERS-000-v03
+// GUID: ADMIN_ONLINE_USERS-000-v04
+// @SECURITY_FIX: Replaced direct client-side Firestore writes with authenticated API calls (GEMINI-AUDIT-025, ADMINCOMP-009).
 // [Intent] Admin component for monitoring online user sessions and managing Single User Mode (purge all sessions, restrict access to one admin).
 // [Inbound Trigger] Rendered within the admin panel when the "Online Users" tab is selected.
-// [Downstream Impact] Reads presence collection for session data. Single User Mode writes to admin_configuration/global and presence documents, affecting all users' ability to use the system.
+// [Downstream Impact] Reads presence collection for session data. Single User Mode activation/deactivation goes through /api/admin/single-user-mode (server-side admin verification) — no longer writes directly to Firestore from client.
 
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { useCollection, useFirestore, useAuth, addDocumentNonBlocking } from '@/firebase';
 import type { User } from '@/firebase/provider';
-import { collection, query, doc, getDoc, setDoc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, query, doc, getDoc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -18,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { logAuditEvent, getCorrelationId } from '@/lib/audit';
+import { getCorrelationId } from '@/lib/audit';
 import { ShieldAlert, ShieldOff } from 'lucide-react';
 import { useSession } from '@/contexts/session-context';
 import { usePathname } from 'next/navigation';
@@ -84,7 +85,7 @@ function logErrorToFirestore(
       userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : null,
       url: typeof window !== 'undefined' ? window.location.href : null,
     },
-    timestamp: serverTimestamp(),
+    timestamp: new Date().toISOString(),
   };
   addDocumentNonBlocking(errorLogsRef, errorData);
 }
@@ -95,7 +96,7 @@ function logErrorToFirestore(
 // [Downstream Impact] Reads presence and admin_configuration collections. Single User Mode writes affect all users' sessions and access.
 export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManagerProps) {
   const firestore = useFirestore();
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const { toast } = useToast();
   const { sessionId: currentSessionId } = useSession();
   const pathname = usePathname();
@@ -129,146 +130,72 @@ export function OnlineUsersManager({ allUsers, isUserLoading }: OnlineUsersManag
     fetchSingleUserMode();
   }, [firestore]);
 
-  // GUID: ADMIN_ONLINE_USERS-008-v03
-  // [Intent] Activates Single User Mode: purges all presence sessions except the current admin's, then sets the flag in admin_configuration.
+  // GUID: ADMIN_ONLINE_USERS-008-v04
+  // @SECURITY_FIX: Replaced direct client-side Firestore batch write with authenticated API call (GEMINI-AUDIT-025, ADMINCOMP-009).
+  // [Intent] Activates Single User Mode via /api/admin/single-user-mode endpoint which performs server-side admin verification before purging presence sessions and setting the flag.
   // [Inbound Trigger] Clicking "Activate Single User Mode" in the confirmation AlertDialog.
-  // [Downstream Impact] All other users are immediately disconnected (sessions purged). Admin_configuration/global is updated with singleUserModeEnabled=true. Audit event logged.
+  // [Downstream Impact] All other users are immediately disconnected (sessions purged server-side). Admin_configuration/global is updated server-side. Audit event logged server-side.
   const activateSingleUserMode = async () => {
-    if (!firestore || !user) return;
+    if (!user || !firebaseUser) return;
     setIsActivating(true);
 
     const correlationId = getCorrelationId();
 
     try {
-      // Get all presence documents
-      const presenceSnapshot = await getDocs(collection(firestore, 'presence'));
+      const idToken = await firebaseUser.getIdToken();
+      if (!idToken) throw new Error('Authentication token not available');
 
-      // Batch update to purge all sessions EXCEPT the current admin's session
-      const batch = writeBatch(firestore);
-      let purgedCount = 0;
-      let preservedAdminSession = false;
-
-      presenceSnapshot.docs.forEach((presenceDoc) => {
-        const presenceData = presenceDoc.data();
-        const isCurrentAdmin = presenceDoc.id === user.id;
-
-        if (presenceData.sessions && presenceData.sessions.length > 0) {
-          if (isCurrentAdmin && currentSessionId) {
-            // For the current admin, preserve only their current session
-            const hasCurrentSession = presenceData.sessions.includes(currentSessionId);
-            if (hasCurrentSession) {
-              // Keep only the current session, purge others
-              const otherSessions = presenceData.sessions.filter((s: string) => s !== currentSessionId);
-              purgedCount += otherSessions.length;
-              batch.update(presenceDoc.ref, {
-                sessions: [currentSessionId],
-                online: true
-              });
-              preservedAdminSession = true;
-            } else {
-              // Current session not found, purge all (shouldn't happen)
-              purgedCount += presenceData.sessions.length;
-              batch.update(presenceDoc.ref, {
-                sessions: [],
-                online: false
-              });
-            }
-          } else {
-            // For all other users, purge all sessions
-            purgedCount += presenceData.sessions.length;
-            batch.update(presenceDoc.ref, {
-              sessions: [],
-              online: false
-            });
-          }
-        }
+      const response = await fetch('/api/admin/single-user-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        body: JSON.stringify({ adminUid: firebaseUser.uid, action: 'activate', currentSessionId: currentSessionId || undefined }),
       });
 
-      // Update admin_configuration with single user mode settings
-      const configRef = doc(firestore, 'admin_configuration', 'global');
-      batch.set(configRef, {
-        singleUserModeEnabled: true,
-        singleUserAdminId: user.id,
-        singleUserModeActivatedAt: new Date().toISOString(),
-      }, { merge: true });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Failed to activate Single User Mode');
 
-      await batch.commit();
+      setSingleUserMode({ singleUserModeEnabled: true, singleUserAdminId: user.id, singleUserModeActivatedAt: new Date().toISOString() });
 
-      // Update local state
-      setSingleUserMode({
-        singleUserModeEnabled: true,
-        singleUserAdminId: user.id,
-        singleUserModeActivatedAt: new Date().toISOString(),
-      });
-
-      // Log audit event
-      logAuditEvent(firestore, user.id, 'SINGLE_USER_MODE_ACTIVATED', {
-        purgedSessionCount: purgedCount,
-        preservedAdminSession,
-        adminSessionId: currentSessionId,
-        activatedBy: user.teamName,
-      });
-
-      toast({
-        title: "Single User Mode Activated",
-        description: `${purgedCount} session(s) have been purged. All other users are now disconnected.`,
-      });
+      toast({ title: "Single User Mode Activated", description: `${data.purgedCount ?? 0} session(s) have been purged. All other users are now disconnected.` });
 
     } catch (error: any) {
       console.error('Failed to activate single user mode:', error);
-
-      // Log error to error_logs collection
-      logErrorToFirestore(firestore, user.id, 'SINGLE_USER_MODE_ACTIVATION_FAILED', error, {
-        page: pathname,
-        action: 'activateSingleUserMode',
-        adminSessionId: currentSessionId,
-      });
-
-      toast({
-        variant: "destructive",
-        title: "Activation Failed",
-        description: `${error.message} (Correlation ID: ${correlationId})`,
-      });
+      logErrorToFirestore(firestore, user.id, 'SINGLE_USER_MODE_ACTIVATION_FAILED', error, { page: pathname, action: 'activateSingleUserMode', adminSessionId: currentSessionId });
+      toast({ variant: "destructive", title: "Activation Failed", description: `${error.message} (Correlation ID: ${correlationId})` });
     }
 
     setIsActivating(false);
   };
 
-  // GUID: ADMIN_ONLINE_USERS-009-v03
-  // [Intent] Deactivates Single User Mode: clears the flag in admin_configuration/global so all users can connect normally.
+  // GUID: ADMIN_ONLINE_USERS-009-v04
+  // @SECURITY_FIX: Replaced direct client-side Firestore setDoc with authenticated API call (GEMINI-AUDIT-025, ADMINCOMP-009).
+  // [Intent] Deactivates Single User Mode via /api/admin/single-user-mode endpoint which performs server-side admin verification before clearing the flag.
   // [Inbound Trigger] Clicking "Exit Single User Mode" in the confirmation AlertDialog.
-  // [Downstream Impact] Sets singleUserModeEnabled=false in admin_configuration/global. Users can reconnect. Audit event logged.
+  // [Downstream Impact] Sets singleUserModeEnabled=false in admin_configuration/global server-side. Users can reconnect. Audit event logged server-side.
   const deactivateSingleUserMode = async () => {
-    if (!firestore || !user) return;
+    if (!user || !firebaseUser) return;
     setIsActivating(true);
 
     const correlationId = getCorrelationId();
 
     try {
-      const configRef = doc(firestore, 'admin_configuration', 'global');
-      await setDoc(configRef, {
-        singleUserModeEnabled: false,
-        singleUserAdminId: null,
-        singleUserModeActivatedAt: null,
-      }, { merge: true });
+      const idToken = await firebaseUser.getIdToken();
+      if (!idToken) throw new Error('Authentication token not available');
 
-      setSingleUserMode({
-        singleUserModeEnabled: false,
-        singleUserAdminId: null,
-        singleUserModeActivatedAt: null,
+      const response = await fetch('/api/admin/single-user-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        body: JSON.stringify({ adminUid: firebaseUser.uid, action: 'deactivate' }),
       });
 
-      logAuditEvent(firestore, user.id, 'SINGLE_USER_MODE_DEACTIVATED', {
-        deactivatedBy: user.teamName,
-      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Failed to deactivate Single User Mode');
 
-      toast({
-        title: "Single User Mode Deactivated",
-        description: "Users can now connect normally.",
-      });
+      setSingleUserMode({ singleUserModeEnabled: false, singleUserAdminId: null, singleUserModeActivatedAt: null });
+
+      toast({ title: "Single User Mode Deactivated", description: "Users can now connect normally." });
 
     } catch (error: any) {
-      // Log error to error_logs collection
       logErrorToFirestore(firestore, user.id, 'SINGLE_USER_MODE_DEACTIVATION_FAILED', error, {
         page: pathname,
         action: 'deactivateSingleUserMode',

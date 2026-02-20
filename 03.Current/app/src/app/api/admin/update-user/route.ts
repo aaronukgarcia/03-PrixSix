@@ -274,12 +274,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // GUID: API_ADMIN_UPDATE_USER-009-v03
+    // GUID: API_ADMIN_UPDATE_USER-009-v04
     // [Intent] Write a general audit log entry for every admin user update, regardless of which fields changed.
     // [Inbound Trigger] Successful completion of all update operations.
     // [Downstream Impact] Populates audit_logs collection for compliance and troubleshooting. Admin dashboard may display these entries.
     await db.collection('audit_logs').add({
-      userId: adminUid,
+      userId: verifiedUser.uid,
       action: 'ADMIN_UPDATE_USER',
       details: {
         targetUserId: userId,

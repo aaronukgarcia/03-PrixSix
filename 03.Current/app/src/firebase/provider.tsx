@@ -1,4 +1,5 @@
-// GUID: FIREBASE_PROVIDER-000-v04
+// GUID: FIREBASE_PROVIDER-000-v05
+// @SECURITY_FIX: updateSecondaryEmail now sends Authorization header to fix 401 errors after GEMINI-AUDIT-006 server-side auth was added (FIREBASE_PROVIDER-019).
 // [Intent] Central Firebase context provider that manages authentication state, user profile data,
 // and all auth-related operations (login, signup, logout, PIN management, email verification).
 // This is the single source of truth for the current user's session and profile across the entire app.
@@ -945,7 +946,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-019-v05
+  // GUID: FIREBASE_PROVIDER-019-v06
+  // @SECURITY_FIX: Added Authorization header to match server-side auth requirement added in GEMINI-AUDIT-006 fix.
   // [Intent] Updates or removes the user's secondary email address via server-side API.
   // Passing null or empty string removes the secondary email; otherwise sets and marks unverified.
   // [Inbound Trigger] Called from the profile page secondary email form.
@@ -957,9 +959,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
 
     try {
+      const idToken = await firebaseUser.getIdToken();
       const response = await fetch('/api/update-secondary-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({
           uid: firebaseUser.uid,
           secondaryEmail: email,

@@ -606,8 +606,8 @@ export function BookOfWorkManager() {
                       {index + 1}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={categoryConfig[entry.category].color}>
-                        {categoryConfig[entry.category].label}
+                      <Badge variant="outline" className={categoryConfig[entry.category]?.color ?? 'bg-gray-500/10 text-gray-500 border-gray-500/30'}>
+                        {categoryConfig[entry.category]?.label ?? entry.category ?? 'unknown'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -654,8 +654,8 @@ export function BookOfWorkManager() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Badge variant="outline" className={statusConfig[entry.status].color}>
-                          {statusConfig[entry.status].label}
+                        <Badge variant="outline" className={statusConfig[entry.status]?.color ?? 'bg-gray-500/10 text-gray-500 border-gray-500/30'}>
+                          {statusConfig[entry.status]?.label ?? entry.status ?? 'unknown'}
                         </Badge>
                       )}
                     </TableCell>

@@ -1,4 +1,5 @@
-// GUID: LIB_EMAIL_TRACKING-000-v03
+// GUID: LIB_EMAIL_TRACKING-000-v04
+// @SECURITY_FIX: Applied escapeHtml() to all dynamic values in generateDailySummaryHtml (GEMINI-AUDIT-057). Prevents stored XSS via attacker-controlled teamName, type, toEmail, sentAt fields.
 // [Intent] Client-side email tracking and rate-limiting module. Manages daily email statistics, enforces global and per-address send limits, provides email queuing for rate-limited messages, and generates daily summary HTML reports.
 // [Inbound Trigger] Called by email.ts (LIB_EMAIL) before and after sending emails, and by admin summary endpoints.
 // [Downstream Impact] Controls whether emails can be sent (rate gating). Writes to email_daily_stats and email_queue Firestore collections. The daily summary HTML is sent to the admin via sendEmail.
@@ -18,6 +19,7 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
+import { escapeHtml } from '@/lib/email';
 
 // GUID: LIB_EMAIL_TRACKING-001-v03
 // [Intent] Rate-limit constants defining the maximum number of emails allowed per day globally and per individual recipient address.
@@ -280,10 +282,10 @@ export function generateDailySummaryHtml(emails: EmailLogEntry[], date: string):
   const emailListHtml = sentEmails.length > 0
     ? sentEmails.map(e => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${e.teamName || 'N/A'}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${e.type}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${e.toEmail}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${e.sentAt}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${escapeHtml(e.teamName || 'N/A')}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${escapeHtml(e.type)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${escapeHtml(e.toEmail)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${escapeHtml(e.sentAt)}</td>
       </tr>
     `).join('')
     : '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #666;">No emails sent today</td></tr>';
@@ -347,7 +349,7 @@ export function generateDailySummaryHtml(emails: EmailLogEntry[], date: string):
       <h3 style="margin-top: 30px;">Queued Emails (Rate Limited)</h3>
       <p style="color: #666;">These emails will be sent when daily limits reset.</p>
       <ul>
-        ${queuedEmails.map(e => `<li>${e.type} to ${e.toEmail} (${e.teamName || 'N/A'})</li>`).join('')}
+        ${queuedEmails.map(e => `<li>${escapeHtml(e.type)} to ${escapeHtml(e.toEmail)} (${escapeHtml(e.teamName || 'N/A')})</li>`).join('')}
       </ul>
       ` : ''}
     </div>
