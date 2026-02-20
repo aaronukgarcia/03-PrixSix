@@ -1,5 +1,10 @@
-// GUID: PUBCHAT_PANEL-000-v08
-// @UX_REDESIGN: Major UX overhaul from dropdown-heavy to F1-themed visual experience:
+// GUID: PUBCHAT_PANEL-000-v09
+// @UX_REDESIGN: Major 3-column collapsible layout overhaul with live leaderboard and today highlighting:
+//   - 3 collapsible areas: Live Leaderboard, Pub Chat, Real-Time Telemetry
+//   - Live leaderboard above meeting selector (auto-refresh every 10s)
+//   - Green ring around "today's" meetings with auto-selection as default
+//   - Area 4 (Live Track) planned for next version
+// @UX_REDESIGN: Previous v08 - Major UX overhaul from dropdown-heavy to F1-themed visual experience:
 //   - Meeting selector: dropdown → visual cards with flags, circuits, and dates
 //   - Driver selector: single dropdown → multi-select checkboxes for comparison
 //   - Auto-refresh: 30s default → 10s default (user-requested rate limit)
@@ -28,7 +33,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Beer, RefreshCw, AlertCircle, Download, Flag, Calendar, MapPin, Users, TrendingUp } from 'lucide-react';
+import { Beer, RefreshCw, AlertCircle, Download, Flag, Calendar, MapPin, Users, TrendingUp, Trophy, Radio, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useFirestore, useAuth } from '@/firebase';
 import { getPubChatSettings, PubChatSettings, getPubChatTimingData, PubChatTimingData } from '@/firebase/firestore/settings';
 import { Timestamp } from 'firebase/firestore';
@@ -97,15 +107,15 @@ const DATA_TYPES: DataTypeDescriptor[] = [
     { value: 'location', label: 'Track Position', description: 'GPS position data', supportsDriverFilter: true },
 ];
 
-// GUID: PUBCHAT_PANEL-001-v08
-// @UX_REDESIGN: Complete UI/UX overhaul for F1-themed experience with visual cards and multi-select.
-// @ENHANCEMENT: Changed auto-refresh default from 30s to 10s per user request.
-// @ENHANCEMENT: Added multi-select driver comparison for Hamilton vs Albon pit time analysis.
-// [Intent] PubChatPanel component — centres the pub chat animation, provides OpenF1
-//          fetch controls with visual meeting cards and multi-select drivers, shows newsletter HTML.
+// GUID: PUBCHAT_PANEL-001-v09
+// @UX_REDESIGN: 3-column collapsible layout with live leaderboard auto-refresh and today highlighting.
+// @ENHANCEMENT: Leaderboard auto-refresh every 10 seconds with latest OpenF1 data.
+// @ENHANCEMENT: Green ring around "today's" meetings + auto-select today as default.
+// @ENHANCEMENT: Collapsible sections (Leaderboard, Pub Chat, Telemetry) for focused viewing.
+// [Intent] PubChatPanel component — 3 collapsible areas above meeting/session selectors.
 // [Inbound Trigger] Mounted by TabsContent value="pubchat" in admin/page.tsx.
-// [Downstream Impact] Reads app-settings/pub-chat and app-settings/pub-chat-timing from Firestore.
-//                     POSTs to /api/admin/fetch-timing-data to update timing data with selected data type.
+// [Downstream Impact] Reads app-settings/pub-chat and pub-chat-timing from Firestore.
+//                     Auto-refreshes timing data every 10s when session selected.
 export function PubChatPanel() {
     const firestore = useFirestore();
     const { firebaseUser } = useAuth();
@@ -149,6 +159,23 @@ export function PubChatPanel() {
     // Pub closed state (OpenF1 session active)
     const [pubClosed, setPubClosed] = useState(false);
     const [nextAvailableTime, setNextAvailableTime] = useState<string | null>(null);
+
+    // GUID: PUBCHAT_PANEL-030-v09
+    // @UX_REDESIGN: Collapsible sections state for 3-column layout.
+    // [Intent] Track which sections are open/closed for focused viewing.
+    // [Inbound Trigger] User clicks collapse/expand triggers.
+    // [Downstream Impact] Controls visibility of leaderboard, pub chat, and telemetry sections.
+    const [leaderboardOpen, setLeaderboardOpen] = useState(true);
+    const [pubChatOpen, setPubChatOpen] = useState(true);
+    const [telemetryOpen, setTelemetryOpen] = useState(false); // Closed by default (coming soon)
+
+    // GUID: PUBCHAT_PANEL-031-v09
+    // @ENHANCEMENT: Leaderboard auto-refresh every 10 seconds.
+    // [Intent] Keep leaderboard data fresh with latest OpenF1 results.
+    // [Inbound Trigger] Auto-refresh timer fires every 10 seconds.
+    // [Downstream Impact] Re-fetches timing data if a session is selected.
+    const [leaderboardRefreshing, setLeaderboardRefreshing] = useState(false);
+    const [leaderboardLastUpdate, setLeaderboardLastUpdate] = useState<Date | null>(null);
 
     // Fetch auth token when firebaseUser changes
     useEffect(() => {
@@ -350,6 +377,36 @@ export function PubChatPanel() {
         fetchDrivers();
     }, [selectedSessionKey, authToken]);
 
+    // GUID: PUBCHAT_PANEL-032-v09
+    // @ENHANCEMENT: Auto-refresh leaderboard every 10 seconds with latest OpenF1 data.
+    // [Intent] Keep the leaderboard data fresh by auto-fetching timing data every 10s when a session is selected.
+    // [Inbound Trigger] selectedSessionKey changes OR every 10 seconds.
+    // [Downstream Impact] Calls handleFetchTimingData automatically to update leaderboard.
+    useEffect(() => {
+        if (!selectedSessionKey || !authToken) return;
+
+        // Auto-refresh leaderboard every 10 seconds
+        const refreshLeaderboard = async () => {
+            setLeaderboardRefreshing(true);
+            try {
+                await handleFetchTimingData();
+                setLeaderboardLastUpdate(new Date());
+            } catch (err) {
+                console.warn('[Leaderboard Auto-Refresh]', err);
+            } finally {
+                setLeaderboardRefreshing(false);
+            }
+        };
+
+        // Initial fetch
+        refreshLeaderboard();
+
+        // Set up 10-second interval
+        const intervalId = setInterval(refreshLeaderboard, 10000);
+
+        return () => clearInterval(intervalId);
+    }, [selectedSessionKey, authToken, handleFetchTimingData]);
+
     // GUID: PUBCHAT_PANEL-005-v08
     // @ENHANCEMENT: Now supports multi-driver selection for comparison view.
     // @ERROR_FIX: Added proper 4-pillar error handling (error code, correlation ID, selectable text).
@@ -492,6 +549,35 @@ export function PubChatPanel() {
         return now >= start && now <= end;
     };
 
+    // GUID: PUBCHAT_PANEL-033-v09
+    // @ENHANCEMENT: Detect if a meeting is happening today (green ring highlight).
+    // [Intent] Check if today's date falls within the meeting's date range.
+    // [Inbound Trigger] Rendering meeting cards.
+    // [Downstream Impact] Green ring border around today's meetings.
+    const isMeetingToday = (dateStart: string, dateEnd: string): boolean => {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const start = new Date(dateStart);
+        const end = new Date(dateEnd);
+        const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        return today >= startDay && today <= endDay;
+    };
+
+    // GUID: PUBCHAT_PANEL-034-v09
+    // @ENHANCEMENT: Auto-select today's meeting as default on load.
+    // [Intent] Find the first meeting that is happening today and select it automatically.
+    // [Inbound Trigger] Meetings list populated from OpenF1.
+    // [Downstream Impact] selectedMeetingKey set to today's meeting if one exists.
+    useEffect(() => {
+        if (meetings.length === 0 || selectedMeetingKey) return; // Don't override user selection
+
+        const todaysMeeting = meetings.find(m => isMeetingToday(m.dateStart, m.dateEnd));
+        if (todaysMeeting) {
+            setSelectedMeetingKey(String(todaysMeeting.meetingKey));
+        }
+    }, [meetings]);
+
     return (
         <div className="relative space-y-6">
             {/* GUID: PUBCHAT_PANEL-009-v01
@@ -535,13 +621,160 @@ export function PubChatPanel() {
 
             {/* Main content - desaturated when pub closed */}
             <div className={pubClosed ? 'opacity-30 pointer-events-none saturate-0' : ''}>
-                {/* GUID: PUBCHAT_PANEL-006-v03
-                    [Intent] Centre the ThePaddockPubChat animation at the top of the panel,
-                             passing live timing data when available.
-                    [Inbound Trigger] Component mount / timing data update.
-                    [Downstream Impact] Renders the F1 timing animation with live or fallback data. */}
-                <div className="flex justify-center">
-                    <ThePaddockPubChat key={refreshKey} timingData={timingData} />
+                {/* GUID: PUBCHAT_PANEL-035-v09
+                    @UX_REDESIGN: 3-column collapsible layout for focused viewing.
+                    [Intent] Split screen into 3 collapsible sections (Leaderboard, Pub Chat, Telemetry).
+                    [Inbound Trigger] Component mount.
+                    [Downstream Impact] Provides toggle visibility for each section. */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                    {/* Area 1: Live Leaderboard */}
+                    <Collapsible open={leaderboardOpen} onOpenChange={setLeaderboardOpen}>
+                        <Card>
+                            <CollapsibleTrigger className="w-full">
+                                <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <Trophy className="h-5 w-5 text-yellow-500" />
+                                            Live Leaderboard
+                                            {leaderboardRefreshing && (
+                                                <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+                                            )}
+                                        </CardTitle>
+                                        {leaderboardOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    </div>
+                                    <CardDescription className="text-left text-xs">
+                                        {timingData
+                                            ? `${timingData.session.sessionName} • ${timingData.session.location}`
+                                            : 'Select a session to view fastest laps'}
+                                        {leaderboardLastUpdate && (
+                                            <span className="block text-muted-foreground/60 mt-1">
+                                                Updated {leaderboardLastUpdate.toLocaleTimeString()} (auto-refresh: 10s)
+                                            </span>
+                                        )}
+                                    </CardDescription>
+                                </CardHeader>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <CardContent className="max-h-[500px] overflow-y-auto">
+                                    {!timingData ? (
+                                        <div className="text-center py-8 text-sm text-muted-foreground">
+                                            <Trophy className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                                            <p>No timing data yet</p>
+                                            <p className="text-xs mt-1">Select a meeting and session below, then click "Fetch from OpenF1"</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {timingData.drivers.slice(0, 10).map((driver, idx) => (
+                                                <div
+                                                    key={driver.driverNumber}
+                                                    className="flex items-center gap-3 p-2 rounded hover:bg-accent/50 transition-colors"
+                                                >
+                                                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                                        idx === 0 ? 'bg-yellow-500 text-black' :
+                                                        idx === 1 ? 'bg-gray-400 text-black' :
+                                                        idx === 2 ? 'bg-amber-700 text-white' :
+                                                        'bg-muted text-muted-foreground'
+                                                    }`}>
+                                                        {driver.position}
+                                                    </div>
+                                                    <div
+                                                        className="w-1 h-8 rounded"
+                                                        style={{ backgroundColor: `#${driver.teamColour}` }}
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-semibold truncate">{driver.driver}</p>
+                                                        <p className="text-xs text-muted-foreground truncate">{driver.team}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-mono font-bold">{driver.time}</p>
+                                                        <p className="text-xs text-muted-foreground">{driver.laps} laps</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </CollapsibleContent>
+                        </Card>
+                    </Collapsible>
+
+                    {/* Area 2: Pub Chat */}
+                    <Collapsible open={pubChatOpen} onOpenChange={setPubChatOpen}>
+                        <Card>
+                            <CollapsibleTrigger className="w-full">
+                                <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <Beer className="h-5 w-5 text-amber-600" />
+                                            The Paddock Pub
+                                        </CardTitle>
+                                        {pubChatOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    </div>
+                                    <CardDescription className="text-left text-xs">
+                                        {settings && settings.lastUpdated.seconds > 0
+                                            ? `Updated ${formatTimestamp(settings.lastUpdated)}`
+                                            : 'Newsletter banter and analysis'}
+                                    </CardDescription>
+                                </CardHeader>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <CardContent className="max-h-[500px] overflow-y-auto">
+                                    {loading ? (
+                                        <div className="space-y-3">
+                                            <Skeleton className="h-4 w-3/4" />
+                                            <Skeleton className="h-4 w-full" />
+                                            <Skeleton className="h-4 w-5/6" />
+                                        </div>
+                                    ) : !settings?.content ? (
+                                        <div className="text-center py-8 text-sm text-muted-foreground">
+                                            <Beer className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                                            <p>No pub chat yet</p>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className="prose prose-sm dark:prose-invert max-w-none space-y-3"
+                                            dangerouslySetInnerHTML={{
+                                                __html: DOMPurify.sanitize(settings.content, {
+                                                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li'],
+                                                })
+                                            }}
+                                        />
+                                    )}
+                                </CardContent>
+                            </CollapsibleContent>
+                        </Card>
+                    </Collapsible>
+
+                    {/* Area 3: Real-Time Telemetry */}
+                    <Collapsible open={telemetryOpen} onOpenChange={setTelemetryOpen}>
+                        <Card>
+                            <CollapsibleTrigger className="w-full">
+                                <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <Radio className="h-5 w-5 text-blue-500" />
+                                            Real-Time Telemetry
+                                        </CardTitle>
+                                        {telemetryOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    </div>
+                                    <CardDescription className="text-left text-xs">
+                                        Speed, throttle, brake, DRS (Coming Soon)
+                                    </CardDescription>
+                                </CardHeader>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <CardContent className="max-h-[500px] overflow-y-auto">
+                                    <div className="text-center py-12 text-sm text-muted-foreground">
+                                        <Radio className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                                        <p className="font-medium">Coming Soon</p>
+                                        <p className="text-xs mt-2 max-w-xs mx-auto">
+                                            Live telemetry data visualization (speed traces, gear changes, throttle/brake application)
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </CollapsibleContent>
+                        </Card>
+                    </Collapsible>
                 </div>
 
             {/* GUID: PUBCHAT_PANEL-019-v01
@@ -578,6 +811,7 @@ export function PubChatPanel() {
                             {meetings.map(meeting => {
                                 const isSelected = selectedMeetingKey === String(meeting.meetingKey);
                                 const isLive = isMeetingLive(meeting.dateStart, meeting.dateEnd);
+                                const isToday = isMeetingToday(meeting.dateStart, meeting.dateEnd);
 
                                 return (
                                     <Card
@@ -585,6 +819,8 @@ export function PubChatPanel() {
                                         className={`cursor-pointer transition-all hover:shadow-lg ${
                                             isSelected
                                                 ? 'border-primary border-2 shadow-md'
+                                                : isToday
+                                                ? 'border-green-500 border-2 shadow-md ring-2 ring-green-500/30'
                                                 : 'hover:border-primary/50'
                                         }`}
                                         onClick={() => setSelectedMeetingKey(String(meeting.meetingKey))}
@@ -596,11 +832,18 @@ export function PubChatPanel() {
                                                     alt={meeting.countryName}
                                                     className="w-12 h-8 object-cover rounded shadow-sm"
                                                 />
-                                                {isLive && (
-                                                    <Badge variant="destructive" className="text-xs animate-pulse">
-                                                        LIVE NOW
-                                                    </Badge>
-                                                )}
+                                                <div className="flex flex-col gap-1">
+                                                    {isLive && (
+                                                        <Badge variant="destructive" className="text-xs animate-pulse">
+                                                            LIVE NOW
+                                                        </Badge>
+                                                    )}
+                                                    {isToday && !isLive && (
+                                                        <Badge variant="outline" className="text-xs border-green-500 text-green-600">
+                                                            TODAY
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </div>
                                             <CardTitle className="text-base leading-tight">
                                                 {meeting.meetingName}
@@ -844,73 +1087,7 @@ export function PubChatPanel() {
                 </Card>
             )}
 
-            {/* GUID: PUBCHAT_PANEL-022-v01
-                @UX_REDESIGN: Enhanced banter formatting with better prose typography.
-                [Intent] Card displaying the newsletter HTML content with improved formatting.
-                [Inbound Trigger] Component mount / refresh button click.
-                [Downstream Impact] Renders HTML body with proper paragraph spacing and styling. */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Beer className="h-5 w-5" />
-                        The Paddock Pub Chat
-                    </CardTitle>
-                    <CardDescription>
-                        {settings && settings.lastUpdated.seconds > 0
-                            ? `Last updated: ${formatTimestamp(settings.lastUpdated)}${settings.updatedBy ? ` by ${settings.updatedBy}` : ''}`
-                            : 'Newsletter content from the generation pipeline.'}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {loading ? (
-                        <div className="space-y-3">
-                            <Skeleton className="h-6 w-3/4" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-5/6" />
-                            <Skeleton className="h-6 w-1/2 mt-4" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-4/5" />
-                        </div>
-                    ) : error ? (
-                        <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertDescription>{error}</AlertDescription>
-                        </Alert>
-                    ) : !settings?.content ? (
-                        <Alert>
-                            <Beer className="h-4 w-4" />
-                            <AlertDescription>
-                                No newsletter content yet. Run the generation pipeline to populate this.
-                            </AlertDescription>
-                        </Alert>
-                    ) : (
-                        <div
-                            className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-6 bg-background/50 overflow-auto space-y-4"
-                            style={{
-                                lineHeight: '1.75',
-                            }}
-                            dangerouslySetInnerHTML={{
-                                __html: DOMPurify.sanitize(settings.content, {
-                                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'a', 'blockquote', 'code', 'pre'],
-                                    ALLOWED_ATTR: ['href', 'target', 'rel']
-                                })
-                            }}
-                        />
-                    )}
-                </CardContent>
-                <CardFooter>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRefresh}
-                        disabled={refreshing || loading}
-                    >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                        Refresh from Firestore
-                    </Button>
-                </CardFooter>
-            </Card>
+            {/* Newsletter card moved to collapsible "Area 2: Pub Chat" above */}
             </div> {/* End desaturated wrapper */}
         </div>
     );
