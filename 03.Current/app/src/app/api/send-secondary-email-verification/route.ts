@@ -1,11 +1,16 @@
-// GUID: API_SEND_SECONDARY_VERIFICATION-000-v04
+// GUID: API_SEND_SECONDARY_VERIFICATION-000-v06
+// @SECURITY_FIX: Added verifyAuthToken + uid ownership check — route was entirely unauthenticated,
+//   allowing any signed-in user to trigger secondary email verification for any account (EMAIL-002 IDOR).
+// @SECURITY_FIX: Added encodeURIComponent(uid) to verification URL construction (EMAIL-002).
+//   Previously, a crafted uid value in the request body could inject URL-special or HTML-special
+//   characters into the href attribute and visible link text in the email.
 // [Intent] API route that sends a verification email for a user's secondary email address. Validates that the secondary email matches the user record, generates a CSPRNG token, stores it in Firestore with a 2-hour expiry, and sends a branded verification email via Graph API.
 // [Inbound Trigger] POST request from the profile page when a user adds or re-verifies a secondary email address.
 // [Downstream Impact] Creates a document in secondary_email_verification_tokens collection (consumed by /verify-secondary-email page). Sends email via sendEmail. Writes to audit_logs. Frontend relies on success/emailGuid response.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
@@ -20,7 +25,12 @@ function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
-// GUID: API_SEND_SECONDARY_VERIFICATION-002-v04
+// GUID: API_SEND_SECONDARY_VERIFICATION-002-v06
+// @SECURITY_FIX: Added verifyAuthToken + uid ownership check (EMAIL-002 IDOR). Previously any
+//   authenticated user could trigger secondary email verification for any uid by knowing the
+//   target uid and secondaryEmail (available in world-readable Firestore user documents).
+// @SECURITY_FIX: Added encodeURIComponent(uid) to verification URL (EMAIL-002). Previously uid
+//   was inserted raw into the URL, allowing injection via a crafted uid in the request body.
 // [Intent] POST handler — validates required fields (uid, secondaryEmail), checks Graph API config, verifies user exists and secondary email matches their record, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.
 // [Inbound Trigger] HTTP POST with JSON body containing uid, secondaryEmail, and optional teamName.
 // [Downstream Impact] Creates/overwrites secondary_email_verification_tokens/{uid} document. Sends email. Writes to audit_logs on success. Errors logged to error_logs with correlation ID and ERROR_CODES mapping. Reads from users collection to validate secondary email ownership.
@@ -53,6 +63,43 @@ export async function POST(request: NextRequest) {
           correlationId,
         },
         { status: 503 }
+      );
+    }
+
+    // SECURITY: Verify the caller is authenticated and owns the uid in the request body.
+    // Without this check, any signed-in user could trigger token generation and email delivery
+    // targeting any victim's secondary email address (IDOR via EMAIL-002 authorization bypass).
+    const verifiedUser = await verifyAuthToken(request.headers.get('Authorization'));
+    if (!verifiedUser) {
+      await logError({
+        correlationId,
+        error: 'Unauthorized: missing or invalid auth token on send-secondary-email-verification',
+        context: { route: '/api/send-secondary-email-verification' },
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized',
+          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
+        { status: 401 }
+      );
+    }
+    if (verifiedUser.uid !== uid) {
+      await logError({
+        correlationId,
+        error: `UID mismatch on send-secondary-email-verification: token=${verifiedUser.uid}, body=${uid}`,
+        context: { route: '/api/send-secondary-email-verification' },
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Forbidden: you can only verify your own secondary email',
+          errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code,
+          correlationId,
+        },
+        { status: 403 }
       );
     }
 
@@ -103,7 +150,8 @@ export async function POST(request: NextRequest) {
     const baseUrl = isProduction
       ? 'https://prix6.win'
       : 'http://localhost:9002';
-    const verificationUrl = `${baseUrl}/verify-secondary-email?token=${token}&uid=${uid}`;
+    // SECURITY: Encode uid parameter to prevent URL/HTML injection via crafted uid value (EMAIL-002)
+    const verificationUrl = `${baseUrl}/verify-secondary-email?token=${token}&uid=${encodeURIComponent(uid)}`;
 
     // Send verification email via Graph API
     const htmlContent = `

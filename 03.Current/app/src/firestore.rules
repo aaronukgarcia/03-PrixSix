@@ -263,13 +263,17 @@ service cloud.firestore {
     }
 
     // Feedback - users can create, admins can read/update/delete
+    // SECURITY_FIX (GEMINI-AUDIT-021): Require userId field to match authenticated user's UID.
+    // Previously, any signed-in user could submit feedback with any userId value (IDOR).
     match /feedback/{feedbackId} {
       allow get, list: if isAdmin();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAdmin();
     }
 
     // Feedback counters - used by transactions in FeedbackForm for reference ID generation
+    // SECURITY_FIX (GEMINI-AUDIT-021): Restrict counter writes to signed-in users only (unchanged).
+    // Counter manipulation risk is low — reference IDs are cosmetic, not security-critical.
     match /counters/{docId} {
       allow get: if isSignedIn();
       allow write: if isSignedIn();

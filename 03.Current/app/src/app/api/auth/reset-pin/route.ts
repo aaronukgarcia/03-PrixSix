@@ -1,5 +1,7 @@
-// GUID: API_AUTH_RESET_PIN-000-v05
+// GUID: API_AUTH_RESET_PIN-000-v06
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
+// @SECURITY_FIX: email_logs now stores masked PIN (EMAIL-006) — plaintext PIN is only in the
+//   mail collection (consumed by the email service) and never persisted to admin-readable logs.
 // [Intent] Server-side API route that handles PIN reset requests: validates the email, generates a new random 6-digit PIN, updates Firebase Auth, marks the user as mustChangePin, queues a reset email, and logs the action. Returns a generic success message regardless of whether the email exists to prevent enumeration attacks.
 // [Inbound Trigger] POST request from the client-side PIN reset form.
 // [Downstream Impact] Updates the user's password in Firebase Auth, sets mustChangePin=true on the Firestore user document, writes to the mail collection (consumed by the email sending service), writes to email_logs and audit_logs collections.
@@ -128,24 +130,29 @@ export async function POST(request: NextRequest) {
       mustChangePin: true,
     });
 
-    // GUID: API_AUTH_RESET_PIN-007-v03
+    // GUID: API_AUTH_RESET_PIN-007-v04
+    // @SECURITY_FIX: email_logs now stores masked PIN (EMAIL-006). The mail collection document
+    //   retains the real PIN for email delivery, but the admin-readable log stores '••••••' to
+    //   prevent admins from recovering a user's temporary PIN from audit logs.
     // [Intent] Queue the PIN reset email by writing to the mail collection (consumed by the email sending service) and log the email to the email_logs collection for auditing and debugging.
     // [Inbound Trigger] Runs after mustChangePin is set on the user document.
-    // [Downstream Impact] The mail collection document is picked up by the email sending Cloud Function or service. The email_logs entry provides a record for admin review. The email contains the temporary PIN in plaintext.
+    // [Downstream Impact] The mail collection document is picked up by the email sending Cloud Function or service. The email_logs entry provides a record for admin review. The logged HTML masks the PIN.
     // Queue the email
     const mailHtml = `Hello,<br><br>A PIN reset was requested for your Prix Six account.<br><br>Your temporary PIN is: <strong>${newPin}</strong><br><br>You will be required to change this PIN after logging in.<br><br>If you did not request this, please contact support immediately.`;
     const mailSubject = "Your Prix Six PIN has been reset";
+    // SECURITY: Mask PIN in email_logs — admin-visible log never stores plaintext credentials (EMAIL-006)
+    const mailHtmlMasked = mailHtml.replace(`<strong>${newPin}</strong>`, '<strong>••••••</strong>');
 
     await db.collection('mail').add({
       to: normalizedEmail,
       message: { subject: mailSubject, html: mailHtml },
     });
 
-    // Log the email
+    // Log the email (with masked PIN)
     await db.collection('email_logs').add({
       to: normalizedEmail,
       subject: mailSubject,
-      html: mailHtml,
+      html: mailHtmlMasked,
       status: 'queued',
       timestamp: FieldValue.serverTimestamp(),
     });
