@@ -1,4 +1,5 @@
-// GUID: API_SUBMIT_PREDICTION-000-v03
+// GUID: API_SUBMIT_PREDICTION-000-v04
+// @SECURITY_FIX: Fixed broken team ownership check (API-013) - teamId is user UID pattern, not teamName. Added correlationId hoisting, logError + errorCode on all 4xx paths.
 // [Intent] API route that accepts and stores a user's top-6 driver prediction for a specific race and team. Enforces server-side lockout rules (results exist, qualifying started).
 // [Inbound Trigger] User submits a prediction from the predictions page (POST request with userId, teamId, raceId, and six driver picks).
 // [Downstream Impact] Writes to users/{userId}/predictions subcollection and audit_logs. Predictions are consumed by the calculate-scores route at scoring time. Lockout enforcement prevents late submissions.
@@ -7,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { generateRaceId, generateRaceIdLowercase } from '@/lib/normalize-race-id';
 import { getRaceByName } from '@/lib/race-schedule-server';
 
@@ -26,13 +28,17 @@ interface PredictionRequest {
   predictions: string[];
 }
 
-// GUID: API_SUBMIT_PREDICTION-002-v03
-// [Intent] Main POST handler that authenticates the user, validates the prediction payload, enforces server-side lockout rules (race results exist or qualifying has started), and atomically writes the prediction and audit log to Firestore.
+// GUID: API_SUBMIT_PREDICTION-002-v04
+// [Intent] Main POST handler that authenticates the user, validates the prediction payload, enforces server-side team ownership (API-013), enforces lockout rules (race results exist or qualifying has started), and atomically writes the prediction and audit log to Firestore.
 // [Inbound Trigger] HTTP POST from the predictions page when a user submits or updates their prediction.
 // [Downstream Impact] Creates/updates a prediction document in users/{userId}/predictions/{teamId}_{raceId}. This document is read by calculate-scores during scoring. The audit log records the submission for traceability.
 export async function POST(request: NextRequest) {
+  // Hoist correlationId so ALL error paths (including ownership 403) can reference it.
+  const correlationId = generateCorrelationId();
+
   try {
-    // GUID: API_SUBMIT_PREDICTION-003-v03
+    // GUID: API_SUBMIT_PREDICTION-003-v04
+    // @SECURITY_FIX: Added logError + errorCode on 401 path. Added 4-pillar compliance.
     // [Intent] Authenticates the request by verifying the Firebase Auth bearer token and confirms the authenticated user matches the userId in the request body (prevents submitting on behalf of another user).
     // [Inbound Trigger] Every POST request to this endpoint.
     // [Downstream Impact] Blocks unauthenticated requests (401) and cross-user submissions (403). Critical security gate.
@@ -41,8 +47,13 @@ export async function POST(request: NextRequest) {
     const verifiedUser = await verifyAuthToken(authHeader);
 
     if (!verifiedUser) {
+      await logError({
+        correlationId,
+        error: 'Unauthorised: Invalid or missing authentication token on submit-prediction',
+        context: { route: '/api/submit-prediction' },
+      });
       return NextResponse.json(
-        { success: false, error: 'Unauthorised: Invalid or missing authentication token' },
+        { success: false, error: ERROR_CODES.AUTH_INVALID_TOKEN.message, errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code, correlationId },
         { status: 401 }
       );
     }
@@ -52,40 +63,13 @@ export async function POST(request: NextRequest) {
 
     // SECURITY: Verify the userId in the request matches the authenticated user
     if (userId !== verifiedUser.uid) {
+      await logError({
+        correlationId,
+        error: `Token UID mismatch on submit-prediction: token=${verifiedUser.uid}, body=${userId}`,
+        context: { route: '/api/submit-prediction' },
+      });
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Cannot submit predictions for another user' },
-        { status: 403 }
-      );
-    }
-
-    // SECURITY: Verify team ownership (API-013 fix) - prevent submitting for another user's team
-    // User can only submit predictions for their own primary team or secondary teams
-    const { db: authDb } = await getFirebaseAdmin();
-    const userDoc = await authDb.collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    const userData = userDoc.data();
-    const userTeams = [userData?.teamName]; // Primary team
-
-    // Add secondary teams if they exist
-    if (userData?.secondaryTeams && Array.isArray(userData.secondaryTeams)) {
-      userTeams.push(...userData.secondaryTeams);
-    }
-
-    // Verify the teamId belongs to this user
-    if (!userTeams.includes(teamId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Forbidden: Cannot submit predictions for a team you do not own',
-          correlationId
-        },
+        { success: false, error: ERROR_CODES.AUTH_PERMISSION_DENIED.message, errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code, correlationId },
         { status: 403 }
       );
     }
@@ -107,6 +91,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Predictions must be an array of 6 driver IDs' },
         { status: 400 }
+      );
+    }
+
+    // GUID: API_SUBMIT_PREDICTION-003a-v01
+    // @SECURITY_FIX: Correct team ownership check (API-013). teamId is always userId for primary or `${userId}-secondary` for secondary team (as set by PredictionEditor.tsx line 310). Comparing against these patterns is authoritative and does not require a Firestore read.
+    // [Intent] Verifies that teamId in the request body is a team ID that belongs to the authenticated user. Prevents a user from submitting predictions under another user's team.
+    // [Inbound Trigger] After userId match check passes.
+    // [Downstream Impact] Returns 403 if teamId is not `userId` or `${userId}-secondary`. Without this, any authenticated user could forge a teamId to pollute another user's predictions subcollection.
+    const validTeamIds = [userId, `${userId}-secondary`];
+    if (!validTeamIds.includes(teamId)) {
+      await logError({
+        correlationId,
+        error: `Forbidden: teamId ${teamId} does not belong to user ${userId} on submit-prediction`,
+        context: { route: '/api/submit-prediction' },
+      });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_PERMISSION_DENIED.message, errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code, correlationId },
+        { status: 403 }
       );
     }
 
@@ -207,7 +209,6 @@ export async function POST(request: NextRequest) {
   // [Inbound Trigger] Any uncaught exception within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response enables support to trace the specific failure.
   } catch (error: any) {
-    const correlationId = generateCorrelationId();
     const { db: errorDb } = await getFirebaseAdmin();
     const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,

@@ -1,4 +1,4 @@
-// GUID: LIB_ERROR_CODES-000-v03
+// GUID: LIB_ERROR_CODES-000-v04
 // [Intent] Central error code registry and error handling utilities for the Prix Six application.
 //          Defines all PX-xxxx error codes, correlation ID generation, error object creation,
 //          display formatting, and error-to-code mapping. Implements Golden Rule #1.
@@ -6,7 +6,7 @@
 // [Downstream Impact] Adding/changing/removing error codes affects all error handling across the app.
 //                     Correlation ID format changes affect error log queries and user-reported error lookups.
 
-// GUID: LIB_ERROR_CODES-001-v03
+// GUID: LIB_ERROR_CODES-001-v04
 // [Intent] Master registry of all application error codes organised by category.
 //          Each code has a unique PX-xxxx identifier and a human-readable message.
 //          Categories: 1xxx=Auth, 2xxx=Validation, 3xxx=External, 4xxx=Firestore,
@@ -64,6 +64,7 @@ export const ERROR_CODES = {
   VALIDATION_SECONDARY_EMAIL_IN_USE: { code: 'PX-2005', message: 'This email is already in use' },
   VALIDATION_NULL_DRIVER: { code: 'PX-2010', message: 'Race result contains null or empty driver' },
   VALIDATION_DUPLICATE_DRIVER: { code: 'PX-2011', message: 'Race result contains duplicate drivers' },
+  VALIDATION_BUSINESS_RULE: { code: 'PX-2012', message: 'Business rule violation' },
 
   // 3xxx - External Services
   EMAIL_SEND_FAILED: { code: 'PX-3001', message: 'Failed to send email' },
