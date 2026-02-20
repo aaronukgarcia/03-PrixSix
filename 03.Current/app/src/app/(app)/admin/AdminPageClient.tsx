@@ -1,4 +1,6 @@
-// GUID: PAGE_ADMIN-000-v03
+// GUID: PAGE_ADMIN-000-v04
+// @SECURITY_FIX: Added NODE_ENV guard on console.error in requestAdminLink (GEMINI-AUDIT-080).
+//   In production, raw error messages are no longer exposed in browser DevTools or admin UI.
 // [Intent] Admin panel page — tabbed interface providing access to all league management tools.
 //          Restricted to admin users; non-admins are redirected to /dashboard with audit logging.
 // [Inbound Trigger] User navigates to /admin. Admin guard checks user.isAdmin.
@@ -134,7 +136,9 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
         }
     }, [user, isAuthLoading, router, firestore]);
 
-    // GUID: PAGE_ADMIN-HOTLINK-003-v03
+    // GUID: PAGE_ADMIN-HOTLINK-003-v04
+    // @SECURITY_FIX: Added NODE_ENV guard on console.error — production no longer exposes raw
+    //   error objects in browser DevTools. Also sanitizes errorMsg displayed in UI (GEMINI-AUDIT-080).
     // [Intent] Request admin hot link (magic link) from the server.
     // [Inbound Trigger] User clicks "Send Verification Link" button.
     // [Downstream Impact] Calls POST /api/auth/admin-challenge, sends email with magic link.
@@ -164,7 +168,10 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
 
             setLinkRequestStatus('success');
         } catch (error) {
-            console.error('Failed to request admin link:', error);
+            // SECURITY: Only log raw error details in development (GEMINI-AUDIT-080)
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('Failed to request admin link:', error);
+            }
 
             // Log error to server (fire-and-forget)
             fetch('/api/log-client-error', {
@@ -183,7 +190,10 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
             }).catch(() => {}); // Silent fail on logging error
 
             setLinkRequestStatus('error');
-            const errorMsg = error instanceof Error ? error.message : 'Failed to send verification link';
+            // SECURITY: In production, show generic message — not raw error internals (GEMINI-AUDIT-080)
+            const errorMsg = error instanceof Error
+                ? (process.env.NODE_ENV !== 'production' ? error.message : 'Please try again or contact support')
+                : 'Failed to send verification link';
             setErrorMessage(`${ERROR_CODES.AUTH_ADMIN_VERIFICATION_FAILED.code}: ${errorMsg} (Ref: ${correlationId})`);
         } finally {
             setIsRequestingLink(false);

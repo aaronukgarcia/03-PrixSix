@@ -1,5 +1,7 @@
-// GUID: LIB_SECRETS_MANAGER-000-v01
+// GUID: LIB_SECRETS_MANAGER-000-v02
 // @PHASE_3A: Azure Key Vault integration for centralized secrets management (DEPLOY-002, CONFIG-001).
+// @SECURITY_FIX: Added NODE_ENV guard on all secret-name logs — production logs no longer reveal
+//   secret names or architecture details in Azure Container Apps logs (GEMINI-AUDIT-110).
 // [Intent] Provides abstraction layer for fetching secrets from Azure Key Vault in production
 //          or environment variables in development. Eliminates hardcoded secrets in source code.
 // [Inbound Trigger] Imported by firebase-admin.ts, email.ts, and other modules needing secrets.
@@ -97,19 +99,31 @@ async function getSecretClient() {
   }
 }
 
-// GUID: LIB_SECRETS_MANAGER-008-v01
+// GUID: LIB_SECRETS_MANAGER-008-v02
+// @SECURITY_FIX: Added NODE_ENV guard — in production, secret names are not logged to prevent
+//   architecture disclosure via Azure Container Apps log streams (GEMINI-AUDIT-110).
 // [Intent] Fetch secret from Azure Key Vault with caching and error handling.
 //          Uses secret name as Key Vault secret identifier (e.g., 'firebase-admin-key').
 // [Inbound Trigger] Called by getSecretClient() after cache miss or TTL expiry.
 // [Downstream Impact] Requires network call to Key Vault. Failures throw errors (no silent fallback).
 async function fetchFromKeyVault(secretName: string): Promise<string> {
-  console.log(`[Key Vault] Attempting to fetch secret: ${secretName}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Key Vault] Attempting to fetch secret: ${secretName}`);
+  } else {
+    console.log('[Key Vault] Attempting to fetch secret...');
+  }
   const client = await getSecretClient();
 
   try {
-    console.log(`[Key Vault] Calling client.getSecret('${secretName}')...`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Key Vault] Calling client.getSecret('${secretName}')...`);
+    }
     const secret = await client.getSecret(secretName);
-    console.log(`[Key Vault] Secret fetched successfully: ${secretName}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Key Vault] Secret fetched successfully: ${secretName}`);
+    } else {
+      console.log('[Key Vault] Secret fetched successfully');
+    }
 
     if (!secret.value) {
       throw new Error(`Secret '${secretName}' exists but has no value in Key Vault`);
@@ -117,8 +131,12 @@ async function fetchFromKeyVault(secretName: string): Promise<string> {
 
     return secret.value;
   } catch (error: any) {
-    // Log the actual error for debugging (without secret values)
-    console.error(`[Key Vault Error] Secret: ${secretName}, Error: ${error.message}, Code: ${error.statusCode || error.code || 'unknown'}, Name: ${error.name}`);
+    // SECURITY: In production, omit secret name from log to prevent architecture disclosure
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Key Vault Error] Secret: ${secretName}, Error: ${error.message}, Code: ${error.statusCode || error.code || 'unknown'}, Name: ${error.name}`);
+    } else {
+      console.error(`[Key Vault Error] Error: ${error.message}, Code: ${error.statusCode || error.code || 'unknown'}`);
+    }
     throw new Error(
       `Failed to fetch secret from Key Vault (${error.statusCode || error.code || 'unknown error'}). ` +
       'Verify Key Vault permissions and secret name.'
@@ -126,7 +144,8 @@ async function fetchFromKeyVault(secretName: string): Promise<string> {
   }
 }
 
-// GUID: LIB_SECRETS_MANAGER-009-v01
+// GUID: LIB_SECRETS_MANAGER-009-v02
+// @SECURITY_FIX: Fallback warning no longer logs secret name in production (GEMINI-AUDIT-110).
 // [Intent] Main public interface for fetching secrets. Abstracts Key Vault vs environment variable logic.
 //          Tries cache first, then Key Vault (if enabled), then env vars as fallback.
 // [Inbound Trigger] Called by application code needing secrets (firebase-admin.ts, email.ts, etc.).
@@ -180,9 +199,12 @@ export async function getSecret(
       secretValue = await fetchFromKeyVault(secretName);
     } catch (error: any) {
       // If Key Vault fails, try env var fallback (safety net for local dev with USE_KEY_VAULT accidentally set)
-      console.warn(
-        `Key Vault fetch failed for '${secretName}', falling back to environment variable`
-      );
+      // SECURITY: In production, omit secret name to prevent architecture disclosure (GEMINI-AUDIT-110)
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`Key Vault fetch failed for '${secretName}', falling back to environment variable`);
+      } else {
+        console.warn('Key Vault fetch failed, falling back to environment variable');
+      }
       secretValue = process.env[envVarName];
     }
   } else {
