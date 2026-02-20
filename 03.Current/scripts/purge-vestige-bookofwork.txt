@@ -1,0 +1,20 @@
+# Vestige Book-of-Work Purge Script
+# Generated: 2026-02-20
+# Purpose: Remove duplicate book-of-work entries from Vestige
+# Single Source of Truth: Firestore book_of_work collection
+
+Total nodes to purge: 7
+
+Execute these commands in Claude Code:
+
+mcp__vestige__memory with action: "delete", id: "52a80a91-bb5b-4888-b595-1628c5c41774"
+mcp__vestige__memory with action: "delete", id: "9e263b80-83d2-45b7-b1ae-56073dbcb011"
+mcp__vestige__memory with action: "delete", id: "41c4dfdc-c49d-43e6-8656-00c88d301573"
+mcp__vestige__memory with action: "delete", id: "a50dc8a8-1a15-4b74-9d39-c47c4d41ec69"
+mcp__vestige__memory with action: "delete", id: "399ccba5-5899-4fd6-80d4-3bb959d80a93"
+mcp__vestige__memory with action: "delete", id: "09c1fe72-bbc0-4443-9efe-052010b12b04"
+mcp__vestige__memory with action: "delete", id: "1dcded0a-8d63-46ca-a578-e5cd0f67d8b6"
+
+After purging, verify with:
+mcp__vestige__search "book-of-work"
+(Should return 0 results or only non-duplicate entries)
