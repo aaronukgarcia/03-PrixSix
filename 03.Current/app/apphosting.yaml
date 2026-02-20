@@ -44,5 +44,12 @@ env:
     value: "true"
   - variable: KEY_VAULT_URL
     value: https://prixsix-secrets-vault.vault.azure.net/
+  # Azure Service Principal for Key Vault access (prixsix-app-hosting)
+  - variable: AZURE_TENANT_ID
+    value: 70edfb9b-27d9-438d-a59e-70261c1bdfdf
+  - variable: AZURE_CLIENT_ID
+    value: ea123d4d-561c-46fa-85a7-69dc71730758
+  - variable: AZURE_CLIENT_SECRET
+    secret: AZURE_CLIENT_SECRET
   # OpenF1 API OAuth2 credentials now fetched from Azure Key Vault
   # Secrets: openf1-username, openf1-password (managed via az keyvault secret set)
