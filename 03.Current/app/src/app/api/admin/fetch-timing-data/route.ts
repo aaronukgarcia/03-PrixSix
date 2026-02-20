@@ -325,12 +325,13 @@ const fetchTimingRequestSchema = z.object({
   // sessionKey must be a positive integer (OpenF1 session identifiers are
   // always positive integers, e.g. 9161 for the 2024 Monaco Qualifying).
   sessionKey: z.number().int().positive(),
-  // dataType selects which OpenF1 v1 endpoint to query. Defaults to 'laps'.
+  // dataType selects which OpenF1 v1 endpoint to query. Defaults to 'pit' (changed from 'laps').
   // Each value maps directly to a path segment in the OpenF1 API base URL.
-  dataType: z.enum(['laps', 'positions', 'car_data', 'pit', 'stints', 'intervals', 'race_control', 'team_radio', 'weather', 'location']).optional().default('laps'),
-  // driverNumber optionally restricts the query to a single driver by their
-  // OpenF1 driver number (e.g. 44 for Hamilton). When absent, all drivers are returned.
-  driverNumber: z.number().int().positive().optional(),
+  dataType: z.enum(['laps', 'positions', 'car_data', 'pit', 'stints', 'intervals', 'race_control', 'team_radio', 'weather', 'location']).optional().default('pit'),
+  // driverNumbers optionally restricts the query to specific drivers by their
+  // OpenF1 driver numbers (e.g. [44, 23] for Hamilton and Albon). When absent, all drivers are returned.
+  // Replaces singular driverNumber for multi-driver comparison support.
+  driverNumbers: z.array(z.number().int().positive()).optional(),
 }).strict(); // .strict() rejects any extra fields not listed above.
 
 
@@ -380,17 +381,18 @@ function formatLapDuration(seconds: number): string {
 async function fetchOpenF1Data(
   sessionKey: number,
   dataType: string,
-  driverNumber: number | undefined,
+  driverNumbers: number[] | undefined,
   authHeaders: HeadersInit,
   correlationId: string,
 ): Promise<any[]> {
   // Build the base URL for this data type using the session key.
   const baseUrl = `${OPENF1_BASE}/${dataType}?session_key=${sessionKey}`;
 
-  // Optionally append driver_number to filter results to a single driver.
-  const url = driverNumber ? `${baseUrl}&driver_number=${driverNumber}` : baseUrl;
+  // Optionally append driver_number filters for multiple drivers (OpenF1 API doesn't support arrays, so we fetch all and filter client-side)
+  const driverFilter = driverNumbers && driverNumbers.length > 0 ? driverNumbers : undefined;
+  const url = baseUrl; // Always fetch all drivers, filter locally for multi-select support
 
-  console.log(`[fetchOpenF1Data ${correlationId}] Fetching ${dataType} for session ${sessionKey}${driverNumber ? ` driver ${driverNumber}` : ''}...`);
+  console.log(`[fetchOpenF1Data ${correlationId}] Fetching ${dataType} for session ${sessionKey}${driverFilter ? ` drivers [${driverFilter.join(', ')}]` : ' (all drivers)'}...`);
 
   // Use fetchWithTimeout to prevent indefinite hangs outside of race season.
   const res = await fetchWithTimeout(url, { headers: authHeaders });
@@ -405,7 +407,17 @@ async function fetchOpenF1Data(
   const data = await safeParseJson<any[]>(res, `fetchOpenF1Data/${dataType}`, correlationId);
 
   // Always return an array — if OpenF1 returned a non-array JSON value, treat it as empty.
-  return Array.isArray(data) ? data : [];
+  const arrayData = Array.isArray(data) ? data : [];
+
+  // Filter by driver numbers if provided (client-side filtering for multi-driver support)
+  if (driverFilter && driverFilter.length > 0) {
+    return arrayData.filter(item => {
+      const itemDriverNumber = item.driver_number || item.driverNumber;
+      return itemDriverNumber && driverFilter.includes(itemDriverNumber);
+    });
+  }
+
+  return arrayData;
 }
 
 // =============================================================================
@@ -488,9 +500,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract validated fields from the parsed body.
-    // dataType defaults to 'laps' if not supplied; driverNumber is optional.
-    const { sessionKey, dataType = 'laps', driverNumber } = parsed.data;
-    console.log(`[fetch-timing-data POST ${correlationId}] sessionKey=${sessionKey}, dataType=${dataType}, driverNumber=${driverNumber ?? 'all'}`);
+    // dataType defaults to 'pit' if not supplied; driverNumbers is optional array.
+    const { sessionKey, dataType = 'pit', driverNumbers } = parsed.data;
+    console.log(`[fetch-timing-data POST ${correlationId}] sessionKey=${sessionKey}, dataType=${dataType}, driverNumbers=${driverNumbers && driverNumbers.length > 0 ? driverNumbers.join(',') : 'all'}`);
 
     // -------------------------------------------------------------------------
     // GUID: API_ADMIN_FETCH_TIMING_DATA-004-v03
@@ -691,14 +703,14 @@ export async function POST(request: NextRequest) {
     console.log(`[fetch-timing-data POST ${correlationId}] Meeting: "${meeting.meeting_name ?? '(unknown)'}"`);
 
     // -------------------------------------------------------------------------
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-007-v03
-    // AUTHOR: gill — 2026-02-19 (merged Aaron's driverNumber filter)
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-007-v04
+    // AUTHOR: gill — 2026-02-19 (multi-driver support for UX redesign)
     // @AUTH_FIX:    Added OpenF1 OAuth2 auth (previous author).
     // @TIMEOUT_FIX: Now calls fetchWithTimeout() (gill).
     // @JSON_FIX:    Now calls safeParseJson() (gill).
-    // @ENHANCEMENT: Added driverNumber URL filter (Aaron, merged by gill).
+    // @ENHANCEMENT: Support multi-driver arrays via driverNumbers (gill, Feb 19).
     // [Intent] Fetch drivers who participated in the session, optionally filtered
-    //          to a single driver by driverNumber. The list determines how many
+    //          to multiple drivers by driverNumbers array. The list determines how many
     //          lap-data requests will be made in the parallel fetch below.
     // [Inbound Trigger] Session and meeting data fetched successfully.
     // [Downstream Impact] If no drivers are returned, the handler returns 404.
@@ -751,7 +763,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: driverNumber ? `Driver #${driverNumber} not found in this session` : 'No drivers found for this session',
+          error: driverNumbers && driverNumbers.length > 0 ? `Driver(s) #${driverNumbers.join(', #')} not found in this session` : 'No drivers found for this session',
           errorCode: ERROR_CODES.OPENF1_NO_DATA.code,
           correlationId,
         },
@@ -935,7 +947,7 @@ export async function POST(request: NextRequest) {
       // dataType and driverFilter give the UI context about what was fetched.
       // driverFilter is null when all drivers were fetched (no filter applied).
       dataType,
-      driverFilter:  driverNumber || null,
+      driverFilter:  driverNumbers && driverNumbers.length > 0 ? driverNumbers : null,
       drivers:       validResults,
       // Server timestamp ensures the stored time reflects when the data was
       // written to Firestore, not when the server received the request.

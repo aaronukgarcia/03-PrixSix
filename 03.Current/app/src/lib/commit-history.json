@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-19",
   "commits": [
+    {"id": "cf1fa4b", "date": "2026-02-19", "version": "1.58.30", "author": "aaron garcia", "message": "feat: PubChat UX redesign - visual cards, multi-driver comparison, 10s auto-refresh (v1.58.30)", "major": false},
     {"id": "8ed3715", "date": "2026-02-19", "version": "1.58.29", "author": "aaron garcia", "message": "feat: Admin verification now weekly instead of daily (v1.58.29)", "major": false},
     {"id": "4b8860d", "date": "2026-02-19", "version": "1.58.28", "author": "aaron garcia", "message": "fix: WhatsApp admin panel error logging + Firestore rules (v1.58.28)", "major": false},
     {"id": "deda18c", "date": "2026-02-19", "version": "1.58.22", "author": "Garth McLaughlin", "message": "Merge origin/main — resolve fetch-timing-data conflict", "major": false},
