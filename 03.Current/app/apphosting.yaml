@@ -50,6 +50,7 @@ env:
   - variable: KEY_VAULT_URL
     value: https://prixsix-secrets-vault.vault.azure.net/
   # Azure Service Principal for Key Vault access (prixsix-app-hosting)
+  # Force rebuild: 2026-02-20T15:30 - pickup OpenF1 secret v4 (newline fix)
   - variable: AZURE_TENANT_ID
     value: 70edfb9b-27d9-438d-a59e-70261c1bdfdf
   - variable: AZURE_CLIENT_ID
