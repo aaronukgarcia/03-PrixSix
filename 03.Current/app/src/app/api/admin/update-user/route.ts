@@ -1,10 +1,11 @@
-// GUID: API_ADMIN_UPDATE_USER-000-v03
+// GUID: API_ADMIN_UPDATE_USER-000-v04
+// @SECURITY_FIX: Added Firebase ID token verification to prevent IDOR/privilege escalation (GEMINI-AUDIT-107).
 // [Intent] Admin API route for updating user profile fields (email, teamName, isAdmin, mustChangePin) with full validation, deduplication, and downstream propagation.
 // [Inbound Trigger] POST request from admin UI (UserManagement component) when an admin edits a user's details.
 // [Downstream Impact] Updates Firebase Auth email, Firestore users collection, propagates teamName changes to predictions subcollection, writes audit_logs. Consistency Checker relies on Auth/Firestore sync.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
@@ -28,7 +29,7 @@ const updateUserRequestSchema = z.object({
   }).strict(),
 });
 
-// GUID: API_ADMIN_UPDATE_USER-002-v03
+// GUID: API_ADMIN_UPDATE_USER-002-v04
 // [Intent] POST handler that orchestrates admin user updates: validates input, checks admin permissions, deduplicates email/teamName, updates Auth + Firestore, propagates teamName to predictions, and logs audit events.
 // [Inbound Trigger] POST /api/admin/update-user with JSON body containing userId, adminUid, and data object.
 // [Downstream Impact] Writes to Firebase Auth (email), Firestore users collection, Firestore predictions subcollection (teamName propagation), and audit_logs collection. Error states logged to error_logs.
@@ -36,6 +37,30 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // GUID: API_ADMIN_UPDATE_USER-011-v01
+    // @SECURITY_FIX: Firebase ID token verification — prevents IDOR/privilege escalation (GEMINI-AUDIT-107).
+    // [Intent] Verify the Firebase ID token from the Authorization header before processing any request body data. An attacker cannot forge a token for an admin they are not authenticated as.
+    // [Inbound Trigger] Every incoming POST request, before body parsing or privilege checks.
+    // [Downstream Impact] Returns 401 if token missing/invalid. The verified UID is used as authoritative identity — body adminUid is only accepted after confirmed to match.
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+    if (!verifiedUser) {
+      await logError({
+        correlationId,
+        error: 'Missing or invalid Authorization token on admin update-user request',
+        context: { route: '/api/admin/update-user', action: 'POST' },
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: ERROR_CODES.AUTH_INVALID_TOKEN.message,
+          errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const parsed = updateUserRequestSchema.safeParse(body);
 
@@ -58,15 +83,36 @@ export async function POST(request: NextRequest) {
 
     const { userId, adminUid, data } = parsed.data;
 
+    // GUID: API_ADMIN_UPDATE_USER-011-v01 (continued)
+    // [Intent] Confirm token UID matches body adminUid — prevents attacker authenticating as user A but supplying admin B's UID.
+    // [Inbound Trigger] After schema validation passes.
+    // [Downstream Impact] Returns 403 with audit log if mismatch detected.
+    if (verifiedUser.uid !== adminUid) {
+      await logError({
+        correlationId,
+        error: `Token UID mismatch on admin update-user: token=${verifiedUser.uid}, body adminUid=${adminUid}`,
+        context: { route: '/api/admin/update-user', action: 'POST', userId: verifiedUser.uid },
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: ERROR_CODES.AUTH_PERMISSION_DENIED.message,
+          errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code,
+          correlationId,
+        },
+        { status: 403 }
+      );
+    }
+
     const { db, FieldValue } = await getFirebaseAdmin();
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
 
-    // GUID: API_ADMIN_UPDATE_USER-004-v03
+    // GUID: API_ADMIN_UPDATE_USER-004-v04
     // [Intent] Verify the requesting user has admin privileges before allowing any modifications.
     // [Inbound Trigger] Every valid POST request — admin check is mandatory.
-    // [Downstream Impact] Returns 403 if not admin. Prevents privilege escalation. Relies on isAdmin field in Firestore users collection.
-    const adminDoc = await db.collection('users').doc(adminUid).get();
+    // [Downstream Impact] Returns 403 if not admin. Prevents privilege escalation. Uses verifiedUser.uid (from token) not body adminUid.
+    const adminDoc = await db.collection('users').doc(verifiedUser.uid).get();
     if (!adminDoc.exists || !adminDoc.data()?.isAdmin) {
       return NextResponse.json(
         {
@@ -216,7 +262,7 @@ export async function POST(request: NextRequest) {
 
       // Log specific audit event for team name change
       await db.collection('audit_logs').add({
-        userId: adminUid,
+        userId: verifiedUser.uid,
         action: 'TEAM_NAME_CHANGED',
         details: {
           targetUserId: userId,

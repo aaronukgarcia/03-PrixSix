@@ -1,5 +1,6 @@
-// GUID: PUBCHAT_PANEL-000-v09
-// @UX_REDESIGN: Major 3-column collapsible layout overhaul with live leaderboard and today highlighting:
+// GUID: PUBCHAT_PANEL-000-v10
+// @UX_IMPROVEMENT: Smart validation - prevent fetching future/invalid sessions BEFORE user clicks.
+// @UX_REDESIGN: Major 4-area collapsible layout overhaul with live leaderboard and today highlighting:
 //   - 3 collapsible areas: Live Leaderboard, Pub Chat, Real-Time Telemetry
 //   - Live leaderboard above meeting selector (auto-refresh every 10s)
 //   - Green ring around "today's" meetings with auto-selection as default
@@ -108,15 +109,15 @@ const DATA_TYPES: DataTypeDescriptor[] = [
     { value: 'location', label: 'Track Position', description: 'GPS position data', supportsDriverFilter: true },
 ];
 
-// GUID: PUBCHAT_PANEL-001-v09
-// @UX_REDESIGN: 3-column collapsible layout with live leaderboard auto-refresh and today highlighting.
-// @ENHANCEMENT: Leaderboard auto-refresh every 10 seconds with latest OpenF1 data.
+// GUID: PUBCHAT_PANEL-001-v10
+// @UX_IMPROVEMENT: Smart validation - disable future sessions, show helpful warnings BEFORE fetch.
+// @UX_REDESIGN: 4-area collapsible layout with live leaderboard and today highlighting.
 // @ENHANCEMENT: Green ring around "today's" meetings + auto-select today as default.
-// @ENHANCEMENT: Collapsible sections (Leaderboard, Pub Chat, Telemetry) for focused viewing.
-// [Intent] PubChatPanel component — 3 collapsible areas above meeting/session selectors.
+// @ENHANCEMENT: Collapsible sections (Leaderboard, Pub Chat, Telemetry, Live Track) for focused viewing.
+// [Intent] PubChatPanel component — 4 collapsible areas above meeting/session selectors.
 // [Inbound Trigger] Mounted by TabsContent value="pubchat" in admin/page.tsx.
 // [Downstream Impact] Reads app-settings/pub-chat and pub-chat-timing from Firestore.
-//                     Auto-refreshes timing data every 10s when session selected.
+//                     Validates session dates BEFORE allowing fetch (smart UX).
 export function PubChatPanel() {
     const firestore = useFirestore();
     const { firebaseUser } = useAuth();
@@ -564,6 +565,29 @@ export function PubChatPanel() {
         }
     }, [meetings]);
 
+    // GUID: PUBCHAT_PANEL-036-v10
+    // @UX_IMPROVEMENT: Smart validation - check if session is in the future.
+    // [Intent] Prevent users from trying to fetch data for sessions that haven't happened yet.
+    // [Inbound Trigger] Rendering session cards.
+    // [Downstream Impact] Future sessions are disabled/grayed out with helpful message.
+    const isSessionInFuture = (dateStart: string): boolean => {
+        const now = new Date();
+        const start = new Date(dateStart);
+        return start > now;
+    };
+
+    // GUID: PUBCHAT_PANEL-037-v10
+    // @UX_IMPROVEMENT: Smart validation - check if session is too old (no data available).
+    // [Intent] Warn users about sessions that are too old (OpenF1 may not have data).
+    // [Inbound Trigger] Rendering session cards.
+    // [Downstream Impact] Old sessions show warning badge.
+    const isSessionTooOld = (dateStart: string): boolean => {
+        const now = new Date();
+        const start = new Date(dateStart);
+        const daysDiff = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+        return daysDiff > 7; // Older than 7 days might not have detailed data
+    };
+
     return (
         <div className="relative space-y-6">
             {/* GUID: PUBCHAT_PANEL-009-v01
@@ -927,26 +951,51 @@ export function PubChatPanel() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 {sessions.map(session => {
                                     const isSelected = selectedSessionKey === String(session.sessionKey);
+                                    const isFuture = isSessionInFuture(session.dateStart);
+                                    const isTooOld = isSessionTooOld(session.dateStart);
 
                                     return (
                                         <Card
                                             key={session.sessionKey}
-                                            className={`cursor-pointer transition-all hover:shadow-md ${
+                                            className={`transition-all ${
+                                                isFuture
+                                                    ? 'opacity-40 cursor-not-allowed'
+                                                    : 'cursor-pointer hover:shadow-md'
+                                            } ${
                                                 isSelected
                                                     ? 'border-primary border-2 shadow-md bg-primary/5'
                                                     : 'hover:border-primary/50'
                                             }`}
-                                            onClick={() => setSelectedSessionKey(String(session.sessionKey))}
+                                            onClick={() => {
+                                                if (!isFuture) {
+                                                    setSelectedSessionKey(String(session.sessionKey));
+                                                }
+                                            }}
                                         >
                                             <CardHeader className="text-center p-4">
                                                 <CardTitle className="text-sm font-semibold">
                                                     {session.sessionName}
+                                                    {isFuture && (
+                                                        <Badge variant="outline" className="ml-2 text-xs border-muted-foreground/30">
+                                                            Future
+                                                        </Badge>
+                                                    )}
+                                                    {isTooOld && !isFuture && (
+                                                        <Badge variant="outline" className="ml-2 text-xs border-yellow-500/30 text-yellow-600">
+                                                            Old
+                                                        </Badge>
+                                                    )}
                                                 </CardTitle>
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     {new Date(session.dateStart).toLocaleDateString(undefined, {
                                                         month: 'short',
                                                         day: 'numeric'
                                                     })}
+                                                    {isFuture && (
+                                                        <span className="block text-xs text-muted-foreground/60 mt-1">
+                                                            No data yet
+                                                        </span>
+                                                    )}
                                                 </p>
                                             </CardHeader>
                                         </Card>
@@ -1100,15 +1149,54 @@ export function PubChatPanel() {
                             )}
                         </div>
                     </CardContent>
-                    <CardFooter>
-                        <Button
-                            onClick={handleFetchTimingData}
-                            disabled={!authToken || !selectedSessionKey || fetching}
-                            className="w-full"
-                        >
-                            <Download className={`h-4 w-4 mr-2 ${fetching ? 'animate-spin' : ''}`} />
-                            {!authToken ? 'Authenticating...' : fetching ? 'Fetching...' : 'Fetch from OpenF1'}
-                        </Button>
+                    <CardFooter className="flex-col gap-2">
+                        {selectedSessionKey && sessions.length > 0 && (() => {
+                            const selectedSession = sessions.find(s => String(s.sessionKey) === selectedSessionKey);
+                            const isFuture = selectedSession ? isSessionInFuture(selectedSession.dateStart) : false;
+                            const isTooOld = selectedSession ? isSessionTooOld(selectedSession.dateStart) : false;
+
+                            return (
+                                <>
+                                    {isFuture && (
+                                        <Alert className="w-full">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertDescription className="text-xs">
+                                                This session hasn't happened yet. No data available.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                    {isTooOld && !isFuture && (
+                                        <Alert className="w-full">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertDescription className="text-xs">
+                                                This session is {Math.floor((Date.now() - new Date(selectedSession!.dateStart).getTime()) / (1000 * 60 * 60 * 24))} days old. Data may be limited.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                    <Button
+                                        onClick={handleFetchTimingData}
+                                        disabled={!authToken || !selectedSessionKey || fetching || isFuture}
+                                        className="w-full"
+                                    >
+                                        <Download className={`h-4 w-4 mr-2 ${fetching ? 'animate-spin' : ''}`} />
+                                        {!authToken ? 'Authenticating...' :
+                                         fetching ? 'Fetching...' :
+                                         isFuture ? 'Session Not Started' :
+                                         'Fetch from OpenF1'}
+                                    </Button>
+                                </>
+                            );
+                        })()}
+                        {(!selectedSessionKey || sessions.length === 0) && (
+                            <Button
+                                onClick={handleFetchTimingData}
+                                disabled={!authToken || !selectedSessionKey || fetching}
+                                className="w-full"
+                            >
+                                <Download className={`h-4 w-4 mr-2 ${fetching ? 'animate-spin' : ''}`} />
+                                {!authToken ? 'Authenticating...' : fetching ? 'Fetching...' : 'Fetch from OpenF1'}
+                            </Button>
+                        )}
                     </CardFooter>
                 </Card>
             )}
