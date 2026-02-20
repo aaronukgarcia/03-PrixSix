@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import ThePaddockPubChat from '@/components/ThePaddockPubChat';
-import { LiveTrackVisualization } from '@/components/LiveTrackVisualization';
+// import { LiveTrackVisualization } from '@/components/LiveTrackVisualization'; // Temporarily disabled
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -383,31 +383,15 @@ export function PubChatPanel() {
     // @ENHANCEMENT: Auto-refresh leaderboard every 10 seconds with latest OpenF1 data.
     // [Intent] Keep the leaderboard data fresh by auto-fetching timing data every 10s when a session is selected.
     // [Inbound Trigger] selectedSessionKey changes OR every 10 seconds.
-    // [Downstream Impact] Calls handleFetchTimingData automatically to update leaderboard.
-    useEffect(() => {
-        if (!selectedSessionKey || !authToken) return;
-
-        // Auto-refresh leaderboard every 10 seconds
-        const refreshLeaderboard = async () => {
-            setLeaderboardRefreshing(true);
-            try {
-                await handleFetchTimingData();
-                setLeaderboardLastUpdate(new Date());
-            } catch (err) {
-                console.warn('[Leaderboard Auto-Refresh]', err);
-            } finally {
-                setLeaderboardRefreshing(false);
-            }
-        };
-
-        // Initial fetch
-        refreshLeaderboard();
-
-        // Set up 10-second interval
-        const intervalId = setInterval(refreshLeaderboard, 10000);
-
-        return () => clearInterval(intervalId);
-    }, [selectedSessionKey, authToken, handleFetchTimingData]);
+    // [Downstream Impact] Fetches timing data automatically to update leaderboard.
+    // NOTE: Disabled to prevent circular dependency - auto-refresh will be added back in next version
+    // useEffect(() => {
+    //     if (!selectedSessionKey || !authToken) return;
+    //     const intervalId = setInterval(() => {
+    //         handleFetchTimingData();
+    //     }, 10000);
+    //     return () => clearInterval(intervalId);
+    // }, [selectedSessionKey, authToken]);
 
     // GUID: PUBCHAT_PANEL-005-v08
     // @ENHANCEMENT: Now supports multi-driver selection for comparison view.
@@ -791,21 +775,19 @@ export function PubChatPanel() {
                                         {liveTrackOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                     </div>
                                     <CardDescription className="text-left text-xs">
-                                        Real-time car positions with speed-based trails
+                                        Real-time car positions (Debugging in progress)
                                     </CardDescription>
                                 </CardHeader>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
                                 <CardContent className="max-h-[700px] overflow-y-auto">
-                                    <LiveTrackVisualization
-                                        sessionKey={selectedSessionKey ? Number(selectedSessionKey) : null}
-                                        authToken={authToken}
-                                        drivers={availableDrivers.map(d => ({
-                                            driverNumber: d.number,
-                                            driverName: d.name,
-                                            teamColor: '888888', // Default gray, could fetch from OpenF1 if needed
-                                        }))}
-                                    />
+                                    <div className="text-center py-12 text-sm text-muted-foreground">
+                                        <Flag className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                                        <p className="font-medium">Temporarily Disabled</p>
+                                        <p className="text-xs mt-2 max-w-xs mx-auto">
+                                            Fixing initialization issue - will be back shortly!
+                                        </p>
+                                    </div>
                                 </CardContent>
                             </CollapsibleContent>
                         </Card>
