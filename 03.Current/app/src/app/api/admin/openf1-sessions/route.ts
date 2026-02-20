@@ -68,6 +68,7 @@ import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } fr
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
+import { getSecret } from '@/lib/secrets-manager';
 
 // Force Next.js to treat this route as fully dynamic at runtime so it does
 // not attempt to pre-render it during the build step.
@@ -202,17 +203,20 @@ async function getOpenF1Token(): Promise<string | null> {
     return cachedToken.token;
   }
 
-  // Read credentials from environment variables. These should be set as
-  // Firebase App Hosting secrets (firebase apphosting:secrets:set OPENF1_USERNAME).
-  const username = process.env.OPENF1_USERNAME;
-  const password = process.env.OPENF1_PASSWORD;
+  // Read credentials from Azure Key Vault (production) or environment variables (local dev).
+  // Production: Secrets stored in prixsix-secrets-vault as 'openf1-username' and 'openf1-password'
+  // Local dev: Set OPENF1_USERNAME and OPENF1_PASSWORD in .env.local (falls back automatically)
+  let username: string;
+  let password: string;
 
-  // If either credential is missing, warn and return null. This is a
-  // configuration problem that needs to be fixed in App Hosting secrets.
-  if (!username || !password) {
+  try {
+    // secrets-manager automatically uses Key Vault (if USE_KEY_VAULT=true) or env vars (local dev)
+    username = await getSecret('openf1-username', { envVarName: 'OPENF1_USERNAME' });
+    password = await getSecret('openf1-password', { envVarName: 'OPENF1_PASSWORD' });
+  } catch (error: any) {
     console.warn(
-      `[OpenF1 Auth ${correlationId}] Credentials not configured. ` +
-      `Set OPENF1_USERNAME and OPENF1_PASSWORD as App Hosting secrets.`
+      `[OpenF1 Auth ${correlationId}] Credentials not configured: ${error.message}. ` +
+      `Ensure secrets exist in Azure Key Vault (production) or .env.local (development).`
     );
     return null;
   }

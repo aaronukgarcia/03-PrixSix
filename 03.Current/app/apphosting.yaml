@@ -39,8 +39,10 @@ env:
   # WhatsApp Worker authentication secret (for HMAC proxy verification)
   - variable: WHATSAPP_APP_SECRET
     secret: WHATSAPP_APP_SECRET
-  # OpenF1 API OAuth2 credentials (required as of 2026-02 for all API access)
-  - variable: OPENF1_USERNAME
-    secret: OPENF1_USERNAME
-  - variable: OPENF1_PASSWORD
-    secret: OPENF1_PASSWORD
+  # Azure Key Vault configuration (Phase 3.A - centralized secrets management)
+  - variable: USE_KEY_VAULT
+    value: "true"
+  - variable: KEY_VAULT_URL
+    value: https://prixsix-secrets-vault.vault.azure.net/
+  # OpenF1 API OAuth2 credentials now fetched from Azure Key Vault
+  # Secrets: openf1-username, openf1-password (managed via az keyvault secret set)
