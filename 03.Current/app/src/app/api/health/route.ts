@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId } from '@/lib/firebase-admin';
+import { APP_VERSION } from '@/lib/version';
 
 // Force dynamic to prevent static optimization
 export const dynamic = 'force-dynamic';
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     const result: HealthCheckResult = {
       status: overallStatus,
       timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || '1.56.0',
+      version: APP_VERSION,
       services: {
         firestore: firestoreStatus,
         auth: authStatus,
