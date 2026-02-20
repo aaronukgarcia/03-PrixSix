@@ -1,6 +1,7 @@
-// GUID: API_AUTH_LOGIN-000-v06
+// GUID: API_AUTH_LOGIN-000-v07
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // @SECURITY_FIX: Implemented progressive account lockout to prevent brute-force attacks (GEMINI-AUDIT-012).
+// @SECURITY_FIX: Removed raw errorType and errorMessage from catch block response to prevent information disclosure (GEMINI-AUDIT-100).
 // [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces progressive account lockout after repeated failures, logs all attempts for attack detection, and returns a Firebase custom token on success.
 // [Inbound Trigger] POST request from the client-side login form (LoginPage component).
 // [Downstream Impact] Returns a customToken used by the client to call Firebase signInWithCustomToken(). Writes to audit_logs, login_attempts, and users collections. Lockout state affects future login attempts.
@@ -465,14 +466,14 @@ export async function POST(request: NextRequest) {
       console.error('[Login Error - Logging failed]', logErr);
     }
 
+    // SECURITY: Return only generic message + correlationId. Full error context is logged
+    // server-side via logTracedError(). Never expose errorType or errorMessage to clients
+    // as they leak internal implementation details (GEMINI-AUDIT-100).
     return NextResponse.json(
       {
         success: false,
-        error: 'An error occurred during login',
+        error: 'An error occurred during login. Please try again or contact support.',
         correlationId,
-        // Include error type for debugging (safe - no sensitive data)
-        errorType: error.code || error.name || 'UnknownError',
-        errorMessage: error.message?.substring(0, 200) || 'No message',
       },
       { status: 500 }
     );

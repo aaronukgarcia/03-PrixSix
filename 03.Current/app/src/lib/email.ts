@@ -1,12 +1,15 @@
-// GUID: LIB_EMAIL-000-v05
+// GUID: LIB_EMAIL-000-v06
 // @SECURITY_FIX: Added error message sanitization to prevent credential exposure (EMAIL-003).
 //   Azure AD/Graph API errors may contain tenant IDs, client IDs, or partial credentials.
 // @SECURITY_FIX: Added PIN masking to prevent plaintext credential logging (EMAIL-006).
+// @SECURITY_FIX: generateGuid now uses crypto.randomUUID() for RFC 4122 compliance (GEMINI-AUDIT-053).
+// @SECURITY_FIX: APP_VERSION escaped with escapeHtml() in email footers for defense-in-depth (GEMINI-AUDIT-054).
 //   All PIN values logged to email_logs collection are now masked with maskPin().
 // [Intent] Server-side email sending module using Microsoft Graph API via Azure AD credentials. Provides welcome emails and generic email dispatch with rate-limiting, queuing, and Firestore logging.
 // [Inbound Trigger] Called by API routes (e.g., user registration, admin actions) that need to send transactional emails.
 // [Downstream Impact] Depends on email-tracking.ts for rate limiting and queuing. Writes to email_logs Firestore collection. Failures affect user onboarding and admin notifications.
 
+import { randomUUID } from 'crypto';
 import { ClientSecretCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
@@ -75,16 +78,15 @@ function getAdminDb() {
 // [Downstream Impact] Changing ADMIN_EMAIL env var affects the default sender address for all outbound emails.
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'aaron@garcia.ltd';
 
-// GUID: LIB_EMAIL-003-v03
-// [Intent] Generate a RFC 4122 v4-style GUID for uniquely identifying each email sent, enabling tracking and audit trail lookup.
+// GUID: LIB_EMAIL-003-v04
+// @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID() for cryptographically secure GUID generation (GEMINI-AUDIT-053).
+//   Math.random() is a weak PRNG, predictable by attackers who could enumerate email tracking IDs.
+//   crypto.randomUUID() uses the OS CSPRNG and is compliant with RFC 4122 v4.
+// [Intent] Generate a RFC 4122 v4 GUID for uniquely identifying each email sent, enabling tracking and audit trail lookup.
 // [Inbound Trigger] Called at the start of sendWelcomeEmail and sendEmail to assign a unique reference to each email.
 // [Downstream Impact] The generated GUID is embedded in the email footer, stored in email_logs, and returned to the caller. Used for support reference when users report email issues.
 function generateGuid(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+  return randomUUID();
 }
 
 // GUID: LIB_EMAIL-004-v03
@@ -225,7 +227,7 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
     <div class="footer">
       <p>This is an automated security email from Prix Six</p>
       <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
-      <p>Email Reference: ${emailGuid} | Build: ${APP_VERSION}</p>
+      <p>Email Reference: ${emailGuid} | Build: ${escapeHtml(APP_VERSION)}</p>
       <p>Prix Six - F1 Prediction League</p>
       <p>If you did not expect this email, please reply to <a href="mailto:aaron@garcia.ltd">aaron@garcia.ltd</a></p>
     </div>
@@ -359,7 +361,7 @@ ${htmlContent}
 <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
   <p>This is an automated security email from Prix Six</p>
   <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
-  <p>Email Reference: ${emailGuid} | Build: ${APP_VERSION}</p>
+  <p>Email Reference: ${emailGuid} | Build: ${escapeHtml(APP_VERSION)}</p>
   <p>Prix Six - F1 Prediction League</p>
   <p>If you did not expect this email, please reply to <a href="mailto:aaron@garcia.ltd">aaron@garcia.ltd</a></p>
 </div>

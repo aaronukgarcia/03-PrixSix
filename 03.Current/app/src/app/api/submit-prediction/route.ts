@@ -1,5 +1,6 @@
-// GUID: API_SUBMIT_PREDICTION-000-v04
+// GUID: API_SUBMIT_PREDICTION-000-v05
 // @SECURITY_FIX: Fixed broken team ownership check (API-013) - teamId is user UID pattern, not teamName. Added correlationId hoisting, logError + errorCode on all 4xx paths.
+// @SECURITY_FIX: Race lookup now fails-closed (GEMINI-AUDIT-122) - if race name doesn't match Firestore schedule, submission is rejected rather than proceeding without deadline enforcement.
 // [Intent] API route that accepts and stores a user's top-6 driver prediction for a specific race and team. Enforces server-side lockout rules (results exist, qualifying started).
 // [Inbound Trigger] User submits a prediction from the predictions page (POST request with userId, teamId, raceId, and six driver picks).
 // [Downstream Impact] Writes to users/{userId}/predictions subcollection and audit_logs. Predictions are consumed by the calculate-scores route at scoring time. Lockout enforcement prevents late submissions.
@@ -115,16 +116,30 @@ export async function POST(request: NextRequest) {
     // SECURITY: Use atomic batch write to prevent partial failures
     const { db, FieldValue } = await getFirebaseAdmin();
 
-    // GUID: API_SUBMIT_PREDICTION-005-v04
+    // GUID: API_SUBMIT_PREDICTION-005-v05
     // @SECURITY_FIX: GEMINI-AUDIT-052 - Use Firestore race schedule instead of hardcoded RaceSchedule.
     //   Fetches race timing from trusted server-side Firestore source to prevent client tampering.
-    // [Intent] Server-side lockout enforcement: checks if race results already exist in Firestore (locks predictions once results are entered) and if qualifying has started based on Firestore race_schedule (time-based lockout). Two independent checks provide defence-in-depth.
+    // @SECURITY_FIX: GEMINI-AUDIT-122 - Fail-closed if race name lookup fails. Previously, a race name
+    //   format mismatch caused getRaceByName() to return undefined, silently skipping deadline enforcement.
+    //   An attacker could exploit this by sending a subtly malformed race name to bypass qualifying lockout.
+    // [Intent] Server-side lockout enforcement: checks if race results already exist in Firestore (locks predictions once results are entered) and if qualifying has started based on Firestore race_schedule (time-based lockout). Two independent checks provide defence-in-depth. Fails closed if race is not found.
     // [Inbound Trigger] After payload validation, before writing the prediction.
-    // [Downstream Impact] Returns 403 if the pit lane is closed. Without this, users could submit predictions after results are known, undermining the fantasy league's integrity. The race_results check depends on the document ID format from API_CALCULATE_SCORES-005.
+    // [Downstream Impact] Returns 403 if the pit lane is closed. Returns 400 if the race is not found. Without this, users could submit predictions after results are known, undermining the fantasy league's integrity. The race_results check depends on the document ID format from API_CALCULATE_SCORES-005.
     // SERVER-SIDE LOCKOUT ENFORCEMENT 1: Check if race results already exist
     // This locks the race once results are entered (for preseason testing and normal flow)
     const race = await getRaceByName(raceName);
-    if (race) {
+
+    // SECURITY: Fail-closed — if the race name doesn't match our schedule, reject the submission.
+    // This prevents deadline bypass via race name format manipulation (GEMINI-AUDIT-122).
+    if (!race) {
+      await logError({ correlationId, error: `Race not found for name: "${raceName}" — submission rejected to prevent deadline bypass`, context: { route: '/api/submit-prediction', raceName, raceId } });
+      return NextResponse.json(
+        { success: false, error: 'Race not found. Please refresh and try again.', correlationId },
+        { status: 400 }
+      );
+    }
+
+    {
       // Check both GP and Sprint result IDs (using centralized race ID generation - Golden Rule #3)
       const gpResultId = generateRaceIdLowercase(race.name, 'gp');
       const sprintResultId = generateRaceIdLowercase(race.name, 'sprint');
