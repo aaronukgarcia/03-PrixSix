@@ -507,10 +507,10 @@ export function checkUsers(users: UserData[]): CheckResult {
   };
 }
 
-// GUID: LIB_CONSISTENCY-020-v03
+// GUID: LIB_CONSISTENCY-020-v04
 // [Intent] Validate the static F1Drivers array from data.ts for completeness and uniqueness.
-//   Checks required fields (id, name, number, team), optional imageId, duplicate IDs,
-//   and expected count of 22 drivers (full F1 grid).
+//   Checks required fields (id, name, number, team), duplicate IDs, and expected count
+//   of 22 drivers (full F1 grid). NOTE: imageId intentionally NOT checked (internal-only per GEMINI-AUDIT-051).
 // [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit. Takes no
 //   parameters as it reads directly from the imported F1Drivers constant.
 // [Downstream Impact] Driver validation ensures the reference data used by
@@ -567,14 +567,10 @@ export function checkDrivers(): CheckResult {
       isValid = false;
     }
 
-    if (!driver.imageId) {
-      issues.push({
-        severity: 'warning',
-        entity: `Driver ${driver.id}`,
-        field: 'imageId',
-        message: 'Missing field: imageId',
-      });
-    }
+    // NOTE: imageId is intentionally NOT checked here.
+    // @SECURITY_FIX (GEMINI-AUDIT-051): imageId is internal-only to prevent asset enumeration.
+    // Firestore drivers collection does not (and should not) contain imageId.
+    // Images are managed via getDriverImage() helper in data.ts.
 
     // Check for duplicates
     if (driver.id && seenIds.has(driver.id)) {

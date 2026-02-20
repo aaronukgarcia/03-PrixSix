@@ -1,7 +1,8 @@
 {
   "lastUpdated": "2026-02-20",
   "commits": [
-    {"id": "241c00f", "date": "2026-02-20", "version": "1.58.33", "author": "aaron garcia", "message": "security: Configure Azure service principal for Key Vault access (v1.58.33)", "major": false},
+    {"id": "dbe3f17", "date": "2026-02-20", "version": "1.58.34", "author": "aaron garcia", "message": "fix: Consistency checker bugs - Spanish GP II + driver imageId (v1.58.34)", "major": false},
+    {"id": "6f21708", "date": "2026-02-20", "version": "1.58.33", "author": "aaron garcia", "message": "security: Configure Azure service principal for Key Vault access (v1.58.33)", "major": false},
     {"id": "3d74c40", "date": "2026-02-20", "version": "1.58.32", "author": "aaron garcia", "message": "security: Migrate OpenF1 credentials to Azure Key Vault (Phase 3.A - v1.58.32)", "major": false},
     {"id": "d8fe5a3", "date": "2026-02-20", "version": "1.58.31", "author": "aaron garcia", "message": "fix: Add OpenF1 credentials configuration for local development (v1.58.31)", "major": false},
     {"id": "cf1fa4b", "date": "2026-02-19", "version": "1.58.30", "author": "aaron garcia", "message": "feat: PubChat UX redesign - visual cards, multi-driver comparison, 10s auto-refresh (v1.58.30)", "major": false},

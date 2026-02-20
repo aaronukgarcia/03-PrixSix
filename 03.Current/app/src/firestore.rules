@@ -254,6 +254,14 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Consistency reports - admin exports from Consistency Checker
+    match /consistency_reports/{reportId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin(); // Admin client exports from CC
+      allow update: if isAdmin(); // Allow admins to update reports
+      allow delete: if false;
+    }
+
     // Feedback - users can create, admins can read/update/delete
     match /feedback/{feedbackId} {
       allow get, list: if isAdmin();
