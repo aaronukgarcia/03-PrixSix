@@ -28,6 +28,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import ThePaddockPubChat from '@/components/ThePaddockPubChat';
+import { LiveTrackVisualization } from '@/components/LiveTrackVisualization';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -168,6 +169,7 @@ export function PubChatPanel() {
     const [leaderboardOpen, setLeaderboardOpen] = useState(true);
     const [pubChatOpen, setPubChatOpen] = useState(true);
     const [telemetryOpen, setTelemetryOpen] = useState(false); // Closed by default (coming soon)
+    const [liveTrackOpen, setLiveTrackOpen] = useState(true); // Open by default (new feature!)
 
     // GUID: PUBCHAT_PANEL-031-v09
     // @ENHANCEMENT: Leaderboard auto-refresh every 10 seconds.
@@ -622,11 +624,11 @@ export function PubChatPanel() {
             {/* Main content - desaturated when pub closed */}
             <div className={pubClosed ? 'opacity-30 pointer-events-none saturate-0' : ''}>
                 {/* GUID: PUBCHAT_PANEL-035-v09
-                    @UX_REDESIGN: 3-column collapsible layout for focused viewing.
-                    [Intent] Split screen into 3 collapsible sections (Leaderboard, Pub Chat, Telemetry).
+                    @UX_REDESIGN: 4-area collapsible layout (2x2 grid on large screens).
+                    [Intent] Split screen into 4 collapsible sections (Leaderboard, Pub Chat, Telemetry, Live Track).
                     [Inbound Trigger] Component mount.
                     [Downstream Impact] Provides toggle visibility for each section. */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                     {/* Area 1: Live Leaderboard */}
                     <Collapsible open={leaderboardOpen} onOpenChange={setLeaderboardOpen}>
                         <Card>
@@ -771,6 +773,39 @@ export function PubChatPanel() {
                                             Live telemetry data visualization (speed traces, gear changes, throttle/brake application)
                                         </p>
                                     </div>
+                                </CardContent>
+                            </CollapsibleContent>
+                        </Card>
+                    </Collapsible>
+
+                    {/* Area 4: Live Track Visualization */}
+                    <Collapsible open={liveTrackOpen} onOpenChange={setLiveTrackOpen}>
+                        <Card>
+                            <CollapsibleTrigger className="w-full">
+                                <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <Flag className="h-5 w-5 text-green-500" />
+                                            Live Track
+                                        </CardTitle>
+                                        {liveTrackOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    </div>
+                                    <CardDescription className="text-left text-xs">
+                                        Real-time car positions with speed-based trails
+                                    </CardDescription>
+                                </CardHeader>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <CardContent className="max-h-[700px] overflow-y-auto">
+                                    <LiveTrackVisualization
+                                        sessionKey={selectedSessionKey ? Number(selectedSessionKey) : null}
+                                        authToken={authToken}
+                                        drivers={availableDrivers.map(d => ({
+                                            driverNumber: d.number,
+                                            driverName: d.name,
+                                            teamColor: '888888', // Default gray, could fetch from OpenF1 if needed
+                                        }))}
+                                    />
                                 </CardContent>
                             </CollapsibleContent>
                         </Card>
