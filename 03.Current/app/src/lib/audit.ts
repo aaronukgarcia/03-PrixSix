@@ -1,6 +1,7 @@
-// GUID: LIB_AUDIT-000-v05
+// GUID: LIB_AUDIT-000-v06
 // @SECURITY_FIX: Permission errors now use TracedError and correlation IDs (LIB-003).
 // @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID() in generateGuid() (LIB-002).
+// @SECURITY_FIX: logPermissionError console.error now redacts userId/path in production (GEMINI-AUDIT-047).
 // [Intent] Client-side audit logging module providing session correlation IDs, Firestore audit event logging, automatic navigation tracking, and permission error reporting.
 // [Inbound Trigger] Imported by React components and pages that need audit trail functionality.
 // [Downstream Impact] Writes to audit_logs Firestore collection. Navigation tracking depends on Next.js routing. Changes affect audit trail completeness and compliance reporting.
@@ -146,12 +147,13 @@ export function useAuditNavigation() {
   }, [pathname, firebaseUser, firestore]);
 }
 
-// GUID: LIB_AUDIT-007-v04
+// GUID: LIB_AUDIT-007-v05
 // @SECURITY_FIX: Now uses TracedError and correlation IDs for consistency (LIB-003).
+// @SECURITY_FIX: Production console.error redacts sensitive fields (userId, path, method) to prevent information disclosure (GEMINI-AUDIT-047).
 //   Permission errors now follow Golden Rule #7 (centralized error definitions).
 // [Intent] Logs Firestore permission errors to console only (not to Firestore) to avoid circular permission failures when the user lacks write access to audit_logs.
 // [Inbound Trigger] Called by components that catch FirestorePermissionError exceptions during Firestore operations.
-// [Downstream Impact] Console-only logging means these errors are not persisted in Firestore. Server-side log aggregation must capture console.error output to track permission issues. Now includes correlation IDs for traceability.
+// [Downstream Impact] Console-only logging means these errors are not persisted in Firestore. In production, only correlationId and errorCode are logged to prevent Firestore path/userId disclosure. In development, full details are available for debugging.
 /**
  * Logs a Firestore permission error to the audit log.
  * Note: We don't log permission errors to Firestore to avoid circular errors.
@@ -178,12 +180,20 @@ export function logPermissionError(firestore: any, userId: string | undefined, e
     });
 
     // Log the structured error to console (DO NOT write to Firestore to avoid recursion)
-    console.error('Permission error:', {
-        correlationId: traced.correlationId,
-        errorCode: traced.definition.code,
-        message: traced.message,
-        userId,
-        path: error.request?.path,
-        method: error.request?.method,
-    });
+    // SECURITY: In production, redact sensitive fields to prevent information disclosure via DevTools
+    if (process.env.NODE_ENV !== 'production') {
+        console.error('Permission error:', {
+            correlationId: traced.correlationId,
+            errorCode: traced.definition.code,
+            message: traced.message,
+            userId,
+            path: error.request?.path,
+            method: error.request?.method,
+        });
+    } else {
+        console.error('Permission error:', {
+            correlationId: traced.correlationId,
+            errorCode: traced.definition.code,
+        });
+    }
 }

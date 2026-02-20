@@ -1,4 +1,5 @@
-// GUID: LIB_LEAGUES-000-v03
+// GUID: LIB_LEAGUES-000-v04
+// @SECURITY_FIX: All catch blocks now return generic error messages to prevent Firestore path/schema disclosure (GEMINI-AUDIT-062).
 // [Intent] Client-side league management module providing CRUD operations for custom leagues. Handles league creation, joining via invite codes, leaving, member removal, renaming, invite code regeneration, and deletion. All operations interact with the leagues Firestore collection.
 // [Inbound Trigger] Called by league management UI components and API routes when users create, join, leave, or administer leagues.
 // [Downstream Impact] Modifies the leagues Firestore collection. League membership affects standings views and scoring filters. Depends on league types from types/league.ts and audit.ts for correlation IDs.
@@ -90,7 +91,7 @@ export async function createLeague(
   } catch (error: any) {
     const correlationId = getCorrelationId();
     console.error(`Error creating league [${correlationId}]:`, error);
-    return { success: false, error: `${error.message} (ID: ${correlationId})` };
+    return { success: false, error: `An error occurred while creating the league. Please try again. (ID: ${correlationId})` };
   }
 }
 
@@ -151,7 +152,7 @@ export async function joinLeagueByCode(
   } catch (error: any) {
     const correlationId = getCorrelationId();
     console.error(`Error joining league [${correlationId}]:`, error);
-    return { success: false, error: `${error.message} (ID: ${correlationId})` };
+    return { success: false, error: `An error occurred while joining the league. Please try again. (ID: ${correlationId})` };
   }
 }
 
@@ -202,7 +203,7 @@ export async function leaveLeague(
   } catch (error: any) {
     const correlationId = getCorrelationId();
     console.error(`Error leaving league [${correlationId}]:`, error);
-    return { success: false, error: `${error.message} (ID: ${correlationId})` };
+    return { success: false, error: `An error occurred while leaving the league. Please try again. (ID: ${correlationId})` };
   }
 }
 
@@ -294,8 +295,9 @@ export async function regenerateInviteCode(
 
     return { success: true, newCode };
   } catch (error: any) {
-    console.error('Error regenerating invite code:', error);
-    return { success: false, error: error.message };
+    const correlationId = getCorrelationId();
+    console.error(`Error regenerating invite code [${correlationId}]:`, error);
+    return { success: false, error: `An error occurred while regenerating the invite code. Please try again. (ID: ${correlationId})` };
   }
 }
 
@@ -334,8 +336,9 @@ export async function updateLeagueName(
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error updating league name:', error);
-    return { success: false, error: error.message };
+    const correlationId = getCorrelationId();
+    console.error(`Error updating league name [${correlationId}]:`, error);
+    return { success: false, error: `An error occurred while updating the league name. Please try again. (ID: ${correlationId})` };
   }
 }
 
@@ -379,8 +382,9 @@ export async function removeMember(
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error removing member:', error);
-    return { success: false, error: error.message };
+    const correlationId = getCorrelationId();
+    console.error(`Error removing member [${correlationId}]:`, error);
+    return { success: false, error: `An error occurred while removing the member. Please try again. (ID: ${correlationId})` };
   }
 }
 
@@ -422,6 +426,6 @@ export async function deleteLeague(
   } catch (error: any) {
     const correlationId = getCorrelationId();
     console.error(`Error deleting league [${correlationId}]:`, error);
-    return { success: false, error: `${error.message} (ID: ${correlationId})` };
+    return { success: false, error: `An error occurred while deleting the league. Please try again. (ID: ${correlationId})` };
   }
 }
