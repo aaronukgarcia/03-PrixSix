@@ -101601,5 +101601,308 @@
       "created": "2026-02-17T23:39:06.655917Z",
       "lastUpdated": "2026-02-18T11:25:00.000000Z"
     }
-  ]
+  ],
+  "firestoreCollections": {
+    "lastAuditDate": "2026-02-20",
+    "auditor": "Bill (Claude Code - Sonnet 4.5)",
+    "auditReport": "FIRESTORE-SECURITY-AUDIT-2026-02-20.md",
+    "totalCollections": 30,
+    "collectionsWithExplicitRules": 29,
+    "collectionsWithImplicitDenial": 1,
+    "securityScore": "9.5/10 (EXCELLENT)",
+    "collections": [
+      {
+        "name": "admin_configuration",
+        "firestoreRuleLine": 107,
+        "permissionLevel": "Read: Signed-in, Write: Admin",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Admin Management",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "admin_challenges",
+        "firestoreRuleLine": 355,
+        "permissionLevel": "All: Denied",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Defensive/Legacy",
+        "notes": "Magic Link tokens - server-side only",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "app-settings",
+        "firestoreRuleLine": 102,
+        "permissionLevel": "Read: All, Write: Admin",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Configuration",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "attack_alerts",
+        "firestoreRuleLine": 301,
+        "permissionLevel": "Read: Admin, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Security Monitoring",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "audit_logs",
+        "firestoreRuleLine": 114,
+        "permissionLevel": "Read: Owner/Admin, Create: Signed-in",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Security Monitoring",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "backup_history",
+        "firestoreRuleLine": 342,
+        "permissionLevel": "Read: Admin, Write: Admin",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Admin Management",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "backup_status",
+        "firestoreRuleLine": 327,
+        "permissionLevel": "Read: Admin, Write: Admin",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Admin Management",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "book_of_work",
+        "firestoreRuleLine": 285,
+        "permissionLevel": "Read: Admin, Create: Admin",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Admin Management",
+        "notes": "Deprecated in favor of Vestige memory (2026-02-17)",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "consistency_reports",
+        "firestoreRuleLine": 258,
+        "permissionLevel": "Read: Admin, Create: Admin",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Security Monitoring",
+        "notes": "Rule added 2026-02-20 to fix PX-4006",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "counters",
+        "firestoreRuleLine": 273,
+        "permissionLevel": "Read: All, Write: Custom",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "User Presence",
+        "notes": "Transaction-based incrementing",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "drivers",
+        "firestoreRuleLine": 97,
+        "permissionLevel": "Read: All, Write: Admin",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Core Gameplay",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "email_daily_stats",
+        "firestoreRuleLine": 125,
+        "permissionLevel": "Read: Admin, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Email Infrastructure",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "email_logs",
+        "firestoreRuleLine": 153,
+        "permissionLevel": "Read: Admin, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Email Infrastructure",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "email_queue",
+        "firestoreRuleLine": 130,
+        "permissionLevel": "Read: Admin, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Email Infrastructure",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "email_verification_tokens",
+        "firestoreRuleLine": 245,
+        "permissionLevel": "All: Denied",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Email Infrastructure",
+        "notes": "Server-side only - prevents token enumeration",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "feedback",
+        "firestoreRuleLine": 266,
+        "permissionLevel": "Read: Admin, Create: Signed-in",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "User Feedback",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "leagues",
+        "firestoreRuleLine": 175,
+        "permissionLevel": "Read: All, Write: Custom",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Core Gameplay",
+        "notes": "Complex join/leave logic with capacity checks",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "login_attempts",
+        "firestoreRuleLine": 295,
+        "permissionLevel": "Read: Admin, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Security Monitoring",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "mail",
+        "firestoreRuleLine": 239,
+        "permissionLevel": "All: Denied",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Email Infrastructure",
+        "notes": "Firebase Extension (Trigger Email)",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "predictions",
+        "firestoreRuleLine": 235,
+        "permissionLevel": "Read: Signed-in, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Core Gameplay",
+        "notes": "Subcollection under users/ - collectionGroup query",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "presence",
+        "firestoreRuleLine": 159,
+        "permissionLevel": "Read: Signed-in, Write: Self",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "User Presence",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "race_results",
+        "firestoreRuleLine": 85,
+        "permissionLevel": "Read: All, Write: Denied",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Core Gameplay",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "race_schedule",
+        "firestoreRuleLine": null,
+        "permissionLevel": "Implicitly denied (no explicit rule)",
+        "authRequired": false,
+        "status": "SECURE (via default deny-all)",
+        "category": "Core Gameplay",
+        "notes": "NEEDS EXPLICIT RULE - recommendation pending",
+        "recommendation": "Add public read-only pattern (see FIRESTORE-SECURITY-AUDIT-2026-02-20.md RECOMMENDATION-001)",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "races",
+        "firestoreRuleLine": 80,
+        "permissionLevel": "Read: All, Write: Admin",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Defensive/Legacy",
+        "notes": "No code references - defensive rule",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "scores",
+        "firestoreRuleLine": 91,
+        "permissionLevel": "Read: All, Write: Denied",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Core Gameplay",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "secondary_email_verification_tokens",
+        "firestoreRuleLine": 366,
+        "permissionLevel": "All: Denied",
+        "authRequired": false,
+        "status": "SECURE",
+        "category": "Email Infrastructure",
+        "notes": "Server-side only - prevents token enumeration",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "user_logons",
+        "firestoreRuleLine": 313,
+        "permissionLevel": "Read: Signed-in, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "User Presence",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "users",
+        "firestoreRuleLine": 40,
+        "permissionLevel": "Read: Self/Admin, Write: Self/Admin",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "Core Gameplay",
+        "notes": "Complex ownership + admin logic",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "whatsapp_alert_history",
+        "firestoreRuleLine": 148,
+        "permissionLevel": "Read: Admin, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "WhatsApp Infrastructure",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "whatsapp_queue",
+        "firestoreRuleLine": 136,
+        "permissionLevel": "Read: Admin, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "WhatsApp Infrastructure",
+        "lastVerified": "2026-02-20"
+      },
+      {
+        "name": "whatsapp_status_log",
+        "firestoreRuleLine": 142,
+        "permissionLevel": "Read: Admin, Write: Denied",
+        "authRequired": true,
+        "status": "SECURE",
+        "category": "WhatsApp Infrastructure",
+        "lastVerified": "2026-02-20"
+      }
+    ]
+  }
 }

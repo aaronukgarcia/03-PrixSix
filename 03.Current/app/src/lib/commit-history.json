@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-20",
   "commits": [
+    {"id": "PENDING", "date": "2026-02-20", "version": "1.58.35", "author": "aaron garcia", "message": "docs: Comprehensive Firestore security audit - 30 collections validated (v1.58.35)", "major": false},
     {"id": "dbe3f17", "date": "2026-02-20", "version": "1.58.34", "author": "aaron garcia", "message": "fix: Consistency checker bugs - Spanish GP II + driver imageId (v1.58.34)", "major": false},
     {"id": "6f21708", "date": "2026-02-20", "version": "1.58.33", "author": "aaron garcia", "message": "security: Configure Azure service principal for Key Vault access (v1.58.33)", "major": false},
     {"id": "3d74c40", "date": "2026-02-20", "version": "1.58.32", "author": "aaron garcia", "message": "security: Migrate OpenF1 credentials to Azure Key Vault (Phase 3.A - v1.58.32)", "major": false},
