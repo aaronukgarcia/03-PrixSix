@@ -76,8 +76,9 @@ export function LiveTrackVisualization({ sessionKey, authToken, drivers }: LiveT
     const animationFrameRef = useRef<number>();
     const updateIntervalRef = useRef<NodeJS.Timeout>();
 
-    // GUID: LIVE_TRACK_VIZ-001-v01
-    // [Intent] Fetch car positions from OpenF1 /location endpoint.
+    // GUID: LIVE_TRACK_VIZ-001-v02
+    // @FIX: Use server-side API route instead of direct OpenF1 call (fixes auth + CORS).
+    // [Intent] Fetch car positions via /api/admin/openf1-location proxy.
     // [Inbound Trigger] Called every 1 second when isLive=true, or manually on "refresh".
     // [Downstream Impact] Updates positions state with latest GPS coordinates.
     const fetchPositions = useCallback(async () => {
@@ -85,20 +86,22 @@ export function LiveTrackVisualization({ sessionKey, authToken, drivers }: LiveT
 
         setIsLoading(true);
         try {
-            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`, {
+            const res = await fetch(`/api/admin/openf1-location?sessionKey=${sessionKey}`, {
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
                 },
             });
 
-            if (!res.ok) {
-                console.warn('[Live Track] OpenF1 location returned', res.status);
+            const json = await res.json();
+
+            if (!json.success || !res.ok) {
+                console.warn('[Live Track] API returned error:', json.error || res.status);
                 return;
             }
 
-            const data: CarPosition[] = await res.json();
+            const data: CarPosition[] = json.data || [];
 
-            if (!Array.isArray(data) || data.length === 0) {
+            if (data.length === 0) {
                 console.warn('[Live Track] No position data returned');
                 return;
             }

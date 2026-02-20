@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import ThePaddockPubChat from '@/components/ThePaddockPubChat';
-// import { LiveTrackVisualization } from '@/components/LiveTrackVisualization'; // Temporarily disabled
+import { LiveTrackVisualization } from '@/components/LiveTrackVisualization';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -781,13 +781,22 @@ export function PubChatPanel() {
                             </CollapsibleTrigger>
                             <CollapsibleContent>
                                 <CardContent className="max-h-[700px] overflow-y-auto">
-                                    <div className="text-center py-12 text-sm text-muted-foreground">
-                                        <Flag className="h-16 w-16 mx-auto mb-4 opacity-10" />
-                                        <p className="font-medium">Temporarily Disabled</p>
-                                        <p className="text-xs mt-2 max-w-xs mx-auto">
-                                            Fixing initialization issue - will be back shortly!
-                                        </p>
-                                    </div>
+                                    {selectedSessionKey ? (
+                                        <LiveTrackVisualization
+                                            sessionKey={Number(selectedSessionKey)}
+                                            authToken={authToken}
+                                            drivers={availableDrivers.map(d => ({
+                                                driverNumber: d.number,
+                                                driverName: d.name,
+                                                teamColor: '888888',
+                                            }))}
+                                        />
+                                    ) : (
+                                        <div className="text-center py-12 text-sm text-muted-foreground">
+                                            <Flag className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                                            <p>Select a session to view live track</p>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </CollapsibleContent>
                         </Card>
