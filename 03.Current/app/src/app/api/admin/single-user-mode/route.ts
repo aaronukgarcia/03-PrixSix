@@ -1,4 +1,4 @@
-// GUID: API_ADMIN_SINGLE_USER_MODE-000-v01
+// GUID: API_ADMIN_SINGLE_USER_MODE-000-v02
 // @SECURITY_FIX: New authenticated server-side endpoint replacing direct client Firestore writes (GEMINI-AUDIT-025, ADMINCOMP-009).
 // [Intent] Admin API route for activating/deactivating Single User Mode. Verifies Firebase Auth token and server-side admin status before executing presence purge or flag operations.
 // [Inbound Trigger] POST request from OnlineUsersManager component (activate/deactivate buttons).
@@ -52,8 +52,13 @@ export async function POST(request: NextRequest) {
     const raw = await request.json();
     body = singleUserModeRequestSchema.parse(raw);
   } catch {
+    await logError({
+      correlationId,
+      error: 'Invalid request body on single-user-mode',
+      context: { route: '/api/admin/single-user-mode' },
+    });
     return NextResponse.json(
-      { success: false, error: 'Invalid request body', correlationId },
+      { success: false, error: 'Invalid request body', errorCode: 'PX-4000', correlationId },
       { status: 400 }
     );
   }
@@ -77,7 +82,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { db } = getFirebaseAdmin();
+    const { db } = await getFirebaseAdmin();
 
     // GUID: API_ADMIN_SINGLE_USER_MODE-005-v01
     // [Intent] Server-side admin verification — confirms the caller has isAdmin=true in Firestore.
@@ -108,22 +113,29 @@ export async function POST(request: NextRequest) {
 
       for (const presenceDoc of presenceSnap.docs) {
         if (presenceDoc.id === verifiedUser.uid) {
-          // Keep admin's own session but clear others if they have multiple
-          if (currentSessionId && presenceDoc.data().sessions?.length > 1) {
-            const adminSessions = presenceDoc.data().sessions || [];
-            const adminActivity = presenceDoc.data().sessionActivity || {};
-            const keptSession = adminSessions.filter((s: string) => s === currentSessionId);
+          // Keep admin's own session but clear others if they have multiple.
+          // @SECURITY_FIX: Validate currentSessionId against server-side presence data before using
+          // as keep-filter to prevent client-controlled value from zeroing out the admin's own sessions.
+          const adminSessions: string[] = presenceDoc.data().sessions || [];
+          const adminActivity: Record<string, number> = presenceDoc.data().sessionActivity || {};
+          // Only use currentSessionId if it actually exists in the server-side sessions list
+          const verifiedSessionId = (currentSessionId && adminSessions.includes(currentSessionId))
+            ? currentSessionId
+            : adminSessions[0] ?? null;
+          if (verifiedSessionId && adminSessions.length > 1) {
+            const keptSession = adminSessions.filter((s: string) => s === verifiedSessionId);
             const keptActivity: Record<string, number> = {};
-            if (currentSessionId && adminActivity[currentSessionId]) {
-              keptActivity[currentSessionId] = adminActivity[currentSessionId];
+            if (adminActivity[verifiedSessionId]) {
+              keptActivity[verifiedSessionId] = adminActivity[verifiedSessionId];
             }
             batch.update(presenceDoc.ref, {
               sessions: keptSession,
               sessionActivity: keptActivity,
-              online: keptSession.length > 0,
+              online: true,
             });
             purgedCount += adminSessions.length - keptSession.length;
           }
+          // If admin has only 1 session, leave their presence document untouched
         } else {
           // Fully clear all other users' sessions
           const sessionCount = presenceDoc.data().sessions?.length || 0;
