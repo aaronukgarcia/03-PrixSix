@@ -719,10 +719,8 @@ export async function POST(request: NextRequest) {
     //                     then the parallel lap fetch.
     // -------------------------------------------------------------------------
 
-    // Build the drivers URL — optionally append driver_number to filter results.
-    const driversUrl = driverNumber
-      ? `${OPENF1_BASE}/drivers?session_key=${sessionKey}&driver_number=${driverNumber}`
-      : `${OPENF1_BASE}/drivers?session_key=${sessionKey}`;
+    // Build the drivers URL — always fetch all drivers (filter client-side for multi-select support)
+    const driversUrl = `${OPENF1_BASE}/drivers?session_key=${sessionKey}`;
 
     console.log(`[fetch-timing-data POST ${correlationId}] Fetching drivers: ${driversUrl}`);
     let driversRes: Response;
@@ -794,6 +792,16 @@ export async function POST(request: NextRequest) {
       if (d.driver_number && !uniqueDrivers.has(d.driver_number)) {
         uniqueDrivers.set(d.driver_number, d);
       }
+    }
+
+    // Filter by driverNumbers if provided (client-side multi-driver filtering)
+    if (driverNumbers && driverNumbers.length > 0) {
+      for (const [driverNum, driverData] of uniqueDrivers.entries()) {
+        if (!driverNumbers.includes(driverNum)) {
+          uniqueDrivers.delete(driverNum);
+        }
+      }
+      console.log(`[fetch-timing-data POST ${correlationId}] Filtered to ${uniqueDrivers.size} drivers matching ${driverNumbers.join(', ')}`);
     }
 
     console.log(`[fetch-timing-data POST ${correlationId}] ${uniqueDrivers.size} unique drivers after deduplication. Fetching lap data...`);
