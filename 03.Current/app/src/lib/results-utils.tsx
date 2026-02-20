@@ -1,4 +1,8 @@
-// GUID: LIB_RESULTS_UTILS-000-v01
+// GUID: LIB_RESULTS_UTILS-000-v02
+// @BUG_FIX: GEMINI-AUDIT-122 — getBaseRaceId now preserves -Sprint suffix for Sprint races.
+//   Previously: getBaseRaceId("Chinese-Grand-Prix-Sprint") returned "Chinese-Grand-Prix" (baseName
+//   has no Sprint suffix) → results page queried wrong raceId → 0 Sprint predictions found.
+//   Fixed by checking event.isSprint and appending "-Sprint" when true.
 // [Intent] Shared types, constants, and pure functions for race results display.
 //   Extracted from results/page.tsx so both /results and /my-results pages can
 //   share scoring display logic without duplication.
@@ -207,15 +211,27 @@ export function formatResultTimestamp(timestamp: any): string | null {
     });
 }
 
-// GUID: LIB_RESULTS_UTILS-015-v01
+// GUID: LIB_RESULTS_UTILS-015-v02
+// @BUG_FIX: GEMINI-AUDIT-122 — Sprint races now return "Base-Name-Sprint" instead of just "Base-Name".
+//   Previously event.baseName had no Sprint suffix, so Sprint predictions were never found.
+//   Sprint predictions are stored with "-Sprint" suffix (via generateRaceId/normalizeRaceId);
+//   the query raceId must match. GP races strip -GP to match pre-case-fix stored predictions.
+//   Fallback: strip -GP only, preserve -Sprint for consistency.
 // [Intent] Convert a full event ID (with -GP or -Sprint suffix) to the base race ID
-//   matching how predictions are stored in Firestore.
+//   matching how predictions are stored in Firestore. Sprint races preserve the -Sprint suffix;
+//   GP races strip -GP. This matches how submit-prediction and calculate-scores store raceId.
+// [Inbound Trigger] Called from results/page.tsx and my-results/page.tsx before querying predictions.
+// [Downstream Impact] Drives collectionGroup query for predictions — wrong value returns 0 results.
 export function getBaseRaceId(eventId: string): string {
     const event = allRaceEvents.find(e => e.id.toLowerCase() === eventId.toLowerCase());
     if (event) {
-        return event.baseName.replace(/\s+/g, '-');
+        const baseId = event.baseName.replace(/\s+/g, '-');
+        // Sprint races: append -Sprint so predictions can be found (stored as "Name-Sprint")
+        // GP races: return base name only (stored without -GP suffix)
+        return event.isSprint ? `${baseId}-Sprint` : baseId;
     }
-    return eventId.replace(/-GP$/i, '').replace(/-Sprint$/i, '');
+    // Fallback: strip -GP only, preserve -Sprint
+    return eventId.replace(/-GP$/i, '');
 }
 
 // GUID: LIB_RESULTS_UTILS-016-v01
