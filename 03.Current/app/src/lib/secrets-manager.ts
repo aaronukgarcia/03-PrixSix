@@ -70,18 +70,26 @@ async function getSecretClient() {
   try {
     // Lazy load Azure SDK packages
     if (!SecretClient || !DefaultAzureCredential) {
+      console.log('[Key Vault] Loading Azure SDK packages...');
       const keyVaultModule = await import('@azure/keyvault-secrets');
       const identityModule = await import('@azure/identity');
       SecretClient = keyVaultModule.SecretClient;
       DefaultAzureCredential = identityModule.DefaultAzureCredential;
+      console.log('[Key Vault] Azure SDK packages loaded successfully');
     }
 
     // Initialize client with Managed Identity or Azure CLI credentials
+    console.log(`[Key Vault] Initializing client for ${KEY_VAULT_URL}...`);
+    console.log(`[Key Vault] AZURE_CLIENT_ID: ${process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET'}`);
+    console.log(`[Key Vault] AZURE_TENANT_ID: ${process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET'}`);
+    console.log(`[Key Vault] AZURE_CLIENT_SECRET: ${process.env.AZURE_CLIENT_SECRET ? 'SET' : 'NOT SET'}`);
     const credential = new DefaultAzureCredential();
     keyVaultClient = new SecretClient(KEY_VAULT_URL, credential);
+    console.log('[Key Vault] Client initialized successfully');
 
     return keyVaultClient;
   } catch (error: any) {
+    console.error('[Key Vault] Failed to initialize client:', error.message);
     throw new Error(
       `Failed to initialize Azure Key Vault client: ${error.message}. ` +
       'Ensure @azure/keyvault-secrets and @azure/identity packages are installed.'
@@ -95,10 +103,13 @@ async function getSecretClient() {
 // [Inbound Trigger] Called by getSecretClient() after cache miss or TTL expiry.
 // [Downstream Impact] Requires network call to Key Vault. Failures throw errors (no silent fallback).
 async function fetchFromKeyVault(secretName: string): Promise<string> {
+  console.log(`[Key Vault] Attempting to fetch secret: ${secretName}`);
   const client = await getSecretClient();
 
   try {
+    console.log(`[Key Vault] Calling client.getSecret('${secretName}')...`);
     const secret = await client.getSecret(secretName);
+    console.log(`[Key Vault] Secret fetched successfully: ${secretName}`);
 
     if (!secret.value) {
       throw new Error(`Secret '${secretName}' exists but has no value in Key Vault`);
@@ -107,7 +118,7 @@ async function fetchFromKeyVault(secretName: string): Promise<string> {
     return secret.value;
   } catch (error: any) {
     // Log the actual error for debugging (without secret values)
-    console.error(`[Key Vault Error] Secret: ${secretName}, Error: ${error.message}, Code: ${error.statusCode || error.code || 'unknown'}`);
+    console.error(`[Key Vault Error] Secret: ${secretName}, Error: ${error.message}, Code: ${error.statusCode || error.code || 'unknown'}, Name: ${error.name}`);
     throw new Error(
       `Failed to fetch secret from Key Vault (${error.statusCode || error.code || 'unknown error'}). ` +
       'Verify Key Vault permissions and secret name.'
