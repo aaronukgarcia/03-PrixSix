@@ -583,7 +583,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-011-v05
+  // GUID: FIREBASE_PROVIDER-011-v06
+  // @SECURITY_FIX: Added Authorization header to fix 401 errors — update-user API requires Bearer token since GEMINI-AUDIT-107 fix (ADMINCOMP-002).
   // [Intent] Admin-only operation to update a user's profile via server-side API. Handles both
   // Firestore document updates and Firebase Auth property changes (e.g., email, display name).
   // [Inbound Trigger] Called from the admin panel when an admin edits a user's details.
@@ -594,11 +595,16 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return { success: false, message: "You do not have permission to perform this action." };
     }
 
+    if (!firebaseUser) {
+      return { success: false, message: "You must be logged in to perform this action." };
+    }
+
     // Use server-side API to update user (handles both Firestore AND Firebase Auth)
     try {
+      const idToken = await firebaseUser.getIdToken();
       const response = await fetch('/api/admin/update-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({
           userId,
           adminUid: user.id,

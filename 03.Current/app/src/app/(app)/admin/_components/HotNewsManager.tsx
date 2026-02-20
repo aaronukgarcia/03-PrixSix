@@ -121,20 +121,22 @@ export function HotNewsManager() {
         description: "Hot News settings have been updated.",
       });
 
-      // GUID: ADMIN_HOT_NEWS-005-v03
+      // GUID: ADMIN_HOT_NEWS-005-v04
+      // @SECURITY_FIX: Added Authorization header and adminUid to send-hot-news-email call to pass server-side auth gate added in ADMINCOMP-006 fix.
       // [Intent] Conditionally sends hot news content via email to all subscribed users after a successful save.
       // [Inbound Trigger] The sendEmails checkbox is checked when the save button is clicked.
-      // [Downstream Impact] Calls /api/send-hot-news-email API endpoint. On failure, displays an error toast with correlation ID for debugging.
+      // [Downstream Impact] Calls /api/send-hot-news-email API endpoint with admin Bearer token. On failure, displays an error toast with correlation ID for debugging.
       if (sendEmails) {
         setIsSendingEmails(true);
         try {
           const response = await fetch('/api/send-hot-news-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify({
               content,
               updatedBy: firebaseUser.uid,
               updatedByEmail: user?.email,
+              adminUid: firebaseUser.uid,
             }),
           });
 

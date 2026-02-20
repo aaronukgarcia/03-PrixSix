@@ -1,12 +1,13 @@
-// GUID: API_SEND_HOT_NEWS_EMAIL-000-v05
-// @SECURITY_FIX: Added 1-hour broadcast cooldown to prevent email spam (ADMINCOMP-006).
-// [Intent] API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces 1-hour broadcast cooldown, daily global and per-address rate limits, logs audit events, and tracks email stats.
-// [Inbound Trigger] POST request from the admin hot news editor (typically the HotNewsEditor component).
+// GUID: API_SEND_HOT_NEWS_EMAIL-000-v06
+// @SECURITY_FIX: Added verifyAuthToken + isAdmin check to prevent unauthenticated mass email broadcasts (ADMINCOMP-006).
+// [Intent] API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces authentication (admin-only), 1-hour broadcast cooldown, daily global and per-address rate limits, logs audit events, and tracks email stats.
+// [Inbound Trigger] POST request with Authorization: Bearer <idToken> header from the admin HotNewsManager component.
 // [Downstream Impact] Sends emails via sendEmail (email lib); writes to audit_logs, email_daily_stats, and admin_configuration/hot_news_email_throttle collections. Frontend relies on results array and success counts.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 
@@ -41,14 +42,16 @@ function escapeHtml(unsafe: string): string {
     .replace(/\//g, '&#x2F;');
 }
 
-// GUID: API_SEND_HOT_NEWS_EMAIL-002-v03
-// [Intent] Type definition for the incoming request body — content of the hot news, plus who triggered the update.
+// GUID: API_SEND_HOT_NEWS_EMAIL-002-v04
+// @SECURITY_FIX: Added adminUid field to enable server-side UID-match verification (ADMINCOMP-006).
+// [Intent] Type definition for the incoming request body — content of the hot news, who triggered the update, and the admin UID for token verification.
 // [Inbound Trigger] Used to type the parsed JSON body in the POST handler.
-// [Downstream Impact] Changing field names breaks the admin HotNewsEditor component that constructs this payload.
+// [Downstream Impact] Changing field names breaks the admin HotNewsManager component that constructs this payload.
 interface HotNewsEmailRequest {
   content: string;
   updatedBy: string;
   updatedByEmail: string;
+  adminUid: string;
 }
 
 // GUID: API_SEND_HOT_NEWS_EMAIL-003-v03
@@ -74,17 +77,40 @@ function getTodayDateString(): string {
   return now.toISOString().split('T')[0];
 }
 
-// GUID: API_SEND_HOT_NEWS_EMAIL-005-v05
-// @SECURITY_FIX: Added broadcast cooldown check (ADMINCOMP-006).
-// [Intent] POST handler — orchestrates the entire hot news email broadcast: validates input, checks broadcast cooldown, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.
-// [Inbound Trigger] HTTP POST with JSON body containing content, updatedBy, and updatedByEmail.
+// GUID: API_SEND_HOT_NEWS_EMAIL-005-v06
+// @SECURITY_FIX: Added verifyAuthToken + UID match + isAdmin check before any processing (ADMINCOMP-006).
+// [Intent] POST handler — authenticates admin caller, then orchestrates the entire hot news email broadcast: validates input, checks broadcast cooldown, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.
+// [Inbound Trigger] HTTP POST with Authorization: Bearer <idToken> header and JSON body containing content, updatedBy, updatedByEmail, adminUid.
 // [Downstream Impact] Writes to audit_logs (two entries per invocation), email_daily_stats, admin_configuration/hot_news_email_throttle, and sends emails via Graph API. Errors logged to error_logs with correlation ID.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // GUID: API_SEND_HOT_NEWS_EMAIL-005A-v01
+    // @SECURITY_FIX: Authentication gate — must be a verified admin to trigger email broadcasts (ADMINCOMP-006).
+    // [Intent] Verifies the Bearer token, then checks UID match and Firestore isAdmin flag before allowing any email broadcast.
+    // [Inbound Trigger] Every POST request — evaluated before body parse or any other logic.
+    // [Downstream Impact] Unauthenticated or non-admin requests are rejected (401/403). Prevents mass email spam from unauthenticated callers.
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+    if (!verifiedUser) {
+      await logError({ correlationId, error: 'Unauthenticated request to send-hot-news-email', context: { route: '/api/send-hot-news-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_INVALID_TOKEN.message, errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code, correlationId },
+        { status: 401 }
+      );
+    }
+
     const data: HotNewsEmailRequest = await request.json();
-    const { content, updatedBy, updatedByEmail } = data;
+    const { content, updatedBy, updatedByEmail, adminUid } = data;
+
+    if (verifiedUser.uid !== adminUid) {
+      await logError({ correlationId, error: `Token UID mismatch on send-hot-news-email: token=${verifiedUser.uid}, body=${adminUid}`, context: { route: '/api/send-hot-news-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_PERMISSION_DENIED.message, errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code, correlationId },
+        { status: 403 }
+      );
+    }
 
     if (!content) {
       return NextResponse.json(
@@ -94,6 +120,16 @@ export async function POST(request: NextRequest) {
     }
 
     const { db, FieldValue } = await getFirebaseAdmin();
+
+    // Verify caller has isAdmin=true in Firestore (server-side, cannot be spoofed)
+    const adminDoc = await db.collection('users').doc(verifiedUser.uid).get();
+    if (!adminDoc.exists || !adminDoc.data()?.isAdmin) {
+      await logError({ correlationId, error: `Non-admin attempted hot-news email broadcast: uid=${verifiedUser.uid}`, context: { route: '/api/send-hot-news-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_ADMIN_REQUIRED.message, errorCode: ERROR_CODES.AUTH_ADMIN_REQUIRED.code, correlationId },
+        { status: 403 }
+      );
+    }
 
     // SECURITY: Check broadcast cooldown to prevent email spam (ADMINCOMP-006)
     const throttleRef = db.collection('admin_configuration').doc('hot_news_email_throttle');
