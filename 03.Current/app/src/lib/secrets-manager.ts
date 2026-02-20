@@ -106,9 +106,10 @@ async function fetchFromKeyVault(secretName: string): Promise<string> {
 
     return secret.value;
   } catch (error: any) {
-    // SECURITY: Don't log secret names or values in production logs
+    // Log the actual error for debugging (without secret values)
+    console.error(`[Key Vault Error] Secret: ${secretName}, Error: ${error.message}, Code: ${error.statusCode || error.code || 'unknown'}`);
     throw new Error(
-      `Failed to fetch secret from Key Vault (${error.statusCode || 'unknown error'}). ` +
+      `Failed to fetch secret from Key Vault (${error.statusCode || error.code || 'unknown error'}). ` +
       'Verify Key Vault permissions and secret name.'
     );
   }
