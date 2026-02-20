@@ -247,6 +247,18 @@ export async function POST(request: NextRequest) {
         return;
       }
 
+      // For Sprint races: check for base GP prediction (same prediction used for both Sprint and GP)
+      const isSprint = normalizedRaceId.endsWith('-Sprint');
+      if (isSprint) {
+        const baseRaceId = normalizedRaceId.replace(/-Sprint$/, '');
+        if (raceMap.has(baseRaceId)) {
+          const gpPrediction = raceMap.get(baseRaceId)!;
+          latestPredictions.set(teamId, { ...gpPrediction, isCarryForward: false });
+          console.log(`[Scoring] Team ${teamId}: Using GP prediction for Sprint race ${normalizedRaceId}`);
+          return;
+        }
+      }
+
       // No race-specific prediction - fall back to the latest prediction from any race
       let latestPrediction: { predictions: string[]; timestamp: Date; teamName?: string } | null = null;
 

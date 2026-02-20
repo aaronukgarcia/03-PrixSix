@@ -44,7 +44,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ERRORS } from '@/lib/error-registry';
 import { generateClientCorrelationId } from '@/lib/error-codes';
-import { generateRaceIdLowercase } from "@/lib/normalize-race-id";
+import { generateRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id";
 
 // GUID: PAGE_SUBMISSIONS-001-v03
 // [Intent] Defines the display shape for a single submission row in the table.
@@ -76,11 +76,26 @@ type SortField = "submittedAt" | "teamName";
 export default function SubmissionsPage() {
   const firestore = useFirestore();
   const { selectedLeague } = useLeague();
-  const races = RaceSchedule.map((r) => r.name);
+
+  // Build race list with separate entries for Sprint weekends
+  const races = RaceSchedule.flatMap((r) => {
+    if (r.hasSprint) {
+      return [`${r.name} - Sprint`, r.name];
+    }
+    return [r.name];
+  });
+
   const nextRace = findNextRace();
   const [selectedRace, setSelectedRace] = useState(nextRace.name);
   const [nextRaceName, setNextRaceName] = useState<string | null>(null);
-  const selectedRaceId = selectedRace.replace(/\s+/g, '-');
+
+  // Determine if this is a Sprint race selection
+  const isSprintRace = selectedRace.endsWith(' - Sprint');
+  const baseRaceName = isSprintRace ? selectedRace.replace(' - Sprint', '') : selectedRace;
+
+  // For submissions, always query for -GP race ID since all predictions are stored with -GP suffix
+  // The same prediction is used for both Sprint and GP scoring
+  const selectedRaceId = generateRaceId(baseRaceName, 'gp');
 
   // GUID: PAGE_SUBMISSIONS-004-v03
   // [Intent] Determines the first unscored race by comparing all scores in Firestore against the RaceSchedule,

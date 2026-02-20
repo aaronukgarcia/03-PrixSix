@@ -1,7 +1,7 @@
 {
   "lastUpdated": "2026-02-20",
   "commits": [
-    {"id": "PENDING", "date": "2026-02-20", "version": "1.58.48", "author": "Bill (Claude Code)", "message": "security: Wave 1 security fixes - IDOR (GEMINI-AUDIT-107), XSS (GEMINI-AUDIT-057), DoW (GEMINI-AUDIT-017), Single User Mode DoS (GEMINI-AUDIT-025/ADMINCOMP-009), secondary email auth (GEMINI-AUDIT-006), BOW crash (PX-9001) (v1.58.48)", "major": false},
+    {"id": "a8c7219", "date": "2026-02-20", "version": "1.58.48", "author": "Bill (Claude Code)", "message": "security: Wave 1 security fixes - IDOR (GEMINI-AUDIT-107), XSS (GEMINI-AUDIT-057), DoW (GEMINI-AUDIT-017), Single User Mode DoS (GEMINI-AUDIT-025/ADMINCOMP-009), secondary email auth (GEMINI-AUDIT-006), BOW crash (PX-9001) (v1.58.48)", "major": false},
     {"id": "PENDING", "date": "2026-02-20", "version": "1.58.36", "author": "aaron garcia", "message": "fix: Health endpoint now uses APP_VERSION instead of hardcoded fallback (v1.58.36)", "major": false},
     {"id": "45a2455", "date": "2026-02-20", "version": "1.58.35", "author": "aaron garcia", "message": "docs: Comprehensive Firestore security audit - 30 collections validated (v1.58.35)", "major": false},
     {"id": "dbe3f17", "date": "2026-02-20", "version": "1.58.34", "author": "aaron garcia", "message": "fix: Consistency checker bugs - Spanish GP II + driver imageId (v1.58.34)", "major": false},
