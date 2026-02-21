@@ -82,6 +82,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // GUID: RACE_SCHEDULE_RULES-001-v03
+    // [Intent] Firestore security rules for race_schedule collection (public F1 calendar data).
+    //          Resolves FIRESTORE-004 (RECOMMENDATION-001, Firestore Security Audit 2026-02-20).
+    //          Converts implicit deny-all to explicit rule, documenting intent for maintainers.
+    // [Inbound Trigger] Race schedule reads used for pitlane lock and prediction deadline checks.
+    // [Downstream Impact] Without this rule, collection security relied on undocumented implicit
+    //                     deny-all. Explicit rule follows same pattern as drivers/race_results.
+    //                     Admin write supports seasonal schedule updates via Admin SDK or UI.
+    match /race_schedule/{scheduleId} {
+      allow get, list: if true; // Public F1 calendar data - required for pitlane lock calculations
+      allow create, update, delete: if isAdmin();
+    }
+
     match /race_results/{raceId} {
       allow get, list: if true;
       // SECURITY: Race results are written by server-side API only (Admin SDK bypasses rules)
