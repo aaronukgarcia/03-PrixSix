@@ -95,12 +95,15 @@ export async function createLeague(
   }
 }
 
-// GUID: LIB_LEAGUES-003-v03
+// GUID: LIB_LEAGUES-003-v04
 // [Intent] Join an existing league by looking up its invite code (case-insensitive), validating membership limits and duplicate membership, then adding the user's team ID to the league's memberUserIds array.
-// [Inbound Trigger] Called from the league join UI when a user enters an invite code. Supports both primary (userId) and secondary (userId-secondary) team memberships.
+// [Inbound Trigger] Internal/legacy use only. UI now routes through /api/leagues/join-by-code (FIRESTORE-003 fix).
 // [Downstream Impact] Adds the team to the league's memberUserIds array, making that team's scores visible in the league standings. Checks both primary and secondary league counts against doubled MAX_LEAGUES_PER_USER. On failure, returns a correlation ID for error tracing.
 /**
- * Join a league using an invite code
+ * Join a league using an invite code.
+ * @deprecated UI should use POST /api/leagues/join-by-code instead (FIRESTORE-003 fix).
+ *             This function queries inviteCode directly from Firestore — use the API route
+ *             to avoid client-side inviteCode enumeration.
  * @param teamId - Optional team ID. If not provided, uses userId (primary team).
  *                 For secondary teams, pass `${userId}-secondary`
  */

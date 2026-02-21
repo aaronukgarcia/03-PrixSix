@@ -470,7 +470,8 @@ export default function LeagueDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!isGlobal && league.inviteCode && (
+            {/* SECURITY (FIRESTORE-003): Invite code shown to owner only — members share via owner */}
+            {!isGlobal && isOwner && league.inviteCode && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Invite Code</label>
                 <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">

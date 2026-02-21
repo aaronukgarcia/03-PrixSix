@@ -42,7 +42,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { createLeague, joinLeagueByCode, leaveLeague, deleteLeague } from '@/lib/leagues';
+import { createLeague, leaveLeague, deleteLeague } from '@/lib/leagues';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
 
 // GUID: PAGE_LEAGUES-001-v03
@@ -103,39 +103,68 @@ export default function LeaguesPage() {
     setIsCreating(false);
   };
 
-  // GUID: PAGE_LEAGUES-003-v03
-  // [Intent] Joins an existing league using a 6-character invite code, with support for primary or secondary team selection.
+    // GUID: PAGE_LEAGUES-003-v04
+  // [Intent] Joins an existing league using a 6-character invite code via the server-side API.
+  //          SECURITY FIX (FIRESTORE-003): Routes through /api/leagues/join-by-code instead of
+  //          querying Firestore directly, eliminating client-side inviteCode enumeration.
+  //          Supports primary and secondary team joining via teamId parameter.
   // [Inbound Trigger] User submits the "Join a League" dialog form with a valid 6-character code.
-  // [Downstream Impact] Calls joinLeagueByCode from lib/leagues which updates Firestore "leagues" document.
+  // [Downstream Impact] POST to /api/leagues/join-by-code which validates and updates Firestore.
   //   Team ID format differs for secondary teams (userId-secondary). Shows toast on success or failure.
   const handleJoin = async () => {
     if (!user || !joinCode.trim()) return;
 
     setIsJoining(true);
 
-    // Determine team ID based on selection
-    const teamId = selectedTeamForJoin === 'secondary' && hasSecondaryTeam
-      ? `${user.id}-secondary`
-      : user.id;
+    try {
+      // Determine team ID based on selection
+      const teamId = selectedTeamForJoin === 'secondary' && hasSecondaryTeam
+        ? `${user.id}-secondary`
+        : undefined; // undefined = primary team (API defaults to userId)
 
-    const result = await joinLeagueByCode(firestore, joinCode.trim(), user.id, teamId);
+      // SECURITY: Use server-side API to avoid client-side inviteCode Firestore query (FIRESTORE-003)
+      const idToken = await user.firebaseUser?.getIdToken();
+      if (!idToken) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Not authenticated. Please sign in again.' });
+        setIsJoining(false);
+        return;
+      }
 
-    if (result.success) {
-      const teamName = selectedTeamForJoin === 'secondary' ? user.secondaryTeamName : user.teamName;
-      toast({
-        title: 'Joined League',
-        description: `${teamName} has joined "${result.leagueName}".`,
+      const response = await fetch('/api/leagues/join-by-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ inviteCode: joinCode.trim(), teamId }),
       });
-      setJoinCode('');
-      setSelectedTeamForJoin('primary');
-      setJoinDialogOpen(false);
-    } else {
+
+      const data = await response.json();
+
+      if (data.success) {
+        const teamName = selectedTeamForJoin === 'secondary' ? user.secondaryTeamName : user.teamName;
+        toast({
+          title: 'Joined League',
+          description: `${teamName} has joined "${data.league?.name}".`,
+        });
+        setJoinCode('');
+        setSelectedTeamForJoin('primary');
+        setJoinDialogOpen(false);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: data.error || 'Failed to join league.',
+        });
+      }
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: result.error || 'Failed to join league.',
+        description: 'Failed to join league. Please try again.',
       });
     }
+
     setIsJoining(false);
   };
 
@@ -375,7 +404,8 @@ export default function LeaguesPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {!isGlobal && league.inviteCode && (
+                  {/* SECURITY (FIRESTORE-003): Invite code shown to owner only — members share via owner */}
+                  {!isGlobal && isOwner && league.inviteCode && (
                     <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
                       <span className="text-xs text-muted-foreground">Invite:</span>
                       <code className="font-mono text-sm font-bold tracking-wider flex-1">
