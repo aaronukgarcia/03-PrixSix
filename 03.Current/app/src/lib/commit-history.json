@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-22",
   "commits": [
+    {"id": "PENDING", "date": "2026-02-22", "version": "1.58.63", "author": "Bertie (Claude Code)", "message": "security: GEMINI-AUDIT-045 - enforce attack blocking; bot_attack/credential_stuffing now return 429 (v1.58.63)", "major": false},
     {"id": "b0368ee", "date": "2026-02-22", "version": "1.58.62", "author": "Bertie (Claude Code)", "message": "security: LIB-002 - replace Math.random() with crypto.randomUUID()/getRandomValues() in all ID generators (v1.58.62)", "major": false},
     {"id": "ed7a5ce", "date": "2026-02-22", "version": "1.58.61", "author": "Bertie (Claude Code)", "message": "security: GEMINI-AUDIT-018 - redact PIN from welcome email HTML body before writing to email_logs (v1.58.61)", "major": false},
     {"id": "fcf4dfa", "date": "2026-02-22", "version": "1.58.60", "author": "Bertie (Claude Code)", "message": "security: GEMINI-AUDIT-002 - remove audit logging toggle; audit logging is now always-on and cannot be disabled at runtime (v1.58.60)", "major": false},
