@@ -1,6 +1,13 @@
 {
-  "lastUpdated": "2026-02-20",
+  "lastUpdated": "2026-02-22",
   "commits": [
+    {"id": "3dad988", "date": "2026-02-20", "version": "1.58.56", "author": "Bill (Claude Code)", "message": "fix(delete-scores, results): GEMINI-AUDIT-132 cascade deletion bugs (score query, collectionGroup) + GEMINI-AUDIT-122 Sprint raceId stripping (v1.58.56)", "major": false},
+    {"id": "b1dd0df", "date": "2026-02-20", "version": "1.58.55", "author": "Bill (Claude Code)", "message": "security: Wave 9 - Feedback IDOR, secondary email auth bypass, PIN masking in admin (v1.58.55)", "major": false},
+    {"id": "74f7e73", "date": "2026-02-20", "version": "1.58.54", "author": "Bill (Claude Code)", "message": "security: Wave 7 - NODE_ENV guards on console.error information disclosure (v1.58.54)", "major": false},
+    {"id": "9919d4a", "date": "2026-02-20", "version": "1.58.53", "author": "Bill (Claude Code)", "message": "fix: Sprint/GP race logic corrections and submissions display improvements (v1.58.53)", "major": false},
+    {"id": "709421f", "date": "2026-02-20", "version": "1.58.52", "author": "Bill (Claude Code)", "message": "security: Wave 6 - Race deadline bypass, login info disclosure, WhatsApp auth hardening, email crypto (GEMINI-AUDIT-100, 122, 124, 053, 054) v1.58.52", "major": false},
+    {"id": "7a8abe5", "date": "2026-02-20", "version": "1.58.50", "author": "Bill (Claude Code)", "message": "security: Wave 5 - Fix information disclosure in leagues.ts and audit.ts console logging (GEMINI-AUDIT-062, GEMINI-AUDIT-047) v1.58.50", "major": false},
+    {"id": "7b0edf5", "date": "2026-02-20", "version": "1.58.49", "author": "Bill (Claude Code)", "message": "security: Wave 4 - Fix unauthenticated hot-news email broadcast and broken updateUser auth header (ADMINCOMP-006, ADMINCOMP-002) v1.58.49", "major": false},
     {"id": "a8c7219", "date": "2026-02-20", "version": "1.58.48", "author": "Bill (Claude Code)", "message": "security: Wave 1 security fixes - IDOR (GEMINI-AUDIT-107), XSS (GEMINI-AUDIT-057), DoW (GEMINI-AUDIT-017), Single User Mode DoS (GEMINI-AUDIT-025/ADMINCOMP-009), secondary email auth (GEMINI-AUDIT-006), BOW crash (PX-9001) (v1.58.48)", "major": false},
     {"id": "PENDING", "date": "2026-02-20", "version": "1.58.36", "author": "aaron garcia", "message": "fix: Health endpoint now uses APP_VERSION instead of hardcoded fallback (v1.58.36)", "major": false},
     {"id": "45a2455", "date": "2026-02-20", "version": "1.58.35", "author": "aaron garcia", "message": "docs: Comprehensive Firestore security audit - 30 collections validated (v1.58.35)", "major": false},
