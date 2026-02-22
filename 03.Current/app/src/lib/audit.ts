@@ -49,11 +49,10 @@ function generateGuid() {
     });
   }
 
-  // Last resort fallback (should never happen in modern browsers)
-  console.warn('[Audit] crypto API not available, using timestamp-based UUID');
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 15);
-  return `${timestamp}-${random}-${Math.random().toString(36).substring(2, 15)}`;
+  // Last resort fallback (should never happen in any supported browser or Node.js environment)
+  // SECURITY: Math.random() intentionally not used here — it is not cryptographically secure (LIB-002)
+  console.warn('[Audit] crypto API not available, returning timestamp-based ID');
+  return `ts-${Date.now()}-${Date.now().toString(36)}`;
 }
 
 // GUID: LIB_AUDIT-003-v03

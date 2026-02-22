@@ -1,4 +1,5 @@
-// GUID: LIB_CONSISTENCY-000-v05
+// GUID: LIB_CONSISTENCY-000-v06
+// @SECURITY_FIX: generateConsistencyCorrelationId() now uses crypto.randomUUID()/getRandomValues() instead of Math.random() (LIB-002).
 // [Intent] Central consistency-checking library for the Prix Six application.
 //   Provides pure validation functions that verify the integrity and correctness
 //   of all core domain data: users, drivers, races, predictions, team coverage,
@@ -217,19 +218,29 @@ export interface LeagueData {
 //   warnings in the user consistency check.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// GUID: LIB_CONSISTENCY-014-v03
-// [Intent] Generate a unique correlation ID for a consistency check audit session.
-//   Format: cc_[timestamp]_[random6chars]. Used for traceability in error logs.
+// GUID: LIB_CONSISTENCY-014-v04
+// @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID()/getRandomValues() (LIB-002).
+// [Intent] Generate a cryptographically secure correlation ID for a consistency check audit session.
+//   Format: cc_[timestamp]_[random8chars]. Used for traceability in error logs.
 // [Inbound Trigger] Called by generateSummary() when producing the final ConsistencyCheckSummary.
 // [Downstream Impact] The correlation ID is included in the summary and may be logged
 //   or displayed in the admin UI. Changing the format could affect log search patterns.
 /**
- * Generate a correlation ID for consistency checks
+ * Generate a cryptographically secure correlation ID for consistency checks.
  */
 export function generateConsistencyCorrelationId(): string {
   const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  return `cc_${timestamp}_${random}`;
+  if (typeof crypto?.randomUUID === 'function') {
+    const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+    return `cc_${timestamp}_${random}`;
+  }
+  if (typeof crypto?.getRandomValues === 'function') {
+    const bytes = crypto.getRandomValues(new Uint8Array(4));
+    const random = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    return `cc_${timestamp}_${random}`;
+  }
+  // Absolute last resort — no Math.random()
+  return `cc_${timestamp}_${Date.now().toString(36)}`;
 }
 
 // GUID: LIB_CONSISTENCY-015-v04
