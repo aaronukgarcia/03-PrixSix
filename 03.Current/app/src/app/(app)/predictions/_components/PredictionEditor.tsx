@@ -400,10 +400,11 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   };
 
-  // GUID: COMPONENT_PREDICTION_EDITOR-018-v03
-  // [Intent] Requests AI-powered race analysis from /api/ai/analysis with the current predictions and weights. Validates grid completeness first. Handles errors with correlation IDs and user-copyable error toasts per Golden Rule #1.
+  // GUID: COMPONENT_PREDICTION_EDITOR-018-v04
+  // [Intent] Requests AI-powered race analysis from /api/ai/analysis with the current predictions and weights. Validates grid completeness and authentication first, then attaches Bearer token per GEMINI-AUDIT-010 fix. Handles errors with correlation IDs and user-copyable error toasts per Golden Rule #1.
   // [Inbound Trigger] User clicks the "Generate Analysis" button.
   // [Downstream Impact] Displays analysis text in the full-width result card; saves weights to Firestore; logs to change history. On error, shows a destructive toast with selectable correlation ID.
+  // [Security] GEMINI-AUDIT-010 fix: Authorization header now sent with every request — bertie 2026-02-22
   const handleAnalysis = async () => {
     const isComplete = predictions.every(p => p !== null);
     if (!isComplete) {
@@ -415,6 +416,11 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
       return;
     }
 
+    if (!firebaseUser) {
+      toast({ variant: "destructive", title: "Error", description: "Not authenticated." });
+      return;
+    }
+
     setIsAnalysing(true);
     setShowAnalysis(true);
     setAnalysisText('');
@@ -423,9 +429,13 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     saveWeights();
 
     try {
+      const idToken = await firebaseUser.getIdToken();
       const response = await fetch('/api/ai/analysis', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           raceId: raceName.replace(/\s+/g, '-'),
           raceName,
