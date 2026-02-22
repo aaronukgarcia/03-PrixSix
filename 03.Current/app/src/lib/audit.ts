@@ -1,7 +1,9 @@
-// GUID: LIB_AUDIT-000-v06
+// GUID: LIB_AUDIT-000-v07
 // @SECURITY_FIX: Permission errors now use TracedError and correlation IDs (LIB-003).
 // @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID() in generateGuid() (LIB-002).
 // @SECURITY_FIX: logPermissionError console.error now redacts userId/path in production (GEMINI-AUDIT-047).
+// @SECURITY_FIX: Removed isAuditingEnabled toggle and the admin-configurable disable mechanism (GEMINI-AUDIT-002).
+//               Audit logging is now always-on and cannot be disabled at runtime. Disabling requires a code change + deploy.
 // [Intent] Client-side audit logging module providing session correlation IDs, Firestore audit event logging, automatic navigation tracking, and permission error reporting.
 // [Inbound Trigger] Imported by React components and pages that need audit trail functionality.
 // [Downstream Impact] Writes to audit_logs Firestore collection. Navigation tracking depends on Next.js routing. Changes affect audit trail completeness and compliance reporting.
@@ -71,18 +73,14 @@ export function getCorrelationId(): string {
 
 // --- Auditing Logic ---
 
-// GUID: LIB_AUDIT-004-v03
-// [Intent] Module-level flag intended to control whether audit logging is enabled, allowing future integration with a global configuration system.
-// [Inbound Trigger] Currently unused (hardcoded to true in logAuditEvent); reserved for future config-driven audit toggle.
-// [Downstream Impact] When implemented, toggling this flag will enable or disable all audit logging application-wide.
-let isAuditingEnabled: boolean | null = null;
-
-// GUID: LIB_AUDIT-005-v03
+// GUID: LIB_AUDIT-005-v04
+// @SECURITY_FIX: Removed admin-configurable isAuditingEnabled toggle (GEMINI-AUDIT-002).
+//               Audit logging is unconditionally enabled. No runtime toggle exists.
 // [Intent] Writes an audit event to the audit_logs Firestore collection as a fire-and-forget operation, attaching user ID, action description, details, correlation ID, and server timestamp.
 // [Inbound Trigger] Called by useAuditNavigation on page navigations, and available for manual calls from any client-side component needing audit logging.
 // [Downstream Impact] Creates documents in audit_logs collection used for compliance and user activity tracking. Uses addDocumentNonBlocking so failures do not block the UI. Skips logging if no userId is provided.
 /**
- * Logs an audit event to Firestore if auditing is enabled.
+ * Logs an audit event to Firestore. Always-on — audit logging cannot be disabled at runtime.
  * This is a fire-and-forget operation.
  * @param firestore - The Firestore instance.
  * @param userId - The ID of the user performing the action.
@@ -95,13 +93,7 @@ export async function logAuditEvent(
     action: string,
     details: object
 ) {
-  // TODO (GEMINI-AUDIT-002 / Phase 4): Implement React Context to fetch auditLoggingEnabled
-  //       from admin_configuration/audit_settings (see firebase/firestore/settings.ts).
-  //       Admins can update via /api/admin/update-audit-settings endpoint.
-  //       Current: Hardcoded to true (safe default - logging always enabled).
-  const isEnabled = true;
-
-  if (!isEnabled || !userId) {
+  if (!userId) {
     return;
   }
 
