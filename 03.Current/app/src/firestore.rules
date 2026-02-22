@@ -178,21 +178,23 @@ service cloud.firestore {
     }
 
     // Leagues - allows users to create private leagues and view standings filtered by membership
-    // SECURITY: FIRESTORE-003 - inviteCode field visibility (PARTIALLY RESOLVED v1.58.58)
+    // SECURITY: FIRESTORE-003 - inviteCode field visibility (RESOLVED v1.58.64)
     // Firestore does not support field-level security, so inviteCode remains in the league
-    // document and is technically readable by signed-in users via the list rule below.
+    // document at rest. Mitigations below close all practical exposure vectors.
     //
-    // Mitigations in place (v1.58.58):
-    //   1. Join now server-side only via /api/leagues/join-by-code — client no longer
-    //      queries leagues by inviteCode, eliminating enumeration via Firestore SDK
-    //   2. UI restricts inviteCode display to league owners only (not all members)
-    //   3. API validates capacity, membership, and logs all join attempts server-side
-    //   4. Codes are cryptographically random (32 char alphabet, rejection sampling)
+    // Mitigations in place (v1.58.64):
+    //   1. Join now server-side only via /api/leagues/join-by-code — deprecated client-side
+    //      joinLeagueByCode() removed, eliminating inviteCode enumeration via Firestore SDK
+    //   2. league-context strips inviteCode from client state for non-owners — code never
+    //      reaches React state / browser DevTools for ordinary members
+    //   3. UI restricts inviteCode display to league owners only (not all members)
+    //   4. API validates capacity, membership, and logs all join attempts server-side
+    //   5. Codes are cryptographically random (32 char alphabet, rejection sampling)
     //
     // Residual risk: list rule (allow list: if isSignedIn()) permits any authenticated
-    // user to query all league documents via Admin SDK or direct Firestore client calls.
-    // Full resolution requires moving inviteCode to a private subcollection — deferred.
-    // Risk accepted given app scale (~20 users) and mitigations above.
+    // user to query all league documents via direct Firestore client calls (bypassing
+    // the app). Full resolution requires moving inviteCode to a private subcollection.
+    // Risk accepted given app scale (~20 users) and strength of remaining mitigations.
     match /leagues/{leagueId} {
       function isMember() {
         return request.auth.uid in resource.data.memberUserIds;

@@ -47,10 +47,17 @@ export const LeagueProvider: React.FC<LeagueProviderProps> = ({ children }) => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const leagueData = snapshot.docs.map(doc => ({
-          ...doc.data(),
-          id: doc.id,
-        })) as League[];
+        const leagueData = snapshot.docs.map(doc => {
+          const league = { ...doc.data(), id: doc.id } as League;
+          // SECURITY (FIRESTORE-003): Strip inviteCode from client state for non-owners.
+          // Firestore returns the full league document to all members (field-level rules not
+          // supported). Removing it here prevents the code from sitting in React state /
+          // browser DevTools for users who have no need to display it.
+          if (league.ownerId !== user.id) {
+            delete league.inviteCode;
+          }
+          return league;
+        });
 
         // Sort: global league first, then alphabetically
         leagueData.sort((a, b) => {

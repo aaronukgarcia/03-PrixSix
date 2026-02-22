@@ -4,7 +4,7 @@
 //   Shows league metadata (member count, invite code, owner badge) and provides leave/delete actions.
 // [Inbound Trigger] User navigates to /leagues in the app layout.
 // [Downstream Impact] Reads from league-context (which subscribes to Firestore "leagues" collection).
-//   Calls createLeague, joinLeagueByCode, leaveLeague, deleteLeague from lib/leagues.
+//   Calls createLeague, leaveLeague, deleteLeague from lib/leagues. Join routes through /api/leagues/join-by-code.
 //   Navigation to /leagues/[leagueId] on view or after creation.
 
 'use client';
