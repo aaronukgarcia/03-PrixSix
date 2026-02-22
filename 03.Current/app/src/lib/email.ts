@@ -1,10 +1,11 @@
-// GUID: LIB_EMAIL-000-v06
+// GUID: LIB_EMAIL-000-v07
 // @SECURITY_FIX: Added error message sanitization to prevent credential exposure (EMAIL-003).
 //   Azure AD/Graph API errors may contain tenant IDs, client IDs, or partial credentials.
 // @SECURITY_FIX: Added PIN masking to prevent plaintext credential logging (EMAIL-006).
 // @SECURITY_FIX: generateGuid now uses crypto.randomUUID() for RFC 4122 compliance (GEMINI-AUDIT-053).
 // @SECURITY_FIX: APP_VERSION escaped with escapeHtml() in email footers for defense-in-depth (GEMINI-AUDIT-054).
-//   All PIN values logged to email_logs collection are now masked with maskPin().
+// @SECURITY_FIX: PIN redacted from html body before writing to email_logs (GEMINI-AUDIT-018).
+//   loggableHtml replaces pin with '••••••' so the admin email body preview never exposes a user's PIN.
 // [Intent] Server-side email sending module using Microsoft Graph API via Azure AD credentials. Provides welcome emails and generic email dispatch with rate-limiting, queuing, and Firestore logging.
 // [Inbound Trigger] Called by API routes (e.g., user registration, admin actions) that need to send transactional emails.
 // [Downstream Impact] Depends on email-tracking.ts for rate limiting and queuing. Writes to email_logs Firestore collection. Failures affect user onboarding and admin notifications.
@@ -163,8 +164,10 @@ interface WelcomeEmailParams {
   firestore?: any;
 }
 
-// GUID: LIB_EMAIL-007-v04
+// GUID: LIB_EMAIL-007-v05
 // @SECURITY_FIX: Error messages now sanitized to prevent credential exposure (EMAIL-003).
+// @SECURITY_FIX: loggableHtml now redacts PIN from email body before writing to email_logs (GEMINI-AUDIT-018).
+//               The full htmlContent (with real PIN) is only used for actual email delivery; the logged copy stores '••••••'.
 // [Intent] Send a branded welcome email to a newly registered user containing their team name and 6-digit PIN. Enforces rate limiting via email-tracking, queues if rate-limited, logs success/failure to email_logs collection, and returns a tracking GUID.
 // [Inbound Trigger] Called from the user registration API route when a new account is created and a welcome email is required.
 // [Downstream Impact] On success, the user receives their PIN and login link. On rate-limit, the email is queued in email_queue collection. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004), canSendEmail/recordSentEmail/queueEmail from email-tracking, and getAdminDb (LIB_EMAIL-001).
@@ -291,13 +294,17 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
       });
     }
 
+    // SECURITY: Redact PIN from HTML before logging — admin log never exposes plaintext credentials (GEMINI-AUDIT-018)
+    // htmlContent is used for actual delivery above; loggableHtml is the safe copy for email_logs.
+    const loggableHtml = htmlContent.split(pin).join('••••••');
+
     // Log to email_logs collection for the admin UI
     try {
       const adminDb = getAdminDb();
       await adminDb.collection('email_logs').add({
         to: toEmail,
         subject,
-        html: htmlContent,
+        html: loggableHtml,
         pin: maskPin(pin), // SECURITY: Mask PIN to prevent credential exposure (EMAIL-006)
         status: 'sent',
         timestamp: Timestamp.now(),
@@ -317,10 +324,12 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
     // Log failed email to email_logs
     try {
       const adminDb = getAdminDb();
+      // loggableHtml may not be defined if error occurred before it was computed — recompute safely
+      const safeLoggableHtml = htmlContent.split(pin).join('••••••');
       await adminDb.collection('email_logs').add({
         to: toEmail,
         subject,
-        html: htmlContent,
+        html: safeLoggableHtml,
         pin: maskPin(pin), // SECURITY: Mask PIN to prevent credential exposure (EMAIL-006)
         status: 'failed',
         timestamp: Timestamp.now(),
