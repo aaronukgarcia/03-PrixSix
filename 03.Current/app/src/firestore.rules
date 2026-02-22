@@ -82,6 +82,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // GUID: RACE_SCHEDULE_RULES-001-v03
+    // [Intent] Firestore security rules for race_schedule collection (public F1 calendar data).
+    //          Resolves FIRESTORE-004 (RECOMMENDATION-001, Firestore Security Audit 2026-02-20).
+    //          Converts implicit deny-all to explicit rule, documenting intent for maintainers.
+    // [Inbound Trigger] Race schedule reads used for pitlane lock and prediction deadline checks.
+    // [Downstream Impact] Without this rule, collection security relied on undocumented implicit
+    //                     deny-all. Explicit rule follows same pattern as drivers/race_results.
+    //                     Admin write supports seasonal schedule updates via Admin SDK or UI.
+    match /race_schedule/{scheduleId} {
+      allow get, list: if true; // Public F1 calendar data - required for pitlane lock calculations
+      allow create, update, delete: if isAdmin();
+    }
+
     match /race_results/{raceId} {
       allow get, list: if true;
       // SECURITY: Race results are written by server-side API only (Admin SDK bypasses rules)
@@ -165,13 +178,21 @@ service cloud.firestore {
     }
 
     // Leagues - allows users to create private leagues and view standings filtered by membership
-    // SECURITY: FIRESTORE-003 Mitigation - inviteCode field visibility
-    // Note: Firestore doesn't support field-level security, so inviteCode is technically
-    // readable by all authenticated users. However, this is mitigated because:
-    //   1. Knowing a code doesn't grant access - must use /api/leagues/join-by-code
-    //   2. API validates capacity, membership, and logs all join attempts server-side
-    //   3. Codes are cryptographically random (32 char alphabet) - not guessable
-    // This design prioritizes security enforcement over data visibility.
+    // SECURITY: FIRESTORE-003 - inviteCode field visibility (PARTIALLY RESOLVED v1.58.58)
+    // Firestore does not support field-level security, so inviteCode remains in the league
+    // document and is technically readable by signed-in users via the list rule below.
+    //
+    // Mitigations in place (v1.58.58):
+    //   1. Join now server-side only via /api/leagues/join-by-code — client no longer
+    //      queries leagues by inviteCode, eliminating enumeration via Firestore SDK
+    //   2. UI restricts inviteCode display to league owners only (not all members)
+    //   3. API validates capacity, membership, and logs all join attempts server-side
+    //   4. Codes are cryptographically random (32 char alphabet, rejection sampling)
+    //
+    // Residual risk: list rule (allow list: if isSignedIn()) permits any authenticated
+    // user to query all league documents via Admin SDK or direct Firestore client calls.
+    // Full resolution requires moving inviteCode to a private subcollection — deferred.
+    // Risk accepted given app scale (~20 users) and mitigations above.
     match /leagues/{leagueId} {
       function isMember() {
         return request.auth.uid in resource.data.memberUserIds;

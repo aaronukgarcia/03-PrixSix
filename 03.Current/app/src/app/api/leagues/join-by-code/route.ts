@@ -1,13 +1,14 @@
 /**
  * POST /api/leagues/join-by-code
  *
- * GUID: API_LEAGUE_JOIN-001-v03
+ * GUID: API_LEAGUE_JOIN-001-v04
  * [Intent] Server-side API for joining leagues by invite code. Validates code,
  *          checks league capacity, and atomically adds user to league. Resolves
  *          FIRESTORE-003 by removing need for client-side inviteCode visibility.
+ *          Supports secondary teams via optional teamId parameter (v04 addition).
  * [Inbound Trigger] User submits invite code from "Join League" UI.
- * [Downstream Impact] Adds user to league memberUserIds array, logs audit event.
- *                     Prevents unauthorized league access by validating server-side.
+ * [Downstream Impact] Adds user (or teamId for secondary teams) to league memberUserIds array,
+ *                     logs audit event. Prevents unauthorized league access by validating server-side.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -23,6 +24,7 @@ const MAX_LEAGUES_PER_USER = 5;
 
 interface JoinByCodeRequest {
   inviteCode: string;
+  teamId?: string; // Optional: for secondary team joining (format: userId-secondary)
 }
 
 export async function POST(request: NextRequest) {
@@ -42,7 +44,11 @@ export async function POST(request: NextRequest) {
 
     const userId = verifiedUser.uid;
     const body: JoinByCodeRequest = await request.json();
-    const { inviteCode } = body;
+    const { inviteCode, teamId } = body;
+
+    // Determine the member ID to add (primary team = userId, secondary = userId-secondary)
+    // Security: validate teamId format to prevent injection; must be userId or userId-secondary
+    const memberIdToAdd = (teamId && teamId === `${userId}-secondary`) ? teamId : userId;
 
     // 2. Validate invite code format
     if (!inviteCode || typeof inviteCode !== 'string') {
@@ -81,9 +87,9 @@ export async function POST(request: NextRequest) {
     const leagueData = leagueDoc.data();
     const leagueId = leagueDoc.id;
 
-    // 4. Check if user is already a member
+    // 4. Check if user/team is already a member
     const memberUserIds = leagueData.memberUserIds || [];
-    if (memberUserIds.includes(userId)) {
+    if (memberUserIds.includes(memberIdToAdd)) {
       return NextResponse.json(
         { success: false, error: 'You are already a member of this league' },
         { status: 409 }
@@ -119,7 +125,7 @@ export async function POST(request: NextRequest) {
     // Update league document
     const leagueRef = db.collection('leagues').doc(leagueId);
     batch.update(leagueRef, {
-      memberUserIds: FieldValue.arrayUnion(userId),
+      memberUserIds: FieldValue.arrayUnion(memberIdToAdd),
       updatedAt: FieldValue.serverTimestamp(),
     });
 
@@ -132,6 +138,7 @@ export async function POST(request: NextRequest) {
         leagueId,
         leagueName: leagueData.name,
         inviteCode: normalizedCode,
+        memberIdAdded: memberIdToAdd,
         joinedAt: new Date().toISOString(),
       },
       correlationId,
