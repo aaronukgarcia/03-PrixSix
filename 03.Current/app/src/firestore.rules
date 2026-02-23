@@ -114,7 +114,11 @@ service cloud.firestore {
 
     match /app-settings/{settingId} {
       allow get, list: if true;
-      allow write: if isAdmin();
+      // SECURITY_FIX (GEMINI-AUDIT-022): All writes via Admin SDK only.
+      // HotNewsManager and other admin components write through authenticated API routes
+      // that use the Admin SDK, which bypasses rules. Direct client-side writes are blocked
+      // to enforce audit logging and server-side content validation.
+      allow write: if false;
     }
 
     match /admin_configuration/{configId} {

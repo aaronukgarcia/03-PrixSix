@@ -22,11 +22,14 @@ interface UpdateHotNewsRequest {
   hotNewsFeedEnabled: boolean;
 }
 
-// GUID: API_ADMIN_HOT_NEWS-002-v01
-// [Intent] Main POST handler that verifies admin authentication, updates hot news content,
-//          and logs the change to audit_logs.
+// GUID: API_ADMIN_HOT_NEWS-002-v02
+// @SECURITY_FIX: Added input validation (GEMINI-AUDIT-022).
+// [Intent] Main POST handler that verifies admin authentication, validates input, updates hot news
+//          content, and logs the change to audit_logs.
 // [Inbound Trigger] HTTP POST to /api/admin/update-hot-news with content and toggle state.
 // [Downstream Impact] Updates app-settings/hot-news document. Creates audit log entry.
+const MAX_HOT_NEWS_LENGTH = 10_000;
+
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -49,6 +52,31 @@ export async function POST(request: NextRequest) {
 
     const body: UpdateHotNewsRequest = await request.json();
     const { adminUid, content, hotNewsFeedEnabled } = body;
+
+    // SECURITY: Validate input types and presence before use
+    if (!adminUid || typeof content !== 'string' || typeof hotNewsFeedEnabled !== 'boolean') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: ERRORS.VALIDATION_MISSING_FIELDS.message,
+          errorCode: ERRORS.VALIDATION_MISSING_FIELDS.code,
+          correlationId,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (content.length > MAX_HOT_NEWS_LENGTH) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Content exceeds maximum length of ${MAX_HOT_NEWS_LENGTH} characters`,
+          errorCode: ERRORS.VALIDATION_INVALID_FORMAT.code,
+          correlationId,
+        },
+        { status: 400 }
+      );
+    }
 
     // SECURITY: Verify the authenticated user matches the adminUid
     if (verifiedUser.uid !== adminUid) {

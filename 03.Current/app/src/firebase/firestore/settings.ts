@@ -33,8 +33,9 @@ export async function getHotNewsSettings(db: Firestore): Promise<HotNewsSettings
             const data = docSnap.data();
             return { ...defaultSettings, ...data } as HotNewsSettings;
         } else {
-            // Document doesn't exist, so let's create it with defaults
-            await setDoc(settingsRef, { ...defaultSettings, lastUpdated: serverTimestamp() });
+            // SECURITY_FIX (GEMINI-AUDIT-022): Do not write defaults via client SDK.
+            // app-settings writes are server-side only (Admin SDK). Return defaults in-memory;
+            // the document will be created on first admin save via /api/admin/update-hot-news.
             return defaultSettings;
         }
     } catch (error) {
@@ -43,16 +44,6 @@ export async function getHotNewsSettings(db: Firestore): Promise<HotNewsSettings
         // Note: FirestorePermissionError is client-only, can't use in server context
         return defaultSettings;
     }
-}
-
-/**
- * Updates the hot news content and/or lock status in Firestore.
- * @param {Firestore} db - The Firestore instance.
- * @param {Partial<HotNewsSettings>} data - The data to update.
- */
-export async function updateHotNewsContent(db: Firestore, data: Partial<Omit<HotNewsSettings, 'lastUpdated' | 'isLocked'> & { lastUpdated?: FieldValue, isLocked?: boolean, hotNewsFeedEnabled?: boolean, content?: string }>) {
-    const settingsRef = doc(db, "app-settings", "hot-news");
-    await setDoc(settingsRef, data, { merge: true });
 }
 
 // ============================================
