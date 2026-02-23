@@ -1,5 +1,6 @@
-// GUID: LIB_CONSISTENCY-000-v06
+// GUID: LIB_CONSISTENCY-000-v07
 // @SECURITY_FIX: generateConsistencyCorrelationId() now uses crypto.randomUUID()/getRandomValues() instead of Math.random() (LIB-002).
+// @SECURITY_FIX (GEMINI-AUDIT-049): Hardcoded 'system' ownerId string replaced with SYSTEM_OWNER_ID named constant to prevent accidental privilege escalation via string comparison.
 // [Intent] Central consistency-checking library for the Prix Six application.
 //   Provides pure validation functions that verify the integrity and correctness
 //   of all core domain data: users, drivers, races, predictions, team coverage,
@@ -217,6 +218,20 @@ export interface LeagueData {
 // [Downstream Impact] Changing this regex affects which emails are flagged as invalid format
 //   warnings in the user consistency check.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// GUID: LIB_CONSISTENCY-013B-v01
+// @SECURITY_FIX (GEMINI-AUDIT-049): Reserved system identifier extracted to a named constant.
+// SYSTEM_OWNER_ID: Reserved system identifier, never matches real user UIDs (GEMINI-AUDIT-049)
+// This constant is used exclusively for the global league owner field. Any request that
+// supplies a user-controlled ownerId equal to SYSTEM_OWNER_ID must be rejected to prevent
+// privilege escalation (a real user cannot claim system ownership).
+// [Intent] Canonical sentinel value for system-owned global leagues. Using a named constant
+//   (rather than inline 'system' string) prevents typos and makes all comparison sites
+//   discoverable via IDE references.
+// [Inbound Trigger] Used by checkLeagues() when validating ownerId fields.
+// [Downstream Impact] If this value changes, the corresponding Firestore documents for
+//   global leagues must be migrated to use the new value.
+const SYSTEM_OWNER_ID = 'system';
 
 // GUID: LIB_CONSISTENCY-014-v04
 // @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID()/getRandomValues() (LIB-002).
@@ -1909,11 +1924,12 @@ export function checkStandings(
   };
 }
 
-// GUID: LIB_CONSISTENCY-030-v03
+// GUID: LIB_CONSISTENCY-030-v04
+// @SECURITY_FIX (GEMINI-AUDIT-049): All 'system' string comparisons replaced with SYSTEM_OWNER_ID constant.
 // [Intent] Validate all league documents for structural integrity and referential
 //   correctness. Checks:
 //   - Required fields (id, ownerId, memberUserIds)
-//   - ownerId references a valid user (or is 'system' for global leagues)
+//   - ownerId references a valid user (or is SYSTEM_OWNER_ID for global leagues)
 //   - memberUserIds is a non-empty array of valid user/team references
 //   - Owner is included in memberUserIds (unless system-owned)
 //   - No duplicate member entries
@@ -1971,7 +1987,7 @@ export function checkLeagues(
         message: 'Missing required field: ownerId (league has no owner)',
       });
       isValid = false;
-    } else if (league.ownerId !== 'system' && !userIds.has(league.ownerId)) {
+    } else if (league.ownerId !== SYSTEM_OWNER_ID && !userIds.has(league.ownerId)) {
       issues.push({
         severity: 'error',
         entity: entityName,
@@ -2021,7 +2037,7 @@ export function checkLeagues(
       }
 
       // Check that owner is a member (unless system-owned global league)
-      if (league.ownerId && league.ownerId !== 'system' && !league.memberUserIds.includes(league.ownerId)) {
+      if (league.ownerId && league.ownerId !== SYSTEM_OWNER_ID && !league.memberUserIds.includes(league.ownerId)) {
         issues.push({
           severity: 'warning',
           entity: entityName,

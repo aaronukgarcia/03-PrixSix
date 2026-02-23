@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-02-20",
-  "total_guids": 1024,
+  "total_guids": 1030,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
@@ -21210,7 +21210,7 @@
     },
     {
       "guid": "ADMIN_SITE_FUNCTIONS-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for toggling global site functions: user login and new user sign-up. Reads and writes admin_configuration/global in Firestore.",
       "dependencies": [],
@@ -21230,7 +21230,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_SITE_FUNCTIONS-001",
@@ -21309,7 +21309,7 @@
     },
     {
       "guid": "ADMIN_SITE_FUNCTIONS-004",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Persists the current toggle states to Firestore and logs an audit event for the change.",
       "dependencies": [],
@@ -21330,7 +21330,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_SITE_FUNCTIONS-005",
@@ -29476,7 +29476,7 @@
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin API route for updating user profile fields (email, teamName, isAdmin, mustChangePin) with full validation, deduplication, and downstream propagation.",
       "dependencies": [
@@ -29678,7 +29678,7 @@
         "calls": []
       },
       "created": "2026-01-22T12:20:34Z",
-      "lastUpdated": "2026-01-31T10:55:25Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-001",
@@ -29887,7 +29887,7 @@
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "POST handler that orchestrates admin user updates: validates input, checks admin permissions, deduplicates email/teamName, updates Auth + Firestore, propagates teamName to predictions, and logs audit events.",
       "dependencies": [
@@ -30089,7 +30089,7 @@
         "calls": []
       },
       "created": "2026-01-22T12:20:34Z",
-      "lastUpdated": "2026-01-31T10:55:25Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-003",
@@ -30298,7 +30298,7 @@
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-004",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "Verify the requesting user has admin privileges before allowing any modifications.",
       "dependencies": [
@@ -30499,7 +30499,7 @@
         "calls": []
       },
       "created": "2026-01-22T12:20:34Z",
-      "lastUpdated": "2026-01-31T10:55:25Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-005",
@@ -62509,7 +62509,7 @@
     },
     {
       "guid": "FIREBASE_PROVIDER-011",
-      "version": 5,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
       "description": "Admin-only operation to update a user's profile via server-side API. Handles both",
       "dependencies": [
@@ -62734,7 +62734,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-13T00:23:43Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "FIREBASE_PROVIDER-012",
@@ -68452,7 +68452,7 @@
     },
     {
       "guid": "LIB_AUDIT-000",
-      "version": 3,
+      "version": 8,
       "logic_category": "ORCHESTRATION",
       "description": "Client-side audit logging module providing session correlation IDs, Firestore audit event logging, automatic navigation tracking, and permission error reporting.",
       "dependencies": [
@@ -68585,7 +68585,7 @@
     },
     {
       "guid": "LIB_AUDIT-005",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Writes an audit event to the audit_logs Firestore collection as a fire-and-forget operation, attaching user ID, action description, details, correlation ID, and server timestamp.",
       "dependencies": [
@@ -68666,7 +68666,7 @@
     },
     {
       "guid": "LIB_CONSISTENCY-000",
-      "version": 5,
+      "version": 7,
       "logic_category": "ORCHESTRATION",
       "description": "Central consistency-checking library for the Prix Six application.",
       "dependencies": [
@@ -69883,7 +69883,7 @@
     },
     {
       "guid": "LIB_CONSISTENCY-030",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Validate all league documents for structural integrity and referential",
       "dependencies": [
@@ -76732,7 +76732,7 @@
     },
     {
       "guid": "LIB_SCORING-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Orchestration module for race score calculation, persistence, and standings",
       "dependencies": [
@@ -76896,7 +76896,7 @@
     },
     {
       "guid": "LIB_SCORING-004",
-      "version": 5,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
       "description": "Core scoring engine: fetches all predictions for a given race from Firestore. Golden Rule #3: Returns only totalPoints, not breakdown (calculated in real-time from race_results).",
       "security_notes": "CollectionGroup failure now throws instead of silently returning empty results. Race result validation added for null/duplicate drivers.",
@@ -98714,9 +98714,9 @@
     },
     {
       "guid": "FIREBASE_PROVIDER-000",
-      "version": 5,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
-      "description": "CRITICAL: Central Firebase context provider managing auth state, user profile, login/signup/logout/PIN operations. Single source of truth for current user session. Exposes useAuth(), useFirebase(), useFirestore(), useStorage(), useFunctions() hooks. Referenced by FIREBASE_PROVIDER-000 through FIREBASE_PROVIDER-028 GUIDs.",
+      "description": "CRITICAL: Central Firebase context provider managing auth state, user profile, login/signup/logout/PIN operations. Single source of truth for current user session. Exposes useAuth(), useFirebase(), useFirestore(), useStorage(), useFunctions() hooks. Referenced by FIREBASE_PROVIDER-000 through FIREBASE_PROVIDER-028 GUIDs. SECURITY (GEMINI-AUDIT-041, 042): All console.error calls sanitised; raw error objects no longer set on context state; user-facing messages sanitised throughout.",
       "dependencies": [
         "SERVICE_AUTH_OAUTH-000",
         "SERVICE_AUTH_OAUTH-001",
@@ -98919,7 +98919,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-13T00:23:43Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "USE_COLLECTION-000",
@@ -101802,6 +101802,126 @@
       },
       "created": "2026-02-20T18:19:15.629324Z",
       "lastUpdated": "2026-02-20T18:19:15.629325Z"
+    },
+    {
+      "guid": "API_ADMIN_UPDATE_USER-011",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Firebase ID token verification on update-user — prevents IDOR/privilege escalation (GEMINI-AUDIT-107). Verifies Bearer token and checks token UID matches body adminUid.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-003"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/update-user/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_UPDATE_USER-002"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-003"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_SITE_FUNCTIONS-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Admin API route for updating site function configuration (ADMINCOMP-005). Verifies Firebase Auth token and admin privileges. Replaces direct client-side Firestore writes from SiteFunctionsManager.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-003"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/update-site-functions/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_SITE_FUNCTIONS-004"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-002",
+          "LIB_FIREBASE_ADMIN-003"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_SITE_FUNCTIONS-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Type contract for site function configuration request.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/update-site-functions/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_SITE_FUNCTIONS-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_SITE_FUNCTIONS-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler: verifies admin auth, enforces business rule (at least one auth method must remain enabled), updates admin_configuration/global, logs audit event.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-003",
+        "LIB_ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/update-site-functions/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_SITE_FUNCTIONS-004"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-002",
+          "LIB_FIREBASE_ADMIN-003",
+          "LIB_TRACED_ERROR-000"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_SITE_FUNCTIONS-003",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Top-level error handler for uncaught exceptions in POST handler. Logs error to error_logs and returns safe 500 response.",
+      "dependencies": [
+        "LIB_TRACED_ERROR-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/update-site-functions/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_SITE_FUNCTIONS-002"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-005",
+          "LIB_TRACED_ERROR-000"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CONSISTENCY-013B",
+      "version": 1,
+      "description": "SYSTEM_OWNER_ID constant - reserved system identifier for global league ownership (GEMINI-AUDIT-049)",
+      "file": "app/src/lib/consistency.ts"
     }
   ],
   "firestoreCollections": {

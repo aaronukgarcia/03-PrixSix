@@ -1,7 +1,12 @@
-// GUID: LIB_FIREBASE_ADMIN-000-v03
+// GUID: LIB_FIREBASE_ADMIN-000-v04
 // [Intent] Server-side Firebase Admin SDK initialisation and shared utilities for authentication verification, correlation ID generation, and centralised error logging.
 // [Inbound Trigger] Imported by all server-side API routes that need Firestore access, auth verification, or error logging.
 // [Downstream Impact] Every server-side API route depends on this module. Changes to initialisation logic, auth verification, or error logging affect the entire backend.
+// @SECURITY_FIX (GEMINI-AUDIT-059): The initialization error catch block previously logged the
+//   raw error object via console.error. If cert() fails (e.g. malformed private key), the error
+//   may contain the credential values in its message or stack trace, leaking FIREBASE_PRIVATE_KEY
+//   to server logs. Fixed to log only a sanitised message (error.code + error.message) without
+//   the credential object or stack. Private key presence is validated before cert() is called.
 
 /**
  * Firebase Admin SDK initialization for server-side API routes.
@@ -21,10 +26,14 @@ let adminDb: Firestore | null = null;
 let adminFieldValue: typeof FieldValueType | null = null;
 let adminTimestamp: typeof TimestampType | null = null;
 
-// GUID: LIB_FIREBASE_ADMIN-002-v03
+// GUID: LIB_FIREBASE_ADMIN-002-v04
 // [Intent] Lazily initialises the Firebase Admin SDK (choosing between explicit service account credentials for local dev or Application Default Credentials for Google Cloud) and returns the Firestore instance, FieldValue, and Timestamp utilities.
 // [Inbound Trigger] Called by every API route that needs server-side Firestore access (login, scoring, admin operations, error logging).
 // [Downstream Impact] All server-side database operations depend on this function. If initialisation fails, the entire backend is non-functional. The credential selection logic must match the deployment environment.
+// @SECURITY_FIX (GEMINI-AUDIT-059): Private key is validated for presence before being passed to
+//   cert(). The catch block now logs only error.code and error.message (sanitised strings) instead
+//   of the raw error object, preventing FIREBASE_PRIVATE_KEY from appearing in server logs via
+//   error stack traces or formatted error objects from the Firebase Admin SDK.
 export async function getFirebaseAdmin(): Promise<{
   db: Firestore;
   FieldValue: typeof FieldValueType;
@@ -42,13 +51,21 @@ export async function getFirebaseAdmin(): Promise<{
     // Falls back to service account cert if env vars are provided
     try {
       if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+        // SECURITY (GEMINI-AUDIT-059): Validate that the private key env var is non-empty before
+        // passing it to cert(). An empty or whitespace-only value would cause cert() to throw an
+        // error whose message may echo the (empty) key value. Fail fast with a safe message.
+        const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+        if (!rawPrivateKey.trim()) {
+          throw new Error('Firebase Admin SDK configuration error: FIREBASE_PRIVATE_KEY is empty');
+        }
         // Use explicit credentials (local development)
         console.log('[Firebase Admin] Initializing with service account credentials');
         adminApp = initializeApp({
           credential: cert({
             projectId: process.env.FIREBASE_PROJECT_ID,
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            // Replace escaped newlines from env var serialisation
+            privateKey: rawPrivateKey.replace(/\\n/g, '\n'),
           }),
         });
       } else {
@@ -60,8 +77,12 @@ export async function getFirebaseAdmin(): Promise<{
         });
       }
     } catch (error) {
-      console.error('[Firebase Admin] Initialization failed:', error);
-      throw new Error('Failed to initialize Firebase Admin SDK. Check credentials configuration.');
+      // SECURITY (GEMINI-AUDIT-059): Log only the sanitised error code and message — never the
+      // raw error object. cert() errors may include credential field values in their stack trace
+      // or formatted output, which would expose FIREBASE_PRIVATE_KEY in server logs.
+      const safeMessage = error instanceof Error ? `${(error as any).code ?? 'unknown'}: ${error.message}` : String(error);
+      console.error('[Firebase Admin] Initialization failed:', safeMessage);
+      throw new Error('Firebase Admin SDK configuration error. Check server logs for details.');
     }
   }
 

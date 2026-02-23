@@ -1,9 +1,12 @@
-// GUID: LIB_AUDIT-000-v07
+// GUID: LIB_AUDIT-000-v08
 // @SECURITY_FIX: Permission errors now use TracedError and correlation IDs (LIB-003).
 // @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID() in generateGuid() (LIB-002).
 // @SECURITY_FIX: logPermissionError console.error now redacts userId/path in production (GEMINI-AUDIT-047).
 // @SECURITY_FIX: Removed isAuditingEnabled toggle and the admin-configurable disable mechanism (GEMINI-AUDIT-002).
 //               Audit logging is now always-on and cannot be disabled at runtime. Disabling requires a code change + deploy.
+// @SECURITY_FIX (LIB-003): logAuditEvent now uses ERRORS.AUDIT_LOG_FAILED (Golden Rule #7) for write failures,
+//               with 4-pillar error handling (log, type/code, correlationId, selectable display).
+//               addDocumentNonBlocking called with skipErrorEmit=true on audit_logs to prevent permission-error cascade.
 // [Intent] Client-side audit logging module providing session correlation IDs, Firestore audit event logging, automatic navigation tracking, and permission error reporting.
 // [Inbound Trigger] Imported by React components and pages that need audit trail functionality.
 // [Downstream Impact] Writes to audit_logs Firestore collection. Navigation tracking depends on Next.js routing. Changes affect audit trail completeness and compliance reporting.
@@ -72,9 +75,12 @@ export function getCorrelationId(): string {
 
 // --- Auditing Logic ---
 
-// GUID: LIB_AUDIT-005-v04
+// GUID: LIB_AUDIT-005-v05
 // @SECURITY_FIX: Removed admin-configurable isAuditingEnabled toggle (GEMINI-AUDIT-002).
 //               Audit logging is unconditionally enabled. No runtime toggle exists.
+// @SECURITY_FIX (LIB-003): Write failures now use ERRORS.AUDIT_LOG_FAILED (Golden Rule #7) with 4-pillar
+//               error handling (log, type/code, correlationId, selectable display). skipErrorEmit=true
+//               prevents permission-error cascade loop on the audit_logs collection.
 // [Intent] Writes an audit event to the audit_logs Firestore collection as a fire-and-forget operation, attaching user ID, action description, details, correlation ID, and server timestamp.
 // [Inbound Trigger] Called by useAuditNavigation on page navigations, and available for manual calls from any client-side component needing audit logging.
 // [Downstream Impact] Creates documents in audit_logs collection used for compliance and user activity tracking. Uses addDocumentNonBlocking so failures do not block the UI. Skips logging if no userId is provided.
@@ -96,16 +102,40 @@ export async function logAuditEvent(
     return;
   }
 
+  const correlationId = getCorrelationId();
   const auditLogRef = collection(firestore, 'audit_logs');
   const logData = {
     userId,
     action,
     details,
-    correlationId: getCorrelationId(),
+    correlationId,
     timestamp: serverTimestamp(),
   };
 
-  addDocumentNonBlocking(auditLogRef, logData);
+  // skipErrorEmit=true: prevents permission-error cascade loop on audit_logs collection
+  // (an audit write failure must not itself trigger another audit write via errorEmitter)
+  const writePromise = addDocumentNonBlocking(auditLogRef, logData, true);
+
+  // Golden Rule #7: Use ERRORS.AUDIT_LOG_FAILED (not inline strings) for write failure logging.
+  // Golden Rule #1: 4-pillar error handling — log, type/code (ERRORS.AUDIT_LOG_FAILED),
+  //   correlationId (from session), selectable display (structured console.error object).
+  // This is non-blocking: we attach a .catch but do NOT await, so the caller is never delayed.
+  if (writePromise) {
+    writePromise.catch((error: unknown) => {
+      const traced = createTracedError(ERRORS.AUDIT_LOG_FAILED, {
+        correlationId,
+        context: { userId, action },
+        cause: error instanceof Error ? error : undefined,
+      });
+      // Console-only: do not write to Firestore (prevents cascade on audit_logs permission failure)
+      console.error('[Audit] logAuditEvent write failed:', {
+        correlationId: traced.correlationId,
+        errorCode: traced.definition.code,
+        message: traced.message,
+        action,
+      });
+    });
+  }
 }
 
 // GUID: LIB_AUDIT-006-v03

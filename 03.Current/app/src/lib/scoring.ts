@@ -1,4 +1,5 @@
-// GUID: LIB_SCORING-000-v04
+// GUID: LIB_SCORING-000-v05
+// @SECURITY_FIX (GEMINI-AUDIT-067): Added explicit .limit(10000) safety cap on collectionGroup query to prevent Denial of Wallet unbounded reads.
 // [Intent] Orchestration module for race score calculation, persistence, and standings
 // generation. Reads predictions from Firestore, applies the scoring rules defined in
 // scoring-rules.ts, writes score documents back to Firestore, and computes league standings.
@@ -7,7 +8,7 @@
 // are returned to the admin UI and used for league table display. Depends on scoring-rules.ts
 // for point values and the calculateDriverPoints function.
 
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc, collectionGroup, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, collectionGroup, limit, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { F1Drivers } from './data';
 import { SCORING_POINTS, calculateDriverPoints } from './scoring-rules';
 import { normalizeRaceId } from './normalize-race-id';
@@ -52,9 +53,10 @@ interface Prediction {
 // [Inbound Trigger] n/a -- import at top of file.
 // [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
 
-// GUID: LIB_SCORING-004-v05
+// GUID: LIB_SCORING-004-v06
 // @SECURITY_RISK: Previously silently swallowed collectionGroup failures, masking missing index or permission errors.
 // @ERROR_PRONE: Previously accepted null/duplicate drivers without validation.
+// @SECURITY_FIX (GEMINI-AUDIT-067): collectionGroup query now has an explicit .limit(10000) safety cap to prevent unbounded Firestore reads (Denial of Wallet attack vector).
 // [Intent] Core scoring engine: fetches all predictions for a given race from Firestore
 // using a collectionGroup query, then iterates each user's prediction array applying
 // the hybrid position-based scoring model (exact/1-off/2-off/3+-off) plus the all-6 bonus.
@@ -109,16 +111,25 @@ export async function calculateRaceScores(
 
   console.log(`[Scoring] [${correlationId}] Looking for predictions with raceId: "${normalizedRaceId}" (original: "${raceResult.raceId}")`);
 
+  // Safety cap to prevent unbounded reads (GEMINI-AUDIT-067)
+  // A prix six league will never have 10,000 predictions for a single race.
+  // If this cap is hit, it indicates a data integrity problem or attack.
+  const PREDICTIONS_READ_LIMIT = 10000;
+
   // Get all predictions for this race using collectionGroup query
   // @SECURITY_RISK fix: throw on failure instead of silently returning empty results
   let predictionsSnapshot;
   try {
     const predictionsQuery = query(
       collectionGroup(firestore, 'predictions'),
-      where('raceId', '==', normalizedRaceId)
+      where('raceId', '==', normalizedRaceId),
+      limit(PREDICTIONS_READ_LIMIT) // Safety cap to prevent unbounded reads (GEMINI-AUDIT-067)
     );
     predictionsSnapshot = await getDocs(predictionsQuery);
     console.log(`[Scoring] [${correlationId}] CollectionGroup query returned ${predictionsSnapshot.size} results`);
+    if (predictionsSnapshot.size >= PREDICTIONS_READ_LIMIT) {
+      console.warn(`[Scoring] [${correlationId}] Hit safety cap on read limit (${PREDICTIONS_READ_LIMIT}) for raceId: "${normalizedRaceId}" — possible data integrity issue`);
+    }
   } catch (error: any) {
     console.error(`[Scoring] [${correlationId}] CollectionGroup query failed:`, error);
     throw createTracedError(ERRORS.FIRESTORE_COLLECTION_GROUP_FAILED, { correlationId, context: { raceId: normalizedRaceId }, cause: error instanceof Error ? error : undefined });
