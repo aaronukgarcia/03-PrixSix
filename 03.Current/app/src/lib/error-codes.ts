@@ -1,4 +1,5 @@
-// GUID: LIB_ERROR_CODES-000-v04
+// GUID: LIB_ERROR_CODES-000-v05
+// @SECURITY_FIX: generateClientCorrelationId() now uses crypto.randomUUID()/getRandomValues() instead of Math.random() (LIB-002).
 // [Intent] Central error code registry and error handling utilities for the Prix Six application.
 //          Defines all PX-xxxx error codes, correlation ID generation, error object creation,
 //          display formatting, and error-to-code mapping. Implements Golden Rule #1.
@@ -151,21 +152,31 @@ export interface AppError {
   logged: boolean;
 }
 
-// GUID: LIB_ERROR_CODES-004-v03
+// GUID: LIB_ERROR_CODES-004-v04
+// @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID()/getRandomValues() (LIB-002).
 // [Intent] Generate a unique client-side correlation ID for error tracking.
-//          Format: err_[timestamp-base36]_[random-6-chars] — short, unique, and copyable.
+//          Format: err_[timestamp-base36]_[random-8-chars] — short, unique, and copyable.
 // [Inbound Trigger] Called in client-side catch blocks to create a per-error-instance identifier
 //                   that the user can report via WhatsApp or email.
 // [Downstream Impact] The correlation ID links user-reported errors to server-side error_logs entries.
 //                     Changing the format requires updating any log queries that parse correlation IDs.
 /**
- * Generate a unique correlation ID for error tracking
- * Format: err_[timestamp-base36]_[random-6-chars]
+ * Generate a cryptographically secure correlation ID for error tracking.
+ * Format: err_[timestamp-base36]_[random-8-chars]
  */
 export function generateClientCorrelationId(): string {
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
-  return `err_${timestamp}_${random}`;
+  if (typeof crypto?.randomUUID === 'function') {
+    const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+    return `err_${timestamp}_${random}`;
+  }
+  if (typeof crypto?.getRandomValues === 'function') {
+    const bytes = crypto.getRandomValues(new Uint8Array(4));
+    const random = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    return `err_${timestamp}_${random}`;
+  }
+  // Absolute last resort — no Math.random()
+  return `err_${timestamp}_${Date.now().toString(36)}`;
 }
 
 // GUID: LIB_ERROR_CODES-005-v03

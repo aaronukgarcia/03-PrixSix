@@ -21,11 +21,20 @@ import { PreSeasonBanner } from "@/components/PreSeasonBanner";
 import { SplashScreen, useSplashScreen } from "@/components/ui/SplashScreen";
 import { SmartLoaderProvider } from "@/components/ui/smart-loader";
 
+// SECURITY: Uses crypto.randomUUID() / getRandomValues() — not Math.random() (LIB-002 fix)
 function generateGuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (globalThis.crypto.getRandomValues(new Uint8Array(1))[0] % 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+  // Last resort — no Math.random()
+  return `ts-${Date.now()}-${Date.now().toString(36)}`;
 }
 
 

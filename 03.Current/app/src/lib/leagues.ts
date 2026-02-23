@@ -1,7 +1,8 @@
-// GUID: LIB_LEAGUES-000-v04
+// GUID: LIB_LEAGUES-000-v05
 // @SECURITY_FIX: All catch blocks now return generic error messages to prevent Firestore path/schema disclosure (GEMINI-AUDIT-062).
-// [Intent] Client-side league management module providing CRUD operations for custom leagues. Handles league creation, joining via invite codes, leaving, member removal, renaming, invite code regeneration, and deletion. All operations interact with the leagues Firestore collection.
-// [Inbound Trigger] Called by league management UI components and API routes when users create, join, leave, or administer leagues.
+// @SECURITY_FIX: Removed deprecated joinLeagueByCode() client-side function that queried Firestore by inviteCode directly — eliminates client-side enumeration vector (FIRESTORE-003).
+// [Intent] Client-side league management module providing CRUD operations for custom leagues. Handles league creation, leaving, member removal, renaming, invite code regeneration, and deletion. Join-by-code is server-side only via /api/leagues/join-by-code.
+// [Inbound Trigger] Called by league management UI components and API routes when users create, leave, or administer leagues.
 // [Downstream Impact] Modifies the leagues Firestore collection. League membership affects standings views and scoring filters. Depends on league types from types/league.ts and audit.ts for correlation IDs.
 
 import {
@@ -26,7 +27,7 @@ import { getCorrelationId } from './audit';
 // GUID: LIB_LEAGUES-001-v04
 // [Intent] Generate a cryptographically random invite code of INVITE_CODE_LENGTH characters using an alphabet that excludes visually ambiguous characters (I, O, 0, 1) to reduce user input errors. Uses rejection sampling to eliminate modulo bias (LIB-001 fix).
 // [Inbound Trigger] Called by createLeague and regenerateInviteCode when a new or refreshed invite code is needed.
-// [Downstream Impact] The generated code is stored in the league document's inviteCode field. Users enter this code to join leagues via joinLeagueByCode. Must be unique enough to avoid collisions (6 chars from 32-char alphabet = ~1B combinations).
+// [Downstream Impact] The generated code is stored in the league document's inviteCode field. Users enter this code to join leagues via /api/leagues/join-by-code. Must be unique enough to avoid collisions (6 chars from 32-char alphabet = ~1B combinations).
 // [Security] Rejection sampling prevents modulo bias that would make some codes more predictable.
 /**
  * Generate a random 6-character alphanumeric invite code using rejection sampling
@@ -95,69 +96,6 @@ export async function createLeague(
   }
 }
 
-// GUID: LIB_LEAGUES-003-v04
-// [Intent] Join an existing league by looking up its invite code (case-insensitive), validating membership limits and duplicate membership, then adding the user's team ID to the league's memberUserIds array.
-// [Inbound Trigger] Internal/legacy use only. UI now routes through /api/leagues/join-by-code (FIRESTORE-003 fix).
-// [Downstream Impact] Adds the team to the league's memberUserIds array, making that team's scores visible in the league standings. Checks both primary and secondary league counts against doubled MAX_LEAGUES_PER_USER. On failure, returns a correlation ID for error tracing.
-/**
- * Join a league using an invite code.
- * @deprecated UI should use POST /api/leagues/join-by-code instead (FIRESTORE-003 fix).
- *             This function queries inviteCode directly from Firestore — use the API route
- *             to avoid client-side inviteCode enumeration.
- * @param teamId - Optional team ID. If not provided, uses userId (primary team).
- *                 For secondary teams, pass `${userId}-secondary`
- */
-export async function joinLeagueByCode(
-  firestore: Firestore,
-  code: string,
-  userId: string,
-  teamId?: string
-): Promise<{ success: boolean; leagueId?: string; leagueName?: string; error?: string }> {
-  try {
-    // Use provided teamId or default to userId (primary team)
-    const memberIdToAdd = teamId || userId;
-
-    // Check if user has reached the max league limit (count both primary and secondary memberships)
-    const userLeagues = await getUserLeagues(firestore, userId);
-    const secondaryLeagues = await getUserLeagues(firestore, `${userId}-secondary`);
-    const totalMemberships = userLeagues.length + secondaryLeagues.length;
-
-    if (totalMemberships >= MAX_LEAGUES_PER_USER * 2) { // Allow double since user can have 2 teams
-      return { success: false, error: `You have reached the maximum number of league memberships.` };
-    }
-
-    const normalizedCode = code.toUpperCase().trim();
-
-    // Find league with matching invite code
-    const leaguesRef = collection(firestore, 'leagues');
-    const q = query(leaguesRef, where('inviteCode', '==', normalizedCode));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-      return { success: false, error: 'Invalid invite code. Please check and try again.' };
-    }
-
-    const leagueDoc = snapshot.docs[0];
-    const leagueData = leagueDoc.data() as League;
-
-    // Check if this team is already a member
-    if (leagueData.memberUserIds.includes(memberIdToAdd)) {
-      return { success: false, error: 'This team is already a member of this league.' };
-    }
-
-    // Add team to league
-    await updateDoc(leagueDoc.ref, {
-      memberUserIds: arrayUnion(memberIdToAdd),
-      updatedAt: serverTimestamp(),
-    });
-
-    return { success: true, leagueId: leagueDoc.id, leagueName: leagueData.name };
-  } catch (error: any) {
-    const correlationId = getCorrelationId();
-    console.error(`Error joining league [${correlationId}]:`, error);
-    return { success: false, error: `An error occurred while joining the league. Please try again. (ID: ${correlationId})` };
-  }
-}
 
 // GUID: LIB_LEAGUES-004-v03
 // [Intent] Remove the requesting user from a league's memberUserIds array. Prevents leaving the global league and prevents the league owner from leaving (they must transfer ownership or delete instead).

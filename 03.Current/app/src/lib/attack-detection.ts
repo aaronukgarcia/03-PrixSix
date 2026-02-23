@@ -1,8 +1,9 @@
-// GUID: LIB_ATTACK_DETECTION-000-v04
+// GUID: LIB_ATTACK_DETECTION-000-v05
 // [Intent] Attack detection system that identifies bot attacks, credential stuffing, and distributed login attacks against the authentication layer.
 // [Inbound Trigger] Imported by login API routes after failed login attempts.
 // [Downstream Impact] Creates attack_alerts documents in Firestore; admin dashboard reads these alerts. Changes to thresholds or detection logic affect security posture.
-// @AUDIT_NOTE: Account lockout (auto-locking accounts after repeated failures) not implemented -- requires server-side session management.
+// @SECURITY_FIX: Per-account progressive lockout implemented in login route (GEMINI-AUDIT-012). ✅
+// @SECURITY_FIX: checkForAttack() return value now acted on in login route — bot/stuffing attacks trigger 429 (GEMINI-AUDIT-045). ✅
 // @TECH_DEBT: VPN/proxy detection not implemented -- would require IP reputation service integration.
 
 /**

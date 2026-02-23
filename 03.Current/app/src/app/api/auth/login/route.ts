@@ -1,8 +1,9 @@
-// GUID: API_AUTH_LOGIN-000-v07
+// GUID: API_AUTH_LOGIN-000-v08
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // @SECURITY_FIX: Implemented progressive account lockout to prevent brute-force attacks (GEMINI-AUDIT-012).
 // @SECURITY_FIX: Removed raw errorType and errorMessage from catch block response to prevent information disclosure (GEMINI-AUDIT-100).
-// [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces progressive account lockout after repeated failures, logs all attempts for attack detection, and returns a Firebase custom token on success.
+// @SECURITY_FIX: checkForAttack() return value now enforced — bot_attack/credential_stuffing triggers 429 (GEMINI-AUDIT-045).
+// [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces progressive account lockout after repeated failures, logs all attempts for attack detection, blocks IP-level attacks, and returns a Firebase custom token on success.
 // [Inbound Trigger] POST request from the client-side login form (LoginPage component).
 // [Downstream Impact] Returns a customToken used by the client to call Firebase signInWithCustomToken(). Writes to audit_logs, login_attempts, and users collections. Lockout state affects future login attempts.
 
@@ -247,8 +248,8 @@ export async function POST(request: NextRequest) {
           userAgent,
         });
 
-        // Check for attacks after failed login
-        await checkForAttack(db, FieldValue, clientIP, normalizedEmail);
+        // Check for attacks after failed login — capture return value to enforce blocking (GEMINI-AUDIT-045)
+        const attackAlert = await checkForAttack(db, FieldValue, clientIP, normalizedEmail);
 
         // Don't reveal if user exists or not - but log for debugging
         const traced = createTracedError(ERRORS.AUTH_USER_NOT_FOUND, {
@@ -257,6 +258,15 @@ export async function POST(request: NextRequest) {
           cause: error instanceof Error ? error : undefined,
         });
         await logTracedError(traced, db);
+
+        // SECURITY: If a new IP-level attack was just detected, block immediately with 429 (GEMINI-AUDIT-045)
+        if (attackAlert?.type === 'bot_attack' || attackAlert?.type === 'credential_stuffing') {
+          return NextResponse.json(
+            { success: false, error: 'Too many requests. Please try again later.', correlationId },
+            { status: 429 }
+          );
+        }
+
         return NextResponse.json(
           { success: false, error: 'Invalid email or PIN', correlationId },
           { status: 401 }
@@ -329,8 +339,8 @@ export async function POST(request: NextRequest) {
         userAgent,
       });
 
-      // Check for attacks after failed login
-      await checkForAttack(db, FieldValue, clientIP, normalizedEmail);
+      // Check for attacks after failed login — capture return value to enforce blocking (GEMINI-AUDIT-045)
+      const attackAlertOnBadPin = await checkForAttack(db, FieldValue, clientIP, normalizedEmail);
 
       if (userDoc) {
         await userDoc.ref.update({
@@ -363,6 +373,14 @@ export async function POST(request: NextRequest) {
             { status: 429 }
           );
         }
+      }
+
+      // SECURITY: If a new IP-level attack was just detected, block immediately with 429 (GEMINI-AUDIT-045)
+      if (attackAlertOnBadPin?.type === 'bot_attack' || attackAlertOnBadPin?.type === 'credential_stuffing') {
+        return NextResponse.json(
+          { success: false, error: 'Too many requests. Please try again later.', correlationId },
+          { status: 429 }
+        );
       }
 
       return NextResponse.json(
