@@ -33,6 +33,19 @@ function isChunkLoadError(error: any): boolean {
   );
 }
 
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-006-v01
+// [Intent] Detect Firebase Performance attribute errors caused by Tailwind CSS class strings
+//          being passed to putAttribute() by auto-instrumentation (PERF-001). These are SDK-level
+//          noise — not actionable errors — and must be suppressed to keep error_logs clean.
+// [Inbound Trigger] Called by error/rejection handlers before deciding whether to log.
+// [Downstream Impact] Returns true for performance/invalid attribute value errors (skip logging).
+//                     Primary fix is initializePerformance({ instrumentationEnabled: false }) in
+//                     layout.tsx (APP_LAYOUT-001-v02). This is belt-and-suspenders. (v1.58.68)
+function isFirebasePerformanceError(error: any): boolean {
+  const message = error?.message || error?.toString() || '';
+  return message.includes('performance/invalid attribute value');
+}
+
 // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-002-v02
 // @SECURITY_FIX: GEMINI-AUDIT-044 — Production console.error now omits stack/context/error object.
 // [Intent] Send error details to server for persistent logging in error_logs collection.
@@ -95,13 +108,18 @@ async function logErrorToServer(
 // [Downstream Impact] Runs for the entire app session. Logs all unhandled errors to server.
 export function GlobalErrorLogger() {
   useEffect(() => {
-    // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-004-v01
+    // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-004-v02
     // [Intent] Handle window-level unhandled errors (runtime errors, syntax errors, etc.).
     // [Inbound Trigger] Fires on any unhandled error in the browser context.
-    // [Downstream Impact] Sends error to server unless it's a chunk load error.
+    // [Downstream Impact] Sends error to server unless it's a chunk load error or Firebase
+    //                     Performance attribute noise (PERF-001, v1.58.68).
     const handleError = (event: ErrorEvent) => {
       // Skip chunk errors (handled by ChunkErrorHandler)
       if (isChunkLoadError(event.error || event)) {
+        return;
+      }
+      // Skip Firebase Performance attribute errors (PERF-001: Tailwind class strings in putAttribute)
+      if (isFirebasePerformanceError(event.error || event)) {
         return;
       }
 
@@ -114,13 +132,18 @@ export function GlobalErrorLogger() {
       });
     };
 
-    // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-005-v01
+    // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-005-v02
     // [Intent] Handle unhandled promise rejections (async errors, failed fetches, etc.).
     // [Inbound Trigger] Fires when a Promise is rejected without a .catch() handler.
-    // [Downstream Impact] Sends rejection to server unless it's a chunk load error.
+    // [Downstream Impact] Sends rejection to server unless it's a chunk load error or Firebase
+    //                     Performance attribute noise (PERF-001, v1.58.68).
     const handleRejection = (event: PromiseRejectionEvent) => {
       // Skip chunk errors (handled by ChunkErrorHandler)
       if (isChunkLoadError(event.reason)) {
+        return;
+      }
+      // Skip Firebase Performance attribute errors (PERF-001: Tailwind class strings in putAttribute)
+      if (isFirebasePerformanceError(event.reason)) {
         return;
       }
 

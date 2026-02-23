@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-02-23",
   "commits": [
+    {"id": "PENDING", "date": "2026-02-23", "version": "1.58.70", "author": "Bill (Claude Code)", "message": "fix(PERF-001): Use initializePerformance with instrumentationEnabled:false at SDK init time; add GlobalErrorLogger filter for performance/invalid attribute value noise (v1.58.70)", "major": false},
     {"id": "3fa22ef", "date": "2026-02-23", "version": "1.58.69", "author": "Bill (Claude Code)", "message": "security: GEMINI-AUDIT-112 - atomic team name claim via Firestore sentinel; fixes TOCTOU race at signup (v1.58.69)", "major": false},
     {"id": "7ba0c17", "date": "2026-02-23", "version": "1.58.68", "author": "Bill (Claude Code)", "message": "security: GEMINI-AUDIT-119 - cap email queue push action at 50 emails/batch; cap GET pending query at 100; prevents memory exhaustion on large queues (v1.58.68)", "major": false},
     {"id": "10c5cac", "date": "2026-02-23", "version": "1.58.67", "author": "Bill (Claude Code)", "message": "security: GEMINI-AUDIT-044 - NODE_ENV guards on GlobalErrorLogger.tsx and global-error.tsx; production no longer logs stack traces to DevTools (v1.58.67)", "major": false},
