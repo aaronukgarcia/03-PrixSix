@@ -217,7 +217,12 @@ export default function MyResultsPage() {
         fetchLeader();
     }, [firestore]);
 
-    // GUID: PAGE_MY_RESULTS-004-v01
+    // GUID: PAGE_MY_RESULTS-004-v02
+    // @BUG_FIX: GEMINI-AUDIT-128 — User-submitted GP predictions were never found.
+    //   Root cause: predictionsMap.get(baseRaceId) used "Australian-Grand-Prix" (getBaseRaceId strips -GP)
+    //   but user-submitted predictions are stored with raceId "Australian-Grand-Prix-GP" (via generateRaceId).
+    //   Fix: predictionsMap now stores both raceId formats as keys; lookup tries event.id first (user-submitted
+    //   format with -GP/-Sprint suffix), falls back to getBaseRaceId() (carry-forward format without -GP).
     // [Intent] Shared processing function to build MyRaceResult[] from Firestore data.
     const processResults = useCallback((
         predictionsResult: any[],
@@ -243,7 +248,8 @@ export default function MyResultsPage() {
             } as Score);
         });
 
-        // Build predictions map (base raceId -> prediction data)
+        // Build predictions map keyed by actual stored raceId (user-submitted: with -GP/-Sprint suffix;
+        // carry-forward: without -GP suffix). Storing both allows lookup by either format.
         const predictionsMap = new Map<string, any>();
         predictionsResult.forEach(doc => {
             const data = doc.data();
@@ -260,8 +266,10 @@ export default function MyResultsPage() {
             const raceResult = raceResultsMap.get(resultId);
             if (!raceResult) continue;
 
+            // Try full event ID first (user-submitted format: "Australian-Grand-Prix-GP"),
+            // fall back to getBaseRaceId (carry-forward format: "Australian-Grand-Prix")
             const baseRaceId = getBaseRaceId(event.id);
-            const predData = predictionsMap.get(baseRaceId);
+            const predData = predictionsMap.get(event.id) ?? predictionsMap.get(baseRaceId);
             if (!predData) continue;
 
             const officialTop6 = [

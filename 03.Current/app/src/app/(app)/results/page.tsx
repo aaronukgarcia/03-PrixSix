@@ -244,7 +244,12 @@ function ResultsContent() {
         return parsePredictionsPure(predictions, actualTop6);
     }, []);
 
-    // GUID: PAGE_RESULTS-025A-v05
+    // GUID: PAGE_RESULTS-025A-v06
+    // @BUG_FIX: GEMINI-AUDIT-128 — Two bugs fixed:
+    //   (1) scoreRaceId was lowercased but scores store Title-Case raceId (e.g., "Australian-Grand-Prix-GP")
+    //       → query returned 0 results. Fixed: use selectedRaceId directly (no toLowerCase).
+    //   (2) Map key used data.oduserId but scores store `userId` not `oduserId` → all lookups missed.
+    //       Fixed: use data.userId as the map key.
     // [Intent] Real-time listener for scores collection - updates automatically when admin submits results.
     //          Task #8 fix: Converted from getDocs to onSnapshot for automatic score updates.
     // [Inbound Trigger] Runs when firestore or selectedRaceId changes.
@@ -252,19 +257,20 @@ function ResultsContent() {
     useEffect(() => {
         if (!firestore || !selectedRaceId) return;
 
-        const scoreRaceId = selectedRaceId.toLowerCase();
+        // Scores are stored with Title-Case raceId (e.g., "Australian-Grand-Prix-GP") — use selectedRaceId as-is
         setScoresLoaded(false);
 
         const unsubscribe = onSnapshot(
             query(
                 collection(firestore, "scores"),
-                where("raceId", "==", scoreRaceId)
+                where("raceId", "==", selectedRaceId)
             ),
             (snapshot) => {
                 const newScoresMap = new Map<string, Score>();
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    newScoresMap.set(data.oduserId, {
+                    // Scores use userId field (not oduserId) — must match key used in teams useMemo
+                    newScoresMap.set(data.userId, {
                         id: doc.id,
                         ...data,
                     } as Score);
@@ -283,7 +289,15 @@ function ResultsContent() {
         return () => unsubscribe();
     }, [firestore, selectedRaceId]);
 
-    // GUID: PAGE_RESULTS-025B-v05
+    // GUID: PAGE_RESULTS-025B-v06
+    // @BUG_FIX: GEMINI-AUDIT-128 — GP predictions were never shown on results page.
+    //   Root cause: user-submitted predictions store raceId as "Australian-Grand-Prix-GP" (via generateRaceId)
+    //   but getBaseRaceId() returned "Australian-Grand-Prix" (strips -GP) → 0 user-submitted GP predictions found.
+    //   Carry-forward predictions are stored without -GP suffix (via normalizeRaceId in calculate-scores).
+    //   Fix: dual-query — primary uses selectedRaceId (user-submitted format), secondary uses getBaseRaceId()
+    //   (carry-forward format). Only needed when formats differ (GP races); Sprint uses same format for both.
+    //   All carry-forward predictions are fetched without limit in the initial load; subsequent loadMore pages
+    //   only paginate user-submitted predictions (the dominant set).
     // [Intent] Fetch predictions and count for the selected race (one-time fetch with pagination).
     //          Separated from scores listener to keep pagination working while scores update in real-time.
     // [Inbound Trigger] Runs when firestore or selectedRaceId changes.
@@ -298,33 +312,55 @@ function ResultsContent() {
             setRawPredictionDocs([]);
             setLastDoc(null);
 
+            // baseRaceId: carry-forward format (without -GP suffix). selectedRaceId: user-submitted format.
             const baseRaceId = getBaseRaceId(selectedRaceId);
+            // GP races: formats differ ("Australian-Grand-Prix" vs "Australian-Grand-Prix-GP")
+            // Sprint races: formats are identical ("Chinese-Grand-Prix-Sprint") → single query suffices
+            const needsDualQuery = baseRaceId !== selectedRaceId;
 
             try {
-                const [countResult, submissionsResult] = await Promise.all([
+                // Primary: user-submitted predictions (paginated)
+                const [primaryCount, primaryDocs] = await Promise.all([
                     getCountFromServer(query(
                         collectionGroup(firestore, "predictions"),
-                        where("raceId", "==", baseRaceId)
+                        where("raceId", "==", selectedRaceId)
                     )),
                     getDocs(query(
                         collectionGroup(firestore, "predictions"),
-                        where("raceId", "==", baseRaceId),
+                        where("raceId", "==", selectedRaceId),
                         orderBy("teamName"),
                         limit(PAGE_SIZE)
                     ))
                 ]);
 
+                // Secondary: carry-forward predictions (fetch all — rare, small set)
+                const carryForwardDocs = needsDualQuery
+                    ? await getDocs(query(
+                        collectionGroup(firestore, "predictions"),
+                        where("raceId", "==", baseRaceId)
+                    ))
+                    : null;
+
                 if (cancelled) return;
 
-                setTotalCount(countResult.data().count);
+                // Merge by doc path — same team cannot have both user-submitted and carry-forward for same race
+                const mergedMap = new Map<string, any>();
+                primaryDocs.forEach(doc => mergedMap.set(doc.ref.path, doc.data()));
+                if (carryForwardDocs) {
+                    carryForwardDocs.forEach(doc => mergedMap.set(doc.ref.path, doc.data()));
+                }
 
-                if (submissionsResult.empty) {
+                const totalCount = primaryCount.data().count + (carryForwardDocs?.size ?? 0);
+                setTotalCount(totalCount);
+
+                if (mergedMap.size === 0) {
                     setHasMore(false);
                     setRawPredictionDocs([]);
                 } else {
-                    setLastDoc(submissionsResult.docs[submissionsResult.docs.length - 1]);
-                    setHasMore(submissionsResult.docs.length === PAGE_SIZE);
-                    setRawPredictionDocs(submissionsResult.docs.map(d => d.data()));
+                    // Cursor tracks primary query for loadMore pagination
+                    setLastDoc(primaryDocs.docs.length > 0 ? primaryDocs.docs[primaryDocs.docs.length - 1] : null);
+                    setHasMore(primaryDocs.docs.length === PAGE_SIZE);
+                    setRawPredictionDocs([...mergedMap.values()]);
                 }
             } catch (error) {
                 console.error("Error fetching predictions:", error);
@@ -370,17 +406,19 @@ function ResultsContent() {
         });
     }, [rawPredictionDocs, raceResult, scoresMap, parsePredictions]);
 
-    // GUID: PAGE_RESULTS-027-v04
+    // GUID: PAGE_RESULTS-027-v05
+    // @BUG_FIX: GEMINI-AUDIT-128 — Changed from getBaseRaceId() to selectedRaceId directly.
+    //   loadMore paginates user-submitted predictions (selectedRaceId format). Carry-forward predictions
+    //   (baseRaceId format) are fully loaded in the initial fetchPredictions call, so no pagination needed for them.
     const loadMore = useCallback(async () => {
         if (!firestore || !lastDoc || isLoadingMore) return;
 
         setIsLoadingMore(true);
-        const baseRaceId = getBaseRaceId(selectedRaceId);
 
         try {
             const submissionsQuery = query(
                 collectionGroup(firestore, "predictions"),
-                where("raceId", "==", baseRaceId),
+                where("raceId", "==", selectedRaceId),
                 orderBy("teamName"),
                 startAfter(lastDoc),
                 limit(PAGE_SIZE)
