@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-02-20",
-  "total_guids": 1030,
+  "total_guids": 1039,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
@@ -11133,7 +11133,7 @@
     },
     {
       "guid": "ADMIN_HOT_NEWS-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for managing the Hot News feed: toggle AI updates, manually edit content, refresh via AI, and optionally email subscribers.",
       "dependencies": [
@@ -11336,11 +11336,11 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_HOT_NEWS-001",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Main HotNewsManager component providing AI toggle, content editor, refresh button, and email dispatch controls.",
       "dependencies": [
@@ -11544,11 +11544,11 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_HOT_NEWS-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "RECOVERY",
       "description": "Local state managing the hot news settings, loading/error states, form fields, and operation flags.",
       "dependencies": [
@@ -11751,7 +11751,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_HOT_NEWS-003",
@@ -11963,7 +11963,7 @@
     },
     {
       "guid": "ADMIN_HOT_NEWS-004",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Saves manual content edits and the AI toggle to Firestore, logs an audit event, and optionally sends emails to all subscribers.",
       "dependencies": [
@@ -12167,11 +12167,11 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_HOT_NEWS-005",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Conditionally sends hot news content via email to all subscribed users after a successful save.",
       "dependencies": [
@@ -12374,7 +12374,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_HOT_NEWS-006",
@@ -13000,7 +13000,7 @@
     },
     {
       "guid": "ADMIN_HOT_NEWS-009",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Renders the full Hot News management UI: AI toggle, content textarea, email checkbox, save and refresh buttons.",
       "dependencies": [
@@ -13203,7 +13203,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_LEAGUES-000",
@@ -33197,7 +33197,7 @@
     },
     {
       "guid": "API_AUTH_LOGIN-000",
-      "version": 4,
+      "version": 9,
       "logic_category": "ORCHESTRATION",
       "description": "Server-side API route that authenticates users via email + 6-digit PIN, enforces account lockout after repeated failures, logs all attempts for attack detection, and returns a Firebase custom token on success.",
       "dependencies": [
@@ -33289,7 +33289,7 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-17T18:09:29Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_LOGIN-001",
@@ -33389,7 +33389,7 @@
     },
     {
       "guid": "API_AUTH_LOGIN-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Define the brute-force protection thresholds: max allowed failed attempts and lockout window duration.",
       "dependencies": [
@@ -33480,7 +33480,7 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-17T18:09:29Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_LOGIN-003",
@@ -33580,7 +33580,7 @@
     },
     {
       "guid": "API_AUTH_LOGIN-004",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "Main login POST handler. Validates input, checks lockout status, verifies credentials via Firebase Auth REST API, tracks failed/successful attempts, and returns a custom token on success.",
       "dependencies": [
@@ -33672,7 +33672,7 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-17T18:09:29Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_LOGIN-005",
@@ -33866,7 +33866,7 @@
     },
     {
       "guid": "API_AUTH_LOGIN-007",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Enforce account lockout: if the user has exceeded MAX_LOGIN_ATTEMPTS within the LOCKOUT_DURATION_MS window, reject the login and log the blocked attempt. Also auto-reset the counter once the lockout window expires.",
       "dependencies": [
@@ -33957,11 +33957,11 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-17T18:09:29Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_LOGIN-008",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Look up the user in Firebase Auth by email to confirm the account exists in the auth system, separate from Firestore.",
       "dependencies": [
@@ -34052,7 +34052,7 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-17T18:09:29Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_LOGIN-009",
@@ -34777,7 +34777,7 @@
     },
     {
       "guid": "API_AUTH_RESET_PIN-000",
-      "version": 4,
+      "version": 7,
       "logic_category": "ORCHESTRATION",
       "description": "Server-side API route that handles PIN reset requests: validates the email, generates a new random 6-digit PIN, updates Firebase Auth, marks the user as mustChangePin, queues a reset email, and logs the action. Returns a generic success message regardless of whether the email exists to prevent enumeration attacks.",
       "dependencies": [
@@ -34843,7 +34843,7 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-10T16:52:39Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_RESET_PIN-001",
@@ -34917,7 +34917,7 @@
     },
     {
       "guid": "API_AUTH_RESET_PIN-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "Main PIN reset POST handler. Validates the email, looks up the user in Firestore, generates a cryptographically random 6-digit PIN, updates Firebase Auth, flags the user for mandatory PIN change, queues a reset email, and writes audit records. Returns a deliberately ambiguous success message to prevent email enumeration.",
       "dependencies": [
@@ -34983,11 +34983,11 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-10T16:52:39Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_RESET_PIN-003",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Validate that the email field is present in the request body.",
       "dependencies": [
@@ -35052,11 +35052,11 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-10T16:52:39Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_RESET_PIN-004",
-      "version": 3,
+      "version": 5,
       "logic_category": "TRANSFORMATION",
       "description": "Look up the user in Firestore by normalised email. If no user is found, return a generic success message to prevent email enumeration attacks (attacker cannot determine which emails have accounts).",
       "dependencies": [
@@ -35121,7 +35121,7 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-10T16:52:39Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_RESET_PIN-005",
@@ -35263,7 +35263,7 @@
     },
     {
       "guid": "API_AUTH_RESET_PIN-007",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Queue the PIN reset email by writing to the mail collection (consumed by the email sending service) and log the email to the email_logs collection for auditing and debugging.",
       "dependencies": [
@@ -35328,11 +35328,11 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-10T16:52:39Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_RESET_PIN-008",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Write an audit log entry recording that a PIN reset email was queued for this user, then return the generic success message.",
       "dependencies": [
@@ -35397,11 +35397,11 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-10T16:52:39Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_RESET_PIN-009",
-      "version": 4,
+      "version": 5,
       "logic_category": "RECOVERY",
       "description": "Top-level catch-all error handler for any unhandled exception during PIN reset. Logs the error to error_logs (with fallback to console if logging itself fails) and returns a generic 500 response with correlation ID for support tracing.",
       "dependencies": [
@@ -35466,7 +35466,7 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-10T16:52:39Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_SIGNUP-000",
@@ -44676,7 +44676,7 @@
     },
     {
       "guid": "API_SUBMIT_PREDICTION-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "API route that accepts and stores a user's top-6 driver prediction for a specific race and team. Enforces server-side lockout rules (results exist, qualifying started).",
       "dependencies": [
@@ -44726,7 +44726,7 @@
         "calls": []
       },
       "created": "2026-01-19T01:12:05Z",
-      "lastUpdated": "2026-02-17T22:33:06Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_SUBMIT_PREDICTION-001",
@@ -56402,7 +56402,7 @@
     },
     {
       "guid": "COMPONENT_PREDICTION_EDITOR-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "PredictionEditor component: the core prediction interface where users select, reorder, and submit their top-6 driver predictions for a race. Also provides AI-powered analysis with configurable weights, countdown timer, apply-to-all-teams option, and a change log.",
       "dependencies": [
@@ -56521,7 +56521,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T17:44:04Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "COMPONENT_PREDICTION_EDITOR-001",
@@ -58857,7 +58857,7 @@
     },
     {
       "guid": "COMPONENT_SECURITY_UPGRADE-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "PRESENTATION",
       "description": "Card component that prompts PIN-only users to link a Google or Apple account for improved security. Uses the AccountLinker facade to perform the upgrade. Displays idle, loading, success, and error states. via Firebase Auth. On success, onAuthStateChanged syncs providers to Firestore.",
       "dependencies": [
@@ -59299,7 +59299,7 @@
         ]
       },
       "created": "2026-01-30T20:21:35Z",
-      "lastUpdated": "2026-01-30T20:21:35Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "COMPONENT_SECURITY_UPGRADE-001",
@@ -59365,7 +59365,7 @@
     },
     {
       "guid": "COMPONENT_VERSION_HISTORY-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Developer-facing version history component that displays a timeline of git commits",
       "dependencies": [],
@@ -59443,7 +59443,7 @@
         ]
       },
       "created": "2026-01-26T12:49:46Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "COMPONENT_VERSION_HISTORY-001",
@@ -60138,215 +60138,6 @@
       },
       "created": "2026-01-30T20:21:35Z",
       "lastUpdated": "2026-01-30T20:21:35Z"
-    },
-    {
-      "guid": "FIREBASE_PROVIDER-000",
-      "version": 4,
-      "logic_category": "ORCHESTRATION",
-      "description": "Central Firebase context provider that manages authentication state, user profile data,",
-      "dependencies": [
-        "SERVICE_AUTH_OAUTH-000",
-        "SERVICE_AUTH_OAUTH-001",
-        "SERVICE_AUTH_OAUTH-002",
-        "SERVICE_AUTH_OAUTH-003",
-        "SERVICE_AUTH_OAUTH-004",
-        "SERVICE_AUTH_OAUTH-005",
-        "SERVICE_AUTH_OAUTH-006",
-        "SERVICE_AUTH_OAUTH-007",
-        "SERVICE_AUTH_OAUTH-008",
-        "SERVICE_AUTH_OAUTH-009",
-        "SERVICE_AUTH_OAUTH-010",
-        "SERVICE_AUTH_OAUTH-011",
-        "LIB_AUDIT-000",
-        "LIB_AUDIT-001",
-        "LIB_AUDIT-002",
-        "LIB_AUDIT-003",
-        "LIB_AUDIT-004",
-        "LIB_AUDIT-005",
-        "LIB_AUDIT-006",
-        "LIB_AUDIT-007",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "ERROR_REGISTRY-000"
-      ],
-      "location": {
-        "filePath": "app/src/firebase/provider.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_LOGIN-000",
-          "API_AUTH_LOGIN-001",
-          "API_AUTH_LOGIN-002",
-          "API_AUTH_LOGIN-003",
-          "API_AUTH_LOGIN-004",
-          "API_AUTH_LOGIN-005",
-          "API_AUTH_LOGIN-006",
-          "API_AUTH_LOGIN-007",
-          "API_AUTH_LOGIN-008",
-          "API_AUTH_LOGIN-009",
-          "API_AUTH_LOGIN-010",
-          "API_AUTH_LOGIN-011",
-          "API_AUTH_LOGIN-012",
-          "API_AUTH_LOGIN-013",
-          "API_AUTH_SIGNUP-000",
-          "API_AUTH_SIGNUP-001",
-          "API_AUTH_SIGNUP-002",
-          "API_AUTH_SIGNUP-003",
-          "API_AUTH_SIGNUP-004",
-          "API_AUTH_SIGNUP-005",
-          "API_AUTH_SIGNUP-006",
-          "API_AUTH_SIGNUP-007",
-          "API_AUTH_SIGNUP-008",
-          "API_AUTH_SIGNUP-009",
-          "API_AUTH_SIGNUP-010",
-          "API_AUTH_SIGNUP-011",
-          "API_AUTH_SIGNUP-012",
-          "API_AUTH_SIGNUP-013",
-          "API_AUTH_SIGNUP-014",
-          "API_AUTH_SIGNUP-015",
-          "API_AUTH_SIGNUP-016",
-          "API_AUTH_SIGNUP-017",
-          "API_LOG_CLIENT_ERROR-000",
-          "API_LOG_CLIENT_ERROR-001",
-          "API_LOG_CLIENT_ERROR-002",
-          "API_LOG_CLIENT_ERROR-003",
-          "API_LOG_CLIENT_ERROR-004",
-          "API_LOG_CLIENT_ERROR-005",
-          "API_LOG_CLIENT_ERROR-006",
-          "API_LOG_CLIENT_ERROR-007",
-          "LIB_TRACED_ERROR-000",
-          "LIB_TRACED_ERROR-003",
-          "ROOT_ERROR-000",
-          "GLOBAL_ERROR-000",
-          "API_ADMIN_UPDATE_USER-000",
-          "API_ADMIN_UPDATE_USER-001",
-          "API_ADMIN_UPDATE_USER-002",
-          "API_ADMIN_UPDATE_USER-003",
-          "API_ADMIN_UPDATE_USER-004",
-          "API_ADMIN_UPDATE_USER-005",
-          "API_ADMIN_UPDATE_USER-006",
-          "API_ADMIN_UPDATE_USER-007",
-          "API_ADMIN_UPDATE_USER-008",
-          "API_ADMIN_UPDATE_USER-009",
-          "API_ADMIN_UPDATE_USER-010",
-          "API_ADMIN_DELETE_USER-000",
-          "API_ADMIN_DELETE_USER-001",
-          "API_ADMIN_DELETE_USER-002",
-          "API_ADMIN_DELETE_USER-003",
-          "API_ADMIN_DELETE_USER-004",
-          "API_ADMIN_DELETE_USER-005",
-          "API_ADMIN_DELETE_USER-006",
-          "API_ADMIN_DELETE_USER-007",
-          "API_ADMIN_DELETE_USER-008",
-          "API_ADMIN_DELETE_USER-009",
-          "API_ADMIN_DELETE_USER-010",
-          "API_ADMIN_DELETE_USER-011",
-          "API_ADD_SECONDARY_TEAM-000",
-          "API_ADD_SECONDARY_TEAM-001",
-          "API_ADD_SECONDARY_TEAM-002",
-          "API_ADD_SECONDARY_TEAM-003",
-          "API_ADD_SECONDARY_TEAM-004",
-          "API_ADD_SECONDARY_TEAM-005",
-          "API_ADD_SECONDARY_TEAM-006",
-          "API_ADD_SECONDARY_TEAM-007",
-          "API_ADD_SECONDARY_TEAM-008",
-          "API_ADD_SECONDARY_TEAM-009",
-          "API_ADD_SECONDARY_TEAM-010",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "API_AUTH_RESET_PIN-000",
-          "API_AUTH_RESET_PIN-001",
-          "API_AUTH_RESET_PIN-002",
-          "API_AUTH_RESET_PIN-003",
-          "API_AUTH_RESET_PIN-004",
-          "API_AUTH_RESET_PIN-005",
-          "API_AUTH_RESET_PIN-006",
-          "API_AUTH_RESET_PIN-007",
-          "API_AUTH_RESET_PIN-008",
-          "API_AUTH_RESET_PIN-009",
-          "API_SEND_VERIFICATION_EMAIL-000",
-          "API_SEND_VERIFICATION_EMAIL-001",
-          "API_SEND_VERIFICATION_EMAIL-002",
-          "API_UPDATE_SECONDARY_EMAIL-000",
-          "API_UPDATE_SECONDARY_EMAIL-001",
-          "API_UPDATE_SECONDARY_EMAIL-002",
-          "API_UPDATE_SECONDARY_EMAIL-003",
-          "API_UPDATE_SECONDARY_EMAIL-004",
-          "API_UPDATE_SECONDARY_EMAIL-005",
-          "API_UPDATE_SECONDARY_EMAIL-006",
-          "API_UPDATE_SECONDARY_EMAIL-007",
-          "API_UPDATE_SECONDARY_EMAIL-008",
-          "API_SEND_SECONDARY_VERIFICATION-000",
-          "API_SEND_SECONDARY_VERIFICATION-001",
-          "API_SEND_SECONDARY_VERIFICATION-002",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "ADMIN_ONLINE_USERS-000",
-          "ADMIN_ONLINE_USERS-001",
-          "ADMIN_ONLINE_USERS-002",
-          "ADMIN_ONLINE_USERS-003",
-          "ADMIN_ONLINE_USERS-004",
-          "ADMIN_ONLINE_USERS-005",
-          "ADMIN_ONLINE_USERS-006",
-          "ADMIN_ONLINE_USERS-007",
-          "ADMIN_ONLINE_USERS-008",
-          "ADMIN_ONLINE_USERS-009",
-          "ADMIN_ONLINE_USERS-010",
-          "ADMIN_ONLINE_USERS-011",
-          "ADMIN_ONLINE_USERS-012",
-          "ADMIN_ONLINE_USERS-013",
-          "ADMIN_ONLINE_USERS-014",
-          "ADMIN_ERRORLOG-000",
-          "ADMIN_ERRORLOG-001",
-          "ADMIN_ERRORLOG-001a",
-          "ADMIN_ERRORLOG-002",
-          "ADMIN_ERRORLOG-003",
-          "ADMIN_ERRORLOG-004",
-          "ADMIN_ERRORLOG-005",
-          "ADMIN_ERRORLOG-006",
-          "ADMIN_ERRORLOG-007",
-          "ADMIN_ERRORLOG-008",
-          "ADMIN_ERRORLOG-009",
-          "ADMIN_ERRORLOG-010",
-          "ADMIN_ERRORLOG-011",
-          "ADMIN_ERRORLOG-012",
-          "ADMIN_ERRORLOG-013",
-          "ADMIN_ERRORLOG-014",
-          "ADMIN_ERRORLOG-015",
-          "ADMIN_ERRORLOG-016",
-          "BACKUP_ERRORS-001",
-          "LIB_ERROR_CODES-000",
-          "LIB_ERROR_CODES-001",
-          "LIB_ERROR_CODES-002",
-          "LIB_ERROR_CODES-003",
-          "LIB_ERROR_CODES-004",
-          "LIB_ERROR_CODES-005",
-          "LIB_ERROR_CODES-006",
-          "LIB_ERROR_CODES-007",
-          "LIB_TRACED_ERROR-001",
-          "LIB_TRACED_ERROR-002",
-          "TYPES_ERRORS-000",
-          "TYPES_ERRORS-001",
-          "TYPES_ERRORS-002",
-          "APP_ERROR-000",
-          "AUTH_ERROR-000",
-          "ERROR_REGISTRY-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-001",
-          "COMPONENT_CHUNK_ERROR_HANDLER-002"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-13T00:23:43Z"
     },
     {
       "guid": "FIREBASE_PROVIDER-001",
@@ -74394,7 +74185,7 @@
     },
     {
       "guid": "LIB_FIREBASE_ADMIN-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Server-side Firebase Admin SDK initialisation and shared utilities for authentication verification, correlation ID generation, and centralised error logging.",
       "dependencies": [],
@@ -74406,7 +74197,7 @@
         "calls": []
       },
       "created": "2026-01-19T18:44:38Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_FIREBASE_ADMIN-001",
@@ -74427,7 +74218,7 @@
     },
     {
       "guid": "LIB_FIREBASE_ADMIN-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Lazily initialises the Firebase Admin SDK (choosing between explicit service account credentials for local dev or Application Default Credentials for Google Cloud) and returns the Firestore instance, FieldValue, and Timestamp utilities.",
       "dependencies": [],
@@ -74440,7 +74231,7 @@
         "calls": []
       },
       "created": "2026-01-19T18:44:38Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_FIREBASE_ADMIN-003",
@@ -97901,9 +97692,9 @@
     },
     {
       "guid": "ROOT_LAYOUT-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Root Next.js layout wrapping entire application. Initializes FirebaseClientProvider, FirebaseServicesTracker (Analytics + Performance), Toaster, and global dark mode. Performance instrumentation disabled to avoid Tailwind class name overflow errors.",
+      "description": "Root Next.js layout. Wraps the app in FirebaseClientProvider, FirebaseServicesTracker (Analytics only — Performance moved to getSdks()), ChunkErrorHandler, GlobalErrorLogger, and Toaster.",
       "dependencies": [
         "FIREBASE_CLIENT_PROVIDER-000",
         "COMPONENT_CHUNK_ERROR_HANDLER-000",
@@ -97922,7 +97713,7 @@
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:02:54Z"
+      "lastUpdated": "2026-02-23T18:30:00Z"
     },
     {
       "guid": "APP_LAYOUT-000",
@@ -98525,9 +98316,9 @@
     },
     {
       "guid": "FIREBASE_INDEX-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "INITIALIZATION",
-      "description": "Firebase client SDK initialization. initializeFirebase() attempts automatic Firebase App Hosting env vars first, falls back to firebaseConfig. getSdks() returns firebaseApp, auth, firestore, storage, functions (europe-west2). Re-exports all Firebase modules.",
+      "description": "Initialises all client-side Firebase SDKs and returns them as a typed object. Now also initialises Firebase Performance with instrumentationEnabled:false at SDK init time (PERF-001 fix) to prevent PX-9002 errors from Tailwind CSS class strings exceeding the 100-char attribute limit.",
       "dependencies": [
         "FIREBASE_CONFIG-000"
       ],
@@ -98634,7 +98425,7 @@
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-29T20:02:28Z"
+      "lastUpdated": "2026-02-23T18:30:00Z"
     },
     {
       "guid": "FIREBASE_SERVER-000",
@@ -101922,6 +101713,212 @@
       "version": 1,
       "description": "SYSTEM_OWNER_ID constant - reserved system identifier for global league ownership (GEMINI-AUDIT-049)",
       "file": "app/src/lib/consistency.ts"
+    },
+    {
+      "guid": "ADMIN_HOT_NEWS-010",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Client-side email broadcast cooldown constant 5 minutes in milliseconds. Mirrors server-side enforcement to give immediate UI feedback (GEMINI-AUDIT-023).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/HotNewsManager.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_HOT_NEWS-001"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_HOT_NEWS-011",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Derived boolean true when a Hot News email blast was sent within the last 5 minutes. Prevents repeated sends without waiting (GEMINI-AUDIT-023).",
+      "dependencies": [
+        "ADMIN_HOT_NEWS-010"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/HotNewsManager.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_HOT_NEWS-001"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_HOT_NEWS-012",
+      "version": 1,
+      "logic_category": "PRESENTATION",
+      "description": "Returns remaining cooldown time as a human-readable string for display in the cooldown warning badge (GEMINI-AUDIT-023).",
+      "dependencies": [
+        "ADMIN_HOT_NEWS-010"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/HotNewsManager.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_HOT_NEWS-009"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_HOT_NEWS-013",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Entry point for Save button click. Intercepts the save when sendEmails is checked and opens confirmation dialog first (GEMINI-AUDIT-023).",
+      "dependencies": [
+        "ADMIN_HOT_NEWS-015"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/HotNewsManager.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_HOT_NEWS-009"
+        ],
+        "calls": [
+          "ADMIN_HOT_NEWS-004"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_HOT_NEWS-014",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Handles confirmation dialog submission, only proceeds with email send when admin has typed exactly CONFIRM (GEMINI-AUDIT-023).",
+      "dependencies": [
+        "ADMIN_HOT_NEWS-015"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/HotNewsManager.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_HOT_NEWS-015"
+        ],
+        "calls": [
+          "ADMIN_HOT_NEWS-004"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_HOT_NEWS-015",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Confirmation dialog that blocks email blast until admin explicitly types CONFIRM. Prevents accidental email broadcasts (GEMINI-AUDIT-023).",
+      "dependencies": [
+        "ADMIN_HOT_NEWS-014"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/HotNewsManager.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_HOT_NEWS-009"
+        ],
+        "calls": [
+          "ADMIN_HOT_NEWS-014"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_HOT_NEWS-016",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Cooldown warning and last-sent timestamp display. Shows admin when the email blast is on cooldown 5 min client-side and exact time of last send (GEMINI-AUDIT-023).",
+      "dependencies": [
+        "ADMIN_HOT_NEWS-010",
+        "ADMIN_HOT_NEWS-011",
+        "ADMIN_HOT_NEWS-012"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/HotNewsManager.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_HOT_NEWS-009"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_AUTH_RESET_PIN-013",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "CSRF protection via Origin/Referer validation on PIN reset endpoint (GEMINI-005). Rejects cross-origin requests from malicious sites.",
+      "dependencies": [
+        "API_AUTH_RESET_PIN-002"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/auth/reset-pin/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_AUTH_RESET_PIN-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_AUTH_LOGIN-014",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "CSRF protection via Origin/Referer validation on login endpoint (GEMINI-005). Rejects cross-origin login requests with 403.",
+      "dependencies": [
+        "API_AUTH_LOGIN-004"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/auth/login/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_AUTH_LOGIN-004"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_AUTH_LOGIN-015",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Progressive lockout duration calculator. Returns lockout duration based on failed attempt count: 5-9=15min, 10-14=1hr, 15+=24hr (GEMINI-AUDIT-012).",
+      "dependencies": [
+        "API_AUTH_LOGIN-002"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/auth/login/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_AUTH_LOGIN-007"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
     }
   ],
   "firestoreCollections": {

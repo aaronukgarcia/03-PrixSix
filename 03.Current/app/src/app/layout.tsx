@@ -7,40 +7,26 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ChunkErrorHandler } from '@/components/ChunkErrorHandler';
 import { GlobalErrorLogger } from '@/components/GlobalErrorLogger';
 import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
-import { initializePerformance } from 'firebase/performance';
 import { useEffect } from 'react';
 import { useFirebaseApp } from '@/firebase';
 
-// GUID: APP_LAYOUT-001-v02
-// [Intent] Initialize Firebase Analytics and Performance SDK once on app mount.
-//          Performance uses initializePerformance (not getPerformance) so that
-//          instrumentationEnabled: false is set synchronously at SDK init time,
-//          before the SDK starts observing DOM elements. This prevents PERF-001:
-//          Firebase Performance auto-instrumentation passing Tailwind CSS class
-//          strings (which contain [ ] & > : / chars) to putAttribute(), causing
-//          PX-9002 FirebaseError on every page load. (PERF-001 fix, v1.58.68)
+// GUID: APP_LAYOUT-001-v03
+// @PERF_FIX (PERF-001): Performance SDK initialization removed from here (v1.58.72).
+//   It is now handled in getSdks() in firebase/index.ts, which runs synchronously
+//   before React renders any DOM — the only timing that reliably prevents PX-9002.
+//   useEffect fires after paint; Firebase had already observed layout metrics by then.
+// [Intent] Initialize Firebase Analytics once on app mount.
 // [Inbound Trigger] Mounted once in root layout via FirebaseClientProvider context.
-// [Downstream Impact] Analytics initialised for usage tracking. Performance SDK
-//                     initialised with auto-instrumentation disabled — manual
-//                     traces still work, automatic Web Vitals capture is off.
+// [Downstream Impact] Analytics initialised for usage tracking. Performance SDK is
+//                     now handled upstream in getSdks() — do not re-add it here.
 function FirebaseServicesTracker() {
   const app = useFirebaseApp();
   useEffect(() => {
-    // Initialize Analytics
     isAnalyticsSupported().then(supported => {
       if (supported) {
         getAnalytics(app);
       }
     });
-    // PERF-001 fix: Use initializePerformance with instrumentationEnabled: false
-    // passed at init time so the SDK never starts auto-instrumenting DOM elements.
-    // getPerformance() + setting the flag after init was a race — the SDK had
-    // already captured element classNames before our useEffect ran. (v1.58.68)
-    try {
-      initializePerformance(app, { instrumentationEnabled: false });
-    } catch (error) {
-      console.warn('Firebase Performance initialization skipped:', error);
-    }
   }, [app]);
   return null;
 }
