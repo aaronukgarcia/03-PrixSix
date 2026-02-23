@@ -1,7 +1,7 @@
 /**
  * POST /api/leagues/join-by-code
  *
- * GUID: API_LEAGUE_JOIN-001-v04
+ * GUID: API_LEAGUE_JOIN-001-v05
  * [Intent] Server-side API for joining leagues by invite code. Validates code,
  *          checks league capacity, and atomically adds user to league. Resolves
  *          FIRESTORE-003 by removing need for client-side inviteCode visibility.
@@ -37,7 +37,12 @@ export async function POST(request: NextRequest) {
 
     if (!verifiedUser) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized: Invalid or missing authentication token' },
+        {
+          success: false,
+          error: ERRORS.AUTH_INVALID_TOKEN.message,
+          errorCode: ERRORS.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
         { status: 401 }
       );
     }

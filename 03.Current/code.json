@@ -1,6 +1,6 @@
 {
   "module": "Prix Six Application",
-  "generated": "2026-02-20",
+  "generated": "2026-02-23",
   "total_guids": 1024,
   "guids": [
     {
@@ -74495,9 +74495,9 @@
     },
     {
       "guid": "LIB_LEAGUES-000",
-      "version": 3,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
-      "description": "Client-side league management module providing CRUD operations for custom leagues. Handles league creation, joining via invite codes, leaving, member removal, renaming, invite code regeneration, and deletion. All operations interact with the leagues Firestore collection.",
+      "description": "Client-side league management module providing CRUD operations for custom leagues. All catch blocks upgraded to Pillars 1 & 2 (logTracedError + ERRORS.KEY). getUserLeagues now throws on Firestore failure to prevent MAX_LEAGUES limit bypass. Removed audit.ts dependency, added traced-error/error-registry.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -74690,9 +74690,9 @@
     },
     {
       "guid": "LIB_LEAGUES-002",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Create a new custom league in Firestore with the requesting user as owner and sole initial member. Enforces the maximum leagues-per-user limit before creation.",
+      "description": "Create a new custom league in Firestore with the requesting user as owner and sole initial member. Enforces the maximum leagues-per-user limit before creation. Catch block now uses logTracedError + ERRORS.FIRESTORE_WRITE_FAILED (Pillars 1 & 2).",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -74886,9 +74886,9 @@
     },
     {
       "guid": "LIB_LEAGUES-004",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Remove the requesting user from a league's memberUserIds array. Prevents leaving the global league and prevents the league owner from leaving (they must transfer ownership or delete instead).",
+      "description": "Remove the requesting user from a league's memberUserIds array. Prevents leaving the global league and prevents the league owner from leaving (they must transfer ownership or delete instead). Catch block now uses logTracedError + ERRORS.FIRESTORE_WRITE_FAILED (Pillars 1 & 2).",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -74984,9 +74984,9 @@
     },
     {
       "guid": "LIB_LEAGUES-005",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Query and return all leagues that contain the given userId (or teamId) in their memberUserIds array, using Firestore's array-contains query.",
+      "description": "Query and return all leagues that contain the given userId (or teamId) in their memberUserIds array, using Firestore's array-contains query. SECURITY FIX: now throws TracedError on Firestore failure instead of silently returning [] — prevents MAX_LEAGUES limit bypass in createLeague (RED-TEAM-001). Catch block uses logTracedError + ERRORS.FIRESTORE_READ_FAILED.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75082,9 +75082,9 @@
     },
     {
       "guid": "LIB_LEAGUES-006",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Fetch a single league document by its Firestore document ID, returning null if not found.",
+      "description": "Fetch a single league document by its Firestore document ID, returning null if not found. Catch block now uses logTracedError + ERRORS.FIRESTORE_READ_FAILED (Pillars 1 & 2); still returns null on failure as read errors are non-critical for display.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75180,9 +75180,9 @@
     },
     {
       "guid": "LIB_LEAGUES-007",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
-      "description": "Generate a new invite code for an existing league, replacing the old one. Only the league owner is authorised to perform this action, invalidating any previously shared invite codes.",
+      "description": "Generate a new invite code for an existing league, replacing the old one. Only the league owner is authorised to perform this action, invalidating any previously shared invite codes. Catch block now uses logTracedError + ERRORS.FIRESTORE_WRITE_FAILED (Pillars 1 & 2).",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75278,9 +75278,9 @@
     },
     {
       "guid": "LIB_LEAGUES-008",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
-      "description": "Update the display name of a league. Only the league owner is authorised to rename. Trims whitespace from the new name before saving.",
+      "description": "Update the display name of a league. Only the league owner is authorised to rename. Trims whitespace from the new name before saving. Catch block now uses logTracedError + ERRORS.FIRESTORE_WRITE_FAILED (Pillars 1 & 2).",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75376,9 +75376,9 @@
     },
     {
       "guid": "LIB_LEAGUES-009",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Remove a specified member from a league's memberUserIds array. Only the league owner can remove members, and the owner cannot remove themselves.",
+      "description": "Remove a specified member from a league's memberUserIds array. Only the league owner can remove members, and the owner cannot remove themselves. Catch block now uses logTracedError + ERRORS.FIRESTORE_WRITE_FAILED (Pillars 1 & 2).",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75474,9 +75474,9 @@
     },
     {
       "guid": "LIB_LEAGUES-010",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Permanently delete a league document from Firestore. Only the league owner can delete, and the global league is protected from deletion.",
+      "description": "Permanently delete a league document from Firestore. Only the league owner can delete, and the global league is protected from deletion. Catch block now uses logTracedError + ERRORS.FIRESTORE_WRITE_FAILED (Pillars 1 & 2).",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -77942,7 +77942,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 18,
+      "version": 22,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -77958,7 +77958,7 @@
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 18,
+      "version": 22,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -84082,9 +84082,9 @@
     },
     {
       "guid": "PAGE_LEAGUES-003",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Joins an existing league using a 6-character invite code, with support for primary or secondary team selection.",
+      "description": "Joins an existing league using a 6-character invite code, with support for primary or secondary team selection. Network-level catch block now generates a client correlation ID and displays it in a selectable toast (Pillar 4 compliance).",
       "dependencies": [
         "LEAGUE_CONTEXT-000",
         "LIB_LEAGUES-000",

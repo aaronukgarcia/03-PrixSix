@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { createLeague, leaveLeague, deleteLeague } from '@/lib/leagues';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_LEAGUES-001-v03
 // [Intent] Main page component that renders the league listing grid with create/join dialogs,
@@ -103,7 +104,7 @@ export default function LeaguesPage() {
     setIsCreating(false);
   };
 
-    // GUID: PAGE_LEAGUES-003-v04
+    // GUID: PAGE_LEAGUES-003-v05
   // [Intent] Joins an existing league using a 6-character invite code via the server-side API.
   //          SECURITY FIX (FIRESTORE-003): Routes through /api/leagues/join-by-code instead of
   //          querying Firestore directly, eliminating client-side inviteCode enumeration.
@@ -111,6 +112,7 @@ export default function LeaguesPage() {
   // [Inbound Trigger] User submits the "Join a League" dialog form with a valid 6-character code.
   // [Downstream Impact] POST to /api/leagues/join-by-code which validates and updates Firestore.
   //   Team ID format differs for secondary teams (userId-secondary). Shows toast on success or failure.
+  //   Network-level failures display a correlation ID so the user can report the error.
   const handleJoin = async () => {
     if (!user || !joinCode.trim()) return;
 
@@ -158,10 +160,15 @@ export default function LeaguesPage() {
         });
       }
     } catch {
+      const correlationId = generateClientCorrelationId();
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to join league. Please try again.',
+        description: (
+          <span className="select-all cursor-text">
+            Failed to join league. Please try again. (Ref: {correlationId})
+          </span>
+        ),
       });
     }
 

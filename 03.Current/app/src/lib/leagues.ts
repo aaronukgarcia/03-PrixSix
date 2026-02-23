@@ -1,9 +1,11 @@
-// GUID: LIB_LEAGUES-000-v05
+// GUID: LIB_LEAGUES-000-v06
 // @SECURITY_FIX: All catch blocks now return generic error messages to prevent Firestore path/schema disclosure (GEMINI-AUDIT-062).
 // @SECURITY_FIX: Removed deprecated joinLeagueByCode() client-side function that queried Firestore by inviteCode directly — eliminates client-side enumeration vector (FIRESTORE-003).
+// @SECURITY_FIX: getUserLeagues() now throws on Firestore failure instead of silently returning [] — prevents MAX_LEAGUES limit bypass (RED-TEAM-001).
+// @CHANGE: All catch blocks upgraded to Pillars 1 & 2 — logTracedError + ERRORS.KEY instead of console.error only (RED-TEAM-002).
 // [Intent] Client-side league management module providing CRUD operations for custom leagues. Handles league creation, leaving, member removal, renaming, invite code regeneration, and deletion. Join-by-code is server-side only via /api/leagues/join-by-code.
 // [Inbound Trigger] Called by league management UI components and API routes when users create, leave, or administer leagues.
-// [Downstream Impact] Modifies the leagues Firestore collection. League membership affects standings views and scoring filters. Depends on league types from types/league.ts and audit.ts for correlation IDs.
+// [Downstream Impact] Modifies the leagues Firestore collection. League membership affects standings views and scoring filters. Depends on types/league.ts for types/constants, traced-error.ts for error logging, and error-registry.ts for ERRORS.KEY references.
 
 import {
   Firestore,
@@ -22,7 +24,8 @@ import {
 } from 'firebase/firestore';
 import type { League, CreateLeagueData } from './types/league';
 import { GLOBAL_LEAGUE_ID, SYSTEM_OWNER_ID, INVITE_CODE_LENGTH, MAX_LEAGUES_PER_USER } from './types/league';
-import { getCorrelationId } from './audit';
+import { createTracedError, logTracedError } from './traced-error';
+import { ERRORS } from './error-registry';
 
 // GUID: LIB_LEAGUES-001-v04
 // [Intent] Generate a cryptographically random invite code of INVITE_CODE_LENGTH characters using an alphabet that excludes visually ambiguous characters (I, O, 0, 1) to reduce user input errors. Uses rejection sampling to eliminate modulo bias (LIB-001 fix).
@@ -55,10 +58,10 @@ export function generateInviteCode(): string {
   return code;
 }
 
-// GUID: LIB_LEAGUES-002-v03
+// GUID: LIB_LEAGUES-002-v04
 // [Intent] Create a new custom league in Firestore with the requesting user as owner and sole initial member. Enforces the maximum leagues-per-user limit before creation.
 // [Inbound Trigger] Called from the league creation UI when a user submits a new league name.
-// [Downstream Impact] Creates a new document in the leagues collection. The owner is automatically added to memberUserIds. On failure, returns a correlation ID for error tracing. Depends on getUserLeagues for limit checking and generateInviteCode for the join code.
+// [Downstream Impact] Creates a new document in the leagues collection. The owner is automatically added to memberUserIds. On failure, logs to error_logs via logTracedError and returns an error with PX code + correlation ID. Depends on getUserLeagues for limit checking (throws on Firestore failure) and generateInviteCode for the join code.
 /**
  * Create a new league
  */
@@ -90,17 +93,20 @@ export async function createLeague(
 
     return { success: true, leagueId: leagueRef.id };
   } catch (error: any) {
-    const correlationId = getCorrelationId();
-    console.error(`Error creating league [${correlationId}]:`, error);
-    return { success: false, error: `An error occurred while creating the league. Please try again. (ID: ${correlationId})` };
+    const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
+      context: { function: 'createLeague', ownerId: data.ownerId },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced);
+    return { success: false, error: `An error occurred while creating the league. Please try again. (${traced.definition.code}: ${traced.correlationId})` };
   }
 }
 
 
-// GUID: LIB_LEAGUES-004-v03
+// GUID: LIB_LEAGUES-004-v04
 // [Intent] Remove the requesting user from a league's memberUserIds array. Prevents leaving the global league and prevents the league owner from leaving (they must transfer ownership or delete instead).
 // [Inbound Trigger] Called from the league management UI when a user chooses to leave a league.
-// [Downstream Impact] Removes the user from the league's memberUserIds, hiding their scores from that league's standings. The league itself continues to exist. On failure, returns a correlation ID for error tracing.
+// [Downstream Impact] Removes the user from the league's memberUserIds, hiding their scores from that league's standings. The league itself continues to exist. On failure, logs to error_logs via logTracedError and returns an error with PX code + correlation ID.
 /**
  * Leave a league
  */
@@ -142,16 +148,19 @@ export async function leaveLeague(
 
     return { success: true };
   } catch (error: any) {
-    const correlationId = getCorrelationId();
-    console.error(`Error leaving league [${correlationId}]:`, error);
-    return { success: false, error: `An error occurred while leaving the league. Please try again. (ID: ${correlationId})` };
+    const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
+      context: { function: 'leaveLeague', leagueId, userId },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced);
+    return { success: false, error: `An error occurred while leaving the league. Please try again. (${traced.definition.code}: ${traced.correlationId})` };
   }
 }
 
-// GUID: LIB_LEAGUES-005-v03
+// GUID: LIB_LEAGUES-005-v04
 // [Intent] Query and return all leagues that contain the given userId (or teamId) in their memberUserIds array, using Firestore's array-contains query.
-// [Inbound Trigger] Called by createLeague and joinLeagueByCode for limit checking, and by league listing UI components to display user's leagues.
-// [Downstream Impact] Returns League[] used for display and limit validation. On error, returns an empty array (silent failure). Heavily used across the league system; changes to this query affect all league membership checks.
+// [Inbound Trigger] Called by createLeague for limit checking, and by league listing UI components to display user's leagues.
+// [Downstream Impact] Returns League[] used for display and limit validation. On Firestore failure, throws a TracedError (logged to error_logs) — never returns [] silently, which would allow the MAX_LEAGUES limit check in createLeague to pass incorrectly. Changes to this query affect all league membership checks.
 /**
  * Get all leagues a user belongs to
  */
@@ -169,15 +178,20 @@ export async function getUserLeagues(
       id: doc.id,
     })) as League[];
   } catch (error: any) {
-    console.error('Error fetching user leagues:', error);
-    return [];
+    const traced = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+      context: { function: 'getUserLeagues', userId },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced);
+    // Throw so callers cannot silently proceed on Firestore failure (e.g. createLeague limit check)
+    throw traced;
   }
 }
 
-// GUID: LIB_LEAGUES-006-v03
+// GUID: LIB_LEAGUES-006-v04
 // [Intent] Fetch a single league document by its Firestore document ID, returning null if not found.
 // [Inbound Trigger] Called by UI components that need to display league details for a specific league ID.
-// [Downstream Impact] Returns a League object or null. On error, returns null (silent failure). Used for league detail pages and ownership checks in the UI.
+// [Downstream Impact] Returns a League object or null. On Firestore error, logs to error_logs via logTracedError and returns null (read failures are non-critical for display). Used for league detail pages and ownership checks in the UI.
 /**
  * Get a single league by ID
  */
@@ -195,15 +209,19 @@ export async function getLeague(
 
     return { ...leagueDoc.data(), id: leagueDoc.id } as League;
   } catch (error: any) {
-    console.error('Error fetching league:', error);
+    const traced = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+      context: { function: 'getLeague', leagueId },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced);
     return null;
   }
 }
 
-// GUID: LIB_LEAGUES-007-v03
+// GUID: LIB_LEAGUES-007-v04
 // [Intent] Generate a new invite code for an existing league, replacing the old one. Only the league owner is authorised to perform this action, invalidating any previously shared invite codes.
 // [Inbound Trigger] Called from the league settings UI when the owner requests a new invite code.
-// [Downstream Impact] Overwrites the inviteCode field in the league document. Any previously shared codes immediately stop working. Returns the new code to the caller for display.
+// [Downstream Impact] Overwrites the inviteCode field in the league document. Any previously shared codes immediately stop working. Returns the new code to the caller for display. On failure, logs to error_logs via logTracedError and returns an error with PX code + correlation ID.
 /**
  * Regenerate invite code for a league (owner only)
  */
@@ -236,16 +254,19 @@ export async function regenerateInviteCode(
 
     return { success: true, newCode };
   } catch (error: any) {
-    const correlationId = getCorrelationId();
-    console.error(`Error regenerating invite code [${correlationId}]:`, error);
-    return { success: false, error: `An error occurred while regenerating the invite code. Please try again. (ID: ${correlationId})` };
+    const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
+      context: { function: 'regenerateInviteCode', leagueId, userId },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced);
+    return { success: false, error: `An error occurred while regenerating the invite code. Please try again. (${traced.definition.code}: ${traced.correlationId})` };
   }
 }
 
-// GUID: LIB_LEAGUES-008-v03
+// GUID: LIB_LEAGUES-008-v04
 // [Intent] Update the display name of a league. Only the league owner is authorised to rename. Trims whitespace from the new name before saving.
 // [Inbound Trigger] Called from the league settings UI when the owner submits a new name.
-// [Downstream Impact] Changes the league name displayed across all standings, league lists, and member views. The name field in the leagues document is updated.
+// [Downstream Impact] Changes the league name displayed across all standings, league lists, and member views. The name field in the leagues document is updated. On failure, logs to error_logs via logTracedError and returns an error with PX code + correlation ID.
 /**
  * Update league name (owner only)
  */
@@ -277,16 +298,19 @@ export async function updateLeagueName(
 
     return { success: true };
   } catch (error: any) {
-    const correlationId = getCorrelationId();
-    console.error(`Error updating league name [${correlationId}]:`, error);
-    return { success: false, error: `An error occurred while updating the league name. Please try again. (ID: ${correlationId})` };
+    const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
+      context: { function: 'updateLeagueName', leagueId, userId },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced);
+    return { success: false, error: `An error occurred while updating the league name. Please try again. (${traced.definition.code}: ${traced.correlationId})` };
   }
 }
 
-// GUID: LIB_LEAGUES-009-v03
+// GUID: LIB_LEAGUES-009-v04
 // [Intent] Remove a specified member from a league's memberUserIds array. Only the league owner can remove members, and the owner cannot remove themselves.
 // [Inbound Trigger] Called from the league member management UI when the owner removes a member.
-// [Downstream Impact] The removed member loses access to the league standings and their scores are no longer visible in that league. The league continues to exist with remaining members.
+// [Downstream Impact] The removed member loses access to the league standings and their scores are no longer visible in that league. The league continues to exist with remaining members. On failure, logs to error_logs via logTracedError and returns an error with PX code + correlation ID.
 /**
  * Remove a member from league (owner only)
  */
@@ -323,16 +347,19 @@ export async function removeMember(
 
     return { success: true };
   } catch (error: any) {
-    const correlationId = getCorrelationId();
-    console.error(`Error removing member [${correlationId}]:`, error);
-    return { success: false, error: `An error occurred while removing the member. Please try again. (ID: ${correlationId})` };
+    const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
+      context: { function: 'removeMember', leagueId, ownerId, memberIdToRemove },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced);
+    return { success: false, error: `An error occurred while removing the member. Please try again. (${traced.definition.code}: ${traced.correlationId})` };
   }
 }
 
-// GUID: LIB_LEAGUES-010-v03
+// GUID: LIB_LEAGUES-010-v04
 // [Intent] Permanently delete a league document from Firestore. Only the league owner can delete, and the global league is protected from deletion.
 // [Inbound Trigger] Called from the league settings UI when the owner confirms league deletion.
-// [Downstream Impact] The league document is permanently removed. All member associations are lost. Standings that reference this league will no longer find it. On failure, returns a correlation ID for error tracing.
+// [Downstream Impact] The league document is permanently removed. All member associations are lost. Standings that reference this league will no longer find it. On failure, logs to error_logs via logTracedError and returns an error with PX code + correlation ID.
 /**
  * Delete a league (owner only, not global)
  */
@@ -365,8 +392,11 @@ export async function deleteLeague(
 
     return { success: true };
   } catch (error: any) {
-    const correlationId = getCorrelationId();
-    console.error(`Error deleting league [${correlationId}]:`, error);
-    return { success: false, error: `An error occurred while deleting the league. Please try again. (ID: ${correlationId})` };
+    const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
+      context: { function: 'deleteLeague', leagueId, userId },
+      cause: error instanceof Error ? error : undefined,
+    });
+    await logTracedError(traced);
+    return { success: false, error: `An error occurred while deleting the league. Please try again. (${traced.definition.code}: ${traced.correlationId})` };
   }
 }
