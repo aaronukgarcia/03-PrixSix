@@ -1,5 +1,10 @@
-// GUID: API_AUTH_SIGNUP-000-v05
+// GUID: API_AUTH_SIGNUP-000-v06
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
+// @SECURITY_FIX: GEMINI-AUDIT-112 — Replaced TOCTOU read-then-write team name check with atomic
+//   Firestore sentinel document transaction. Previous pattern let two concurrent signups both pass
+//   the duplicate check and create users with identical teamNameLower values. Fix uses
+//   team_names/{normalizedName} as an atomic lock: transaction reads + writes it in one step;
+//   sentinel is cleaned up on subsequent Auth or Firestore failures.
 // [Intent] Server-side API route that registers new users: validates input, creates Firebase Auth and Firestore records, enrols the user in the global league, applies late-joiner handicap scoring if the season has started, sends welcome and verification emails, and returns a custom token for immediate sign-in.
 // [Inbound Trigger] POST request from the client-side signup form.
 // [Downstream Impact] Creates records in users, presence, scores (if late joiner), and audit_logs collections. Updates the global league memberUserIds array. Triggers welcome and verification email API calls. Returns a customToken used by the client to establish a Firebase Auth session.
@@ -182,33 +187,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_SIGNUP-010-v05
+    // GUID: API_AUTH_SIGNUP-010-v06
+    // @SECURITY_FIX: GEMINI-AUDIT-112 — Replaced TOCTOU read-then-write with atomic Firestore transaction.
     // @PERFORMANCE_FIX: Replaced getAllUsers() with indexed queries (was fetching ALL users causing 5-30s hangs).
-    // [Intent] Check for duplicate team names (case-insensitive) across all existing users'
-    //          primary AND secondary team names to ensure team name uniqueness.
+    // [Intent] Atomically claim team name uniqueness via a sentinel document in team_names/{name}.
+    //          The Firestore transaction ensures no two concurrent signups can claim the same name
+    //          simultaneously — the second transaction sees the sentinel and returns TEAM_NAME_TAKEN.
+    //          Secondary names are still checked via query (post-signup secondary names are set via
+    //          profile API, not concurrent new signups, so no sentinel needed for that check).
     // [Inbound Trigger] Runs after the email uniqueness check passes.
-    // [Downstream Impact] Returns 409 with VALIDATION_DUPLICATE_ENTRY if the team name is already taken.
-    // Check if team name already exists (case-insensitive)
+    // [Downstream Impact] Creates team_names/{normalizedNewName} as a reservation document.
+    //                     teamNameSentinelRef is used throughout this handler for cleanup on failure
+    //                     and update on success. Returns 409 if name is already taken (primary or secondary).
     const normalizedNewName = normalizedTeamName.toLowerCase();
+    const teamNameSentinelRef = db.collection('team_names').doc(normalizedNewName);
 
-    // Strategy: Use two targeted queries instead of fetching all users (performance fix)
-    // Query 1: Check primary team names
-    const primaryQuery = db.collection('users')
-      .where('teamNameLower', '==', normalizedNewName)
-      .limit(1);
-
-    // Query 2: Check secondary team names
-    const secondaryQuery = db.collection('users')
+    // Check against existing secondary team names (non-concurrent check — secondary names are
+    // only set via profile update API, not concurrently with new signups, so query is safe here)
+    const secondarySnapshot = await db.collection('users')
       .where('secondaryTeamNameLower', '==', normalizedNewName)
-      .limit(1);
+      .limit(1)
+      .get();
 
-    // Execute both queries in parallel
-    const [primarySnapshot, secondarySnapshot] = await Promise.all([
-      primaryQuery.get(),
-      secondaryQuery.get()
-    ]);
-
-    if (!primarySnapshot.empty || !secondarySnapshot.empty) {
+    if (!secondarySnapshot.empty) {
       return NextResponse.json(
         {
           success: false,
@@ -220,10 +221,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_SIGNUP-011-v04
+    // Atomically claim the team name via Firestore transaction.
+    // Reads team_names/{name}: if it exists → name is taken; if not → write the sentinel to reserve it.
+    // This is atomic at Firestore level — two concurrent signups cannot both pass this check.
+    try {
+      await db.runTransaction(async (txn) => {
+        const sentinelDoc = await txn.get(teamNameSentinelRef);
+        if (sentinelDoc.exists) {
+          throw Object.assign(new Error('Team name is already taken'), { code: 'TEAM_NAME_TAKEN' });
+        }
+        txn.set(teamNameSentinelRef, { reserved: true, reservedAt: FieldValue.serverTimestamp() });
+      });
+    } catch (sentinelError: any) {
+      if (sentinelError.code === 'TEAM_NAME_TAKEN') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This team name is already taken. Please choose a unique name.',
+            errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code,
+            correlationId,
+          },
+          { status: 409 }
+        );
+      }
+      throw sentinelError; // Re-throw unexpected Firestore errors to the outer catch
+    }
+
+    // GUID: API_AUTH_SIGNUP-011-v05
+    // @SECURITY_FIX: GEMINI-AUDIT-112 — Added teamNameSentinelRef cleanup on Auth creation failure.
+    //   If Auth.createUser() throws, the sentinel is deleted so the name is freed for future signups.
     // [Intent] Create the Firebase Auth user record with the provided email and PIN as password. Handles the auth/email-already-exists error case separately from other auth errors.
-    // [Inbound Trigger] Runs after all validation and uniqueness checks pass.
-    // [Downstream Impact] On success, the uid from the created user record is used for all subsequent Firestore document creation. On failure, no Firestore documents are created (partial state is avoided).
+    // [Inbound Trigger] Runs after all validation and uniqueness checks pass (including sentinel claim).
+    // [Downstream Impact] On success, the uid from the created user record is used for all subsequent Firestore document creation. On failure, sentinel is cleaned up and no Firestore documents are created.
     // Create Firebase Auth user
     let userRecord;
     try {
@@ -233,6 +262,10 @@ export async function POST(request: NextRequest) {
         emailVerified: false,
       });
     } catch (authError: any) {
+      // Cleanup sentinel — this signup failed before user was created, so free the name
+      await teamNameSentinelRef.delete().catch((deleteErr: any) =>
+        console.error(`[Signup ${correlationId}] Failed to cleanup team name sentinel after auth error:`, deleteErr)
+      );
       console.error(`[Signup Auth Error ${correlationId}]`, authError);
 
       if (authError.code === 'auth/email-already-exists') {
@@ -267,12 +300,14 @@ export async function POST(request: NextRequest) {
 
     const uid = userRecord.uid;
 
-    // GUID: API_AUTH_SIGNUP-012-v05
+    // GUID: API_AUTH_SIGNUP-012-v06
     // @PERFORMANCE_FIX: Added teamNameLower field for indexed queries (prevents getAllUsers() bottleneck).
     // @ATOMICITY_FIX: Wrapped critical Firestore writes in try/catch with Auth user rollback to prevent orphaned accounts.
-    // [Intent] Create the Firestore user document and presence document for the newly registered user. The user document stores profile and state data; the presence document tracks online status. If Firestore writes fail, delete the Auth user to maintain atomicity.
+    // @SECURITY_FIX: GEMINI-AUDIT-112 — Added teamNameSentinelRef cleanup on Firestore failure (before auth rollback).
+    //   On success: updates sentinel with userId (non-critical, fire-and-forget) to track ownership.
+    // [Intent] Create the Firestore user document and presence document for the newly registered user. The user document stores profile and state data; the presence document tracks online status. If Firestore writes fail, delete the Auth user to maintain atomicity and clean up the sentinel.
     // [Inbound Trigger] Runs after Firebase Auth user is successfully created.
-    // [Downstream Impact] The users document is read by many parts of the application (login, dashboard, admin panels). The presence document is used by the online status system. Both documents are keyed by the Firebase Auth uid. If this fails, the Auth user is deleted to prevent orphaned accounts.
+    // [Downstream Impact] The users document is read by many parts of the application (login, dashboard, admin panels). The presence document is used by the online status system. Both documents are keyed by the Firebase Auth uid. If this fails, the Auth user is deleted and sentinel cleaned up to prevent orphaned accounts and stale name reservations.
     // Create Firestore user document (with rollback on failure)
     try {
       const newUser = {
@@ -294,7 +329,15 @@ export async function POST(request: NextRequest) {
         online: false,
         sessions: [],
       });
+
+      // Update sentinel with userId now that the user document is committed (non-critical metadata)
+      teamNameSentinelRef.update({ userId: uid, reservedAt: FieldValue.serverTimestamp() }).catch(() => {});
     } catch (firestoreError: any) {
+      // Cleanup sentinel — free the name reservation before rolling back Auth user
+      await teamNameSentinelRef.delete().catch((deleteErr: any) =>
+        console.error(`[Signup ${correlationId}] Failed to cleanup team name sentinel after Firestore error:`, deleteErr)
+      );
+
       // CRITICAL: Rollback Auth user creation to prevent orphaned accounts
       console.error(`[Signup ${correlationId}] Firestore write failed, rolling back Auth user:`, firestoreError);
       try {

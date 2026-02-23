@@ -321,6 +321,20 @@ service cloud.firestore {
       allow delete: if false; // Prevent accidental deletion - use status='wont_fix' instead
     }
 
+    // GUID: TEAM_NAMES_RULES-001-v01
+    // @SECURITY_FIX: GEMINI-AUDIT-112 — team_names collection holds atomic name reservation sentinels.
+    // [Intent] Deny all client-side access to team_names collection.
+    //          Sentinel documents are created, checked, and deleted exclusively via Admin SDK in
+    //          the signup API route. Blocking client access prevents sentinel manipulation that
+    //          could allow bypassing team name uniqueness enforcement.
+    // [Inbound Trigger] Any client attempt to read or write team_names documents.
+    // [Downstream Impact] All legitimate team_names operations go through Admin SDK (bypasses rules).
+    //                     Without this rule, clients could pre-create sentinels to block others
+    //                     from registering specific team names (DoS on registration).
+    match /team_names/{nameId} {
+      allow read, write: if false; // Server-side only via Admin SDK
+    }
+
     // Login attempts - server-side only (Admin SDK bypasses rules)
     // Used for attack detection
     match /login_attempts/{attemptId} {
