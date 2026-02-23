@@ -1,4 +1,8 @@
-// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-000-v01
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-000-v02
+// @SECURITY_FIX: GEMINI-AUDIT-044 — console.error now redacts stack/context/error object in production.
+//   Previously: full error object, stack trace, and context logged unconditionally → visible in
+//   any user's DevTools. Fixed: development logs full details; production logs correlationId + message only.
+//   Also: console.log init message now suppressed in production.
 // [Intent] Comprehensive client-side error logger that captures ALL unhandled errors and
 //          promise rejections, sends them to the server via /api/log-client-error.
 //          Works alongside ChunkErrorHandler (which handles chunk errors separately).
@@ -29,7 +33,8 @@ function isChunkLoadError(error: any): boolean {
   );
 }
 
-// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-002-v01
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-002-v02
+// @SECURITY_FIX: GEMINI-AUDIT-044 — Production console.error now omits stack/context/error object.
 // [Intent] Send error details to server for persistent logging in error_logs collection.
 // [Inbound Trigger] Called by both error and unhandledrejection listeners.
 // [Downstream Impact] Creates server-side error log entry with correlation ID, stack trace,
@@ -44,11 +49,17 @@ async function logErrorToServer(
     const errorMessage = error?.message || error?.toString() || 'Unknown error';
     const stack = error?.stack || null;
 
-    console.error(`[GlobalErrorLogger ${correlationId}] ${type}:`, errorMessage, {
-      stack,
-      context,
-      error,
-    });
+    // In production: log only the correlation ID to prevent stack trace/context disclosure in DevTools.
+    // Full details are sent to the server (error_logs collection) regardless of environment.
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[GlobalErrorLogger ${correlationId}] ${type}:`, errorMessage, {
+        stack,
+        context,
+        error,
+      });
+    } else {
+      console.error(`[GlobalErrorLogger ${correlationId}] ${type}: ${errorMessage}`);
+    }
 
     // Send to server (fire and forget - don't await)
     fetch('/api/log-client-error', {
@@ -77,7 +88,7 @@ async function logErrorToServer(
   }
 }
 
-// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-003-v01
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-003-v02
 // [Intent] Main component that sets up global error and promise rejection listeners.
 //          Captures all client-side errors except chunk load errors (handled separately).
 // [Inbound Trigger] Rendered once in root layout (app/layout.tsx).
@@ -128,7 +139,10 @@ export function GlobalErrorLogger() {
     window.addEventListener('error', handleError);
     window.addEventListener('unhandledrejection', handleRejection);
 
-    console.log('[GlobalErrorLogger] Initialized - all client errors will be logged to server');
+    // Suppress init message in production — no useful info for end users and reduces noise
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[GlobalErrorLogger] Initialized - all client errors will be logged to server');
+    }
 
     // Cleanup on unmount (should never happen in root layout, but good practice)
     return () => {
