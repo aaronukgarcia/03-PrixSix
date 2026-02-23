@@ -1,7 +1,7 @@
 {
   "lastUpdated": "2026-02-23",
   "commits": [
-    {"id": "PENDING", "date": "2026-02-23", "version": "1.58.72", "author": "Bill (Claude Code)", "message": "fix(PERF-001): Move initializePerformance to getSdks() in firebase/index.ts — fires before React renders, eliminating PX-9002 FirebaseError from Tailwind class strings exceeding Firebase Performance 100-char attribute limit (v1.58.72)", "major": false},
+    {"id": "3acbc0e", "date": "2026-02-23", "version": "1.58.72", "author": "Bill (Claude Code)", "message": "fix(PERF-001): Move initializePerformance to getSdks() in firebase/index.ts — fires before React renders, eliminating PX-9002 FirebaseError from Tailwind class strings exceeding Firebase Performance 100-char attribute limit (v1.58.72)", "major": false},
     {"id": "1bce65d", "date": "2026-02-23", "version": "1.58.71", "author": "Bill (Claude Code)", "message": "security: LIB-003/API-006/GEMINI-AUDIT-023/041/042/049/059/067 - audit error handling, timing attack fixes, private key leak, DoW cap, SYSTEM_OWNER_ID, email confirm dialog, error sanitisation (v1.58.71)", "major": false},
     {"id": "a2c533e", "date": "2026-02-23", "version": "1.58.70", "author": "Bill (Claude Code)", "message": "fix(PERF-001): Use initializePerformance with instrumentationEnabled:false at SDK init time; add GlobalErrorLogger filter for performance/invalid attribute value noise (v1.58.70)", "major": false},
     {"id": "3fa22ef", "date": "2026-02-23", "version": "1.58.69", "author": "Bill (Claude Code)", "message": "security: GEMINI-AUDIT-112 - atomic team name claim via Firestore sentinel; fixes TOCTOU race at signup (v1.58.69)", "major": false},
