@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-02-24",
-  "total_guids": 1068,
+  "total_guids": 1130,
   "guids": [
     {
       "guid": "RACE_SCHEDULE_RULES-001",
@@ -52837,7 +52837,7 @@
       "description": "Firebase Admin SDK initialisation at cold-start. Required before any getFirestore()/getAuth() call. Runs once per Cloud Function instance lifecycle.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -52857,7 +52857,7 @@
       "description": "Centralised configuration constants: project IDs, bucket name, region, status collection/doc path. Single point of change if the project is forked or renamed.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -52877,7 +52877,7 @@
       "description": "Generates unique correlation IDs (prefix_timestamp36_random6) for end-to-end tracing across Cloud Functions, Firestore status doc, GCS metadata, and admin dashboard.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -52897,7 +52897,7 @@
       "description": "Generates date-based GCS folder names (YYYY-MM-DD or YYYY-MM-DD-SUNDAY). Sunday suffix is cosmetic only â€” retention is identical for all days.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -52917,7 +52917,7 @@
       "description": "Merges partial status fields into backup_status/latest Firestore doc using set(merge:true). Allows dailyBackup and runRecoveryTest to independently update their own fields without clobbering each other.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -52957,7 +52957,7 @@
       "description": "dailyBackup scheduled Cloud Function (02:00 UTC daily). Orchestrates Firestore managed export, Auth JSON pagination export, status write, and BACKUP_HEARTBEAT structured log emission. Heartbeat emitted on both success and failure to prevent Dead Man's Switch double-alerting.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -52977,7 +52977,7 @@
       "description": "Firestore managed export via FirestoreAdminClient.exportDocuments() (v1 admin API). The regular Firestore data client does NOT have exportDocuments() or databasePath() â€” must use the admin client from @google-cloud/firestore v1 namespace.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -52997,7 +52997,7 @@
       "description": "Auth user export via Admin SDK listUsers() pagination (1000/page). Serialises user metadata (uid, email, displayName, providers, customClaims) to JSON in GCS. Does NOT include password hashes â€” Firebase Auth does not expose them.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53017,7 +53017,7 @@
       "description": "Writes SUCCESS status to backup_status/latest after both Firestore and Auth exports complete. Explicitly nulls lastBackupError to clear any previous failure state. Now also writes lastBackupSizeBytes from BACKUP_FUNCTIONS-018.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53037,7 +53037,7 @@
       "description": "Emits BACKUP_HEARTBEAT structured JSON log on the success path. This log feeds the log-based metric backup_heartbeat_count, which the Dead Man's Switch MQL alert monitors for absence >25 hours.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53057,7 +53057,7 @@
       "description": "Error handler for dailyBackup. Writes FAILED status to backup_status/latest, emits BACKUP_HEARTBEAT with severity:ERROR (to prevent DMS double-alert), then re-throws so Cloud Functions marks the invocation as failed.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53117,7 +53117,7 @@
       "description": "Calculates total backup size by listing all GCS objects under the backup folder prefix and summing their sizes. Result stored in lastBackupSizeBytes for admin dashboard display.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53137,7 +53137,7 @@
       "description": "runRecoveryTest scheduled Cloud Function (04:00 UTC Sundays). Imports the latest backup into a disposable recovery project, verifies critical documents exist, cleans up, and writes smoke test result to status doc.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53157,7 +53157,7 @@
       "description": "Reads lastBackupPath from backup_status/latest. Guards against the case where no backup has ever run â€” fails loudly so ops investigates rather than silently skipping the smoke test.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53177,7 +53177,7 @@
       "description": "Imports the Firestore export into the recovery project via FirestoreAdminClient.importDocuments() (v1 admin API). Must use the admin client, not the data client. Recovery project is ephemeral and cleaned up after verification.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53197,7 +53197,7 @@
       "description": "Smoke test verification using the regular Firestore data client (not admin client â€” data reads use collection/doc/get). Checks system_status/heartbeat exists AND users collection has at least one document. Both failing = backup is empty or corrupt.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53217,7 +53217,7 @@
       "description": "Post-verification cleanup: deletes all data in the recovery project Firestore. Non-fatal â€” cleanup failure is logged but does not fail the smoke test because the primary goal (verification) has already succeeded.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53237,7 +53237,7 @@
       "description": "Writes SUCCESS smoke test status to backup_status/latest and emits SMOKE_TEST_COMPLETE structured log with verification results.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53257,7 +53257,7 @@
       "description": "Error handler for runRecoveryTest. Writes FAILED status to backup_status/latest with the error message, then re-throws.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53277,7 +53277,7 @@
       "description": "deleteAllCollections: enumerates all top-level collections in recovery Firestore and batch-deletes every document. Errors are caught and logged (non-fatal by design â€” next import overwrites anyway).",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -53297,7 +53297,7 @@
       "description": "deleteCollection: batch-deletes all documents in a single collection using batches of 500 (Firestore maximum). Loops until collection is empty. Does not recurse into subcollections.",
       "dependencies": [],
       "location": {
-        "filePath": "functions/src/index.ts"
+        "filePath": "functions/index.js"
       },
       "callChain": {
         "calledBy": [
@@ -70420,30 +70420,6 @@
       },
       "created": "2026-01-18T19:25:01Z",
       "lastUpdated": "2026-02-17T21:44:19Z"
-    },
-    {
-      "guid": "LIB_DATA-008",
-      "version": 4,
-      "logic_category": "ORCHESTRATION",
-      "description": "Master race calendar for the 2026 F1 season (24 races). Defines qualifying deadlines for client-side UX only. GEMINI-AUDIT-052 accepted risk: timing data is public (official F1 calendar) and server-side enforcement via Firestore (race-schedule-server.ts) is the authoritative deadline gate. Client bundle exposure provides no meaningful bypass capability.",
-      "dependencies": [
-        "LIB_PLACEHOLDER_IMAGES-000",
-        "LIB_PLACEHOLDER_IMAGES-001",
-        "LIB_PLACEHOLDER_IMAGES-002"
-      ],
-      "location": {
-        "filePath": "app/src/lib/data.ts"
-      },
-      "callChain": {
-        "calledBy": [
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
-        ],
-        "calls": []
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_DATA-009",
@@ -102524,6 +102500,863 @@
       },
       "created": "2026-02-23T00:00:00Z",
       "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Module-level header for the /api/health endpoint. Provides operational health status by checking Firestore and Firebase Auth connectivity. Returns HTTP 200 if healthy, HTTP 503 if degraded. Public endpoint — no authentication required. Used by uptime monitors and admin health dashboards.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_FIREBASE_ADMIN-001"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "API_HEALTH-001",
+          "API_HEALTH-002",
+          "API_HEALTH-003",
+          "API_HEALTH-004",
+          "API_HEALTH-005",
+          "API_HEALTH-006",
+          "API_HEALTH-007",
+          "API_HEALTH-008"
+        ]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "HealthCheckResult interface — defines the response shape for health check responses with per-service status fields. Monitoring systems parse this structure; changes require monitor config updates.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts"
+      },
+      "callChain": {
+        "calledBy": ["API_HEALTH-002"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "GET handler for /api/health. Runs parallel Firestore and Auth health checks, aggregates results into overall status, returns HTTP 200 (healthy) or HTTP 503 (degraded/unhealthy) with JSON body.",
+      "dependencies": [
+        "API_HEALTH-001",
+        "API_HEALTH-003",
+        "API_HEALTH-004",
+        "API_HEALTH-005",
+        "API_HEALTH-006",
+        "API_HEALTH-007",
+        "API_HEALTH-008"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "API_HEALTH-003",
+          "API_HEALTH-004",
+          "API_HEALTH-005",
+          "API_HEALTH-006",
+          "API_HEALTH-007",
+          "API_HEALTH-008"
+        ]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Parallel execution of Firestore and Auth health check functions using Promise.all to minimise total check latency. Each check is caught individually to prevent cascading failures.",
+      "dependencies": ["API_HEALTH-007", "API_HEALTH-008"],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts"
+      },
+      "callChain": {
+        "calledBy": ["API_HEALTH-002"],
+        "calls": ["API_HEALTH-007", "API_HEALTH-008"]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-004",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Aggregate individual service statuses into overall system health. Degraded if any service is down. Determines HTTP status code returned to caller (200 vs 503).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts"
+      },
+      "callChain": {
+        "calledBy": ["API_HEALTH-002"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-005",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Build the HealthCheckResult response object with version info from APP_VERSION. Version string helps correlate health issues with specific deployments.",
+      "dependencies": ["API_HEALTH-001"],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts"
+      },
+      "callChain": {
+        "calledBy": ["API_HEALTH-002"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-006",
+      "version": 2,
+      "logic_category": "RECOVERY",
+      "description": "Catch-all error handler for unexpected failures in the health check itself. Logs to console with correlation ID but does NOT write to error_logs (high-frequency public endpoint). Returns HTTP 503 with correlation ID for monitoring tracing.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts"
+      },
+      "callChain": {
+        "calledBy": ["API_HEALTH-002"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-007",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "checkFirestore() — checks Firestore connectivity by reading the admin_configuration/global document. Lightweight read that should complete in <100ms. Returns ServiceStatus with responseTime. Critical service: if Firestore is down all database operations fail.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts",
+        "functionName": "checkFirestore"
+      },
+      "callChain": {
+        "calledBy": ["API_HEALTH-003"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_HEALTH-008",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "checkAuth() — checks Firebase Auth connectivity by obtaining the Auth Admin SDK instance. Validates that the Firebase Admin SDK can connect to the Auth service. Critical service: if Auth is down users cannot login or signup.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts",
+        "functionName": "checkAuth"
+      },
+      "callChain": {
+        "calledBy": ["API_HEALTH-003"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_EMAIL_HEALTH-000",
+      "version": 2,
+      "logic_category": "VALIDATION",
+      "description": "Module header for /api/admin/email/health endpoint. Health check for the Microsoft Graph API / email interface. Admin-only (Firebase Auth token + isAdmin verified). Makes a lightweight test call to Microsoft Graph to verify credentials are valid and connectivity is good.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_FIREBASE_ADMIN-004"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/email/health/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": ["API_ADMIN_EMAIL_HEALTH-001"]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_EMAIL_HEALTH-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "GET handler for /api/admin/email/health. Verifies admin auth token, checks GRAPH_* env vars are configured, acquires an OAuth2 access token from Microsoft, then calls GET /me on Graph API. Returns healthy:true with responseTime and sender email if all checks pass; healthy:false with detailed error hints on failure.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-004"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/email/health/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "VALIDATION-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Module header for lib/validation.ts. Centralised Zod validation schemas for API request validation. Provides strict type safety and input sanitisation to prevent injection attacks and malformed requests across all API routes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/validation.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "VALIDATION-HOTLINK-001",
+          "VALIDATION-CHALLENGE-001",
+          "VALIDATION-EMAIL-001",
+          "VALIDATION-TOKEN-001",
+          "VALIDATION-TOKEN-002",
+          "VALIDATION-RATELIMIT-001"
+        ]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "VALIDATION-HOTLINK-001",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "AdminHotLinkSchema — Zod schema for admin hot-link (magic link) token exchange requests. Validates token as exactly 64-character hex string (crypto.randomBytes(32)) and email as RFC 5322 compliant. Prevents token enumeration attacks and rejects malformed tokens before any database lookup.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/validation.ts"
+      },
+      "callChain": {
+        "calledBy": ["API_ADMIN_VERIFY_ACCESS-000"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "VALIDATION-CHALLENGE-001",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "AdminChallengeRequestSchema — Zod schema for admin challenge (magic link generation) requests. Minimal validation as admin status is verified server-side via Firebase Auth token. Includes optional _ipAddress field for server-side rate limiting.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/validation.ts"
+      },
+      "callChain": {
+        "calledBy": ["API_AUTH_ADMIN_CHALLENGE-000"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "VALIDATION-EMAIL-001",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "EmailSchema — Zod schema for strict email validation. Rejects emails with special characters that could enable XSS or injection attacks. Enforces RFC 5322 compliance with 255-character max and character allowlist regex. Used across login, signup, and email verification routes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/validation.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "VALIDATION-TOKEN-001",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "generateSecureToken() — generates cryptographically secure hex tokens using Node.js crypto.randomBytes(). Replaces Math.random() usage (LIB-002 vulnerability). Used for admin challenge tokens and other security-critical token generation.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/validation.ts",
+        "functionName": "generateSecureToken"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "VALIDATION-TOKEN-002",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "generateSecureCorrelationId() — generates cryptographically secure correlation IDs using crypto.randomUUID() (RFC 4122 v4). Fixes LIB-002 (predictable correlation IDs using Math.random). Ensures audit trail integrity and prevents correlation ID prediction attacks.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/validation.ts",
+        "functionName": "generateSecureCorrelationId"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "VALIDATION-RATELIMIT-001",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "ADMIN_CHALLENGE_RATE_LIMITS — rate limit thresholds for admin challenge (magic link) operations. Limits: 3 per user per hour, 100 global per hour, 5-minute cooldown after successful challenge. Prevents email spam via magic link generation abuse and DoS via exhausting email quota.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/validation.ts"
+      },
+      "callChain": {
+        "calledBy": ["API_AUTH_ADMIN_CHALLENGE-000"],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "LIB_TYPES_LEAGUE-000",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Module header and League/CreateLeagueData/LeagueWithMemberCount interface definitions for the league system. Leagues use a lens architecture — they filter master standings data without duplicating it. Changing the League interface requires updates to Firestore read/write logic in leagues.ts and all UI components that destructure league documents.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/league.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "LIB_LEAGUES-000",
+          "LEAGUE_CONTEXT-000"
+        ],
+        "calls": ["LIB_TYPES_LEAGUE-001"]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "LIB_TYPES_LEAGUE-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "League system constants: GLOBAL_LEAGUE_ID ('global'), SYSTEM_OWNER_ID ('system'), INVITE_CODE_LENGTH (6), MAX_LEAGUES_PER_USER (5 including global). These are the single source of truth for league business rules. Changing GLOBAL_LEAGUE_ID or SYSTEM_OWNER_ID requires a Firestore data migration. Changing MAX_LEAGUES_PER_USER affects join/create eligibility enforced in API routes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/league.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "LIB_LEAGUES-000",
+          "LEAGUE_CONTEXT-000"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "LIB_DATA-008",
+      "version": 5,
+      "logic_category": "ORCHESTRATION",
+      "description": "Master race calendar for the 2026 F1 season (24 races). Defines qualifying deadlines for client-side UX only. GEMINI-AUDIT-052 accepted risk: timing data is public (official F1 calendar) and server-side enforcement via Firestore (race-schedule-server.ts) is the authoritative deadline gate. BOW risk Cy4hqh5EXe53Ww2LkqLR: this static array can desync from the Firestore race_schedule collection — any admin calendar update requires BOTH a Firestore write AND a code deployment to keep client UX consistent. Known technical debt: components should be refactored to fetch from an authenticated API endpoint.",
+      "dependencies": [
+        "LIB_PLACEHOLDER_IMAGES-000",
+        "LIB_PLACEHOLDER_IMAGES-001",
+        "LIB_PLACEHOLDER_IMAGES-002"
+      ],
+      "location": {
+        "filePath": "app/src/lib/data.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "USE_COLLECTION-000",
+          "USE_DOC-000",
+          "LEAGUE_CONTEXT-000"
+        ],
+        "calls": []
+      },
+      "created": "2026-01-18T19:25:01Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_ACK_ATTACK-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Module-level GUID for the acknowledge-attack API route. Server-side endpoint replacing direct client-side Firestore writes from AttackMonitor. Admin-only POST endpoint for acknowledging attack alerts stored in attack_alerts collection.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts" },
+      "callChain": { "calledBy": ["ADMIN_ATTACK_MONITOR-000"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_ACK_ATTACK-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "POST handler for attack alert acknowledgement. Authenticates user via Firebase Auth token, verifies admin status in Firestore, validates alertId/alertIds payload, checks all documents exist, then updates attack_alerts with acknowledged=true, acknowledgedBy, and acknowledgedAt.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "ERROR_REGISTRY-000", "API_ADMIN_ACK_ATTACK-002", "API_ADMIN_ACK_ATTACK-003", "API_ADMIN_ACK_ATTACK-004", "API_ADMIN_ACK_ATTACK-005", "API_ADMIN_ACK_ATTACK-006"],
+      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["ADMIN_ATTACK_MONITOR-000"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_ACK_ATTACK-002",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Authentication step in POST handler — extracts Authorization header and calls verifyAuthToken. Returns 401 if token is invalid or missing.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
+      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": ["LIB_FIREBASE_ADMIN-000"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_ACK_ATTACK-003",
+      "version": 2,
+      "logic_category": "SECURITY",
+      "description": "Admin privilege check — reads users/{uid} document and verifies isAdmin flag. Returns 403 if user is not an admin. Note: v02 of this GUID also serves as the catch-block error handler (dual use of sequence number in this file).",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_ACK_ATTACK-004",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Request body parsing and validation — supports single alertId (string) or batch alertIds (string[]). Returns 400 if neither field is present or correctly typed.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_ACK_ATTACK-005",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Pre-update existence check — fetches all attack_alerts documents by ID before any writes. Returns 404 if any alert ID does not exist, preventing partial updates.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_ACK_ATTACK-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Parallel update step — updates all validated alert documents with acknowledged=true, acknowledgedBy, and server timestamp. Real-time listeners in AttackMonitor reflect these changes immediately.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESOLVE-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Module-level GUID for the resolve-error admin API route. Server-side endpoint replacing direct client-side Firestore writes from ErrorLogViewer. Admin-only POST to mark error_logs documents as resolved.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESOLVE-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — authenticates caller, verifies admin status, validates errorLogId, checks document exists, and marks it as resolved with resolvedAt ISO timestamp and resolvedBy admin UID.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "ERROR_REGISTRY-000", "API_ADMIN_RESOLVE-002", "API_ADMIN_RESOLVE-003", "API_ADMIN_RESOLVE-004", "API_ADMIN_RESOLVE-005", "API_ADMIN_RESOLVE-006"],
+      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESOLVE-002",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Authentication step — extracts Authorization header and calls verifyAuthToken. Returns 401 if token is invalid or missing.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
+      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": ["LIB_FIREBASE_ADMIN-000"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESOLVE-003",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Admin privilege check — reads users/{uid} document and verifies isAdmin flag. Returns 403 if user is not an admin.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESOLVE-004",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Request body validation — parses JSON body and validates errorLogId is a non-empty string. Returns 400 if missing or wrong type.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESOLVE-005",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Document existence check — fetches error_logs/{errorLogId} before attempting update. Returns 404 if the document does not exist.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESOLVE-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Resolution write — updates error_logs/{errorLogId} with resolved=true, resolvedAt ISO timestamp, and resolvedBy admin UID. Real-time listeners in ErrorLogViewer reflect the change.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESOLVE-007",
+      "version": 2,
+      "logic_category": "RECOVERY",
+      "description": "Top-level catch block — creates traced error via createTracedError/logTracedError, logs to error_logs, returns safe 500 response with correlation ID. v02 upgraded from direct db.collection add to traced error infrastructure.",
+      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_UNLOCK-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Module-level GUID for the unlock-account admin API route. Emergency unlock for locked-out users. Verifies admin auth, validates target user, resets badLoginAttempts to 0, clears lastFailedLoginAt, and writes audit_logs entry.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/unlock-account/route.ts" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_UNLOCK-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "TypeScript interface for unlock-account request payload. Requires adminUid (matched against verified token UID) and targetUserEmail (identifies which account to unlock).",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/unlock-account/route.ts" },
+      "callChain": { "calledBy": ["API_ADMIN_UNLOCK-002"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_UNLOCK-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main POST handler — verifies Firebase Auth token, confirms token UID matches submitted adminUid, checks admin privileges in Firestore, queries user by normalised email, resets badLoginAttempts to 0, deletes lastFailedLoginAt field, and writes audit_logs entry.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000", "API_ADMIN_UNLOCK-001", "API_ADMIN_UNLOCK-003"],
+      "location": { "filePath": "app/src/app/api/admin/unlock-account/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": [], "calls": ["LIB_FIREBASE_ADMIN-000"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_UNLOCK-003",
+      "version": 1,
+      "logic_category": "RECOVERY",
+      "description": "Catch block error handler — creates traced error with UNKNOWN_ERROR code and logs via logTracedError. Returns safe 500 response with correlation ID.",
+      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/unlock-account/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_UNLOCK-002"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Module-level GUID for the verify-access admin API route. Validates admin magic-link tokens: constant-time comparison (crypto.timingSafeEqual), re-use check, expiry check, admin privilege re-check, then sets httpOnly adminVerified cookie.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — full admin verification flow: field validation, token document fetch, constant-time comparison, re-use and expiry checks, admin privileges re-check, mark-as-used write, audit log write, and httpOnly cookie set.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000", "LIB_TRACED_ERROR-000", "API_ADMIN_VERIFY_ACCESS-002", "API_ADMIN_VERIFY_ACCESS-003", "API_ADMIN_VERIFY_ACCESS-004", "API_ADMIN_VERIFY_ACCESS-005", "API_ADMIN_VERIFY_ACCESS-006", "API_ADMIN_VERIFY_ACCESS-007", "API_ADMIN_VERIFY_ACCESS-008"],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-002",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Missing fields check — validates both token and uid are present in request body. Returns 400 with VALIDATION_MISSING_FIELDS error code if either is absent.",
+      "dependencies": ["ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-003",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Token validation block — fetches admin_verification_tokens/{uid}, performs crypto.timingSafeEqual comparison to prevent timing attacks, checks used flag, and checks expiry against current time.",
+      "dependencies": ["ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-004",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Post-token admin privilege re-check — verifies users/{uid} still has isAdmin=true. Returns 403 if admin privileges have been revoked since the token was issued.",
+      "dependencies": ["ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-005",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Token invalidation — marks admin_verification_tokens/{uid} as used=true with server timestamp. Prevents replay attacks by ensuring each token can only be used once.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Audit log write — records ADMIN_VERIFICATION_SUCCESS to audit_logs collection with admin UID, email, IP address, and user-agent for accountability.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-007",
+      "version": 4,
+      "logic_category": "SECURITY",
+      "description": "httpOnly cookie set — sets adminVerified=true as a 7-day httpOnly, secure, SameSite=lax cookie. httpOnly prevents XSS-based bypass. Server Component reads cookie to gate admin panel access. v04 reflects current stable implementation.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_VERIFY_ACCESS-008",
+      "version": 2,
+      "logic_category": "RECOVERY",
+      "description": "Top-level catch block — logs uncaught exceptions via createTracedError/logTracedError. No raw error.message exposed in response (security compliance). Returns correlation ID for support tracking. v02 replaced direct error_logs write with traced error infrastructure.",
+      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_WHATSAPP_HEALTH-000",
+      "version": 2,
+      "logic_category": "SECURITY",
+      "description": "Module-level GUID for the admin WhatsApp health-check route. Admin-only GET endpoint checking connectivity to the WhatsApp worker container. v02 added isAdmin Firestore check to prevent non-admin users from probing the internal worker URL.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
+      "location": { "filePath": "app/src/app/api/admin/whatsapp/health/route.ts" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_WHATSAPP_HEALTH-001",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates WHATSAPP_WORKER_URL env var, fetches /health on worker with 5s timeout, returns JSON with healthy flag, response time, and status code. v02 added isAdmin Firestore check.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
+      "location": { "filePath": "app/src/app/api/admin/whatsapp/health/route.ts", "functionName": "GET" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_DRIVERS-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Module-level GUID for the admin OpenF1 drivers route. Fetches driver list from OpenF1 API for a given session key to populate driver filter dropdowns in PubChatPanel. Admin-only.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_DRIVERS-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "OpenF1 OAuth2 token acquisition with in-memory caching (55-minute TTL). Reads OPENF1_USERNAME/PASSWORD from env, posts to OpenF1 token endpoint, caches access_token. Returns null if credentials missing or token fetch fails.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts", "functionName": "getOpenF1Token" },
+      "callChain": { "calledBy": ["API_ADMIN_OPENF1_DRIVERS-002"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_DRIVERS-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates sessionKey query param, fetches drivers from OpenF1 /drivers with OAuth2 Bearer token, deduplicates by driver_number, returns sorted driver list.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "API_ADMIN_OPENF1_DRIVERS-001", "API_ADMIN_OPENF1_DRIVERS-003", "API_ADMIN_OPENF1_DRIVERS-004", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts", "functionName": "GET" },
+      "callChain": { "calledBy": [], "calls": ["API_ADMIN_OPENF1_DRIVERS-001"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_DRIVERS-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "OpenF1 API call and deduplication — fetches drivers for sessionKey, deduplicates by driver_number using a Map, formats as {number, name} objects, sorts ascending by driver number.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts", "functionName": "GET" },
+      "callChain": { "calledBy": ["API_ADMIN_OPENF1_DRIVERS-002"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_DRIVERS-004",
+      "version": 1,
+      "logic_category": "RECOVERY",
+      "description": "Top-level catch block — creates traced error with OPENF1_FETCH_FAILED code, logs via logTracedError, returns safe 500 response with correlation ID.",
+      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts", "functionName": "GET" },
+      "callChain": { "calledBy": ["API_ADMIN_OPENF1_DRIVERS-002"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_LOCATION-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Module-level GUID for the admin OpenF1 location route. Server-side proxy for real-time car GPS position data from OpenF1 /location. Handles OAuth2 auth and prevents client-side CORS issues. Note: only verifies auth token, no isAdmin check — unlike most other admin routes.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/openf1-location/route.ts" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_LOCATION-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "OpenF1 OAuth2 token acquisition with in-memory caching (55-minute TTL). Uses getSecret() from secrets-manager for OPENF1_USERNAME and OPENF1_PASSWORD. Returns null if credentials unavailable or token fetch fails.",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/openf1-location/route.ts", "functionName": "getOpenF1Token" },
+      "callChain": { "calledBy": ["API_ADMIN_OPENF1_LOCATION-002"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_LOCATION-002",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "GET handler — verifies Firebase Auth token, checks isAdmin Firestore flag (security fix v02: was missing, matched openf1-drivers pattern), validates sessionKey as numeric param, acquires OpenF1 OAuth2 token, fetches /location data, validates array response format, and returns position records array with count.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "API_ADMIN_OPENF1_LOCATION-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/openf1-location/route.ts", "functionName": "GET" },
+      "callChain": { "calledBy": [], "calls": ["API_ADMIN_OPENF1_LOCATION-001"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_HOT_NEWS-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Module-level GUID for the admin update-hot-news route. Server-side endpoint replacing direct client-side Firestore writes from HotNewsManager. Admin-only POST to update hot news content and toggle state in app-settings/hot-news. Enforces 10,000 character content limit.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/update-hot-news/route.ts" },
+      "callChain": { "calledBy": [], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_HOT_NEWS-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "TypeScript interface for the update-hot-news request payload. Requires adminUid, content (string), and hotNewsFeedEnabled (boolean).",
+      "dependencies": [],
+      "location": { "filePath": "app/src/app/api/admin/update-hot-news/route.ts" },
+      "callChain": { "calledBy": ["API_ADMIN_HOT_NEWS-002"], "calls": [] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_HOT_NEWS-002",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main POST handler — verifies Firebase Auth token, validates input types and presence, enforces 10,000 character content limit, checks UID match between token and adminUid, verifies isAdmin flag, updates app-settings/hot-news via merge set, and writes audit_logs entry. v02 added input validation security fix.",
+      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000", "API_ADMIN_HOT_NEWS-001", "API_ADMIN_HOT_NEWS-003"],
+      "location": { "filePath": "app/src/app/api/admin/update-hot-news/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": [], "calls": ["LIB_FIREBASE_ADMIN-000"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_HOT_NEWS-003",
+      "version": 1,
+      "logic_category": "RECOVERY",
+      "description": "Top-level catch block — creates traced error with UNKNOWN_ERROR code, logs via logTracedError, returns safe 500 response with correlation ID.",
+      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
+      "location": { "filePath": "app/src/app/api/admin/update-hot-news/route.ts", "functionName": "POST" },
+      "callChain": { "calledBy": ["API_ADMIN_HOT_NEWS-002"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     }
   ],
   "firestoreCollections": {

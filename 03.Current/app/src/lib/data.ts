@@ -179,7 +179,7 @@ export interface Race {
   results: (string | null)[];
 }
 
-// GUID: LIB_DATA-008-v04
+// GUID: LIB_DATA-008-v05
 // @SECURITY_ACCEPTED_RISK (GEMINI-AUDIT-052): Race timing values in this array are shipped in the
 //   client bundle and are intentionally public. This is ACCEPTED RISK because:
 //   1. Server-side enforcement: /api/submit-prediction uses getRaceByName() from race-schedule-server.ts
@@ -190,6 +190,14 @@ export interface Race {
 //   3. This data is publicly available (official F1 calendar) — obscuring it provides no security benefit.
 //   ACTION REQUIRED for future hardening: When admin UI for schedule management is built, consider
 //   fetching these times via an authenticated endpoint so client bundle reflects only confirmed times.
+// @BOW_RISK (Cy4hqh5EXe53Ww2LkqLR): Hardcoded Client-Side Season Calendar — Desync Risk.
+//   A Firestore-backed race_schedule collection exists and is the authoritative server-side source.
+//   However, multiple UI components (deadline banners, prediction editor, standings) still import
+//   this static array directly. If the admin updates the Firestore calendar (e.g., to adjust qualifying
+//   times for wet-weather postponements), this static array will be stale until a code deployment occurs.
+//   KNOWN TECHNICAL DEBT: Refactor affected components to fetch from /api/race-schedule (server-side
+//   source) instead of importing this constant. Until then, any calendar change requires BOTH a
+//   Firestore update AND a code deployment to keep client UX in sync with the server deadline gate.
 // [Intent] Master race calendar for the 2026 F1 season (24 races). Defines qualifying deadlines
 //          (which lock predictions), sprint times, race times, and sprint flags.
 //          This is the single source of truth for race schedule standing data (CLIENT-SIDE UX ONLY).
@@ -199,6 +207,7 @@ export interface Race {
 // [Downstream Impact] Changes to qualifying times affect when predictions lock.
 //                     Changes to race names affect how races display across the app.
 //                     The Consistency Checker validates track reference integrity against this list.
+//                     Desync with Firestore race_schedule collection is a known risk (BOW: Cy4hqh5EXe53Ww2LkqLR).
 export const RaceSchedule: Race[] = [
     // 2026 Official F1 Calendar (24 races)
     { name: "Australian Grand Prix", location: "Melbourne", raceTime: "2026-03-08T04:00:00Z", qualifyingTime: "2026-03-07T05:00:00Z", hasSprint: false, results: [] },
