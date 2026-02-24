@@ -104,6 +104,11 @@ export function FeedbackManager() {
     return () => unsubscribe();
   }, [firestore, toast]);
 
+  // SECURITY (GEMINI-AUDIT-021): Authorization for these Firestore writes is enforced at two layers:
+  //   (1) The admin panel route is gated by an isAdmin() check in the parent layout — non-admin users
+  //       cannot reach this component. (2) Firestore security rules restrict feedback writes to admins.
+  //   Any refactoring of this component outside the admin route MUST add an explicit isAdmin() check.
+
   // GUID: ADMIN_FEEDBACK-006-v03
   // [Intent] Updates a feedback item's status in Firestore. When resolving, stamps the current app version and resolution timestamp.
   // [Inbound Trigger] Clicking a status button (new, reviewed, resolved, dismissed) in a feedback item's expanded view.

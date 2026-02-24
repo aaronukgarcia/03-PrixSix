@@ -2,6 +2,12 @@
 // Generated: 2026-01-31
 // Source: code.json (945 GUIDs)
 // MANUAL ADDITION 2026-02-23: AUDIT_LOG_FAILED added for LIB-003 compliance (Golden Rule #7).
+// @SECURITY_FIX (GEMINI-AUDIT-058): SERVER-ONLY MODULE — DO NOT IMPORT IN CLIENT COMPONENTS.
+//   This registry contains internal metadata (guid, module, file paths, functionName, recovery,
+//   failureModes, calledBy, calls) that MUST NOT be bundled into client-side JavaScript.
+//   If you need error codes/messages in a 'use client' component or page, import CLIENT_ERRORS
+//   from '@/lib/error-registry-client' instead — it exposes only the safe subset
+//   (key, code, message, severity) and is intentionally stripped of all internal identifiers.
 
 import type { ErrorDefinition } from '@/types/errors';
 

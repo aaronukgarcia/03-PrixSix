@@ -14,6 +14,7 @@
  * falls back to service account cert for local development.
  */
 
+import { randomUUID } from 'crypto';
 import type { App } from 'firebase-admin/app';
 import type { Firestore, FieldValue as FieldValueType, Timestamp as TimestampType } from 'firebase-admin/firestore';
 
@@ -140,10 +141,10 @@ export async function verifyAuthToken(authHeader: string | null): Promise<{
  * Generate a correlation ID for error tracking using crypto.randomUUID()
  * for cryptographically secure randomness (LIB-002 fix)
  */
+// @SECURITY_FIX (GEMINI-AUDIT-060): Moved inline require('crypto') to top-level import.
 export function generateCorrelationId(): string {
-  const crypto = require('crypto');
   const timestamp = Date.now().toString(36);
-  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+  const random = randomUUID().replace(/-/g, '').substring(0, 8);
   return `err_${timestamp}_${random}`;
 }
 

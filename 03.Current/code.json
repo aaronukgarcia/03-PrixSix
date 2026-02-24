@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-02-24",
-  "total_guids": 1130,
+  "total_guids": 1136,
   "guids": [
     {
       "guid": "RACE_SCHEDULE_RULES-001",
@@ -29497,8 +29497,8 @@
       "description": "Admin API route (GET) that counts predictions across all user sub-collections. Replaces unauthenticated client-side collectionGroup query. Verifies Firebase Auth token and admin Firestore flag before returning count with capped indicator.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
-        "LIB_FIREBASE_ADMIN-006",
-        "LIB_ERROR_REGISTRY-000"
+        "LIB_FIREBASE_ADMIN-003",
+        "ERROR_REGISTRY-000"
       ],
       "location": {
         "filePath": "app/src/app/api/admin/prediction-count/route.ts"
@@ -29509,7 +29509,7 @@
         ],
         "calls": [
           "LIB_FIREBASE_ADMIN-000",
-          "LIB_FIREBASE_ADMIN-006"
+          "LIB_FIREBASE_ADMIN-003"
         ]
       },
       "created": "2026-02-23T00:00:00Z",
@@ -29521,7 +29521,7 @@
       "logic_category": "VALIDATION",
       "description": "Auth guard for prediction-count route: verifies Bearer token via verifyAuthToken, then checks isAdmin flag in Firestore. Returns 401 with ERRORS.AUTH_INVALID_TOKEN or 403 with ERRORS.AUTH_ADMIN_REQUIRED before any data access.",
       "dependencies": [
-        "LIB_FIREBASE_ADMIN-006"
+        "LIB_FIREBASE_ADMIN-003"
       ],
       "location": {
         "filePath": "app/src/app/api/admin/prediction-count/route.ts",
@@ -29532,7 +29532,7 @@
           "API_ADMIN_PREDICTION_COUNT-000"
         ],
         "calls": [
-          "LIB_FIREBASE_ADMIN-006"
+          "LIB_FIREBASE_ADMIN-003"
         ]
       },
       "created": "2026-02-23T00:00:00Z",
@@ -39879,18 +39879,16 @@
       "logic_category": "VALIDATION",
       "description": "Request validation and guard blocks for the join-by-code API route: auth check, format/length validation, league-not-found, already-member, global-league guard, max-leagues limit. Fixed (LEAGUES-004): all 6 guards now use ERRORS.KEY from error-registry with errorCode and correlationId instead of hardcoded inline strings.",
       "dependencies": [
-        "LIB_FIREBASE_ADMIN-006",
-        "LIB_ERROR_REGISTRY-000"
+        "LIB_FIREBASE_ADMIN-003",
+        "ERROR_REGISTRY-000"
       ],
       "location": {
         "filePath": "app/src/app/api/leagues/join-by-code/route.ts"
       },
       "callChain": {
-        "calledBy": [
-          "API_LEAGUE_JOIN-000"
-        ],
+        "calledBy": [],
         "calls": [
-          "LIB_FIREBASE_ADMIN-006"
+          "LIB_FIREBASE_ADMIN-003"
         ]
       },
       "created": "2026-02-23T00:00:00Z",
@@ -60302,11 +60300,11 @@
       "callChain": {
         "calledBy": [
           "FIREBASE_PROVIDER-000",
-          "ADMIN_PUB_CHAT-000",
+          "PUBCHAT_PANEL-000",
           "COMPONENT_FEEDBACK_FORM-000",
           "COMPONENT_VERSION_HISTORY-000",
-          "COMPONENT_GLOBAL_ERROR-000",
-          "AUTH_SERVICE-000"
+          "COMPONENT_GLOBAL_ERROR_LOGGER-000",
+          "SERVICE_AUTH_OAUTH-000"
         ],
         "calls": []
       },
@@ -102015,7 +102013,7 @@
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for centralized book of work tracking with 4-pillar error handling and loading progress using useRef to prevent infinite loop",
       "dependencies": [
-        "LIB_ERROR_REGISTRY-000",
+        "ERROR_REGISTRY_CLIENT-000",
         "LIB_TRACED_ERROR-001",
         "LIB_TRACED_ERROR-002",
         "LIB_TRACED_ERROR-003"
@@ -102025,10 +102023,10 @@
       },
       "callChain": {
         "calledBy": [
-          "ADMIN_PAGE_CLIENT-000"
+          "PAGE_ADMIN-000"
         ],
         "calls": [
-          "LIB_ERROR_REGISTRY-000",
+          "ERROR_REGISTRY_CLIENT-000",
           "LIB_TRACED_ERROR-002",
           "LIB_TRACED_ERROR-003"
         ]
@@ -102206,7 +102204,7 @@
       "description": "POST handler: verifies admin auth, enforces business rule (at least one auth method must remain enabled), updates admin_configuration/global, logs audit event.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-003",
-        "LIB_ERROR_REGISTRY-000"
+        "ERROR_REGISTRY-000"
       ],
       "location": {
         "filePath": "app/src/app/api/admin/update-site-functions/route.ts",
@@ -102252,8 +102250,17 @@
     {
       "guid": "LIB_CONSISTENCY-013B",
       "version": 2,
+      "logic_category": "CONFIGURATION",
       "description": "SYSTEM_OWNER_ID constant - reserved system identifier for global league ownership (GEMINI-AUDIT-049)",
-      "file": "app/src/lib/consistency.ts",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/consistency.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
       "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
@@ -102261,7 +102268,14 @@
       "version": 2,
       "logic_category": "VALIDATION",
       "description": "parseBreakdown() — parse score breakdown string into per-driver entries and bonus. Input validated before parsing (GEMINI-AUDIT-050): null/undefined/empty returns safe zeroed default; malformed strings fail the format pre-check, emit a console.warn with correlationId, and return malformed:true without parsing.",
-      "file": "app/src/lib/consistency.ts",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/consistency.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-23T00:00:00Z",
       "lastUpdated": "2026-02-23T00:00:00Z"
     },
@@ -102539,7 +102553,9 @@
         "filePath": "app/src/app/api/health/route.ts"
       },
       "callChain": {
-        "calledBy": ["API_HEALTH-002"],
+        "calledBy": [
+          "API_HEALTH-002"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102582,13 +102598,21 @@
       "version": 1,
       "logic_category": "ORCHESTRATION",
       "description": "Parallel execution of Firestore and Auth health check functions using Promise.all to minimise total check latency. Each check is caught individually to prevent cascading failures.",
-      "dependencies": ["API_HEALTH-007", "API_HEALTH-008"],
+      "dependencies": [
+        "API_HEALTH-007",
+        "API_HEALTH-008"
+      ],
       "location": {
         "filePath": "app/src/app/api/health/route.ts"
       },
       "callChain": {
-        "calledBy": ["API_HEALTH-002"],
-        "calls": ["API_HEALTH-007", "API_HEALTH-008"]
+        "calledBy": [
+          "API_HEALTH-002"
+        ],
+        "calls": [
+          "API_HEALTH-007",
+          "API_HEALTH-008"
+        ]
       },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
@@ -102603,7 +102627,9 @@
         "filePath": "app/src/app/api/health/route.ts"
       },
       "callChain": {
-        "calledBy": ["API_HEALTH-002"],
+        "calledBy": [
+          "API_HEALTH-002"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102614,12 +102640,16 @@
       "version": 1,
       "logic_category": "TRANSFORMATION",
       "description": "Build the HealthCheckResult response object with version info from APP_VERSION. Version string helps correlate health issues with specific deployments.",
-      "dependencies": ["API_HEALTH-001"],
+      "dependencies": [
+        "API_HEALTH-001"
+      ],
       "location": {
         "filePath": "app/src/app/api/health/route.ts"
       },
       "callChain": {
-        "calledBy": ["API_HEALTH-002"],
+        "calledBy": [
+          "API_HEALTH-002"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102635,7 +102665,9 @@
         "filePath": "app/src/app/api/health/route.ts"
       },
       "callChain": {
-        "calledBy": ["API_HEALTH-002"],
+        "calledBy": [
+          "API_HEALTH-002"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102646,13 +102678,17 @@
       "version": 1,
       "logic_category": "VALIDATION",
       "description": "checkFirestore() — checks Firestore connectivity by reading the admin_configuration/global document. Lightweight read that should complete in <100ms. Returns ServiceStatus with responseTime. Critical service: if Firestore is down all database operations fail.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000"
+      ],
       "location": {
         "filePath": "app/src/app/api/health/route.ts",
         "functionName": "checkFirestore"
       },
       "callChain": {
-        "calledBy": ["API_HEALTH-003"],
+        "calledBy": [
+          "API_HEALTH-003"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102663,13 +102699,17 @@
       "version": 1,
       "logic_category": "VALIDATION",
       "description": "checkAuth() — checks Firebase Auth connectivity by obtaining the Auth Admin SDK instance. Validates that the Firebase Admin SDK can connect to the Auth service. Critical service: if Auth is down users cannot login or signup.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000"
+      ],
       "location": {
         "filePath": "app/src/app/api/health/route.ts",
         "functionName": "checkAuth"
       },
       "callChain": {
-        "calledBy": ["API_HEALTH-003"],
+        "calledBy": [
+          "API_HEALTH-003"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102689,7 +102729,9 @@
       },
       "callChain": {
         "calledBy": [],
-        "calls": ["API_ADMIN_EMAIL_HEALTH-001"]
+        "calls": [
+          "API_ADMIN_EMAIL_HEALTH-001"
+        ]
       },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
@@ -102746,7 +102788,9 @@
         "filePath": "app/src/lib/validation.ts"
       },
       "callChain": {
-        "calledBy": ["API_ADMIN_VERIFY_ACCESS-000"],
+        "calledBy": [
+          "API_ADMIN_VERIFY_ACCESS-000"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102762,7 +102806,9 @@
         "filePath": "app/src/lib/validation.ts"
       },
       "callChain": {
-        "calledBy": ["API_AUTH_ADMIN_CHALLENGE-000"],
+        "calledBy": [
+          "API_AUTH_ADMIN_CHALLENGE-000"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102828,7 +102874,9 @@
         "filePath": "app/src/lib/validation.ts"
       },
       "callChain": {
-        "calledBy": ["API_AUTH_ADMIN_CHALLENGE-000"],
+        "calledBy": [
+          "API_AUTH_ADMIN_CHALLENGE-000"
+        ],
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
@@ -102848,7 +102896,9 @@
           "LIB_LEAGUES-000",
           "LEAGUE_CONTEXT-000"
         ],
-        "calls": ["LIB_TYPES_LEAGUE-001"]
+        "calls": [
+          "LIB_TYPES_LEAGUE-001"
+        ]
       },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
@@ -102901,9 +102951,21 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Module-level GUID for the acknowledge-attack API route. Server-side endpoint replacing direct client-side Firestore writes from AttackMonitor. Admin-only POST endpoint for acknowledging attack alerts stored in attack_alerts collection.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts" },
-      "callChain": { "calledBy": ["ADMIN_ATTACK_MONITOR-000"], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_ATTACK_MONITOR-000"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -102912,9 +102974,26 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "POST handler for attack alert acknowledgement. Authenticates user via Firebase Auth token, verifies admin status in Firestore, validates alertId/alertIds payload, checks all documents exist, then updates attack_alerts with acknowledged=true, acknowledgedBy, and acknowledgedAt.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "ERROR_REGISTRY-000", "API_ADMIN_ACK_ATTACK-002", "API_ADMIN_ACK_ATTACK-003", "API_ADMIN_ACK_ATTACK-004", "API_ADMIN_ACK_ATTACK-005", "API_ADMIN_ACK_ATTACK-006"],
-      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["ADMIN_ATTACK_MONITOR-000"], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_TRACED_ERROR-000",
+        "ERROR_REGISTRY-000",
+        "API_ADMIN_ACK_ATTACK-002",
+        "API_ADMIN_ACK_ATTACK-003",
+        "API_ADMIN_ACK_ATTACK-004",
+        "API_ADMIN_ACK_ATTACK-005",
+        "API_ADMIN_ACK_ATTACK-006"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_ATTACK_MONITOR-000"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -102923,9 +103002,21 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Authentication step in POST handler — extracts Authorization header and calls verifyAuthToken. Returns 401 if token is invalid or missing.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
-      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": ["LIB_FIREBASE_ADMIN-000"] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_ACK_ATTACK-001"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-000"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -102934,9 +103025,21 @@
       "version": 2,
       "logic_category": "SECURITY",
       "description": "Admin privilege check — reads users/{uid} document and verifies isAdmin flag. Returns 403 if user is not an admin. Note: v02 of this GUID also serves as the catch-block error handler (dual use of sequence number in this file).",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_TRACED_ERROR-000",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_ACK_ATTACK-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -102946,8 +103049,16 @@
       "logic_category": "VALIDATION",
       "description": "Request body parsing and validation — supports single alertId (string) or batch alertIds (string[]). Returns 400 if neither field is present or correctly typed.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_ACK_ATTACK-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -102957,8 +103068,16 @@
       "logic_category": "VALIDATION",
       "description": "Pre-update existence check — fetches all attack_alerts documents by ID before any writes. Returns 404 if any alert ID does not exist, preventing partial updates.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_ACK_ATTACK-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -102968,8 +103087,16 @@
       "logic_category": "ORCHESTRATION",
       "description": "Parallel update step — updates all validated alert documents with acknowledged=true, acknowledgedBy, and server timestamp. Real-time listeners in AttackMonitor reflect these changes immediately.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_ACK_ATTACK-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/acknowledge-attack/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_ACK_ATTACK-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -102978,9 +103105,19 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Module-level GUID for the resolve-error admin API route. Server-side endpoint replacing direct client-side Firestore writes from ErrorLogViewer. Admin-only POST to mark error_logs documents as resolved.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/resolve-error/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -102989,9 +103126,24 @@
       "version": 1,
       "logic_category": "ORCHESTRATION",
       "description": "POST handler — authenticates caller, verifies admin status, validates errorLogId, checks document exists, and marks it as resolved with resolvedAt ISO timestamp and resolvedBy admin UID.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "ERROR_REGISTRY-000", "API_ADMIN_RESOLVE-002", "API_ADMIN_RESOLVE-003", "API_ADMIN_RESOLVE-004", "API_ADMIN_RESOLVE-005", "API_ADMIN_RESOLVE-006"],
-      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_TRACED_ERROR-000",
+        "ERROR_REGISTRY-000",
+        "API_ADMIN_RESOLVE-002",
+        "API_ADMIN_RESOLVE-003",
+        "API_ADMIN_RESOLVE-004",
+        "API_ADMIN_RESOLVE-005",
+        "API_ADMIN_RESOLVE-006"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/resolve-error/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103000,9 +103152,21 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Authentication step — extracts Authorization header and calls verifyAuthToken. Returns 401 if token is invalid or missing.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
-      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": ["LIB_FIREBASE_ADMIN-000"] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/resolve-error/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_RESOLVE-001"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-000"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103012,8 +103176,16 @@
       "logic_category": "SECURITY",
       "description": "Admin privilege check — reads users/{uid} document and verifies isAdmin flag. Returns 403 if user is not an admin.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/resolve-error/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_RESOLVE-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103023,8 +103195,16 @@
       "logic_category": "VALIDATION",
       "description": "Request body validation — parses JSON body and validates errorLogId is a non-empty string. Returns 400 if missing or wrong type.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/resolve-error/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_RESOLVE-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103034,8 +103214,16 @@
       "logic_category": "VALIDATION",
       "description": "Document existence check — fetches error_logs/{errorLogId} before attempting update. Returns 404 if the document does not exist.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/resolve-error/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_RESOLVE-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103045,8 +103233,16 @@
       "logic_category": "ORCHESTRATION",
       "description": "Resolution write — updates error_logs/{errorLogId} with resolved=true, resolvedAt ISO timestamp, and resolvedBy admin UID. Real-time listeners in ErrorLogViewer reflect the change.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/resolve-error/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_RESOLVE-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103055,9 +103251,24 @@
       "version": 2,
       "logic_category": "RECOVERY",
       "description": "Top-level catch block — creates traced error via createTracedError/logTracedError, logs to error_logs, returns safe 500 response with correlation ID. v02 upgraded from direct db.collection add to traced error infrastructure.",
-      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/resolve-error/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_RESOLVE-001"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "dependencies": [
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/resolve-error/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_RESOLVE-001"
+        ],
+        "calls": [
+          "LIB_TRACED_ERROR-000",
+          "LIB_TRACED_ERROR-001"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103066,9 +103277,19 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Module-level GUID for the unlock-account admin API route. Emergency unlock for locked-out users. Verifies admin auth, validates target user, resets badLoginAttempts to 0, clears lastFailedLoginAt, and writes audit_logs entry.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/unlock-account/route.ts" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/unlock-account/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103078,8 +103299,15 @@
       "logic_category": "VALIDATION",
       "description": "TypeScript interface for unlock-account request payload. Requires adminUid (matched against verified token UID) and targetUserEmail (identifies which account to unlock).",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/unlock-account/route.ts" },
-      "callChain": { "calledBy": ["API_ADMIN_UNLOCK-002"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/unlock-account/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_UNLOCK-002"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103088,9 +103316,22 @@
       "version": 1,
       "logic_category": "ORCHESTRATION",
       "description": "Main POST handler — verifies Firebase Auth token, confirms token UID matches submitted adminUid, checks admin privileges in Firestore, queries user by normalised email, resets badLoginAttempts to 0, deletes lastFailedLoginAt field, and writes audit_logs entry.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000", "API_ADMIN_UNLOCK-001", "API_ADMIN_UNLOCK-003"],
-      "location": { "filePath": "app/src/app/api/admin/unlock-account/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": [], "calls": ["LIB_FIREBASE_ADMIN-000"] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "ERROR_REGISTRY-000",
+        "API_ADMIN_UNLOCK-001",
+        "API_ADMIN_UNLOCK-003"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/unlock-account/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-000"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103099,9 +103340,24 @@
       "version": 1,
       "logic_category": "RECOVERY",
       "description": "Catch block error handler — creates traced error with UNKNOWN_ERROR code and logs via logTracedError. Returns safe 500 response with correlation ID.",
-      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/unlock-account/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_UNLOCK-002"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "dependencies": [
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/unlock-account/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_UNLOCK-002"
+        ],
+        "calls": [
+          "LIB_TRACED_ERROR-000",
+          "LIB_TRACED_ERROR-001"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103110,9 +103366,19 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Module-level GUID for the verify-access admin API route. Validates admin magic-link tokens: constant-time comparison (crypto.timingSafeEqual), re-use check, expiry check, admin privilege re-check, then sets httpOnly adminVerified cookie.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "ERROR_REGISTRY-000",
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103121,9 +103387,26 @@
       "version": 1,
       "logic_category": "ORCHESTRATION",
       "description": "POST handler — full admin verification flow: field validation, token document fetch, constant-time comparison, re-use and expiry checks, admin privileges re-check, mark-as-used write, audit log write, and httpOnly cookie set.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000", "LIB_TRACED_ERROR-000", "API_ADMIN_VERIFY_ACCESS-002", "API_ADMIN_VERIFY_ACCESS-003", "API_ADMIN_VERIFY_ACCESS-004", "API_ADMIN_VERIFY_ACCESS-005", "API_ADMIN_VERIFY_ACCESS-006", "API_ADMIN_VERIFY_ACCESS-007", "API_ADMIN_VERIFY_ACCESS-008"],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "ERROR_REGISTRY-000",
+        "LIB_TRACED_ERROR-000",
+        "API_ADMIN_VERIFY_ACCESS-002",
+        "API_ADMIN_VERIFY_ACCESS-003",
+        "API_ADMIN_VERIFY_ACCESS-004",
+        "API_ADMIN_VERIFY_ACCESS-005",
+        "API_ADMIN_VERIFY_ACCESS-006",
+        "API_ADMIN_VERIFY_ACCESS-007",
+        "API_ADMIN_VERIFY_ACCESS-008"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103132,9 +103415,19 @@
       "version": 1,
       "logic_category": "VALIDATION",
       "description": "Missing fields check — validates both token and uid are present in request body. Returns 400 with VALIDATION_MISSING_FIELDS error code if either is absent.",
-      "dependencies": ["ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "dependencies": [
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_VERIFY_ACCESS-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103143,9 +103436,19 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Token validation block — fetches admin_verification_tokens/{uid}, performs crypto.timingSafeEqual comparison to prevent timing attacks, checks used flag, and checks expiry against current time.",
-      "dependencies": ["ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "dependencies": [
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_VERIFY_ACCESS-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103154,9 +103457,19 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Post-token admin privilege re-check — verifies users/{uid} still has isAdmin=true. Returns 403 if admin privileges have been revoked since the token was issued.",
-      "dependencies": ["ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "dependencies": [
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_VERIFY_ACCESS-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103166,8 +103479,16 @@
       "logic_category": "SECURITY",
       "description": "Token invalidation — marks admin_verification_tokens/{uid} as used=true with server timestamp. Prevents replay attacks by ensuring each token can only be used once.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_VERIFY_ACCESS-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103177,8 +103498,16 @@
       "logic_category": "ORCHESTRATION",
       "description": "Audit log write — records ADMIN_VERIFICATION_SUCCESS to audit_logs collection with admin UID, email, IP address, and user-agent for accountability.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_VERIFY_ACCESS-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103188,8 +103517,16 @@
       "logic_category": "SECURITY",
       "description": "httpOnly cookie set — sets adminVerified=true as a 7-day httpOnly, secure, SameSite=lax cookie. httpOnly prevents XSS-based bypass. Server Component reads cookie to gate admin panel access. v04 reflects current stable implementation.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_VERIFY_ACCESS-001"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103198,9 +103535,24 @@
       "version": 2,
       "logic_category": "RECOVERY",
       "description": "Top-level catch block — logs uncaught exceptions via createTracedError/logTracedError. No raw error.message exposed in response (security compliance). Returns correlation ID for support tracking. v02 replaced direct error_logs write with traced error infrastructure.",
-      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/verify-access/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_VERIFY_ACCESS-001"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "dependencies": [
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/verify-access/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_VERIFY_ACCESS-001"
+        ],
+        "calls": [
+          "LIB_TRACED_ERROR-000",
+          "LIB_TRACED_ERROR-001"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103209,9 +103561,16 @@
       "version": 2,
       "logic_category": "SECURITY",
       "description": "Module-level GUID for the admin WhatsApp health-check route. Admin-only GET endpoint checking connectivity to the WhatsApp worker container. v02 added isAdmin Firestore check to prevent non-admin users from probing the internal worker URL.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
-      "location": { "filePath": "app/src/app/api/admin/whatsapp/health/route.ts" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/whatsapp/health/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103220,9 +103579,17 @@
       "version": 2,
       "logic_category": "ORCHESTRATION",
       "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates WHATSAPP_WORKER_URL env var, fetches /health on worker with 5s timeout, returns JSON with healthy flag, response time, and status code. v02 added isAdmin Firestore check.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000"],
-      "location": { "filePath": "app/src/app/api/admin/whatsapp/health/route.ts", "functionName": "GET" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/whatsapp/health/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103231,9 +103598,19 @@
       "version": 1,
       "logic_category": "ORCHESTRATION",
       "description": "Module-level GUID for the admin OpenF1 drivers route. Fetches driver list from OpenF1 API for a given session key to populate driver filter dropdowns in PubChatPanel. Admin-only.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-drivers/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103243,8 +103620,16 @@
       "logic_category": "ORCHESTRATION",
       "description": "OpenF1 OAuth2 token acquisition with in-memory caching (55-minute TTL). Reads OPENF1_USERNAME/PASSWORD from env, posts to OpenF1 token endpoint, caches access_token. Returns null if credentials missing or token fetch fails.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts", "functionName": "getOpenF1Token" },
-      "callChain": { "calledBy": ["API_ADMIN_OPENF1_DRIVERS-002"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-drivers/route.ts",
+        "functionName": "getOpenF1Token"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_OPENF1_DRIVERS-002"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103253,9 +103638,23 @@
       "version": 1,
       "logic_category": "ORCHESTRATION",
       "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates sessionKey query param, fetches drivers from OpenF1 /drivers with OAuth2 Bearer token, deduplicates by driver_number, returns sorted driver list.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "API_ADMIN_OPENF1_DRIVERS-001", "API_ADMIN_OPENF1_DRIVERS-003", "API_ADMIN_OPENF1_DRIVERS-004", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts", "functionName": "GET" },
-      "callChain": { "calledBy": [], "calls": ["API_ADMIN_OPENF1_DRIVERS-001"] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "API_ADMIN_OPENF1_DRIVERS-001",
+        "API_ADMIN_OPENF1_DRIVERS-003",
+        "API_ADMIN_OPENF1_DRIVERS-004",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-drivers/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "API_ADMIN_OPENF1_DRIVERS-001"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103265,8 +103664,16 @@
       "logic_category": "TRANSFORMATION",
       "description": "OpenF1 API call and deduplication — fetches drivers for sessionKey, deduplicates by driver_number using a Map, formats as {number, name} objects, sorts ascending by driver number.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts", "functionName": "GET" },
-      "callChain": { "calledBy": ["API_ADMIN_OPENF1_DRIVERS-002"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-drivers/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_OPENF1_DRIVERS-002"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103275,9 +103682,24 @@
       "version": 1,
       "logic_category": "RECOVERY",
       "description": "Top-level catch block — creates traced error with OPENF1_FETCH_FAILED code, logs via logTracedError, returns safe 500 response with correlation ID.",
-      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/openf1-drivers/route.ts", "functionName": "GET" },
-      "callChain": { "calledBy": ["API_ADMIN_OPENF1_DRIVERS-002"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "dependencies": [
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-drivers/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_OPENF1_DRIVERS-002"
+        ],
+        "calls": [
+          "LIB_TRACED_ERROR-000",
+          "LIB_TRACED_ERROR-001"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103286,9 +103708,17 @@
       "version": 1,
       "logic_category": "ORCHESTRATION",
       "description": "Module-level GUID for the admin OpenF1 location route. Server-side proxy for real-time car GPS position data from OpenF1 /location. Handles OAuth2 auth and prevents client-side CORS issues. Note: only verifies auth token, no isAdmin check — unlike most other admin routes.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/openf1-location/route.ts" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-location/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103298,8 +103728,16 @@
       "logic_category": "ORCHESTRATION",
       "description": "OpenF1 OAuth2 token acquisition with in-memory caching (55-minute TTL). Uses getSecret() from secrets-manager for OPENF1_USERNAME and OPENF1_PASSWORD. Returns null if credentials unavailable or token fetch fails.",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/openf1-location/route.ts", "functionName": "getOpenF1Token" },
-      "callChain": { "calledBy": ["API_ADMIN_OPENF1_LOCATION-002"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-location/route.ts",
+        "functionName": "getOpenF1Token"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_OPENF1_LOCATION-002"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103308,9 +103746,21 @@
       "version": 2,
       "logic_category": "ORCHESTRATION",
       "description": "GET handler — verifies Firebase Auth token, checks isAdmin Firestore flag (security fix v02: was missing, matched openf1-drivers pattern), validates sessionKey as numeric param, acquires OpenF1 OAuth2 token, fetches /location data, validates array response format, and returns position records array with count.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "API_ADMIN_OPENF1_LOCATION-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/openf1-location/route.ts", "functionName": "GET" },
-      "callChain": { "calledBy": [], "calls": ["API_ADMIN_OPENF1_LOCATION-001"] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "API_ADMIN_OPENF1_LOCATION-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-location/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "API_ADMIN_OPENF1_LOCATION-001"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103319,9 +103769,19 @@
       "version": 1,
       "logic_category": "SECURITY",
       "description": "Module-level GUID for the admin update-hot-news route. Server-side endpoint replacing direct client-side Firestore writes from HotNewsManager. Admin-only POST to update hot news content and toggle state in app-settings/hot-news. Enforces 10,000 character content limit.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/update-hot-news/route.ts" },
-      "callChain": { "calledBy": [], "calls": [] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/update-hot-news/route.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103331,8 +103791,15 @@
       "logic_category": "VALIDATION",
       "description": "TypeScript interface for the update-hot-news request payload. Requires adminUid, content (string), and hotNewsFeedEnabled (boolean).",
       "dependencies": [],
-      "location": { "filePath": "app/src/app/api/admin/update-hot-news/route.ts" },
-      "callChain": { "calledBy": ["API_ADMIN_HOT_NEWS-002"], "calls": [] },
+      "location": {
+        "filePath": "app/src/app/api/admin/update-hot-news/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_HOT_NEWS-002"
+        ],
+        "calls": []
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103341,9 +103808,22 @@
       "version": 2,
       "logic_category": "ORCHESTRATION",
       "description": "Main POST handler — verifies Firebase Auth token, validates input types and presence, enforces 10,000 character content limit, checks UID match between token and adminUid, verifies isAdmin flag, updates app-settings/hot-news via merge set, and writes audit_logs entry. v02 added input validation security fix.",
-      "dependencies": ["LIB_FIREBASE_ADMIN-000", "ERROR_REGISTRY-000", "API_ADMIN_HOT_NEWS-001", "API_ADMIN_HOT_NEWS-003"],
-      "location": { "filePath": "app/src/app/api/admin/update-hot-news/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": [], "calls": ["LIB_FIREBASE_ADMIN-000"] },
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "ERROR_REGISTRY-000",
+        "API_ADMIN_HOT_NEWS-001",
+        "API_ADMIN_HOT_NEWS-003"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/update-hot-news/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-000"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     },
@@ -103352,9 +103832,154 @@
       "version": 1,
       "logic_category": "RECOVERY",
       "description": "Top-level catch block — creates traced error with UNKNOWN_ERROR code, logs via logTracedError, returns safe 500 response with correlation ID.",
-      "dependencies": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001", "ERROR_REGISTRY-000"],
-      "location": { "filePath": "app/src/app/api/admin/update-hot-news/route.ts", "functionName": "POST" },
-      "callChain": { "calledBy": ["API_ADMIN_HOT_NEWS-002"], "calls": ["LIB_TRACED_ERROR-000", "LIB_TRACED_ERROR-001"] },
+      "dependencies": [
+        "LIB_TRACED_ERROR-000",
+        "LIB_TRACED_ERROR-001",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/update-hot-news/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_HOT_NEWS-002"
+        ],
+        "calls": [
+          "LIB_TRACED_ERROR-000",
+          "LIB_TRACED_ERROR-001"
+        ]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-000",
+      "version": 2,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Comprehensive client-side error logger component. Captures all unhandled window errors and promise rejections, forwards them to /api/log-client-error. Skips chunk errors (handled separately by ChunkErrorHandler) and Firebase Performance attribute noise (PERF-001). Production-safe: console.error redacts stack/context/error object to prevent DevTools disclosure (GEMINI-AUDIT-044).",
+      "dependencies": [
+        "ERROR_REGISTRY_CLIENT-000"
+      ],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_FEEDBACK_FORM-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "FeedbackForm — client-side form component for submitting bug reports and feature requests. Writes feedback documents to Firestore via runTransaction with optional notification-on-fix flag. Displays error details with correlation IDs. Uses CLIENT_ERRORS from error-registry-client.",
+      "dependencies": [
+        "ERROR_REGISTRY_CLIENT-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/FeedbackForm.tsx"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "ERROR_REGISTRY_CLIENT-000"
+        ]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "API route module header for admin verification magic-link generation. Generates a CSPRNG 32-byte hex token, stores in admin_verification_tokens/{uid} with 30-minute expiry, sends magic link email. Called by admin page to request email-based challenge before accessing admin panel.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-002",
+        "LIB_FIREBASE_ADMIN-003",
+        "LIB_FIREBASE_ADMIN-004",
+        "LIB_EMAIL-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "PAGE_ADMIN-000"
+        ],
+        "calls": [
+          "API_AUTH_ADMIN_CHALLENGE-001",
+          "API_AUTH_ADMIN_CHALLENGE-002"
+        ]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "UI_TOOLTIP-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Radix UI Tooltip primitive wrappers. Exports TooltipProvider, Tooltip, TooltipTrigger, and TooltipContent with Tailwind-styled popover content. Used by JargonTip inline helper to display F1 terminology definitions on hover.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/ui/tooltip.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "COMPONENT_PREDICTION_EDITOR-021",
+          "PAGE_PREDICTIONS-014",
+          "PAGE_PREDICTIONS-015"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "generateAdminVerificationToken() — generates a cryptographically secure 32-byte hex token via crypto.randomBytes(). Used as the admin magic-link verification token stored in Firestore.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": "generateAdminVerificationToken"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_AUTH_ADMIN_CHALLENGE-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-002",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "POST handler — authenticates user via Firebase ID token, verifies isAdmin flag in Firestore, generates verification token with 30-minute expiry, stores in admin_verification_tokens/{uid}, sends magic link email, writes audit log.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-002",
+        "LIB_FIREBASE_ADMIN-003",
+        "LIB_FIREBASE_ADMIN-004"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_AUTH_ADMIN_CHALLENGE-000"
+        ],
+        "calls": [
+          "API_AUTH_ADMIN_CHALLENGE-001",
+          "LIB_FIREBASE_ADMIN-002",
+          "LIB_FIREBASE_ADMIN-003"
+        ]
+      },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
     }

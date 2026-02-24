@@ -8,18 +8,21 @@
 
 import type { ErrorDefinition, TracedError } from '@/types/errors';
 
-// GUID: LIB_TRACED_ERROR-001-v03
+// GUID: LIB_TRACED_ERROR-001-v04
+// @SECURITY_FIX (GEMINI-AUDIT-070): Replaced inline require('crypto') with globalThis.crypto.randomUUID()
+//   which works in both browser (Web Crypto API) and Node.js (v19+ global) without a Node-only import.
+//   Do NOT use `import { randomUUID } from 'crypto'` here — this file is imported by 'use client'
+//   components and a Node.js-only static import would break the client bundle.
 // [Intent] Generate a unique correlation ID with a module-specific prefix for error tracking.
 //          Format: [prefix]_[timestamp-base36]_[random-6-chars] -- short, unique, and copyable.
 // [Inbound Trigger] Called by createTracedError when no correlationId is provided, or directly by
 //                   catch blocks that need a correlation ID before creating the traced error.
 // [Downstream Impact] The correlation ID links user-reported errors to server-side error_logs entries.
 //                     Changing the format requires updating any log queries that parse correlation IDs.
-// [Security] Uses crypto.randomUUID() instead of Math.random() for secure randomness (LIB-002 fix).
+// [Security] Uses globalThis.crypto.randomUUID() for secure randomness (LIB-002 / GEMINI-AUDIT-070).
 export function generateCorrelationId(prefix: string): string {
-  const crypto = require('crypto');
   const timestamp = Date.now().toString(36);
-  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+  const random = globalThis.crypto.randomUUID().replace(/-/g, '').substring(0, 8);
   return `${prefix}_${timestamp}_${random}`;
 }
 

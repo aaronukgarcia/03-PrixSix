@@ -8,6 +8,7 @@
 // are returned to the admin UI and used for league table display. Depends on scoring-rules.ts
 // for point values and the calculateDriverPoints function.
 
+import { randomUUID } from 'crypto';
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, collectionGroup, limit, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { F1Drivers } from './data';
 import { SCORING_POINTS, calculateDriverPoints } from './scoring-rules';
@@ -84,7 +85,7 @@ export async function calculateRaceScores(
   firestore: any,
   raceResult: RaceResult
 ): Promise<{ userId: string; totalPoints: number }[]> {
-  const correlationId = `score_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
+  const correlationId = `score_${Date.now().toString(36)}_${randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   const actualResults = [
     raceResult.driver1,
@@ -132,7 +133,7 @@ export async function calculateRaceScores(
       console.warn(`[Scoring] [${correlationId}] Hit safety cap on read limit (${PREDICTIONS_READ_LIMIT}) for raceId: "${normalizedRaceId}" — possible data integrity issue`);
     }
   } catch (error: any) {
-    console.error(`[Scoring] [${correlationId}] CollectionGroup query failed:`, error);
+    if (process.env.NODE_ENV !== 'production') { console.error(`[Scoring] [${correlationId}] CollectionGroup query failed:`, error); }
     throw createTracedError(ERRORS.FIRESTORE_COLLECTION_GROUP_FAILED, { correlationId, context: { raceId: normalizedRaceId }, cause: error instanceof Error ? error : undefined });
   }
 
@@ -243,7 +244,7 @@ export async function updateRaceScores(
   raceId: string,
   raceResult: RaceResult
 ): Promise<UpdateScoresResult> {
-  const correlationId = `score_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
+  const correlationId = `score_${Date.now().toString(36)}_${randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   // Calculate scores using Prix Six rules
   const calculatedScores = await calculateRaceScores(firestore, raceResult);
@@ -332,7 +333,7 @@ export async function updateRaceScores(
  * Note: race_results document deletion is handled by /api/delete-scores/route.ts atomically.
  */
 export async function deleteRaceScores(firestore: any, raceId: string): Promise<number> {
-  const correlationId = `score_del_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
+  const correlationId = `score_del_${Date.now().toString(36)}_${randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   // Normalize the raceId to match how scores are stored
   const normalizedRaceId = normalizeRaceId(raceId);

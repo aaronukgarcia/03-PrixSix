@@ -49,11 +49,19 @@ interface StandingEntry {
   totalPoints: number;
 }
 
-// GUID: API_CALCULATE_SCORES-004-v04
+// GUID: API_CALCULATE_SCORES-004-v05
 // @TECH_DEBT: Local normalizeRaceIdForPredictions replaced with shared normalizeRaceId import (Golden Rule #3).
 // [Intent] Race ID normalisation is now handled by the shared normalizeRaceId() utility.
 // [Inbound Trigger] n/a -- import at top of file.
 // [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
+//
+// *** IMPORTANT — DEVELOPERS READ THIS ***
+// normalizeRaceId STRIPS the "-GP" suffix. This is intentional and correct.
+// It is applied to BOTH sides of the prediction lookup (lines 133 and 210 below),
+// so both the scoring lookup key and the stored prediction raceId resolve to the
+// same stripped form (e.g., "Australian-Grand-Prix"). DO NOT change this to
+// preserve "-GP" — it would break Sprint race carry-forward (see lines 251-259).
+// See normalize-race-id.ts for full audit history. (GEMINI-AUDIT-131: false alarm)
 const normalizeRaceIdForPredictions = normalizeRaceId;
 
 // GUID: API_CALCULATE_SCORES-005-v04
@@ -130,6 +138,12 @@ export async function POST(request: NextRequest) {
     }
 
     const actualResults = [driver1, driver2, driver3, driver4, driver5, driver6];
+    // *** IMPORTANT — TWO DIFFERENT IDs, TWO DIFFERENT PURPOSES ***
+    // normalizedRaceId  = strips "-GP" → "Australian-Grand-Prix"   (prediction MAP KEY)
+    // resultDocId       = keeps  "-GP" → "Australian-Grand-Prix-GP" (Firestore doc ID)
+    // These must remain different. normalizedRaceId is also applied to each stored
+    // prediction's raceId at line 210 — both sides strip identically → always match.
+    // DO NOT unify these into a single value. (GEMINI-AUDIT-131: false alarm)
     const normalizedRaceId = normalizeRaceIdForPredictions(raceName);
     const resultDocId = createRaceResultDocId(raceName);
 
@@ -206,7 +220,12 @@ export async function POST(request: NextRequest) {
 
       const timestamp = predData.submittedAt?.toDate?.() || predData.createdAt?.toDate?.() || new Date(0);
 
-      // Normalise the prediction's raceId for comparison
+      // *** IMPORTANT — THIS IS THE KEY TO WHY SCORING WORKS ***
+      // Stored predictions use raceId "Australian-Grand-Prix-GP" (from generateRaceId).
+      // We normalize it HERE with the same function used for the lookup key (line 133),
+      // so both sides strip to "Australian-Grand-Prix" → they match at line 243.
+      // This is why the -GP asymmetry between storage and lookup is NOT a bug.
+      // (GEMINI-AUDIT-131 false alarm — Gemini missed this normalization step)
       const predRaceId = predData.raceId ? normalizeRaceIdForPredictions(predData.raceId) : null;
 
       // Get or create the team's prediction map
@@ -247,7 +266,12 @@ export async function POST(request: NextRequest) {
         return;
       }
 
-      // For Sprint races: check for base GP prediction (same prediction used for both Sprint and GP)
+      // *** IMPORTANT — SPRINT CARRY-FORWARD RELIES ON -GP BEING STRIPPED ***
+      // For Sprint races, we derive the base GP key by stripping "-Sprint" to get
+      // e.g. "Chinese-Grand-Prix". This only works because GP predictions are keyed
+      // under "Chinese-Grand-Prix" (not "Chinese-Grand-Prix-GP") — normalizeRaceId
+      // strips the -GP suffix. If normalizeRaceId were changed to preserve "-GP",
+      // this lookup would fail for every Sprint race. (GEMINI-AUDIT-131: false alarm)
       const isSprint = normalizedRaceId.endsWith('-Sprint');
       if (isSprint) {
         const baseRaceId = normalizedRaceId.replace(/-Sprint$/, '');
