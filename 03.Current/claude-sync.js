@@ -116,12 +116,19 @@ function parseExplicitSessionId() {
 /**
  * --name Bill|Bob|Ben — request a specific permit name on checkin.
  * If the slot is occupied and --force is also passed, the holder is evicted first.
+ * Falls back to CLAUDE_IDENTITY env var if --name flag is not provided
+ * (allows prix6.bat to set the preferred identity without passing --name explicitly).
  */
 function parseRequestedName() {
   const idx = rawArgs.indexOf('--name');
   if (idx !== -1 && rawArgs[idx + 1]) {
     const n = rawArgs[idx + 1];
     const matched = VALID_NAMES.find(v => v.toLowerCase() === n.toLowerCase());
+    return matched || null;
+  }
+  // Fallback: respect CLAUDE_IDENTITY env var (set by prix6.bat launcher)
+  if (process.env.CLAUDE_IDENTITY) {
+    const matched = VALID_NAMES.find(v => v.toLowerCase() === process.env.CLAUDE_IDENTITY.toLowerCase());
     return matched || null;
   }
   return null;
