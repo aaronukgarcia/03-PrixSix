@@ -1,7 +1,7 @@
 {
   "lastUpdated": "2026-02-24",
   "commits": [
-    {"id": "pending", "date": "2026-02-24", "version": "1.58.75", "author": "Bill (Claude Code)", "message": "feat(UX)+security: Wave 6 — dashboard onboarding/stats (VIRGIN-005/006), F1 tooltips (VIRGIN-007), standings legend (VIRGIN-012), Firestore rules orphan deleted (GEMINI-001), PIN redaction (GEMINI-AUDIT-126) (v1.58.75)", "major": false},
+    {"id": "5cff0a0", "date": "2026-02-24", "version": "1.58.75", "author": "Bill (Claude Code)", "message": "feat(UX)+security: Wave 6 — dashboard onboarding/stats (VIRGIN-005/006), F1 tooltips (VIRGIN-007), standings legend (VIRGIN-012), Firestore rules orphan deleted (GEMINI-001), PIN redaction (GEMINI-AUDIT-126) (v1.58.75)", "major": false},
     {"id": "169e758", "date": "2026-02-24", "version": "1.58.74", "author": "Bill (Claude Code)", "message": "security: Wave 5 remainder — getUserLeagues error propagation (LEAGUES-001), logClientError Pillar 1 in 6 mutations (LEAGUES-002), hot-news email 5-min throttle + env-gated admin address (ADMINCOMP-006B, GEMINI-AUDIT-055B) (v1.58.74)", "major": false},
     {"id": "3814e60", "date": "2026-02-24", "version": "1.58.73", "author": "Bill (Claude Code)", "message": "security: Waves 2-4 hardening + Wave 5 partial — client-safe errors, prompt injection, rate limits, XSS, auth race, UX (v1.58.73)", "major": false},
     {"id": "3acbc0e", "date": "2026-02-23", "version": "1.58.72", "author": "Bill (Claude Code)", "message": "fix(PERF-001): Move initializePerformance to getSdks() in firebase/index.ts — fires before React renders, eliminating PX-9002 FirebaseError from Tailwind class strings exceeding Firebase Performance 100-char attribute limit (v1.58.72)", "major": false},
