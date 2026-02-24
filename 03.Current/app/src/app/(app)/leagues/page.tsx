@@ -55,7 +55,7 @@ import { generateClientCorrelationId } from '@/lib/error-codes';
 //   for all CRUD operations. Navigates to league detail page on creation or view.
 export default function LeaguesPage() {
   const firestore = useFirestore();
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const { leagues, isLoading, setSelectedLeague } = useLeague();
   const { toast } = useToast();
   const router = useRouter();
@@ -196,26 +196,43 @@ export default function LeaguesPage() {
     }
   };
 
-  // GUID: PAGE_LEAGUES-005-v03
-  // [Intent] Permanently deletes a league (owners only), removing all member associations.
+  // GUID: PAGE_LEAGUES-005-v04
+  // [Intent] Permanently deletes a league (owners only) via server-side API route.
+  //          SECURITY FIX (GEMINI-002): Routes through /api/leagues/delete (Admin SDK) instead of
+  //          deleteLeague() client-side, which is now blocked by Firestore rules for non-admins.
   // [Inbound Trigger] User confirms the "Delete League?" alert dialog on an owned league card.
-  // [Downstream Impact] Calls deleteLeague from lib/leagues which deletes the Firestore "leagues" document.
-  //   All members lose access to the league immediately.
+  // [Downstream Impact] POST to /api/leagues/delete which verifies ownership server-side and deletes
+  //   the Firestore league document. All members lose access to the league immediately.
   const handleDelete = async (leagueId: string, leagueName: string) => {
-    if (!user) return;
+    if (!user || !firebaseUser) return;
 
-    const result = await deleteLeague(firestore, leagueId, user.id);
-
-    if (result.success) {
-      toast({
-        title: 'League Deleted',
-        description: `"${leagueName}" has been deleted.`,
+    try {
+      const token = await firebaseUser.getIdToken();
+      const response = await fetch('/api/leagues/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ leagueId }),
       });
-    } else {
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({ title: 'League Deleted', description: `"${leagueName}" has been permanently deleted.` });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Delete Failed',
+          description: `${data.error || 'Failed to delete league'} (${data.errorCode || ''} ID: ${data.correlationId || ''})`,
+        });
+      }
+    } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: result.error || 'Failed to delete league.',
+        title: 'Delete Failed',
+        description: 'An unexpected error occurred. Please try again.',
       });
     }
   };

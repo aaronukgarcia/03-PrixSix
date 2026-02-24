@@ -4,6 +4,9 @@
 // [Intent] Purge all documents from the race_results Firestore collection. Destructive — use with caution.
 // [Usage] node scripts/purge-race-results.js (run from project root)
 // [Moved] 2026-02-24 from project root — codebase tidy-up
+// ⚠️  DANGER: This script performs DESTRUCTIVE operations on the production Firebase database.
+// ⚠️  Operations are IRREVERSIBLE. Read scripts/DANGER.md before proceeding.
+// ⚠️  BOW SCRIPTS-001 security audit flag (2026-02-24).
 //
 // Purge all race_results (admin-entered results)
 const admin = require('firebase-admin');

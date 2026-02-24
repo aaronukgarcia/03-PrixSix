@@ -8,6 +8,9 @@
  * [Inbound Trigger] Manual execution to clean up scores after race_results deletion.
  * [Downstream Impact] Removes all score documents - standings will be empty until new scores are calculated.
  */
+// ⚠️  DANGER: This script performs DESTRUCTIVE operations on the production Firebase database.
+// ⚠️  Operations are IRREVERSIBLE. Read scripts/DANGER.md before proceeding.
+// ⚠️  BOW SCRIPTS-001 security audit flag (2026-02-24).
 
 import * as admin from 'firebase-admin';
 import { readFileSync } from 'fs';

@@ -4,6 +4,9 @@
 // [Intent] Purge all documents from the scores Firestore collection. Derivative data per Golden Rule #3 — safe to rebuild.
 // [Usage] node scripts/purge-scores.js (run from project root)
 // [Moved] 2026-02-24 from project root — codebase tidy-up
+// ⚠️  DANGER: This script performs DESTRUCTIVE operations on the production Firebase database.
+// ⚠️  Operations are IRREVERSIBLE. Read scripts/DANGER.md before proceeding.
+// ⚠️  BOW SCRIPTS-001 security audit flag (2026-02-24).
 //
 // Purge all scores (derivative data from race_results)
 // Golden Rule #3: When source of truth is deleted, derived data must also be deleted

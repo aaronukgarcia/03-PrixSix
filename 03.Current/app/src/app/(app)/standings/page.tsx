@@ -204,7 +204,7 @@ export default function StandingsPage() {
   // Track previous completed race count for auto-focus on new races
   const prevCompletedCountRef = useRef<number>(0);
 
-  // GUID: PAGE_STANDINGS-011-v06
+  // GUID: PAGE_STANDINGS-011-v07
   // [Intent] Real-time subscription to the entire scores collection — processes raw score documents,
   //   normalises raceId values via normalizeRaceIdForComparison() before storage so that legacy IDs
   //   (e.g., "Australian-Grand-Prix") and new-format IDs (e.g., "Australian-Grand-Prix-GP") both
@@ -216,6 +216,9 @@ export default function StandingsPage() {
   //   and lastUpdated state. All downstream memos (standings, chartData, raceWinners) depend on these.
   //   IMPORTANT: allScores.raceId values are normalised (lowercase, no -GP suffix). Any code comparing
   //   against them MUST also normalise the comparison key via normalizeRaceIdForComparison().
+  // @SECURITY_NOTE (STANDS-001): This listener reads the entire scores collection without a limit.
+  // Accepted risk: (~20 users x 24 races x 2 sessions = ~960 max documents/season).
+  // Size monitor: if snapshot grows unexpectedly, warn to catch runaway writes.
   useEffect(() => {
     if (!firestore) return;
 
@@ -226,6 +229,10 @@ export default function StandingsPage() {
       collection(firestore, "scores"),
       async (scoresSnapshot) => {
         try {
+          // STANDS-001 size monitor: warn if scores collection grows unexpectedly
+          if (scoresSnapshot.size > 2000) {
+            console.warn(`[Standings] STANDS-001: scores collection size ${scoresSnapshot.size} exceeds expected max of ~960 docs/season. Investigate runaway writes.`);
+          }
           const scores: ScoreData[] = [];
           const raceIdsWithScores = new Set<string>();
 

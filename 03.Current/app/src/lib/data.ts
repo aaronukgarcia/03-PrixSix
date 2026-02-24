@@ -1,4 +1,4 @@
-// GUID: LIB_DATA-000-v04
+// GUID: LIB_DATA-000-v05
 // @SECURITY_FIX (GEMINI-AUDIT-051): imageId removed from public Driver interface and moved to
 //   internal InternalDriver type. Public F1Drivers export strips imageId to prevent asset enumeration.
 //   getDriverImage() is the only sanctioned API for resolving driver images.
@@ -6,6 +6,12 @@
 //   Deadline enforcement is performed server-side via Firestore (race-schedule-server.ts + submit-prediction API).
 //   Clients knowing qualifying times in advance provides no meaningful bypass capability because
 //   the server independently validates every submission against Firestore-stored deadlines.
+// @SECURITY_NOTE (GEMINI-AUDIT-123): The RaceSchedule and F1Drivers arrays are hardcoded
+// client-side. If the 2026 season calendar changes mid-season (postponements, cancellations,
+// new slots), this static data will desync from the server-side Firestore source.
+// Impact: incorrect race countdowns, submission deadline errors, wrong raceId lookups.
+// Mitigation: Admin must update this file and redeploy when FIA calendar changes.
+// Accepted risk for the 2026 season -- a Firestore-driven calendar is a future enhancement.
 // [Intent] Provides standing data for F1 drivers and race schedule used throughout the app.
 //          Acts as the single source of truth for driver identities, team assignments, numbers,
 //          image mappings, and the 2026 race calendar with qualifying/sprint/race times.
