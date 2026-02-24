@@ -28,6 +28,7 @@ const ADMIN_EMAIL = 'aaron@garcia.ltd';
 const ADMIN_PIN = process.env.ADMIN_PIN;
 const IS_PURGE = process.argv.includes('--purge');
 const DRY_RUN = process.argv.includes('--dry-run');
+const IS_RESUME = process.argv.includes('--resume'); // Skip signup, login to existing accounts
 const SERVICE_ACCOUNT_PATH = path.resolve(__dirname, '../service-account.json');
 
 if (!ADMIN_PIN) {
@@ -46,7 +47,7 @@ const db = getFirestore();
 // All 10 land in the same Gmail inbox via + aliases.
 // Team names use "test-" prefix — that's the only flag needed to identify them at purge time.
 
-const TEST_PIN = '123456';
+const TEST_PIN = '847291'; // Strong enough to pass PIN validation
 
 const TEST_ACCOUNTS = Array.from({ length: 10 }, (_, i) => {
   const n = String(i + 1).padStart(2, '0');
@@ -131,13 +132,17 @@ function sep() { console.log('─'.repeat(70)); }
 
 async function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-/** Exchange a Firebase customToken for an idToken via REST API */
+/** Exchange a Firebase customToken for an idToken via REST API.
+ *  The API key has HTTP referrer restrictions — Referer header required. */
 async function exchangeCustomToken(customToken: string): Promise<string> {
   const res = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${FIREBASE_API_KEY}`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Referer': 'https://prix6.win/', // Required: API key has referrer restriction
+      },
       body: JSON.stringify({ token: customToken, returnSecureToken: true }),
     }
   );
@@ -189,38 +194,51 @@ interface Tester {
 // ─── PHASE 1: CREATE TEST ACCOUNTS ───────────────────────────────────────────
 
 async function createTestAccounts(): Promise<Tester[]> {
+  const mode = IS_RESUME ? 'Logging into existing' : 'Creating';
   sep();
-  log('PHASE 1 — Creating 10 test accounts (sequential)');
+  log(`PHASE 1 — ${mode} 10 test accounts (sequential)`);
   sep();
 
   const testers: Tester[] = [];
 
   for (let i = 0; i < TEST_ACCOUNTS.length; i++) {
     const acct = TEST_ACCOUNTS[i];
-    log(`  Signing up ${acct.teamName} (${acct.email})...`);
 
     if (DRY_RUN) {
-      log('  [DRY RUN] skipped');
+      log(`  [DRY RUN] ${acct.teamName}`);
       testers.push({ email: acct.email, teamName: acct.teamName, uid: `dry-uid-${i}`, idToken: 'dry-token' });
       continue;
     }
 
-    const res = await apiPost('/api/auth/signup', {
-      email: acct.email,
-      pin: acct.pin,
-      teamName: acct.teamName,
-    });
-
-    if (!res.success) {
-      log(`  ERROR: ${JSON.stringify(res)}`);
-      throw new Error(`Signup failed for ${acct.teamName}`);
+    if (IS_RESUME) {
+      // Login to existing account
+      log(`  Logging in ${acct.teamName} (${acct.email})...`);
+      const res = await apiPost('/api/auth/login', { email: acct.email, pin: acct.pin });
+      if (!res.success) {
+        log(`  ERROR: ${JSON.stringify(res)}`);
+        throw new Error(`Login failed for ${acct.teamName}`);
+      }
+      const idToken = await exchangeCustomToken(res.customToken);
+      testers.push({ email: acct.email, teamName: acct.teamName, uid: res.uid, idToken });
+      log(`  ✓ ${acct.teamName} uid=${res.uid}`);
+      await sleep(800);
+    } else {
+      // Create new account
+      log(`  Signing up ${acct.teamName} (${acct.email})...`);
+      const res = await apiPost('/api/auth/signup', {
+        email: acct.email,
+        pin: acct.pin,
+        teamName: acct.teamName,
+      });
+      if (!res.success) {
+        log(`  ERROR: ${JSON.stringify(res)}`);
+        throw new Error(`Signup failed for ${acct.teamName}`);
+      }
+      const idToken = await exchangeCustomToken(res.customToken);
+      testers.push({ email: acct.email, teamName: acct.teamName, uid: res.uid, idToken });
+      log(`  ✓ ${acct.teamName} uid=${res.uid}`);
+      await sleep(1200); // Pace signups — sentinel guard
     }
-
-    const idToken = await exchangeCustomToken(res.customToken);
-    testers.push({ email: acct.email, teamName: acct.teamName, uid: res.uid, idToken });
-    log(`  ✓ ${acct.teamName} uid=${res.uid}`);
-
-    await sleep(1200); // Pace signups — sentinel guard
   }
 
   return testers;
@@ -267,18 +285,39 @@ async function runSeason(testers: Tester[], adminToken: string) {
     const round = race.round; // 1-based
     const gpResultIndex = ri; // parallel array
 
-    // Events for this race weekend
-    const events: Array<{ raceName: string; result: string[] }> = [];
+    // Events for this race weekend.
+    // IMPORTANT: submit-prediction uses base raceName for getRaceByName() lookup.
+    //   Sprint is identified via raceId suffix, NOT via raceName.
+    //   calculate-scores uses "Name - Sprint" in raceName to produce sprint doc ID.
+    interface Event {
+      displayName: string;    // logged + used for calculate-scores raceName
+      submissionName: string; // used for submit-prediction raceName (always base GP name)
+      raceId: string;         // Title-Case-hyphen + "-GP" or "-Sprint"
+      result: string[];
+      isSprint: boolean;
+    }
+    const events: Event[] = [];
     if (race.hasSprint && SPRINT_RESULTS[race.name]) {
-      events.push({ raceName: `${race.name} - Sprint`, result: SPRINT_RESULTS[race.name] });
+      events.push({
+        displayName: `${race.name} - Sprint`,
+        submissionName: race.name,  // getRaceByName expects the base GP name
+        raceId: race.name.replace(/\s+/g, '-') + '-Sprint',
+        result: SPRINT_RESULTS[race.name],
+        isSprint: true,
+      });
     }
     const gpResult = GP_RESULTS[gpResultIndex] || GP_RESULTS[GP_RESULTS.length - 1];
-    events.push({ raceName: race.name, result: gpResult });
+    events.push({
+      displayName: race.name,
+      submissionName: race.name,
+      raceId: race.name.replace(/\s+/g, '-') + '-GP',
+      result: gpResult,
+      isSprint: false,
+    });
 
     for (const event of events) {
-      const isSprint = event.raceName.includes('Sprint');
       sep();
-      log(`ROUND ${round}${isSprint ? ' (SPRINT)' : ''}: ${event.raceName}`);
+      log(`ROUND ${round}${event.isSprint ? ' (SPRINT)' : ''}: ${event.displayName}`);
       log(`  Actual result: ${event.result.join(', ')}`);
       sep();
 
@@ -295,8 +334,8 @@ async function runSeason(testers: Tester[], adminToken: string) {
           userId: tester.uid,
           teamId: tester.uid,
           teamName: tester.teamName,
-          raceId: event.raceName.replace(/\s+/g, '-'),
-          raceName: event.raceName,
+          raceId: event.raceId,           // Sprint-suffixed raceId for sprints
+          raceName: event.submissionName,  // Base GP name always (getRaceByName lookup)
           predictions: picks,
         }, tester.idToken);
 
@@ -312,14 +351,16 @@ async function runSeason(testers: Tester[], adminToken: string) {
       await sleep(500);
 
       // ── STEP B: Admin enters race result ───────────────────────────────────
-      log(`  → Admin entering result for "${event.raceName}"...`);
+      log(`  → Admin entering result for "${event.displayName}"...`);
       const [d1, d2, d3, d4, d5, d6] = event.result;
-      const raceId = event.raceName.replace(/\s+/g, '-');
+      // calculate-scores derives doc ID from raceName — pass displayName so it
+      // correctly generates "Name-Sprint" vs "Name-GP" doc IDs.
+      const raceId = event.raceId;
 
       if (!DRY_RUN) {
         const scoreRes = await apiPost('/api/calculate-scores', {
           raceId,
-          raceName: event.raceName,
+          raceName: event.displayName,
           driver1: d1, driver2: d2, driver3: d3,
           driver4: d4, driver5: d5, driver6: d6,
         }, adminToken);
@@ -432,7 +473,7 @@ async function purge(adminToken: string) {
 async function main() {
   sep();
   log('Prix Six — Season Test Orchestrator v1');
-  log(`Mode: ${IS_PURGE ? 'PURGE' : DRY_RUN ? 'DRY RUN' : 'FULL SEASON TEST'}`);
+  log(`Mode: ${IS_PURGE ? 'PURGE' : DRY_RUN ? 'DRY RUN' : IS_RESUME ? 'RESUME (login to existing accounts)' : 'FULL SEASON TEST'}`);
   log(`Target: ${BASE_URL}`);
   sep();
 

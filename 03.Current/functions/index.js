@@ -36,13 +36,23 @@ const ERROR_CODES = require("./error-codes.json");
 initializeApp();
 
 // ── Configuration ──────────────────────────────────────────────
-// GUID: BACKUP_FUNCTIONS-002-v04
+// GUID: BACKUP_FUNCTIONS-002-v05
 // [Intent] Centralise all environment-specific constants so they can be
 //          changed in one place if the project is forked or renamed.
 // [Inbound Trigger] Module load.
 // [Downstream Impact] Referenced by every function and helper in this file.
+// @SECURITY_FIX (Wave 10): Added project isolation guard — throws at cold-start if
+//   RECOVERY_PROJECT equals MAIN_PROJECT, preventing accidental import into production.
 const MAIN_PROJECT = "studio-6033436327-281b1";
 const RECOVERY_PROJECT = "prix6-recovery-test";
+
+// Project isolation guard — must remain at module level so it fires at cold-start
+if (RECOVERY_PROJECT === MAIN_PROJECT) {
+  throw new Error(
+    `SECURITY: RECOVERY_PROJECT must not equal MAIN_PROJECT (${MAIN_PROJECT}). ` +
+    "Refusing to start — import operations would target the production database."
+  );
+}
 const BUCKET = "prix6-backups";
 const REGION = "europe-west2";
 const STATUS_COLLECTION = "backup_status";
@@ -317,12 +327,21 @@ async function performBackup(db, { trigger = "scheduled" } = {}) {
       storageBackupSizeBytes,
     };
   } catch (err) {
-    // GUID: BACKUP_FUNCTIONS-015-v03
+    // GUID: BACKUP_FUNCTIONS-015-v04
     // [Intent] On failure, record the error in backup_status/latest so the
     //          admin dashboard shows a red "Failed" badge with the error message.
     // [Inbound Trigger] Any exception in the Firestore export or Auth export.
     // [Downstream Impact] Dashboard shows failure.
-    console.error("Backup failed:", err);
+    // @SECURITY_FIX (Wave 10): Log err.message only (not the full error object) to
+    //   prevent leaking stack traces and internal GCS/Firestore paths to Cloud Logging.
+    //   The correlationId is included so logs can be correlated with the Firestore status doc.
+    console.error(JSON.stringify({
+      severity: "ERROR",
+      message: "BACKUP_FAILED",
+      correlationId,
+      error: err.message || String(err),
+      timestamp: new Date().toISOString(),
+    }));
 
     await writeStatus(db, {
       lastBackupTimestamp: Timestamp.now(),
@@ -478,7 +497,14 @@ exports.manualBackup = onCall(
       const { correlationId, gcsPrefix } = await performBackup(db, { trigger: "manual" });
       return { success: true, correlationId, backupPath: gcsPrefix };
     } catch (err) {
-      console.error("Manual backup failed:", err);
+      // @SECURITY_FIX (Wave 10): Log err.message only (not full error object).
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "MANUAL_BACKUP_FAILED",
+        correlationId: err.correlationId || "unknown",
+        error: err.message || String(err),
+        timestamp: new Date().toISOString(),
+      }));
       return {
         success: false,
         error: err.message || String(err),
@@ -662,7 +688,14 @@ exports.listBackupHistory = onCall(
 
       return { success: true, count: entries.length, entries };
     } catch (err) {
-      console.error("listBackupHistory failed:", err);
+      // @SECURITY_FIX (Wave 10): Log err.message only (not full error object).
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "LIST_BACKUP_HISTORY_FAILED",
+        correlationId,
+        error: err.message || String(err),
+        timestamp: new Date().toISOString(),
+      }));
 
       // Write failure record to backup_history for audit trail
       await db.collection(HISTORY_COLLECTION).doc(correlationId).set({
@@ -739,6 +772,19 @@ exports.runRecoveryTest = onSchedule(
       }
 
       const backupPath = statusSnap.data().lastBackupPath;
+
+      // @SECURITY_FIX (Wave 10): Validate backup path before use as GCS import URI.
+      // backupPath originates from Firestore (backup_status/latest.lastBackupPath).
+      // If tampered, an attacker with write access to that document could redirect
+      // the import to an arbitrary GCS path. Validate it starts with the expected
+      // bucket prefix to prevent SSRF-style GCS path injection.
+      const EXPECTED_PATH_PREFIX = `gs://${BUCKET}/`;
+      if (typeof backupPath !== "string" || !backupPath.startsWith(EXPECTED_PATH_PREFIX)) {
+        throw new Error(
+          `Invalid backup path: expected prefix '${EXPECTED_PATH_PREFIX}', got '${String(backupPath).substring(0, 60)}'`
+        );
+      }
+
       const firestoreExportPath = `${backupPath}/firestore`;
 
       // GUID: BACKUP_FUNCTIONS-022-v04
@@ -915,7 +961,14 @@ exports.runRecoveryTest = onSchedule(
       // [Inbound Trigger] Any exception during import, verification, or cleanup.
       // [Downstream Impact] Dashboard shows failure. Re-throw marks invocation
       //                     as failed in Cloud Functions console.
-      console.error("Recovery test failed:", err);
+      // @SECURITY_FIX (Wave 10): Log err.message only (not full error object).
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "RECOVERY_TEST_FAILED",
+        correlationId,
+        error: err.message || String(err),
+        timestamp: new Date().toISOString(),
+      }));
 
       await writeStatus(db, {
         lastSmokeTestTimestamp: Timestamp.now(),
@@ -994,6 +1047,16 @@ exports.manualSmokeTest = onCall(
       }
 
       const backupPath = statusSnap.data().lastBackupPath;
+
+      // @SECURITY_FIX (Wave 10): Validate backup path before use as GCS import URI.
+      // Matches the same guard in runRecoveryTest — see BACKUP_FUNCTIONS-022-v04 comment.
+      const EXPECTED_PATH_PREFIX = `gs://${BUCKET}/`;
+      if (typeof backupPath !== "string" || !backupPath.startsWith(EXPECTED_PATH_PREFIX)) {
+        throw new Error(
+          `Invalid backup path: expected prefix '${EXPECTED_PATH_PREFIX}', got '${String(backupPath).substring(0, 60)}'`
+        );
+      }
+
       const firestoreExportPath = `${backupPath}/firestore`;
 
       const recoveryAdmin = new FirestoreAdminClient({
@@ -1064,7 +1127,14 @@ exports.manualSmokeTest = onCall(
 
       return { success: true, correlationId };
     } catch (err) {
-      console.error("Manual smoke test failed:", err);
+      // @SECURITY_FIX (Wave 10): Log err.message only (not full error object).
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "MANUAL_SMOKE_TEST_FAILED",
+        correlationId,
+        error: err.message || String(err),
+        timestamp: new Date().toISOString(),
+      }));
 
       await writeStatus(db, {
         lastSmokeTestTimestamp: Timestamp.now(),

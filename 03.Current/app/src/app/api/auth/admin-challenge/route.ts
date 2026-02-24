@@ -185,13 +185,15 @@ This is an automated security email from Prix Six
     });
 
     if (!emailResult.success) {
-      // Log the actual email error for diagnostics
-      console.error('[Admin Challenge] Email send failed:', {
-        correlationId,
-        emailError: emailResult.error,
-        queued: emailResult.queued,
-        queueReason: emailResult.queueReason,
-      });
+      // @SECURITY_FIX (Wave 11): Gated for NODE_ENV consistency — fields are safe (no raw error object) but kept off prod logs.
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[Admin Challenge] Email send failed:', {
+          correlationId,
+          emailError: emailResult.error,
+          queued: emailResult.queued,
+          queueReason: emailResult.queueReason,
+        });
+      }
 
       return NextResponse.json(
         {
