@@ -93,7 +93,8 @@ export async function getFirebaseAdmin(): Promise<{
   return { db: adminDb, FieldValue: adminFieldValue, Timestamp: adminTimestamp };
 }
 
-// GUID: LIB_FIREBASE_ADMIN-003-v03
+// GUID: LIB_FIREBASE_ADMIN-003-v04
+// @SECURITY_FIX: Wave 2 RT carryover — verifyAuthToken catch now logs only sanitized error message/code, not full error object.
 // [Intent] Verifies a Firebase ID token from an Authorization header and returns the decoded user identity (uid and email), or null if invalid/missing.
 // [Inbound Trigger] Called by protected API routes to authenticate incoming requests via the Bearer token in the Authorization header.
 // [Downstream Impact] All protected API endpoints depend on this for authentication. Returning null causes the caller to reject the request as unauthorised. Changes to token verification logic affect the entire auth boundary.
@@ -120,7 +121,13 @@ export async function verifyAuthToken(authHeader: string | null): Promise<{
       email: decodedToken.email,
     };
   } catch (error) {
-    console.error('[Auth] Token verification failed:', error);
+    // SECURITY: Log only safe fields — not the full error object which may contain token fragments or SDK internals.
+    const safeMsg = error instanceof Error ? error.message : String((error as any)?.code ?? 'unknown');
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[Auth] Token verification failed:', error);
+    } else {
+      console.error('[Auth] Token verification failed:', safeMsg);
+    }
     return null;
   }
 }

@@ -14,7 +14,8 @@
 
 import { useEffect } from 'react';
 import { generateClientCorrelationId } from '@/lib/error-codes';
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 
 // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-001-v01
 // [Intent] Check if error is a chunk load error (already handled by ChunkErrorHandler).

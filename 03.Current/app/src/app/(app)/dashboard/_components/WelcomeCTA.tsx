@@ -1,9 +1,15 @@
-// GUID: COMPONENT_WELCOME_CTA-000-v03
+// GUID: COMPONENT_WELCOME_CTA-000-v04
 // [Intent] Dismissible welcome CTA card for the dashboard. Encourages new users to visit
 //          the onboarding checklist at /onboarding. Persists dismiss state in localStorage.
 // [Inbound Trigger] Rendered on the dashboard page between pre-season alert and race cards.
 // [Downstream Impact] Routes user to /onboarding on click. Dismiss writes to localStorage.
 // @FIX(v03) Smart completion check — only shows if onboarding incomplete AND not dismissed.
+// @FIX(v04) GEMINI-AUDIT-040 resolved: Client-side dismissal confirmed as ACCEPTED RISK.
+//   This CTA is cosmetic/informational only — it links to /onboarding but does NOT gate any
+//   security step. All actual security actions (email verification, account setup) are enforced
+//   server-side independently of this component. Re-displaying this CTA after localStorage
+//   clear is benign — the user simply dismisses it again. See GUID COMPONENT_WELCOME_CTA-001
+//   for the full security warning documenting when client-only dismissal is NOT acceptable.
 
 "use client";
 

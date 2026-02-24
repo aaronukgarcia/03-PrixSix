@@ -43,7 +43,8 @@ import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { getProviderIds } from "@/services/authService";
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 import { doesTeamNameMatchEmail } from '@/lib/team-name-suggestions';
 

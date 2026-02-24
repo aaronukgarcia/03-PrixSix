@@ -25,7 +25,8 @@ import {
   User as FirebaseAuthUser,
 } from 'firebase/auth';
 import { generateClientCorrelationId } from '@/lib/error-codes';
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 
 // GUID: SERVICE_AUTH_OAUTH-001-v03
 // [Intent] Type definitions for OAuth operation results, providing structured success/error

@@ -1,11 +1,11 @@
 {
   "module": "Prix Six Application",
-  "generated": "2026-02-20",
-  "total_guids": 1039,
+  "generated": "2026-02-24",
+  "total_guids": 1060,
   "guids": [
     {
       "guid": "ADMIN_ATTACK_MONITOR-000",
-      "version": 4,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
       "description": "Admin security component that displays unacknowledged attack alerts (bot attacks, credential stuffing, distributed attacks) with severity-coded UI and acknowledgement controls.",
       "dependencies": [
@@ -30,7 +30,7 @@
         ]
       },
       "created": "2026-01-26T02:13:39Z",
-      "lastUpdated": "2026-02-10T16:49:45Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_ATTACK_MONITOR-001",
@@ -2859,7 +2859,7 @@
     },
     {
       "guid": "ADMIN_EMAILLOG-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for managing the email queue (push, resend, delete) and viewing historical email send logs.",
       "dependencies": [],
@@ -3064,7 +3064,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-10T14:33:27Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_EMAILLOG-001",
@@ -6213,7 +6213,7 @@
     },
     {
       "guid": "ADMIN_ERRORLOG-000",
-      "version": 5,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for viewing, searching, filtering, and resolving system error logs.",
       "dependencies": [
@@ -6353,7 +6353,7 @@
         ]
       },
       "created": "2026-01-22T10:54:37Z",
-      "lastUpdated": "2026-02-10T16:48:01Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_ERRORLOG-001",
@@ -13207,7 +13207,7 @@
     },
     {
       "guid": "ADMIN_LEAGUES-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for viewing all leagues, their owners, member counts, invite codes, and expandable member lists.",
       "dependencies": [
@@ -13350,7 +13350,7 @@
         ]
       },
       "created": "2026-01-29T19:34:25Z",
-      "lastUpdated": "2026-02-10T14:34:41Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_LEAGUES-001",
@@ -29475,6 +29475,75 @@
       "lastUpdated": "2026-02-19T18:00:00Z"
     },
     {
+      "guid": "API_ADMIN_PREDICTION_COUNT-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Admin API route (GET) that counts predictions across all user sub-collections. Replaces unauthenticated client-side collectionGroup query. Verifies Firebase Auth token and admin Firestore flag before returning count with capped indicator.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_FIREBASE_ADMIN-006",
+        "LIB_ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/prediction-count/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_RESULTS-000"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-000",
+          "LIB_FIREBASE_ADMIN-006"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_PREDICTION_COUNT-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Auth guard for prediction-count route: verifies Bearer token via verifyAuthToken, then checks isAdmin flag in Firestore. Returns 401 with ERRORS.AUTH_INVALID_TOKEN or 403 with ERRORS.AUTH_ADMIN_REQUIRED before any data access.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-006"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/prediction-count/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_PREDICTION_COUNT-000"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-006"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_PREDICTION_COUNT-002",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Firestore collectionGroup query on predictions with hard limit of 2000. Returns count and capped boolean. Server-side replacement for the previous client-side unbounded query (GEMINI-AUDIT-027).",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/prediction-count/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_PREDICTION_COUNT-001"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
       "guid": "API_ADMIN_UPDATE_USER-000",
       "version": 4,
       "logic_category": "ORCHESTRATION",
@@ -31834,7 +31903,7 @@
     },
     {
       "guid": "API_AI_ANALYSIS-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "AI-powered race prediction analysis API route. Accepts a user's top-6 driver prediction and analysis weight configuration, builds a dynamic weighted prompt, calls Genkit/Gemini AI, and returns structured analysis text covering multiple F1 analysis facets and optional pundit personas.",
       "dependencies": [
@@ -31889,7 +31958,7 @@
         "calls": []
       },
       "created": "2026-01-22T09:29:43Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AI_ANALYSIS-001",
@@ -32190,7 +32259,7 @@
     },
     {
       "guid": "API_AI_ANALYSIS-006",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Build the complete AI prompt dynamically based on race details, user predictions, and weight configuration. Includes facet descriptions with emphasis levels, word budgets, exclusion notes, and formatting rules (British English, headings, verdict).",
       "dependencies": [
@@ -32246,11 +32315,11 @@
         "calls": []
       },
       "created": "2026-01-22T09:29:43Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AI_ANALYSIS-007",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "POST handler that validates weights, builds the prediction list and weighted prompt, calls Genkit AI (Gemini), and returns the analysis text. Includes dedicated error handling for AI generation failures separate from general errors.",
       "dependencies": [
@@ -32306,7 +32375,7 @@
         "calls": []
       },
       "created": "2026-01-22T09:29:43Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AI_ANALYSIS-008",
@@ -32484,6 +32553,47 @@
       },
       "created": "2026-01-22T09:29:43Z",
       "lastUpdated": "2026-02-12T22:59:58Z"
+    },
+    {
+      "guid": "API_AI_ANALYSIS-011",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Sanitize a user-controlled string before interpolation into an AI prompt. Strips control characters, newlines, carriage returns, null bytes, and any characters outside the safe allowlist (alphanumeric, space, hyphen, apostrophe, dot, comma, parentheses, ampersand). Truncates to maxLen to prevent oversized inputs.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/ai/analysis/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_AI_ANALYSIS-006",
+          "API_AI_ANALYSIS-007"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "API_AI_ANALYSIS-012",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Enforce per-user AI analysis rate limit using a Firestore sliding-window counter. Reads users/{userId}/aiRateLimit/current, resets the window if the 1-hour period has elapsed, and atomically increments the counter via a Firestore transaction. Returns allowed:true if under 20 req/hour, allowed:false if exceeded. Called after auth verification.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/ai/analysis/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_AI_ANALYSIS-007"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-000"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "API_AUTH_COMPLETE_OAUTH-000",
@@ -39748,6 +39858,29 @@
       "lastUpdated": "2026-02-17T20:19:04Z"
     },
     {
+      "guid": "API_LEAGUE_JOIN-001",
+      "version": 5,
+      "logic_category": "VALIDATION",
+      "description": "Request validation and guard blocks for the join-by-code API route: auth check, format/length validation, league-not-found, already-member, global-league guard, max-leagues limit. Fixed (LEAGUES-004): all 6 guards now use ERRORS.KEY from error-registry with errorCode and correlationId instead of hardcoded inline strings.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-006",
+        "LIB_ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/leagues/join-by-code/route.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_LEAGUE_JOIN-000"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-006"
+        ]
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
       "guid": "API_LOG_CLIENT_ERROR-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
@@ -40929,9 +41062,9 @@
     },
     {
       "guid": "API_SEND_HOT_NEWS_EMAIL-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces daily global and per-address rate limits, logs audit events, and tracks email stats.",
+      "description": "API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces authentication (admin-only), 5-minute server-side broadcast cooldown (emailBroadcastThrottle), 1-hour broadcast cooldown (hot_news_email_throttle), daily global and per-address rate limits, logs audit events, and tracks email stats. ADMINCOMP-006B: server-side throttle added. GEMINI-AUDIT-055B: hardcoded admin email removed (requireAdminEmail() from env var).",
       "dependencies": [
         "LIB_EMAIL-000",
         "LIB_EMAIL-001",
@@ -41064,13 +41197,13 @@
         "calls": []
       },
       "created": "2026-01-20T23:50:13Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "API_SEND_HOT_NEWS_EMAIL-001",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Rate-limiting constants â€” caps total daily emails at 30 globally and 5 per individual address to prevent abuse and protect Graph API quotas.",
+      "description": "Rate-limiting constants and requireAdminEmail() helper. Caps total daily emails at 30 globally and 5 per individual address. Enforces 5-minute server-side cooldown (CLIENT_EMAIL_COOLDOWN_MS) and 1-hour broadcast cooldown (BROADCAST_COOLDOWN_MS). Admin email now read from GRAPH_SENDER_EMAIL/ADMIN_EMAIL env var via requireAdminEmail() — never hardcoded. GEMINI-AUDIT-055B + ADMINCOMP-006B.",
       "dependencies": [
         "LIB_EMAIL-000",
         "LIB_EMAIL-001",
@@ -41202,7 +41335,29 @@
         "calls": []
       },
       "created": "2026-01-20T23:50:13Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_SEND_HOT_NEWS_EMAIL-001B",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "requireAdminEmail() — resolves the admin sender address used for per-address rate-limit exemption. Reads GRAPH_SENDER_EMAIL then ADMIN_EMAIL env var. Fails fast with logError() + ERRORS.EMAIL_CONFIG_MISSING + correlationId if neither is configured. No hardcoded fallback. GEMINI-AUDIT-055B fix.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/send-hot-news-email/route.ts",
+        "functionName": "requireAdminEmail"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_SEND_HOT_NEWS_EMAIL-005"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "API_SEND_HOT_NEWS_EMAIL-002",
@@ -41621,9 +41776,9 @@
     },
     {
       "guid": "API_SEND_HOT_NEWS_EMAIL-005",
-      "version": 4,
+      "version": 5,
       "logic_category": "VALIDATION",
-      "description": "POST handler â€” orchestrates the entire hot news email broadcast: validates input, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.",
+      "description": "POST handler — authenticates admin caller, then orchestrates the entire hot news email broadcast: validates input, checks 5-minute server-side broadcast throttle (emailBroadcastThrottle via API_SEND_HOT_NEWS_EMAIL-005B), checks 1-hour broadcast cooldown (hot_news_email_throttle), logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, writes new emailBroadcastThrottle lastSentAt, and logs a summary audit event. ADMINCOMP-006B + GEMINI-AUDIT-055B.",
       "dependencies": [
         "LIB_EMAIL-000",
         "LIB_EMAIL-001",
@@ -41756,7 +41911,29 @@
         "calls": []
       },
       "created": "2026-01-20T23:50:13Z",
-      "lastUpdated": "2026-02-17T18:21:46Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "API_SEND_HOT_NEWS_EMAIL-005B",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Server-side 5-minute rate limit check on admin_configuration/emailBroadcastThrottle. Reads lastSentAt field; returns 429 with ERRORS.EMAIL_RATE_LIMITED + correlationId if within CLIENT_EMAIL_COOLDOWN_MS window. Writes new lastSentAt after successful send. Mirrors client-side HotNewsManager cooldown so HTTP clients cannot bypass the throttle. ADMINCOMP-006B fix.",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/send-hot-news-email/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_SEND_HOT_NEWS_EMAIL-005"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "API_SEND_HOT_NEWS_EMAIL-006",
@@ -42928,6 +43105,30 @@
       },
       "created": "2026-01-19T00:38:00Z",
       "lastUpdated": "2026-02-10T15:42:20Z"
+    },
+    {
+      "guid": "API_SEND_RESULTS_EMAIL-001B",
+      "version": 2,
+      "logic_category": "SECURITY",
+      "description": "Server-side rate-limit check using Admin SDK. Includes requireAdminEmail() which resolves the admin email from GRAPH_SENDER_EMAIL/ADMIN_EMAIL env vars at runtime to exempt it from per-address rate limits. Fails fast with EMAIL_CONFIG_MISSING+logError+correlationId if env var is absent (GEMINI-AUDIT-055C).",
+      "dependencies": [
+        "LIB_FIREBASE_ADMIN-000",
+        "ERROR_REGISTRY-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/send-results-email/route.ts",
+        "functionName": "canSendEmailAdmin"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_SEND_RESULTS_EMAIL-003"
+        ],
+        "calls": [
+          "LIB_FIREBASE_ADMIN-000"
+        ]
+      },
+      "created": "2026-02-10T15:42:20Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "API_SEND_RESULTS_EMAIL-002",
@@ -53277,7 +53478,7 @@
     },
     {
       "guid": "COMPONENT_APP_SIDEBAR-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Main application sidebar component providing navigation links, admin panel access,",
       "dependencies": [
@@ -53370,9 +53571,9 @@
     },
     {
       "guid": "COMPONENT_APP_SIDEBAR-001",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Static menu item configuration defining all navigation routes available to regular users.",
+      "description": "Menu items rendered ABOVE the Results collapsible group: Dashboard, Schedule, Predictions, Standings.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -53460,6 +53661,22 @@
       },
       "created": "2026-01-18T19:25:01Z",
       "lastUpdated": "2026-02-17T19:14:37Z"
+    },
+    {
+      "guid": "COMPONENT_APP_SIDEBAR-001B",
+      "version": 5,
+      "logic_category": "ORCHESTRATION",
+      "description": "Menu items rendered BELOW the Results collapsible group. VIRGIN-017: Added Getting Started (/onboarding) as a permanent nav entry so users can always access the onboarding checklist. Renamed About to Help with HelpCircle icon.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/layout/AppSidebar.tsx"
+      },
+      "callChain": {
+        "calledBy": ["COMPONENT_APP_SIDEBAR-002"],
+        "calls": ["PAGE_ONBOARDING-000"]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "COMPONENT_APP_SIDEBAR-002",
@@ -56402,7 +56619,7 @@
     },
     {
       "guid": "COMPONENT_PREDICTION_EDITOR-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "PredictionEditor component: the core prediction interface where users select, reorder, and submit their top-6 driver predictions for a race. Also provides AI-powered analysis with configurable weights, countdown timer, apply-to-all-teams option, and a change log.",
       "dependencies": [
@@ -58477,9 +58694,9 @@
     },
     {
       "guid": "COMPONENT_PREDICTION_EDITOR-017",
-      "version": 3,
+      "version": 4,
       "logic_category": "RECOVERY",
-      "description": "Persists the current AI analysis weights to the user's Firestore document. Fire-and-forget: failure is logged but not shown to the user.",
+      "description": "Persists the current AI analysis weights to the user's Firestore document after validateWeights() guard passes. GEMINI-AUDIT-036: added validation to reject NaN, Infinity, out-of-range, and non-integer values before Firestore write.",
       "dependencies": [
         "LIB_DATA-000",
         "LIB_DATA-001",
@@ -58594,11 +58811,11 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T17:44:04Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "COMPONENT_PREDICTION_EDITOR-018",
-      "version": 3,
+      "version": 6,
       "logic_category": "VALIDATION",
       "description": "Requests AI-powered race analysis from /api/ai/analysis with the current predictions and weights. Validates grid completeness first. Handles errors with correlation IDs and user-copyable error toasts per Golden Rule #1.",
       "dependencies": [
@@ -58733,7 +58950,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T17:44:04Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "COMPONENT_PREDICTION_EDITOR-019",
@@ -58856,8 +59073,32 @@
       "lastUpdated": "2026-02-01T17:44:04Z"
     },
     {
+      "guid": "COMPONENT_PREDICTION_EDITOR-020",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "GEMINI-AUDIT-036: Validates all AI analysis weight values before Firestore persistence. Each weight must be a finite integer in the range [0, 10] matching the Slider UI constraints. Rejects NaN, Infinity, negative, >10, fractional, and wrong key-count objects.",
+      "dependencies": [
+        "FIREBASE_PROVIDER-000",
+        "FIREBASE_PROVIDER-001",
+        "LIB_ERROR_CODES-000",
+        "LIB_ERROR_CODES-001"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/PredictionEditor.tsx",
+        "functionName": "validateWeights"
+      },
+      "callChain": {
+        "calledBy": [
+          "COMPONENT_PREDICTION_EDITOR-017"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
       "guid": "COMPONENT_SECURITY_UPGRADE-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "PRESENTATION",
       "description": "Card component that prompts PIN-only users to link a Google or Apple account for improved security. Uses the AccountLinker facade to perform the upgrade. Displays idle, loading, success, and error states. via Firebase Auth. On success, onAuthStateChanged syncs providers to Firestore.",
       "dependencies": [
@@ -59299,11 +59540,11 @@
         ]
       },
       "created": "2026-01-30T20:21:35Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "COMPONENT_SECURITY_UPGRADE-001",
-      "version": 3,
+      "version": 4,
       "logic_category": "PRESENTATION",
       "description": "Main exported component. Shows upgrade prompt for PIN-only users, with Google and Apple link buttons. Renders a success confirmation after linking. happens automatically via onAuthStateChanged in the background.",
       "dependencies": [
@@ -59330,11 +59571,11 @@
         ]
       },
       "created": "2026-01-30T20:21:35Z",
-      "lastUpdated": "2026-01-30T20:21:35Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "COMPONENT_SECURITY_UPGRADE-002",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Handle the upgrade action for a given provider.",
       "dependencies": [
@@ -59361,7 +59602,7 @@
         ]
       },
       "created": "2026-01-30T20:21:35Z",
-      "lastUpdated": "2026-01-30T20:21:35Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "COMPONENT_VERSION_HISTORY-000",
@@ -59778,9 +60019,9 @@
     },
     {
       "guid": "COMPONENT_WELCOME_CTA-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "PRESENTATION",
-      "description": "Dismissible welcome CTA card for the dashboard. Encourages new users to visit the onboarding checklist at /onboarding. Persists dismiss state in localStorage.",
+      "description": "Dismissible welcome CTA card for the dashboard. Encourages new users to visit the onboarding checklist at /onboarding. Persists dismiss state in localStorage. GEMINI-AUDIT-040 resolved: client-only dismissal confirmed as accepted risk — CTA is cosmetic/informational, not a security gate.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx"
@@ -59814,7 +60055,7 @@
         ]
       },
       "created": "2026-01-31T17:44:31Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "COMPONENT_WELCOME_CTA-001",
@@ -59939,6 +60180,31 @@
       },
       "created": "2026-01-31T17:44:31Z",
       "lastUpdated": "2026-02-17T21:44:19Z"
+    },
+    {
+      "guid": "ERROR_REGISTRY_CLIENT-000",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Client-safe error registry re-exporting only key, code, message, severity fields from the full error-registry. Prevents internal metadata (guid, module, file, functionName, recovery, failureModes, calledBy, calls) from being bundled into client-side JavaScript. Server-side code uses the full ERRORS from error-registry.ts.",
+      "dependencies": [
+        "TYPES_ERRORS-000"
+      ],
+      "location": {
+        "filePath": "app/src/lib/error-registry-client.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "FIREBASE_PROVIDER-000",
+          "ADMIN_PUB_CHAT-000",
+          "COMPONENT_FEEDBACK_FORM-000",
+          "COMPONENT_VERSION_HISTORY-000",
+          "COMPONENT_GLOBAL_ERROR-000",
+          "AUTH_SERVICE-000"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "FEATURE_ACCOUNT_LINKER-000",
@@ -61605,10 +61871,10 @@
     },
     {
       "guid": "FIREBASE_PROVIDER-008",
-      "version": 4,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
-      "description": "Sets up a two-layer real-time listener: (1) Firebase Auth state changes trigger",
-      "security_notes": "Auth state race condition documented. firebaseUser may be set before user profile loads.",
+      "description": "Sets up a two-layer real-time listener: (1) Firebase Auth state changes trigger (2) a Firestore onSnapshot listener on the user profile document. SECURITY FIX (GEMINI-AUDIT-043 AUTH-003): Race condition fully fixed via isMounted + isCurrentCallback flags and activeLoadingTimeout ref shared across rapid re-fires.",
+      "security_notes": "Auth state race condition fully mitigated. isMounted prevents state updates after unmount. isCurrentCallback prevents stale snapshot callbacks from superseded auth states. activeLoadingTimeout cleared in all exit paths.",
       "dependencies": [
         "SERVICE_AUTH_OAUTH-000",
         "SERVICE_AUTH_OAUTH-001",
@@ -61811,7 +62077,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-13T00:23:43Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "FIREBASE_PROVIDER-009",
@@ -68457,7 +68723,7 @@
     },
     {
       "guid": "LIB_CONSISTENCY-000",
-      "version": 7,
+      "version": 8,
       "logic_category": "ORCHESTRATION",
       "description": "Central consistency-checking library for the Prix Six application.",
       "dependencies": [
@@ -68494,7 +68760,7 @@
         "calls": []
       },
       "created": "2026-01-19T20:10:52Z",
-      "lastUpdated": "2026-02-13T12:00:34Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_CONSISTENCY-001",
@@ -69674,7 +69940,7 @@
     },
     {
       "guid": "LIB_CONSISTENCY-030",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Validate all league documents for structural integrity and referential",
       "dependencies": [
@@ -69710,7 +69976,7 @@
         "calls": []
       },
       "created": "2026-01-19T20:10:52Z",
-      "lastUpdated": "2026-02-13T12:00:34Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_CONSISTENCY-031",
@@ -69754,10 +70020,65 @@
       "lastUpdated": "2026-02-13T12:00:34Z"
     },
     {
+      "guid": "LIB_CSRF-000",
+      "version": 2,
+      "logic_category": "SECURITY",
+      "description": "CSRF protection module: ALLOWED_ORIGINS array and validateCsrfOrigin() function. Fixed (GEMINI-AUDIT-108): replaced startsWith() with Array.includes() for exact origin match to prevent subdomain bypass attacks.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/csrf-protection.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-20T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CSRF-001",
+      "version": 2,
+      "logic_category": "SECURITY",
+      "description": "validateCsrfOrigin() function: validates request Origin header against ALLOWED_ORIGINS using exact match (includes()). Returns boolean. Used by all state-changing API routes as CSRF protection.",
+      "dependencies": [
+        "LIB_CSRF-000"
+      ],
+      "location": {
+        "filePath": "app/src/lib/csrf-protection.ts",
+        "functionName": "validateCsrfOrigin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-20T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CSRF-002",
+      "version": 2,
+      "logic_category": "SECURITY",
+      "description": "CSRF validation middleware helper: extracts Origin header, validates with validateCsrfOrigin(), and returns appropriate NextResponse error if validation fails.",
+      "dependencies": [
+        "LIB_CSRF-001"
+      ],
+      "location": {
+        "filePath": "app/src/lib/csrf-protection.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "LIB_CSRF-001"
+        ]
+      },
+      "created": "2026-02-20T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
       "guid": "LIB_DATA-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Provides standing data for F1 drivers and race schedule used throughout the app.",
+      "description": "Provides standing data for F1 drivers and race schedule used throughout the app. GEMINI-AUDIT-051: imageId removed from public Driver interface, moved to internal InternalDriver type; getDriverImage() is sole access path. GEMINI-AUDIT-052: RaceSchedule is client-side UX data only; server deadline enforcement uses Firestore via race-schedule-server.ts (accepted risk documented).",
       "dependencies": [
         "LIB_PLACEHOLDER_IMAGES-000",
         "LIB_PLACEHOLDER_IMAGES-001",
@@ -69775,7 +70096,51 @@
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "LIB_DATA-001A",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Internal-only driver type (InternalDriver) extending the public Driver interface with an imageId field. NOT exported. Used only within data.ts to maintain image mappings without exposing them to the client bundle. Security fix: GEMINI-AUDIT-051.",
+      "dependencies": [
+        "LIB_PLACEHOLDER_IMAGES-000",
+        "LIB_PLACEHOLDER_IMAGES-001",
+        "LIB_PLACEHOLDER_IMAGES-002"
+      ],
+      "location": {
+        "filePath": "app/src/lib/data.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "LIB_DATA-002A",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Public F1Drivers export that strips imageId from InternalF1Drivers via destructuring. Exposes only id, name, number, team to clients. Components MUST use getDriverImage() for image resolution. Security fix: GEMINI-AUDIT-051.",
+      "dependencies": [
+        "LIB_PLACEHOLDER_IMAGES-000",
+        "LIB_PLACEHOLDER_IMAGES-001",
+        "LIB_PLACEHOLDER_IMAGES-002"
+      ],
+      "location": {
+        "filePath": "app/src/lib/data.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "USE_COLLECTION-000",
+          "USE_DOC-000",
+          "LEAGUE_CONTEXT-000"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_DATA-001",
@@ -69951,9 +70316,9 @@
     },
     {
       "guid": "LIB_DATA-008",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Master race calendar for the 2026 F1 season (24 races). Defines qualifying deadlines",
+      "description": "Master race calendar for the 2026 F1 season (24 races). Defines qualifying deadlines for client-side UX only. GEMINI-AUDIT-052 accepted risk: timing data is public (official F1 calendar) and server-side enforcement via Firestore (race-schedule-server.ts) is the authoritative deadline gate. Client bundle exposure provides no meaningful bypass capability.",
       "dependencies": [
         "LIB_PLACEHOLDER_IMAGES-000",
         "LIB_PLACEHOLDER_IMAGES-001",
@@ -69971,7 +70336,7 @@
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_DATA-009",
@@ -70000,9 +70365,9 @@
     },
     {
       "guid": "LIB_EMAIL-000",
-      "version": 3,
+      "version": 8,
       "logic_category": "ORCHESTRATION",
-      "description": "Server-side email sending module using Microsoft Graph API via Azure AD credentials. Provides welcome emails and generic email dispatch with rate-limiting, queuing, and Firestore logging.",
+      "description": "Server-side email sending module using Microsoft Graph API via Azure AD credentials. Provides welcome emails and generic email dispatch with rate-limiting, queuing, and Firestore logging. Security fixes: GEMINI-AUDIT-055 (removed hardcoded email fallback), GEMINI-AUDIT-056 (getGraphClient uses logError+ERRORS.EMAIL_CONFIG_MISSING+correlationId).",
       "dependencies": [
         "LIB_EMAIL_TRACKING-000",
         "LIB_EMAIL_TRACKING-001",
@@ -70105,7 +70470,7 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL-001",
@@ -70219,9 +70584,9 @@
     },
     {
       "guid": "LIB_EMAIL-002",
-      "version": 4,
+      "version": 5,
       "logic_category": "RECOVERY",
-      "description": "Admin email address constant used as the default sender fallback. Uses ADMIN_EMAIL environment variable if set, otherwise falls back to hardcoded value. Single source of truth for admin email (Golden Rule #3). Security fix: GEMINI-AUDIT-055.",
+      "description": "requireSenderEmail() function: resolves authenticated sender email from GRAPH_SENDER_EMAIL then ADMIN_EMAIL env vars. Fails fast with ERRORS.EMAIL_CONFIG_MISSING + logError() + correlationId if neither is set. Replaces previous ADMIN_EMAIL constant that had a hardcoded fallback email address (information disclosure risk, GEMINI-AUDIT-055).",
       "dependencies": [
         "LIB_EMAIL_TRACKING-000",
         "LIB_EMAIL_TRACKING-001",
@@ -70325,11 +70690,11 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL-003",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Generate a RFC 4122 v4-style GUID for uniquely identifying each email sent, enabling tracking and audit trail lookup.",
       "dependencies": [
@@ -70435,13 +70800,13 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL-004",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Create and return an authenticated Microsoft Graph API client using Azure AD client credentials (tenant ID, client ID, client secret). This client is used to send emails via the Graph /sendMail endpoint.",
+      "description": "Create and return an authenticated Microsoft Graph API client using Azure AD client credentials (tenant ID, client ID, client secret). Config validation now uses logError()+ERRORS.EMAIL_CONFIG_MISSING+correlationId — no silent null returns or inline error strings (GEMINI-AUDIT-056).",
       "dependencies": [
         "LIB_EMAIL_TRACKING-000",
         "LIB_EMAIL_TRACKING-001",
@@ -70545,11 +70910,11 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL-005",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "Type definition for the result returned by email-sending functions, indicating success/failure, the tracking GUID, optional error detail, and whether the email was queued due to rate limiting.",
       "dependencies": [
@@ -70654,7 +71019,7 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL-006",
@@ -70767,9 +71132,9 @@
     },
     {
       "guid": "LIB_EMAIL-007",
-      "version": 3,
+      "version": 6,
       "logic_category": "VALIDATION",
-      "description": "Send a branded welcome email to a newly registered user containing their team name and 6-digit PIN. Enforces rate limiting via email-tracking, queues if rate-limited, logs success/failure to email_logs collection, and returns a tracking GUID.",
+      "description": "Send a branded welcome email to a newly registered user containing their team name and 6-digit PIN. Enforces rate limiting via email-tracking, queues if rate-limited, logs success/failure to email_logs collection, and returns a tracking GUID. Security fixes: requireSenderEmail() for sender address (GEMINI-AUDIT-055), console.error gated behind NODE_ENV (GEMINI-AUDIT-056).",
       "dependencies": [
         "LIB_EMAIL_TRACKING-000",
         "LIB_EMAIL_TRACKING-001",
@@ -70873,7 +71238,7 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL-008",
@@ -70987,9 +71352,9 @@
     },
     {
       "guid": "LIB_EMAIL-009",
-      "version": 3,
+      "version": 5,
       "logic_category": "RECOVERY",
-      "description": "Send a generic email with arbitrary HTML content via Microsoft Graph API. Appends a standard footer with tracking GUID and Prix Six branding. Logs success/failure to email_logs collection for admin audit.",
+      "description": "Send a generic email with arbitrary HTML content via Microsoft Graph API. Appends a standard footer with tracking GUID and Prix Six branding. Logs success/failure to email_logs collection for admin audit. Security fixes: requireSenderEmail() for sender address (GEMINI-AUDIT-055), console.error gated behind NODE_ENV (GEMINI-AUDIT-056).",
       "dependencies": [
         "LIB_EMAIL_TRACKING-000",
         "LIB_EMAIL_TRACKING-001",
@@ -71093,11 +71458,11 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T21:44:19Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL_TRACKING-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Client-side email tracking and rate-limiting module. Manages daily email statistics, enforces global and per-address send limits, provides email queuing for rate-limited messages, and generates daily summary HTML reports.",
       "dependencies": [],
@@ -71183,13 +71548,13 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL_TRACKING-001",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Rate-limit constants defining the maximum number of emails allowed per day globally and per individual recipient address.",
+      "description": "Rate-limit constants defining the maximum number of emails allowed per day globally and per individual recipient address. requireAdminEmailTracking resolves the admin email from env vars at runtime for per-address rate-limit exemption (GEMINI-AUDIT-055D).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/email-tracking.ts"
@@ -71273,7 +71638,7 @@
         "calls": []
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_EMAIL_TRACKING-002",
@@ -74235,7 +74600,7 @@
     },
     {
       "guid": "LIB_FIREBASE_ADMIN-003",
-      "version": 3,
+      "version": 4,
       "logic_category": "VALIDATION",
       "description": "Verifies a Firebase ID token from an Authorization header and returns the decoded user identity (uid and email), or null if invalid/missing.",
       "dependencies": [],
@@ -74248,7 +74613,7 @@
         "calls": []
       },
       "created": "2026-01-19T18:44:38Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_FIREBASE_ADMIN-004",
@@ -74286,9 +74651,9 @@
     },
     {
       "guid": "LIB_LEAGUES-000",
-      "version": 3,
+      "version": 7,
       "logic_category": "ORCHESTRATION",
-      "description": "Client-side league management module providing CRUD operations for custom leagues. Handles league creation, joining via invite codes, leaving, member removal, renaming, invite code regeneration, and deletion. All operations interact with the leagues Firestore collection.",
+      "description": "Client-side league management module providing CRUD operations for custom leagues. Handles league creation, leaving, member removal, renaming, invite code regeneration, and deletion. Join-by-code is server-side only. BOW LEAGUES-001: getUserLeagues now throws on error (prevents limit bypass). BOW LEAGUES-002: all mutation catch blocks write Pillar 1 error logs via logClientError helper (LIB_LEAGUES-011).",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -74297,7 +74662,8 @@
         "LIB_AUDIT-004",
         "LIB_AUDIT-005",
         "LIB_AUDIT-006",
-        "LIB_AUDIT-007"
+        "LIB_AUDIT-007",
+        "ERROR_REGISTRY_CLIENT-000"
       ],
       "location": {
         "filePath": "app/src/lib/leagues.ts"
@@ -74379,11 +74745,11 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_LEAGUES-001",
-      "version": 3,
+      "version": 5,
       "logic_category": "TRANSFORMATION",
       "description": "Generate a cryptographically random invite code of INVITE_CODE_LENGTH characters using an alphabet that excludes visually ambiguous characters (I, O, 0, 1) to reduce user input errors.",
       "dependencies": [
@@ -74477,13 +74843,13 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "LIB_LEAGUES-002",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Create a new custom league in Firestore with the requesting user as owner and sole initial member. Enforces the maximum leagues-per-user limit before creation.",
+      "description": "Create a new custom league in Firestore with the requesting user as owner and sole initial member. Enforces the maximum leagues-per-user limit before creation. BOW LEAGUES-001: getUserLeagues now throws on error so creation halts when limit cannot be verified. BOW LEAGUES-002: catch block calls logClientError (LIB_LEAGUES-011) for Pillar 1 error logging.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -74575,11 +74941,11 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_LEAGUES-003",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Join an existing league by looking up its invite code (case-insensitive), validating membership limits and duplicate membership, then adding the user's team ID to the league's memberUserIds array.",
       "dependencies": [
@@ -74677,9 +75043,9 @@
     },
     {
       "guid": "LIB_LEAGUES-004",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Remove the requesting user from a league's memberUserIds array. Prevents leaving the global league and prevents the league owner from leaving (they must transfer ownership or delete instead).",
+      "description": "Remove the requesting user from a league's memberUserIds array. Prevents leaving the global league and prevents the league owner from leaving (they must transfer ownership or delete instead). BOW LEAGUES-002: catch block calls logClientError (LIB_LEAGUES-011) for Pillar 1 error logging.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -74771,13 +75137,13 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_LEAGUES-005",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Query and return all leagues that contain the given userId (or teamId) in their memberUserIds array, using Firestore's array-contains query.",
+      "description": "Query and return all leagues that contain the given userId (or teamId) in their memberUserIds array, using Firestore's array-contains query. BOW LEAGUES-001: Changed from silent [] return on error to throwing — callers that need accurate count (createLeague) must handle the thrown error.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -74869,11 +75235,11 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_LEAGUES-006",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Fetch a single league document by its Firestore document ID, returning null if not found.",
       "dependencies": [
@@ -74971,9 +75337,9 @@
     },
     {
       "guid": "LIB_LEAGUES-007",
-      "version": 3,
+      "version": 5,
       "logic_category": "TRANSFORMATION",
-      "description": "Generate a new invite code for an existing league, replacing the old one. Only the league owner is authorised to perform this action, invalidating any previously shared invite codes.",
+      "description": "Generate a new invite code for an existing league, replacing the old one. Only the league owner is authorised to perform this action, invalidating any previously shared invite codes. BOW LEAGUES-002: catch block calls logClientError (LIB_LEAGUES-011) for Pillar 1 error logging.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75065,13 +75431,13 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_LEAGUES-008",
-      "version": 3,
+      "version": 5,
       "logic_category": "TRANSFORMATION",
-      "description": "Update the display name of a league. Only the league owner is authorised to rename. Trims whitespace from the new name before saving.",
+      "description": "Update the display name of a league. Only the league owner is authorised to rename. Trims whitespace from the new name before saving. BOW LEAGUES-002: catch block calls logClientError (LIB_LEAGUES-011) for Pillar 1 error logging.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75163,13 +75529,13 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_LEAGUES-009",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Remove a specified member from a league's memberUserIds array. Only the league owner can remove members, and the owner cannot remove themselves.",
+      "description": "Remove a specified member from a league's memberUserIds array. Only the league owner can remove members, and the owner cannot remove themselves. BOW LEAGUES-002: catch block calls logClientError (LIB_LEAGUES-011) for Pillar 1 error logging.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75261,13 +75627,13 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_LEAGUES-010",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Permanently delete a league document from Firestore. Only the league owner can delete, and the global league is protected from deletion.",
+      "description": "Permanently delete a league document from Firestore. Only the league owner can delete, and the global league is protected from deletion. BOW LEAGUES-002: catch block calls logClientError (LIB_LEAGUES-011) for Pillar 1 error logging.",
       "dependencies": [
         "LIB_AUDIT-000",
         "LIB_AUDIT-001",
@@ -75359,7 +75725,34 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-02-10T14:25:40Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "LIB_LEAGUES-011",
+      "version": 1,
+      "logic_category": "UTILITY",
+      "description": "Fire-and-forget client-side helper that writes a Pillar 1 error log entry to the error_logs Firestore collection. Uses addDocumentNonBlocking with skipErrorEmit=true. Silently catches its own failures. Called from all mutation catch blocks in leagues.ts (createLeague, leaveLeague, regenerateInviteCode, updateLeagueName, removeMember, deleteLeague) to satisfy Golden Rule #1 Pillar 1 (BOW LEAGUES-002).",
+      "dependencies": [
+        "LIB_LEAGUES-000",
+        "ERROR_REGISTRY_CLIENT-000"
+      ],
+      "location": {
+        "filePath": "app/src/lib/leagues.ts",
+        "functionName": "logClientError"
+      },
+      "callChain": {
+        "calledBy": [
+          "LIB_LEAGUES-002",
+          "LIB_LEAGUES-004",
+          "LIB_LEAGUES-007",
+          "LIB_LEAGUES-008",
+          "LIB_LEAGUES-009",
+          "LIB_LEAGUES-010"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "LIB_NORMALIZE_RACE_ID-000",
@@ -83873,7 +84266,7 @@
     },
     {
       "guid": "PAGE_LEAGUES-003",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Joins an existing league using a 6-character invite code, with support for primary or secondary team selection.",
       "dependencies": [
@@ -84404,7 +84797,7 @@
         ]
       },
       "created": "2026-01-21T17:27:48Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "PAGE_LEAGUE_DETAIL-000",
@@ -86085,9 +86478,9 @@
     },
     {
       "guid": "PAGE_LOGIN-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Login page for Prix Six. Authenticates users via email + 6-digit PIN,",
+      "description": "Login page for Prix Six. Authenticates users via email + 6-digit PIN. VIRGIN-001: Expanded CardDescription with full value proposition for new visitors.",
       "dependencies": [
         "LIB_VERSION-000",
         "LIB_VERSION-001",
@@ -91464,7 +91857,7 @@
     },
     {
       "guid": "PAGE_SIGNUP-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "Signup page for Prix Six. Allows new players to register with a team name,",
       "dependencies": [
@@ -98505,9 +98898,9 @@
     },
     {
       "guid": "FIREBASE_PROVIDER-000",
-      "version": 6,
+      "version": 7,
       "logic_category": "ORCHESTRATION",
-      "description": "CRITICAL: Central Firebase context provider managing auth state, user profile, login/signup/logout/PIN operations. Single source of truth for current user session. Exposes useAuth(), useFirebase(), useFirestore(), useStorage(), useFunctions() hooks. Referenced by FIREBASE_PROVIDER-000 through FIREBASE_PROVIDER-028 GUIDs. SECURITY (GEMINI-AUDIT-041, 042): All console.error calls sanitised; raw error objects no longer set on context state; user-facing messages sanitised throughout.",
+      "description": "CRITICAL: Central Firebase context provider managing auth state, user profile, login/signup/logout/PIN operations. Single source of truth for current user session. Exposes useAuth(), useFirebase(), useFirestore(), useStorage(), useFunctions() hooks. Referenced by FIREBASE_PROVIDER-000 through FIREBASE_PROVIDER-028 GUIDs. SECURITY (GEMINI-AUDIT-041, 042): All console.error calls sanitised; raw error objects no longer set on context state; user-facing messages sanitised throughout. SECURITY (GEMINI-AUDIT-043): Auth race condition fully fixed — isMounted + isCurrentCallback guards prevent stale state updates; activeLoadingTimeout cleared on rapid re-fires and unmount.",
       "dependencies": [
         "SERVICE_AUTH_OAUTH-000",
         "SERVICE_AUTH_OAUTH-001",
@@ -101710,9 +102103,19 @@
     },
     {
       "guid": "LIB_CONSISTENCY-013B",
-      "version": 1,
+      "version": 2,
       "description": "SYSTEM_OWNER_ID constant - reserved system identifier for global league ownership (GEMINI-AUDIT-049)",
-      "file": "app/src/lib/consistency.ts"
+      "file": "app/src/lib/consistency.ts",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CONSISTENCY-027B",
+      "version": 2,
+      "logic_category": "VALIDATION",
+      "description": "parseBreakdown() — parse score breakdown string into per-driver entries and bonus. Input validated before parsing (GEMINI-AUDIT-050): null/undefined/empty returns safe zeroed default; malformed strings fail the format pre-check, emit a console.warn with correlationId, and return malformed:true without parsing.",
+      "file": "app/src/lib/consistency.ts",
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
     },
     {
       "guid": "ADMIN_HOT_NEWS-010",
@@ -101915,6 +102318,36 @@
         "calledBy": [
           "API_AUTH_LOGIN-007"
         ],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "LIB_EMAIL-000A",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Escapes HTML special characters to prevent XSS injection in email templates. Converts &<>\"'/ to HTML entities.",
+      "location": {
+        "filePath": "app/src/lib/email.ts"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-23T00:00:00Z",
+      "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "LIB_EMAIL-005a",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Sanitizes Azure AD/Graph API error messages before logging or returning. Strips tenant IDs, client IDs, and other credential fragments.",
+      "location": {
+        "filePath": "app/src/lib/email.ts"
+      },
+      "callChain": {
+        "calledBy": [],
         "calls": []
       },
       "created": "2026-02-23T00:00:00Z",

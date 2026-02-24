@@ -51,7 +51,8 @@
 //   logging are all unchanged. Only the HTTP fetch layer is hardened.
 // =============================================================================
 
-// GUID: API_ADMIN_FETCH_TIMING_DATA-000-v03
+// GUID: API_ADMIN_FETCH_TIMING_DATA-000-v04
+// @SECURITY_FIX: Replaced ERROR_CODES.UNEXPECTED_ERROR?.code ?? 'PX-9001' with ERROR_CODES.UNKNOWN_ERROR.code (GEMINI-AUDIT-009).
 // AUTHOR: gill — 2026-02-19
 // @AUTH_FIX:    OpenF1 OAuth2 authentication with token caching (previous author).
 // @TIMEOUT_FIX: Added FETCH_TIMEOUT_MS constant and fetchWithTimeout helper (gill).
@@ -1001,7 +1002,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     // -------------------------------------------------------------------------
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-012-v03
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-012-v04
+    // @SECURITY_FIX: Replaced ERROR_CODES.UNEXPECTED_ERROR?.code ?? 'PX-9001' with ERROR_CODES.UNKNOWN_ERROR.code (GEMINI-AUDIT-009).
     // AUTHOR: gill — 2026-02-19
     // [Intent] Top-level catch block. Handles any uncaught exception that
     //          escaped the try block above (e.g. a getFirebaseAdmin() failure,
@@ -1044,7 +1046,7 @@ export async function POST(request: NextRequest) {
         {
           success:      false,
           error:        'An unexpected error occurred',
-          errorCode:    ERROR_CODES.UNEXPECTED_ERROR?.code ?? 'PX-9001',
+          errorCode:    ERROR_CODES.UNKNOWN_ERROR.code,
           correlationId,
         },
         { status: 500 },

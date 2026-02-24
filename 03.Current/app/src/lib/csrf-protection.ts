@@ -1,15 +1,23 @@
-// GUID: LIB_CSRF-000-v01
+// GUID: LIB_CSRF-000-v02
 // @SECURITY_FIX: CSRF protection utility for authentication endpoints (GEMINI-005).
+// @SECURITY_FIX: Replaced prefix/substring origin match with exact allowlist check to prevent
+//   subdomain/prefix bypass attacks where 'https://prix6.win.evil.com' would match
+//   'https://prix6.win' via startsWith (GEMINI-AUDIT-108).
 // [Intent] Provides Origin/Referer validation middleware to prevent cross-site request forgery attacks.
 // [Inbound Trigger] Called by authentication API routes before processing state-changing operations.
 // [Downstream Impact] Rejects requests from untrusted origins. Returns 403 for CSRF attempts.
 
 import { NextRequest, NextResponse } from 'next/server';
 
-// GUID: LIB_CSRF-001-v01
-// [Intent] List of allowed origins for CSRF protection.
+// GUID: LIB_CSRF-001-v02
+// @SECURITY_FIX: Allowlist now uses exact equality only — no prefix/substring match (GEMINI-AUDIT-108).
+// [Intent] Explicit allowlist of trusted origins for CSRF protection. Each entry is matched with
+//          strict equality (===) only; no prefix, substring, or wildcard matching is performed.
+//          This prevents attackers from bypassing checks with domains like
+//          'https://prix6.win.evil.com' or 'https://evil-prix6.win.com'.
 // [Inbound Trigger] Checked against Origin/Referer headers in validateCsrfProtection().
 // [Downstream Impact] Adding/removing origins affects which domains can call auth endpoints.
+//          To add a new allowed origin, append the exact origin string — never use a prefix.
 const ALLOWED_ORIGINS = [
   'https://prix6.win',
   'https://www.prix6.win',
@@ -22,9 +30,12 @@ if (process.env.VERCEL_URL) {
   ALLOWED_ORIGINS.push(`https://${process.env.VERCEL_URL}`);
 }
 
-// GUID: LIB_CSRF-002-v01
-// [Intent] Validates that the request Origin or Referer header matches an allowed domain.
+// GUID: LIB_CSRF-002-v02
+// @SECURITY_FIX: Origin validation now uses exact allowlist match only (GEMINI-AUDIT-108).
+// [Intent] Validates that the request Origin or Referer header exactly matches an allowed domain.
 //          Prevents CSRF attacks by rejecting cross-origin requests from malicious sites.
+//          SECURITY: Origin comparison is strict equality (===). The previous prefix-match
+//          branch has been removed — it allowed bypass via 'https://prix6.win.evil.com'.
 // [Inbound Trigger] Called at the start of auth endpoint handlers before processing credentials.
 // [Downstream Impact] Returns null if valid, or NextResponse with 403 if CSRF attempt detected.
 /**
@@ -70,20 +81,16 @@ export function validateCsrfProtection(
     );
   }
 
-  // GUID: LIB_CSRF-005-v01
-  // [Intent] Validate that the request origin matches one of the allowed origins.
+  // GUID: LIB_CSRF-005-v02
+  // @SECURITY_FIX: Exact allowlist match only — removed insecure startsWith prefix check
+  //   that allowed bypass via 'https://prix6.win.evil.com' (GEMINI-AUDIT-108).
+  // [Intent] Validate that the request origin exactly matches one of the allowed origins.
+  //          Only strict equality (===) is used. No prefix, substring, or regex matching.
   // [Inbound Trigger] After extracting origin from Origin or Referer header.
   // [Downstream Impact] Rejects requests from untrusted domains, preventing CSRF.
-  const isAllowed = ALLOWED_ORIGINS.some(allowed => {
-    if (requestOrigin === allowed) return true;
-
-    // Also check if origin starts with allowed (for subdomains)
-    if (allowed.startsWith('https://') && requestOrigin?.startsWith(allowed)) {
-      return true;
-    }
-
-    return false;
-  });
+  //          Attack vector closed: 'https://prix6.win.evil.com'.startsWith('https://prix6.win')
+  //          was true under the old code — it is no longer evaluated.
+  const isAllowed = ALLOWED_ORIGINS.includes(requestOrigin);
 
   if (!isAllowed) {
     console.warn(`[CSRF] Blocked request from untrusted origin: ${requestOrigin}`);

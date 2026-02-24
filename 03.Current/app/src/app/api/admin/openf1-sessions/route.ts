@@ -49,7 +49,8 @@
 //   for this fix pass.
 // =============================================================================
 
-// GUID: API_ADMIN_OPENF1_SESSIONS-000-v03
+// GUID: API_ADMIN_OPENF1_SESSIONS-000-v04
+// @SECURITY_FIX: Replaced hardcoded ERROR_CODES.UNEXPECTED_ERROR fallback with ERROR_CODES.UNKNOWN_ERROR.code (GEMINI-AUDIT-009).
 // AUTHOR: gill — 2026-02-19
 // @AUTH_FIX:    Added OpenF1 OAuth2 authentication with token caching (previous author).
 // @TIMEOUT_FIX: Added FETCH_TIMEOUT_MS constant and fetchWithTimeout helper (gill).
@@ -548,7 +549,8 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     // =========================================================================
-    // GUID: API_ADMIN_OPENF1_SESSIONS-004-v03
+    // GUID: API_ADMIN_OPENF1_SESSIONS-004-v04
+    // @SECURITY_FIX: Replaced ERROR_CODES.UNEXPECTED_ERROR?.code ?? 'PX-9001' with ERROR_CODES.UNKNOWN_ERROR.code (GEMINI-AUDIT-009).
     // AUTHOR: gill — 2026-02-19
     // [Intent] Top-level catch block. Handles any uncaught exception from the
     //          GET handler (e.g. getFirebaseAdmin() failure, unexpected thrown value).
@@ -588,7 +590,7 @@ export async function GET(request: NextRequest) {
         {
           success:      false,
           error:        'An unexpected error occurred',
-          errorCode:    ERROR_CODES.UNEXPECTED_ERROR?.code ?? 'PX-9001',
+          errorCode:    ERROR_CODES.UNKNOWN_ERROR.code,
           correlationId,
         },
         { status: 500 },

@@ -1,10 +1,17 @@
-// GUID: API_ADMIN_DELETE_USER-000-v03
+// GUID: API_ADMIN_DELETE_USER-000-v04
+// @SECURITY_FIX: GEMINI-AUDIT-114 — IDOR / Privilege Escalation fix.
+//   Previously: adminUid was taken from the request body and used directly for the admin Firestore
+//   lookup with no token verification. An attacker could authenticate as user A but supply admin
+//   B's UID in the body to perform admin-level deletions on B's behalf.
+//   Fixed: verifyAuthToken() is now called FIRST (before body parsing). The token-verified UID
+//   is asserted to match the body adminUid. The Firestore admin privilege check uses verifiedUser.uid
+//   (from the token), eliminating the IDOR vector entirely.
 // [Intent] Admin API route for deleting a user account — coordinates removal from Firebase Auth, Firestore users/presence collections, and league memberships with full audit logging.
 // [Inbound Trigger] POST request from admin UI (UserManagement component) when an admin deletes a user.
 // [Downstream Impact] Removes user from Firebase Auth, Firestore users and presence collections, and all league memberUserIds arrays. Writes audit_logs. Irreversible operation.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
@@ -30,6 +37,29 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // GUID: API_ADMIN_DELETE_USER-002a-v01
+    // @SECURITY_FIX: GEMINI-AUDIT-114 — Token verification MUST come before body parsing.
+    // [Intent] Verify the Firebase Auth token from the Authorization header. The UID from the
+    //          verified token is the authoritative identity — the body adminUid is only accepted
+    //          after confirming it matches the token UID.
+    // [Inbound Trigger] Every incoming POST request.
+    // [Downstream Impact] Returns 401 if token is missing or invalid. Prevents unauthenticated
+    //                     deletions and closes the IDOR vector where body adminUid was trusted.
+    const authHeader = request.headers.get('Authorization');
+    const verifiedUser = await verifyAuthToken(authHeader);
+
+    if (!verifiedUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: ERRORS.AUTH_INVALID_TOKEN.message,
+          errorCode: ERRORS.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const parsed = deleteUserRequestSchema.safeParse(body);
 
@@ -52,15 +82,41 @@ export async function POST(request: NextRequest) {
 
     const { userId, adminUid } = parsed.data;
 
+    // GUID: API_ADMIN_DELETE_USER-003a-v01
+    // @SECURITY_FIX: GEMINI-AUDIT-114 — Token UID must match the body adminUid.
+    // [Intent] Confirm the token-verified UID matches the body-supplied adminUid. This prevents
+    //          an attacker from authenticating as user A but supplying admin B's UID in the body
+    //          to perform deletions under B's identity (IDOR / privilege escalation).
+    // [Inbound Trigger] After Zod validation succeeds, before any Firestore operations.
+    // [Downstream Impact] Returns 403 if UIDs differ. Log includes both UIDs for audit trail.
+    if (verifiedUser.uid !== adminUid) {
+      console.warn(
+        `[Admin Delete ${correlationId}] Token UID mismatch: token=${verifiedUser.uid}, body adminUid=${adminUid}`
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Forbidden: Admin UID mismatch',
+          errorCode: ERRORS.AUTH_PERMISSION_DENIED.code,
+          correlationId,
+        },
+        { status: 403 }
+      );
+    }
+
     const { db, FieldValue } = await getFirebaseAdmin();
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
 
-    // GUID: API_ADMIN_DELETE_USER-004-v03
+    // GUID: API_ADMIN_DELETE_USER-004-v04
+    // @SECURITY_FIX: GEMINI-AUDIT-114 — Admin privilege check now uses verifiedUser.uid (from token),
+    //   NOT the body-supplied adminUid. At this point verifiedUser.uid === adminUid is already
+    //   confirmed by the mismatch check above, so the lookup is equivalent but the authoritative
+    //   source is the token, preventing any residual body-trust.
     // [Intent] Verify the requesting user has admin privileges before allowing deletion.
     // [Inbound Trigger] Every valid POST request — admin check is mandatory.
     // [Downstream Impact] Returns 403 if not admin. Prevents unauthorised account deletion.
-    const adminDoc = await db.collection('users').doc(adminUid).get();
+    const adminDoc = await db.collection('users').doc(verifiedUser.uid).get();
     if (!adminDoc.exists || !adminDoc.data()?.isAdmin) {
       return NextResponse.json(
         {

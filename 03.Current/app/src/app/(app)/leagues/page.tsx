@@ -44,6 +44,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { createLeague, leaveLeague, deleteLeague } from '@/lib/leagues';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
+import { CLIENT_ERRORS } from '@/lib/error-registry-client';
+import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_LEAGUES-001-v03
 // [Intent] Main page component that renders the league listing grid with create/join dialogs,
@@ -103,7 +105,7 @@ export default function LeaguesPage() {
     setIsCreating(false);
   };
 
-    // GUID: PAGE_LEAGUES-003-v04
+    // GUID: PAGE_LEAGUES-003-v05
   // [Intent] Joins an existing league using a 6-character invite code via the server-side API.
   //          SECURITY FIX (FIRESTORE-003): Routes through /api/leagues/join-by-code instead of
   //          querying Firestore directly, eliminating client-side inviteCode enumeration.
@@ -117,6 +119,8 @@ export default function LeaguesPage() {
     setIsJoining(true);
 
     try {
+      const correlationId = generateClientCorrelationId();
+
       // Determine team ID based on selection
       const teamId = selectedTeamForJoin === 'secondary' && hasSecondaryTeam
         ? `${user.id}-secondary`
@@ -158,10 +162,11 @@ export default function LeaguesPage() {
         });
       }
     } catch {
+      const catchCorrelationId = generateClientCorrelationId();
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to join league. Please try again.',
+        description: `${CLIENT_ERRORS.UNKNOWN_ERROR.message} [${catchCorrelationId}]`,
       });
     }
 

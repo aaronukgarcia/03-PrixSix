@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
         cause: authError instanceof Error ? authError : undefined,
       });
       await logTracedError(traced, db);
+      await padToMinDuration(startTime);
       return NextResponse.json(
         { success: false, error: traced.definition.message, errorCode: traced.definition.code, correlationId: traced.correlationId },
         { status: 500 }

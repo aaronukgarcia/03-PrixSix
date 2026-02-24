@@ -1,4 +1,7 @@
-// GUID: ADMIN_EMAILLOG-000-v03
+// GUID: ADMIN_EMAILLOG-000-v04
+// @SECURITY_FIX (GEMINI-AUDIT-019): DOMPurify config for email body preview tightened to prevent stored XSS.
+//   Removed overly-permissive tags (u, h4, blockquote, code, pre) and attributes (target, rel).
+//   Added FORCE_HTTPS: true to ensure all href values use HTTPS. See ADMIN_EMAILLOG-016 for details.
 // [Intent] Admin component for managing the email queue (push, resend, delete) and viewing historical email send logs.
 // [Inbound Trigger] Rendered on the admin Email Logs tab.
 // [Downstream Impact] Reads from email_logs and email_queue Firestore collections via API; sends/deletes queued emails via /api/email-queue.
@@ -581,12 +584,23 @@ export function EmailLogManager() {
                                             </div>
                                             <div>
                                                 <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-1">Email Body Preview</h4>
+                                                {/* GUID: ADMIN_EMAILLOG-016-v01
+                                                    // @SECURITY_FIX (GEMINI-AUDIT-019): Tightened DOMPurify config to prevent stored XSS in email body preview.
+                                                    //   Removed: 'u' (underline — no semantic value, was superfluous), 'h4' (unnecessary heading depth),
+                                                    //            'blockquote' (can be styled to look like UI chrome), 'code'/'pre' (execution-adjacent semantics),
+                                                    //            'target' attr (allows _blank tab-napping), 'rel' attr (unnecessary, DOMPurify adds noopener automatically).
+                                                    //   Added: FORCE_HTTPS: true — rewrites http:// hrefs to https:// preventing mixed-content and cleartext links.
+                                                    // [Intent] Sanitize stored email HTML from Firestore before rendering in the admin preview pane.
+                                                    //          Uses a strict allowlist of safe tags/attrs sufficient for email body display.
+                                                    // [Inbound Trigger] Rendered when an admin expands an email log accordion item.
+                                                    // [Downstream Impact] Prevents stored XSS from malicious email content reaching the admin browser DOM. */}
                                                 <div
                                                     className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-4 bg-background overflow-auto"
                                                     dangerouslySetInnerHTML={{
                                                         __html: DOMPurify.sanitize(log.html, {
-                                                            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'a', 'blockquote', 'code', 'pre', 'div', 'span', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
-                                                            ALLOWED_ATTR: ['href', 'target', 'rel', 'style', 'class']
+                                                            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'span', 'div', 'h1', 'h2', 'h3', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
+                                                            ALLOWED_ATTR: ['href', 'style', 'class'],
+                                                            FORCE_HTTPS: true,
                                                         })
                                                     }}
                                                 />

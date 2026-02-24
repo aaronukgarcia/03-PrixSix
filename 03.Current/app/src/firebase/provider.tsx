@@ -1,4 +1,4 @@
-// GUID: FIREBASE_PROVIDER-000-v06
+// GUID: FIREBASE_PROVIDER-000-v07
 // @SECURITY_FIX: updateSecondaryEmail now sends Authorization header to fix 401 errors after GEMINI-AUDIT-006 server-side auth was added (FIREBASE_PROVIDER-019).
 // @SECURITY_FIX (GEMINI-AUDIT-041, GEMINI-AUDIT-042): All console.error calls now log only error.message (not full error objects). Raw error objects no longer assigned to userError context state. User-facing messages sanitised throughout.
 // [Intent] Central Firebase context provider that manages authentication state, user profile data,
@@ -32,7 +32,8 @@ import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
 import { logAuditEvent } from '@/lib/audit';
 import { generateClientCorrelationId } from '@/lib/error-codes';
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 
 // GUID: FIREBASE_PROVIDER-001-v03
 // [Intent] Defines the shape of user email notification preferences stored in Firestore.
@@ -183,52 +184,76 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   const router = useRouter();
 
-  // GUID: FIREBASE_PROVIDER-008-v05
-  // @SECURITY_RISK @AUDIT_NOTE (PARTIALLY FIXED - AUTH-003): Auth state race condition -- between
-  //   onAuthStateChanged firing and the Firestore snapshot resolving, there is a window where
-  //   `firebaseUser` is set but `user` is null. Components must check `isUserLoading` before
-  //   relying on `user` state. The 10s timeout now sets userError on expiry to prevent inconsistent
-  //   state (isUserLoading=false with user=null). Full fix requires server-side session tokens.
+  // GUID: FIREBASE_PROVIDER-008-v06
+  // @SECURITY_FIX (AUTH-003 FULL FIX): Race condition between rapid onAuthStateChanged firings
+  //   now prevented by a per-effect `activeLoadingTimeout` ref. When onAuthStateChanged fires
+  //   again before the previous Firestore snapshot resolves, the stale timeout is cleared and
+  //   stale state updates are ignored via the `isMounted` and `isCurrentCallback` guards.
+  //   An `isMounted` ref ensures no state updates occur after the component unmounts.
+  // @SECURITY_RISK @AUDIT_NOTE: Between onAuthStateChanged firing and the Firestore snapshot
+  //   resolving, there is a window where `firebaseUser` is set but `user` is null. Components
+  //   must check `isUserLoading` before relying on `user` state. Full fix requires server-side
+  //   session tokens.
   // [Intent] Sets up a two-layer real-time listener: (1) Firebase Auth state changes trigger
   // (2) a Firestore onSnapshot listener on the user's profile document. On first snapshot,
   // syncs emailVerified from Auth to Firestore if needed and redirects users who must change PIN.
   // Includes a 10-second safety timeout to prevent indefinite loading states.
+  // Uses isMounted and isCurrentCallback flags to prevent stale state updates on rapid re-fires
+  // or after component unmount.
   // [Inbound Trigger] Runs once on mount and whenever auth/firestore/router references change.
   // [Downstream Impact] Populates `user`, `firebaseUser`, `isUserLoading`, and `userError` state.
   // Every component reading auth state depends on this effect completing successfully.
   useEffect(() => {
+    let isMounted = true;
     setIsUserLoading(true);
     let unsubscribeUserDoc: (() => void) | null = null;
+    // Track the active timeout across rapid auth state changes so stale timeouts are always cleared
+    let activeLoadingTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(
       auth,
       (fbUser) => {
+        if (!isMounted) return;
         setFirebaseUser(fbUser);
 
-        // Tear down any previous user-doc listener
+        // Tear down any previous user-doc listener and clear any stale timeout
         if (unsubscribeUserDoc) {
           unsubscribeUserDoc();
           unsubscribeUserDoc = null;
+        }
+        if (activeLoadingTimeout !== null) {
+          clearTimeout(activeLoadingTimeout);
+          activeLoadingTimeout = null;
         }
 
         if (fbUser) {
           const userDocRef = doc(firestore, 'users', fbUser.uid);
 
-          // Safety net: guarantee isUserLoading clears even if Firestore hangs
+          // Safety net: guarantee isUserLoading clears even if Firestore hangs.
           // SECURITY FIX (AUTH-003): Set userError on timeout to prevent inconsistent state
-          // where isUserLoading=false but user=null (race condition that causes component crashes)
-          const loadingTimeout = setTimeout(() => {
+          // where isUserLoading=false but user=null (race condition that causes component crashes).
+          // Stored in activeLoadingTimeout ref so it can be cancelled if auth fires again rapidly.
+          activeLoadingTimeout = setTimeout(() => {
+            if (!isMounted) return;
             console.error("FirebaseProvider: user document fetch timed out (10 s)");
             setUser(null);
             setUserError(new Error('User profile fetch timed out. Please refresh the page.'));
             setIsUserLoading(false);
+            activeLoadingTimeout = null;
           }, 10_000);
+
+          // Guard flag: if onAuthStateChanged fires again while this snapshot is in-flight,
+          // the new callback tears down this listener, so isCurrentCallback becomes false
+          // and the stale snapshot callback skips all state updates.
+          let isCurrentCallback = true;
 
           let isFirstSnapshot = true;
 
           unsubscribeUserDoc = onDocSnapshot(
             userDocRef,
             async (snapshot) => {
+              // Ignore stale callbacks from superseded auth states or unmounted component
+              if (!isCurrentCallback || !isMounted) return;
               try {
                 if (snapshot.exists()) {
                   const userData = snapshot.data() as User;
@@ -313,6 +338,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                     ).catch(() => { /* token fetch failed, non-blocking */ });
                   }
 
+                  // Re-check guards after any awaits above (async operations may have changed state)
+                  if (!isCurrentCallback || !isMounted) return;
+
                   setIsNewOAuthUser(false);
                   setUser(userData);
 
@@ -341,33 +369,46 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                   }
                 }
               } catch (docError: any) {
+                if (!isCurrentCallback || !isMounted) return;
                 if (process.env.NODE_ENV !== 'production') { console.error('[FirebaseProvider] Error processing user document:', docError); }
                 console.error('[FirebaseProvider] Error processing user document:', docError instanceof Error ? docError.message : 'Unknown error');
                 setUser(null);
                 setUserError(new Error('An error occurred loading your profile. Please refresh the page.'));
               } finally {
-                if (isFirstSnapshot) {
-                  clearTimeout(loadingTimeout);
+                if (isFirstSnapshot && isCurrentCallback && isMounted) {
+                  if (activeLoadingTimeout !== null) {
+                    clearTimeout(activeLoadingTimeout);
+                    activeLoadingTimeout = null;
+                  }
                   setIsUserLoading(false);
                   isFirstSnapshot = false;
                 }
               }
             },
             (error) => {
+              if (!isCurrentCallback || !isMounted) return;
               if (process.env.NODE_ENV !== 'production') { console.error('[FirebaseProvider] User document listener error:', error); }
               console.error('[FirebaseProvider] User document listener error:', error instanceof Error ? error.message : 'Unknown error');
-              clearTimeout(loadingTimeout);
+              if (activeLoadingTimeout !== null) {
+                clearTimeout(activeLoadingTimeout);
+                activeLoadingTimeout = null;
+              }
               setUser(null);
               setUserError(new Error('Unable to load your profile. Please refresh the page.'));
               setIsUserLoading(false);
             },
           );
+
+          // When this auth callback is superseded, mark as stale so in-flight snapshots are ignored
+          return () => { isCurrentCallback = false; };
         } else {
+          if (!isMounted) return;
           setUser(null);
           setIsUserLoading(false);
         }
       },
       (error) => {
+        if (!isMounted) return;
         if (process.env.NODE_ENV !== 'production') { console.error('[FirebaseProvider] onAuthStateChanged error:', error); }
         console.error('[FirebaseProvider] onAuthStateChanged error:', error instanceof Error ? error.message : 'Unknown error');
         setUserError(new Error('Authentication service error. Please refresh the page.'));
@@ -376,8 +417,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     );
 
     return () => {
+      isMounted = false;
       unsubscribeAuth();
       if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (activeLoadingTimeout !== null) {
+        clearTimeout(activeLoadingTimeout);
+        activeLoadingTimeout = null;
+      }
     };
   }, [auth, firestore, router]);
 

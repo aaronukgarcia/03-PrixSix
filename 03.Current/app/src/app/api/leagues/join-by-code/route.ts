@@ -1,7 +1,7 @@
 /**
  * POST /api/leagues/join-by-code
  *
- * GUID: API_LEAGUE_JOIN-001-v04
+ * GUID: API_LEAGUE_JOIN-001-v05
  * [Intent] Server-side API for joining leagues by invite code. Validates code,
  *          checks league capacity, and atomically adds user to league. Resolves
  *          FIRESTORE-003 by removing need for client-side inviteCode visibility.
@@ -37,7 +37,12 @@ export async function POST(request: NextRequest) {
 
     if (!verifiedUser) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized: Invalid or missing authentication token' },
+        {
+          success: false,
+          error: ERRORS.AUTH_INVALID_TOKEN.message,
+          errorCode: ERRORS.AUTH_INVALID_TOKEN.code,
+          correlationId,
+        },
         { status: 401 }
       );
     }
@@ -53,7 +58,12 @@ export async function POST(request: NextRequest) {
     // 2. Validate invite code format
     if (!inviteCode || typeof inviteCode !== 'string') {
       return NextResponse.json(
-        { success: false, error: 'Invalid invite code format' },
+        {
+          success: false,
+          error: ERRORS.VALIDATION_INVALID_FORMAT.message,
+          errorCode: ERRORS.VALIDATION_INVALID_FORMAT.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
@@ -63,7 +73,12 @@ export async function POST(request: NextRequest) {
 
     if (normalizedCode.length !== 6) {
       return NextResponse.json(
-        { success: false, error: 'Invite code must be 6 characters' },
+        {
+          success: false,
+          error: ERRORS.VALIDATION_MISSING_FIELDS.message,
+          errorCode: ERRORS.VALIDATION_MISSING_FIELDS.code,
+          correlationId,
+        },
         { status: 400 }
       );
     }
@@ -78,7 +93,12 @@ export async function POST(request: NextRequest) {
 
     if (leaguesSnapshot.empty) {
       return NextResponse.json(
-        { success: false, error: 'Invalid invite code. League not found.' },
+        {
+          success: false,
+          error: ERRORS.RACE_NOT_FOUND.message,
+          errorCode: ERRORS.RACE_NOT_FOUND.code,
+          correlationId,
+        },
         { status: 404 }
       );
     }
@@ -91,7 +111,12 @@ export async function POST(request: NextRequest) {
     const memberUserIds = leagueData.memberUserIds || [];
     if (memberUserIds.includes(memberIdToAdd)) {
       return NextResponse.json(
-        { success: false, error: 'You are already a member of this league' },
+        {
+          success: false,
+          error: ERRORS.VALIDATION_DUPLICATE_ENTRY.message,
+          errorCode: ERRORS.VALIDATION_DUPLICATE_ENTRY.code,
+          correlationId,
+        },
         { status: 409 }
       );
     }
@@ -99,7 +124,12 @@ export async function POST(request: NextRequest) {
     // 5. Check if league is the global league (cannot join via code)
     if (leagueData.isGlobal === true) {
       return NextResponse.json(
-        { success: false, error: 'Cannot join the global league with an invite code' },
+        {
+          success: false,
+          error: ERRORS.AUTH_PERMISSION_DENIED.message,
+          errorCode: ERRORS.AUTH_PERMISSION_DENIED.code,
+          correlationId,
+        },
         { status: 403 }
       );
     }
@@ -113,7 +143,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `You have reached the maximum of ${MAX_LEAGUES_PER_USER} leagues. Please leave a league before joining another.`
+          error: ERRORS.AUTH_PERMISSION_DENIED.message,
+          errorCode: ERRORS.AUTH_PERMISSION_DENIED.code,
+          correlationId,
         },
         { status: 403 }
       );

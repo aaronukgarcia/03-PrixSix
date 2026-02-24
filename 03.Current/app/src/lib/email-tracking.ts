@@ -1,5 +1,8 @@
-// GUID: LIB_EMAIL_TRACKING-000-v04
+// GUID: LIB_EMAIL_TRACKING-000-v05
 // @SECURITY_FIX: Applied escapeHtml() to all dynamic values in generateDailySummaryHtml (GEMINI-AUDIT-057). Prevents stored XSS via attacker-controlled teamName, type, toEmail, sentAt fields.
+// @SECURITY_FIX: Removed hardcoded ADMIN_EMAIL fallback — missing config now fails fast inside canSendEmail (GEMINI-AUDIT-055D).
+//   A hardcoded email in source exposes a real address to anyone who reads the bundle and silently masks misconfiguration.
+//   Fix: requireAdminEmailTracking() reads GRAPH_SENDER_EMAIL/ADMIN_EMAIL env vars and throws EMAIL_CONFIG_MISSING if absent.
 // [Intent] Client-side email tracking and rate-limiting module. Manages daily email statistics, enforces global and per-address send limits, provides email queuing for rate-limited messages, and generates daily summary HTML reports.
 // [Inbound Trigger] Called by email.ts (LIB_EMAIL) before and after sending emails, and by admin summary endpoints.
 // [Downstream Impact] Controls whether emails can be sent (rate gating). Writes to email_daily_stats and email_queue Firestore collections. The daily summary HTML is sent to the admin via sendEmail.
@@ -20,14 +23,36 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { escapeHtml } from '@/lib/email';
+import { logError, generateCorrelationId } from '@/lib/firebase-admin';
+import { ERRORS } from '@/lib/error-registry';
 
-// GUID: LIB_EMAIL_TRACKING-001-v03
-// [Intent] Rate-limit constants defining the maximum number of emails allowed per day globally and per individual recipient address.
+// GUID: LIB_EMAIL_TRACKING-001-v04
+// @SECURITY_FIX: Removed hardcoded ADMIN_EMAIL constant — replaced with requireAdminEmailTracking() (GEMINI-AUDIT-055D).
+//   Hardcoded email (a) exposes a real address in the bundle and (b) silently masks env misconfiguration.
+//   Fix: requireAdminEmailTracking() reads GRAPH_SENDER_EMAIL/ADMIN_EMAIL env vars and throws EMAIL_CONFIG_MISSING if absent.
+// [Intent] Rate-limit constants defining the maximum number of emails allowed per day globally and per individual recipient address. requireAdminEmailTracking resolves the admin email address from environment variables at runtime for use in per-address rate-limit exemption.
 // [Inbound Trigger] Referenced by canSendEmail to enforce rate limits and by generateDailySummaryHtml for display in the summary footer.
-// [Downstream Impact] Changing these values directly affects how many emails the system can send per day. Lowering them may cause more emails to be queued rather than sent immediately.
+// [Downstream Impact] Changing these values directly affects how many emails the system can send per day. Lowering them may cause more emails to be queued rather than sent immediately. requireAdminEmailTracking throws EMAIL_CONFIG_MISSING if env var is absent.
 const DAILY_GLOBAL_LIMIT = 30;
 const DAILY_PER_ADDRESS_LIMIT = 5;
-const ADMIN_EMAIL = 'aaron@garcia.ltd';
+
+function requireAdminEmailTracking(): string {
+  const adminEmail = process.env.GRAPH_SENDER_EMAIL?.trim() || process.env.ADMIN_EMAIL?.trim();
+  if (!adminEmail) {
+    const correlationId = generateCorrelationId();
+    // logError is async; fire-and-forget is acceptable because we are about to throw.
+    logError({
+      correlationId,
+      error: new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Admin email not configured — set GRAPH_SENDER_EMAIL or ADMIN_EMAIL env var`),
+      context: { action: 'requireAdminEmailTracking', additionalInfo: { module: 'email-tracking', errorKey: ERRORS.EMAIL_CONFIG_MISSING.key } },
+    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[${correlationId}] ${ERRORS.EMAIL_CONFIG_MISSING.code}: Admin email not configured`);
+    }
+    throw new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Admin email not configured (correlationId: ${correlationId})`);
+  }
+  return adminEmail;
+}
 
 // GUID: LIB_EMAIL_TRACKING-002-v03
 // [Intent] Type definition for daily email statistics stored in the email_daily_stats Firestore collection, tracking total sent count, individual email log entries, and whether the daily summary has been dispatched.
@@ -138,7 +163,8 @@ export async function canSendEmail(firestore: any, toEmail: string): Promise<{ c
   }
 
   // Check per-address limit (skip for admin email)
-  if (toEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+  const adminEmail = requireAdminEmailTracking();
+  if (toEmail.toLowerCase() !== adminEmail.toLowerCase()) {
     const addressCount = stats.emailsSent.filter(
       e => e.toEmail.toLowerCase() === toEmail.toLowerCase()
     ).length;

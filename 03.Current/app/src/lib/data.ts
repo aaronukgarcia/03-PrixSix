@@ -1,4 +1,11 @@
-// GUID: LIB_DATA-000-v03
+// GUID: LIB_DATA-000-v04
+// @SECURITY_FIX (GEMINI-AUDIT-051): imageId removed from public Driver interface and moved to
+//   internal InternalDriver type. Public F1Drivers export strips imageId to prevent asset enumeration.
+//   getDriverImage() is the only sanctioned API for resolving driver images.
+// @SECURITY_ACCEPTED_RISK (GEMINI-AUDIT-052): RaceSchedule timing is client-side UX data only.
+//   Deadline enforcement is performed server-side via Firestore (race-schedule-server.ts + submit-prediction API).
+//   Clients knowing qualifying times in advance provides no meaningful bypass capability because
+//   the server independently validates every submission against Firestore-stored deadlines.
 // [Intent] Provides standing data for F1 drivers and race schedule used throughout the app.
 //          Acts as the single source of truth for driver identities, team assignments, numbers,
 //          image mappings, and the 2026 race calendar with qualifying/sprint/race times.
@@ -172,10 +179,21 @@ export interface Race {
   results: (string | null)[];
 }
 
-// GUID: LIB_DATA-008-v03
+// GUID: LIB_DATA-008-v04
+// @SECURITY_ACCEPTED_RISK (GEMINI-AUDIT-052): Race timing values in this array are shipped in the
+//   client bundle and are intentionally public. This is ACCEPTED RISK because:
+//   1. Server-side enforcement: /api/submit-prediction uses getRaceByName() from race-schedule-server.ts
+//      which reads qualifying deadlines exclusively from Firestore (admin-only writable collection).
+//      The server independently validates every submission regardless of what the client knows.
+//   2. Clients knowing race dates in advance provides no meaningful bypass — the actual gate is the
+//      server clock comparison against the Firestore-stored qualifyingTime.
+//   3. This data is publicly available (official F1 calendar) — obscuring it provides no security benefit.
+//   ACTION REQUIRED for future hardening: When admin UI for schedule management is built, consider
+//   fetching these times via an authenticated endpoint so client bundle reflects only confirmed times.
 // [Intent] Master race calendar for the 2026 F1 season (24 races). Defines qualifying deadlines
 //          (which lock predictions), sprint times, race times, and sprint flags.
-//          This is the single source of truth for race schedule standing data.
+//          This is the single source of truth for race schedule standing data (CLIENT-SIDE UX ONLY).
+//          Server-side enforcement uses Firestore via race-schedule-server.ts (see GEMINI-AUDIT-052).
 // [Inbound Trigger] Referenced by findNextRace, deadline banners, prediction lock logic,
 //                   scoring pages, and the submissions view.
 // [Downstream Impact] Changes to qualifying times affect when predictions lock.

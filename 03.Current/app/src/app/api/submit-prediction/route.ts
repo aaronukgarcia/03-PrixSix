@@ -1,6 +1,7 @@
-// GUID: API_SUBMIT_PREDICTION-000-v05
+// GUID: API_SUBMIT_PREDICTION-000-v06
 // @SECURITY_FIX: Fixed broken team ownership check (API-013) - teamId is user UID pattern, not teamName. Added correlationId hoisting, logError + errorCode on all 4xx paths.
 // @SECURITY_FIX: Race lookup now fails-closed (GEMINI-AUDIT-122) - if race name doesn't match Firestore schedule, submission is rejected rather than proceeding without deadline enforcement.
+// @SECURITY_FIX: GEMINI-AUDIT-037 — Added server-side per-driver-ID validation (non-empty, safe format, no duplicates) to re-validate the predictions array regardless of client-side applyToAll UX state.
 // [Intent] API route that accepts and stores a user's top-6 driver prediction for a specific race and team. Enforces server-side lockout rules (results exist, qualifying started).
 // [Inbound Trigger] User submits a prediction from the predictions page (POST request with userId, teamId, raceId, and six driver picks).
 // [Downstream Impact] Writes to users/{userId}/predictions subcollection and audit_logs. Predictions are consumed by the calculate-scores route at scoring time. Lockout enforcement prevents late submissions.
@@ -75,22 +76,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_SUBMIT_PREDICTION-004-v03
-    // [Intent] Validates that all required fields are present and that the predictions array contains exactly 6 driver IDs.
+    // GUID: API_SUBMIT_PREDICTION-004-v04
+    // @SECURITY_FIX: GEMINI-AUDIT-037 — Added server-side re-validation of each driver ID in the predictions
+    //   array (non-null, non-empty string, alphanumeric-safe format) and duplicate driver check.
+    //   The client-side applyToAll UX feature submits driver IDs which must be individually validated here
+    //   to prevent an attacker from manipulating the payload to submit null, empty, or duplicate entries.
+    // [Intent] Validates that all required fields are present and that the predictions array contains exactly 6 non-null, non-empty, non-duplicate driver IDs with safe format.
     // [Inbound Trigger] After auth verification passes.
-    // [Downstream Impact] Prevents malformed predictions from being stored. The scoring engine assumes exactly 6 predictions per team; fewer or more would produce incorrect scores.
+    // [Downstream Impact] Prevents malformed predictions from being stored. The scoring engine assumes exactly 6 distinct, valid predictions per team; null/empty/duplicate entries would corrupt score calculations.
     // Validate required fields
     if (!userId || !teamId || !teamName || !raceId || !raceName || !predictions) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, error: ERROR_CODES.VALIDATION_MISSING_FIELDS.message, errorCode: ERROR_CODES.VALIDATION_MISSING_FIELDS.code, correlationId },
         { status: 400 }
       );
     }
 
-    // Validate predictions array
+    // Validate predictions array length
     if (!Array.isArray(predictions) || predictions.length !== 6) {
       return NextResponse.json(
-        { success: false, error: 'Predictions must be an array of 6 driver IDs' },
+        { success: false, error: ERROR_CODES.PREDICTION_INCOMPLETE.message, errorCode: ERROR_CODES.PREDICTION_INCOMPLETE.code, correlationId },
+        { status: 400 }
+      );
+    }
+
+    // SECURITY (GEMINI-AUDIT-037): Validate each driver ID is a non-null, non-empty string
+    // with a safe format (alphanumeric, hyphens, underscores only — no HTML/script injection).
+    const DRIVER_ID_PATTERN = /^[a-zA-Z0-9_-]{1,100}$/;
+    const invalidDriverEntry = predictions.find(
+      (id) => typeof id !== 'string' || id.trim() === '' || !DRIVER_ID_PATTERN.test(id)
+    );
+    if (invalidDriverEntry !== undefined) {
+      await logError({
+        correlationId,
+        error: `Invalid driver ID in predictions payload for user ${userId}`,
+        context: { route: '/api/submit-prediction', invalidEntry: String(invalidDriverEntry) },
+      });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.VALIDATION_INVALID_FORMAT.message, errorCode: ERROR_CODES.VALIDATION_INVALID_FORMAT.code, correlationId },
+        { status: 400 }
+      );
+    }
+
+    // SECURITY (GEMINI-AUDIT-037): Validate no duplicate driver IDs (each driver can appear at most once)
+    const uniqueDriverIds = new Set(predictions);
+    if (uniqueDriverIds.size !== predictions.length) {
+      await logError({
+        correlationId,
+        error: `Duplicate driver IDs in predictions payload for user ${userId}`,
+        context: { route: '/api/submit-prediction', predictions },
+      });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.message, errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code, correlationId },
         { status: 400 }
       );
     }

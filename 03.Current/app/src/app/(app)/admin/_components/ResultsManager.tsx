@@ -1,7 +1,8 @@
-// GUID: ADMIN_RESULTS-000-v03
+// GUID: ADMIN_RESULTS-000-v04
+// @SECURITY_FIX: Replaced direct client-side collectionGroup('predictions') read in fetchSubmissionCount with server-side /api/admin/prediction-count call (GEMINI-AUDIT-027). The unbounded, unauthenticated client read has been removed. All Firestore reads now go through authenticated server-side routes.
 // [Intent] Admin component for entering official F1 race results and managing existing results. Provides a two-step wizard: race selection then driver picker for top-6 positions.
 // [Inbound Trigger] Rendered when admin navigates to the Results management tab in the admin panel.
-// [Downstream Impact] Calls /api/calculate-scores to write race_results and scores collections, and /api/send-results-email for notifications. Calls /api/delete-scores to remove results. Directly affects league standings.
+// [Downstream Impact] Calls /api/calculate-scores to write race_results and scores collections, and /api/send-results-email for notifications. Calls /api/delete-scores to remove results. Calls /api/admin/prediction-count for team count display. Directly affects league standings.
 
 "use client";
 
@@ -13,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useMemo, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { useFirestore, useCollection, useAuth } from "@/firebase";
-import { collection, collectionGroup, query, orderBy, where, getCountFromServer } from "firebase/firestore";
+import { collection, query, orderBy } from "firebase/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Trophy, Users, AlertCircle, CheckCircle2, ArrowUp, ArrowDown, X, ChevronLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -92,12 +93,13 @@ export function ResultsManager() {
     const [submissionCount, setSubmissionCount] = useState<number | null>(null);
     const [isLoadingCount, setIsLoadingCount] = useState(false);
 
-    // GUID: ADMIN_RESULTS-007-v03
+    // GUID: ADMIN_RESULTS-007-v04
+    // @SECURITY_FIX: Replaced direct client-side collectionGroup('predictions') read with server-side /api/admin/prediction-count call (GEMINI-AUDIT-027). The previous implementation executed an unbounded, unauthenticated Firestore collectionGroup query from the browser. It is now a fetch to an authenticated admin API route that enforces a server-side cap.
     // [Intent] Fetch the count of unique team predictions when a race is selected, to show how many teams will be scored. Counts ALL predictions (carry-forward model).
-    // [Inbound Trigger] Fires when selectedRace changes. Queries collectionGroup predictions across all users.
-    // [Downstream Impact] Sets submissionCount displayed in the confirmation dialog and the submission count alert. Uses collectionGroup query which requires matching Firestore index.
+    // [Inbound Trigger] Fires when selectedRace or firebaseUser changes. Calls /api/admin/prediction-count with a Firebase ID token.
+    // [Downstream Impact] Sets submissionCount displayed in the confirmation dialog and the submission count alert. Server-side route enforces auth + admin check + fetch cap.
     useEffect(() => {
-        if (!firestore || !selectedRace) {
+        if (!selectedRace || !firebaseUser) {
             setSubmissionCount(null);
             return;
         }
@@ -105,24 +107,18 @@ export function ResultsManager() {
         const fetchSubmissionCount = async () => {
             setIsLoadingCount(true);
             try {
-                // Count unique users who have at least one prediction (any race)
-                // Their latest prediction will be used for scoring
-                const predictionsQuery = query(collectionGroup(firestore, "predictions"));
-                const { getDocs } = await import("firebase/firestore");
-                const snapshot = await getDocs(predictionsQuery);
-
-                // Count unique user IDs (each user can have primary + secondary team)
-                const uniqueTeams = new Set<string>();
-                snapshot.docs.forEach(doc => {
-                    // Path is users/{userId}/predictions/{predId}
-                    const pathParts = doc.ref.path.split('/');
-                    const userId = pathParts[1];
-                    const teamName = doc.data().teamName;
-                    // Create unique key for each team (primary vs secondary)
-                    uniqueTeams.add(`${userId}_${teamName || 'primary'}`);
+                // SECURITY: Use server-side route — replaces unbounded client collectionGroup read (GEMINI-AUDIT-027)
+                const idToken = await firebaseUser.getIdToken();
+                const response = await fetch('/api/admin/prediction-count', {
+                    headers: { 'Authorization': `Bearer ${idToken}` },
                 });
+                const data = await response.json();
 
-                setSubmissionCount(uniqueTeams.size);
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch prediction count');
+                }
+
+                setSubmissionCount(data.count);
             } catch (error) {
                 console.error("Error fetching submission count:", error);
                 setSubmissionCount(null);
@@ -132,7 +128,7 @@ export function ResultsManager() {
         };
 
         fetchSubmissionCount();
-    }, [firestore, selectedRace]);
+    }, [selectedRace, firebaseUser]);
 
     // GUID: ADMIN_RESULTS-008-v03
     // [Intent] Memoised Firestore query for fetching all existing race results, ordered by submission date descending.

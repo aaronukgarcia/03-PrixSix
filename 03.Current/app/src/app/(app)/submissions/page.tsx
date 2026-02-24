@@ -42,7 +42,8 @@ import { LastUpdated } from "@/components/ui/last-updated";
 import { RaceSchedule, findNextRace, formatDriverPredictions } from "@/lib/data";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 import { generateRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id";
 

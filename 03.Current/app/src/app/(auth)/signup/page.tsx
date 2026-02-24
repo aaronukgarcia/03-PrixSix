@@ -1,9 +1,10 @@
-// GUID: PAGE_SIGNUP-000-v03
+// GUID: PAGE_SIGNUP-000-v04
 // [Intent] Signup page for Prix Six. Allows new players to register with a team name,
 //          email, and 6-digit PIN. Includes weak PIN rejection and fun team name suggestions.
 // [Inbound Trigger] User navigates to /signup from the login page link.
 // [Downstream Impact] Successful signup calls useAuth().signup which creates Firebase Auth user
 //                     and Firestore user document, then redirects to /login.
+// @FIX(v04) VIRGIN-003: Replaced vague tagline with descriptive value proposition for new visitors.
 
 "use client";
 
@@ -40,7 +41,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
 import { GoogleIcon, AppleIcon } from "@/components/icons/OAuthIcons";
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 import { doesTeamNameMatchEmail } from '@/lib/team-name-suggestions';
 
@@ -252,7 +254,10 @@ export default function SignupPage() {
                     <Logo size="md" />
                 </div>
                 <CardTitle className="text-3xl font-headline">Create Your Team</CardTitle>
-                <CardDescription>Join the Prix Six league and start predicting.</CardDescription>
+                <CardDescription>
+                  Prix Six is a Formula 1 prediction game. Predict qualifying and race results before each Grand
+                  Prix, earn points for accuracy, and compete in private leagues with friends.
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
