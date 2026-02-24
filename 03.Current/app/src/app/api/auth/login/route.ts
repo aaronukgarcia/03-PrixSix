@@ -346,8 +346,11 @@ export async function POST(request: NextRequest) {
 
     const authResult = await authResponse.json();
 
-    // GUID: API_AUTH_LOGIN-010-v03
+    // GUID: API_AUTH_LOGIN-010-v04
     // [Intent] Handle failed credential verification: increment the bad login attempts counter, log the failure for attack detection, write an audit record, and trigger lockout if the threshold is reached.
+    // @SECURITY_FIX (GEMINI-AUDIT-127): Post-check lockout message now uses calculateLockoutDuration()
+    //   for accuracy — previously hardcoded "30 minutes" which mismatched Tier 1 (15 min) and
+    //   gave no indication of progressive penalties on subsequent lockouts.
     // [Inbound Trigger] The Firebase Auth REST API returned a non-OK response or an error payload.
     // [Downstream Impact] Updates badLoginAttempts and lastFailedLoginAt on the users document. May trigger immediate lockout (HTTP 429). Attack detection patterns are evaluated for the IP and email.
     if (!authResponse.ok || authResult.error) {
@@ -390,10 +393,14 @@ export async function POST(request: NextRequest) {
 
         // Check if this attempt triggers lockout
         if (currentAttempts + 1 >= MAX_LOGIN_ATTEMPTS) {
+          // @SECURITY_FIX (GEMINI-AUDIT-127): Use progressive lockout duration, not hardcoded 30 min.
+          const lockoutMs = calculateLockoutDuration(currentAttempts + 1);
+          const lockoutMin = Math.round(lockoutMs / 60000);
+          const lockoutMessage = lockoutMin >= 60 ? `${Math.round(lockoutMin / 60)} hour(s)` : `${lockoutMin} minute(s)`;
           return NextResponse.json(
             {
               success: false,
-              error: 'Account has been locked due to too many failed attempts. Try again in 30 minutes.',
+              error: `Account has been locked due to too many failed attempts. Try again in ${lockoutMessage}.`,
               locked: true,
               correlationId,
             },
