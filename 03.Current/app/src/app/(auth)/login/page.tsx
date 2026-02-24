@@ -1,4 +1,4 @@
-// GUID: PAGE_LOGIN-000-v06
+// GUID: PAGE_LOGIN-000-v07
 // [Intent] Login page for Prix Six. Authenticates users via email + 6-digit PIN,
 //          displays version number, and redirects to dashboard on success.
 // [Inbound Trigger] User navigates to /login or root route (/ renders this page).
@@ -8,6 +8,8 @@
 // @FIX(v05) VIRGIN-001: Expanded CardDescription with full value proposition for new visitors.
 // @SECURITY_FIX(v06) BOW-ZQyNrzzX4G7Yvzj6hM97: Replace raw e.message in catch blocks with
 //                    CLIENT_ERRORS generic messages + correlationId (login, Google, Apple paths).
+// @UX(MANICURE-AUDIT-001, v07): Moved version number outside the login card to a barely-visible
+//                    page footer to remove debug artifact appearance from the main card.
 
 "use client";
 
@@ -196,7 +198,7 @@ export default function LoginPage() {
     }
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-background">
+    <main className="flex items-center justify-center min-h-screen bg-background relative">
         <Card className="w-full max-w-md mx-4">
             <CardHeader className="text-center">
                  <div className="flex justify-center items-center mb-4">
@@ -317,10 +319,6 @@ export default function LoginPage() {
                         Sign up
                     </Link>
                 </div>
-                <div className="mt-6 text-center">
-                    <span className="text-xs font-mono text-muted-foreground">v{APP_VERSION}</span>
-                </div>
-
                 {/* GUID: PAGE_LOGIN-007-v03
                     [Intent] Dialog explaining that the email already has a PIN account and
                              how to link the OAuth provider from the profile page.
@@ -348,6 +346,14 @@ export default function LoginPage() {
                 </Dialog>
             </CardContent>
         </Card>
+        {/* GUID: PAGE_LOGIN-009-v03
+            [Intent] Demoted version number: nearly invisible in the page corner so it's available
+                     for support reference without breaking login card immersion.
+            [Inbound Trigger] Always rendered below the login card.
+            [Downstream Impact] Version string sourced from APP_VERSION — no functional dependency. */}
+        <span className="absolute bottom-3 right-4 text-[10px] text-muted-foreground/30 select-text">
+            v{APP_VERSION}
+        </span>
     </main>
   );
 }
