@@ -1,4 +1,4 @@
-// GUID: PAGE_SIGNUP-000-v05
+// GUID: PAGE_SIGNUP-000-v06
 // [Intent] Signup page for Prix Six. Allows new players to register with a team name,
 //          email, and 6-digit PIN. Includes weak PIN rejection and fun team name suggestions.
 // [Inbound Trigger] User navigates to /signup from the login page link.
@@ -6,6 +6,7 @@
 //                     and Firestore user document, then redirects to /login.
 // @FIX(v04) VIRGIN-003: Replaced vague tagline with descriptive value proposition for new visitors.
 // @FIX(v05) VIRGIN-004: Added privacy policy / terms of service consent text near signup button.
+// @FIX(v06) MANICURE-AUDIT-002: Increased gap between team name input and wand button from gap-2 to gap-3.
 
 "use client";
 
@@ -269,7 +270,7 @@ export default function SignupPage() {
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Team Name</FormLabel>
-                                <div className="flex gap-2">
+                                <div className="flex gap-3">
                                 <FormControl>
                                     <Input placeholder="Your unique team name" {...field} />
                                 </FormControl>
