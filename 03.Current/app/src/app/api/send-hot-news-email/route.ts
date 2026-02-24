@@ -1,8 +1,10 @@
-// GUID: API_SEND_HOT_NEWS_EMAIL-000-v06
+// GUID: API_SEND_HOT_NEWS_EMAIL-000-v07
 // @SECURITY_FIX: Added verifyAuthToken + isAdmin check to prevent unauthenticated mass email broadcasts (ADMINCOMP-006).
-// [Intent] API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces authentication (admin-only), 1-hour broadcast cooldown, daily global and per-address rate limits, logs audit events, and tracks email stats.
+// @SECURITY_FIX: Added server-side 5-minute broadcast throttle on emailBroadcastThrottle doc (ADMINCOMP-006B).
+// @SECURITY_FIX: Removed hardcoded ADMIN_EMAIL constant — env var read via requireAdminEmail() (GEMINI-AUDIT-055B).
+// [Intent] API route that broadcasts a hot news email to all users who have opted in to the newsFeed email preference. Enforces authentication (admin-only), 5-minute server-side broadcast cooldown (emailBroadcastThrottle), 1-hour broadcast cooldown (hot_news_email_throttle), daily global and per-address rate limits, logs audit events, and tracks email stats.
 // [Inbound Trigger] POST request with Authorization: Bearer <idToken> header from the admin HotNewsManager component.
-// [Downstream Impact] Sends emails via sendEmail (email lib); writes to audit_logs, email_daily_stats, and admin_configuration/hot_news_email_throttle collections. Frontend relies on results array and success counts.
+// [Downstream Impact] Sends emails via sendEmail (email lib); writes to audit_logs, email_daily_stats, admin_configuration/emailBroadcastThrottle, and admin_configuration/hot_news_email_throttle collections. Frontend relies on results array and success counts.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
@@ -14,15 +16,39 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-// GUID: API_SEND_HOT_NEWS_EMAIL-001-v04
+// GUID: API_SEND_HOT_NEWS_EMAIL-001-v05
 // @SECURITY_FIX: Added broadcast cooldown constant (ADMINCOMP-006).
-// [Intent] Rate-limiting constants — caps total daily emails at 30 globally and 5 per individual address to prevent abuse and protect Graph API quotas. Also enforces 1-hour cooldown between broadcasts to prevent email spam.
-// [Inbound Trigger] Referenced during the email send loop in the POST handler and broadcast throttle check.
-// [Downstream Impact] Changing these values directly affects how many hot news emails can be sent per day and how frequently broadcasts can occur. Admin email (aaron@garcia.ltd) is exempt from per-address limit.
+// @SECURITY_FIX: Removed hardcoded ADMIN_EMAIL — replaced with requireAdminEmail() env var lookup (GEMINI-AUDIT-055B).
+// @SECURITY_FIX: Added CLIENT_EMAIL_COOLDOWN_MS (5-minute server-side throttle mirroring client-side cooldown) (ADMINCOMP-006B).
+// [Intent] Rate-limiting constants — caps total daily emails at 30 globally and 5 per individual address to prevent abuse and protect Graph API quotas. Enforces 5-minute server-side cooldown (emailBroadcastThrottle) and 1-hour broadcast cooldown (hot_news_email_throttle) to prevent email spam. Admin email is exempt from per-address limit but is now read from env var, never hardcoded.
+// [Inbound Trigger] Referenced during the email send loop in the POST handler, server-side throttle check, and broadcast throttle check.
+// [Downstream Impact] Changing these values directly affects how many hot news emails can be sent per day and how frequently broadcasts can occur. ADMIN_EMAIL is now sourced from GRAPH_SENDER_EMAIL or ADMIN_EMAIL env var — missing config fails fast.
 const DAILY_GLOBAL_LIMIT = 30;
 const DAILY_PER_ADDRESS_LIMIT = 5;
-const ADMIN_EMAIL = 'aaron@garcia.ltd';
+const CLIENT_EMAIL_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes — mirrors client-side HotNewsManager cooldown (ADMINCOMP-006B)
 const BROADCAST_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+// GUID: API_SEND_HOT_NEWS_EMAIL-001B-v01
+// @SECURITY_FIX: Removed hardcoded admin email; reads from env var (GEMINI-AUDIT-055B).
+// [Intent] Resolve the admin sender address used for per-address rate-limit exemption. Reads GRAPH_SENDER_EMAIL first, then ADMIN_EMAIL as fallback env var. If neither is configured, fails fast with logError() + ERRORS.EMAIL_CONFIG_MISSING + correlationId so misconfiguration is loud, never silent.
+// [Inbound Trigger] Called once per POST invocation before the email send loop to obtain the admin email for per-address limit exemption.
+// [Downstream Impact] All requests fail with 500 if env var is missing — no hardcoded fallback address is ever used.
+function requireAdminEmail(): string {
+  const adminEmail = process.env.GRAPH_SENDER_EMAIL?.trim() || process.env.ADMIN_EMAIL?.trim();
+  if (!adminEmail) {
+    const correlationId = generateCorrelationId();
+    logError({
+      correlationId,
+      error: new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Admin email not configured — set GRAPH_SENDER_EMAIL or ADMIN_EMAIL env var`),
+      context: { action: 'requireAdminEmail', additionalInfo: { errorKey: ERRORS.EMAIL_CONFIG_MISSING.key } },
+    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[${correlationId}] ${ERRORS.EMAIL_CONFIG_MISSING.code}: Admin email not configured`);
+    }
+    throw new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Admin email not configured (correlationId: ${correlationId})`);
+  }
+  return adminEmail;
+}
 
 // GUID: API_SEND_HOT_NEWS_EMAIL-001A-v01
 // [Intent] Escape HTML special characters to prevent XSS injection in hot news email content.
@@ -77,11 +103,13 @@ function getTodayDateString(): string {
   return now.toISOString().split('T')[0];
 }
 
-// GUID: API_SEND_HOT_NEWS_EMAIL-005-v06
+// GUID: API_SEND_HOT_NEWS_EMAIL-005-v07
 // @SECURITY_FIX: Added verifyAuthToken + UID match + isAdmin check before any processing (ADMINCOMP-006).
-// [Intent] POST handler — authenticates admin caller, then orchestrates the entire hot news email broadcast: validates input, checks broadcast cooldown, logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.
+// @SECURITY_FIX: Added server-side 5-minute throttle check on admin_configuration/emailBroadcastThrottle (ADMINCOMP-006B).
+// @SECURITY_FIX: Replaced hardcoded ADMIN_EMAIL with requireAdminEmail() env var call (GEMINI-AUDIT-055B).
+// [Intent] POST handler — authenticates admin caller, then orchestrates the entire hot news email broadcast: validates input, checks 5-minute server-side broadcast throttle (emailBroadcastThrottle), checks 1-hour broadcast cooldown (hot_news_email_throttle), logs audit event, checks rate limits, queries opted-in users, sends emails (including to verified secondary addresses), updates daily stats, and logs a summary audit event.
 // [Inbound Trigger] HTTP POST with Authorization: Bearer <idToken> header and JSON body containing content, updatedBy, updatedByEmail, adminUid.
-// [Downstream Impact] Writes to audit_logs (two entries per invocation), email_daily_stats, admin_configuration/hot_news_email_throttle, and sends emails via Graph API. Errors logged to error_logs with correlation ID.
+// [Downstream Impact] Writes to audit_logs (two entries per invocation), email_daily_stats, admin_configuration/emailBroadcastThrottle, admin_configuration/hot_news_email_throttle, and sends emails via Graph API. Errors logged to error_logs with correlation ID.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -129,6 +157,38 @@ export async function POST(request: NextRequest) {
         { success: false, error: ERROR_CODES.AUTH_ADMIN_REQUIRED.message, errorCode: ERROR_CODES.AUTH_ADMIN_REQUIRED.code, correlationId },
         { status: 403 }
       );
+    }
+
+    // GUID: API_SEND_HOT_NEWS_EMAIL-005B-v01
+    // @SECURITY_FIX: Server-side 5-minute rate limit — HTTP clients cannot bypass client-side cooldown (ADMINCOMP-006B).
+    // [Intent] Read admin_configuration/emailBroadcastThrottle from Firestore and reject the request with 429 if lastSentAt is within the 5-minute CLIENT_EMAIL_COOLDOWN_MS window. On success the route writes a new lastSentAt timestamp after sending. Mirrors the client-side HotNewsManager cooldown so a compromised session or direct HTTP client cannot spam subscribers.
+    // [Inbound Trigger] Evaluated after full auth verification but before any email send logic.
+    // [Downstream Impact] Returns 429 with ERRORS.EMAIL_RATE_LIMITED code and correlationId if called too frequently. Writes new lastSentAt to emailBroadcastThrottle on successful send.
+    const emailBroadcastThrottleRef = db.collection('admin_configuration').doc('emailBroadcastThrottle');
+    const emailBroadcastThrottleDoc = await emailBroadcastThrottleRef.get();
+
+    if (emailBroadcastThrottleDoc.exists) {
+      const lastSentAt = emailBroadcastThrottleDoc.data()?.lastSentAt?.toMillis?.() || 0;
+      const timeSinceLastSent = Date.now() - lastSentAt;
+
+      if (timeSinceLastSent < CLIENT_EMAIL_COOLDOWN_MS) {
+        const remainingSeconds = Math.ceil((CLIENT_EMAIL_COOLDOWN_MS - timeSinceLastSent) / 1000);
+        await logError({
+          correlationId,
+          error: `Email broadcast rate limited: ${remainingSeconds}s remaining on 5-minute cooldown`,
+          context: { route: '/api/send-hot-news-email', action: 'emailBroadcastThrottle', additionalInfo: { remainingSeconds } },
+        });
+        return NextResponse.json(
+          {
+            success: false,
+            error: ERRORS.EMAIL_RATE_LIMITED.message,
+            errorCode: ERRORS.EMAIL_RATE_LIMITED.code,
+            correlationId,
+            remainingSeconds,
+          },
+          { status: 429 }
+        );
+      }
     }
 
     // SECURITY: Check broadcast cooldown to prevent email spam (ADMINCOMP-006)
@@ -211,6 +271,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // GEMINI-AUDIT-055B: Resolve admin email from env var — never fall back to hardcoded address
+    const adminEmail = requireAdminEmail();
+
     const results: { email: string; success: boolean; emailGuid?: string; error?: string }[] = [];
 
     for (const userDoc of usersToNotify) {
@@ -233,7 +296,7 @@ export async function POST(request: NextRequest) {
       // Send to each recipient
       for (const recipientEmail of recipients) {
         // Check per-address limit (skip for admin email)
-        if (recipientEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        if (recipientEmail.toLowerCase() !== adminEmail.toLowerCase()) {
           const addressCount = dailyStats.emailsSent.filter(
             e => e.toEmail.toLowerCase() === recipientEmail.toLowerCase()
           ).length;
@@ -290,6 +353,16 @@ export async function POST(request: NextRequest) {
     }
 
     const successCount = results.filter(r => r.success).length;
+
+    // ADMINCOMP-006B: Write new lastSentAt to emailBroadcastThrottle on successful send to enforce server-side 5-minute cooldown on next request
+    await emailBroadcastThrottleRef.set(
+      {
+        lastSentAt: FieldValue.serverTimestamp(),
+        lastSentBy: updatedBy,
+        correlationId,
+      },
+      { merge: true }
+    );
 
     // Log summary audit event
     await db.collection('audit_logs').add({
