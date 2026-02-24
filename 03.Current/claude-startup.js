@@ -9,11 +9,18 @@ const identityPath = path.join(projectRoot, '.claude', '.identity');
 const VALID_NAMES = ['bob', 'bill', 'ben'];
 
 try {
-  const output = execSync('node claude-sync.js checkin', {
+  // Respect CLAUDE_IDENTITY env var set by launcher scripts (e.g. prix6.bat)
+  const requestedIdentity = process.env.CLAUDE_IDENTITY || null;
+  const checkinCmd = requestedIdentity
+    ? `node claude-sync.js checkin --name ${requestedIdentity}`
+    : 'node claude-sync.js checkin';
+
+  const output = execSync(checkinCmd, {
     cwd: projectRoot,
     encoding: 'utf-8',
     timeout: 10000,
   });
+
 
   // Parse name from checkin output (format: "YOU ARE: Bob")
   const nameMatch = output.match(/YOU ARE:\s*(\w[\w-]*)/i);
