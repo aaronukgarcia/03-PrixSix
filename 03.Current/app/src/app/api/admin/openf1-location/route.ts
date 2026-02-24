@@ -6,7 +6,7 @@
 // [Downstream Impact] Returns array of car positions with GPS coordinates and speed data.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
+import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin } from '@/lib/firebase-admin';
 import { getSecret } from '@/lib/secrets-manager';
 import { ERRORS } from '@/lib/error-registry';
 
@@ -65,10 +65,11 @@ async function getOpenF1Token(): Promise<string | null> {
     }
 }
 
-// GUID: API_ADMIN_OPENF1_LOCATION-002-v01
-// [Intent] GET handler - fetch location data for a session from OpenF1.
+// GUID: API_ADMIN_OPENF1_LOCATION-002-v02
+// [Intent] GET handler - fetch location data for a session from OpenF1. Admin-only.
 // [Inbound Trigger] GET /api/admin/openf1-location?sessionKey=12345
-// [Downstream Impact] Returns array of car positions or error response.
+// [Downstream Impact] Returns array of car positions or error response. Requires isAdmin flag
+//   to prevent authenticated non-admin users from triggering OpenF1 token acquisition and exhausting rate limits.
 export async function GET(request: NextRequest) {
     const correlationId = generateCorrelationId();
     console.log(`[openf1-location GET ${correlationId}] Request received`);
@@ -82,6 +83,16 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(
                 { success: false, error: 'Unauthorized', correlationId },
                 { status: 401 }
+            );
+        }
+
+        // SECURITY: Verify admin privileges — matches pattern in openf1-drivers/route.ts
+        const { db } = await getFirebaseAdmin();
+        const userDoc = await db.collection('users').doc(verifiedUser.uid).get();
+        if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+            return NextResponse.json(
+                { success: false, error: 'Admin access required', correlationId },
+                { status: 403 }
             );
         }
 
