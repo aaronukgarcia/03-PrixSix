@@ -1,6 +1,7 @@
 {
-  "lastUpdated": "2026-02-23",
+  "lastUpdated": "2026-02-24",
   "commits": [
+    {"id": "3814e60", "date": "2026-02-24", "version": "1.58.73", "author": "Bill (Claude Code)", "message": "security: Waves 2-4 hardening + Wave 5 partial — client-safe errors, prompt injection, rate limits, XSS, auth race, UX (v1.58.73)", "major": false},
     {"id": "3acbc0e", "date": "2026-02-23", "version": "1.58.72", "author": "Bill (Claude Code)", "message": "fix(PERF-001): Move initializePerformance to getSdks() in firebase/index.ts — fires before React renders, eliminating PX-9002 FirebaseError from Tailwind class strings exceeding Firebase Performance 100-char attribute limit (v1.58.72)", "major": false},
     {"id": "1bce65d", "date": "2026-02-23", "version": "1.58.71", "author": "Bill (Claude Code)", "message": "security: LIB-003/API-006/GEMINI-AUDIT-023/041/042/049/059/067 - audit error handling, timing attack fixes, private key leak, DoW cap, SYSTEM_OWNER_ID, email confirm dialog, error sanitisation (v1.58.71)", "major": false},
     {"id": "a2c533e", "date": "2026-02-23", "version": "1.58.70", "author": "Bill (Claude Code)", "message": "fix(PERF-001): Use initializePerformance with instrumentationEnabled:false at SDK init time; add GlobalErrorLogger filter for performance/invalid attribute value noise (v1.58.70)", "major": false},
