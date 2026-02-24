@@ -1,4 +1,4 @@
-// GUID: LIB_FIREBASE_ADMIN-000-v04
+// GUID: LIB_FIREBASE_ADMIN-000-v05
 // [Intent] Server-side Firebase Admin SDK initialisation and shared utilities for authentication verification, correlation ID generation, and centralised error logging.
 // [Inbound Trigger] Imported by all server-side API routes that need Firestore access, auth verification, or error logging.
 // [Downstream Impact] Every server-side API route depends on this module. Changes to initialisation logic, auth verification, or error logging affect the entire backend.
@@ -148,7 +148,7 @@ export function generateCorrelationId(): string {
   return `err_${timestamp}_${random}`;
 }
 
-// GUID: LIB_FIREBASE_ADMIN-005-v03
+// GUID: LIB_FIREBASE_ADMIN-005-v04
 // [Intent] Persists error details (message, stack trace, context, correlation ID) to the error_logs Firestore collection for centralised error tracking and debugging.
 // [Inbound Trigger] Called by API route catch blocks after generating a correlation ID (Golden Rule #1 compliance).
 // [Downstream Impact] Writes to error_logs collection used by admin error monitoring. Silently catches its own failures to avoid cascading errors. If this function fails, errors are only logged to console.
@@ -183,10 +183,12 @@ export async function logError(options: {
       createdAt: new Date().toISOString(),
     });
 
-    console.error(`[Error ${options.correlationId}]`, errorMessage);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate — errorMessage is message-only (low risk) but gated for consistency
+    if (process.env.NODE_ENV !== 'production') { console.error(`[Error ${options.correlationId}]`, errorMessage); }
   } catch (logError) {
     // Don't throw if logging fails - just console log
-    console.error('[Error Logging Failed]', logError);
-    console.error('[Original Error]', options.error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate — full error objects in logError fallback path
+    if (process.env.NODE_ENV !== 'production') { console.error('[Error Logging Failed]', logError); }
+    if (process.env.NODE_ENV !== 'production') { console.error('[Original Error]', options.error); }
   }
 }

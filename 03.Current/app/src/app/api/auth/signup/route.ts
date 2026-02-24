@@ -1,4 +1,4 @@
-// GUID: API_AUTH_SIGNUP-000-v06
+// GUID: API_AUTH_SIGNUP-000-v07
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // @SECURITY_FIX: GEMINI-AUDIT-112 — Replaced TOCTOU read-then-write team name check with atomic
 //   Firestore sentinel document transaction. Previous pattern let two concurrent signups both pass
@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
       throw sentinelError; // Re-throw unexpected Firestore errors to the outer catch
     }
 
-    // GUID: API_AUTH_SIGNUP-011-v05
+    // GUID: API_AUTH_SIGNUP-011-v06
     // @SECURITY_FIX: GEMINI-AUDIT-112 — Added teamNameSentinelRef cleanup on Auth creation failure.
     //   If Auth.createUser() throws, the sentinel is deleted so the name is freed for future signups.
     // [Intent] Create the Firebase Auth user record with the provided email and PIN as password. Handles the auth/email-already-exists error case separately from other auth errors.
@@ -263,10 +263,12 @@ export async function POST(request: NextRequest) {
       });
     } catch (authError: any) {
       // Cleanup sentinel — this signup failed before user was created, so free the name
-      await teamNameSentinelRef.delete().catch((deleteErr: any) =>
-        console.error(`[Signup ${correlationId}] Failed to cleanup team name sentinel after auth error:`, deleteErr)
-      );
-      console.error(`[Signup Auth Error ${correlationId}]`, authError);
+      await teamNameSentinelRef.delete().catch((deleteErr: any) => {
+        // @SECURITY_FIX (Wave 10): NODE_ENV gate
+        if (process.env.NODE_ENV !== 'production') { console.error(`[Signup ${correlationId}] Failed to cleanup team name sentinel after auth error:`, deleteErr); }
+      });
+      // @SECURITY_FIX (Wave 10): NODE_ENV gate
+      if (process.env.NODE_ENV !== 'production') { console.error(`[Signup Auth Error ${correlationId}]`, authError); }
 
       if (authError.code === 'auth/email-already-exists') {
         return NextResponse.json(
@@ -300,10 +302,11 @@ export async function POST(request: NextRequest) {
 
     const uid = userRecord.uid;
 
-    // GUID: API_AUTH_SIGNUP-012-v06
+    // GUID: API_AUTH_SIGNUP-012-v07
     // @PERFORMANCE_FIX: Added teamNameLower field for indexed queries (prevents getAllUsers() bottleneck).
     // @ATOMICITY_FIX: Wrapped critical Firestore writes in try/catch with Auth user rollback to prevent orphaned accounts.
     // @SECURITY_FIX: GEMINI-AUDIT-112 — Added teamNameSentinelRef cleanup on Firestore failure (before auth rollback).
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate applied to all console.error calls in Firestore error handler.
     //   On success: updates sentinel with userId (non-critical, fire-and-forget) to track ownership.
     // [Intent] Create the Firestore user document and presence document for the newly registered user. The user document stores profile and state data; the presence document tracks online status. If Firestore writes fail, delete the Auth user to maintain atomicity and clean up the sentinel.
     // [Inbound Trigger] Runs after Firebase Auth user is successfully created.
@@ -334,17 +337,20 @@ export async function POST(request: NextRequest) {
       teamNameSentinelRef.update({ userId: uid, reservedAt: FieldValue.serverTimestamp() }).catch(() => {});
     } catch (firestoreError: any) {
       // Cleanup sentinel — free the name reservation before rolling back Auth user
-      await teamNameSentinelRef.delete().catch((deleteErr: any) =>
-        console.error(`[Signup ${correlationId}] Failed to cleanup team name sentinel after Firestore error:`, deleteErr)
-      );
+      await teamNameSentinelRef.delete().catch((deleteErr: any) => {
+        // @SECURITY_FIX (Wave 10): NODE_ENV gate
+        if (process.env.NODE_ENV !== 'production') { console.error(`[Signup ${correlationId}] Failed to cleanup team name sentinel after Firestore error:`, deleteErr); }
+      });
 
       // CRITICAL: Rollback Auth user creation to prevent orphaned accounts
-      console.error(`[Signup ${correlationId}] Firestore write failed, rolling back Auth user:`, firestoreError);
+      // @SECURITY_FIX (Wave 10): NODE_ENV gate
+      if (process.env.NODE_ENV !== 'production') { console.error(`[Signup ${correlationId}] Firestore write failed, rolling back Auth user:`, firestoreError); }
       try {
         await auth.deleteUser(uid);
         console.log(`[Signup ${correlationId}] Auth user ${uid} deleted successfully`);
       } catch (deleteError: any) {
-        console.error(`[Signup ${correlationId}] CRITICAL: Failed to delete Auth user during rollback:`, deleteError);
+        // @SECURITY_FIX (Wave 10): NODE_ENV gate
+        if (process.env.NODE_ENV !== 'production') { console.error(`[Signup ${correlationId}] CRITICAL: Failed to delete Auth user during rollback:`, deleteError); }
         // Log the orphaned account for manual cleanup
         await db.collection('error_logs').add({
           errorCode: 'ORPHANED_AUTH_ACCOUNT',
@@ -503,12 +509,14 @@ export async function POST(request: NextRequest) {
       uid,
     });
 
-  // GUID: API_AUTH_SIGNUP-017-v04
+  // GUID: API_AUTH_SIGNUP-017-v05
   // [Intent] Top-level catch-all error handler for any unhandled exception during signup. Logs the error to error_logs and returns a generic 500 response with correlation ID for support tracing.
   // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection. The correlation ID and UNKNOWN_ERROR code in the response allow support to trace the issue.
+  // @SECURITY_FIX (Wave 10): NODE_ENV gate applied to console.error in top-level catch.
   } catch (error: any) {
-    console.error(`[Signup Error ${correlationId}]`, error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    if (process.env.NODE_ENV !== 'production') { console.error(`[Signup Error ${correlationId}]`, error); }
 
     const { db } = await getFirebaseAdmin();
     const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {

@@ -1,4 +1,4 @@
-// GUID: API_AUTH_RESET_PIN-000-v08
+// GUID: API_AUTH_RESET_PIN-000-v09
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // @SECURITY_FIX: email_logs now stores masked PIN (EMAIL-006) — plaintext PIN is only in the
 //   mail collection (consumed by the email service) and never persisted to admin-readable logs.
@@ -123,10 +123,11 @@ export async function POST(request: NextRequest) {
     const userDoc = usersQuery.docs[0];
     const userId = userDoc.id;
 
-    // GUID: API_AUTH_RESET_PIN-005-v04
+    // GUID: API_AUTH_RESET_PIN-005-v05
     // [Intent] Generate a cryptographically secure random 6-digit PIN and update the user's password in Firebase Auth. Uses crypto.randomInt for uniform distribution across the 100000-999999 range.
     // [Inbound Trigger] Runs after the user is found in Firestore.
     // [Downstream Impact] Changes the user's Firebase Auth password immediately. If this fails, no email is sent and no Firestore flags are set (clean failure). The new PIN is included in the reset email sent later.
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate applied to console.error in auth update catch.
     // Generate a new 6-digit PIN
     const newPin = crypto.randomInt(100000, 1000000).toString();
 
@@ -134,7 +135,8 @@ export async function POST(request: NextRequest) {
     try {
       await auth.updateUser(userId, { password: newPin });
     } catch (authError: any) {
-      console.error(`[PIN Reset Error ${correlationId}] Failed to update Firebase Auth:`, authError);
+      // @SECURITY_FIX (Wave 10): NODE_ENV gate
+      if (process.env.NODE_ENV !== 'production') { console.error(`[PIN Reset Error ${correlationId}] Failed to update Firebase Auth:`, authError); }
       const traced = createTracedError(ERRORS.AUTH_PIN_RESET_FAILED, {
         correlationId,
         context: { route: '/api/auth/reset-pin', action: 'updateUser', email: normalizedEmail },
@@ -212,14 +214,16 @@ export async function POST(request: NextRequest) {
       message: 'If an account exists with that email, a temporary PIN will be sent.',
     });
 
-  // GUID: API_AUTH_RESET_PIN-009-v05
+  // GUID: API_AUTH_RESET_PIN-009-v06
   // [Intent] Top-level catch-all error handler for any unhandled exception during PIN reset. Logs the error to error_logs (with fallback to console if logging itself fails) and returns a generic 500 response with correlation ID for support tracing.
   // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response allows support to trace the issue. If logTracedError fails, falls back to console.error to avoid masking the original error.
+  // @SECURITY_FIX (Wave 10): NODE_ENV gate applied to both console.error calls in top-level catch.
   // SECURITY (API-006): padToMinDuration() is also called in the error path so that an exception
   // during processing does not produce a faster response that leaks email existence to an attacker.
   } catch (error: any) {
-    console.error('[Reset PIN Error]', error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    if (process.env.NODE_ENV !== 'production') { console.error('[Reset PIN Error]', error); }
 
     try {
       const { db } = await getFirebaseAdmin();
@@ -230,7 +234,8 @@ export async function POST(request: NextRequest) {
       });
       await logTracedError(traced, db);
     } catch (logErr) {
-      console.error('[Reset PIN Error - Logging failed]', logErr);
+      // @SECURITY_FIX (Wave 10): NODE_ENV gate
+      if (process.env.NODE_ENV !== 'production') { console.error('[Reset PIN Error - Logging failed]', logErr); }
     }
 
     // SECURITY (API-006): Pad error responses to the same minimum duration.

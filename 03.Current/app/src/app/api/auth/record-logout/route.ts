@@ -1,4 +1,4 @@
-// GUID: API_AUTH_RECORD_LOGOUT-000-v03
+// GUID: API_AUTH_RECORD_LOGOUT-000-v04
 // [Intent] Records a user logout event by updating the corresponding user_logons document
 //          with a logout timestamp and 'Logged Out' status. Validates document ownership
 //          to prevent cross-user spoofing.
@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('[Record Logout Error]', error);
+    // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') { console.error('[Record Logout Error]', error); }
     return NextResponse.json(
       { success: false, error: 'Failed to record logout event' },
       { status: 500 }

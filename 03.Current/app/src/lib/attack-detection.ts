@@ -82,8 +82,10 @@ export interface AttackAlert {
   acknowledgedAt?: FirebaseFirestore.Timestamp;
 }
 
-// GUID: LIB_ATTACK_DETECTION-005-v05
+// GUID: LIB_ATTACK_DETECTION-005-v06
 // @SECURITY_RISK: Previously had no error handling -- a Firestore write failure would crash the login flow.
+// @SECURITY_FIX: Gated console.error behind NODE_ENV — production logs no longer emit full Firestore
+//   error objects during active attacks, which could expose internal collection names or query structure.
 // [Intent] Persists a login attempt (successful or failed) to the login_attempts Firestore collection for later analysis.
 // [Inbound Trigger] Called by the login API route on every authentication attempt.
 // [Downstream Impact] Feeds data to all three detection functions (checkBotAttack, checkCredentialStuffing, checkDistributedAttack). If this fails to write, attack detection becomes blind.
@@ -113,13 +115,17 @@ export async function logLoginAttempt(
     });
   } catch (error: any) {
     // Log but don't throw -- login should still succeed even if attempt logging fails
-    console.error(`[Attack Detection] Failed to log login attempt [${ERRORS.ATTACK_LOG_WRITE_FAILED.code}]:`, error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Attack Detection] Failed to log login attempt [${ERRORS.ATTACK_LOG_WRITE_FAILED.code}]:`, error);
+    }
   }
 }
 
-// GUID: LIB_ATTACK_DETECTION-006-v05
+// GUID: LIB_ATTACK_DETECTION-006-v06
 // @ERROR_PRONE: Previously did not normalize email to lowercase before passing to detection checks,
 //   causing potential misses when stored emails used different casing.
+// @SECURITY_FIX: Gated console.error behind NODE_ENV — production logs no longer emit full Firestore
+//   error objects during active attacks, which could expose internal query structure or IP data.
 // [Intent] Orchestrates all three attack detection checks (bot, credential stuffing, distributed) and creates alerts for newly detected attacks, deduplicating against existing unacknowledged alerts.
 // [Inbound Trigger] Called by the login API route after a failed login attempt, receiving the current IP and email.
 // [Downstream Impact] Returns an AttackAlert to the caller if a new attack is detected; also writes to attack_alerts collection. Admin dashboard and any notification system depend on these alerts being created.
@@ -188,13 +194,17 @@ export async function checkForAttack(
     }
   } catch (error: any) {
     // Log but don't throw -- attack detection failure should not block login flow
-    console.error(`[Attack Detection] Check failed [${ERRORS.ATTACK_CHECK_FAILED.code}]:`, error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Attack Detection] Check failed [${ERRORS.ATTACK_CHECK_FAILED.code}]:`, error);
+    }
   }
 
   return null;
 }
 
-// GUID: LIB_ATTACK_DETECTION-007-v04
+// GUID: LIB_ATTACK_DETECTION-007-v05
+// @SECURITY_FIX: Gated console.error behind NODE_ENV — production logs no longer emit full Firestore
+//   error objects during active attacks, which could expose internal collection names or query structure.
 // [Intent] Detects bot attacks by counting failed login attempts from a single IP within the configured time window (5+ in 5 minutes).
 // [Inbound Trigger] Called by checkForAttack when evaluating the current IP address after a failed login.
 // [Downstream Impact] Returns an AttackAlert object (severity: critical) if threshold is met, which checkForAttack then persists. Depends on login_attempts collection having accurate IP and timestamp data.
@@ -230,13 +240,17 @@ async function checkBotAttack(
       };
     }
   } catch (error: any) {
-    console.error(`[Attack Detection] Bot attack check query failed:`, error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Attack Detection] Bot attack check query failed:`, error);
+    }
   }
 
   return null;
 }
 
-// GUID: LIB_ATTACK_DETECTION-008-v04
+// GUID: LIB_ATTACK_DETECTION-008-v05
+// @SECURITY_FIX: Gated console.error behind NODE_ENV — production logs no longer emit full Firestore
+//   error objects during active attacks, which could expose internal collection names or query structure.
 // [Intent] Detects credential stuffing by counting unique email addresses targeted from a single IP within the configured time window (3+ accounts in 5 minutes).
 // [Inbound Trigger] Called by checkForAttack when evaluating the current IP address after a failed login.
 // [Downstream Impact] Returns an AttackAlert object (severity: critical) if threshold is met. Depends on login_attempts having accurate email and IP data. Email comparison is case-insensitive.
@@ -282,13 +296,17 @@ async function checkCredentialStuffing(
       };
     }
   } catch (error: any) {
-    console.error(`[Attack Detection] Credential stuffing check query failed:`, error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Attack Detection] Credential stuffing check query failed:`, error);
+    }
   }
 
   return null;
 }
 
-// GUID: LIB_ATTACK_DETECTION-009-v04
+// GUID: LIB_ATTACK_DETECTION-009-v05
+// @SECURITY_FIX: Gated console.error behind NODE_ENV — production logs no longer emit full Firestore
+//   error objects during active attacks, which could expose internal collection names or query structure.
 // [Intent] Detects distributed attacks by counting unique IPs targeting a single email with sufficient failures within the configured time window (3+ IPs and 5+ failures in 10 minutes).
 // [Inbound Trigger] Called by checkForAttack when evaluating the current email address after a failed login.
 // [Downstream Impact] Returns an AttackAlert object (severity: warning) if threshold is met. Depends on login_attempts having accurate IP and email data. Email comparison is case-insensitive.
@@ -334,13 +352,17 @@ async function checkDistributedAttack(
       };
     }
   } catch (error: any) {
-    console.error(`[Attack Detection] Distributed attack check query failed:`, error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Attack Detection] Distributed attack check query failed:`, error);
+    }
   }
 
   return null;
 }
 
-// GUID: LIB_ATTACK_DETECTION-010-v05
+// GUID: LIB_ATTACK_DETECTION-010-v06
+// @SECURITY_FIX: Gated console.error behind NODE_ENV — production logs no longer emit full Firestore
+//   error objects during active attacks, which could expose internal collection names or query structure.
 // [Intent] Persists a detected attack alert to the attack_alerts Firestore collection and logs a console warning for server-side monitoring.
 // [Inbound Trigger] Called by checkForAttack after confirming no duplicate unacknowledged alert exists for the detected attack.
 // [Downstream Impact] Creates documents in attack_alerts collection read by admin dashboard. Console warning is picked up by server log aggregation. If this fails, attacks are detected but not recorded.
@@ -358,7 +380,9 @@ async function createAttackAlert(
       timestamp: FieldValue.serverTimestamp(),
     });
   } catch (error: any) {
-    console.error(`[Attack Detection] Failed to create attack alert [${ERRORS.ATTACK_ALERT_FAILED.code}]:`, error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Attack Detection] Failed to create attack alert [${ERRORS.ATTACK_ALERT_FAILED.code}]:`, error);
+    }
     // Don't throw -- the alert object is still returned to the caller for immediate action
   }
 

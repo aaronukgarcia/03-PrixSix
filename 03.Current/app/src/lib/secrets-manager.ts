@@ -53,7 +53,9 @@ const secretCache = new Map<string, { value: string; fetchedAt: number }>();
 // [Downstream Impact] Changing this affects secret rotation latency. 5 min = reasonable compromise.
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// GUID: LIB_SECRETS_MANAGER-007-v01
+// GUID: LIB_SECRETS_MANAGER-007-v02
+// @SECURITY_FIX: Gated console.error behind NODE_ENV — production logs no longer emit Azure SDK
+//   initialisation errors (which could reveal auth configuration details) to log streams.
 // [Intent] Initialize Azure Key Vault client with DefaultAzureCredential for production authentication.
 //          Supports Managed Identity (production) and Azure CLI (local development with az login).
 // [Inbound Trigger] First call to getSecret() when USE_KEY_VAULT=true.
@@ -91,7 +93,9 @@ async function getSecretClient() {
 
     return keyVaultClient;
   } catch (error: any) {
-    console.error('[Key Vault] Failed to initialize client:', error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[Key Vault] Failed to initialize client:', error.message);
+    }
     throw new Error(
       `Failed to initialize Azure Key Vault client: ${error.message}. ` +
       'Ensure @azure/keyvault-secrets and @azure/identity packages are installed.'

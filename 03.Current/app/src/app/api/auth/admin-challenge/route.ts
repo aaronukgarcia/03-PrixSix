@@ -21,7 +21,7 @@ function generateAdminVerificationToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
-// GUID: API_AUTH_ADMIN_CHALLENGE-002-v01
+// GUID: API_AUTH_ADMIN_CHALLENGE-002-v02
 // [Intent] POST handler that authenticates user, verifies admin status, generates verification
 //          token with 30-minute expiry, stores in Firestore, and sends magic link email.
 // [Inbound Trigger] HTTP POST with Authorization header containing Firebase ID token.
@@ -230,7 +230,8 @@ This is an automated security email from Prix Six
     });
 
   } catch (error: any) {
-    console.error('Admin challenge error:', error);
+    // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') { console.error('Admin challenge error:', error); }
 
     // GOLDEN RULE #1: Log error to error_logs collection
     const { db } = await getFirebaseAdmin();

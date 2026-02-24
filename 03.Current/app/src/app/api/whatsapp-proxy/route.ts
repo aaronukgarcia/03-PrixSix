@@ -1,4 +1,4 @@
-// GUID: API_WHATSAPP_PROXY-000-v03
+// GUID: API_WHATSAPP_PROXY-000-v04
 // [Intent] HTTPS-to-HTTP proxy for the WhatsApp worker running on Azure Container Instances. Bridges the browser (HTTPS-only) to the internal HTTP-only WhatsApp worker, with admin auth, endpoint whitelisting, and HMAC request signing.
 // [Inbound Trigger] GET and POST requests from the admin WhatsApp management UI component.
 // [Downstream Impact] Forwards requests to the WhatsApp worker at prixsix-whatsapp.uksouth.azurecontainer.io:3000. Worker handles WhatsApp Web session management. If proxy fails, admin cannot manage WhatsApp integration.
@@ -99,14 +99,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, { status: workerResponse.status });
 
   } catch (error: any) {
-    // GUID: API_WHATSAPP_PROXY-007-v04
+    // GUID: API_WHATSAPP_PROXY-007-v05
     // @GOLDEN_RULE_1: Add correlation ID for admin troubleshooting (Phase 4 compliance).
     // [Intent] Catch-all error handler for GET requests with correlation ID tracking.
     //          Lightweight (no error_logs writes - proxy pattern) but traceable.
     // [Inbound Trigger] Any uncaught exception (network failure, JSON parse error, WhatsApp worker down).
     // [Downstream Impact] Returns 500 to admin UI with correlation ID. Admin can reference ID for support.
     //                     Does not expose raw error.message (security compliance).
-    console.error(`[WhatsApp Proxy GET] correlationId: ${correlationId}`, error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    if (process.env.NODE_ENV !== 'production') { console.error(`[WhatsApp Proxy GET] correlationId: ${correlationId}`, error); }
     return NextResponse.json(
       {
         error: 'WhatsApp proxy communication error',
@@ -171,14 +172,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: workerResponse.status });
 
   } catch (error: any) {
-    // GUID: API_WHATSAPP_PROXY-012-v04
+    // GUID: API_WHATSAPP_PROXY-012-v05
     // @GOLDEN_RULE_1: Add correlation ID for admin troubleshooting (Phase 4 compliance).
     // [Intent] Catch-all error handler for POST requests with correlation ID tracking.
     //          Lightweight (no error_logs writes - proxy pattern) but traceable.
     // [Inbound Trigger] Any uncaught exception (network failure, JSON parse error, WhatsApp worker down).
     // [Downstream Impact] Returns 500 to admin UI with correlation ID. Admin can reference ID for support.
     //                     Does not expose raw error.message (security compliance).
-    console.error(`[WhatsApp Proxy POST] correlationId: ${correlationId}`, error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    if (process.env.NODE_ENV !== 'production') { console.error(`[WhatsApp Proxy POST] correlationId: ${correlationId}`, error); }
     return NextResponse.json(
       {
         error: 'WhatsApp proxy communication error',

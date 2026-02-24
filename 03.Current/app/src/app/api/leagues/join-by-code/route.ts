@@ -1,7 +1,7 @@
 /**
  * POST /api/leagues/join-by-code
  *
- * GUID: API_LEAGUE_JOIN-001-v06
+ * GUID: API_LEAGUE_JOIN-001-v07
  * [Intent] Server-side API for joining leagues by invite code. Validates code,
  *          checks league capacity, and atomically adds user to league. Resolves
  *          FIRESTORE-003 by removing need for client-side inviteCode visibility.
@@ -52,8 +52,9 @@ function getClientIP(req: NextRequest): string {
   return 'unknown';
 }
 
-// GUID: API_LEAGUE_JOIN-004-v01
+// GUID: API_LEAGUE_JOIN-004-v02
 // @SECURITY_FIX: Firestore-backed per-IP rate limit check for join-by-code (LEAGUES-003).
+// @SECURITY_FIX (Wave 10): NODE_ENV gate applied to console.error in read error catch.
 // [Intent] Check whether the given IP has exceeded JOIN_RATE_LIMIT_MAX attempts within the
 //          current 15-minute window. Returns false on any read failure (fail-open for availability).
 // [Inbound Trigger] Called at the top of POST after extracting clientIP, before auth verification.
@@ -71,13 +72,15 @@ async function checkJoinRateLimit(
     if (Date.now() - (data.windowStart ?? 0) >= JOIN_RATE_LIMIT_WINDOW_MS) return false;
     return (data.attempts ?? 0) >= JOIN_RATE_LIMIT_MAX;
   } catch (error: any) {
-    console.error(`[JoinByCode] Rate limit check failed [${ERRORS.FIRESTORE_READ_FAILED.code}] correlationId=${correlationId}:`, error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    if (process.env.NODE_ENV !== 'production') { console.error(`[JoinByCode] Rate limit check failed [${ERRORS.FIRESTORE_READ_FAILED.code}] correlationId=${correlationId}:`, error); }
     return false; // fail-open: don't block legitimate users on read error
   }
 }
 
-// GUID: API_LEAGUE_JOIN-005-v01
+// GUID: API_LEAGUE_JOIN-005-v02
 // @SECURITY_FIX: Records each join attempt for the IP's rate limit window (LEAGUES-003).
+// @SECURITY_FIX (Wave 10): NODE_ENV gate applied to console.error in write error catch.
 // [Intent] Increment attempt counter for this IP. Resets window if expired or doc missing.
 //          Write failures are logged but non-blocking — one missed count is acceptable.
 // [Inbound Trigger] Called in POST on every request that passes auth, regardless of code validity.
@@ -99,7 +102,8 @@ async function recordJoinAttempt(
       await docRef.update({ attempts: (doc.data()!.attempts ?? 0) + 1, updatedAt: now });
     }
   } catch (error: any) {
-    console.error(`[JoinByCode] Rate limit record failed [${ERRORS.FIRESTORE_WRITE_FAILED.code}] correlationId=${correlationId}:`, error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    if (process.env.NODE_ENV !== 'production') { console.error(`[JoinByCode] Rate limit record failed [${ERRORS.FIRESTORE_WRITE_FAILED.code}] correlationId=${correlationId}:`, error); }
   }
 }
 

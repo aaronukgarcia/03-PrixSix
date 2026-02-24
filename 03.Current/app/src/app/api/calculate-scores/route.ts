@@ -170,10 +170,11 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // GUID: API_CALCULATE_SCORES-010-v03
+    // GUID: API_CALCULATE_SCORES-010-v04
     // [Intent] Fetches all predictions across all users via a collectionGroup query, then organises them by team and race to support the carry-forward resolution logic.
     // [Inbound Trigger] After user maps are built.
     // [Downstream Impact] This is the raw data source for all scoring. If the collectionGroup query fails (e.g. missing index), scoring falls back to an empty set and no scores are calculated.
+    // @SECURITY_FIX (Wave 10): console.error gated behind NODE_ENV to prevent leaking Firebase error internals in production logs.
     // Get ALL predictions - predictions carry forward all season
     // For each team: use race-specific prediction if exists, otherwise latest previous prediction
     let allPredictionsSnapshot;
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
       allPredictionsSnapshot = await db.collectionGroup('predictions').get();
       console.log(`[Scoring] CollectionGroup query returned ${allPredictionsSnapshot.size} total predictions`);
     } catch (error: any) {
-      console.error(`[Scoring] CollectionGroup query failed:`, error);
+      if (process.env.NODE_ENV !== 'production') { console.error(`[Scoring] CollectionGroup query failed:`, error); }
       allPredictionsSnapshot = { size: 0, docs: [] } as any;
     }
 

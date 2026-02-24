@@ -50,7 +50,9 @@ async () => {
     return names;
 
   } catch (error: any) {
-    console.error('Error scraping F1 drivers:', error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    // @GOLDEN_RULE_7_VIOLATION: No error code or correlation ID — full refactor deferred to Wave 11+
+    if (process.env.NODE_ENV !== 'production') { console.error('Error scraping F1 drivers:', error); }
     return []; // Return an empty array in case of an error
   }
 });
@@ -77,7 +79,9 @@ const updateDriverListFlow = ai.defineFlow({
       message: `Successfully scraped and (placeholder) updated ${driverNames.length} drivers.`, //Fixed template string
     };
   } catch (error: any) {
-    console.error('Error updating driver list:', error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    // @GOLDEN_RULE_7_VIOLATION: No error code or correlation ID — full refactor deferred to Wave 11+
+    if (process.env.NODE_ENV !== 'production') { console.error('Error updating driver list:', error); }
     return {
       success: false,
       message: `Failed to update driver list: ${error.message}`,

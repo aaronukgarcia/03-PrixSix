@@ -310,7 +310,8 @@ export async function POST(request: NextRequest) {
     const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
     if (!firebaseApiKey) {
-      console.error('[Auth] Firebase API key not configured');
+      // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV for consistency with rest of file.
+      if (process.env.NODE_ENV !== 'production') { console.error('[Auth] Firebase API key not configured'); }
       const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
         correlationId,
         context: { route: '/api/auth/login', action: 'config_check', requestData: { email: normalizedEmail } },
@@ -454,7 +455,7 @@ export async function POST(request: NextRequest) {
         timestamp: FieldValue.serverTimestamp(),
       });
 
-      // GUID: API_AUTH_LOGIN-013-v03
+      // GUID: API_AUTH_LOGIN-013-v04
       // [Intent] Record a logon event in user_logons for session tracking (non-blocking).
       //          PIN logins include IP and user agent since this runs server-side.
       //          Login succeeds even if tracking fails.
@@ -473,7 +474,8 @@ export async function POST(request: NextRequest) {
         });
         logonId = logonRef.id;
       } catch (logonError) {
-        console.error('[Login] Failed to record logon event:', logonError);
+        // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') { console.error('[Login] Failed to record logon event:', logonError); }
       }
     }
 
@@ -484,12 +486,13 @@ export async function POST(request: NextRequest) {
       logonId,
     });
 
-  // GUID: API_AUTH_LOGIN-012-v04
+  // GUID: API_AUTH_LOGIN-012-v05
   // [Intent] Top-level catch-all error handler for any unhandled exception during login. Logs the error with full context (excluding the PIN) and returns a generic 500 response with the correlation ID.
   // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response allows support to trace the issue. If logTracedError itself fails, falls back to console.error to avoid masking the original error.
   } catch (error: any) {
-    console.error('[Login Error]', error);
+    // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') { console.error('[Login Error]', error); }
 
     let requestData: any = {};
     try {
@@ -507,7 +510,8 @@ export async function POST(request: NextRequest) {
       });
       await logTracedError(traced, db);
     } catch (logErr) {
-      console.error('[Login Error - Logging failed]', logErr);
+      // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') { console.error('[Login Error - Logging failed]', logErr); }
     }
 
     // SECURITY: Return only generic message + correlationId. Full error context is logged

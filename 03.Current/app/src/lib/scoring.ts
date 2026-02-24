@@ -1,4 +1,4 @@
-// GUID: LIB_SCORING-000-v05
+// GUID: LIB_SCORING-000-v06
 // @SECURITY_FIX (GEMINI-AUDIT-067): Added explicit .limit(10000) safety cap on collectionGroup query to prevent Denial of Wallet unbounded reads.
 // [Intent] Orchestration module for race score calculation, persistence, and standings
 // generation. Reads predictions from Firestore, applies the scoring rules defined in
@@ -225,7 +225,7 @@ interface UpdateScoresResult {
   standings: StandingEntry[];
 }
 
-// GUID: LIB_SCORING-006-v05
+// GUID: LIB_SCORING-006-v06
 // @AUDIT_NOTE: Removed `oduserId` typo field that was being written to Firestore alongside `userId`.
 // [Intent] End-to-end orchestrator: calculates scores for a race, persists each
 // user's score document to the 'scores' collection, then recomputes the full league
@@ -272,7 +272,8 @@ export async function updateRaceScores(
         totalPoints: score.totalPoints
       });
     } catch (error: any) {
-      console.error(`[Scoring] [${correlationId}] Failed to write score for user ${score.userId}:`, error);
+      // @SECURITY_FIX (Wave 10): NODE_ENV gate
+      if (process.env.NODE_ENV !== 'production') { console.error(`[Scoring] [${correlationId}] Failed to write score for user ${score.userId}:`, error); }
       throw createTracedError(ERRORS.SCORE_WRITE_FAILED, { correlationId, context: { userId: score.userId, raceId: normalizedRaceId }, cause: error instanceof Error ? error : undefined });
     }
 
@@ -318,7 +319,7 @@ export async function updateRaceScores(
   };
 }
 
-// GUID: LIB_SCORING-007-v05
+// GUID: LIB_SCORING-007-v06
 // [Intent] Delete all score documents for a given race from the 'scores' collection.
 //   Used when an admin needs to re-score a race or void results.
 //   NOTE: race_results document deletion is handled atomically by /api/delete-scores/route.ts
@@ -350,7 +351,8 @@ export async function deleteRaceScores(firestore: any, raceId: string): Promise<
       await deleteDoc(scoreDoc.ref);
       deletedCount++;
     } catch (error: any) {
-      console.error(`[Scoring] [${correlationId}] Failed to delete score ${scoreDoc.id}:`, error);
+      // @SECURITY_FIX (Wave 10): NODE_ENV gate
+      if (process.env.NODE_ENV !== 'production') { console.error(`[Scoring] [${correlationId}] Failed to delete score ${scoreDoc.id}:`, error); }
       throw createTracedError(ERRORS.SCORE_DELETE_FAILED, { correlationId, context: { scoreDocId: scoreDoc.id }, cause: error instanceof Error ? error : undefined });
     }
   }
