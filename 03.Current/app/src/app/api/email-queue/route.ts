@@ -1,8 +1,10 @@
-// GUID: API_EMAIL_QUEUE-000-v04
+// GUID: API_EMAIL_QUEUE-000-v05
 // @SECURITY_FIX: GEMINI-AUDIT-119 — added .limit() to all unbounded email_queue queries in GET (pending)
 //   and POST push action. Previously the 'push' action fetched ALL pending emails with no upper bound;
 //   a large queue (e.g., from delivery outage) could exhaust memory or exceed execution time limits.
 //   Fix: GET pending capped at 100; POST push capped at PUSH_BATCH_LIMIT (50) per invocation.
+// @FIX: GEMINI-AUDIT (Low) — push response now includes processed (int) and hasMore (bool) fields so
+//   callers know how many emails were handled and whether another push is needed to drain the queue.
 // [Intent] API route that manages the email queue — supports fetching queued/failed emails (GET), sending or re-queuing emails with retry logic (POST), and deleting queued emails (DELETE). Central to the email delivery reliability system.
 // [Inbound Trigger] GET/POST/DELETE requests from the admin email queue management UI.
 // [Downstream Impact] Reads/writes email_queue and email_daily_stats collections. Sends emails via sendEmail (email lib). Failed emails are retried up to MAX_RETRY_ATTEMPTS times before being marked permanently failed.
@@ -22,13 +24,16 @@ export const dynamic = 'force-dynamic';
 // [Downstream Impact] Changing MAX_RETRY_ATTEMPTS affects how many times a failed email is retried before giving up. Changing RETRY_DELAY_MINUTES affects the delay between retry attempts.
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MINUTES = 5;
-// GUID: API_EMAIL_QUEUE-001A-v01
-// @SECURITY_FIX: GEMINI-AUDIT-119 — caps the number of emails processed in a single 'push' invocation.
+// GUID: API_EMAIL_QUEUE-001A-v02
+// @FIX: GEMINI-AUDIT (Low) — caps the number of emails processed in a single 'push' invocation and
+//       adds processed/remaining fields to the push response so callers know if more work remains.
 // [Intent] Limit the number of pending emails fetched per push to prevent memory exhaustion and
 //          execution-time timeout. With ~1s per email (Graph API call), 50 emails ≈ 50s — within
 //          the Next.js 60s default timeout. Admins can push multiple times to drain a larger queue.
+//          hasMore=true in the push response signals that another push is required.
 // [Inbound Trigger] Referenced by the POST push action to cap unbounded Firestore query.
 // [Downstream Impact] Admins processing very large queues will need multiple push operations.
+//   The hasMore flag in the response allows automated callers to loop until the queue is drained.
 const PUSH_BATCH_LIMIT = 50;
 
 // GUID: API_EMAIL_QUEUE-002-v03
@@ -139,15 +144,19 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// GUID: API_EMAIL_QUEUE-004-v05
+// GUID: API_EMAIL_QUEUE-004-v06
 // @SECURITY_FIX: Added authentication and admin verification. Previous version had NO AUTH,
 //   exposing critical vulnerability allowing anyone to:
 //   - Force email spam attacks via "push" action
 //   - Re-queue emails infinitely via "resend" (DoS)
 //   - Resource exhaustion
-// [Intent] POST handler — processes email queue actions. "resend" action re-queues failed emails by resetting their retry count and status to pending. "push" action sends pending emails via Graph API, recording successes in email_daily_stats and handling failures with exponential retry logic via handleEmailFailure.
+// @FIX: GEMINI-AUDIT (Low) — push action now capped at PUSH_BATCH_LIMIT (50) emails per invocation.
+//   Response includes processed (count of emails handled this run) and hasMore (true when the batch
+//   was full, indicating the queue may have more pending emails — caller should push again).
+// [Intent] POST handler — processes email queue actions. "resend" action re-queues failed emails by resetting their retry count and status to pending. "push" action sends up to PUSH_BATCH_LIMIT pending emails via Graph API, recording successes in email_daily_stats and handling failures with exponential retry logic via handleEmailFailure.
 // [Inbound Trigger] HTTP POST with JSON body containing action ("push" or "resend") and optional emailIds array.
 // [Downstream Impact] "push" sends emails via sendEmail, updates email_queue documents to sent/failed, and records successful sends in email_daily_stats. "resend" resets failed emails to pending.
+//   hasMore in push response allows callers to loop until queue is drained.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -301,11 +310,17 @@ export async function POST(request: NextRequest) {
       const retriedCount = results.filter(r => r.retryScheduled).length;
       const failedCount = results.filter(r => !r.success && !r.retryScheduled).length;
 
+      // hasMore: true when we hit the batch limit, meaning the queue may still have pending emails.
+      // Callers should keep invoking push until hasMore is false (or emailsToProcess.length < PUSH_BATCH_LIMIT).
+      const hasMore = !emailIds && emailsToProcess.length >= PUSH_BATCH_LIMIT;
+
       return NextResponse.json({
         success: true,
         message: `Processed ${emailsToProcess.length} emails: ${successCount} sent, ${retriedCount} scheduled for retry, ${failedCount} failed permanently`,
         results,
         summary: { sent: successCount, retrying: retriedCount, failed: failedCount },
+        processed: emailsToProcess.length,
+        hasMore,
         correlationId,
       });
     }
