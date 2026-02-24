@@ -104,6 +104,8 @@ const rawArgs = process.argv.slice(2);
 const CMD = rawArgs[0] || '';
 const FLAG_AUTO = rawArgs.includes('--auto');
 const FLAG_FORCE = rawArgs.includes('--force');
+/** Human authorisation gate — Claude instances are NEVER permitted to supply this flag autonomously */
+const FLAG_HUMAN_OK = rawArgs.includes('--human-ok');
 
 /** --session SESSION_ID — authoritative identity flag for multi-instance setups */
 function parseExplicitSessionId() {
@@ -393,8 +395,9 @@ async function cmdCheckin() {
     if (requestedName) {
       const existingLease = state.leases[requestedName];
       if (existingLease && isLeaseValid(existingLease)) {
-        if (FLAG_FORCE) {
-          // --name Bill --force: evict current holder and claim the slot
+        if (FLAG_FORCE && FLAG_HUMAN_OK) {
+          // --name Bill --force --human-ok: evict current holder and claim the slot
+          // HUMAN AUTHORISATION REQUIRED: Claude instances must never supply --human-ok autonomously
           const evictedSession = existingLease.sessionId;
           // Release any files held by the evicted session
           for (const [filePath, claim] of Object.entries(state.claimedFiles || {})) {
@@ -403,9 +406,26 @@ async function cmdCheckin() {
             }
           }
           addLog(state, 'system', 'ADMIN', 'system',
-            `Force-evicted ${requestedName} (${evictedSession}) to free slot for new checkin`);
+            `Force-evicted ${requestedName} (${evictedSession}) to free slot for new checkin [human-authorised]`);
           state.leases[requestedName] = null;
           name = requestedName;
+        } else if (FLAG_FORCE && !FLAG_HUMAN_OK) {
+          // --force without --human-ok: Claude tried to self-authorise — block it
+          console.error('');
+          console.error('============================================================');
+          console.error('  FORCE-EVICT BLOCKED — HUMAN AUTHORISATION REQUIRED');
+          console.error('============================================================');
+          console.error(`  Slot "${requestedName}" is occupied by session ${existingLease.sessionId}.`);
+          console.error('');
+          console.error('  Force-evicting another permit holder requires explicit human');
+          console.error('  authorisation. Claude instances may NOT supply --human-ok');
+          console.error('  autonomously. Only a human may run this command.');
+          console.error('');
+          console.error('  To authorise the eviction, YOU (the human) must run:');
+          console.error(`    node claude-sync.js checkin --name ${requestedName} --force --human-ok`);
+          console.error('============================================================');
+          console.error('');
+          process.exit(1);
         } else {
           // Slot occupied, --force not given — reject with guidance
           result = {
@@ -479,7 +499,7 @@ async function cmdCheckin() {
       console.error('');
       console.error('Options:');
       console.error(`  1. Wait for the permit to expire (max 5 min)`);
-      console.error(`  2. Force-evict and claim:  node claude-sync.js checkin --name ${rn} --force`);
+      console.error(`  2. Force-evict (HUMAN ONLY): node claude-sync.js checkin --name ${rn} --force --human-ok`);
       console.error(`  3. Use next available slot: node claude-sync.js checkin`);
     } else {
       console.error('CHECKIN REJECTED — ALL PERMITS OCCUPIED');
@@ -1240,7 +1260,7 @@ async function main() {
         console.log('');
         console.log('Commands:');
         console.log('  checkin [--name Bill|Bob|Ben]         - Acquire permit (auto-assigns if no --name)');
-        console.log('  checkin --name Bill --force           - Evict current Bill and claim the slot');
+        console.log('  checkin --name Bill --force --human-ok - Evict current Bill and claim (HUMAN ONLY)');
         console.log('  checkout [--session ID]               - Surrender your permit');
         console.log('  checkout --force [Name]               - Admin: force-clear one or all permits');
         console.log('  renew [--session ID]          - Extend permit by 5 min');

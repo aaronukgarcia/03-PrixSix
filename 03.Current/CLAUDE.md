@@ -23,19 +23,26 @@ claude --add-dir E:\GoogleDrive\Tools\Memory\source
 
 ```powershell
 # Step 1: Acquire your named permit (5-min TTL)
-node claude-sync.js checkin --name Bill      # primary window
-node claude-sync.js checkin                  # secondary/tertiary windows (auto-assigns Bob/Ben)
+node claude-sync.js checkin --name Bill      # primary window — that's it, you're done
 
-# Step 2: Set session ID — CRITICAL for auto-renewal hook (paste exact line from checkin output)
-$env:CLAUDE_SESSION_ID = "session-XXXXXXXXXX"
-
-# Step 3: Read the golden rules
+# Step 2: Read the golden rules
 # (checkin output shows the path — golden-rules-reminder.md)
 ```
 
-**If wrong instance grabbed your name:**
+> **No env var needed for single-agent use.** The hook reads `.claude-session-key` automatically.
+> The `$env:CLAUDE_SESSION_ID` step is only required when Bob or Ben are running simultaneously
+> in separate terminals — set it then to prevent the hooks from cross-renewing each other's permits.
+
+**If wrong instance grabbed your name — HUMAN MUST RUN THIS, not Claude:**
 ```powershell
-node claude-sync.js checkin --name Bill --force   # evict impostor, claim Bill
+node claude-sync.js checkin --name Bill --force --human-ok   # evict impostor, claim Bill
+```
+> ⚠️ **`--human-ok` is a human-only flag.** Claude instances are NEVER permitted to supply `--human-ok` autonomously. Without it, `--force` is blocked at the script level.
+
+**Multi-agent only (Bob/Ben also running):**
+```powershell
+# After checkin, paste the session ID line shown in the checkin output:
+$env:CLAUDE_SESSION_ID = "session-XXXXXXXXXX"
 ```
 
 ---
@@ -323,7 +330,8 @@ Permits expire after 5 minutes unless auto-renewed. The `PostToolUse` hook handl
 > **If your slot is taken by a stale/wrong instance**, claim it explicitly:
 > ```bash
 > node claude-sync.js checkin --name Bill          # claim Bill if slot is free
-> node claude-sync.js checkin --name Bill --force  # evict whoever holds Bill and take it
+> # Force-evict requires HUMAN authorisation — Claude may NOT run this autonomously:
+> node claude-sync.js checkin --name Bill --force --human-ok  # HUMAN ONLY
 > ```
 
 **Step 2 (CRITICAL — run once in your terminal):**
@@ -996,7 +1004,7 @@ bob> Goodnight! Bob checked out. Session ended.
 |---------|-------------|
 | `node claude-sync.js checkin` | Start of session — auto-assigns Bill/Bob/Ben |
 | `node claude-sync.js checkin --name Bill` | Claim a specific slot by name |
-| `node claude-sync.js checkin --name Bill --force` | Evict impostor and claim slot |
+| `node claude-sync.js checkin --name Bill --force --human-ok` | **HUMAN ONLY** — evict impostor and claim slot |
 | `node claude-sync.js checkout --session ID` | End of session |
 | `node claude-sync.js status --session ID` | Check permit TTL remaining |
 | `node claude-sync.js read` | Check full coordination state (poll every ~30 sec) |
