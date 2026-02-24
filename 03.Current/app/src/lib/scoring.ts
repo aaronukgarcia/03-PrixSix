@@ -53,10 +53,11 @@ interface Prediction {
 // [Inbound Trigger] n/a -- import at top of file.
 // [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
 
-// GUID: LIB_SCORING-004-v06
+// GUID: LIB_SCORING-004-v07
 // @SECURITY_RISK: Previously silently swallowed collectionGroup failures, masking missing index or permission errors.
 // @ERROR_PRONE: Previously accepted null/duplicate drivers without validation.
 // @SECURITY_FIX (GEMINI-AUDIT-067): collectionGroup query now has an explicit .limit(10000) safety cap to prevent unbounded Firestore reads (Denial of Wallet attack vector).
+// @BUG_FIX (GEMINI-AUDIT-136): actualResults and driverId are both lowercased before indexOf comparison to prevent case-mismatch silently awarding zero points for correct predictions.
 // [Intent] Core scoring engine: fetches all predictions for a given race from Firestore
 // using a collectionGroup query, then iterates each user's prediction array applying
 // the hybrid position-based scoring model (exact/1-off/2-off/3+-off) plus the all-6 bonus.
@@ -164,9 +165,14 @@ export async function calculateRaceScores(
     let totalPoints = 0;
     let correctCount = 0;
 
+    // GEMINI-AUDIT-136: Lowercase both sides of the indexOf comparison to prevent
+    // case-mismatch (e.g. 'Verstappen' vs 'verstappen') silently returning -1 and
+    // awarding zero points for correct predictions. Stored data is NOT modified.
+    const actualResultsLower = actualResults.map(d => d.toLowerCase());
+
     // Prix Six Hybrid scoring: check each prediction position
     userPredictions.forEach((driverId, predictedPosition) => {
-      const actualPosition = actualResults.indexOf(driverId);
+      const actualPosition = actualResultsLower.indexOf(driverId.toLowerCase());
 
       // Calculate points using hybrid position-based system
       const points = calculateDriverPoints(predictedPosition, actualPosition);
@@ -311,16 +317,19 @@ export async function updateRaceScores(
   };
 }
 
-// GUID: LIB_SCORING-007-v04
+// GUID: LIB_SCORING-007-v05
 // [Intent] Delete all score documents for a given race from the 'scores' collection.
-// Used when an admin needs to re-score a race or void results.
+//   Used when an admin needs to re-score a race or void results.
+//   NOTE: race_results document deletion is handled atomically by /api/delete-scores/route.ts
+//   (API_DELETE_SCORES-006) which uses a Firestore batch. This function only removes score docs.
 // [Inbound Trigger] Called from admin API route when race scores are cleared.
-// [Downstream Impact] Removes score documents from Firestore. League standings
-// will be incorrect until scores are recalculated. Depends on normalizeRaceId
-// (LIB_NORMALIZE_RACE_ID-000) for consistent raceId lookup.
+// [Downstream Impact] Removes score documents from Firestore. League standings will be incorrect
+//   until scores are recalculated. Depends on normalizeRaceId (LIB_NORMALIZE_RACE_ID-000).
+//   The race_results lockout is lifted by /api/delete-scores/route.ts, not here.
 
 /**
- * Delete all scores for a race
+ * Delete all score documents for a race from the 'scores' collection.
+ * Note: race_results document deletion is handled by /api/delete-scores/route.ts atomically.
  */
 export async function deleteRaceScores(firestore: any, raceId: string): Promise<number> {
   const correlationId = `score_del_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
