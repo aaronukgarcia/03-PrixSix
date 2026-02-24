@@ -1,4 +1,5 @@
-// GUID: PUBCHAT_PANEL-000-v10
+// GUID: PUBCHAT_PANEL-000-v11
+// @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-PUBCHAT-001): v10→v11: Tightened DOMPurify config on pub chat HTML renderer. Added FORCE_BODY, FORBID_TAGS, FORBID_ATTR. See PUBCHAT_PANEL-038.
 // @UX_IMPROVEMENT: Smart validation - prevent fetching future/invalid sessions BEFORE user clicks.
 // @UX_REDESIGN: Major 4-area collapsible layout overhaul with live leaderboard and today highlighting:
 //   - 3 collapsible areas: Live Leaderboard, Pub Chat, Real-Time Telemetry
@@ -632,8 +633,9 @@ export function PubChatPanel() {
 
             {/* Main content - desaturated when pub closed */}
             <div className={pubClosed ? 'opacity-30 pointer-events-none saturate-0' : ''}>
-                {/* GUID: PUBCHAT_PANEL-035-v09
+                {/* GUID: PUBCHAT_PANEL-035-v10
                     @UX_REDESIGN: 4-area collapsible layout (2x2 grid on large screens).
+                    @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-PUBCHAT-001): v09→v10: Tightened DOMPurify config on pub chat content render (see PUBCHAT_PANEL-038).
                     [Intent] Split screen into 4 collapsible sections (Leaderboard, Pub Chat, Telemetry, Live Track).
                     [Inbound Trigger] Component mount.
                     [Downstream Impact] Provides toggle visibility for each section. */}
@@ -742,11 +744,24 @@ export function PubChatPanel() {
                                             <p>No pub chat yet</p>
                                         </div>
                                     ) : (
+                                        // GUID: PUBCHAT_PANEL-038-v01
+                                        // @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-PUBCHAT-001): Added strict DOMPurify config to pub chat content renderer.
+                                        //   Previous config omitted FORCE_BODY, FORBID_TAGS, and FORBID_ATTR — event handlers on allowed tags were not blocked.
+                                        //   Added: FORCE_BODY: true — safe parser context, prevents differential parsing attacks.
+                                        //   Added: FORBID_TAGS: ['script', 'style'] — belt-and-suspenders even with allowlist (defence in depth).
+                                        //   Added: FORBID_ATTR with full event-handler list — blocks onerror/onload/onclick/onmouseover on all allowed tags.
+                                        //   Removed: 'u', 'h4' from ALLOWED_TAGS (superfluous, no semantic value for pub chat content).
+                                        // [Intent] Sanitize Firestore-stored pub chat HTML before rendering in the admin PubChat panel.
+                                        // [Inbound Trigger] Rendered when settings.content is non-empty in the Pub Chat collapsible area.
+                                        // [Downstream Impact] Prevents stored XSS if pub chat content is ever compromised at the Firestore level.
                                         <div
                                             className="prose prose-sm dark:prose-invert max-w-none space-y-3"
                                             dangerouslySetInnerHTML={{
                                                 __html: DOMPurify.sanitize(settings.content, {
-                                                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li'],
+                                                    FORCE_BODY: true,
+                                                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'h1', 'h2', 'h3', 'ul', 'ol', 'li'],
+                                                    FORBID_TAGS: ['script', 'style'],
+                                                    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onkeydown', 'onkeyup', 'style'],
                                                 })
                                             }}
                                         />

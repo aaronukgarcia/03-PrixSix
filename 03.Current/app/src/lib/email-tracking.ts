@@ -34,7 +34,7 @@ import { ERRORS } from '@/lib/error-registry';
 // [Inbound Trigger] Referenced by canSendEmail to enforce rate limits and by generateDailySummaryHtml for display in the summary footer.
 // [Downstream Impact] Changing these values directly affects how many emails the system can send per day. Lowering them may cause more emails to be queued rather than sent immediately. requireAdminEmailTracking throws EMAIL_CONFIG_MISSING if env var is absent.
 // *** TESTING MODE — bump back to 30 / 5 before go-live ***
-const DAILY_GLOBAL_LIMIT = 300;
+const DAILY_GLOBAL_LIMIT = 500;
 const DAILY_PER_ADDRESS_LIMIT = 50;
 
 function requireAdminEmailTracking(): string {

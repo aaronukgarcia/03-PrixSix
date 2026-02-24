@@ -170,7 +170,22 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // GUID: API_CALCULATE_SCORES-010-v04
+    // GUID: API_CALCULATE_SCORES-010-v05
+    // @AUDIT_NOTE (GEMINI-AUDIT-115): The collectionGroup query below is intentionally unbounded.
+    // A hard Firestore .limit() would break carry-forward scoring: the engine needs EVERY prediction
+    // ever submitted by every team to determine the latest prediction for teams that did not
+    // submit for the current race. Truncating the dataset would silently mis-score those teams.
+    //
+    // Expected maximum data size (2025 season):
+    //   20 users × 2 teams × (24 GP + 6 Sprint races) × 1 prediction each = ~1,200 docs
+    //   With re-submissions (up to 5 revisions per team per race): ~6,000 docs absolute max
+    //   Carry-forward synthetic documents add at most 1 per team per race: +~600 docs
+    //   Realistic upper bound: < 10,000 documents per season
+    //
+    // A WARNING is logged below if snapshot.size exceeds 10,000 — this indicates a data anomaly
+    // (e.g. a prediction-spam attack, runaway carry-forward duplication, or multi-season data
+    // accumulation) that should be investigated before Firestore costs escalate.
+    //
     // [Intent] Fetches all predictions across all users via a collectionGroup query, then organises them by team and race to support the carry-forward resolution logic.
     // [Inbound Trigger] After user maps are built.
     // [Downstream Impact] This is the raw data source for all scoring. If the collectionGroup query fails (e.g. missing index), scoring falls back to an empty set and no scores are calculated.
@@ -181,6 +196,10 @@ export async function POST(request: NextRequest) {
     try {
       allPredictionsSnapshot = await db.collectionGroup('predictions').get();
       console.log(`[Scoring] CollectionGroup query returned ${allPredictionsSnapshot.size} total predictions`);
+      // GEMINI-AUDIT-115 safety monitor: warn if prediction count exceeds expected season maximum
+      if (allPredictionsSnapshot.size > 10000) {
+        console.warn(`[Scoring] WARNING: collectionGroup('predictions') returned ${allPredictionsSnapshot.size} documents — exceeds expected season maximum of 10,000. Possible data anomaly (spam, carry-forward duplication, or multi-season accumulation). Investigate before Firestore costs escalate. correlationId=${correlationId}`);
+      }
     } catch (error: any) {
       if (process.env.NODE_ENV !== 'production') { console.error(`[Scoring] CollectionGroup query failed:`, error); }
       allPredictionsSnapshot = { size: 0, docs: [] } as any;

@@ -485,10 +485,10 @@ exports.manualBackup = onCall(
       throw new HttpsError("permission-denied", "Only admins can trigger manual backups.");
     }
 
-    // GUID: BACKUP_FUNCTIONS-017-v03
+    // GUID: BACKUP_FUNCTIONS-017-v04
     // [Intent] Call performBackup and return structured success/failure response.
-    //          On failure, include correlationId and errorCode (PX-7002) so the
-    //          frontend can display a Golden Rule #1 compliant error with copyable
+    //          On failure, include correlationId and errorCode (ERROR_CODES.BACKUP_EXPORT_FAILED)
+    //          so the frontend can display a Golden Rule #1 compliant error with copyable
     //          details. The correlationId is extracted from the error object where
     //          performBackup attaches it before re-throwing.
     // [Inbound Trigger] Admin passes auth + admin check above.
@@ -516,7 +516,7 @@ exports.manualBackup = onCall(
 );
 
 // ── listBackupHistory (backfill from GCS) ──────────────────────
-// GUID: BACKUP_FUNCTIONS-055-v05
+// GUID: BACKUP_FUNCTIONS-055-v06
 /**
  * listBackupHistory — Callable Cloud Function (2nd-gen, Cloud Run)
  *
@@ -524,8 +524,8 @@ exports.manualBackup = onCall(
  *          GCS backup folders. Lists all top-level prefixes in the backup
  *          bucket, sums file sizes per prefix, and writes each to
  *          backup_history if not already present. Returns the full list.
- *          On failure, returns PX-7008 error code with correlation ID and
- *          writes a failure record to backup_history.
+ *          On failure, returns ERROR_CODES.BACKUP_BACKFILL_FAILED error code
+ *          with correlation ID and writes a failure record to backup_history.
  *
  * [Inbound Trigger] Admin clicks "Backfill History" button in the admin
  *                   dashboard, or called via script after initial deployment.

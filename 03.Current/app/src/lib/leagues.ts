@@ -1,4 +1,4 @@
-// GUID: LIB_LEAGUES-000-v07
+// GUID: LIB_LEAGUES-000-v08
 // @SECURITY_FIX: All catch blocks now return generic error messages to prevent Firestore path/schema disclosure (GEMINI-AUDIT-062).
 // @SECURITY_FIX: Removed deprecated joinLeagueByCode() client-side function that queried Firestore by inviteCode directly — eliminates client-side enumeration vector (FIRESTORE-003).
 // @SECURITY_FIX: BOW fl3clCbCBsGmkZVxl069 / GEMINI-AUDIT-063 — Server-side authorization assessment (2026-02-23):
@@ -6,9 +6,12 @@
 //   createLeague, leaveLeague, deleteLeague, updateLeagueName, removeMember, or regenerateInviteCode.
 //   Authorization is enforced at the Firestore Security Rules layer (see app/src/firestore.rules):
 //     - CREATE: rules require ownerId == auth.uid, auth.uid in memberUserIds, isGlobal == false
-//     - UPDATE (owner): rules require auth.uid == resource.data.ownerId
+//     - UPDATE (owner): rules require auth.uid == resource.data.ownerId (or isAdmin())
 //     - UPDATE (leave): rules enforce onlySelfRemoval() — only removes self, no other field changes
-//     - DELETE: rules require auth.uid == resource.data.ownerId && isGlobal != true
+//     - DELETE: rules require isAdmin() && isGlobal != true (GEMINI-002 fix — was owner-only)
+//   ⚠️  deleteLeague() calls deleteDoc() directly via client SDK. After the GEMINI-002 rules fix,
+//       this will return permission-denied for non-admin owners. If a league delete UI is needed
+//       for regular owners, route it through an admin-authenticated API endpoint that uses Admin SDK.
 //   Client-side ownership checks in these functions are defense-in-depth UI guards only.
 //   Any attempt to bypass via direct Firestore SDK calls is blocked at the rules layer.
 //   RESIDUAL RISK: If Firestore Security Rules are misconfigured or disabled, these functions
@@ -428,11 +431,15 @@ export async function removeMember(
   }
 }
 
-// GUID: LIB_LEAGUES-010-v05
-// [Intent] Permanently delete a league document from Firestore. Only the league owner can delete, and the global league is protected from deletion.
-// [Inbound Trigger] Called from the league settings UI when the owner confirms league deletion.
+// GUID: LIB_LEAGUES-010-v06
+// [Intent] Permanently delete a league document from Firestore. The global league is protected from deletion.
+// [Inbound Trigger] Called from the league settings UI when an admin confirms league deletion.
 // [Downstream Impact] The league document is permanently removed. All member associations are lost. Standings that reference this league will no longer find it. On failure, returns a correlation ID for error tracing.
-// [Security] Authorization enforced by Firestore Security Rules: DELETE requires auth.uid == resource.data.ownerId && isGlobal != true. Client-side checks are defense-in-depth only.
+// [Security] Authorization enforced by Firestore Security Rules (GEMINI-002 fix): DELETE now requires
+//            isAdmin() && isGlobal != true. Non-admin users will receive permission-denied from Firestore.
+//            The client-side ownerId check below is now an early-exit UI guard only — it does not
+//            provide meaningful security since Firestore rules enforce admin-only at the rules layer.
+//            If a league delete flow for non-admin owners is needed, route through an Admin SDK API endpoint.
 /**
  * Delete a league (owner only, not global)
  */

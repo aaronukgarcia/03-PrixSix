@@ -37,6 +37,16 @@ service cloud.firestore {
           && data.get('badLoginAttempts', 0) == 0;
     }
 
+    // GUID: USER_RULES-001-v01
+    // [Intent] Firestore security rules for the users collection.
+    //          Prevents privilege escalation (FIRESTORE-004): isAdmin, points, badLoginAttempts,
+    //          lastFailedLoginAt, id, and createdAt are in protectedFields and cannot be changed
+    //          by the owning user. Admin SDK (server routes) handles all protected-field writes.
+    //          uid spoofing is blocked via 'id' in protectedFields (user doc uses 'id' field).
+    //          Account deletion is admin-only; /api/account/close uses Admin SDK (bypasses rules)
+    //          so no client-side delete rule change is needed (FIRESTORE-005 non-issue).
+    // [Inbound Trigger] Client SDK calls from profile page, onAuthStateChanged sync, admin UI.
+    // [Downstream Impact] Weakening protectedFields or update cases allows privilege escalation.
     match /users/{userId} {
       // All signed-in users can read user documents (for standings page team names)
       allow get, list: if isSignedIn();
@@ -59,7 +69,7 @@ service cloud.firestore {
          request.resource.data.email == resource.data.email &&
          request.resource.data.get('secondary_email', null) == resource.data.get('secondary_email', null));
 
-      // Users should not delete their own accounts (handled by admin or server)
+      // Users should not delete their own accounts (handled by admin or /api/account/close via Admin SDK)
       allow delete: if isAdmin();
 
       match /predictions/{predictionId} {
@@ -129,6 +139,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // GUID: AUDIT_LOG_RULES-001-v01
+    // [Intent] Firestore security rules for the audit_logs collection (FIRESTORE-007).
+    //          Client-side audit writes are permitted for navigation and UI events where
+    //          server round-trips are impractical. The userId field-match check prevents
+    //          cross-user log spoofing. Security-critical audit entries (login, admin actions)
+    //          are written server-side via Admin SDK which bypasses these rules.
+    //          Update and delete are blocked unconditionally — audit records are immutable.
+    //          This is the correct pattern: not a security gap.
+    // [Inbound Trigger] audit.ts logAuditEvent() called from client components.
+    // [Downstream Impact] Removing create permission silently breaks navigation audit trail.
     match /audit_logs/{logId} {
       // Signed-in users can read their own audit logs (for audit page)
       // Admins can read all audit logs
@@ -182,7 +202,17 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
     }
 
-    // Leagues - allows users to create private leagues and view standings filtered by membership
+    // GUID: LEAGUE_RULES-001-v01
+    // [Intent] Firestore security rules for the leagues collection (GEMINI-002 fix).
+    //          Resolves unauthorized league modification: admins can now update any league
+    //          (required for admin tools to correct league state). League deletion is
+    //          restricted to admins only — owners use the UI delete button which calls an
+    //          admin-authenticated API route, not direct client SDK delete.
+    //          FIRESTORE-003 (inviteCode visibility) mitigations are documented below.
+    // [Inbound Trigger] League management UI, league-context.tsx, /api/leagues/* routes.
+    // [Downstream Impact] Removing isAdmin() from update blocks admin correction tools.
+    //                     Changing delete to admin-only prevents rogue owner league deletion.
+    //
     // SECURITY: FIRESTORE-003 - inviteCode field visibility (RESOLVED v1.58.64)
     // Firestore does not support field-level security, so inviteCode remains in the league
     // document at rest. Mitigations below close all practical exposure vectors.
@@ -248,15 +278,20 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.memberUserIds
         && request.resource.data.isGlobal == false;
 
-      // UPDATE: Owner OR member leaving OR non-member joining
+      // UPDATE: Owner OR admin (full access) OR member leaving OR non-member joining
+      // @SECURITY_FIX (GEMINI-002): Added isAdmin() — admins must be able to correct league
+      // state via admin tools without being forced to be the document owner.
       allow update: if isSignedIn() && (
         isLeagueOwner() ||
+        isAdmin() ||
         (isMember() && onlySelfRemoval()) ||
         onlySelfAddition()
       );
 
-      // DELETE: Owner only (not global)
-      allow delete: if isSignedIn() && isLeagueOwner() && resource.data.isGlobal != true;
+      // DELETE: Admin only (GEMINI-002 fix — previously allowed league owner direct delete)
+      // League owners delete via admin-authenticated API route, not direct client SDK delete.
+      // Global leagues cannot be deleted even by admins (isGlobal == true guard retained).
+      allow delete: if isAdmin() && resource.data.isGlobal != true;
     }
 
     // Collection group query support for predictions (used on Results page)

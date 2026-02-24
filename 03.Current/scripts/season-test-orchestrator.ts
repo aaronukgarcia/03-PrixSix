@@ -1,7 +1,7 @@
 // GUID: SCRIPT_SEASON_TEST-000-v01
 // [Type] Utility Script — development/testing only, NOT part of production build
 // [Category] Testing
-// [Intent] Full end-to-end season test orchestrator. Creates 10 test accounts via the production
+// [Intent] Full end-to-end season test orchestrator. Creates 100 test accounts via the production
 //          API, submits predictions for every race/sprint in the schedule, has the admin enter
 //          results, verifies scoring, then optionally purges all test data.
 //          All traffic goes through the live API (https://prix6.win) — no direct Firestore writes.
@@ -9,9 +9,9 @@
 //   Setup:   ADMIN_PIN=yourpin npx ts-node --project tsconfig.scripts.json scripts/season-test-orchestrator.ts
 //   Purge:   ADMIN_PIN=yourpin npx ts-node --project tsconfig.scripts.json scripts/season-test-orchestrator.ts --purge
 // [Preseason only] Run before any real qualifying deadline passes.
-//          Purge after with --purge flag. Delete the 10 Firebase Auth accounts manually afterward.
-// [Email]  Welcome emails will land in aaron.garcia.uk+01..+10@gmail.com (all same inbox).
-//          DAILY_GLOBAL_LIMIT must be >= 300 in email-tracking.ts during this test.
+//          Purge after with --purge flag. Delete the 100 Firebase Auth accounts manually afterward.
+// [Email]  Welcome emails will land in aaron.garcia.uk+001..+100@gmail.com (all same inbox).
+//          DAILY_GLOBAL_LIMIT must be >= 500 in email-tracking.ts during this test.
 // [Notes]  Sprint races use raceName = "X Grand Prix - Sprint".
 //          CSRF: Origin header set to https://prix6.win on all auth calls.
 
@@ -44,13 +44,13 @@ if (!getApps().length) {
 const db = getFirestore();
 
 // ─── TEST ACCOUNTS ────────────────────────────────────────────────────────────
-// All 10 land in the same Gmail inbox via + aliases.
+// All 100 land in the same Gmail inbox via + aliases.
 // Team names use "test-" prefix — that's the only flag needed to identify them at purge time.
 
 const TEST_PIN = '847291'; // Strong enough to pass PIN validation
 
-const TEST_ACCOUNTS = Array.from({ length: 10 }, (_, i) => {
-  const n = String(i + 1).padStart(2, '0');
+const TEST_ACCOUNTS = Array.from({ length: 100 }, (_, i) => {
+  const n = String(i + 1).padStart(3, '0');
   return {
     email: `aaron.garcia.uk+${n}@gmail.com`,
     pin: TEST_PIN,
@@ -66,21 +66,59 @@ const POOL = [
   'russell', 'alonso', 'sainz', 'antonelli', 'hadjar',
 ];
 
-// Each tester has a personality — their preferred ordering of the 10-driver pool.
-// They pick their top-6 from this. After each race they may swap P5/P6 for variety.
+// 10 base personality archetypes — each favours a different champion / team allegiance.
+// 100 profiles are generated from these by cycling through with positional variations.
 
-const TESTER_PREFS: string[][] = [
-  ['verstappen', 'norris',     'leclerc',   'hamilton',  'piastri',   'russell'  ], // T01 — The Consensus
-  ['norris',     'verstappen', 'piastri',   'leclerc',   'russell',   'hamilton' ], // T02 — McLaren Backer
-  ['leclerc',    'hamilton',   'norris',    'verstappen','alonso',    'sainz'    ], // T03 — Ferrari+Lewis
-  ['hamilton',   'leclerc',    'verstappen','norris',    'piastri',   'alonso'   ], // T04 — Lewis Superfan
-  ['piastri',    'norris',     'verstappen','russell',   'leclerc',   'antonelli'], // T05 — McLaren+Merc
-  ['russell',    'antonelli',  'norris',    'verstappen','leclerc',   'hamilton' ], // T06 — Mercedes True
-  ['alonso',     'verstappen', 'norris',    'hamilton',  'leclerc',   'sainz'    ], // T07 — Alonso Fan
-  ['sainz',      'norris',     'verstappen','leclerc',   'hamilton',  'piastri'  ], // T08 — Williams Hope
-  ['antonelli',  'russell',    'norris',    'verstappen','leclerc',   'hamilton' ], // T09 — Antonelli Watch
-  ['hadjar',     'verstappen', 'norris',    'leclerc',   'hamilton',  'piastri'  ], // T10 — Hadjar Believer
+const BASE_ARCHETYPES: string[][] = [
+  ['verstappen', 'norris',     'leclerc',   'hamilton',  'piastri',   'russell'  ], // A01 Consensus
+  ['norris',     'verstappen', 'piastri',   'leclerc',   'russell',   'hamilton' ], // A02 McLaren Backer
+  ['leclerc',    'hamilton',   'norris',    'verstappen','alonso',    'sainz'    ], // A03 Ferrari+Lewis
+  ['hamilton',   'leclerc',    'verstappen','norris',    'piastri',   'alonso'   ], // A04 Lewis Superfan
+  ['piastri',    'norris',     'verstappen','russell',   'leclerc',   'antonelli'], // A05 McLaren+Merc
+  ['russell',    'antonelli',  'norris',    'verstappen','leclerc',   'hamilton' ], // A06 Mercedes True
+  ['alonso',     'verstappen', 'norris',    'hamilton',  'leclerc',   'sainz'    ], // A07 Alonso Fan
+  ['sainz',      'norris',     'verstappen','leclerc',   'hamilton',  'piastri'  ], // A08 Williams Hope
+  ['antonelli',  'russell',    'norris',    'verstappen','leclerc',   'hamilton' ], // A09 Antonelli Watch
+  ['hadjar',     'verstappen', 'norris',    'leclerc',   'hamilton',  'piastri'  ], // A10 Hadjar Believer
 ];
+
+/** Generate 100 tester personality profiles.
+ *  Teams 001-010 = base archetypes. Teams 011-100 = same archetypes with
+ *  positional variations (swap pairs, rotate, substitute pool alternates) to
+ *  produce distinct but realistic pick sets without hardcoding 100 arrays. */
+function buildTesterPrefs(): string[][] {
+  const prefs: string[][] = [];
+  for (let i = 0; i < 100; i++) {
+    const base = [...BASE_ARCHETYPES[i % 10]];
+    const cycle = Math.floor(i / 10); // 0..9 — which decade of 10 teams
+    switch (cycle) {
+      case 0: break;                                                    // exact archetype
+      case 1: [base[0], base[1]] = [base[1], base[0]]; break;          // swap P1↔P2
+      case 2: [base[2], base[3]] = [base[3], base[2]]; break;          // swap P3↔P4
+      case 3: {                                                          // replace P6 with pool alt
+        const used = new Set(base.slice(0, 5));
+        const alt = POOL.find(d => !used.has(d));
+        if (alt) base[5] = alt;
+        break;
+      }
+      case 4: [base[1], base[2]] = [base[2], base[1]]; break;          // swap P2↔P3
+      case 5: [base[3], base[4]] = [base[4], base[3]]; break;          // swap P4↔P5
+      case 6: {                                                          // replace P5+P6 with alts
+        const used = new Set(base.slice(0, 4));
+        const alts = POOL.filter(d => !used.has(d));
+        if (alts.length >= 2) { base[4] = alts[0]; base[5] = alts[1]; }
+        break;
+      }
+      case 7: { const first = base.shift()!; base.push(first); break; } // rotate: P1→end
+      case 8: [base[0], base[2]] = [base[2], base[0]]; break;          // swap P1↔P3
+      case 9: [base[1], base[4]] = [base[4], base[1]]; break;          // swap P2↔P5
+    }
+    prefs.push(base);
+  }
+  return prefs;
+}
+
+const TESTER_PREFS: string[][] = buildTesterPrefs();
 
 // ─── PRE-SET RACE RESULTS ─────────────────────────────────────────────────────
 // 24 GP results + up to 6 Sprint results. All picks from POOL only.
@@ -196,7 +234,7 @@ interface Tester {
 async function createTestAccounts(): Promise<Tester[]> {
   const mode = IS_RESUME ? 'Logging into existing' : 'Creating';
   sep();
-  log(`PHASE 1 — ${mode} 10 test accounts (sequential)`);
+  log(`PHASE 1 — ${mode} 100 test accounts (sequential)`);
   sep();
 
   const testers: Tester[] = [];
@@ -223,21 +261,31 @@ async function createTestAccounts(): Promise<Tester[]> {
       log(`  ✓ ${acct.teamName} uid=${res.uid}`);
       await sleep(800);
     } else {
-      // Create new account
+      // Create new account — fall back to login if it already exists (idempotent)
       log(`  Signing up ${acct.teamName} (${acct.email})...`);
-      const res = await apiPost('/api/auth/signup', {
+      const signupRes = await apiPost('/api/auth/signup', {
         email: acct.email,
         pin: acct.pin,
         teamName: acct.teamName,
       });
-      if (!res.success) {
-        log(`  ERROR: ${JSON.stringify(res)}`);
-        throw new Error(`Signup failed for ${acct.teamName}`);
+      if (signupRes.success) {
+        const idToken = await exchangeCustomToken(signupRes.customToken);
+        testers.push({ email: acct.email, teamName: acct.teamName, uid: signupRes.uid, idToken });
+        log(`  ✓ ${acct.teamName} uid=${signupRes.uid} (new)`);
+        await sleep(1200); // Pace signups — sentinel guard
+      } else {
+        // Account already exists — try login
+        log(`  Signup failed (${signupRes.error || 'unknown'}), trying login...`);
+        const loginRes = await apiPost('/api/auth/login', { email: acct.email, pin: acct.pin });
+        if (!loginRes.success) {
+          log(`  ERROR login also failed: ${JSON.stringify(loginRes)}`);
+          throw new Error(`Both signup and login failed for ${acct.teamName}`);
+        }
+        const idToken = await exchangeCustomToken(loginRes.customToken);
+        testers.push({ email: acct.email, teamName: acct.teamName, uid: loginRes.uid, idToken });
+        log(`  ✓ ${acct.teamName} uid=${loginRes.uid} (existing)`);
+        await sleep(800);
       }
-      const idToken = await exchangeCustomToken(res.customToken);
-      testers.push({ email: acct.email, teamName: acct.teamName, uid: res.uid, idToken });
-      log(`  ✓ ${acct.teamName} uid=${res.uid}`);
-      await sleep(1200); // Pace signups — sentinel guard
     }
   }
 
@@ -489,7 +537,7 @@ async function main() {
 
   log('');
   log('Run with --purge when ready to clean up test data.');
-  log('Then manually delete the 10 Firebase Auth accounts from the console.');
+  log('Then manually delete the 100 Firebase Auth accounts from the console.');
 }
 
 main().catch(err => {
