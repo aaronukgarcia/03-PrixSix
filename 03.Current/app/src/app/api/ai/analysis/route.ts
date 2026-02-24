@@ -245,7 +245,7 @@ async function checkAiRateLimit(userId: string): Promise<{ allowed: boolean; cou
   return result;
 }
 
-// GUID: API_AI_ANALYSIS-007-v04
+// GUID: API_AI_ANALYSIS-007-v05
 // [Intent] POST handler that verifies auth, enforces per-user AI rate limit (20 req/hour via Firestore), validates weights, sanitizes user-controlled fields, builds the prediction list and weighted prompt, calls Genkit AI (Gemini), and returns the analysis text. Includes dedicated error handling for AI generation failures separate from general errors.
 // [Inbound Trigger] POST /api/ai/analysis with JSON body matching AnalysisRequest interface.
 // [Downstream Impact] Calls Google AI via Genkit (incurs API costs). Returns analysis text to client. Logs AI-specific and general errors to error_logs with AI_GENERATION_FAILED error code. Console-logs audit info for each successful analysis. Rate limit violations return 429 with EMAIL_RATE_LIMITED error code.
@@ -274,7 +274,10 @@ export async function POST(request: NextRequest) {
     } catch (rateLimitErr: any) {
       // Log but do not block the request if the rate-limit check itself fails —
       // fail open to avoid breaking legitimate users due to Firestore issues.
-      console.error(`[Rate Limit Check Error ${correlationId}]`, rateLimitErr?.message);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[Rate Limit Check Error ${correlationId}]`, rateLimitErr?.message);
+      }
       rateLimitResult = { allowed: true, count: 0, resetAt: new Date() };
     }
 
@@ -328,7 +331,7 @@ export async function POST(request: NextRequest) {
       totalWeight || calculatedTotal
     );
 
-    // GUID: API_AI_ANALYSIS-009-v03
+    // GUID: API_AI_ANALYSIS-009-v04
     // [Intent] Call Genkit AI (Gemini) with the weighted prompt and configured generation parameters. Dedicated try/catch provides specific AI error handling with detailed logging.
     // [Inbound Trigger] Prompt built successfully from validated inputs.
     // [Downstream Impact] Returns AI-generated analysis text on success. On failure, logs detailed AI error info (name, code, status, truncated stack) to error_logs and returns a fallback message. Token limit of 1500 controls cost and response length.
@@ -343,13 +346,16 @@ export async function POST(request: NextRequest) {
       });
       analysisText = result.text;
     } catch (aiError: any) {
-      console.error(`[AI Generation Error ${correlationId}]`, JSON.stringify({
-        message: aiError?.message,
-        name: aiError?.name,
-        code: aiError?.code,
-        status: aiError?.status,
-        stack: aiError?.stack?.substring(0, 500),
-      }));
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[AI Generation Error ${correlationId}]`, JSON.stringify({
+          message: aiError?.message,
+          name: aiError?.name,
+          code: aiError?.code,
+          status: aiError?.status,
+          stack: aiError?.stack?.substring(0, 500),
+        }));
+      }
 
       // Log specific AI error (wrapped in try-catch to prevent silent failures)
       try {
@@ -361,7 +367,10 @@ export async function POST(request: NextRequest) {
         });
         await logTracedError(traced, db);
       } catch (logErr) {
-        console.error(`[Failed to log AI error ${correlationId}]`, logErr);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(`[Failed to log AI error ${correlationId}]`, logErr);
+        }
       }
 
       return NextResponse.json(

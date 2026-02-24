@@ -195,7 +195,7 @@ async function safeParseJson<T>(
 
 
 // =============================================================================
-// GUID: API_ADMIN_FETCH_TIMING_DATA-013-v02
+// GUID: API_ADMIN_FETCH_TIMING_DATA-013-v03
 // AUTHOR: gill — 2026-02-19 (updated from previous version)
 // @AUTH_FIX:    Added OpenF1 OAuth2 authentication with caching (previous author).
 // @TIMEOUT_FIX: Now calls fetchWithTimeout() instead of bare fetch() (gill).
@@ -267,10 +267,13 @@ async function getOpenF1Token(): Promise<string | null> {
     // A non-2xx status from the token endpoint means our credentials were
     // rejected (401), or there is a server-side problem (5xx).
     if (!res.ok) {
-      console.error(
-        `[OpenF1 Auth ${correlationId}] Token endpoint returned HTTP ${res.status}. ` +
-        `Check OPENF1_USERNAME and OPENF1_PASSWORD are correct.`
-      );
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          `[OpenF1 Auth ${correlationId}] Token endpoint returned HTTP ${res.status}. ` +
+          `Check OPENF1_USERNAME and OPENF1_PASSWORD are correct.`
+        );
+      }
       // Returning null rather than throwing — the caller will try to proceed
       // without authentication and will handle the resulting 401 gracefully.
       return null;
@@ -285,7 +288,10 @@ async function getOpenF1Token(): Promise<string | null> {
     // Guard: if OpenF1 returned a response that parsed as JSON but did not
     // include an access_token field, we cannot proceed with auth.
     if (!token) {
-      console.error(`[OpenF1 Auth ${correlationId}] Token response did not contain access_token field.`);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[OpenF1 Auth ${correlationId}] Token response did not contain access_token field.`);
+      }
       return null;
     }
 
@@ -303,7 +309,10 @@ async function getOpenF1Token(): Promise<string | null> {
   } catch (err) {
     // A network error or AbortError (timeout) from fetchWithTimeout.
     // Log it and return null so the caller can attempt to proceed without auth.
-    console.error(`[OpenF1 Auth ${correlationId}] Token fetch threw:`, err);
+    // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[OpenF1 Auth ${correlationId}] Token fetch threw:`, err);
+    }
     return null;
   }
 }
@@ -543,7 +552,7 @@ export async function POST(request: NextRequest) {
     console.log(`[fetch-timing-data POST ${correlationId}] Admin check passed for UID ${adminUid}.`);
 
     // -------------------------------------------------------------------------
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-005-v03
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-005-v04
     // AUTHOR: gill — 2026-02-19
     // @AUTH_FIX:    Added token acquisition (previous author).
     // @TIMEOUT_FIX: Now calls fetchWithTimeout() (gill).
@@ -581,7 +590,10 @@ export async function POST(request: NextRequest) {
     } catch (fetchErr: any) {
       // fetchWithTimeout threw — either a timeout (AbortError) or a network error.
       const isTimeout = fetchErr?.name === 'AbortError';
-      console.error(`[fetch-timing-data POST ${correlationId}] Session fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[fetch-timing-data POST ${correlationId}] Session fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+      }
       return NextResponse.json(
         {
           success: false,
@@ -600,7 +612,10 @@ export async function POST(request: NextRequest) {
       // Provide a specific message if 401 and we have no token — this is a
       // configuration problem (missing env vars) that the developer needs to fix.
       if (sessionRes.status === 401 && !openf1Token) {
-        console.error(`[fetch-timing-data POST ${correlationId}] OpenF1 sessions returned 401 — credentials not configured.`);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(`[fetch-timing-data POST ${correlationId}] OpenF1 sessions returned 401 — credentials not configured.`);
+        }
         return NextResponse.json(
           {
             success: false,
@@ -611,7 +626,10 @@ export async function POST(request: NextRequest) {
           { status: 502 },
         );
       }
-      console.error(`[fetch-timing-data POST ${correlationId}] Sessions endpoint returned HTTP ${sessionRes.status}.`);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[fetch-timing-data POST ${correlationId}] Sessions endpoint returned HTTP ${sessionRes.status}.`);
+      }
       return NextResponse.json(
         {
           success: false,
@@ -646,7 +664,7 @@ export async function POST(request: NextRequest) {
     console.log(`[fetch-timing-data POST ${correlationId}] Session: "${session.session_name}" (meetingKey=${session.meeting_key})`);
 
     // -------------------------------------------------------------------------
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-006-v03
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-006-v04
     // AUTHOR: gill — 2026-02-19
     // @AUTH_FIX:    Added OpenF1 OAuth2 auth (previous author).
     // @TIMEOUT_FIX: Now calls fetchWithTimeout() (gill).
@@ -669,7 +687,10 @@ export async function POST(request: NextRequest) {
       );
     } catch (fetchErr: any) {
       const isTimeout = fetchErr?.name === 'AbortError';
-      console.error(`[fetch-timing-data POST ${correlationId}] Meeting fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[fetch-timing-data POST ${correlationId}] Meeting fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+      }
       return NextResponse.json(
         {
           success: false,
@@ -684,7 +705,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!meetingRes.ok) {
-      console.error(`[fetch-timing-data POST ${correlationId}] Meetings endpoint returned HTTP ${meetingRes.status}.`);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[fetch-timing-data POST ${correlationId}] Meetings endpoint returned HTTP ${meetingRes.status}.`);
+      }
       return NextResponse.json(
         {
           success: false,
@@ -705,7 +729,7 @@ export async function POST(request: NextRequest) {
     console.log(`[fetch-timing-data POST ${correlationId}] Meeting: "${meeting.meeting_name ?? '(unknown)'}"`);
 
     // -------------------------------------------------------------------------
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-007-v04
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-007-v05
     // AUTHOR: gill — 2026-02-19 (multi-driver support for UX redesign)
     // @AUTH_FIX:    Added OpenF1 OAuth2 auth (previous author).
     // @TIMEOUT_FIX: Now calls fetchWithTimeout() (gill).
@@ -729,7 +753,10 @@ export async function POST(request: NextRequest) {
       driversRes = await fetchWithTimeout(driversUrl, { headers: authHeaders });
     } catch (fetchErr: any) {
       const isTimeout = fetchErr?.name === 'AbortError';
-      console.error(`[fetch-timing-data POST ${correlationId}] Drivers fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[fetch-timing-data POST ${correlationId}] Drivers fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+      }
       return NextResponse.json(
         {
           success: false,
@@ -743,7 +770,10 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!driversRes.ok) {
-      console.error(`[fetch-timing-data POST ${correlationId}] Drivers endpoint returned HTTP ${driversRes.status}.`);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[fetch-timing-data POST ${correlationId}] Drivers endpoint returned HTTP ${driversRes.status}.`);
+      }
       return NextResponse.json(
         {
           success: false,
@@ -1002,7 +1032,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     // -------------------------------------------------------------------------
-    // GUID: API_ADMIN_FETCH_TIMING_DATA-012-v04
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-012-v05
     // @SECURITY_FIX: Replaced ERROR_CODES.UNEXPECTED_ERROR?.code ?? 'PX-9001' with ERROR_CODES.UNKNOWN_ERROR.code (GEMINI-AUDIT-009).
     // AUTHOR: gill — 2026-02-19
     // [Intent] Top-level catch block. Handles any uncaught exception that
@@ -1016,7 +1046,10 @@ export async function POST(request: NextRequest) {
     //                     is returned to the client and displayed in the UI
     //                     as a selectable reference for support.
     // -------------------------------------------------------------------------
-    console.error(`[fetch-timing-data POST ${correlationId}] Unhandled exception:`, error);
+    // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[fetch-timing-data POST ${correlationId}] Unhandled exception:`, error);
+    }
 
     try {
       // Attempt to log the error to Firestore. This itself could fail (e.g. if
@@ -1041,7 +1074,10 @@ export async function POST(request: NextRequest) {
     } catch (loggingErr) {
       // Even the error-logging failed. Return a minimal response so the client
       // is not left hanging. The original error detail is in the console logs.
-      console.error(`[fetch-timing-data POST ${correlationId}] Error logging also failed:`, loggingErr);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[fetch-timing-data POST ${correlationId}] Error logging also failed:`, loggingErr);
+      }
       return NextResponse.json(
         {
           success:      false,

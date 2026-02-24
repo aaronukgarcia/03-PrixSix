@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     const userDoc = await db.collection('users').doc(userId).get();
     const userData = userDoc.exists ? userDoc.data() : null;
 
-    // GUID: API_ADMIN_DELETE_USER-007-v03
+    // GUID: API_ADMIN_DELETE_USER-007-v04
     // [Intent] Delete user from Firebase Auth. If user is already missing from Auth (orphaned Firestore record), proceed with Firestore cleanup only.
     // [Inbound Trigger] User data captured; ready for coordinated deletion.
     // [Downstream Impact] Sets authDeleted flag used by Firestore error handler. If Auth deletion succeeds but Firestore fails, a critical error is logged because the user cannot log in but their data remains. Non-auth/user-not-found errors are re-thrown.
@@ -161,7 +161,8 @@ export async function POST(request: NextRequest) {
       await auth.deleteUser(userId);
       authDeleted = true;
     } catch (authError: any) {
-      console.error(`[Admin Delete Auth Error ${correlationId}]`, authError);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') { console.error(`[Admin Delete Auth Error ${correlationId}]`, authError); }
 
       if (authError.code === 'auth/user-not-found') {
         console.warn(`[Admin Delete] User ${userId} not found in Auth, cleaning up Firestore only`);

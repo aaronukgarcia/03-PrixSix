@@ -179,7 +179,7 @@ async function safeParseJson<T>(
 
 
 // =============================================================================
-// GUID: API_ADMIN_OPENF1_SESSIONS-005-v02
+// GUID: API_ADMIN_OPENF1_SESSIONS-005-v03
 // AUTHOR: gill — 2026-02-19 (updated from previous version)
 // @AUTH_FIX:    Added OpenF1 OAuth2 authentication with caching (previous author).
 // @TIMEOUT_FIX: Now calls fetchWithTimeout() instead of bare fetch() (gill).
@@ -237,10 +237,13 @@ async function getOpenF1Token(): Promise<string | null> {
 
     // A non-2xx response means our credentials were rejected or the server erred.
     if (!res.ok) {
-      console.error(
-        `[OpenF1 Auth ${correlationId}] Token endpoint returned HTTP ${res.status}. ` +
-        `Verify OPENF1_USERNAME and OPENF1_PASSWORD are correct.`
-      );
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          `[OpenF1 Auth ${correlationId}] Token endpoint returned HTTP ${res.status}. ` +
+          `Verify OPENF1_USERNAME and OPENF1_PASSWORD are correct.`
+        );
+      }
       return null;
     }
 
@@ -250,7 +253,10 @@ async function getOpenF1Token(): Promise<string | null> {
 
     // Guard against a response that parsed as JSON but lacked access_token.
     if (!token) {
-      console.error(`[OpenF1 Auth ${correlationId}] Token response did not contain access_token.`);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[OpenF1 Auth ${correlationId}] Token response did not contain access_token.`);
+      }
       return null;
     }
 
@@ -261,7 +267,10 @@ async function getOpenF1Token(): Promise<string | null> {
 
   } catch (err) {
     // Covers AbortError (timeout) and network errors from fetchWithTimeout.
-    console.error(`[OpenF1 Auth ${correlationId}] Token fetch threw:`, err);
+    // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[OpenF1 Auth ${correlationId}] Token fetch threw:`, err);
+    }
     return null;
   }
 }
@@ -352,7 +361,7 @@ export async function GET(request: NextRequest) {
     }
 
     // -------------------------------------------------------------------------
-    // GUID: API_ADMIN_OPENF1_SESSIONS-002-v03
+    // GUID: API_ADMIN_OPENF1_SESSIONS-002-v04
     // AUTHOR: gill — 2026-02-19
     // @AUTH_FIX:    Added OpenF1 OAuth2 auth (previous author).
     // @TIMEOUT_FIX: Now calls fetchWithTimeout() (gill).
@@ -387,7 +396,10 @@ export async function GET(request: NextRequest) {
       } catch (fetchErr: any) {
         // AbortError = timeout; anything else = network error.
         const isTimeout = fetchErr?.name === 'AbortError';
-        console.error(`[openf1-sessions GET ${correlationId}] Meetings fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(`[openf1-sessions GET ${correlationId}] Meetings fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+        }
         return NextResponse.json(
           {
             success: false,
@@ -405,7 +417,10 @@ export async function GET(request: NextRequest) {
       if (!res.ok) {
         // Special case: 401 with no token means credentials are not configured.
         if (res.status === 401 && !openf1Token) {
-          console.error(`[openf1-sessions GET ${correlationId}] OpenF1 meetings returned 401 — credentials not configured.`);
+          // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+          if (process.env.NODE_ENV !== 'production') {
+            console.error(`[openf1-sessions GET ${correlationId}] OpenF1 meetings returned 401 — credentials not configured.`);
+          }
           return NextResponse.json(
             {
               success: false,
@@ -416,7 +431,10 @@ export async function GET(request: NextRequest) {
             { status: 502 },
           );
         }
-        console.error(`[openf1-sessions GET ${correlationId}] Meetings endpoint returned HTTP ${res.status}.`);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(`[openf1-sessions GET ${correlationId}] Meetings endpoint returned HTTP ${res.status}.`);
+        }
         return NextResponse.json(
           {
             success: false,
@@ -452,7 +470,7 @@ export async function GET(request: NextRequest) {
     }
 
     // -------------------------------------------------------------------------
-    // GUID: API_ADMIN_OPENF1_SESSIONS-003-v03
+    // GUID: API_ADMIN_OPENF1_SESSIONS-003-v04
     // AUTHOR: gill — 2026-02-19
     // @AUTH_FIX:    Added OpenF1 OAuth2 auth (previous author).
     // @TIMEOUT_FIX: Now calls fetchWithTimeout() (gill).
@@ -484,7 +502,10 @@ export async function GET(request: NextRequest) {
         );
       } catch (fetchErr: any) {
         const isTimeout = fetchErr?.name === 'AbortError';
-        console.error(`[openf1-sessions GET ${correlationId}] Sessions fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(`[openf1-sessions GET ${correlationId}] Sessions fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
+        }
         return NextResponse.json(
           {
             success: false,
@@ -501,7 +522,10 @@ export async function GET(request: NextRequest) {
       // Handle non-2xx HTTP status.
       if (!res.ok) {
         if (res.status === 401 && !openf1Token) {
-          console.error(`[openf1-sessions GET ${correlationId}] OpenF1 sessions returned 401 — credentials not configured.`);
+          // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+          if (process.env.NODE_ENV !== 'production') {
+            console.error(`[openf1-sessions GET ${correlationId}] OpenF1 sessions returned 401 — credentials not configured.`);
+          }
           return NextResponse.json(
             {
               success: false,
@@ -512,7 +536,10 @@ export async function GET(request: NextRequest) {
             { status: 502 },
           );
         }
-        console.error(`[openf1-sessions GET ${correlationId}] Sessions endpoint returned HTTP ${res.status}.`);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(`[openf1-sessions GET ${correlationId}] Sessions endpoint returned HTTP ${res.status}.`);
+        }
         return NextResponse.json(
           {
             success: false,
@@ -549,7 +576,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     // =========================================================================
-    // GUID: API_ADMIN_OPENF1_SESSIONS-004-v04
+    // GUID: API_ADMIN_OPENF1_SESSIONS-004-v05
     // @SECURITY_FIX: Replaced ERROR_CODES.UNEXPECTED_ERROR?.code ?? 'PX-9001' with ERROR_CODES.UNKNOWN_ERROR.code (GEMINI-AUDIT-009).
     // AUTHOR: gill — 2026-02-19
     // [Intent] Top-level catch block. Handles any uncaught exception from the
@@ -561,7 +588,10 @@ export async function GET(request: NextRequest) {
     // [Downstream Impact] Writes to error_logs. correlationId returned to client
     //                     for support reference.
     // =========================================================================
-    console.error(`[openf1-sessions GET ${correlationId}] Unhandled exception:`, error);
+    // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[openf1-sessions GET ${correlationId}] Unhandled exception:`, error);
+    }
 
     try {
       // Attempt to log the traced error to Firestore. Wrapped in its own
@@ -585,7 +615,10 @@ export async function GET(request: NextRequest) {
       );
     } catch (loggingErr) {
       // Even the error-logging path failed. Return a minimal safe response.
-      console.error(`[openf1-sessions GET ${correlationId}] Error logging also failed:`, loggingErr);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[openf1-sessions GET ${correlationId}] Error logging also failed:`, loggingErr);
+      }
       return NextResponse.json(
         {
           success:      false,

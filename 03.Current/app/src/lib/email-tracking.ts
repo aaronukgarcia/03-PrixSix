@@ -33,8 +33,9 @@ import { ERRORS } from '@/lib/error-registry';
 // [Intent] Rate-limit constants defining the maximum number of emails allowed per day globally and per individual recipient address. requireAdminEmailTracking resolves the admin email address from environment variables at runtime for use in per-address rate-limit exemption.
 // [Inbound Trigger] Referenced by canSendEmail to enforce rate limits and by generateDailySummaryHtml for display in the summary footer.
 // [Downstream Impact] Changing these values directly affects how many emails the system can send per day. Lowering them may cause more emails to be queued rather than sent immediately. requireAdminEmailTracking throws EMAIL_CONFIG_MISSING if env var is absent.
-const DAILY_GLOBAL_LIMIT = 30;
-const DAILY_PER_ADDRESS_LIMIT = 5;
+// *** TESTING MODE — bump back to 30 / 5 before go-live ***
+const DAILY_GLOBAL_LIMIT = 300;
+const DAILY_PER_ADDRESS_LIMIT = 50;
 
 function requireAdminEmailTracking(): string {
   const adminEmail = process.env.GRAPH_SENDER_EMAIL?.trim() || process.env.ADMIN_EMAIL?.trim();

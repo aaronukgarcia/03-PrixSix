@@ -343,9 +343,13 @@ service cloud.firestore {
       allow write: if false; // Server-side only via Admin SDK
     }
 
-    // Attack alerts - admin only
+    // @SECURITY_FIX (Wave 10): attack_alerts write permission tightened.
+    // Acknowledgement operations go through /api/admin/acknowledge-attack (Admin SDK).
+    // Allowing direct admin client-side writes is unnecessary and adds an attack surface
+    // if an admin session is compromised. Read-only for admin clients; writes server-only.
     match /attack_alerts/{alertId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false; // Server-side only via Admin SDK (acknowledge-attack API route)
     }
 
     // GUID: LOGON_RULES-001-v03
@@ -410,6 +414,24 @@ service cloud.firestore {
     //                     Without these rules, collection defaults to deny-all (secure)
     //                     but explicit rule removes maintenance risk.
     match /secondary_email_verification_tokens/{tokenId} {
+      allow read, write: if false; // Server-side only via Admin SDK
+    }
+
+    // @SECURITY_FIX (Wave 10, Phase 1): Explicit rules for collections that previously
+    // relied on Firestore's implicit deny-all. Explicit rules document intent and prevent
+    // accidental exposure if the service block structure changes.
+
+    // Admin verification tokens — server-side only (Admin SDK bypasses rules)
+    // Created by /api/auth/admin-challenge, consumed by /api/admin/verify-access.
+    // No client access needed — denying explicitly prevents token enumeration attacks.
+    match /admin_verification_tokens/{tokenId} {
+      allow read, write: if false; // Server-side only via Admin SDK
+    }
+
+    // League join rate limits — server-side only (Admin SDK bypasses rules)
+    // Written by /api/leagues/join-by-code to throttle invite code brute-force.
+    // Documents keyed by hashed IP; no client visibility needed.
+    match /join_rate_limits/{docId} {
       allow read, write: if false; // Server-side only via Admin SDK
     }
   }

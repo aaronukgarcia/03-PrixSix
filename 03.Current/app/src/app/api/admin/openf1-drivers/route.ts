@@ -18,7 +18,7 @@ const OPENF1_TOKEN_URL = 'https://api.openf1.org/token';
 // In-memory token cache (shared with openf1-sessions route)
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-// GUID: API_ADMIN_OPENF1_DRIVERS-001-v01
+// GUID: API_ADMIN_OPENF1_DRIVERS-001-v02
 // [Intent] Get OpenF1 OAuth2 access token with caching.
 // [Inbound Trigger] Called before OpenF1 API request.
 // [Downstream Impact] Returns cached token if valid, otherwise fetches new token.
@@ -46,7 +46,8 @@ async function getOpenF1Token(): Promise<string | null> {
     });
 
     if (!res.ok) {
-      console.error(`[OpenF1 Auth ${correlationId}] Token fetch failed: ${res.status}`);
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') { console.error(`[OpenF1 Auth ${correlationId}] Token fetch failed: ${res.status}`); }
       return null;
     }
 
@@ -59,7 +60,8 @@ async function getOpenF1Token(): Promise<string | null> {
     console.log(`[OpenF1 Auth ${correlationId}] Token refreshed`);
     return cachedToken.token;
   } catch (err) {
-    console.error(`[OpenF1 Auth ${correlationId}]`, err);
+    // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') { console.error(`[OpenF1 Auth ${correlationId}]`, err); }
     return null;
   }
 }

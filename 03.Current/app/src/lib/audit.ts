@@ -75,12 +75,13 @@ export function getCorrelationId(): string {
 
 // --- Auditing Logic ---
 
-// GUID: LIB_AUDIT-005-v05
+// GUID: LIB_AUDIT-005-v06
 // @SECURITY_FIX: Removed admin-configurable isAuditingEnabled toggle (GEMINI-AUDIT-002).
 //               Audit logging is unconditionally enabled. No runtime toggle exists.
 // @SECURITY_FIX (LIB-003): Write failures now use ERRORS.AUDIT_LOG_FAILED (Golden Rule #7) with 4-pillar
 //               error handling (log, type/code, correlationId, selectable display). skipErrorEmit=true
 //               prevents permission-error cascade loop on the audit_logs collection.
+// @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV in logAuditEvent write-failure catch.
 // [Intent] Writes an audit event to the audit_logs Firestore collection as a fire-and-forget operation, attaching user ID, action description, details, correlation ID, and server timestamp.
 // [Inbound Trigger] Called by useAuditNavigation on page navigations, and available for manual calls from any client-side component needing audit logging.
 // [Downstream Impact] Creates documents in audit_logs collection used for compliance and user activity tracking. Uses addDocumentNonBlocking so failures do not block the UI. Skips logging if no userId is provided.
@@ -128,12 +129,15 @@ export async function logAuditEvent(
         cause: error instanceof Error ? error : undefined,
       });
       // Console-only: do not write to Firestore (prevents cascade on audit_logs permission failure)
-      console.error('[Audit] logAuditEvent write failed:', {
-        correlationId: traced.correlationId,
-        errorCode: traced.definition.code,
-        message: traced.message,
-        action,
-      });
+      // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[Audit] logAuditEvent write failed:', {
+          correlationId: traced.correlationId,
+          errorCode: traced.definition.code,
+          message: traced.message,
+          action,
+        });
+      }
     });
   }
 }

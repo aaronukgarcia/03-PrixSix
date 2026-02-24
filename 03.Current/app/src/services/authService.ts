@@ -217,7 +217,7 @@ export async function linkAppleToAccount(auth: Auth): Promise<OAuthLinkResult> {
   }
 }
 
-// GUID: SERVICE_AUTH_OAUTH-009-v04
+// GUID: SERVICE_AUTH_OAUTH-009-v05
 // [Intent] Unlink a sign-in provider from the current user.
 //          Caller must verify this isn't the last provider before calling.
 // [Inbound Trigger] Called from profile page unlink buttons.
@@ -242,7 +242,10 @@ export async function unlinkProvider(auth: Auth, providerId: string): Promise<OA
       correlationId,
     };
   } catch (error: any) {
-    console.error(`[Unlink Provider Error ${correlationId}]`, error);
+    // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Unlink Provider Error ${correlationId}]`, error);
+    }
     return {
       success: false,
       message: `Failed to unlink provider. [${ERRORS.AUTH_OAUTH_LINK_FAILED.code}] (Ref: ${correlationId})`,
@@ -251,7 +254,7 @@ export async function unlinkProvider(auth: Auth, providerId: string): Promise<OA
   }
 }
 
-// GUID: SERVICE_AUTH_OAUTH-010-v04
+// GUID: SERVICE_AUTH_OAUTH-010-v05
 // [Intent] Central error handler for OAuth sign-in errors. Maps Firebase error codes to
 //          application error codes and handles popup-blocked fallback to redirect.
 // [Inbound Trigger] Called from signInWithGoogle and signInWithApple catch blocks.
@@ -262,7 +265,10 @@ function handleOAuthError(
   provider: GoogleAuthProvider | OAuthProvider,
   correlationId: string
 ): OAuthSignInResult {
-  console.error(`[OAuth Error ${correlationId}]`, error);
+  // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(`[OAuth Error ${correlationId}]`, error);
+  }
 
   if (error?.code === 'auth/popup-blocked') {
     // Fallback to redirect
@@ -309,13 +315,16 @@ function handleOAuthError(
   };
 }
 
-// GUID: SERVICE_AUTH_OAUTH-011-v05
+// GUID: SERVICE_AUTH_OAUTH-011-v06
 // [Intent] Central error handler for provider linking errors. Detects Gmail plus-addressing
 //          to provide specific guidance when auth/credential-already-in-use occurs.
 // [Inbound Trigger] Called from linkGoogleToAccount and linkAppleToAccount catch blocks.
 // [Downstream Impact] Returns typed OAuthLinkResult with error details.
 function handleLinkError(error: any, correlationId: string, userEmail?: string | null): OAuthLinkResult {
-  console.error(`[Link Provider Error ${correlationId}]`, error);
+  // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(`[Link Provider Error ${correlationId}]`, error);
+  }
   const firebaseCode = error?.code || 'unknown';
 
   if (firebaseCode === 'auth/credential-already-in-use') {
