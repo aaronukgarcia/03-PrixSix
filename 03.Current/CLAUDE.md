@@ -1,8 +1,42 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-02-12  (MCP versions updated)
+> **Last updated:** 2026-02-24 (claude-sync v2.0 — DHCP permit model)
 > **Current production version:** Check `package.json` and verify at https://prix6.win/about
 > **Read this entire file at the start of every session.**
+
+---
+
+## 🚀 HOW TO START A SESSION (do this before anything else)
+
+**Every Claude Code window must be launched from the project directory:**
+
+```powershell
+cd E:\GoogleDrive\Papers\03-PrixSix\03.Current
+claude --add-dir E:\GoogleDrive\Tools\Memory\source
+```
+
+> The `--add-dir` flag loads the Memory `CLAUDE.md` (MCPs, environment info).
+> Starting here (not in the Memory directory) ensures hooks fire correctly.
+> MCPs load automatically from user-level config regardless of directory.
+
+**Then immediately inside Claude Code:**
+
+```powershell
+# Step 1: Acquire your named permit (5-min TTL)
+node claude-sync.js checkin --name Bill      # primary window
+node claude-sync.js checkin                  # secondary/tertiary windows (auto-assigns Bob/Ben)
+
+# Step 2: Set session ID — CRITICAL for auto-renewal hook (paste exact line from checkin output)
+$env:CLAUDE_SESSION_ID = "session-XXXXXXXXXX"
+
+# Step 3: Read the golden rules
+# (checkin output shows the path — golden-rules-reminder.md)
+```
+
+**If wrong instance grabbed your name:**
+```powershell
+node claude-sync.js checkin --name Bill --force   # evict impostor, claim Bill
+```
 
 ---
 
@@ -278,22 +312,34 @@ When reviewing code that involves data:
 
 ### Session Start — ALWAYS do this first
 
-**Step 1:** Check in to get your name assignment:
+**Step 1:** Check in to acquire your named permit (5-minute TTL, DHCP-style):
 ```bash
 node claude-sync.js checkin
 ```
 
-This will:
-- Assign you **Bob** (if you're first) or **Bill** (if second)
-- Register your session with a timestamp
-- Show you how to prefix your responses
+This will assign you **Bill** (1st), **Bob** (2nd), or **Ben** (3rd) — whichever slot is free.
+Permits expire after 5 minutes unless auto-renewed. The `PostToolUse` hook handles renewal automatically.
 
-**Step 2:** Complete these checks:
+> **If your slot is taken by a stale/wrong instance**, claim it explicitly:
+> ```bash
+> node claude-sync.js checkin --name Bill          # claim Bill if slot is free
+> node claude-sync.js checkin --name Bill --force  # evict whoever holds Bill and take it
+> ```
+
+**Step 2 (CRITICAL — run once in your terminal):**
+
+Copy the `$env:CLAUDE_SESSION_ID` line from the checkin output and run it:
+```powershell
+$env:CLAUDE_SESSION_ID = "session-XXXXXXXXXX"   # exact value shown in your checkin output
+```
+Without this, the auto-renewal hook cannot identify your instance and your permit will expire every 5 minutes in multi-agent setups.
+
+**Step 3:** Complete these checks:
 1. Run `git status` and confirm your branch
 2. Run `git pull` to get latest changes
 3. Run `node claude-sync.js read` to review the coordination state
 
-**Step 3:** Announce yourself with your assigned name:
+**Step 4:** Announce yourself with your assigned name:
 ```
 bob> Good morning, I'm Bob on branch main. No conflicts detected.
 ```
@@ -312,9 +358,9 @@ bill> Good morning, I'm Bill on branch feature/xyz. No conflicts detected.
 
 | If you are | Your prefix | Example |
 |------------|-------------|---------|
-| First instance | `bob> ` | `bob> I've updated the file...` |
-| Second instance | `bill> ` | `bill> The build completed...` |
-| Third instance | `ben> ` | `ben> I've reviewed the backup system...` |
+| First instance (Bill) | `bill> ` | `bill> I've updated the file...` |
+| Second instance (Bob) | `bob> ` | `bob> The build completed...` |
+| Third instance (Ben) | `ben> ` | `ben> I've reviewed the backup system...` |
 
 #### Why This Matters
 
@@ -911,6 +957,15 @@ This rule exists because **security is not a checkbox — it's a mindset that mu
 
 ---
 
+### Permit Auto-Renewal — Handled by hook
+
+Permits have a **5-minute TTL**. The `PostToolUse` hook (`claude-ping-check.js`) automatically calls `renew --auto` every 2 minutes, renewing only when < 2.5 minutes remain. **You do not need to manually ping** — but you must have set `$env:CLAUDE_SESSION_ID` (Step 2 above) for the hook to renew the correct instance.
+
+To manually check your permit status at any time:
+```bash
+node claude-sync.js status --session $env:CLAUDE_SESSION_ID
+```
+
 ### Polling — Check shared memory regularly
 
 **Every ~30 seconds (or every few messages), run:**
@@ -923,25 +978,11 @@ This keeps you aware of:
 - Any new NO-TOUCH ZONES (claimed files)
 - Activity log updates
 
-### Keepalive Ping — Prove you're alive
-
-**Every 5 minutes, run:**
-```bash
-node claude-sync.js ping
-```
-
-This is **mandatory for all agents**. Each ping:
-- Updates your session's `lastActivity` timestamp
-- Writes a record to the `session_pings` Firestore collection (audit trail)
-- Logs to the activity feed
-
-Failure to ping means you are not following protocol. Aaron can inspect pings in the Firebase Console under the `session_pings` collection.
-
 ### Session End — When I say goodnight/end session/sleep
 
 When I indicate the session is ending (e.g., "goodnight", "that's all", "put this to sleep"), run:
 ```bash
-node claude-sync.js checkout
+node claude-sync.js checkout --session $env:CLAUDE_SESSION_ID
 ```
 
 Then respond with a graceful sign-off:
@@ -953,15 +994,22 @@ bob> Goodnight! Bob checked out. Session ended.
 
 | Command | When to use |
 |---------|-------------|
-| `node claude-sync.js checkin` | Start of session (get Bob/Bill assignment) |
-| `node claude-sync.js checkout` | End of session |
-| `node claude-sync.js read` | Check current state (poll every ~30 sec) |
-| `node claude-sync.js ping` | Keepalive heartbeat (**every 5 minutes** — mandatory) |
-| `node claude-sync.js claim /path/` | Before modifying files |
-| `node claude-sync.js release /path/` | When done with files |
-| `node claude-sync.js write "message"` | Log significant milestones |
-| `node claude-sync.js register "desc"` | Register current branch |
+| `node claude-sync.js checkin` | Start of session — auto-assigns Bill/Bob/Ben |
+| `node claude-sync.js checkin --name Bill` | Claim a specific slot by name |
+| `node claude-sync.js checkin --name Bill --force` | Evict impostor and claim slot |
+| `node claude-sync.js checkout --session ID` | End of session |
+| `node claude-sync.js status --session ID` | Check permit TTL remaining |
+| `node claude-sync.js read` | Check full coordination state (poll every ~30 sec) |
+| `node claude-sync.js renew --session ID` | Manually extend permit by 5 min |
+| `node claude-sync.js ping --session ID` | Renew + heartbeat + watchdog report |
+| `node claude-sync.js claim /path/ --session ID` | Before modifying files |
+| `node claude-sync.js release /path/ --session ID` | When done with files |
+| `node claude-sync.js write "message" --session ID` | Log significant milestones |
+| `node claude-sync.js checkout --force [Name]` | Admin: evict a specific permit holder |
+| `node claude-sync.js gc` | Clean up expired permits manually |
 | `node claude-sync.js init` | Initialise fresh state (first time only) |
+
+> **`--session ID`** = the session ID shown in your `checkin` output, or `$env:CLAUDE_SESSION_ID` if you set it.
 
 **If you need to modify a file in a NO-TOUCH ZONE, STOP and ask me first.**
 

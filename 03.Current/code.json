@@ -19,7 +19,7 @@
       "created": "2026-02-20T00:00:00.000000Z",
       "lastUpdated": "2026-02-24T00:00:00.000000Z"
     },
-  {
+    {
       "guid": "ADMIN_ATTACK_MONITOR-000",
       "version": 6,
       "logic_category": "ORCHESTRATION",
@@ -102828,5 +102828,412 @@
         "lastVerified": "2026-02-20"
       }
     ]
+  },
+  "tree": {
+    "description": "Codebase folder map — describes the purpose of every directory. Maintained alongside code.json. Last updated: 2026-02-24.",
+    "folders": {
+      ".": {
+        "type": "project-root",
+        "description": "Project root for Prix Six. Contains Firebase config (firebase.json, firestore.indexes.json, .firebaserc), npm workspace root (package.json), the module registry (code.json), project documentation (claude.md, SECRETS-ARCHITECTURE.md, SECURITY.md), and the four Claude Code coordination hooks (claude-sync.js, claude-startup.js, claude-ping-check.js, claude-statusline.js). All other code lives in sub-folders.",
+        "key_files": [
+          "claude.md — Claude Code project rules (Golden Rules, session protocol, GUID docs)",
+          "claude-sync.js — Multi-session permit/lease coordination via Firestore (DHCP model)",
+          "claude-startup.js — Claude Code SessionStart hook",
+          "claude-ping-check.js — Claude Code PostToolUse hook (permit auto-renewal)",
+          "claude-statusline.js — Claude Code status line renderer",
+          "code.json — Module GUID registry (1000+ entries, source of truth for all modules)",
+          "book-of-work.json — Outstanding work items tracker (local mirror of Firestore book_of_work)",
+          "firebase.json — Firebase hosting + Functions deployment config",
+          "firestore.indexes.json — Firestore composite index definitions",
+          "service-account.json — Firebase Admin SDK credentials (gitignored, never commit)",
+          "SECRETS-ARCHITECTURE.md — Dual-vault credential map (Azure Key Vault + Firebase Secret Manager)",
+          "RedTeam.json — Security audit findings from Gemini Red Team exercise"
+        ]
+      },
+      ".claude": {
+        "type": "tooling-config",
+        "description": "Claude Code local configuration for this project. Contains settings.json which registers the four hook scripts (SessionStart, PostToolUse, PreCompact, statusLine), and runtime state files written by the hooks at session time (.last-ping, .session-map).",
+        "key_files": [
+          "settings.json — Hook registrations: claude-startup.js, claude-ping-check.js, claude-statusline.js"
+        ]
+      },
+      ".github": {
+        "type": "ci-cd",
+        "description": "GitHub Actions CI/CD configuration. Contains workflow YAML files for automated build, test, and deployment pipelines.",
+        "key_files": [
+          "workflows/ — GitHub Actions workflow definitions"
+        ]
+      },
+      ".github/workflows": {
+        "type": "ci-cd",
+        "description": "GitHub Actions workflow YAML files. Define automated pipelines triggered on push/PR events — typically build validation and Firebase deployment."
+      },
+      "_Share": {
+        "type": "utility",
+        "description": "Windows shortcut link folder. Contains a shared.lnk shortcut pointing to a shared drive or OneDrive location used for distributing build artifacts or design assets to the team. Not part of the application build."
+      },
+      "shared": {
+        "type": "shared-lib",
+        "description": "Shared code and schemas used across multiple sub-projects (app, functions, whatsapp-worker). Currently contains error-codes.json — a cross-project error code registry that ensures consistent error identifiers between the Next.js app, Cloud Functions, and the WhatsApp worker.",
+        "key_files": [
+          "error-codes.json — Cross-project error code definitions"
+        ]
+      },
+      "docs": {
+        "type": "documentation",
+        "description": "High-Level Design (HLD) and architecture documentation. Contains ER diagrams, the complete HLD document in multiple versions (MD and DOCX), and backup monitoring runbooks. These are design-time documents, not referenced at runtime.",
+        "key_files": [
+          "PRIX_SIX_HLD_COMPLETE_V4.md — Latest HLD (authoritative design reference)",
+          "PRIX_SIX_ER_DIAGRAM.md — Entity Relationship diagram for all Firestore collections",
+          "backup-monitoring.md — Runbook for Firebase backup monitoring procedures"
+        ]
+      },
+      "app": {
+        "type": "application-root",
+        "description": "Next.js 14 application root. The main production application — a fantasy F1 prediction league called Prix Six. Contains all front-end pages, API routes, shared components, Firebase integration, scoring engine, and email system. Built with TypeScript, Tailwind CSS, ShadCN UI, and Firebase (Auth + Firestore).",
+        "key_files": [
+          "package.json — App dependencies and build scripts",
+          "src/ — All application source code",
+          "public/ — Static assets served at the web root",
+          "email/ — Transactional email templates"
+        ]
+      },
+      "app/src": {
+        "type": "application-source",
+        "description": "Root of all application TypeScript/TSX source files. Structured following Next.js App Router conventions with route groups, API handlers, components, contexts, hooks, and libraries."
+      },
+      "app/src/app": {
+        "type": "nextjs-app-router",
+        "description": "Next.js App Router root. Contains route groups: (app) for authenticated pages, (auth) for login/signup flows, and api/ for server-side API handlers. The layout.tsx and error.tsx at this level are the application shell."
+      },
+      "app/src/app/(app)": {
+        "type": "authenticated-routes",
+        "description": "All authenticated user-facing page routes. Protected by the session context — unauthenticated requests are redirected to /login. Each sub-folder is a route segment rendered within the main authenticated layout.",
+        "routes": {
+          "dashboard": "Home dashboard — shows upcoming race, user's prediction status, and league summary",
+          "predictions": "Race prediction submission form — allows users to rank their top-6 drivers before pit-lane lockout",
+          "predictions/_components": "Sub-components for the prediction page (driver selector, drag-and-drop ranking)",
+          "standings": "Season standings table — cumulative league points per team with race-by-race breakdown chart",
+          "results": "Race results page — shows actual finishing order vs user predictions with point breakdown",
+          "my-results": "Personal results history — user's scoring history across all races",
+          "schedule": "Season race calendar — upcoming and completed race weekends with lockout countdowns",
+          "teams": "Team directory — lists all registered teams in the league",
+          "leagues": "League management — join, view, and manage private leagues",
+          "leagues/[leagueId]": "Dynamic league detail page — standings filtered to league members",
+          "profile": "User profile — team name, email, notification preferences",
+          "onboarding": "New user onboarding flow — team name setup and prediction tutorial",
+          "submissions": "Submission history — all predictions a user has ever submitted",
+          "rules": "Scoring rules page — explains the Prix Six hybrid scoring model",
+          "about": "About page — app version, credits, and feature overview",
+          "about/dev": "Developer info page — build metadata, GUID count, environment info",
+          "admin": "Admin panel — restricted to isAdmin=true users",
+          "admin/_components": "Admin panel sub-components (ResultsManager, ScoringManager, TeamManager, etc.)",
+          "admin/verify": "Admin verification challenge page — secondary auth for sensitive admin actions",
+          "audit": "Security audit log viewer — admin-only view of audit_logs collection"
+        }
+      },
+      "app/src/app/(auth)": {
+        "type": "auth-routes",
+        "description": "Authentication flow routes — public pages (no auth required). Handles login (PIN + OAuth), signup, email verification, PIN reset, and profile completion after OAuth.",
+        "routes": {
+          "login": "PIN and Google/Apple OAuth login page",
+          "signup": "New account registration with team name and email",
+          "forgot-pin": "PIN reset flow via email verification",
+          "verify-email": "Email verification landing page",
+          "verify-secondary-email": "Secondary email verification (for dual-team feature)",
+          "complete-profile": "Post-OAuth profile completion (set team name, PIN)"
+        }
+      },
+      "app/src/app/api": {
+        "type": "api-routes",
+        "description": "Next.js API route handlers — server-side endpoints. All routes are POST unless noted. Admin routes require isAdmin=true (verified server-side). Auth routes are public. Scoring routes are admin-protected.",
+        "routes": {
+          "calculate-scores": "POST — Admin: calculate and persist race scores from submitted results",
+          "delete-scores": "POST — Admin: cascade-delete scores, predictions, and race_results for a race",
+          "submit-prediction": "POST — User: submit or update race prediction (enforces pit-lane lockout)",
+          "health": "GET — Public health check endpoint for uptime monitoring",
+          "email-health": "GET — Email service health check",
+          "email-queue": "POST — Queue a transactional email for async sending",
+          "log-client-error": "POST — Log client-side error to error_logs collection",
+          "team-name-suggestions": "POST — AI-powered team name suggestion (Genkit)",
+          "leagues": "Leagues sub-routes (join-by-code)",
+          "auth": "Auth sub-routes (login, signup, reset-pin, verify flows, OAuth completion)",
+          "admin": "Admin sub-routes (user management, OpenF1 data, WhatsApp health, site config)",
+          "ai/analysis": "POST — AI-powered prediction analysis using Genkit/Gemini",
+          "send-*": "Transactional email sending routes (results, welcome, PIN, verification, etc.)",
+          "add-secondary-team": "POST — Add a secondary team to an existing user account",
+          "update-secondary-email": "POST — Update secondary team email address",
+          "verify-secondary-email": "POST — Verify secondary team email token",
+          "whatsapp-proxy": "POST — Proxy endpoint for WhatsApp message routing"
+        }
+      },
+      "app/src/components": {
+        "type": "shared-components",
+        "description": "Reusable React components shared across multiple pages. Organised by domain: ui/ for primitive ShadCN components, layout/ for page structure, league/ for league-specific UI, icons/ for custom SVG icons."
+      },
+      "app/src/components/ui": {
+        "type": "ui-primitives",
+        "description": "ShadCN UI primitive components (Button, Card, Table, Badge, Dialog, Toast, etc.) plus custom extensions (LastUpdated, Progress). These are the atomic building blocks used across all pages."
+      },
+      "app/src/components/layout": {
+        "type": "layout-components",
+        "description": "Page layout components — navigation bar, sidebar, footer, and the authenticated app shell wrapper. Consumed by the (app) layout.tsx."
+      },
+      "app/src/components/league": {
+        "type": "feature-components",
+        "description": "League-specific UI components — LeagueSelector dropdown used on Standings and Results pages to filter data by league membership."
+      },
+      "app/src/components/icons": {
+        "type": "assets",
+        "description": "Custom SVG icon components not available in lucide-react — F1 flag, driver helmet icons, and other domain-specific graphics."
+      },
+      "app/src/contexts": {
+        "type": "react-contexts",
+        "description": "React Context providers that share state across the component tree. LeagueContext provides the selected league filter globally. SessionContext manages auth state and user profile for the authenticated app shell.",
+        "key_files": [
+          "league-context.tsx — Global league filter state (selectedLeague, setSelectedLeague)",
+          "session-context.tsx — Auth session and user profile (user, isLoading, signOut)"
+        ]
+      },
+      "app/src/features": {
+        "type": "feature-modules",
+        "description": "Feature-scoped modules that bundle related logic not cleanly belonging to a single page or library. Currently contains the auth feature module."
+      },
+      "app/src/features/auth": {
+        "type": "feature-module",
+        "description": "Authentication feature module. Contains authService.ts — a high-level service layer wrapping Firebase Auth operations (PIN login, OAuth, email verification, token management) with 4-pillar error handling.",
+        "key_files": [
+          "authService.ts — Firebase Auth service: signIn, signUp, resetPin, verifyEmail, OAuth flows"
+        ]
+      },
+      "app/src/firebase": {
+        "type": "firebase-client",
+        "description": "Firebase client SDK initialization and provider components. Initialises the Firebase app, Auth, and Firestore instances, and exports React hooks (useFirestore, useAuth) for consuming them. The provider.tsx wraps the app in FirebaseProvider.",
+        "key_files": [
+          "config.ts — Firebase client config (reads from env vars)",
+          "index.ts — Re-exports useFirestore, useAuth hooks",
+          "provider.tsx — FirebaseProvider React component",
+          "server.ts — Server-side Firebase Admin wrapper",
+          "firestore/ — Firestore-specific client utilities"
+        ]
+      },
+      "app/src/hooks": {
+        "type": "custom-hooks",
+        "description": "Custom React hooks. use-mobile.tsx detects mobile viewport. use-toast.ts manages toast notification state. use-error-copy.ts provides clipboard copy functionality for error correlation IDs.",
+        "key_files": [
+          "use-mobile.tsx — Mobile breakpoint detection hook",
+          "use-toast.ts — Toast notification management",
+          "use-error-copy.ts — Error correlation ID clipboard copy"
+        ]
+      },
+      "app/src/lib": {
+        "type": "core-library",
+        "description": "Core application library — the heart of the backend logic. Contains the scoring engine, error registry, Firestore admin wrapper, auth helpers, email sending, data definitions, and all shared utilities. These modules are imported by API routes and server components.",
+        "key_files": [
+          "scoring.ts — Score calculation, updateRaceScores, deleteRaceScores",
+          "scoring-rules.ts — Prix Six hybrid point values (exact/1-off/2-off/3+/bonus)",
+          "normalize-race-id.ts — Canonical race ID formatting (normalizeRaceId, generateRaceId)",
+          "data.ts — F1Drivers list and RaceSchedule (single source of truth for driver/race data)",
+          "error-registry.ts — Server-side error code registry (ERRORS.*)",
+          "error-registry-client.ts — Client-safe error registry (no internal metadata)",
+          "error-codes.ts — Error code generation and correlation ID utilities",
+          "traced-error.ts — 4-pillar traced error wrapper (log, type, correlationId, displayable)",
+          "firebase-admin.ts — Firebase Admin SDK initialisation and helper functions",
+          "email.ts — Transactional email sending (Resend API)",
+          "email-tracking.ts — Email delivery tracking and retry logic",
+          "leagues.ts — League CRUD operations and member management",
+          "scoring-rules.ts — Point values: exact=6, 1-off=4, 2-off=3, 3+=2, bonus=10",
+          "validation.ts — Input validation helpers",
+          "utils.ts — General utility functions",
+          "consistency.ts — Data consistency check helpers",
+          "csrf-protection.ts — CSRF token generation and validation",
+          "audit.ts — Audit log write helpers",
+          "secrets-manager.ts — Azure Key Vault + Firebase Secret Manager dual-vault accessor",
+          "version.ts — APP_VERSION constant (must match app/package.json)",
+          "commit-history.json — Deployment history with version numbers and dates"
+        ]
+      },
+      "app/src/lib/types": {
+        "type": "type-definitions",
+        "description": "Shared TypeScript type definitions used across lib/ modules. Keeps complex interface definitions out of implementation files."
+      },
+      "app/src/services": {
+        "type": "external-services",
+        "description": "External service integration layer. Currently contains authService.ts — a high-level Firebase Auth wrapper that provides error-handled authentication operations used by API routes.",
+        "key_files": [
+          "authService.ts — High-level Firebase Auth service with 4-pillar error handling"
+        ]
+      },
+      "app/src/types": {
+        "type": "global-types",
+        "description": "Global TypeScript type declarations. errors.ts defines the application-wide error type interfaces used by the 4-pillar error handling system across all modules.",
+        "key_files": [
+          "errors.ts — Application error type interfaces"
+        ]
+      },
+      "app/src/ai": {
+        "type": "ai-integration",
+        "description": "Genkit AI integration module. Wraps Google Genkit flows for AI-powered features: team name suggestions and prediction analysis using the Gemini model.",
+        "key_files": [
+          "flows/ — Individual Genkit AI flow definitions"
+        ]
+      },
+      "app/src/ai/flows": {
+        "type": "ai-flows",
+        "description": "Individual Genkit AI flow definitions. Each flow is a self-contained AI operation: team-name-suggestions generates creative F1-themed team names, analysis flow provides AI commentary on prediction performance."
+      },
+      "app/email": {
+        "type": "email-templates",
+        "description": "Transactional email system. Contains the email template engine and a test harness (email-test.js) for sending test emails during development. Templates are rendered server-side and sent via the Resend API.",
+        "key_files": [
+          "email-test.js — Development utility for sending test emails (not part of app build)"
+        ]
+      },
+      "app/public": {
+        "type": "static-assets",
+        "description": "Static assets served at the web root by Next.js. Contains logo.svg, robots.txt, and diagnostic.js (a client-side diagnostic script for production debugging).",
+        "key_files": [
+          "logo.svg — Prix Six application logo",
+          "robots.txt — Search engine crawl directives",
+          "diagnostic.js — Client-side production diagnostic tool"
+        ]
+      },
+      "app/api": {
+        "type": "legacy-api",
+        "description": "Legacy root-level API folder (outside app/src). Contains admin/auth route stubs used during initial Firebase + Next.js integration testing. Superseded by app/src/app/api — kept for reference only.",
+        "key_files": [
+          "admin/verify-access/ — Legacy admin verification route stub",
+          "auth/admin-challenge/ — Legacy admin challenge route stub"
+        ]
+      },
+      "functions": {
+        "type": "cloud-functions-js",
+        "description": "Firebase Cloud Functions (Node.js). Currently contains a minimal index.js that exports the function entry points. Used for background tasks that cannot run in the Next.js serverless environment — e.g., scheduled jobs, Firestore triggers.",
+        "key_files": [
+          "index.js — Cloud Functions entry point",
+          "package.json — Functions dependencies (deployed separately from app)"
+        ]
+      },
+      "functions-python": {
+        "type": "cloud-functions-python",
+        "description": "Firebase Cloud Functions (Python). Contains the pub_chat_updater function — a Python Cloud Function that processes WhatsApp message events and updates the public chat Firestore collection.",
+        "key_files": [
+          "pub_chat_updater/ — Python function: WhatsApp → Firestore pub_chat updater"
+        ]
+      },
+      "functions-python/pub_chat_updater": {
+        "type": "cloud-function",
+        "description": "Python Cloud Function that subscribes to WhatsApp message events and writes formatted messages to the pub_chat Firestore collection for display in the in-app public chat feature."
+      },
+      "whatsapp-worker": {
+        "type": "worker-service",
+        "description": "Standalone Node.js WhatsApp bot worker. Runs as a persistent process (separate from the Next.js app) using whatsapp-web.js (Puppeteer-based). Connects to WhatsApp Web, receives messages, and forwards them to the app's /api/whatsapp-proxy endpoint. Session state is persisted in .wwebjs_auth/.",
+        "key_files": [
+          "src/ — Worker source code",
+          ".wwebjs_auth/ — WhatsApp Web session persistence (browser profile, cookies)"
+        ]
+      },
+      "whatsapp-worker/src": {
+        "type": "worker-source",
+        "description": "WhatsApp worker source files. firebase-config.ts and firebase-store.ts handle Firestore session storage. whatsapp-client.ts manages the WhatsApp connection. queue-processor.ts processes the incoming message queue. azure-store.ts integrates with Azure for credential retrieval.",
+        "key_files": [
+          "index.ts — Worker entry point and process management",
+          "whatsapp-client.ts — WhatsApp Web connection and message handling",
+          "queue-processor.ts — Incoming message queue processor",
+          "firebase-store.ts — Firestore-backed session/state storage",
+          "azure-store.ts — Azure Key Vault credential retrieval for WhatsApp"
+        ]
+      },
+      "scripts": {
+        "type": "utility-scripts",
+        "description": "All development, testing, and operational utility scripts. These scripts run OUTSIDE the production application — they connect directly to Firestore via the Admin SDK (service-account.json) and are used for data management, auditing, testing, and book-of-work management. NOT part of the Next.js build or deployment. Run from project root with: node scripts/<name>.js or npx ts-node scripts/<name>.ts",
+        "categories": {
+          "Data (SCRIPT-DATA-*)": "Backup, restore, and purge Firestore collections (race_results, scores)",
+          "Analysis (SCRIPT-ANALYZE-*)": "Query and analyse Firestore data, HAR captures, and backup files",
+          "Check (SCRIPT-CHECK-*)": "Verify data integrity, error log state, and field correctness",
+          "Validate (SCRIPT-VALIDATE-*)": "Cross-check remediation plan completion against source files",
+          "BOW (SCRIPT-BOW-*)": "Query and manage the book-of-work (local JSON and Firestore)",
+          "CodeJson (SCRIPT-CODEJSON-*)": "Maintain code.json GUID registry and module documentation",
+          "Remediation (SCRIPT-REMEDIATE-*)": "Generate remediation plans from security audit findings",
+          "Testing (SCRIPT-TEST-*)": "End-to-end Puppeteer tests and season simulation",
+          "Utility (SCRIPT-UTIL-*)": "Environment provisioning and one-time setup tasks",
+          "Deploy (SCRIPT-DEPLOY-*)": "Firebase index deployment and batch operation launchers",
+          "TypeScript utilities (unlabelled)": "BOW management, audit, migration, and scoring scripts — pre-date the GUID system"
+        },
+        "key_scripts": [
+          "SCRIPT-DATA-001 backup-race-results.js — Backup race_results to JSON",
+          "SCRIPT-DATA-002 restore-race-results.js — Restore race_results from JSON backup",
+          "SCRIPT-DATA-004 purge-race-results.js — Purge race_results collection",
+          "SCRIPT-DATA-005 purge-scores.js — Purge scores collection",
+          "SCRIPT-ANALYZE-002 analyze-firestore.js — Map Firestore read/write patterns from HAR",
+          "SCRIPT-CHECK-001 check-race-id-format.js — Audit raceId format consistency",
+          "SCRIPT-TEST-001 _simulate_season.js — Full season scoring simulation (no Firestore)",
+          "SCRIPT-TEST-002 puppeteer-test.js — Full-stack end-to-end Puppeteer QA test",
+          "SCRIPT-TEST-003 prix_six_engine.py — Python reference scoring engine",
+          "SCRIPT-DEPLOY-001 deploy-indexes.bat — Deploy Firestore indexes via CLI",
+          "score-season.ts — Score a full season from prediction data",
+          "seed-big-shakedown.ts — Seed 200-team shakedown test dataset",
+          "audit-code-integrity.js — Cross-reference filesystem against code.json registry",
+          "populate-code-json/ — Multi-phase script suite to populate code.json GUID registry"
+        ]
+      },
+      "scripts/populate-code-json": {
+        "type": "utility-scripts",
+        "description": "Multi-phase suite of TypeScript scripts that populated the code.json module registry. Phases 1–4 added timestamps, dependencies, call relationships, and calledBy mappings. Phase 6 validated completeness. Checkpoints folder holds JSON snapshots from each phase run. These scripts are now maintenance utilities — rerun if code.json falls significantly out of date.",
+        "key_files": [
+          "apply-phase1.ts through apply-phase4.ts — Incremental registry population scripts",
+          "phase6-validate.ts — Post-population validation report generator",
+          "checkpoints/ — JSON snapshots saved at each phase completion",
+          "COMPLETION-REPORT.md — Final completion summary from the original population run"
+        ]
+      },
+      "app-dev": {
+        "type": "dev-workspace",
+        "description": "Development workspace for features and designs in progress — NOT deployed to production. Contains three workstreams: Bug-Feature-Req (feature request and bug fix prototypes), Inbound-WhatsApp (WhatsApp inbound message handling prototypes), and Sub-Mission-Ana (submission analysis feature work-in-progress).",
+        "key_files": [
+          "Bug-Feature-Req/ — Feature request prototypes and bug fix explorations",
+          "Inbound-WhatsApp/ — WhatsApp inbound message processing prototypes",
+          "Sub-Mission-Ana/ — Submission analysis UI and logic prototypes"
+        ]
+      },
+      "app-dev/Bug-Feature-Req": {
+        "type": "dev-workspace",
+        "description": "Prototype components and scripts for new features and bug fixes not yet ready for the main app. Includes FeedbackManager, FeedbackForm, AdminTabs, team-name-generator, and hot-news-feed prototypes."
+      },
+      "app-dev/Inbound-WhatsApp": {
+        "type": "dev-workspace",
+        "description": "Prototype code for handling inbound WhatsApp messages — routing, parsing, and response logic. Work in progress for the WhatsApp-based prediction submission feature."
+      },
+      "app-dev/Sub-Mission-Ana": {
+        "type": "dev-workspace",
+        "description": "Prototype submission analysis sub-system (nicknamed 'Ana'). Explores AI-assisted prediction analysis and submission scoring insights beyond the main results page."
+      },
+      "archived-book-of-works": {
+        "type": "archive",
+        "description": "Archived historical versions of book-of-work.json. Contains snapshots taken at key project milestones before major BOW restructuring. Read-only reference — the live BOW is book-of-work.json in the project root and the Firestore book_of_work collection."
+      },
+      "blackstart": {
+        "type": "recovery-workspace",
+        "description": "Black-start recovery environment. Contains a minimal .env.local, a stripped service-account.json, AARON-CHECKLIST.txt, and Bertie onboarding docs. Used as a clean-room starting point when recovering from a broken dev environment or onboarding a new agent instance. The bill-memories.json file here is a Vestige memory export snapshot.",
+        "key_files": [
+          ".env.local — Minimal environment config for recovery bootstrap",
+          "service-account.json — Recovery Firebase credentials (separate from main)",
+          "AARON-CHECKLIST.txt — Manual recovery steps checklist",
+          "bill-memories.json — Vestige memory export (Bill's knowledge snapshot)"
+        ]
+      },
+      "email-logs-backup": {
+        "type": "data-backup",
+        "description": "Local backup of email log data exported from Firestore. Contains JSON snapshots of email_logs collection documents taken during debugging of the email delivery system. Read-only reference data."
+      },
+      "migration-logs": {
+        "type": "data-backup",
+        "description": "Logs and output files from Firestore data migration operations. Records what was migrated, any errors encountered, and validation results. Useful for post-migration verification and rollback planning."
+      },
+      "perf-data": {
+        "type": "performance-data",
+        "description": "Performance testing data files. Contains HAR captures from browser network sessions used by scripts/analyze-firestore.js and scripts/analyze-har.js to map Firestore query patterns and identify performance issues (unbounded reads, N+1 queries)."
+      }
+    }
   }
 }

@@ -1,3 +1,10 @@
+// GUID: SCRIPT-TEST-002-v01
+// [Type] Utility Script — outside production build, used in development and testing
+// [Category] Testing
+// [Intent] Puppeteer end-to-end synthetic telemetry test — headless browser walks key user journeys and reports errors.
+// [Usage] node scripts/puppeteer-test.js (run from project root)
+// [Moved] 2026-02-24 from project root — codebase tidy-up
+//
 /**
  * Prix Six - Synthetic Telemetry Test
  * Full-Stack QA using Puppeteer
