@@ -70,9 +70,13 @@ function ordinal(n: number): string {
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-// GUID: PAGE_MY_RESULTS-002-v01
+// GUID: PAGE_MY_RESULTS-002-v02
 // [Intent] Main page component — fetches all user predictions, race results, and scores,
 //   then renders per-race cards with scoring breakdowns ordered most recent first.
+//   v02: Added mobile window-width tracking to hide XAxis labels on narrow screens
+//   (MANICURE-AUDIT-005), and removed hardcoded white Legend label colour (MANICURE-AUDIT-004).
+// [Inbound Trigger] Navigation to /my-results route via sidebar.
+// [Downstream Impact] Chart display only — no data or scoring logic changed.
 export default function MyResultsPage() {
     const { user } = useAuth();
     const firestore = useFirestore();
@@ -101,6 +105,23 @@ export default function MyResultsPage() {
 
     // All teams' season totals for ranking (userId → totalPoints)
     const [allTeamTotals, setAllTeamTotals] = useState<Map<string, number>>(new Map());
+
+    // GUID: PAGE_MY_RESULTS-010-v04
+    // [Intent] Track viewport width so the XAxis labels can be hidden on narrow screens
+    //   (MANICURE-AUDIT-005). On mobile (< 640px) the rotated labels overlap; hiding them
+    //   keeps the chart readable — the tooltip still shows full race names on tap/hover.
+    //   Initialised as null (not 1024) so SSR and first client render both produce identical
+    //   output (labels shown), avoiding a React hydration mismatch on mobile devices.
+    // [Inbound Trigger] useEffect sets real width on mount; window resize event updates it.
+    // [Downstream Impact] Drives the `hide` prop on the ComposedChart XAxis only.
+    const [windowWidth, setWindowWidth] = useState<number | null>(null);
+    useEffect(() => {
+        setWindowWidth(window.innerWidth);
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+    const hideXAxisLabels = windowWidth !== null && windowWidth < 640;
 
     const hasSecondaryTeam = !!user?.secondaryTeamName;
 
@@ -217,7 +238,12 @@ export default function MyResultsPage() {
         fetchLeader();
     }, [firestore]);
 
-    // GUID: PAGE_MY_RESULTS-004-v01
+    // GUID: PAGE_MY_RESULTS-004-v02
+    // @BUG_FIX: GEMINI-AUDIT-128 — User-submitted GP predictions were never found.
+    //   Root cause: predictionsMap.get(baseRaceId) used "Australian-Grand-Prix" (getBaseRaceId strips -GP)
+    //   but user-submitted predictions are stored with raceId "Australian-Grand-Prix-GP" (via generateRaceId).
+    //   Fix: predictionsMap now stores both raceId formats as keys; lookup tries event.id first (user-submitted
+    //   format with -GP/-Sprint suffix), falls back to getBaseRaceId() (carry-forward format without -GP).
     // [Intent] Shared processing function to build MyRaceResult[] from Firestore data.
     const processResults = useCallback((
         predictionsResult: any[],
@@ -243,7 +269,8 @@ export default function MyResultsPage() {
             } as Score);
         });
 
-        // Build predictions map (base raceId -> prediction data)
+        // Build predictions map keyed by actual stored raceId (user-submitted: with -GP/-Sprint suffix;
+        // carry-forward: without -GP suffix). Storing both allows lookup by either format.
         const predictionsMap = new Map<string, any>();
         predictionsResult.forEach(doc => {
             const data = doc.data();
@@ -260,8 +287,10 @@ export default function MyResultsPage() {
             const raceResult = raceResultsMap.get(resultId);
             if (!raceResult) continue;
 
+            // Try full event ID first (user-submitted format: "Australian-Grand-Prix-GP"),
+            // fall back to getBaseRaceId (carry-forward format: "Australian-Grand-Prix")
             const baseRaceId = getBaseRaceId(event.id);
-            const predData = predictionsMap.get(baseRaceId);
+            const predData = predictionsMap.get(event.id) ?? predictionsMap.get(baseRaceId);
             if (!predData) continue;
 
             const officialTop6 = [
@@ -708,14 +737,14 @@ export default function MyResultsPage() {
                                 <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }}>
                                     <XAxis
                                         dataKey="race"
-                                        tick={{ fontSize: 11 }}
-                                        angle={-45}
-                                        textAnchor="end"
-                                        height={60}
+                                        tick={hideXAxisLabels ? false : { fontSize: 11 }}
+                                        angle={hideXAxisLabels ? 0 : -45}
+                                        textAnchor={hideXAxisLabels ? "middle" : "end"}
+                                        height={hideXAxisLabels ? 20 : 60}
                                     />
                                     <YAxis tick={{ fontSize: 11 }} />
                                     <Tooltip content={<ChartTooltip />} />
-                                    <Legend verticalAlign="top" height={30} formatter={(value: string) => <span style={{ color: "white" }}>{value}</span>} />
+                                    <Legend verticalAlign="top" height={30} formatter={(value: string) => <span>{value}</span>} />
                                     <Bar
                                         dataKey="points"
                                         fill="hsl(var(--accent))"

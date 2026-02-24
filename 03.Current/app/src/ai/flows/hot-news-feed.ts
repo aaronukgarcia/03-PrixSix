@@ -53,7 +53,9 @@ export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
         console.log('Serving hot news from Firestore via Admin SDK.');
         return { newsFeed: content, lastUpdated };
     } catch (error) {
-        console.error('Error fetching hot news:', error);
+        // @SECURITY_FIX (Wave 10): NODE_ENV gate
+        // @GOLDEN_RULE_7_VIOLATION: No error code or correlation ID — full refactor deferred to Wave 11+
+        if (process.env.NODE_ENV !== 'production') { console.error('Error fetching hot news:', error); }
         return { newsFeed: defaultHotNews.content, lastUpdated: undefined };
     }
 }

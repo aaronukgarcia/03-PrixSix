@@ -364,12 +364,13 @@ export async function POST(request: NextRequest) {
       message: 'Profile completed successfully!',
     });
 
-  // GUID: API_AUTH_COMPLETE_OAUTH-014-v04
+  // GUID: API_AUTH_COMPLETE_OAUTH-014-v05
   // [Intent] Top-level error handler for unhandled exceptions.
   // [Inbound Trigger] Any unhandled exception in the POST handler.
   // [Downstream Impact] Logs error and returns 500 with correlation ID.
   } catch (error: any) {
-    console.error(`[Complete OAuth Profile Error ${correlationId}]`, error);
+    // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') { console.error(`[Complete OAuth Profile Error ${correlationId}]`, error); }
 
     const { db } = await getFirebaseAdmin();
     const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {

@@ -28,7 +28,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_FORGOT_PIN-001-v03

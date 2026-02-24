@@ -1,4 +1,5 @@
-// GUID: LIB_SCORING-000-v04
+// GUID: LIB_SCORING-000-v06
+// @SECURITY_FIX (GEMINI-AUDIT-067): Added explicit .limit(10000) safety cap on collectionGroup query to prevent Denial of Wallet unbounded reads.
 // [Intent] Orchestration module for race score calculation, persistence, and standings
 // generation. Reads predictions from Firestore, applies the scoring rules defined in
 // scoring-rules.ts, writes score documents back to Firestore, and computes league standings.
@@ -7,7 +8,8 @@
 // are returned to the admin UI and used for league table display. Depends on scoring-rules.ts
 // for point values and the calculateDriverPoints function.
 
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc, collectionGroup, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { randomUUID } from 'crypto';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, collectionGroup, limit, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { F1Drivers } from './data';
 import { SCORING_POINTS, calculateDriverPoints } from './scoring-rules';
 import { normalizeRaceId } from './normalize-race-id';
@@ -52,9 +54,11 @@ interface Prediction {
 // [Inbound Trigger] n/a -- import at top of file.
 // [Downstream Impact] See LIB_NORMALIZE_RACE_ID-000 for normalisation logic.
 
-// GUID: LIB_SCORING-004-v05
+// GUID: LIB_SCORING-004-v07
 // @SECURITY_RISK: Previously silently swallowed collectionGroup failures, masking missing index or permission errors.
 // @ERROR_PRONE: Previously accepted null/duplicate drivers without validation.
+// @SECURITY_FIX (GEMINI-AUDIT-067): collectionGroup query now has an explicit .limit(10000) safety cap to prevent unbounded Firestore reads (Denial of Wallet attack vector).
+// @BUG_FIX (GEMINI-AUDIT-136): actualResults and driverId are both lowercased before indexOf comparison to prevent case-mismatch silently awarding zero points for correct predictions.
 // [Intent] Core scoring engine: fetches all predictions for a given race from Firestore
 // using a collectionGroup query, then iterates each user's prediction array applying
 // the hybrid position-based scoring model (exact/1-off/2-off/3+-off) plus the all-6 bonus.
@@ -81,7 +85,7 @@ export async function calculateRaceScores(
   firestore: any,
   raceResult: RaceResult
 ): Promise<{ userId: string; totalPoints: number }[]> {
-  const correlationId = `score_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
+  const correlationId = `score_${Date.now().toString(36)}_${randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   const actualResults = [
     raceResult.driver1,
@@ -109,18 +113,27 @@ export async function calculateRaceScores(
 
   console.log(`[Scoring] [${correlationId}] Looking for predictions with raceId: "${normalizedRaceId}" (original: "${raceResult.raceId}")`);
 
+  // Safety cap to prevent unbounded reads (GEMINI-AUDIT-067)
+  // A prix six league will never have 10,000 predictions for a single race.
+  // If this cap is hit, it indicates a data integrity problem or attack.
+  const PREDICTIONS_READ_LIMIT = 10000;
+
   // Get all predictions for this race using collectionGroup query
   // @SECURITY_RISK fix: throw on failure instead of silently returning empty results
   let predictionsSnapshot;
   try {
     const predictionsQuery = query(
       collectionGroup(firestore, 'predictions'),
-      where('raceId', '==', normalizedRaceId)
+      where('raceId', '==', normalizedRaceId),
+      limit(PREDICTIONS_READ_LIMIT) // Safety cap to prevent unbounded reads (GEMINI-AUDIT-067)
     );
     predictionsSnapshot = await getDocs(predictionsQuery);
     console.log(`[Scoring] [${correlationId}] CollectionGroup query returned ${predictionsSnapshot.size} results`);
+    if (predictionsSnapshot.size >= PREDICTIONS_READ_LIMIT) {
+      console.warn(`[Scoring] [${correlationId}] Hit safety cap on read limit (${PREDICTIONS_READ_LIMIT}) for raceId: "${normalizedRaceId}" — possible data integrity issue`);
+    }
   } catch (error: any) {
-    console.error(`[Scoring] [${correlationId}] CollectionGroup query failed:`, error);
+    if (process.env.NODE_ENV !== 'production') { console.error(`[Scoring] [${correlationId}] CollectionGroup query failed:`, error); }
     throw createTracedError(ERRORS.FIRESTORE_COLLECTION_GROUP_FAILED, { correlationId, context: { raceId: normalizedRaceId }, cause: error instanceof Error ? error : undefined });
   }
 
@@ -153,9 +166,14 @@ export async function calculateRaceScores(
     let totalPoints = 0;
     let correctCount = 0;
 
+    // GEMINI-AUDIT-136: Lowercase both sides of the indexOf comparison to prevent
+    // case-mismatch (e.g. 'Verstappen' vs 'verstappen') silently returning -1 and
+    // awarding zero points for correct predictions. Stored data is NOT modified.
+    const actualResultsLower = actualResults.map(d => d.toLowerCase());
+
     // Prix Six Hybrid scoring: check each prediction position
     userPredictions.forEach((driverId, predictedPosition) => {
-      const actualPosition = actualResults.indexOf(driverId);
+      const actualPosition = actualResultsLower.indexOf(driverId.toLowerCase());
 
       // Calculate points using hybrid position-based system
       const points = calculateDriverPoints(predictedPosition, actualPosition);
@@ -207,7 +225,7 @@ interface UpdateScoresResult {
   standings: StandingEntry[];
 }
 
-// GUID: LIB_SCORING-006-v05
+// GUID: LIB_SCORING-006-v06
 // @AUDIT_NOTE: Removed `oduserId` typo field that was being written to Firestore alongside `userId`.
 // [Intent] End-to-end orchestrator: calculates scores for a race, persists each
 // user's score document to the 'scores' collection, then recomputes the full league
@@ -226,7 +244,7 @@ export async function updateRaceScores(
   raceId: string,
   raceResult: RaceResult
 ): Promise<UpdateScoresResult> {
-  const correlationId = `score_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
+  const correlationId = `score_${Date.now().toString(36)}_${randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   // Calculate scores using Prix Six rules
   const calculatedScores = await calculateRaceScores(firestore, raceResult);
@@ -254,7 +272,8 @@ export async function updateRaceScores(
         totalPoints: score.totalPoints
       });
     } catch (error: any) {
-      console.error(`[Scoring] [${correlationId}] Failed to write score for user ${score.userId}:`, error);
+      // @SECURITY_FIX (Wave 10): NODE_ENV gate
+      if (process.env.NODE_ENV !== 'production') { console.error(`[Scoring] [${correlationId}] Failed to write score for user ${score.userId}:`, error); }
       throw createTracedError(ERRORS.SCORE_WRITE_FAILED, { correlationId, context: { userId: score.userId, raceId: normalizedRaceId }, cause: error instanceof Error ? error : undefined });
     }
 
@@ -300,19 +319,22 @@ export async function updateRaceScores(
   };
 }
 
-// GUID: LIB_SCORING-007-v04
+// GUID: LIB_SCORING-007-v06
 // [Intent] Delete all score documents for a given race from the 'scores' collection.
-// Used when an admin needs to re-score a race or void results.
+//   Used when an admin needs to re-score a race or void results.
+//   NOTE: race_results document deletion is handled atomically by /api/delete-scores/route.ts
+//   (API_DELETE_SCORES-006) which uses a Firestore batch. This function only removes score docs.
 // [Inbound Trigger] Called from admin API route when race scores are cleared.
-// [Downstream Impact] Removes score documents from Firestore. League standings
-// will be incorrect until scores are recalculated. Depends on normalizeRaceId
-// (LIB_NORMALIZE_RACE_ID-000) for consistent raceId lookup.
+// [Downstream Impact] Removes score documents from Firestore. League standings will be incorrect
+//   until scores are recalculated. Depends on normalizeRaceId (LIB_NORMALIZE_RACE_ID-000).
+//   The race_results lockout is lifted by /api/delete-scores/route.ts, not here.
 
 /**
- * Delete all scores for a race
+ * Delete all score documents for a race from the 'scores' collection.
+ * Note: race_results document deletion is handled by /api/delete-scores/route.ts atomically.
  */
 export async function deleteRaceScores(firestore: any, raceId: string): Promise<number> {
-  const correlationId = `score_del_${Date.now().toString(36)}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
+  const correlationId = `score_del_${Date.now().toString(36)}_${randomUUID().replace(/-/g, '').substring(0, 8)}`;
 
   // Normalize the raceId to match how scores are stored
   const normalizedRaceId = normalizeRaceId(raceId);
@@ -329,7 +351,8 @@ export async function deleteRaceScores(firestore: any, raceId: string): Promise<
       await deleteDoc(scoreDoc.ref);
       deletedCount++;
     } catch (error: any) {
-      console.error(`[Scoring] [${correlationId}] Failed to delete score ${scoreDoc.id}:`, error);
+      // @SECURITY_FIX (Wave 10): NODE_ENV gate
+      if (process.env.NODE_ENV !== 'production') { console.error(`[Scoring] [${correlationId}] Failed to delete score ${scoreDoc.id}:`, error); }
       throw createTracedError(ERRORS.SCORE_DELETE_FAILED, { correlationId, context: { scoreDocId: scoreDoc.id }, cause: error instanceof Error ? error : undefined });
     }
   }

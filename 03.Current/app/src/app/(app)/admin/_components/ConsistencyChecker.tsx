@@ -1,5 +1,6 @@
-// GUID: ADMIN_CONSISTENCY-000-v05
+// GUID: ADMIN_CONSISTENCY-000-v06
 // @SECURITY_FIX: Added 5-minute cooldown rate limit to runChecks (GEMINI-AUDIT-017). Prevents Denial of Wallet via repeated unbounded Firestore collection reads.
+// @SECURITY_FIX: Added .limit(1000) safety cap to all four on-demand Firestore queries in runChecks (GEMINI-AUDIT-017). Prevents a single consistency check from reading thousands of documents and exhausting Firestore quota/billing.
 // [Intent] Admin component for running data integrity checks across all Firestore collections and displaying results. Validates users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues.
 // [Inbound Trigger] Lazy-loaded and rendered when admin navigates to the Consistency Checker tab in the admin panel.
 // [Downstream Impact] Read-only validation component. Can export reports to consistency_reports collection. Does not modify source data. Check functions are defined in @/lib/consistency.
@@ -8,7 +9,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useFirestore, useAuth } from '@/firebase';
-import { collection, query, collectionGroup, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, query, collectionGroup, addDoc, serverTimestamp, getDocs, limit } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -203,11 +204,13 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
   // Data is now fetched ON-DEMAND when running checks, not on component mount
   // This prevents loading 4+ MB of Firestore data just by viewing the CC tab
 
-  // GUID: ADMIN_CONSISTENCY-009-v04
+  // GUID: ADMIN_CONSISTENCY-009-v05
   // @SECURITY_FIX: Rate-limited to once per 5 minutes per session (GEMINI-AUDIT-017).
-  // [Intent] Execute the full consistency check pipeline: users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues. Fetches Firestore data on-demand per phase to minimise memory usage.
+  // @SECURITY_FIX: Added .limit(CC_FETCH_CAP) to all four on-demand Firestore queries to prevent unbounded reads exhausting quota/billing (GEMINI-AUDIT-017).
+  // [Intent] Execute the full consistency check pipeline: users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues. Fetches Firestore data on-demand per phase with a safety cap to minimise memory usage and prevent Denial of Wallet.
   // [Inbound Trigger] Called when admin clicks "Run Consistency Check" button.
-  // [Downstream Impact] Sets summary state with all check results, which drives the Summary Table, Score Type Breakdown, Issues Detail, and Export button. Fetches from collectionGroup('predictions'), collection('race_results'), collection('scores'), and collection('leagues').
+  // [Downstream Impact] Sets summary state with all check results, which drives the Summary Table, Score Type Breakdown, Issues Detail, and Export button. Fetches from collectionGroup('predictions'), collection('race_results'), collection('scores'), and collection('leagues'). Each fetch is capped at CC_FETCH_CAP documents.
+  const CC_FETCH_CAP = 1000; // Safety cap to prevent unbounded reads (GEMINI-AUDIT-017)
   const runChecks = useCallback(async () => {
     if (!allUsers || !firestore) return;
 
@@ -249,7 +252,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
 
       // Fetch predictions ON-DEMAND
       setCurrentPhase('predictions');
-      const predictionsSnap = await getDocs(collectionGroup(firestore, 'predictions'));
+      // Safety cap to prevent unbounded reads (GEMINI-AUDIT-017)
+      const predictionsSnap = await getDocs(query(collectionGroup(firestore, 'predictions'), limit(CC_FETCH_CAP)));
+      if (predictionsSnap.size >= CC_FETCH_CAP) {
+        console.warn(`[ConsistencyChecker] predictions fetch hit cap of ${CC_FETCH_CAP} — results may be incomplete (GEMINI-AUDIT-017)`);
+      }
 
       // Build a map of user's secondary team names for matching
       const userSecondaryTeams = new Map<string, string>();
@@ -294,7 +301,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
 
       // Fetch race results ON-DEMAND
       setCurrentPhase('results');
-      const raceResultsSnap = await getDocs(collection(firestore, 'race_results'));
+      // Safety cap to prevent unbounded reads (GEMINI-AUDIT-017)
+      const raceResultsSnap = await getDocs(query(collection(firestore, 'race_results'), limit(CC_FETCH_CAP)));
+      if (raceResultsSnap.size >= CC_FETCH_CAP) {
+        console.warn(`[ConsistencyChecker] race_results fetch hit cap of ${CC_FETCH_CAP} — results may be incomplete (GEMINI-AUDIT-017)`);
+      }
       const resultData: RaceResultData[] = raceResultsSnap.docs.map(doc => {
         const r = doc.data();
         return {
@@ -312,7 +323,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
 
       // Fetch scores ON-DEMAND
       setCurrentPhase('scores');
-      const scoresSnap = await getDocs(collection(firestore, 'scores'));
+      // Safety cap to prevent unbounded reads (GEMINI-AUDIT-017)
+      const scoresSnap = await getDocs(query(collection(firestore, 'scores'), limit(CC_FETCH_CAP)));
+      if (scoresSnap.size >= CC_FETCH_CAP) {
+        console.warn(`[ConsistencyChecker] scores fetch hit cap of ${CC_FETCH_CAP} — results may be incomplete (GEMINI-AUDIT-017)`);
+      }
       const scoreData: ScoreData[] = scoresSnap.docs.map(doc => {
         const s = doc.data();
         return {
@@ -332,7 +347,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
 
       // Fetch leagues ON-DEMAND and check
       setCurrentPhase('leagues');
-      const leaguesSnap = await getDocs(collection(firestore, 'leagues'));
+      // Safety cap to prevent unbounded reads (GEMINI-AUDIT-017)
+      const leaguesSnap = await getDocs(query(collection(firestore, 'leagues'), limit(CC_FETCH_CAP)));
+      if (leaguesSnap.size >= CC_FETCH_CAP) {
+        console.warn(`[ConsistencyChecker] leagues fetch hit cap of ${CC_FETCH_CAP} — results may be incomplete (GEMINI-AUDIT-017)`);
+      }
       const leagueData: LeagueData[] = leaguesSnap.docs.map(doc => {
         const l = doc.data();
         return {

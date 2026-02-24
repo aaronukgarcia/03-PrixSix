@@ -1,8 +1,12 @@
-// GUID: API_AUTH_LOGIN-000-v08
+// GUID: API_AUTH_LOGIN-000-v09
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // @SECURITY_FIX: Implemented progressive account lockout to prevent brute-force attacks (GEMINI-AUDIT-012).
 // @SECURITY_FIX: Removed raw errorType and errorMessage from catch block response to prevent information disclosure (GEMINI-AUDIT-100).
 // @SECURITY_FIX: checkForAttack() return value now enforced — bot_attack/credential_stuffing triggers 429 (GEMINI-AUDIT-045).
+// @SECURITY_FIX: Applied constant-time minimum delay to the "user not found in Firebase Auth" path
+//   to prevent timing-based email enumeration (API-006). When the user does not exist, the handler
+//   now waits at least TARGET_MIN_DURATION ms before responding, normalising timing with the path
+//   that makes a full Firebase REST API call to verify credentials.
 // [Intent] Server-side API route that authenticates users via email + 6-digit PIN, enforces progressive account lockout after repeated failures, logs all attempts for attack detection, blocks IP-level attacks, and returns a Firebase custom token on success.
 // [Inbound Trigger] POST request from the client-side login form (LoginPage component).
 // [Downstream Impact] Returns a customToken used by the client to call Firebase signInWithCustomToken(). Writes to audit_logs, login_attempts, and users collections. Lockout state affects future login attempts.
@@ -101,14 +105,23 @@ interface LoginRequest {
   pin: string;
 }
 
-// GUID: API_AUTH_LOGIN-004-v03
+// GUID: API_AUTH_LOGIN-004-v04
 // [Intent] Main login POST handler. Validates input, checks lockout status, verifies credentials via Firebase Auth REST API, tracks failed/successful attempts, and returns a custom token on success.
 // [Inbound Trigger] HTTP POST to /api/auth/login from the client-side login form.
 // [Downstream Impact] On success: returns customToken + uid consumed by the client to establish a Firebase Auth session. On failure: increments badLoginAttempts on the users document, may trigger account lockout. All attempts are logged to audit_logs and login_attempts collections for attack detection.
+// @SECURITY_FIX (API-006): startTime recorded at POST entry. The "user not found" early-exit path
+//   is padded to TARGET_MIN_DURATION to approximate the time taken by the Firebase REST API call
+//   made on the "user found" path, preventing timing-based email enumeration.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
   const clientIP = getClientIP(request);
   const userAgent = request.headers.get('user-agent') || undefined;
+  // SECURITY (API-006): Record start time so the "user not found" path can be padded to match the
+  // average response time of the "user found + Firebase REST API call" path.
+  const startTime = Date.now();
+  // Target minimum duration approximates the Firebase Identity Toolkit REST API call latency.
+  // 800ms is conservative; actual PIN-verify call typically takes 300-600ms from server.
+  const TARGET_MIN_DURATION = 800; // milliseconds
 
   // GUID: API_AUTH_LOGIN-014-v01
   // @SECURITY_FIX: CSRF protection via Origin/Referer validation (GEMINI-005).
@@ -228,10 +241,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // GUID: API_AUTH_LOGIN-008-v04
+    // GUID: API_AUTH_LOGIN-008-v05
     // [Intent] Look up the user in Firebase Auth by email to confirm the account exists in the auth system, separate from Firestore.
     // [Inbound Trigger] Runs after lockout check passes.
     // [Downstream Impact] If user not found in Firebase Auth, returns 401 with a generic message (prevents email enumeration). The retrieved firebaseUserRecord.uid is used later to generate the custom token.
+    // @SECURITY_FIX (API-006): When user is not found, a constant-time delay pads the response to
+    //   TARGET_MIN_DURATION before returning, preventing timing-based email enumeration. Without
+    //   this, the fast early-exit (no Firebase REST API call) leaks that the email doesn't exist.
     // Attempt to verify credentials using Firebase Auth
     // First, get the user by email
     let firebaseUserRecord;
@@ -267,6 +283,16 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // SECURITY (API-006): Pad the "user not found" response to TARGET_MIN_DURATION so that
+        // response timing cannot distinguish "email does not exist" from "email exists, wrong PIN"
+        // (which goes through a Firebase REST API call adding ~300-600ms). Using the same generic
+        // message for both cases (already done above) prevents content-based enumeration.
+        const elapsed = Date.now() - startTime;
+        const remaining = TARGET_MIN_DURATION - elapsed;
+        if (remaining > 0) {
+          await new Promise<void>(resolve => setTimeout(resolve, remaining));
+        }
+
         return NextResponse.json(
           { success: false, error: 'Invalid email or PIN', correlationId },
           { status: 401 }
@@ -284,7 +310,8 @@ export async function POST(request: NextRequest) {
     const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
     if (!firebaseApiKey) {
-      console.error('[Auth] Firebase API key not configured');
+      // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV for consistency with rest of file.
+      if (process.env.NODE_ENV !== 'production') { console.error('[Auth] Firebase API key not configured'); }
       const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
         correlationId,
         context: { route: '/api/auth/login', action: 'config_check', requestData: { email: normalizedEmail } },
@@ -428,7 +455,7 @@ export async function POST(request: NextRequest) {
         timestamp: FieldValue.serverTimestamp(),
       });
 
-      // GUID: API_AUTH_LOGIN-013-v03
+      // GUID: API_AUTH_LOGIN-013-v04
       // [Intent] Record a logon event in user_logons for session tracking (non-blocking).
       //          PIN logins include IP and user agent since this runs server-side.
       //          Login succeeds even if tracking fails.
@@ -447,7 +474,8 @@ export async function POST(request: NextRequest) {
         });
         logonId = logonRef.id;
       } catch (logonError) {
-        console.error('[Login] Failed to record logon event:', logonError);
+        // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') { console.error('[Login] Failed to record logon event:', logonError); }
       }
     }
 
@@ -458,12 +486,13 @@ export async function POST(request: NextRequest) {
       logonId,
     });
 
-  // GUID: API_AUTH_LOGIN-012-v04
+  // GUID: API_AUTH_LOGIN-012-v05
   // [Intent] Top-level catch-all error handler for any unhandled exception during login. Logs the error with full context (excluding the PIN) and returns a generic 500 response with the correlation ID.
   // [Inbound Trigger] Any unhandled exception thrown within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection. The correlation ID in the response allows support to trace the issue. If logTracedError itself fails, falls back to console.error to avoid masking the original error.
   } catch (error: any) {
-    console.error('[Login Error]', error);
+    // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') { console.error('[Login Error]', error); }
 
     let requestData: any = {};
     try {
@@ -481,7 +510,8 @@ export async function POST(request: NextRequest) {
       });
       await logTracedError(traced, db);
     } catch (logErr) {
-      console.error('[Login Error - Logging failed]', logErr);
+      // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+      if (process.env.NODE_ENV !== 'production') { console.error('[Login Error - Logging failed]', logErr); }
     }
 
     // SECURITY: Return only generic message + correlationId. Full error context is logged

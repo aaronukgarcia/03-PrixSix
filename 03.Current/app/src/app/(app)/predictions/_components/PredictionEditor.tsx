@@ -1,5 +1,11 @@
 
-// GUID: COMPONENT_PREDICTION_EDITOR-000-v03
+// GUID: COMPONENT_PREDICTION_EDITOR-000-v06
+// @SECURITY_FIX: GEMINI-AUDIT-035 — Removed raw error.message exposure in handleSubmit and gated console.error
+//   calls behind NODE_ENV !== 'production' in both handleSubmit and handleAnalysis.
+// @SECURITY_FIX: GEMINI-AUDIT-036 — Added validateWeights() guard in saveWeights to reject invalid weight
+//   values (NaN, Infinity, out-of-range, non-integer) before any Firestore write. Prevents malicious or
+//   corrupted weight values from being persisted to users/{userId}.
+// @UX(VIRGIN-007): Added F1 jargon tooltips for "grid", "Pit Lane", and "Qualifying" to aid new users.
 // [Intent] PredictionEditor component: the core prediction interface where users select, reorder, and submit their top-6 driver predictions for a race. Also provides AI-powered analysis with configurable weights, countdown timer, apply-to-all-teams option, and a change log.
 // [Inbound Trigger] Rendered by the predictions page when a race is selected and the user has an active team.
 // [Downstream Impact] Submits predictions via POST /api/submit-prediction; requests AI analysis via POST /api/ai/analysis; persists AI weights to Firestore users collection. Changes here affect the entire prediction submission flow.
@@ -17,7 +23,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { Driver } from "@/lib/data";
-import { Check, ListCollapse, Timer, Sparkles, Settings2, RotateCcw, Loader2 } from "lucide-react";
+import { Check, ListCollapse, Timer, Sparkles, Settings2, RotateCcw, Loader2, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuth, useFirestore } from "@/firebase";
@@ -26,6 +33,7 @@ import type { AnalysisWeights } from "@/firebase/provider";
 import { doc, updateDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { generateClientCorrelationId, ERROR_CODES } from "@/lib/error-codes";
+import { CLIENT_ERRORS } from "@/lib/error-registry-client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -273,10 +281,14 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     if (driverName) addChangeToHistory(`- ${driverName} from grid`);
   }, [isLocked, predictions]);
 
-  // GUID: COMPONENT_PREDICTION_EDITOR-014-v03
+  // GUID: COMPONENT_PREDICTION_EDITOR-014-v04
+  // @SECURITY_FIX: GEMINI-AUDIT-035 — Replaced raw e.message toast with safe generic message + correlation ID.
+  //   Raw error messages from failed team submissions (including server-returned details) were previously
+  //   surfaced directly to the user, leaking internal implementation details. Now uses ERROR_CODES.UNKNOWN_ERROR
+  //   with a generated correlation ID, and gates the console.error behind a NODE_ENV check.
   // [Intent] Submits the prediction to the server via /api/submit-prediction. Supports multi-team submission when "Apply to All" is checked. Validates grid completeness and user authentication before sending.
   // [Inbound Trigger] User clicks the "Submit Predictions" or "Submit to All Teams" button.
-  // [Downstream Impact] POST to /api/submit-prediction for each team; on success shows a toast and logs to change history; on failure shows a destructive toast with error details.
+  // [Downstream Impact] POST to /api/submit-prediction for each team; on success shows a toast and logs to change history; on failure shows a destructive toast with correlation ID (no raw error details exposed).
   const handleSubmit = async () => {
     if (!user || !teamName) {
         toast({ variant: "destructive", title: "Error", description: "User or team not identified." });
@@ -334,7 +346,8 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         const failedTeams = results.filter(r => !r.success);
 
         if (failedTeams.length > 0) {
-            throw new Error(`Failed for: ${failedTeams.map(f => `${f.team} (${f.error})`).join(', ')}`);
+            // SECURITY: Do not surface raw server error details to client
+            throw new Error('submission_failed');
         }
 
         // Add submission to changelog with timestamp
@@ -349,10 +362,24 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         });
 
     } catch (e: any) {
+        // SECURITY (GEMINI-AUDIT-035): Do not expose raw error.message to user.
+        // Gate diagnostic logging behind NODE_ENV to prevent production log leakage.
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('handleSubmit error:', e);
+        }
+        const correlationId = generateClientCorrelationId();
         toast({
             variant: "destructive",
-            title: "Submission Failed",
-            description: e.message
+            title: `Error ${ERROR_CODES.UNKNOWN_ERROR.code}`,
+            description: (
+              <div className="space-y-2">
+                <p>Failed to submit prediction. Please try again.</p>
+                <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
+                  ID: {correlationId}
+                </p>
+              </div>
+            ),
+            duration: 15000,
         });
     } finally {
         setIsSubmitting(false);
@@ -385,22 +412,76 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     setWeights(DEFAULT_WEIGHTS);
   };
 
-  // GUID: COMPONENT_PREDICTION_EDITOR-017-v03
-  // [Intent] Persists the current AI analysis weights to the user's Firestore document. Fire-and-forget: failure is logged but not shown to the user.
+  // GUID: COMPONENT_PREDICTION_EDITOR-020-v01
+  // @SECURITY_FIX: GEMINI-AUDIT-036 — New validation guard preventing invalid weight values from being
+  //   persisted to Firestore. A malicious client could bypass the Slider UI and write NaN, Infinity,
+  //   negative values, or values > 10 directly to the weights state before calling saveWeights.
+  // [Intent] Validates all AI analysis weight values before Firestore persistence. Each weight must be
+  //   a finite integer in the range [0, 10]. Returns true if all weights pass; false otherwise.
+  //   The Slider UI enforces max=10/min=0/step=1, so these bounds are the authoritative valid range.
+  // [Inbound Trigger] Called by saveWeights immediately before any Firestore updateDoc call.
+  // [Downstream Impact] Prevents corrupt or adversarial weight data from reaching Firestore users/{userId}.
+  //   If validation fails, saveWeights returns early and shows an error toast via the caller pattern.
+  const validateWeights = (weightsToValidate: AnalysisWeights): boolean => {
+    const entries = Object.entries(weightsToValidate);
+    for (const [_key, value] of entries) {
+      if (typeof value !== 'number') return false;
+      if (!Number.isFinite(value)) return false;       // Rejects NaN, Infinity, -Infinity
+      if (!Number.isInteger(value)) return false;      // Rejects fractional values
+      if (value < 0 || value > 10) return false;       // Enforces slider range [0, 10]
+    }
+    return entries.length === Object.keys(DEFAULT_WEIGHTS).length;  // Rejects extra/missing keys
+  };
+
+  // GUID: COMPONENT_PREDICTION_EDITOR-017-v04
+  // @SECURITY_FIX: GEMINI-AUDIT-036 — Added validateWeights() guard before Firestore write. Without this
+  //   check, a malicious user could manipulate client-side state to persist arbitrary weight values
+  //   (NaN, Infinity, negative, >10) to Firestore, corrupting stored preferences. The validation uses
+  //   CLIENT_ERRORS.VALIDATION_INVALID_FORMAT (PX-2002) and a correlation ID per Golden Rule #1.
+  // [Intent] Persists the current AI analysis weights to the user's Firestore document after validating
+  //   all values. Fire-and-forget: failure is logged but not shown to the user (except for invalid data).
   // [Inbound Trigger] Called by handleAnalysis before requesting AI analysis.
   // [Downstream Impact] Updates the aiAnalysisWeights field in the Firestore users/{userId} document. On next page load, these weights will be restored via the load useEffect.
   const saveWeights = async () => {
     if (!firestore || !user) return;
+
+    // SECURITY (GEMINI-AUDIT-036): Validate weights before writing to Firestore.
+    // Prevents NaN, Infinity, out-of-range, or non-integer values from being persisted.
+    if (!validateWeights(weights)) {
+      const correlationId = generateClientCorrelationId();
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('saveWeights: validation failed — invalid weight values detected', weights);
+      }
+      toast({
+        variant: "destructive",
+        title: `Error ${CLIENT_ERRORS.VALIDATION_INVALID_FORMAT.code}`,
+        description: (
+          <div className="space-y-2">
+            <p>Invalid analysis weight values detected. Weights could not be saved.</p>
+            <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
+              ID: {correlationId}
+            </p>
+          </div>
+        ),
+        duration: 10000,
+      });
+      return;
+    }
+
     try {
       const userDocRef = doc(firestore, 'users', user.id);
       await updateDoc(userDocRef, { aiAnalysisWeights: weights });
     } catch (err) {
-      console.error('Failed to save AI weights:', err);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Failed to save AI weights:', err);
+      }
       // Non-critical, don't show error to user
     }
   };
 
-  // GUID: COMPONENT_PREDICTION_EDITOR-018-v04
+  // GUID: COMPONENT_PREDICTION_EDITOR-018-v06
+  // @SECURITY_FIX: GEMINI-AUDIT-035 — Gated console.error behind NODE_ENV !== 'production' to prevent
+  //   diagnostic details from appearing in production browser consoles.
   // [Intent] Requests AI-powered race analysis from /api/ai/analysis with the current predictions and weights. Validates grid completeness and authentication first, then attaches Bearer token per GEMINI-AUDIT-010 fix. Handles errors with correlation IDs and user-copyable error toasts per Golden Rule #1.
   // [Inbound Trigger] User clicks the "Generate Analysis" button.
   // [Downstream Impact] Displays analysis text in the full-width result card; saves weights to Firestore; logs to change history. On error, shows a destructive toast with selectable correlation ID.
@@ -463,7 +544,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         throw { message: data.error || 'Analysis failed', errorCode, correlationId };
       }
     } catch (err: any) {
-      console.error('Analysis error:', err);
+      // SECURITY (GEMINI-AUDIT-035): Gate diagnostic logging behind NODE_ENV to prevent production leakage.
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Analysis error:', err);
+      }
       setAnalysisText('Unable to generate analysis at this time. Please try again later.');
 
       // Use error info from thrown object or generate client-side
@@ -475,7 +559,7 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         title: `Error ${errorCode}`,
         description: (
           <div className="space-y-2">
-            <p>{err.message || "Could not generate analysis"}</p>
+            <p>{ERROR_CODES.AI_GENERATION_FAILED.message}</p>
             <p className="text-xs font-mono bg-destructive-foreground/10 p-1 rounded select-all cursor-text">
               ID: {correlationId}
             </p>
@@ -488,11 +572,32 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   };
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-021-v01
+  // @UX(VIRGIN-007): F1 jargon tooltip helper. Inline Info icon that shows a definition on hover.
+  // [Intent] Reusable inline tooltip component for F1 jargon terms. Renders a small Info icon that
+  //   displays the provided definition text on hover/focus, helping new users understand F1-specific
+  //   terminology without cluttering the UI for experienced users.
+  // [Inbound Trigger] Used inline next to "grid", "Pit Lane", and "Qualifying" text in the render output.
+  // [Downstream Impact] Pure UI — no state, no data fetch, no side effects. Only adds hover tooltip elements.
+  const JargonTip = ({ text }: { text: string }) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex items-center cursor-help">
+          <Info className="h-3 w-3 inline text-muted-foreground ml-0.5 align-middle" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs text-xs leading-snug">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+
   // GUID: COMPONENT_PREDICTION_EDITOR-019-v03
   // [Intent] Main render: two-column layout with prediction grid card (left/top) and sidebar (right/bottom) containing available drivers, change log, and AI analysis panel. Full-width AI result card spans below both columns when analysis is active.
   // [Inbound Trigger] Component render cycle; re-renders on state changes to predictions, countdown, weights, analysis, etc.
   // [Downstream Impact] Renders interactive grid slots, available drivers list, submission controls, countdown badge, AI analysis card, and analysis result. All user interactions feed back into the state handlers above.
   return (
+    <TooltipProvider delayDuration={300}>
     <DndPredictionWrapper
       predictions={predictions}
       availableDrivers={availableDrivers}
@@ -504,9 +609,14 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle className="text-xl">{raceName}</CardTitle>
+          {/* GUID: COMPONENT_PREDICTION_EDITOR-022-v01 — @UX(VIRGIN-007): Grid tooltip */}
           <CardDescription className="text-base">
             Prediction for <span className="font-semibold text-accent">{teamName}</span>
-            {isLocked ? " - Grid locked" : " - Select drivers from the list to fill your grid"}
+            {isLocked ? (
+              <> - Grid<JargonTip text="The grid is the starting order for the race. Predict which drivers will start in positions 1–6." /> locked</>
+            ) : (
+              <> - Select drivers from the list to fill your grid<JargonTip text="The grid is the starting order for the race. Predict which drivers will start in positions 1–6." /></>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -564,18 +674,36 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                     !isLocked && "bg-green-600 hover:bg-green-700"
                   )}
                 >
+                  {/* GUID: COMPONENT_PREDICTION_EDITOR-022-v01 — @UX(VIRGIN-007): Pit Lane tooltip */}
                   <Timer className="h-4 w-4" />
                   {isLocked ? (
-                    <span>PIT CLOSED</span>
+                    <span>PIT CLOSED<JargonTip text="The Pit Lane is the prediction window. It's open until qualifying starts, then closes — so submit your picks before qualifying begins!" /></span>
                   ) : (
-                    <span>PIT OPEN - {countdown}</span>
+                    <span>PIT OPEN<JargonTip text="The Pit Lane is the prediction window. It's open until qualifying starts, then closes — so submit your picks before qualifying begins!" /> - {countdown}</span>
                   )}
                 </Badge>
             </div>
             {!isLocked && (
+              <>
+                {/* GUID: COMPONENT_PREDICTION_EDITOR-023-v01
+                    @UX(VIRGIN-009): Prominent deadline display shown near the submit button when the pit
+                    lane is open. Surfaces the exact qualifying datetime so users know precisely when
+                    their window closes, addressing the virgin audit finding that deadline info was buried
+                    in the closure alert only.
+                    [Intent] Render the qualifying deadline as a human-readable local datetime string
+                             directly below the submit button row while the pit lane is open.
+                    [Inbound Trigger] Rendered only when isLocked is false (pit lane open).
+                    [Downstream Impact] Pure display — reads qualifyingTime prop, no state side effects. */}
+                <p className="text-xs font-medium text-amber-400">
+                  Deadline: {new Date(qualifyingTime).toLocaleString(undefined, {
+                    weekday: 'short', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+                  })}
+                </p>
                 <p className="text-xs text-muted-foreground">
                     Your prediction will stand until you edit it. You can change your picks anytime before the pit closes.
                 </p>
+              </>
             )}
         </CardFooter>
       </Card>
@@ -737,5 +865,6 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
       )}
     </div>
     </DndPredictionWrapper>
+    </TooltipProvider>
   );
 }

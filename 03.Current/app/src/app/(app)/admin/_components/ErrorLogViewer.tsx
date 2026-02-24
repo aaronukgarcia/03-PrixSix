@@ -1,6 +1,8 @@
-// GUID: ADMIN_ERRORLOG-000-v05
+// GUID: ADMIN_ERRORLOG-000-v06
 // @SECURITY_FIX: Added stack trace sanitization to prevent information disclosure (ADMINCOMP-011).
 // @SECURITY_FIX: Replaced direct Firestore writes with API endpoint for error resolution (ADMINCOMP-012).
+// @SECURITY_FIX: Extended sanitizeStackTrace to strip ALL Windows absolute paths with drive letters (GEMINI-AUDIT-020).
+// @SECURITY_FIX: Gated console.error calls behind NODE_ENV !== 'production' (GEMINI-AUDIT-020).
 // [Intent] Admin component for viewing, searching, filtering, and resolving system error logs.
 // [Inbound Trigger] Rendered on the admin Error Logs tab.
 // [Downstream Impact] Displays error_logs Firestore collection; allows admins to mark errors resolved. Changes to error log schema or error-codes.ts categories affect display.
@@ -33,12 +35,16 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 
-// GUID: ADMIN_ERRORLOG-001a-v01
+// GUID: ADMIN_ERRORLOG-001a-v02
+// @SECURITY_FIX: Extended to strip ALL Windows absolute paths with drive letters, not just
+//   known subdirectory anchors (app/, node_modules/, etc.). Ensures paths like
+//   E:\SomeOtherDir\file.js are also stripped (GEMINI-AUDIT-020).
 // [Intent] Sanitize stack traces to remove absolute paths and sensitive information before display.
 // [Inbound Trigger] Called when rendering error log details containing stack traces.
 // [Downstream Impact] Prevents information disclosure of server directory structure and file paths.
 /**
- * Sanitizes a stack trace by removing absolute paths and sensitive information
+ * Sanitizes a stack trace by removing absolute paths and sensitive information.
+ * Handles both Unix-style (/absolute/path) and Windows-style (C:\absolute\path or C:/absolute/path).
  * @param stack - Raw stack trace string
  * @returns Sanitized stack trace with relative paths only
  */
@@ -46,19 +52,22 @@ function sanitizeStackTrace(stack: string | undefined): string {
   if (!stack) return '';
 
   return stack
-    // Remove Windows absolute paths (e.g., E:\GoogleDrive\...\app\src\...)
-    .replace(/[A-Z]:\\[^\s\n)]+\\app\\/gi, 'app/')
-    // Remove Unix absolute paths (e.g., /home/user/.../app/src/...)
-    .replace(/\/[^\s\n)]+\/app\//gi, 'app/')
-    // Remove node_modules absolute paths
-    .replace(/[A-Z]:\\[^\s\n)]+\\node_modules\\/gi, 'node_modules/')
-    .replace(/\/[^\s\n)]+\/node_modules\//gi, 'node_modules/')
-    // Remove user home directory references
-    .replace(/[A-Z]:\\Users\\[^\\]+\\/gi, '~/')
-    .replace(/\/home\/[^/]+\//gi, '~/')
-    // Remove .next build directory absolute paths
-    .replace(/[A-Z]:\\[^\s\n)]+\\.next\\/gi, '.next/')
-    .replace(/\/[^\s\n)]+\/.next\//gi, '.next/')
+    // Remove Windows absolute paths anchored to known subdirectories (preserves relative segment)
+    .replace(/[A-Za-z]:[/\\][^\s\n)]*[/\\]app[/\\]/gi, 'app/')
+    .replace(/[A-Za-z]:[/\\][^\s\n)]*[/\\]node_modules[/\\]/gi, 'node_modules/')
+    .replace(/[A-Za-z]:[/\\][^\s\n)]*[/\\]\.next[/\\]/gi, '.next/')
+    // Remove Windows user home directory references
+    .replace(/[A-Za-z]:[/\\]Users[/\\][^/\\\s\n)]+[/\\]/gi, '~/')
+    // Remove Unix absolute paths anchored to known subdirectories
+    .replace(/\/[^\s\n)]+\/app\//g, 'app/')
+    .replace(/\/[^\s\n)]+\/node_modules\//g, 'node_modules/')
+    .replace(/\/[^\s\n)]+\/\.next\//g, '.next/')
+    .replace(/\/home\/[^/]+\//g, '~/')
+    // Catch-all: strip any remaining Windows absolute paths with drive letters
+    // (e.g., E:\SomeOtherDir\file.js or E:/SomeOtherDir/file.js not caught above)
+    .replace(/[A-Za-z]:[/\\][^\s\n)]+/g, '[path]')
+    // Catch-all: strip any remaining Unix absolute paths not caught above
+    .replace(/\/(?:[^\s\n)/]+\/){2,}[^\s\n)]+/g, '[path]')
     // Limit stack trace to first 20 lines (prevent log spam)
     .split('\n')
     .slice(0, 20)
@@ -245,7 +254,7 @@ export function ErrorLogViewer() {
 
       return logs;
     } catch (e) {
-      console.error('Error filtering logs:', e);
+      if (process.env.NODE_ENV !== 'production') { console.error('Error filtering logs:', e); }
       return [];
     }
   }, [errorLogs, selectedCategory, searchTerm, selectedView]);
@@ -276,7 +285,7 @@ export function ErrorLogViewer() {
       });
       return groups;
     } catch (e) {
-      console.error('Error grouping logs:', e);
+      if (process.env.NODE_ENV !== 'production') { console.error('Error grouping logs:', e); }
       return {};
     }
   }, [filteredLogs]);
@@ -297,7 +306,7 @@ export function ErrorLogViewer() {
       });
       return { total: errorLogs.length, categories };
     } catch (e) {
-      console.error('Error calculating stats:', e);
+      if (process.env.NODE_ENV !== 'production') { console.error('Error calculating stats:', e); }
       return { total: 0, categories: {} as Record<string, number> };
     }
   }, [errorLogs]);
@@ -529,7 +538,7 @@ function ErrorLogItem({ log, accordion, user, onResolved }: {
       }
       onResolved?.();
     } catch (err) {
-      console.error('Failed to mark as resolved:', err);
+      if (process.env.NODE_ENV !== 'production') { console.error('Failed to mark as resolved:', err); }
     } finally {
       setIsResolving(false);
     }

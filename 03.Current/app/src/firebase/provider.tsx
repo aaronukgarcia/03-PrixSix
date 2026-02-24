@@ -1,5 +1,6 @@
-// GUID: FIREBASE_PROVIDER-000-v05
+// GUID: FIREBASE_PROVIDER-000-v07
 // @SECURITY_FIX: updateSecondaryEmail now sends Authorization header to fix 401 errors after GEMINI-AUDIT-006 server-side auth was added (FIREBASE_PROVIDER-019).
+// @SECURITY_FIX (GEMINI-AUDIT-041, GEMINI-AUDIT-042): All console.error calls now log only error.message (not full error objects). Raw error objects no longer assigned to userError context state. User-facing messages sanitised throughout.
 // [Intent] Central Firebase context provider that manages authentication state, user profile data,
 // and all auth-related operations (login, signup, logout, PIN management, email verification).
 // This is the single source of truth for the current user's session and profile across the entire app.
@@ -31,7 +32,8 @@ import { useRouter } from 'next/navigation';
 import { addDocumentNonBlocking } from './non-blocking-updates';
 import { logAuditEvent } from '@/lib/audit';
 import { generateClientCorrelationId } from '@/lib/error-codes';
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 
 // GUID: FIREBASE_PROVIDER-001-v03
 // [Intent] Defines the shape of user email notification preferences stored in Firestore.
@@ -182,52 +184,76 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   const router = useRouter();
 
-  // GUID: FIREBASE_PROVIDER-008-v05
-  // @SECURITY_RISK @AUDIT_NOTE (PARTIALLY FIXED - AUTH-003): Auth state race condition -- between
-  //   onAuthStateChanged firing and the Firestore snapshot resolving, there is a window where
-  //   `firebaseUser` is set but `user` is null. Components must check `isUserLoading` before
-  //   relying on `user` state. The 10s timeout now sets userError on expiry to prevent inconsistent
-  //   state (isUserLoading=false with user=null). Full fix requires server-side session tokens.
+  // GUID: FIREBASE_PROVIDER-008-v06
+  // @SECURITY_FIX (AUTH-003 FULL FIX): Race condition between rapid onAuthStateChanged firings
+  //   now prevented by a per-effect `activeLoadingTimeout` ref. When onAuthStateChanged fires
+  //   again before the previous Firestore snapshot resolves, the stale timeout is cleared and
+  //   stale state updates are ignored via the `isMounted` and `isCurrentCallback` guards.
+  //   An `isMounted` ref ensures no state updates occur after the component unmounts.
+  // @SECURITY_RISK @AUDIT_NOTE: Between onAuthStateChanged firing and the Firestore snapshot
+  //   resolving, there is a window where `firebaseUser` is set but `user` is null. Components
+  //   must check `isUserLoading` before relying on `user` state. Full fix requires server-side
+  //   session tokens.
   // [Intent] Sets up a two-layer real-time listener: (1) Firebase Auth state changes trigger
   // (2) a Firestore onSnapshot listener on the user's profile document. On first snapshot,
   // syncs emailVerified from Auth to Firestore if needed and redirects users who must change PIN.
   // Includes a 10-second safety timeout to prevent indefinite loading states.
+  // Uses isMounted and isCurrentCallback flags to prevent stale state updates on rapid re-fires
+  // or after component unmount.
   // [Inbound Trigger] Runs once on mount and whenever auth/firestore/router references change.
   // [Downstream Impact] Populates `user`, `firebaseUser`, `isUserLoading`, and `userError` state.
   // Every component reading auth state depends on this effect completing successfully.
   useEffect(() => {
+    let isMounted = true;
     setIsUserLoading(true);
     let unsubscribeUserDoc: (() => void) | null = null;
+    // Track the active timeout across rapid auth state changes so stale timeouts are always cleared
+    let activeLoadingTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(
       auth,
       (fbUser) => {
+        if (!isMounted) return;
         setFirebaseUser(fbUser);
 
-        // Tear down any previous user-doc listener
+        // Tear down any previous user-doc listener and clear any stale timeout
         if (unsubscribeUserDoc) {
           unsubscribeUserDoc();
           unsubscribeUserDoc = null;
+        }
+        if (activeLoadingTimeout !== null) {
+          clearTimeout(activeLoadingTimeout);
+          activeLoadingTimeout = null;
         }
 
         if (fbUser) {
           const userDocRef = doc(firestore, 'users', fbUser.uid);
 
-          // Safety net: guarantee isUserLoading clears even if Firestore hangs
+          // Safety net: guarantee isUserLoading clears even if Firestore hangs.
           // SECURITY FIX (AUTH-003): Set userError on timeout to prevent inconsistent state
-          // where isUserLoading=false but user=null (race condition that causes component crashes)
-          const loadingTimeout = setTimeout(() => {
+          // where isUserLoading=false but user=null (race condition that causes component crashes).
+          // Stored in activeLoadingTimeout ref so it can be cancelled if auth fires again rapidly.
+          activeLoadingTimeout = setTimeout(() => {
+            if (!isMounted) return;
             console.error("FirebaseProvider: user document fetch timed out (10 s)");
             setUser(null);
             setUserError(new Error('User profile fetch timed out. Please refresh the page.'));
             setIsUserLoading(false);
+            activeLoadingTimeout = null;
           }, 10_000);
+
+          // Guard flag: if onAuthStateChanged fires again while this snapshot is in-flight,
+          // the new callback tears down this listener, so isCurrentCallback becomes false
+          // and the stale snapshot callback skips all state updates.
+          let isCurrentCallback = true;
 
           let isFirstSnapshot = true;
 
           unsubscribeUserDoc = onDocSnapshot(
             userDocRef,
             async (snapshot) => {
+              // Ignore stale callbacks from superseded auth states or unmounted component
+              if (!isCurrentCallback || !isMounted) return;
               try {
                 if (snapshot.exists()) {
                   const userData = snapshot.data() as User;
@@ -239,7 +265,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                       userData.emailVerified = true;
                       logAuditEvent(firestore, fbUser.uid, 'email_verified_synced', { email: fbUser.email });
                     } catch (syncError) {
-                      console.warn("Failed to sync email verification status:", syncError);
+                      console.warn('[FirebaseProvider] Failed to sync email verification status:', syncError instanceof Error ? syncError.message : 'Unknown error');
                     }
                   }
 
@@ -270,7 +296,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                           userData.providers = currentProviders;
                         }
                       } catch (syncError) {
-                        console.warn("Failed to sync provider/photo data:", syncError);
+                        console.warn('[FirebaseProvider] Failed to sync provider/photo data:', syncError instanceof Error ? syncError.message : 'Unknown error');
                       }
                     }
                   }
@@ -312,6 +338,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                     ).catch(() => { /* token fetch failed, non-blocking */ });
                   }
 
+                  // Re-check guards after any awaits above (async operations may have changed state)
+                  if (!isCurrentCallback || !isMounted) return;
+
                   setIsNewOAuthUser(false);
                   setUser(userData);
 
@@ -334,46 +363,67 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                     setUser(null);
                     router.push('/complete-profile');
                   } else {
-                    console.error("FirebaseProvider: User document not found for uid:", fbUser.uid);
+                    console.error('[FirebaseProvider] User document not found for authenticated user.');
                     setUser(null);
                     setUserError(new Error('User profile not found. Please contact support.'));
                   }
                 }
               } catch (docError: any) {
-                console.error("FirebaseProvider: Error processing user document:", docError);
+                if (!isCurrentCallback || !isMounted) return;
+                if (process.env.NODE_ENV !== 'production') { console.error('[FirebaseProvider] Error processing user document:', docError); }
+                console.error('[FirebaseProvider] Error processing user document:', docError instanceof Error ? docError.message : 'Unknown error');
                 setUser(null);
-                setUserError(docError);
+                setUserError(new Error('An error occurred loading your profile. Please refresh the page.'));
               } finally {
-                if (isFirstSnapshot) {
-                  clearTimeout(loadingTimeout);
+                if (isFirstSnapshot && isCurrentCallback && isMounted) {
+                  if (activeLoadingTimeout !== null) {
+                    clearTimeout(activeLoadingTimeout);
+                    activeLoadingTimeout = null;
+                  }
                   setIsUserLoading(false);
                   isFirstSnapshot = false;
                 }
               }
             },
             (error) => {
-              console.error("FirebaseProvider: user document listener error:", error);
-              clearTimeout(loadingTimeout);
+              if (!isCurrentCallback || !isMounted) return;
+              if (process.env.NODE_ENV !== 'production') { console.error('[FirebaseProvider] User document listener error:', error); }
+              console.error('[FirebaseProvider] User document listener error:', error instanceof Error ? error.message : 'Unknown error');
+              if (activeLoadingTimeout !== null) {
+                clearTimeout(activeLoadingTimeout);
+                activeLoadingTimeout = null;
+              }
               setUser(null);
-              setUserError(error);
+              setUserError(new Error('Unable to load your profile. Please refresh the page.'));
               setIsUserLoading(false);
             },
           );
+
+          // When this auth callback is superseded, mark as stale so in-flight snapshots are ignored
+          return () => { isCurrentCallback = false; };
         } else {
+          if (!isMounted) return;
           setUser(null);
           setIsUserLoading(false);
         }
       },
       (error) => {
-        console.error("FirebaseProvider: onAuthStateChanged error:", error);
-        setUserError(error);
+        if (!isMounted) return;
+        if (process.env.NODE_ENV !== 'production') { console.error('[FirebaseProvider] onAuthStateChanged error:', error); }
+        console.error('[FirebaseProvider] onAuthStateChanged error:', error instanceof Error ? error.message : 'Unknown error');
+        setUserError(new Error('Authentication service error. Please refresh the page.'));
         setIsUserLoading(false);
       }
     );
 
     return () => {
+      isMounted = false;
       unsubscribeAuth();
       if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (activeLoadingTimeout !== null) {
+        clearTimeout(activeLoadingTimeout);
+        activeLoadingTimeout = null;
+      }
     };
   }, [auth, firestore, router]);
 
@@ -471,8 +521,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     } catch (signInError: any) {
          clearTimeout(timeoutId);
-         console.error("Error signing in:", signInError);
-         setUserError(signInError);
+         if (process.env.NODE_ENV !== 'production') { console.error('[FirebaseProvider] login error:', signInError); }
+         console.error('[FirebaseProvider] login error:', signInError instanceof Error ? signInError.message : 'Unknown error');
+         setUserError(new Error('An error occurred during login. Please try again.'));
          setIsUserLoading(false);
 
          // Generate client-side correlation ID for network/client errors
@@ -550,13 +601,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     } catch (error: any) {
       // Generate client-side correlation ID for network/client errors
       const correlationId = generateClientCorrelationId();
-      console.error(`[Signup Error ${correlationId}]`, error);
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] signup error [${correlationId}]:`, error); }
+      console.error(`[FirebaseProvider] signup error [${correlationId}]:`, error instanceof Error ? error.message : 'Unknown error');
 
       // Check if this is a timeout error
       const isTimeout = error.name === 'AbortError';
       const errorMessage = isTimeout
         ? 'Registration request timed out after 30 seconds. This may be due to high server load. Please try again.'
-        : error?.message || 'Network error during signup';
+        : 'Network error during signup';
 
       // Log via API
       fetch('/api/log-client-error', {
@@ -634,7 +686,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
-      console.error(`[Update User Error ${correlationId}]`, e);
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] updateUser error [${correlationId}]:`, e); }
+      console.error(`[FirebaseProvider] updateUser error [${correlationId}]:`, e instanceof Error ? e.message : 'Unknown error');
       return { success: false, message: `Failed to update user. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})` };
     }
   }
@@ -678,7 +731,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
-      console.error(`[Delete User Error ${correlationId}]`, e);
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] deleteUser error [${correlationId}]:`, e); }
+      console.error(`[FirebaseProvider] deleteUser error [${correlationId}]:`, e instanceof Error ? e.message : 'Unknown error');
       return { success: false, message: `Failed to delete user. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})` };
     }
   }
@@ -716,8 +770,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         return { success: false, message: result.error || "Failed to create team." };
       }
     } catch (error: any) {
-      console.error('Failed to add secondary team:', error);
-      return { success: false, message: "An error occurred. Please try again." };
+      const correlationId = generateClientCorrelationId();
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] addSecondaryTeam error [${correlationId}]:`, error); }
+      console.error(`[FirebaseProvider] addSecondaryTeam error [${correlationId}]:`, error instanceof Error ? error.message : 'Unknown error');
+      return { success: false, message: `An error occurred. Please try again. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})` };
     }
   };
 
@@ -788,7 +844,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return { success: true, message: result.message || "A temporary PIN has been sent." };
 
     } catch (error: any) {
-      console.error(`[PIN Reset Error ${correlationId}]`, error);
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] resetPin error [${correlationId}]:`, error); }
+      console.error(`[FirebaseProvider] resetPin error [${correlationId}]:`, error instanceof Error ? error.message : 'Unknown error');
 
       // Log via API (unauthenticated users can't write to Firestore)
       fetch('/api/log-client-error', {
@@ -851,7 +908,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     } catch (e: any) {
         const correlationId = generateClientCorrelationId();
-        console.error(`[PIN Change Error ${correlationId}]`, e);
+        if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] changePin error [${correlationId}]:`, e); }
+        console.error(`[FirebaseProvider] changePin error [${correlationId}]:`, e instanceof Error ? e.message : 'Unknown error');
         if (e.code === 'auth/requires-recent-login') {
             return { success: false, message: "This is a sensitive operation. Please log out and log back in before changing your PIN." };
         }
@@ -901,11 +959,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             message: `Email service not configured. Please contact an administrator. (Error ${ERRORS.EMAIL_SEND_FAILED.code})`
           };
         }
-        return { success: false, message: result.error || "Failed to send verification email." };
+        const veCorrelationId = generateClientCorrelationId();
+        return { success: false, message: `Failed to send verification email. [${ERRORS.EMAIL_SEND_FAILED.code}] (Ref: ${veCorrelationId})` };
       }
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
-      console.error(`[Verification Email Error ${correlationId}]`, e);
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] sendVerificationEmail error [${correlationId}]:`, e); }
+      console.error(`[FirebaseProvider] sendVerificationEmail error [${correlationId}]:`, e instanceof Error ? e.message : 'Unknown error');
       return { success: false, message: `Failed to send verification email. [${ERRORS.EMAIL_SEND_FAILED.code}] (Ref: ${correlationId})` };
     }
   };
@@ -947,7 +1007,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
       return false;
     } catch (e: any) {
-      console.error("Refresh email verification status error:", e);
+      const correlationId = generateClientCorrelationId();
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] refreshEmailVerificationStatus error [${correlationId}]:`, e); }
+      console.error(`[FirebaseProvider] refreshEmailVerificationStatus error [${correlationId}]:`, e instanceof Error ? e.message : 'Unknown error');
       return false;
     }
   };
@@ -997,7 +1059,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       }
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
-      console.error(`[Update Secondary Email Error ${correlationId}]`, e);
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] updateSecondaryEmail error [${correlationId}]:`, e); }
+      console.error(`[FirebaseProvider] updateSecondaryEmail error [${correlationId}]:`, e instanceof Error ? e.message : 'Unknown error');
       return { success: false, message: `Failed to update secondary email. [${ERRORS.NETWORK_ERROR.code}] (Ref: ${correlationId})` };
     }
   };
@@ -1045,11 +1108,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             message: `Email service not configured. Please contact an administrator. (Error ${ERRORS.EMAIL_CONFIG_MISSING.code})`
           };
         }
-        return { success: false, message: result.error || "Failed to send verification email." };
+        const sveCorrelationId = generateClientCorrelationId();
+        return { success: false, message: `Failed to send verification email. [${ERRORS.EMAIL_SEND_FAILED.code}] (Ref: ${sveCorrelationId})` };
       }
     } catch (e: any) {
       const correlationId = generateClientCorrelationId();
-      console.error(`[Secondary Verification Email Error ${correlationId}]`, e);
+      if (process.env.NODE_ENV !== 'production') { console.error(`[FirebaseProvider] sendSecondaryVerificationEmail error [${correlationId}]:`, e); }
+      console.error(`[FirebaseProvider] sendSecondaryVerificationEmail error [${correlationId}]:`, e instanceof Error ? e.message : 'Unknown error');
       return { success: false, message: `Failed to send verification email. [${ERRORS.EMAIL_SEND_FAILED.code}] (Ref: ${correlationId})` };
     }
   };
@@ -1065,7 +1130,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     getRedirectResult(auth)
       .then((result) => {
         if (result?.user) {
-          console.log('[FirebaseProvider] Redirect result processed for:', result.user.email);
+          if (process.env.NODE_ENV !== 'production') { console.log('[FirebaseProvider] Redirect result processed for authenticated user.'); }
         }
       })
       .catch((error: any) => {
@@ -1075,7 +1140,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             setPendingOAuthCredential(credential as OAuthCredential);
           }
         } else if (error?.code !== 'auth/popup-closed-by-user') {
-          console.error("FirebaseProvider: Redirect result error:", error);
+          if (process.env.NODE_ENV !== 'production') { console.error('[FirebaseProvider] Redirect result error:', error); }
+          console.error('[FirebaseProvider] Redirect result error:', error instanceof Error ? error.message : (error?.code || 'Unknown error'));
         }
       });
   }, [auth]);

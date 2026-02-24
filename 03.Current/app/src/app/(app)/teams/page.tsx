@@ -42,7 +42,8 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useSmartLoader } from "@/components/ui/smart-loader";
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_TEAMS-001-v03

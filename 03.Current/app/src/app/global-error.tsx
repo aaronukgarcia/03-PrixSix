@@ -1,14 +1,19 @@
+// GUID: PAGE_GLOBAL_ERROR-000-v01
+// @SECURITY_FIX: GEMINI-AUDIT-044 — console.error now omits full error object in production.
+//   Previously: console.error(`[Global Error ${id}]`, error) logged full Error including .stack
+//   and .digest to every user's DevTools. Fixed: development logs full details; production
+//   logs only the correlation ID so users can reference it with support.
+// [Intent] Global error boundary that catches errors in the root layout.
+//   Renders a complete HTML document (replaces root layout on catastrophic crash).
+// [Inbound Trigger] Next.js invokes this when any error propagates to the root layout.
+// [Downstream Impact] Displays correlation ID to user; logs full details to server (error_logs).
+
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
-
-/**
- * Global error boundary that catches errors in the root layout.
- * This component renders a complete HTML document because it replaces
- * the root layout when an error occurs.
- */
 export default function GlobalError({
   error,
   reset,
@@ -24,8 +29,13 @@ export default function GlobalError({
     const id = generateClientCorrelationId();
     setCorrelationId(id);
 
-    // Log to console for debugging
-    console.error(`[Global Error ${id}]`, error);
+    // In production: log only the correlation ID — full error (stack, digest) disclosed in DevTools
+    // is visible to any user and could leak internal file paths. Full details go to server instead.
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Global Error ${id}]`, error);
+    } else {
+      console.error(`[Global Error ${id}] — details in error_logs collection`);
+    }
 
     // Try to log to server (fire and forget)
     fetch('/api/log-client-error', {

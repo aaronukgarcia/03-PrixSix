@@ -1,4 +1,4 @@
-// GUID: PAGE_PREDICTIONS-000-v04
+// GUID: PAGE_PREDICTIONS-000-v05
 // [Intent] Predictions page — allows users to view, submit, and edit their driver predictions
 //          for the next open race. Supports multiple teams, prediction carry-over from previous
 //          races, and pit lane open/closed status based on qualifying time and race results.
@@ -6,6 +6,7 @@
 // [Downstream Impact] Renders PredictionEditor with driver data, lock state, and initial predictions.
 //                     Reads from Firestore: race_results, user predictions. Writes via PredictionEditor.
 // @FIX(v04) Added "How Scoring Works" contextual help link to surface /rules page where users need it most.
+// @UX(VIRGIN-007, v05): Added "Set your grid" and "Qualifying" F1 jargon tooltips for new user clarity.
 
 'use client';
 
@@ -14,6 +15,7 @@ import { PredictionEditor } from "./_components/PredictionEditor";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AlertCircle, Users, Info, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { useAuth, useDoc, useFirestore, useCollection } from "@/firebase";
 import { useState, useMemo, useEffect } from "react";
@@ -223,14 +225,27 @@ function PredictionsContent() {
   }, [isPitlaneOpen, raceResults, nextRace]);
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">
             My Predictions
           </h1>
+          {/* PAGE_PREDICTIONS-014-v01 — @UX(VIRGIN-007): "Set your grid" tooltip */}
           <p className="text-muted-foreground">
-            Set your grid for the {nextRace.name}.
+            Set your grid{" "}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center cursor-help">
+                  <Info className="h-3 w-3 inline text-muted-foreground align-middle" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs leading-snug">
+                The grid is the starting order for the race. Predict which drivers will start in positions 1–6.
+              </TooltipContent>
+            </Tooltip>
+            {" "}for the {nextRace.name}.
           </p>
           <Link href="/rules" className="text-sm text-accent hover:underline inline-flex items-center gap-1">
             <HelpCircle className="h-3.5 w-3.5" />
@@ -260,10 +275,26 @@ function PredictionsContent() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Pit Lane Closed!</AlertTitle>
+          {/* PAGE_PREDICTIONS-015-v01 — @UX(VIRGIN-007): Qualifying tooltip in closed alert */}
           <AlertDescription>
             {closureReason === 'results'
               ? 'Race results have been entered. Predictions are now locked. You can view your submission below.'
-              : 'Qualifying has started, and predictions are now locked. You can view your submission below.'}
+              : (
+                <>
+                  Qualifying{" "}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center cursor-help">
+                        <Info className="h-3 w-3 inline align-middle" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-xs leading-snug">
+                      Qualifying is the time-trial session where drivers set their fastest laps to determine starting positions.
+                    </TooltipContent>
+                  </Tooltip>
+                  {" "}has started, and predictions are now locked. You can view your submission below.
+                </>
+              )}
           </AlertDescription>
         </Alert>
       )}
@@ -305,6 +336,7 @@ function PredictionsContent() {
         />
       )}
     </div>
+    </TooltipProvider>
   );
 }
 

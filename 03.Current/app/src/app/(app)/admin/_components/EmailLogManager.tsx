@@ -1,4 +1,7 @@
-// GUID: ADMIN_EMAILLOG-000-v03
+// GUID: ADMIN_EMAILLOG-000-v05
+// @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-EMAIL-001): DOMPurify config for email body preview further tightened (v04→v05).
+//   v04: Removed overly-permissive tags; added FORCE_HTTPS: true. See ADMIN_EMAILLOG-016 for full detail.
+//   v05: Removed 'style' from ALLOWED_ATTR (CSS expression/javascript: XSS vector); added FORCE_BODY: true; added FORBID_ATTR event-handler list.
 // [Intent] Admin component for managing the email queue (push, resend, delete) and viewing historical email send logs.
 // [Inbound Trigger] Rendered on the admin Email Logs tab.
 // [Downstream Impact] Reads from email_logs and email_queue Firestore collections via API; sends/deletes queued emails via /api/email-queue.
@@ -581,12 +584,26 @@ export function EmailLogManager() {
                                             </div>
                                             <div>
                                                 <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-1">Email Body Preview</h4>
+                                                {/* GUID: ADMIN_EMAILLOG-016-v02
+                                                    // @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-EMAIL-001): Tightened DOMPurify config to prevent stored XSS in email body preview.
+                                                    //   v01→v02: Removed 'style' from ALLOWED_ATTR — CSS expressions/javascript: URLs are a confirmed XSS vector.
+                                                    //            Added FORCE_BODY: true — wraps output in a safe body context, prevents parser differentials.
+                                                    //            Added FORBID_ATTR with full event-handler list — blocks onerror/onload/onclick/onmouseover on all allowed tags.
+                                                    //   v01 changes preserved: 'target'/'rel' attrs excluded, FORCE_HTTPS: true for cleartext-link prevention.
+                                                    //   Removed: 'u', 'h4', 'blockquote', 'code', 'pre' (superfluous/execution-adjacent) — still excluded.
+                                                    // [Intent] Sanitize stored email HTML from Firestore before rendering in the admin preview pane.
+                                                    //          Uses a strict allowlist of safe tags/attrs sufficient for email body display.
+                                                    // [Inbound Trigger] Rendered when an admin expands an email log accordion item.
+                                                    // [Downstream Impact] Prevents stored XSS from malicious email content reaching the admin browser DOM. */}
                                                 <div
                                                     className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-4 bg-background overflow-auto"
                                                     dangerouslySetInnerHTML={{
                                                         __html: DOMPurify.sanitize(log.html, {
-                                                            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'a', 'blockquote', 'code', 'pre', 'div', 'span', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
-                                                            ALLOWED_ATTR: ['href', 'target', 'rel', 'style', 'class']
+                                                            FORCE_BODY: true,
+                                                            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'span', 'div', 'h1', 'h2', 'h3', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
+                                                            ALLOWED_ATTR: ['href', 'class'],
+                                                            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onkeydown', 'onkeyup', 'style'],
+                                                            FORCE_HTTPS: true,
                                                         })
                                                     }}
                                                 />

@@ -1,9 +1,12 @@
-// GUID: PAGE_ONBOARDING-000-v04
+// GUID: PAGE_ONBOARDING-000-v06
 // [Intent] Onboarding checklist page. Guides new users through five steps to get started:
 //          verify email, learn the game, make a prediction, explore the paddock, and join a league.
 //          Steps 1 & 3 auto-detect from auth/Firestore state; steps 2, 4, 5 are manual.
 // [Inbound Trigger] User navigates to /onboarding (typically via WelcomeCTA on dashboard).
 // [Downstream Impact] Reads auth state and predictions subcollection. Writes progress to localStorage.
+// @FIX(v05) MANICURE-AUDIT-003: Replaced hardcoded #00FF88 (Cyber Green) with emerald-500 Tailwind tokens.
+// @SECURITY_FIX (GEMINI-AUDIT-058) v06: Migrated from error-registry (server-only) to error-registry-client.
+//   Prevents internal metadata (file paths, GUIDs, function names) from being bundled into client JS.
 
 "use client";
 
@@ -27,7 +30,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
-import { ERRORS } from "@/lib/error-registry";
+// @SECURITY_FIX (GEMINI-AUDIT-058): Use client-safe registry — no internal metadata in client bundle.
+import { CLIENT_ERRORS } from "@/lib/error-registry-client";
 import { createTracedError, logTracedError } from "@/lib/traced-error";
 
 // GUID: PAGE_ONBOARDING-001
@@ -179,7 +183,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (predictionsError) {
-      const traced = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+      const traced = createTracedError(CLIENT_ERRORS.FIRESTORE_READ_FAILED, {
         context: { route: "/onboarding", action: "predictions_auto_detect", userId: user?.id },
         cause: predictionsError instanceof Error ? predictionsError : undefined,
       });
@@ -239,7 +243,7 @@ export default function OnboardingPage() {
         <div className="flex items-center justify-between">
           <span
             className={`text-xs font-mono uppercase tracking-widest ${
-              allDone ? "text-[#00FF88]" : "text-muted-foreground"
+              allDone ? "text-emerald-500" : "text-muted-foreground"
             }`}
           >
             {completedCount}/{CHECKLIST_ITEMS.length} Complete
@@ -269,7 +273,7 @@ export default function OnboardingPage() {
               <Card
                 className={`transition-colors ${
                   done
-                    ? "border-[#00FF88]/50 bg-[#00FF88]/5"
+                    ? "border-emerald-500/50 bg-emerald-500/5"
                     : ""
                 }`}
               >
@@ -278,7 +282,7 @@ export default function OnboardingPage() {
                   <div
                     className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                       done
-                        ? "border-[#00FF88] bg-[#00FF88]/10"
+                        ? "border-emerald-500 bg-emerald-500/10"
                         : "border-muted-foreground/30"
                     }`}
                   >
@@ -294,7 +298,7 @@ export default function OnboardingPage() {
                             damping: 20,
                           }}
                         >
-                          <Check className="h-4 w-4 text-[#00FF88]" />
+                          <Check className="h-4 w-4 text-emerald-500" />
                         </motion.div>
                       ) : (
                         <motion.span
@@ -314,12 +318,12 @@ export default function OnboardingPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <Icon
                         className={`h-4 w-4 shrink-0 ${
-                          done ? "text-[#00FF88]" : "text-muted-foreground"
+                          done ? "text-emerald-500" : "text-muted-foreground"
                         }`}
                       />
                       <span
                         className={`text-xs sm:text-sm font-mono font-semibold uppercase tracking-widest ${
-                          done ? "text-[#00FF88]" : "text-foreground"
+                          done ? "text-emerald-500" : "text-foreground"
                         }`}
                       >
                         {item.label}
@@ -327,7 +331,7 @@ export default function OnboardingPage() {
                       {done && (
                         <Badge
                           variant="outline"
-                          className="border-[#00FF88]/50 text-[#00FF88] text-[10px] px-1.5 py-0"
+                          className="border-emerald-500/50 text-emerald-500 text-[10px] px-1.5 py-0"
                         >
                           Done
                         </Badge>

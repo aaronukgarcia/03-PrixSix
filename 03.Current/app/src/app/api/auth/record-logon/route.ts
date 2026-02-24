@@ -1,4 +1,4 @@
-// GUID: API_AUTH_RECORD_LOGON-000-v03
+// GUID: API_AUTH_RECORD_LOGON-000-v04
 // [Intent] Records a user logon event in the user_logons collection for session tracking
 //          and profile page history display. Writes via Admin SDK (server-side only).
 // [Inbound Trigger] Called by FirebaseProvider after OAuth login (onAuthStateChanged first snapshot)
@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('[Record Logon Error]', error);
+    // @SECURITY_FIX (Wave 10): Gated console.error behind NODE_ENV
+    if (process.env.NODE_ENV !== 'production') { console.error('[Record Logon Error]', error); }
     return NextResponse.json(
       { success: false, error: 'Failed to record logon event' },
       { status: 500 }

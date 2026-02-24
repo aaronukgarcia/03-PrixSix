@@ -1,10 +1,14 @@
 
-// GUID: PAGE_PROFILE-000-v03
+// GUID: PAGE_PROFILE-000-v04
+// @FIX(BOW: FIRESTORE-005): Account closure now routes through /api/account/close (Admin SDK)
+//   instead of client-side deleteDocumentNonBlocking, fixing the silent-fail bug where Firestore
+//   security rules silently denied the delete and the success toast was misleading.
 // [Intent] Profile & Settings page — allows users to manage their account, notification preferences,
 //   secondary email, secondary team, profile photo, PIN, email verification, and account closure.
 // [Inbound Trigger] Navigation to /profile route by authenticated user.
 // [Downstream Impact] Changes propagate to Firestore users collection (emailPreferences, photoUrl,
 //   secondaryTeamName, secondaryEmail), Firebase Auth (verification, PIN), and audit_log collection.
+//   Account closure now calls /api/account/close which cascades deletion server-side.
 
 "use client";
 
@@ -58,8 +62,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { collection, deleteDoc, deleteField, doc, updateDoc, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useSession } from "@/contexts/session-context";
+import { generateClientCorrelationId } from "@/lib/error-codes";
+import { CLIENT_ERRORS } from "@/lib/error-registry-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // GUID: PAGE_PROFILE-001-v03
@@ -131,6 +136,7 @@ export default function ProfilePage() {
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [isLinkingApple, setIsLinkingApple] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
+  const [isClosingAccount, setIsClosingAccount] = useState(false);
 
   // GUID: PAGE_PROFILE-040-v04
   // [Intent] Memoised Firestore query for the current user's logon records,
@@ -312,12 +318,19 @@ export default function ProfilePage() {
     }
   }
 
-  // GUID: PAGE_PROFILE-014-v03
-  // [Intent] Permanently close the user's account by deleting presence and user documents, then logging out.
+  // GUID: PAGE_PROFILE-014-v04
+  // @FIX(BOW: FIRESTORE-005): Replaced silent-fail client-side deleteDocumentNonBlocking calls with
+  //   a POST to /api/account/close which uses Admin SDK to bypass Firestore security rules.
+  //   The previous implementation called deleteDocumentNonBlocking(userRef) but the Firestore rules
+  //   deny client-side deletes on users/{uid}, so the delete was silently rejected and the user
+  //   saw a success toast despite nothing being deleted.
+  // [Intent] Permanently close the user's account by calling the server-side /api/account/close
+  //   endpoint, which deletes Firestore documents and Firebase Auth record via Admin SDK.
   // [Inbound Trigger] User confirms the "Close Account" alert dialog.
-  // [Downstream Impact] Deletes presence/{uid} and users/{uid} from Firestore; triggers logout.
-  function handleCloseAccount() {
-    if (!firebaseUser || !firestore) {
+  // [Downstream Impact] Calls /api/account/close → deletes users/{uid}, users/{uid}/predictions/*,
+  //   presence/{uid} from Firestore, and Firebase Auth record. Signs the user out on success.
+  async function handleCloseAccount() {
+    if (!firebaseUser) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -325,19 +338,63 @@ export default function ProfilePage() {
       });
       return;
     }
-    // Delete the presence document
-    const presenceRef = doc(firestore, "presence", firebaseUser.uid);
-    deleteDocumentNonBlocking(presenceRef);
 
-    // Delete the user document
-    const userRef = doc(firestore, "users", firebaseUser.uid);
-    deleteDocumentNonBlocking(userRef);
+    setIsClosingAccount(true);
+    const correlationId = generateClientCorrelationId();
 
-    toast({
+    try {
+      const idToken = await firebaseUser.getIdToken();
+
+      const response = await fetch('/api/account/close', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        const errorCode = data.errorCode ?? CLIENT_ERRORS.UNKNOWN_ERROR.code;
+        const errorMsg = data.error ?? CLIENT_ERRORS.UNKNOWN_ERROR.message;
+        const displayCorrelationId = data.correlationId ?? correlationId;
+
+        toast({
+          variant: "destructive",
+          title: `Account closure failed (${errorCode})`,
+          description: (
+            <span>
+              {errorMsg}
+              <br />
+              <span className="select-all text-xs font-mono">{displayCorrelationId}</span>
+            </span>
+          ),
+        });
+        return;
+      }
+
+      toast({
         title: "Account Closed",
         description: "Your account and all associated data have been removed.",
-    });
-    logout();
+      });
+      logout();
+
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : CLIENT_ERRORS.NETWORK_ERROR.message;
+      toast({
+        variant: "destructive",
+        title: `Account closure failed (${CLIENT_ERRORS.NETWORK_ERROR.code})`,
+        description: (
+          <span>
+            {errorMsg}
+            <br />
+            <span className="select-all text-xs font-mono">{correlationId}</span>
+          </span>
+        ),
+      });
+    } finally {
+      setIsClosingAccount(false);
+    }
   }
 
   // GUID: PAGE_PROFILE-015-v03
@@ -1528,7 +1585,13 @@ export default function ProfilePage() {
                   </form>
                 </Form>
             </div>
-            {!user?.mustChangePin && <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-destructive/50 p-4">
+            {/* GUID: PAGE_PROFILE-043-v03
+                [Intent] Danger zone — Close Account section. Visual separation via large top margin
+                         and destructive background tint warns users this is an irreversible action.
+                [Inbound Trigger] Rendered when user is not in mustChangePin state.
+                [Downstream Impact] Triggers handleCloseAccount on confirmation. Account deletion is permanent.
+                @FIX(v03) MANICURE-AUDIT-007: Added mt-12 and bg-destructive/10 for visual separation on mobile. */}
+            {!user?.mustChangePin && <div className="mt-12 flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-destructive/50 bg-destructive/10 p-4">
                 <div>
                     <h3 className="text-base font-medium text-destructive">Close Account</h3>
                     <p className="text-sm text-muted-foreground">Permanently delete your account and all of your data.</p>
@@ -1547,7 +1610,9 @@ export default function ProfilePage() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleCloseAccount}>Continue</AlertDialogAction>
+                        <AlertDialogAction onClick={handleCloseAccount} disabled={isClosingAccount}>
+                          {isClosingAccount ? "Closing…" : "Continue"}
+                        </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>

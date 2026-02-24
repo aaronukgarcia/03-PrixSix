@@ -1,9 +1,16 @@
-// GUID: PAGE_STANDINGS-000-v03
+// GUID: PAGE_STANDINGS-000-v05
 // [Intent] Season Standings page — displays cumulative league standings after each race weekend,
 //   with race-by-race selection, season progression chart, rank change indicators, and pagination.
 // [Inbound Trigger] Navigation to /standings route by authenticated user.
 // [Downstream Impact] Reads from Firestore scores and users collections in real-time; navigates
 //   to /results page when user clicks score cells.
+// @FIX GEMINI-AUDIT (Medium): Replaced mixed-format race ID shim (legacy/gp/sprint branching) with
+//   normalizeRaceIdForComparison() throughout. All raceId values stored from Firestore are normalised
+//   before being stored in allScores and raceIdsWithScores. All comparisons use normalised IDs on
+//   both sides. The baseRaceId field is removed from RaceWeekend — it was only used as a shim to
+//   handle historical scores stored without the -GP suffix. normalizeRaceId() strips the -GP suffix,
+//   so both "Australian-Grand-Prix" and "Australian-Grand-Prix-GP" normalise to the same key,
+//   making the double-format check unnecessary and safe to remove.
 
 "use client";
 
@@ -22,9 +29,10 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule } from "@/lib/data";
-import { generateRaceId } from "@/lib/normalize-race-id";
-import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair } from "lucide-react";
+import { generateRaceId, normalizeRaceIdForComparison } from "@/lib/normalize-race-id";
+import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
@@ -32,7 +40,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_STANDINGS-001-v03
@@ -143,14 +152,16 @@ interface StandingEntry {
   rankChange: number;
 }
 
-// GUID: PAGE_STANDINGS-008-v03
-// [Intent] Type for a completed race weekend — tracks base, sprint, and GP race IDs along with
-//   completion flags.
-// [Inbound Trigger] Built from RaceSchedule cross-referenced with score raceIds that exist in Firestore.
-// [Downstream Impact] Drives race weekend tab rendering and standings calculation logic.
+// GUID: PAGE_STANDINGS-008-v04
+// [Intent] Type for a completed race weekend — tracks sprint and GP race IDs (Title-Case, used for
+//   navigation) along with completion flags. baseRaceId removed — was only needed as a shim for
+//   legacy scores; normaliseRaceIdForComparison() now handles both formats transparently.
+// [Inbound Trigger] Built from RaceSchedule cross-referenced with normalised score raceIds in Firestore.
+// [Downstream Impact] Drives race weekend tab rendering and standings calculation logic. gpRaceId and
+//   sprintRaceId are Title-Case with suffix (e.g., "Australian-Grand-Prix-GP") for use as navigation
+//   URL params — do not normalise these fields; call normalizeRaceIdForComparison() at comparison sites.
 interface RaceWeekend {
   name: string;
-  baseRaceId: string; // e.g., "Chinese-Grand-Prix"
   sprintRaceId: string | null; // e.g., "Chinese-Grand-Prix-Sprint" or null
   gpRaceId: string; // e.g., "Chinese-Grand-Prix-GP"
   hasSprint: boolean;
@@ -188,19 +199,23 @@ export default function StandingsPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
 
   // Track previous completed race count for auto-focus on new races
   const prevCompletedCountRef = useRef<number>(0);
 
-  // GUID: PAGE_STANDINGS-011-v05
+  // GUID: PAGE_STANDINGS-011-v06
   // [Intent] Real-time subscription to the entire scores collection — processes raw score documents,
-  //   determines which race weekends are completed, and fetches team names for all scoring users.
-  //   Auto-focuses on latest race when new race results are added (real-time update).
+  //   normalises raceId values via normalizeRaceIdForComparison() before storage so that legacy IDs
+  //   (e.g., "Australian-Grand-Prix") and new-format IDs (e.g., "Australian-Grand-Prix-GP") both
+  //   resolve to the same key ("australian-grand-prix"). Determines completed race weekends and
+  //   fetches team names for all scoring users. Auto-focuses on latest race when new results arrive.
   // [Inbound Trigger] Fires on component mount and whenever firestore reference changes; re-fires
   //   on any score document change in the scores collection.
-  // [Downstream Impact] Populates allScores, completedRaceWeekends, userNames, and lastUpdated state.
-  //   All downstream memos (standings, chartData, raceWinners) depend on these. When new race added,
-  //   automatically focuses on that race to show updated overall scores.
+  // [Downstream Impact] Populates allScores (with normalised raceId), completedRaceWeekends, userNames,
+  //   and lastUpdated state. All downstream memos (standings, chartData, raceWinners) depend on these.
+  //   IMPORTANT: allScores.raceId values are normalised (lowercase, no -GP suffix). Any code comparing
+  //   against them MUST also normalise the comparison key via normalizeRaceIdForComparison().
   useEffect(() => {
     if (!firestore) return;
 
@@ -220,7 +235,11 @@ export default function StandingsPage() {
               if (!data) return;
               const userId = data.oduserId || data.userId;
               if (!userId) return; // Skip invalid scores
-              const raceId = data.raceId || ''; // Keep Title-Case (Golden Rule #3)
+              // Normalise raceId so legacy format ("Australian-Grand-Prix") and new format
+              // ("Australian-Grand-Prix-GP") both map to the same key ("australian-grand-prix").
+              // normalizeRaceId() strips the -GP suffix; lowercasing handles any casing variation.
+              const rawRaceId = data.raceId || '';
+              const raceId = rawRaceId ? normalizeRaceIdForComparison(rawRaceId) : '';
               scores.push({
                 userId,
                 raceId,
@@ -236,33 +255,34 @@ export default function StandingsPage() {
 
         setAllScores(scores);
 
-        // Determine completed race weekends (races that have at least GP scores)
+        // Determine completed race weekends (races that have at least GP scores).
+        // raceIdsWithScores contains normalised IDs (lowercase, no -GP suffix), so we normalise
+        // the lookup keys here too. normalizeRaceIdForComparison("X-GP") => "x" and
+        // normalizeRaceIdForComparison("X") => "x" — both formats map to the same key, so
+        // no legacy-format shim is needed.
         const completed: RaceWeekend[] = [];
         RaceSchedule.forEach((race, index) => {
-          const baseRaceId = race.name.replace(/\s+/g, '-'); // Keep for legacy format check
           const sprintRaceId = race.hasSprint ? generateRaceId(race.name, 'sprint') : null;
           const gpRaceId = generateRaceId(race.name, 'gp');
 
-          // Check if we have scores for this race weekend
-          // A race weekend is "completed" if it has GP scores
-          // @CASE_FIX: Now uses Title-Case throughout (removed .toLowerCase() calls)
-          const hasGpScores = raceIdsWithScores.has(gpRaceId);
-          const hasSprintScores = sprintRaceId ? raceIdsWithScores.has(sprintRaceId) : false;
+          // Normalise lookup keys to match the normalised raceIdsWithScores set
+          const normalisedGpKey = normalizeRaceIdForComparison(gpRaceId);
+          const normalisedSprintKey = sprintRaceId ? normalizeRaceIdForComparison(sprintRaceId) : null;
 
-          // Also check for legacy format (without -GP suffix, Title-Case)
-          const hasLegacyScores = raceIdsWithScores.has(baseRaceId);
+          const hasGpScores = raceIdsWithScores.has(normalisedGpKey);
+          const hasSprintScores = normalisedSprintKey ? raceIdsWithScores.has(normalisedSprintKey) : false;
 
-          if (hasGpScores || hasLegacyScores) {
-            // Store Title-Case IDs to match score.raceId format (Golden Rule #3)
+          if (hasGpScores) {
+            // gpRaceId and sprintRaceId are kept in Title-Case with suffix for navigation URL params.
+            // All comparison logic uses normalizeRaceIdForComparison() — see standings/chartData memos.
             completed.push({
               name: race.name,
-              baseRaceId: baseRaceId,
               sprintRaceId: sprintRaceId || null,
-              gpRaceId: hasGpScores ? gpRaceId : baseRaceId,
+              gpRaceId,
               hasSprint: race.hasSprint,
               index,
               hasSprintScores,
-              hasGpScores: hasGpScores || hasLegacyScores,
+              hasGpScores,
             });
           }
         });
@@ -362,37 +382,38 @@ export default function StandingsPage() {
     return allScores.filter(score => selectedLeague.memberUserIds.includes(score.userId));
   }, [allScores, selectedLeague]);
 
-  // GUID: PAGE_STANDINGS-013-v03
+  // GUID: PAGE_STANDINGS-013-v04
   // [Intent] Calculate cumulative standings for the selected race weekend — computes old/new overall
   //   points, sprint/GP breakdown, rank with tie handling, rank change from previous race, and gap.
   // [Inbound Trigger] filteredScores, completedRaceWeekends, selectedRaceIndex, or userNames changes.
   // [Downstream Impact] Drives the standings table rendering, raceWinners calculation, chartTeams
   //   filtering, and maxPoints for chart Y-axis.
+  // @FIX GEMINI-AUDIT: allPriorEventIds and currentWeekendEventIds now contain normalised IDs
+  //   (via normalizeRaceIdForComparison) to match the normalised score.raceId values in filteredScores.
+  //   baseRaceId shim removed — normalisation makes both legacy and new formats resolve to the same key.
   const standings = useMemo(() => {
     if (completedRaceWeekends.length === 0 || selectedRaceIndex < 0) return [];
 
     const selectedRace = completedRaceWeekends[selectedRaceIndex];
 
-    // Build set of all event IDs up to and including selected race weekend
+    // Build set of normalised event IDs up to and including selected race weekend.
+    // score.raceId values in filteredScores are already normalised (see PAGE_STANDINGS-011).
     const allPriorEventIds = new Set<string>();
     const currentWeekendEventIds = new Set<string>();
 
-    // Add all events from previous race weekends
+    // Add all events from previous race weekends (normalised to match score.raceId)
     completedRaceWeekends.slice(0, selectedRaceIndex).forEach(race => {
       if (race.sprintRaceId && race.hasSprintScores) {
-        allPriorEventIds.add(race.sprintRaceId);
+        allPriorEventIds.add(normalizeRaceIdForComparison(race.sprintRaceId));
       }
-      allPriorEventIds.add(race.gpRaceId);
-      // Also add legacy format
-      allPriorEventIds.add(race.baseRaceId);
+      allPriorEventIds.add(normalizeRaceIdForComparison(race.gpRaceId));
     });
 
-    // Add current weekend events
+    // Add current weekend events (normalised)
     if (selectedRace.sprintRaceId && selectedRace.hasSprintScores) {
-      currentWeekendEventIds.add(selectedRace.sprintRaceId);
+      currentWeekendEventIds.add(normalizeRaceIdForComparison(selectedRace.sprintRaceId));
     }
-    currentWeekendEventIds.add(selectedRace.gpRaceId);
-    currentWeekendEventIds.add(selectedRace.baseRaceId); // Legacy format
+    currentWeekendEventIds.add(normalizeRaceIdForComparison(selectedRace.gpRaceId));
 
     // Calculate totals for each user
     const userTotals = new Map<string, {
@@ -420,13 +441,13 @@ export default function StandingsPage() {
         existing.oldOverall += score.totalPoints;
         existing.newOverall += score.totalPoints;
       }
-      // Check if score is from current weekend sprint
-      else if (selectedRace.sprintRaceId && score.raceId === selectedRace.sprintRaceId) {
+      // Check if score is from current weekend sprint (compare normalised IDs)
+      else if (selectedRace.sprintRaceId && score.raceId === normalizeRaceIdForComparison(selectedRace.sprintRaceId)) {
         existing.sprintPoints = score.totalPoints;
         existing.newOverall += score.totalPoints;
       }
-      // Check if score is from current weekend GP
-      else if (score.raceId === selectedRace.gpRaceId || score.raceId === selectedRace.baseRaceId) {
+      // Check if score is from current weekend GP (compare normalised IDs)
+      else if (score.raceId === normalizeRaceIdForComparison(selectedRace.gpRaceId)) {
         existing.gpPoints = score.totalPoints;
         existing.newOverall += score.totalPoints;
       }
@@ -538,11 +559,13 @@ export default function StandingsPage() {
     return { gpWinners, sprintWinners };
   }, [standings]);
 
-  // GUID: PAGE_STANDINGS-015-v03
+  // GUID: PAGE_STANDINGS-015-v04
   // [Intent] Build chart data for season progression — cumulative points per team after each race
   //   weekend (including separate Sprint/GP data points for sprint weekends), up to selected race.
   // [Inbound Trigger] completedRaceWeekends, filteredScores, userNames, or selectedRaceIndex changes.
   // [Downstream Impact] chartData array is consumed by the Recharts LineChart rendering.
+  // @FIX GEMINI-AUDIT: score.raceId comparisons now use normalizeRaceIdForComparison() to match the
+  //   normalised IDs stored in filteredScores. baseRaceId shim removed.
   const chartData = useMemo(() => {
     if (completedRaceWeekends.length === 0 || !userNames.size || selectedRaceIndex < 0) return [];
 
@@ -584,9 +607,9 @@ export default function StandingsPage() {
     racesToShow.forEach((race, raceIndex) => {
       // For sprint weekends, add Sprint and GP as separate data points
       if (race.hasSprint && race.hasSprintScores) {
-        // First: Add Sprint scores
+        // First: Add Sprint scores (compare normalised IDs)
         filteredScores.forEach(score => {
-          if (race.sprintRaceId && score.raceId === race.sprintRaceId) {
+          if (race.sprintRaceId && score.raceId === normalizeRaceIdForComparison(race.sprintRaceId)) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
           }
@@ -600,9 +623,9 @@ export default function StandingsPage() {
         });
         data.push(sprintPoint);
 
-        // Second: Add GP scores
+        // Second: Add GP scores (compare normalised IDs)
         filteredScores.forEach(score => {
-          if (score.raceId === race.gpRaceId || score.raceId === race.baseRaceId) {
+          if (score.raceId === normalizeRaceIdForComparison(race.gpRaceId)) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
           }
@@ -616,9 +639,9 @@ export default function StandingsPage() {
         });
         data.push(gpPoint);
       } else {
-        // Non-sprint weekend: just add GP scores
+        // Non-sprint weekend: just add GP scores (compare normalised IDs)
         filteredScores.forEach(score => {
-          if (score.raceId === race.gpRaceId || score.raceId === race.baseRaceId) {
+          if (score.raceId === normalizeRaceIdForComparison(race.gpRaceId)) {
             const current = cumulativeTotals.get(score.userId) || 0;
             cumulativeTotals.set(score.userId, current + score.totalPoints);
           }
@@ -786,7 +809,7 @@ export default function StandingsPage() {
                 <div className="flex gap-1 pb-2">
                   {completedRaceWeekends.map((race, index) => (
                     <Button
-                      key={race.baseRaceId}
+                      key={race.gpRaceId}
                       variant={index === selectedRaceIndex ? "default" : "outline"}
                       size="sm"
                       className={`flex-shrink-0 text-xs px-2 gap-1 ${
@@ -915,6 +938,102 @@ export default function StandingsPage() {
             </div>
           </div>
         )}
+
+        {/* GUID: PAGE_STANDINGS-023-v01
+            [Intent] Collapsible "Table Guide" legend explaining all visual indicators in the standings
+              table: rank badges (gold/silver/bronze), rank change arrows, race winner badge, defending
+              champion badge, and column definitions (Old Overall, New Overall, Sprint, Gap).
+            [Inbound Trigger] User clicks the "Table Guide" trigger button to expand/collapse the legend.
+            [Downstream Impact] Pure presentational — no data fetching or state side-effects beyond
+              isLegendOpen toggle. Does not affect table layout or pagination. */}
+        <Collapsible open={isLegendOpen} onOpenChange={setIsLegendOpen}>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span>Table Guide</span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isLegendOpen ? "rotate-180" : ""}`} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                {/* Rank badges */}
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700 shrink-0">
+                    <Trophy className="h-3 w-3 mr-0.5" />1st
+                  </Badge>
+                  <span className="text-muted-foreground">Gold badge — 1st place</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 shrink-0">
+                    <Medal className="h-3 w-3 mr-0.5" />2nd
+                  </Badge>
+                  <span className="text-muted-foreground">Silver badge — 2nd place</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700 shrink-0">
+                    <Medal className="h-3 w-3 mr-0.5" />3rd
+                  </Badge>
+                  <span className="text-muted-foreground">Bronze badge — 3rd place</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1 py-0 text-[9px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700 shrink-0">
+                    Winner
+                  </Badge>
+                  <span className="text-muted-foreground">Team with most points in that race</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1.5 py-0 text-[9px] bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700 shrink-0">
+                    <Crown className="h-3 w-3 mr-0.5 inline" />2025 Champion
+                  </Badge>
+                  <span className="text-muted-foreground">Defending 2025 season champion</span>
+                </div>
+                {/* Rank change arrows */}
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-0.5 shrink-0">
+                    <ChevronsUp className="h-4 w-4 text-green-500" />
+                  </span>
+                  <span className="text-muted-foreground">Jumped 2+ positions up</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ArrowUp className="h-4 w-4 text-green-500 shrink-0" />
+                  <span className="text-muted-foreground">Moved up 1 position</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Minus className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">No change in position</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ArrowDown className="h-4 w-4 text-red-500 shrink-0" />
+                  <span className="text-muted-foreground">Moved down 1 position</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ChevronsDown className="h-4 w-4 text-red-500 shrink-0" />
+                  <span className="text-muted-foreground">Dropped 2+ positions</span>
+                </div>
+                {/* Column definitions */}
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-foreground shrink-0 w-24">Old Overall</span>
+                  <span className="text-muted-foreground">Points before the selected race</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-foreground shrink-0 w-24">New Overall</span>
+                  <span className="text-muted-foreground">Cumulative total including selected race</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="flex items-center gap-1 font-medium text-foreground shrink-0 w-24">
+                    <Zap className="h-3 w-3" />Sprint
+                  </span>
+                  <span className="text-muted-foreground">Points from the sprint race (sprint weekends only)</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-foreground shrink-0 w-24">Gap</span>
+                  <span className="text-muted-foreground">Points behind the team directly above</span>
+                </div>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Progress indicator */}
         {!isLoading && totalItems > PAGE_SIZE && (

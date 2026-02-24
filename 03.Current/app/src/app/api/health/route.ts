@@ -1,4 +1,4 @@
-// GUID: API_HEALTH-000-v01
+// GUID: API_HEALTH-000-v02
 // @PHASE_3C: Health check endpoint for monitoring and uptime checks (DEPLOY-005).
 // [Intent] Provides operational health status by checking connectivity to critical services:
 //          Firestore, Firebase Auth. Returns 200 if all healthy, 503 if degraded.
@@ -91,15 +91,16 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    // GUID: API_HEALTH-006-v02
+    // GUID: API_HEALTH-006-v03
     // @GOLDEN_RULE_1: Add correlation ID for monitoring system tracing (Phase 4 compliance).
     // [Intent] Catch-all error handler for unexpected failures in the health check itself.
     //          Does not write to error_logs (high-frequency endpoint) but includes correlation ID.
     // [Inbound Trigger] Any uncaught exception during health checks.
     // [Downstream Impact] Returns 503 with correlation ID. Monitoring systems can track repeated failures.
     //                     Does not expose raw error.message (security compliance).
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
     const responseTime = Date.now() - startTime;
-    console.error(`[Health Check Failed] correlationId: ${correlationId}`, error);
+    if (process.env.NODE_ENV !== 'production') { console.error(`[Health Check Failed] correlationId: ${correlationId}`, error); }
     return NextResponse.json(
       {
         status: 'unhealthy',

@@ -1,4 +1,9 @@
-// GUID: COMPONENT_VERSION_HISTORY-000-v03
+// GUID: COMPONENT_VERSION_HISTORY-000-v04
+// @SECURITY_REVIEW: GEMINI-AUDIT-039 — Verified no dangerouslySetInnerHTML usage. All commit message
+//   data (commit.message, commit.date, commit.version, commit.id) is rendered as safe JSX text content
+//   via React's automatic escaping (e.g. {cleanMessage(commit.message)}, {commit.date}). No XSS vector
+//   exists. The cleanMessage() function strips conventional commit prefixes via regex; output is
+//   rendered as a plain text child, not innerHTML. No changes required beyond this documentation.
 // [Intent] Developer-facing version history component that displays a timeline of git commits
 // loaded from a static JSON file. Supports filtering by major commits and show-more/less pagination.
 // [Inbound Trigger] Rendered on the About > Dev page to show the project's commit history.

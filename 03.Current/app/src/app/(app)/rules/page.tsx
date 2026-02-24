@@ -22,12 +22,15 @@ const ruleIcons = {
   'Late Joiners': UserPlus,
 } as const;
 
-// GUID: PAGE_RULES-002-v03
+// GUID: PAGE_RULES-002-v04
 // [Intent] Main page component that renders three cards: Gameplay Rules, Scoring System, and Tie-Breaker,
 //   each populated from the corresponding lib/scoring-rules constant.
 // [Inbound Trigger] Rendered by Next.js router when user visits /rules.
 // [Downstream Impact] Consumes GAMEPLAY_RULES, SCORING_RULES, TIEBREAKER_RULE from lib/scoring-rules.
 //   No state, hooks, or Firestore dependencies — this is a purely static presentation page.
+// @UX(MANICURE-AUDIT-006, v04): Removed fragile mt-1 from icons in flex items-start containers.
+//   items-start already aligns the icon top to the first text line; mt-1 was a pixel nudge that
+//   drifts on zoom or font-size changes.
 export default function RulesPage() {
   return (
     <div className="grid gap-6">
@@ -46,7 +49,7 @@ export default function RulesPage() {
                         const Icon = ruleIcons[rule.title as keyof typeof ruleIcons] || Check;
                         return (
                             <li key={rule.title} className="flex items-start gap-4">
-                                <Icon className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
+                                <Icon className="h-5 w-5 text-primary flex-shrink-0" />
                                 <div>
                                     <h3 className="font-semibold">{rule.title}</h3>
                                     <p className="text-sm text-muted-foreground">{rule.description}</p>
@@ -66,7 +69,7 @@ export default function RulesPage() {
                  <ul className="space-y-3">
                     {SCORING_RULES.map(item => (
                         <li key={item.pointsDisplay} className="flex items-start gap-4">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold flex-shrink-0 mt-1">{item.pointsDisplay}</span>
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold flex-shrink-0">{item.pointsDisplay}</span>
                             <div>
                                 <h3 className="font-semibold">{item.title}</h3>
                                 <p className="text-sm text-muted-foreground">{item.description}</p>
@@ -82,7 +85,7 @@ export default function RulesPage() {
                 <CardTitle>Tie-Breaker</CardTitle>
             </CardHeader>
             <CardContent className="flex items-start gap-4">
-                <Trophy className="h-5 w-5 mt-1 text-accent flex-shrink-0" />
+                <Trophy className="h-5 w-5 text-accent flex-shrink-0" />
                 <div>
                     <h3 className="font-semibold">{TIEBREAKER_RULE.title}</h3>
                     <p className="text-sm text-muted-foreground">{TIEBREAKER_RULE.description}</p>

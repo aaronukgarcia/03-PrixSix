@@ -9,6 +9,7 @@
  *                     provides clear error messages for client debugging.
  */
 
+import { randomBytes, randomUUID } from 'crypto';
 import { z } from 'zod';
 
 // ── Admin Hot Link Validation ──────────────────────────────────
@@ -99,10 +100,9 @@ export const EmailSchema = z.string()
  * [Downstream Impact] Fixes LIB-002 (weak randomness in correlation IDs) and
  *                     LIB-001 (weak randomness in invite codes) vulnerabilities.
  */
+// @SECURITY_FIX: Moved inline require('crypto') to top-level import (GEMINI-AUDIT-060 pattern).
 export function generateSecureToken(byteLength: number = 32): string {
-  // Use Node.js crypto module for cryptographically secure randomness
-  const crypto = require('crypto');
-  return crypto.randomBytes(byteLength).toString('hex');
+  return randomBytes(byteLength).toString('hex');
 }
 
 /**
@@ -115,8 +115,7 @@ export function generateSecureToken(byteLength: number = 32): string {
  *                     audit trail integrity and prevents correlation ID prediction attacks.
  */
 export function generateSecureCorrelationId(prefix: string = 'req'): string {
-  const crypto = require('crypto');
-  const uuid = crypto.randomUUID(); // RFC 4122 v4 UUID
+  const uuid = randomUUID(); // RFC 4122 v4 UUID
   const timestamp = Date.now().toString(36);
   return `${prefix}_${timestamp}_${uuid}`;
 }

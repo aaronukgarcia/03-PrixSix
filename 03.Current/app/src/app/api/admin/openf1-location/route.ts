@@ -6,7 +6,7 @@
 // [Downstream Impact] Returns array of car positions with GPS coordinates and speed data.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
+import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin } from '@/lib/firebase-admin';
 import { getSecret } from '@/lib/secrets-manager';
 import { ERRORS } from '@/lib/error-registry';
 
@@ -18,7 +18,7 @@ const OPENF1_TOKEN_URL = 'https://api.openf1.org/token';
 // Module-level token cache (same as openf1-sessions)
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-// GUID: API_ADMIN_OPENF1_LOCATION-001-v01
+// GUID: API_ADMIN_OPENF1_LOCATION-001-v02
 // [Intent] Get OpenF1 OAuth2 access token with caching.
 // [Inbound Trigger] Called before fetching location data.
 // [Downstream Impact] Returns cached token if valid, otherwise fetches new token.
@@ -43,7 +43,8 @@ async function getOpenF1Token(): Promise<string | null> {
         });
 
         if (!res.ok) {
-            console.error(`[OpenF1 Auth ${correlationId}] Token request failed: ${res.status}`);
+            // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+            if (process.env.NODE_ENV !== 'production') { console.error(`[OpenF1 Auth ${correlationId}] Token request failed: ${res.status}`); }
             return null;
         }
 
@@ -51,7 +52,8 @@ async function getOpenF1Token(): Promise<string | null> {
         const token = data.access_token;
 
         if (!token) {
-            console.error(`[OpenF1 Auth ${correlationId}] No access_token in response`);
+            // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+            if (process.env.NODE_ENV !== 'production') { console.error(`[OpenF1 Auth ${correlationId}] No access_token in response`); }
             return null;
         }
 
@@ -60,15 +62,17 @@ async function getOpenF1Token(): Promise<string | null> {
         return token;
 
     } catch (err) {
-        console.error(`[OpenF1 Auth ${correlationId}] Error:`, err);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') { console.error(`[OpenF1 Auth ${correlationId}] Error:`, err); }
         return null;
     }
 }
 
-// GUID: API_ADMIN_OPENF1_LOCATION-002-v01
-// [Intent] GET handler - fetch location data for a session from OpenF1.
+// GUID: API_ADMIN_OPENF1_LOCATION-002-v03
+// [Intent] GET handler - fetch location data for a session from OpenF1. Admin-only.
 // [Inbound Trigger] GET /api/admin/openf1-location?sessionKey=12345
-// [Downstream Impact] Returns array of car positions or error response.
+// [Downstream Impact] Returns array of car positions or error response. Requires isAdmin flag
+//   to prevent authenticated non-admin users from triggering OpenF1 token acquisition and exhausting rate limits.
 export async function GET(request: NextRequest) {
     const correlationId = generateCorrelationId();
     console.log(`[openf1-location GET ${correlationId}] Request received`);
@@ -82,6 +86,16 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(
                 { success: false, error: 'Unauthorized', correlationId },
                 { status: 401 }
+            );
+        }
+
+        // SECURITY: Verify admin privileges — matches pattern in openf1-drivers/route.ts
+        const { db } = await getFirebaseAdmin();
+        const userDoc = await db.collection('users').doc(verifiedUser.uid).get();
+        if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+            return NextResponse.json(
+                { success: false, error: 'Admin access required', correlationId },
+                { status: 403 }
             );
         }
 
@@ -125,7 +139,8 @@ export async function GET(request: NextRequest) {
         );
 
         if (!res.ok) {
-            console.error(`[openf1-location GET ${correlationId}] OpenF1 returned ${res.status}`);
+            // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+            if (process.env.NODE_ENV !== 'production') { console.error(`[openf1-location GET ${correlationId}] OpenF1 returned ${res.status}`); }
             return NextResponse.json(
                 {
                     success: false,
@@ -161,7 +176,8 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error(`[openf1-location GET ${correlationId}] Error:`, error);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') { console.error(`[openf1-location GET ${correlationId}] Error:`, error); }
         return NextResponse.json(
             {
                 success: false,

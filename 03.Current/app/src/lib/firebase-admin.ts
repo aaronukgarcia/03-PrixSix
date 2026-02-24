@@ -1,7 +1,12 @@
-// GUID: LIB_FIREBASE_ADMIN-000-v03
+// GUID: LIB_FIREBASE_ADMIN-000-v05
 // [Intent] Server-side Firebase Admin SDK initialisation and shared utilities for authentication verification, correlation ID generation, and centralised error logging.
 // [Inbound Trigger] Imported by all server-side API routes that need Firestore access, auth verification, or error logging.
 // [Downstream Impact] Every server-side API route depends on this module. Changes to initialisation logic, auth verification, or error logging affect the entire backend.
+// @SECURITY_FIX (GEMINI-AUDIT-059): The initialization error catch block previously logged the
+//   raw error object via console.error. If cert() fails (e.g. malformed private key), the error
+//   may contain the credential values in its message or stack trace, leaking FIREBASE_PRIVATE_KEY
+//   to server logs. Fixed to log only a sanitised message (error.code + error.message) without
+//   the credential object or stack. Private key presence is validated before cert() is called.
 
 /**
  * Firebase Admin SDK initialization for server-side API routes.
@@ -9,6 +14,7 @@
  * falls back to service account cert for local development.
  */
 
+import { randomUUID } from 'crypto';
 import type { App } from 'firebase-admin/app';
 import type { Firestore, FieldValue as FieldValueType, Timestamp as TimestampType } from 'firebase-admin/firestore';
 
@@ -21,10 +27,14 @@ let adminDb: Firestore | null = null;
 let adminFieldValue: typeof FieldValueType | null = null;
 let adminTimestamp: typeof TimestampType | null = null;
 
-// GUID: LIB_FIREBASE_ADMIN-002-v03
+// GUID: LIB_FIREBASE_ADMIN-002-v04
 // [Intent] Lazily initialises the Firebase Admin SDK (choosing between explicit service account credentials for local dev or Application Default Credentials for Google Cloud) and returns the Firestore instance, FieldValue, and Timestamp utilities.
 // [Inbound Trigger] Called by every API route that needs server-side Firestore access (login, scoring, admin operations, error logging).
 // [Downstream Impact] All server-side database operations depend on this function. If initialisation fails, the entire backend is non-functional. The credential selection logic must match the deployment environment.
+// @SECURITY_FIX (GEMINI-AUDIT-059): Private key is validated for presence before being passed to
+//   cert(). The catch block now logs only error.code and error.message (sanitised strings) instead
+//   of the raw error object, preventing FIREBASE_PRIVATE_KEY from appearing in server logs via
+//   error stack traces or formatted error objects from the Firebase Admin SDK.
 export async function getFirebaseAdmin(): Promise<{
   db: Firestore;
   FieldValue: typeof FieldValueType;
@@ -42,13 +52,21 @@ export async function getFirebaseAdmin(): Promise<{
     // Falls back to service account cert if env vars are provided
     try {
       if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+        // SECURITY (GEMINI-AUDIT-059): Validate that the private key env var is non-empty before
+        // passing it to cert(). An empty or whitespace-only value would cause cert() to throw an
+        // error whose message may echo the (empty) key value. Fail fast with a safe message.
+        const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+        if (!rawPrivateKey.trim()) {
+          throw new Error('Firebase Admin SDK configuration error: FIREBASE_PRIVATE_KEY is empty');
+        }
         // Use explicit credentials (local development)
         console.log('[Firebase Admin] Initializing with service account credentials');
         adminApp = initializeApp({
           credential: cert({
             projectId: process.env.FIREBASE_PROJECT_ID,
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            // Replace escaped newlines from env var serialisation
+            privateKey: rawPrivateKey.replace(/\\n/g, '\n'),
           }),
         });
       } else {
@@ -60,8 +78,12 @@ export async function getFirebaseAdmin(): Promise<{
         });
       }
     } catch (error) {
-      console.error('[Firebase Admin] Initialization failed:', error);
-      throw new Error('Failed to initialize Firebase Admin SDK. Check credentials configuration.');
+      // SECURITY (GEMINI-AUDIT-059): Log only the sanitised error code and message — never the
+      // raw error object. cert() errors may include credential field values in their stack trace
+      // or formatted output, which would expose FIREBASE_PRIVATE_KEY in server logs.
+      const safeMessage = error instanceof Error ? `${(error as any).code ?? 'unknown'}: ${error.message}` : String(error);
+      console.error('[Firebase Admin] Initialization failed:', safeMessage);
+      throw new Error('Firebase Admin SDK configuration error. Check server logs for details.');
     }
   }
 
@@ -72,7 +94,8 @@ export async function getFirebaseAdmin(): Promise<{
   return { db: adminDb, FieldValue: adminFieldValue, Timestamp: adminTimestamp };
 }
 
-// GUID: LIB_FIREBASE_ADMIN-003-v03
+// GUID: LIB_FIREBASE_ADMIN-003-v04
+// @SECURITY_FIX: Wave 2 RT carryover — verifyAuthToken catch now logs only sanitized error message/code, not full error object.
 // [Intent] Verifies a Firebase ID token from an Authorization header and returns the decoded user identity (uid and email), or null if invalid/missing.
 // [Inbound Trigger] Called by protected API routes to authenticate incoming requests via the Bearer token in the Authorization header.
 // [Downstream Impact] All protected API endpoints depend on this for authentication. Returning null causes the caller to reject the request as unauthorised. Changes to token verification logic affect the entire auth boundary.
@@ -99,7 +122,13 @@ export async function verifyAuthToken(authHeader: string | null): Promise<{
       email: decodedToken.email,
     };
   } catch (error) {
-    console.error('[Auth] Token verification failed:', error);
+    // SECURITY: Log only safe fields — not the full error object which may contain token fragments or SDK internals.
+    const safeMsg = error instanceof Error ? error.message : String((error as any)?.code ?? 'unknown');
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[Auth] Token verification failed:', error);
+    } else {
+      console.error('[Auth] Token verification failed:', safeMsg);
+    }
     return null;
   }
 }
@@ -112,14 +141,14 @@ export async function verifyAuthToken(authHeader: string | null): Promise<{
  * Generate a correlation ID for error tracking using crypto.randomUUID()
  * for cryptographically secure randomness (LIB-002 fix)
  */
+// @SECURITY_FIX (GEMINI-AUDIT-060): Moved inline require('crypto') to top-level import.
 export function generateCorrelationId(): string {
-  const crypto = require('crypto');
   const timestamp = Date.now().toString(36);
-  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+  const random = randomUUID().replace(/-/g, '').substring(0, 8);
   return `err_${timestamp}_${random}`;
 }
 
-// GUID: LIB_FIREBASE_ADMIN-005-v03
+// GUID: LIB_FIREBASE_ADMIN-005-v04
 // [Intent] Persists error details (message, stack trace, context, correlation ID) to the error_logs Firestore collection for centralised error tracking and debugging.
 // [Inbound Trigger] Called by API route catch blocks after generating a correlation ID (Golden Rule #1 compliance).
 // [Downstream Impact] Writes to error_logs collection used by admin error monitoring. Silently catches its own failures to avoid cascading errors. If this function fails, errors are only logged to console.
@@ -154,10 +183,12 @@ export async function logError(options: {
       createdAt: new Date().toISOString(),
     });
 
-    console.error(`[Error ${options.correlationId}]`, errorMessage);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate — errorMessage is message-only (low risk) but gated for consistency
+    if (process.env.NODE_ENV !== 'production') { console.error(`[Error ${options.correlationId}]`, errorMessage); }
   } catch (logError) {
     // Don't throw if logging fails - just console log
-    console.error('[Error Logging Failed]', logError);
-    console.error('[Original Error]', options.error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate — full error objects in logError fallback path
+    if (process.env.NODE_ENV !== 'production') { console.error('[Error Logging Failed]', logError); }
+    if (process.env.NODE_ENV !== 'production') { console.error('[Original Error]', options.error); }
   }
 }

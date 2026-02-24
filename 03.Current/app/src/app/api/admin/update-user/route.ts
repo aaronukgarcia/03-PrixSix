@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_ADMIN_UPDATE_USER-005-v03
+    // GUID: API_ADMIN_UPDATE_USER-005-v04
     // [Intent] Handle email change: normalise to lowercase, check for duplicates in both Firestore and Firebase Auth, then update Auth record.
     // [Inbound Trigger] data.email is present in the request body.
     // [Downstream Impact] Updates Firebase Auth email. If Auth update fails (duplicate or user-not-found), returns specific error. Normalised email is carried forward to Firestore update. Golden Rule #3: Auth is source of truth for email.
@@ -154,7 +154,8 @@ export async function POST(request: NextRequest) {
       try {
         await auth.updateUser(userId, { email: normalizedEmail });
       } catch (authError: any) {
-        console.error(`[Admin Update Auth Error ${correlationId}]`, authError);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
+        if (process.env.NODE_ENV !== 'production') { console.error(`[Admin Update Auth Error ${correlationId}]`, authError); }
 
         if (authError.code === 'auth/email-already-exists') {
           return NextResponse.json(

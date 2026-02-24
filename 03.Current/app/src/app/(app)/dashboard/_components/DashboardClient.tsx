@@ -1,18 +1,21 @@
-// GUID: COMPONENT_DASHBOARD_CLIENT-000-v03
+// GUID: COMPONENT_DASHBOARD_CLIENT-000-v04
 // [Intent] Client-side dashboard component providing real-time countdown to qualifying,
-//          deadline urgency warnings, and smart pit lane status (open/closed with prediction check).
+//          deadline urgency warnings, smart pit lane status (open/closed with prediction check),
+//          a dismissible how-to-play welcome card for new users, and a compact stats row.
 // [Inbound Trigger] Rendered by PAGE_DASHBOARD-003 with nextRace prop.
 // [Downstream Impact] Reads user prediction from Firestore to show "Submit" vs "Edit" link.
 //                     Countdown timer updates every second. Deadline warnings at 24h/6h/1h.
+//                     Welcome card persists dismissal via localStorage. Stats row shows prediction status.
 
 "use client";
 
 import { useAuth, useFirestore, useDoc } from "@/firebase";
 import type { Race } from "@/lib/data";
 import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Clock, CheckCircle2, AlertCircle, Loader2, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Clock, CheckCircle2, AlertCircle, Loader2, AlertTriangle, HelpCircle, X } from "lucide-react";
 import { doc } from "firebase/firestore";
 import Link from "next/link";
 
@@ -68,9 +71,18 @@ const calculateTimeLeft = (targetDate: string): TimeLeft | null => {
   return null;
 };
 
-// GUID: COMPONENT_DASHBOARD_CLIENT-004-v03
-// [Intent] Main client dashboard component — renders countdown timer, deadline warnings,
-//          and pit lane status card with smart "Submit/Edit Prediction" link.
+// GUID: COMPONENT_DASHBOARD_CLIENT-008-v01
+// [Intent] localStorage key for persisting dismissal of the how-to-play welcome card (VIRGIN-005).
+// [Inbound Trigger] Read on mount by DashboardClient; written when user clicks "Got it".
+// [Downstream Impact] When set to "true", the welcome card is permanently hidden for that browser.
+// @SECURITY_WARNING: Client-only dismissal — acceptable for non-critical informational UI.
+//   See COMPONENT_WELCOME_CTA-001 for full warning on when this pattern is NOT acceptable.
+const WELCOME_SEEN_KEY = "prix6_welcome_seen";
+
+// GUID: COMPONENT_DASHBOARD_CLIENT-004-v04
+// [Intent] Main client dashboard component — renders how-to-play welcome card (dismissible),
+//          compact stats row, countdown timer, deadline warnings, and pit lane status card
+//          with smart "Submit/Edit Prediction" link.
 // [Inbound Trigger] Rendered by DashboardPage with nextRace prop containing schedule data.
 // [Downstream Impact] Subscribes to user's prediction doc in Firestore via useDoc.
 //                     Links to /predictions page. Shows open/closed pit lane status.
@@ -119,6 +131,28 @@ export function DashboardClient({ nextRace }: { nextRace: Race }) {
     return () => clearTimeout(timer);
   });
 
+  // GUID: COMPONENT_DASHBOARD_CLIENT-009-v01
+  // [Intent] Controls visibility of the how-to-play welcome card (VIRGIN-005).
+  //          Initialised from localStorage on mount to prevent flash of content for returning users.
+  //          Defaults to false (hidden) before hydration to avoid SSR mismatch.
+  // [Inbound Trigger] Component mounts; user clicks "Got it" dismiss button.
+  // [Downstream Impact] When false, the welcome card renders. When true, it is removed from the DOM.
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeChecked, setWelcomeChecked] = useState(false);
+
+  useEffect(() => {
+    const seen = localStorage.getItem(WELCOME_SEEN_KEY);
+    if (seen !== "true") {
+      setShowWelcome(true);
+    }
+    setWelcomeChecked(true);
+  }, []);
+
+  const handleDismissWelcome = () => {
+    localStorage.setItem(WELCOME_SEEN_KEY, "true");
+    setShowWelcome(false);
+  };
+
   return (
     <>
       <div className="space-y-1">
@@ -128,6 +162,74 @@ export function DashboardClient({ nextRace }: { nextRace: Race }) {
         <p className="text-muted-foreground">
           You are leading <span className="font-semibold text-accent">{user?.teamName}</span> for the {nextRace.name}.
         </p>
+      </div>
+
+      {/* GUID: COMPONENT_DASHBOARD_CLIENT-008 — How-to-play welcome card (VIRGIN-005) */}
+      {welcomeChecked && showWelcome && (
+        <Card className="relative border-primary/30 bg-primary/5">
+          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
+            <div className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 shrink-0 text-primary mt-0.5" />
+              <CardTitle className="text-base font-semibold leading-tight">
+                Welcome to Prix Six
+              </CardTitle>
+            </div>
+            <button
+              onClick={handleDismissWelcome}
+              aria-label="Dismiss welcome message"
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            <CardDescription className="mb-3 text-sm">
+              Here is how to play:
+            </CardDescription>
+            <ol className="space-y-2 text-sm text-muted-foreground list-none">
+              <li className="flex items-start gap-2">
+                <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">1</span>
+                <span>Before each race, predict which 6 drivers will qualify P1&ndash;P6.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">2</span>
+                <span>Earn points when your predictions match the real qualifying results.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">3</span>
+                <span>Compete with friends in private leagues and climb the standings.</span>
+              </li>
+            </ol>
+            <div className="mt-4">
+              <button
+                onClick={handleDismissWelcome}
+                className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Got it
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* GUID: COMPONENT_DASHBOARD_CLIENT-009 — Compact stats row (VIRGIN-006) */}
+      <div className="flex flex-wrap items-center gap-3">
+        {isPredictionLoading ? (
+          <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-3 text-xs">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Checking prediction...</span>
+          </Badge>
+        ) : hasPrediction ? (
+          <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-3 text-xs border-green-500/50 text-green-600">
+            <CheckCircle2 className="h-3 w-3" />
+            <span>Prediction submitted</span>
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-3 text-xs border-muted-foreground/40 text-muted-foreground">
+            <AlertCircle className="h-3 w-3" />
+            <span>No prediction yet</span>
+          </Badge>
+        )}
       </div>
 
        <Card className="bg-gradient-to-r from-primary/80 to-primary">

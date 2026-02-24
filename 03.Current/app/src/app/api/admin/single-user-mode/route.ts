@@ -1,4 +1,5 @@
-// GUID: API_ADMIN_SINGLE_USER_MODE-000-v02
+// GUID: API_ADMIN_SINGLE_USER_MODE-000-v03
+// @SECURITY_FIX: Replaced hardcoded 'PX-4000' with ERROR_CODES.VALIDATION_INVALID_FORMAT.code (GEMINI-AUDIT-009, CLOUD-001).
 // @SECURITY_FIX: New authenticated server-side endpoint replacing direct client Firestore writes (GEMINI-AUDIT-025, ADMINCOMP-009).
 // [Intent] Admin API route for activating/deactivating Single User Mode. Verifies Firebase Auth token and server-side admin status before executing presence purge or flag operations.
 // [Inbound Trigger] POST request from OnlineUsersManager component (activate/deactivate buttons).
@@ -22,7 +23,8 @@ const singleUserModeRequestSchema = z.object({
   currentSessionId: z.string().optional(),
 });
 
-// GUID: API_ADMIN_SINGLE_USER_MODE-002-v01
+// GUID: API_ADMIN_SINGLE_USER_MODE-002-v02
+// @SECURITY_FIX: Replaced hardcoded 'PX-4000' with ERROR_CODES.VALIDATION_INVALID_FORMAT.code in body-parse catch block (GEMINI-AUDIT-009, CLOUD-001).
 // [Intent] POST handler — the only supported method. Validates token, verifies admin, executes activate or deactivate.
 // [Inbound Trigger] POST /api/admin/single-user-mode from OnlineUsersManager component.
 // [Downstream Impact] Writes to admin_configuration/global and optionally purges presence documents. Audit log entry written on every successful operation.
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
       context: { route: '/api/admin/single-user-mode' },
     });
     return NextResponse.json(
-      { success: false, error: 'Invalid request body', errorCode: 'PX-4000', correlationId },
+      { success: false, error: 'Invalid request body', errorCode: ERROR_CODES.VALIDATION_INVALID_FORMAT.code, correlationId },
       { status: 400 }
     );
   }

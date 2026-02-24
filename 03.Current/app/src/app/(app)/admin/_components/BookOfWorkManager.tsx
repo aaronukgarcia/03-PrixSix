@@ -23,7 +23,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { FileText, CheckCircle2, Clock, X, AlertTriangle, Shield, Palette, Zap, Server, Bug, User, Search, Plus, Edit2, Save, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { BookOfWorkEntry, BookOfWorkCategory, BookOfWorkStatus, BookOfWorkSeverity, BookOfWorkPackage } from '@/lib/types/book-of-work';
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 
 // GUID: ADMIN_BOOKOFWORK-001-v01

@@ -1,5 +1,6 @@
-// GUID: ADMIN_ATTACK_MONITOR-000-v04
+// GUID: ADMIN_ATTACK_MONITOR-000-v06
 // @SECURITY_FIX: Replaced direct Firestore writes with API endpoint for attack acknowledgement (ADMINCOMP-013).
+// @SECURITY_FIX: Wave 3 RT — Gated handleAcknowledge and handleAcknowledgeAll console.error behind NODE_ENV.
 // [Intent] Admin security component that displays unacknowledged attack alerts (bot attacks, credential stuffing, distributed attacks) with severity-coded UI and acknowledgement controls.
 // [Inbound Trigger] Rendered on the admin dashboard; only visible when there are unacknowledged attack_alerts in Firestore.
 // [Downstream Impact] Reads from attack_alerts Firestore collection. Calls /api/admin/acknowledge-attack endpoint when acknowledging alerts.
@@ -94,8 +95,14 @@ export function AttackMonitor() {
   const { data: alerts, isLoading, error } = useCollection<AttackAlert>(alertsQuery);
 
   // Log errors but don't crash - this component is non-critical
+  // SECURITY (GEMINI-AUDIT-014): Gate behind NODE_ENV; log only error code to avoid
+  // exposing Firestore collection paths, document IDs, or internal error metadata.
   if (error) {
-    console.error('[AttackMonitor] Firestore error:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[AttackMonitor] Firestore error:', error);
+    } else {
+      console.error('[AttackMonitor] Firestore error:', (error as any)?.code || 'unknown');
+    }
   }
 
   // GUID: ADMIN_ATTACK_MONITOR-006-v04
@@ -122,7 +129,12 @@ export function AttackMonitor() {
         throw new Error(result.error || 'Failed to acknowledge alert');
       }
     } catch (err) {
-      console.error('Failed to acknowledge alert:', err);
+      // SECURITY: Gate diagnostic logging behind NODE_ENV to prevent API error details leaking in production console.
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Failed to acknowledge alert:', err);
+      } else {
+        console.error('Failed to acknowledge alert:', (err as any)?.code || 'unknown');
+      }
     } finally {
       setAcknowledging(null);
     }
@@ -152,7 +164,12 @@ export function AttackMonitor() {
         throw new Error(result.error || 'Failed to acknowledge alerts');
       }
     } catch (err) {
-      console.error('Failed to acknowledge all alerts:', err);
+      // SECURITY: Gate diagnostic logging behind NODE_ENV to prevent API error details leaking in production console.
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Failed to acknowledge all alerts:', err);
+      } else {
+        console.error('Failed to acknowledge all alerts:', (err as any)?.code || 'unknown');
+      }
     } finally {
       setAcknowledging(null);
     }

@@ -56,9 +56,9 @@ export function HotNewsFeedSkeleton() {
             </CardHeader>
             <CardContent>
                 <div className="space-y-2">
-                    <div className="h-4 bg-muted animate-pulse rounded w-full" />
-                    <div className="h-4 bg-muted animate-pulse rounded w-5/6" />
-                    <div className="h-4 bg-muted animate-pulse rounded w-4/6" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-full [animation-delay:75ms]" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-5/6 [animation-delay:100ms]" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-4/6 [animation-delay:125ms]" />
                 </div>
             </CardContent>
         </Card>

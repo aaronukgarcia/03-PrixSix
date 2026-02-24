@@ -23,13 +23,34 @@ async function getAdminFirebase() {
   return { db, FieldValue };
 }
 
-// GUID: API_SEND_RESULTS_EMAIL-001B-v01
-// [Intent] Server-side rate-limit check using Admin SDK. Replaces client-side canSendEmail which used incompatible firebase/firestore SDK.
+// GUID: API_SEND_RESULTS_EMAIL-001B-v02
+// @SECURITY_FIX: Removed hardcoded ADMIN_EMAIL fallback — missing config now fails fast (GEMINI-AUDIT-055C).
+//   A hardcoded email in source (a) exposes a real address to anyone who reads the bundle,
+//   and (b) silently masks misconfiguration by substituting a default when the env var is absent.
+//   Fix: requireAdminEmail() fails fast with ERRORS.EMAIL_CONFIG_MISSING+logError+correlationId
+//   if neither GRAPH_SENDER_EMAIL nor ADMIN_EMAIL env var is set.
+// [Intent] Server-side rate-limit check using Admin SDK. Replaces client-side canSendEmail which used incompatible firebase/firestore SDK. Resolves the admin email from env at runtime to exempt it from per-address rate limits.
 // [Inbound Trigger] Called before each email send in the POST handler loop.
-// [Downstream Impact] Returns canSend boolean. If false, the email is skipped with the reason. Rate limits: 30 global/day, 5 per address/day (admin exempt).
+// [Downstream Impact] Returns canSend boolean. If false, the email is skipped with the reason. Rate limits: 30 global/day, 5 per address/day (admin exempt). Throws EMAIL_CONFIG_MISSING if GRAPH_SENDER_EMAIL/ADMIN_EMAIL env var is absent.
 const DAILY_GLOBAL_LIMIT = 30;
 const DAILY_PER_ADDRESS_LIMIT = 5;
-const ADMIN_EMAIL = 'aaron@garcia.ltd';
+
+function requireAdminEmail(): string {
+  const adminEmail = process.env.GRAPH_SENDER_EMAIL?.trim() || process.env.ADMIN_EMAIL?.trim();
+  if (!adminEmail) {
+    const correlationId = generateCorrelationId();
+    logError({
+      correlationId,
+      error: new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Admin email not configured — set GRAPH_SENDER_EMAIL or ADMIN_EMAIL env var`),
+      context: { action: 'requireAdminEmail', route: '/api/send-results-email', additionalInfo: { errorKey: ERRORS.EMAIL_CONFIG_MISSING.key } },
+    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[${correlationId}] ${ERRORS.EMAIL_CONFIG_MISSING.code}: Admin email not configured`);
+    }
+    throw new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Admin email not configured (correlationId: ${correlationId})`);
+  }
+  return adminEmail;
+}
 
 async function canSendEmailAdmin(
   db: Awaited<ReturnType<typeof getFirebaseAdmin>>['db'],
@@ -47,7 +68,8 @@ async function canSendEmailAdmin(
     return { canSend: false, reason: `Daily global limit of ${DAILY_GLOBAL_LIMIT} emails reached` };
   }
 
-  if (toEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+  const adminEmail = requireAdminEmail();
+  if (toEmail.toLowerCase() !== adminEmail.toLowerCase()) {
     const addressCount = (stats.emailsSent || []).filter(
       (e) => e.toEmail?.toLowerCase() === toEmail.toLowerCase()
     ).length;

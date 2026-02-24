@@ -1,11 +1,56 @@
+// GUID: SCRIPTS_VERIFY_ADMIN-000-v03
+// ⚠️  LOCAL DEVELOPMENT TOOL ONLY — DO NOT DEPLOY OR RUN IN CI/CD ⚠️
+// This script resets the hardcoded admin account PIN using ADMIN_PIN from .env.local.
+// Running this in staging or production would constitute a backdoor: anyone with access
+// to the ADMIN_PIN environment variable could take over the admin account silently.
+// NEVER add this to any CI/CD pipeline, Dockerfile, or cloud build step.
+// NEVER run against a production Firebase project.
+// [Intent] One-time local recovery tool to verify and repair the admin account state.
+// [Inbound Trigger] Developer runs manually: npx ts-node --project tsconfig.scripts.json scripts/verify-admin.ts --local-only
+// [Downstream Impact] Resets admin password in Firebase Auth. Must only target the local dev Firebase project.
+
 /**
  * Verify and fix admin account
- * Run: npx ts-node --project tsconfig.scripts.json scripts/verify-admin.ts
+ * Run: npx ts-node --project tsconfig.scripts.json scripts/verify-admin.ts --local-only
+ *
+ * ⚠️  LOCAL DEVELOPMENT ONLY — This script MUST NOT run in production or CI/CD.
+ *     It force-resets the admin account password, creating a backdoor if misused.
+ *     Pass --local-only explicitly to confirm local intent.
  */
 
 import * as admin from 'firebase-admin';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+
+// GUID: SCRIPTS_VERIFY_ADMIN-001-v03
+// [Intent] Hard guard: abort immediately if not in a local development context.
+//          Prevents accidental or malicious execution in staging/production/CI/CD environments.
+// [Inbound Trigger] Script startup — evaluated before any Firebase initialisation or env var reads.
+// [Downstream Impact] process.exit(1) if NODE_ENV is not explicitly 'development' OR the --local-only
+//                     flag is absent. Both conditions must be satisfied simultaneously. The NODE_ENV
+//                     check deliberately excludes undefined/unset — CI/CD environments that do not set
+//                     NODE_ENV would otherwise pass the guard.
+const hasLocalOnlyFlag = process.argv.includes('--local-only');
+const isDevEnv = process.env.NODE_ENV === 'development';
+
+if (!hasLocalOnlyFlag || !isDevEnv) {
+  console.error('');
+  console.error('❌ BLOCKED: verify-admin.ts is a local development tool only.');
+  console.error('   It MUST NOT run in production, staging, or CI/CD environments.');
+  console.error('');
+  if (!hasLocalOnlyFlag) {
+    console.error('   Missing required flag: --local-only');
+    console.error('   Pass this flag explicitly to confirm you are running locally.');
+  }
+  if (!isDevEnv) {
+    console.error(`   NODE_ENV is "${process.env.NODE_ENV ?? 'unset'}" — must be explicitly "development".`);
+  }
+  console.error('');
+  console.error('   Correct usage (local only):');
+  console.error('   NODE_ENV=development npx ts-node --project tsconfig.scripts.json scripts/verify-admin.ts --local-only');
+  console.error('');
+  process.exit(1);
+}
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });

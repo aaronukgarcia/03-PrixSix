@@ -1,4 +1,4 @@
-// GUID: API_LOG_CLIENT_ERROR-000-v03
+// GUID: API_LOG_CLIENT_ERROR-000-v04
 // [Intent] API route for receiving and persisting client-side errors to Firestore. Provides a server endpoint so browser-based error handlers can log errors with correlation IDs to the error_logs collection.
 // [Inbound Trigger] POST request from client-side error handlers (ErrorBoundary, toast handlers, catch blocks) via fetch('/api/log-client-error', ...).
 // [Downstream Impact] Writes to Firestore error_logs collection. Admin error dashboard reads these entries. Golden Rule #1: ensures client errors are captured server-side.
@@ -206,11 +206,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    // GUID: API_LOG_CLIENT_ERROR-006-v03
+    // GUID: API_LOG_CLIENT_ERROR-006-v04
     // [Intent] Catch-all error handler — logs to console but returns a simple 500. Intentionally does NOT call logError() to avoid recursive error logging. The client is already in an error state.
     // [Inbound Trigger] Any uncaught exception within the POST handler (e.g., Firestore write failure).
     // [Downstream Impact] Returns 500 to client. Console log only — no Firestore write to avoid cascade if Firestore itself is the problem.
-    console.error('[Log Client Error API]', error);
+    // @SECURITY_FIX (Wave 10): NODE_ENV gate
+    if (process.env.NODE_ENV !== 'production') { console.error('[Log Client Error API]', error); }
     // Don't fail - client is already in error state
     return NextResponse.json(
       { success: false, error: 'Failed to log error' },

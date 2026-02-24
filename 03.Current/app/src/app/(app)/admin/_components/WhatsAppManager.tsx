@@ -1,5 +1,7 @@
-// GUID: ADMIN_WHATSAPP-000-v04
+// GUID: ADMIN_WHATSAPP-000-v05
 // @SECURITY_FIX: Added HTML escaping for message content display (ADMINCOMP-015).
+// @SECURITY_FIX (GEMINI-AUDIT-058) v05: Migrated from error-registry (server-only) to error-registry-client.
+//   Prevents internal metadata (file paths, GUIDs, function names) from being bundled into client JS.
 // [Intent] Admin component for managing WhatsApp integration: worker status monitoring, alert configuration, custom message sending, message queue viewing, and alert history.
 // [Inbound Trigger] Rendered when admin navigates to the WhatsApp management tab in the admin panel.
 // [Downstream Impact] Writes to whatsapp_queue (processed by WhatsApp worker), whatsapp_alert_history, and settings/whatsapp_alerts collections. Changes here affect automated alert delivery to WhatsApp groups.
@@ -111,7 +113,8 @@ import {
 } from "@/firebase/firestore/settings";
 import { logAuditEvent } from "@/lib/audit";
 import { createTracedError, logTracedError } from "@/lib/traced-error";
-import { ERRORS } from "@/lib/error-registry";
+// @SECURITY_FIX (GEMINI-AUDIT-058): Use client-safe registry — no internal metadata in client bundle.
+import { CLIENT_ERRORS } from "@/lib/error-registry-client";
 
 // GUID: ADMIN_WHATSAPP-002-v03
 // [Intent] Constants for the WhatsApp proxy API endpoint and message length limit.
@@ -501,7 +504,7 @@ export function WhatsAppManager() {
       console.error('Error listening to queue:', error);
 
       // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
-      const tracedError = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+      const tracedError = createTracedError(CLIENT_ERRORS.FIRESTORE_READ_FAILED, {
         context: { collection: 'whatsapp_queue', operation: 'onSnapshot' },
         cause: error,
       });
@@ -534,7 +537,7 @@ export function WhatsAppManager() {
       console.error('Error listening to alert history:', error);
 
       // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
-      const tracedError = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+      const tracedError = createTracedError(CLIENT_ERRORS.FIRESTORE_READ_FAILED, {
         context: { collection: 'whatsapp_alert_history', operation: 'onSnapshot' },
         cause: error,
       });
@@ -567,7 +570,7 @@ export function WhatsAppManager() {
       console.error('Error listening to status log:', error);
 
       // Golden Rule #1: 4-pillar error handling (log, type, correlation ID, selectable display)
-      const tracedError = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+      const tracedError = createTracedError(CLIENT_ERRORS.FIRESTORE_READ_FAILED, {
         context: { collection: 'whatsapp_status_log', operation: 'onSnapshot' },
         cause: error,
       });

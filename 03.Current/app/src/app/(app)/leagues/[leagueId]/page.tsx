@@ -54,7 +54,8 @@ import {
 } from '@/lib/leagues';
 import type { League } from '@/lib/types/league';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: PAGE_LEAGUE_DETAIL-001-v03

@@ -1,5 +1,7 @@
 
-// GUID: ADMIN_LEAGUES-000-v03
+// GUID: ADMIN_LEAGUES-000-v04
+// @SECURITY_FIX: Replaced fixed-length invite code mask (8 bullets) with length-neutral indicator
+//   to prevent information disclosure of invite code length (GEMINI-AUDIT-024).
 // [Intent] Admin component for viewing all leagues, their owners, member counts, invite codes, and expandable member lists.
 // [Inbound Trigger] Rendered within the admin panel when the "Leagues" tab is selected.
 // [Downstream Impact] Read-only view of the leagues collection. Only clipboard write (invite code copy) has a side effect. No Firestore mutations.
@@ -67,11 +69,11 @@ export function LeaguesManager({ allUsers, isUserLoading }: LeaguesManagerProps)
         return userMap.get(userId) || userId;
     };
 
-    // GUID: ADMIN_LEAGUES-006-v03
-    // [Intent] REMOVED - Invite codes are now masked for security (ADMIN-005 fix).
+    // GUID: ADMIN_LEAGUES-006-v04
+    // [Intent] REMOVED - Invite codes are now masked for security (ADMIN-005 fix, updated GEMINI-AUDIT-024).
     // Previous functionality: Copied league invite codes to clipboard.
     // [Security] Displaying and copying private league invite codes in admin panel enabled
-    // unauthorized access. Codes are now masked with ••••••••.
+    // unauthorized access. Codes are now masked with a length-neutral indicator.
 
     // GUID: ADMIN_LEAGUES-007-v03
     // [Intent] Toggles the expanded/collapsed state for a league row to show or hide member details.
@@ -133,7 +135,7 @@ export function LeaguesManager({ allUsers, isUserLoading }: LeaguesManagerProps)
                                     </TableCell>
                                     <TableCell>
                                         {!league.isGlobal && league.inviteCode ? (
-                                            <code className="text-sm bg-muted px-2 py-0.5 rounded text-muted-foreground">••••••••</code>
+                                            <code className="text-sm bg-muted px-2 py-0.5 rounded text-muted-foreground">••••</code>
                                         ) : (
                                             <span className="text-muted-foreground text-sm">&mdash;</span>
                                         )}

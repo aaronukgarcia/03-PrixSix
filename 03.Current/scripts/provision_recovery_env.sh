@@ -1,4 +1,11 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# GUID: SCRIPT-UTIL-002-v01
+# [Type] Utility Script — outside production build, used in development and testing
+# [Category] Utility
+# [Intent] Shell script to provision a recovery Firebase environment — creates collections, seeds test data, and validates config.
+# [Usage] bash scripts/provision_recovery_env.sh (run from project root)
+# [Moved] 2026-02-24 from project root — codebase tidy-up
+#
 # GUID: PROVISION_RECOVERY-000-v03
 #
 # provision_recovery_env.sh

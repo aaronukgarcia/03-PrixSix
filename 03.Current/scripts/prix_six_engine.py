@@ -1,3 +1,10 @@
+# GUID: SCRIPT-TEST-003-v01
+# [Type] Utility Script — outside production build, used in development and testing
+# [Category] Testing
+# [Intent] Pure Python reference implementation of the Prix Six scoring engine — used to cross-check TypeScript scoring results.
+# [Usage] python scripts/prix_six_engine.py (run from project root)
+# [Moved] 2026-02-24 from project root — codebase tidy-up
+#
 """
 prix_six_engine.py — "The Paddock Pub Chat" satirical F1 newsletter generator.
 

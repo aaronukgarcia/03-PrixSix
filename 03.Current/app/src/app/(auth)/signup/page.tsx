@@ -1,9 +1,12 @@
-// GUID: PAGE_SIGNUP-000-v03
+// GUID: PAGE_SIGNUP-000-v06
 // [Intent] Signup page for Prix Six. Allows new players to register with a team name,
 //          email, and 6-digit PIN. Includes weak PIN rejection and fun team name suggestions.
 // [Inbound Trigger] User navigates to /signup from the login page link.
 // [Downstream Impact] Successful signup calls useAuth().signup which creates Firebase Auth user
 //                     and Firestore user document, then redirects to /login.
+// @FIX(v04) VIRGIN-003: Replaced vague tagline with descriptive value proposition for new visitors.
+// @FIX(v05) VIRGIN-004: Added privacy policy / terms of service consent text near signup button.
+// @FIX(v06) MANICURE-AUDIT-002: Increased gap between team name input and wand button from gap-2 to gap-3.
 
 "use client";
 
@@ -40,7 +43,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
 import { Logo } from "@/components/Logo";
 import { GoogleIcon, AppleIcon } from "@/components/icons/OAuthIcons";
-import { ERRORS } from '@/lib/error-registry';
+// @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
+import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 import { doesTeamNameMatchEmail } from '@/lib/team-name-suggestions';
 
@@ -252,7 +256,10 @@ export default function SignupPage() {
                     <Logo size="md" />
                 </div>
                 <CardTitle className="text-3xl font-headline">Create Your Team</CardTitle>
-                <CardDescription>Join the Prix Six league and start predicting.</CardDescription>
+                <CardDescription>
+                  Prix Six is a Formula 1 prediction game. Predict qualifying and race results before each Grand
+                  Prix, earn points for accuracy, and compete in private leagues with friends.
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
@@ -263,7 +270,7 @@ export default function SignupPage() {
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Team Name</FormLabel>
-                                <div className="flex gap-2">
+                                <div className="flex gap-3">
                                 <FormControl>
                                     <Input placeholder="Your unique team name" {...field} />
                                 </FormControl>
@@ -348,6 +355,16 @@ export default function SignupPage() {
                         <Button type="submit" className="w-full" disabled={loading}>
                             {loading ? "Registering..." : "Sign Up"}
                         </Button>
+
+                        {/* GUID: PAGE_SIGNUP-012-v01
+                            [Intent] GDPR/legal consent notice shown below the Sign Up button. Informs
+                                     users that account creation implies acceptance of the Privacy Policy
+                                     and Terms of Service. Required for VIRGIN-004 compliance.
+                            [Inbound Trigger] Always visible when the signup form is rendered.
+                            [Downstream Impact] Pure informational UI — no state changes, no data flow. */}
+                        <p className="text-xs text-center text-muted-foreground">
+                            By creating an account, you agree to our Privacy Policy and Terms of Service.
+                        </p>
                     </form>
                 </Form>
                 {/* GUID: PAGE_SIGNUP-010-v03

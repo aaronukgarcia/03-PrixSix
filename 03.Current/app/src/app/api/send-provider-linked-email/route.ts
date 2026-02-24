@@ -1,4 +1,4 @@
-// GUID: API_SEND_PROVIDER_LINKED_EMAIL-000-v04
+// GUID: API_SEND_PROVIDER_LINKED_EMAIL-000-v05
 // [Intent] API route that sends a confirmation email when a user links a Google or Apple
 //          sign-in provider to their account. Sends to primary email and secondary email
 //          (if verified). Fire-and-forget from the client.
@@ -42,11 +42,12 @@ function escapeHtml(unsafe: string): string {
     .replace(/\//g, '&#x2F;');
 }
 
-// GUID: API_SEND_PROVIDER_LINKED_EMAIL-002-v04
+// GUID: API_SEND_PROVIDER_LINKED_EMAIL-002-v05
 // [Intent] POST handler — validates required fields, builds a branded confirmation email,
 //          and sends to primary (and optionally secondary) email addresses.
 // [Inbound Trigger] HTTP POST with JSON body: { email, teamName, providerId, secondaryEmail? }.
 // [Downstream Impact] Sends 1-2 emails via Graph API. Errors logged with correlationId.
+// @SECURITY_FIX (Wave 10): NODE_ENV gate applied to console.error in secondary email catch.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -127,7 +128,8 @@ export async function POST(request: NextRequest) {
         subject: `${displayName} account linked to Prix Six`,
         htmlContent,
       }).catch((err) => {
-        console.error('Failed to send provider-linked email to secondary:', err);
+        // @SECURITY_FIX (Wave 10): NODE_ENV gate
+        if (process.env.NODE_ENV !== 'production') { console.error('Failed to send provider-linked email to secondary:', err); }
       });
     }
 

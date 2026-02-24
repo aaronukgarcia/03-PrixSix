@@ -1,4 +1,4 @@
-// GUID: LIB_EMAIL-000-v07
+// GUID: LIB_EMAIL-000-v08
 // @SECURITY_FIX: Added error message sanitization to prevent credential exposure (EMAIL-003).
 //   Azure AD/Graph API errors may contain tenant IDs, client IDs, or partial credentials.
 // @SECURITY_FIX: Added PIN masking to prevent plaintext credential logging (EMAIL-006).
@@ -6,6 +6,8 @@
 // @SECURITY_FIX: APP_VERSION escaped with escapeHtml() in email footers for defense-in-depth (GEMINI-AUDIT-054).
 // @SECURITY_FIX: PIN redacted from html body before writing to email_logs (GEMINI-AUDIT-018).
 //   loggableHtml replaces pin with '••••••' so the admin email body preview never exposes a user's PIN.
+// @SECURITY_FIX: Removed hardcoded ADMIN_EMAIL fallback — missing config now fails fast (GEMINI-AUDIT-055).
+// @SECURITY_FIX: getGraphClient now uses logError()+ERRORS.EMAIL_CONFIG_MISSING+correlationId (GEMINI-AUDIT-056).
 // [Intent] Server-side email sending module using Microsoft Graph API via Azure AD credentials. Provides welcome emails and generic email dispatch with rate-limiting, queuing, and Firestore logging.
 // [Inbound Trigger] Called by API routes (e.g., user registration, admin actions) that need to send transactional emails.
 // [Downstream Impact] Depends on email-tracking.ts for rate limiting and queuing. Writes to email_logs Firestore collection. Failures affect user onboarding and admin notifications.
@@ -28,6 +30,8 @@ import {
 } from "./email-tracking";
 import { APP_VERSION } from "./version";
 import { maskPin } from "./utils";
+import { logError, generateCorrelationId } from "./firebase-admin";
+import { ERRORS } from "./error-registry";
 
 // GUID: LIB_EMAIL-000A-v01
 // [Intent] Escape HTML special characters to prevent XSS injection in email templates.
@@ -69,15 +73,35 @@ function getAdminDb() {
   return getFirestore();
 }
 
-// GUID: LIB_EMAIL-002-v04
-// @SECURITY_FIX: Moved hardcoded admin email to environment variable (GEMINI-AUDIT-055).
-//   Prevents information disclosure and reduces phishing/spam targeting risk.
-// [Intent] Admin email address constant used as the default sender fallback. Uses ADMIN_EMAIL
-//          environment variable if set, otherwise falls back to hardcoded value. Single source
-//          of truth for admin email (Golden Rule #3).
-// [Inbound Trigger] Referenced when GRAPH_SENDER_EMAIL environment variable is not set.
-// [Downstream Impact] Changing ADMIN_EMAIL env var affects the default sender address for all outbound emails.
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'aaron@garcia.ltd';
+// GUID: LIB_EMAIL-002-v05
+// @SECURITY_FIX: Removed hardcoded email fallback entirely (GEMINI-AUDIT-055).
+//   A hardcoded email in source (a) exposes a real address to anyone who reads the bundle,
+//   and (b) silently masks misconfiguration by substituting a default when the env var is absent.
+//   Fix: requireSenderEmail() fails fast with ERRORS.EMAIL_CONFIG_MISSING if neither
+//   GRAPH_SENDER_EMAIL nor ADMIN_EMAIL is set. Misconfiguration must be loud, not silent.
+// [Intent] Resolve the authenticated sender address for outbound emails. Reads GRAPH_SENDER_EMAIL
+//          first, then ADMIN_EMAIL as a secondary env var. If neither is configured the function
+//          throws a typed error so the misconfiguration surfaces immediately at deploy time.
+// [Inbound Trigger] Called inside sendWelcomeEmail and sendEmail before dispatching.
+// [Downstream Impact] All outbound email sends fail fast with a traceable error if sender is not
+//                     configured via environment variables. No default address is ever baked in.
+function requireSenderEmail(): string {
+  const senderEmail = process.env.GRAPH_SENDER_EMAIL?.trim() || process.env.ADMIN_EMAIL?.trim();
+  if (!senderEmail) {
+    const correlationId = generateCorrelationId();
+    // logError is async; fire-and-forget is acceptable here because we are about to throw.
+    logError({
+      correlationId,
+      error: new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Sender email not configured — set GRAPH_SENDER_EMAIL or ADMIN_EMAIL env var`),
+      context: { action: 'requireSenderEmail', additionalInfo: { errorKey: ERRORS.EMAIL_CONFIG_MISSING.key } },
+    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[${correlationId}] ${ERRORS.EMAIL_CONFIG_MISSING.code}: Sender email not configured`);
+    }
+    throw new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Email sender not configured (correlationId: ${correlationId})`);
+  }
+  return senderEmail;
+}
 
 // GUID: LIB_EMAIL-003-v04
 // @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID() for cryptographically secure GUID generation (GEMINI-AUDIT-053).
@@ -90,10 +114,19 @@ function generateGuid(): string {
   return randomUUID();
 }
 
-// GUID: LIB_EMAIL-004-v03
-// [Intent] Create and return an authenticated Microsoft Graph API client using Azure AD client credentials (tenant ID, client ID, client secret). This client is used to send emails via the Graph /sendMail endpoint.
+// GUID: LIB_EMAIL-004-v04
+// @SECURITY_FIX: Config validation now uses logError()+ERRORS.EMAIL_CONFIG_MISSING+correlationId (GEMINI-AUDIT-056).
+//   Previously, missing credentials threw a plain new Error("...") with an inline string — violating
+//   Golden Rules #1 (no correlation ID, no logError call) and #7 (inline error string, not ERRORS.KEY).
+//   Fix: Each missing-credential path generates a correlationId, calls logError(), and throws a typed
+//   error with the PX error code embedded. Silent null returns are never used.
+// [Intent] Create and return an authenticated Microsoft Graph API client using Azure AD client
+//          credentials (tenant ID, client ID, client secret). Validates all three required env vars
+//          before constructing the client; fails fast with a traced error if any are absent.
 // [Inbound Trigger] Called by sendWelcomeEmail and sendEmail before dispatching each email.
-// [Downstream Impact] If credentials are missing or invalid, all email sending fails. Depends on GRAPH_TENANT_ID, GRAPH_CLIENT_ID, and GRAPH_CLIENT_SECRET environment variables.
+// [Downstream Impact] If credentials are missing or invalid, all email sending fails with a
+//                     traceable PX-3004 error. Depends on GRAPH_TENANT_ID, GRAPH_CLIENT_ID, and
+//                     GRAPH_CLIENT_SECRET environment variables.
 function getGraphClient() {
   // Trim secrets to remove any trailing whitespace/newlines from environment
   const tenantId = process.env.GRAPH_TENANT_ID?.trim();
@@ -101,7 +134,29 @@ function getGraphClient() {
   const clientSecret = process.env.GRAPH_CLIENT_SECRET?.trim();
 
   if (!tenantId || !clientId || !clientSecret) {
-    throw new Error("Microsoft Graph credentials not configured");
+    const correlationId = generateCorrelationId();
+    const missing = [
+      !tenantId && 'GRAPH_TENANT_ID',
+      !clientId && 'GRAPH_CLIENT_ID',
+      !clientSecret && 'GRAPH_CLIENT_SECRET',
+    ].filter(Boolean).join(', ');
+    const errorMessage = `[${ERRORS.EMAIL_CONFIG_MISSING.code}] Microsoft Graph credentials not configured — missing: ${missing}`;
+    // logError is async; fire-and-forget is acceptable because we are about to throw.
+    logError({
+      correlationId,
+      error: new Error(errorMessage),
+      context: {
+        action: 'getGraphClient',
+        additionalInfo: {
+          errorKey: ERRORS.EMAIL_CONFIG_MISSING.key,
+          missingVars: missing,
+        },
+      },
+    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[${correlationId}] ${ERRORS.EMAIL_CONFIG_MISSING.code}: Graph credentials not configured`);
+    }
+    throw new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Email service not configured (correlationId: ${correlationId})`);
   }
 
   const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
@@ -164,16 +219,18 @@ interface WelcomeEmailParams {
   firestore?: any;
 }
 
-// GUID: LIB_EMAIL-007-v05
+// GUID: LIB_EMAIL-007-v06
 // @SECURITY_FIX: Error messages now sanitized to prevent credential exposure (EMAIL-003).
 // @SECURITY_FIX: loggableHtml now redacts PIN from email body before writing to email_logs (GEMINI-AUDIT-018).
 //               The full htmlContent (with real PIN) is only used for actual email delivery; the logged copy stores '••••••'.
+// @SECURITY_FIX: Hardcoded admin email replaced with requireSenderEmail() (GEMINI-AUDIT-055).
+// @SECURITY_FIX: console.error calls gated behind NODE_ENV !== 'production' (GEMINI-AUDIT-056).
 // [Intent] Send a branded welcome email to a newly registered user containing their team name and 6-digit PIN. Enforces rate limiting via email-tracking, queues if rate-limited, logs success/failure to email_logs collection, and returns a tracking GUID.
 // [Inbound Trigger] Called from the user registration API route when a new account is created and a welcome email is required.
 // [Downstream Impact] On success, the user receives their PIN and login link. On rate-limit, the email is queued in email_queue collection. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004), canSendEmail/recordSentEmail/queueEmail from email-tracking, and getAdminDb (LIB_EMAIL-001).
 export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: WelcomeEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
-  const senderEmail = process.env.GRAPH_SENDER_EMAIL || ADMIN_EMAIL;
+  const senderEmail = requireSenderEmail();
   const subject = "Welcome to Prix Six - Your Account is Ready!";
   const emailType = "welcome";
 
@@ -221,7 +278,7 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
       </div>
 
       <div class="security-note">
-        <strong>Security Notice:</strong> If you did not request this account, please reply to this email immediately to notify <a href="mailto:aaron@garcia.ltd">aaron@garcia.ltd</a>.
+        <strong>Security Notice:</strong> If you did not request this account, please reply to this email immediately to notify <a href="mailto:${escapeHtml(senderEmail)}">${escapeHtml(senderEmail)}</a>.
       </div>
 
       <p>Good luck with your predictions!</p>
@@ -232,7 +289,7 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
       <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
       <p>Email Reference: ${emailGuid} | Build: ${escapeHtml(APP_VERSION)}</p>
       <p>Prix Six - F1 Prediction League</p>
-      <p>If you did not expect this email, please reply to <a href="mailto:aaron@garcia.ltd">aaron@garcia.ltd</a></p>
+      <p>If you did not expect this email, please reply to <a href="mailto:${escapeHtml(senderEmail)}">${escapeHtml(senderEmail)}</a></p>
     </div>
   </div>
 </body>
@@ -312,14 +369,18 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
         teamName,
       });
     } catch (logError: any) {
-      console.error("Error logging welcome email to email_logs:", logError.message);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error("Error logging welcome email to email_logs:", logError.message);
+      }
     }
 
     return { success: true, emailGuid };
   } catch (error: any) {
     // SECURITY: Sanitize error message to prevent credential exposure (EMAIL-003 fix)
     const safeError = sanitizeErrorMessage(error);
-    console.error("Error sending welcome email:", safeError);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error("Error sending welcome email:", safeError);
+    }
 
     // Log failed email to email_logs
     try {
@@ -338,7 +399,9 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
         error: safeError,
       });
     } catch (logError: any) {
-      console.error("Error logging failed welcome email:", logError.message);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error("Error logging failed welcome email:", logError.message);
+      }
     }
 
     return { success: false, emailGuid, error: safeError };
@@ -355,14 +418,16 @@ interface GenericEmailParams {
   htmlContent: string;
 }
 
-// GUID: LIB_EMAIL-009-v04
+// GUID: LIB_EMAIL-009-v05
 // @SECURITY_FIX: Error messages now sanitized to prevent credential exposure (EMAIL-003).
+// @SECURITY_FIX: Hardcoded admin email replaced with requireSenderEmail() (GEMINI-AUDIT-055).
+// @SECURITY_FIX: console.error calls gated behind NODE_ENV !== 'production' (GEMINI-AUDIT-056).
 // [Intent] Send a generic email with arbitrary HTML content via Microsoft Graph API. Appends a standard footer with tracking GUID and Prix Six branding. Logs success/failure to email_logs collection for admin audit.
 // [Inbound Trigger] Called by API routes or server actions that need to send non-welcome transactional emails (e.g., daily summaries, notifications).
 // [Downstream Impact] On success, the recipient receives the email. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004) and getAdminDb (LIB_EMAIL-001). Does not use rate limiting (unlike sendWelcomeEmail).
 export async function sendEmail({ toEmail, subject, htmlContent }: GenericEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
-  const senderEmail = process.env.GRAPH_SENDER_EMAIL || ADMIN_EMAIL;
+  const senderEmail = requireSenderEmail();
 
   // Add email footer with GUID and build version
   const contentWithFooter = `
@@ -372,7 +437,7 @@ ${htmlContent}
   <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
   <p>Email Reference: ${emailGuid} | Build: ${escapeHtml(APP_VERSION)}</p>
   <p>Prix Six - F1 Prediction League</p>
-  <p>If you did not expect this email, please reply to <a href="mailto:aaron@garcia.ltd">aaron@garcia.ltd</a></p>
+  <p>If you did not expect this email, please reply to <a href="mailto:${escapeHtml(senderEmail)}">${escapeHtml(senderEmail)}</a></p>
 </div>
   `.trim();
 
@@ -409,7 +474,9 @@ ${htmlContent}
         emailGuid,
       });
     } catch (logError: any) {
-      console.error("Error logging email to email_logs:", logError.message);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error("Error logging email to email_logs:", logError.message);
+      }
       // Don't fail the email send if logging fails
     }
 
@@ -417,7 +484,9 @@ ${htmlContent}
   } catch (error: any) {
     // SECURITY: Sanitize error message to prevent credential exposure (EMAIL-003 fix)
     const safeError = sanitizeErrorMessage(error);
-    console.error("Error sending email:", safeError);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error("Error sending email:", safeError);
+    }
 
     // Log failed email to email_logs
     try {
@@ -433,7 +502,9 @@ ${htmlContent}
         error: safeError,
       });
     } catch (logError: any) {
-      console.error("Error logging failed email:", logError.message);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error("Error logging failed email:", logError.message);
+      }
     }
 
     return { success: false, emailGuid, error: safeError };

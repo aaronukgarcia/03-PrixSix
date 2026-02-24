@@ -7,29 +7,26 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ChunkErrorHandler } from '@/components/ChunkErrorHandler';
 import { GlobalErrorLogger } from '@/components/GlobalErrorLogger';
 import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
-import { getPerformance } from 'firebase/performance';
 import { useEffect } from 'react';
 import { useFirebaseApp } from '@/firebase';
 
+// GUID: APP_LAYOUT-001-v03
+// @PERF_FIX (PERF-001): Performance SDK initialization removed from here (v1.58.72).
+//   It is now handled in getSdks() in firebase/index.ts, which runs synchronously
+//   before React renders any DOM — the only timing that reliably prevents PX-9002.
+//   useEffect fires after paint; Firebase had already observed layout metrics by then.
+// [Intent] Initialize Firebase Analytics once on app mount.
+// [Inbound Trigger] Mounted once in root layout via FirebaseClientProvider context.
+// [Downstream Impact] Analytics initialised for usage tracking. Performance SDK is
+//                     now handled upstream in getSdks() — do not re-add it here.
 function FirebaseServicesTracker() {
   const app = useFirebaseApp();
   useEffect(() => {
-    // Initialize Analytics
     isAnalyticsSupported().then(supported => {
       if (supported) {
         getAnalytics(app);
       }
     });
-    // Initialize Performance with error handling
-    // Firebase Performance can throw errors when attribute values (like Tailwind class names) exceed 100 chars
-    try {
-      const perf = getPerformance(app);
-      // Disable automatic data collection for DOM interactions to avoid class name issues
-      perf.dataCollectionEnabled = true;
-      perf.instrumentationEnabled = false; // Disable auto-instrumentation (captures class names)
-    } catch (error) {
-      console.warn('Firebase Performance initialization skipped:', error);
-    }
   }, [app]);
   return null;
 }

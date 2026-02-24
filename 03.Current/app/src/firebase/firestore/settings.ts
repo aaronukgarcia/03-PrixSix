@@ -39,7 +39,8 @@ export async function getHotNewsSettings(db: Firestore): Promise<HotNewsSettings
             return defaultSettings;
         }
     } catch (error) {
-        console.error("Error getting hot news settings: ", error);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV — prevents raw Firebase error internals in prod console.
+        if (process.env.NODE_ENV !== 'production') { console.error("Error getting hot news settings: ", error); }
         // Return default settings on error to ensure app functionality
         // Note: FirestorePermissionError is client-only, can't use in server context
         return defaultSettings;
@@ -132,7 +133,8 @@ export async function getWhatsAppAlertSettings(db: Firestore): Promise<WhatsAppA
             return defaultWhatsAppAlertSettings;
         }
     } catch (error) {
-        console.error("Error getting WhatsApp alert settings: ", error);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV — prevents raw Firebase error internals in prod console.
+        if (process.env.NODE_ENV !== 'production') { console.error("Error getting WhatsApp alert settings: ", error); }
         return defaultWhatsAppAlertSettings;
     }
 }
@@ -213,7 +215,8 @@ export async function getPubChatSettings(db: Firestore, forceServer = false): Pr
             return defaultPubChatSettings;
         }
     } catch (error) {
-        console.error("Error getting pub chat settings: ", error);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV — prevents raw Firebase error internals in prod console.
+        if (process.env.NODE_ENV !== 'production') { console.error("Error getting pub chat settings: ", error); }
         return defaultPubChatSettings;
     }
 }
@@ -283,7 +286,8 @@ export async function getPubChatTimingData(db: Firestore, forceServer = false): 
         }
         return defaultPubChatTimingData;
     } catch (error) {
-        console.error("Error getting pub chat timing data: ", error);
+        // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV — prevents raw Firebase error internals in prod console.
+        if (process.env.NODE_ENV !== 'production') { console.error("Error getting pub chat timing data: ", error); }
         return defaultPubChatTimingData;
     }
 }
