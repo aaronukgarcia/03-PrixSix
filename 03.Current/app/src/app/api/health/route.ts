@@ -1,5 +1,8 @@
-// GUID: API_HEALTH-000-v03
+// GUID: API_HEALTH-000-v04
 // @SECURITY_FIX (GEMINI-AUDIT-125): checkFirestore() and checkAuth() now return generic error strings instead of raw error.message (prevents internal DB/auth config details leaking via public endpoint).
+// @COLD_START (Wave 15+): SERVER_START_TIME captured at module load to detect Cloud Run cold starts.
+//             Cold start = instance age < 30s on first request. Logged to Firestore system/cold-starts.
+//             Pair with Cloud Scheduler free-tier ping every 10 min to prevent cold starts entirely.
 // @PHASE_3C: Health check endpoint for monitoring and uptime checks (DEPLOY-005).
 // [Intent] Provides operational health status by checking connectivity to critical services:
 //          Firestore, Firebase Auth. Returns 200 if all healthy, 503 if degraded.
@@ -14,8 +17,18 @@ import { APP_VERSION } from '@/lib/version';
 // Force dynamic to prevent static optimization
 export const dynamic = 'force-dynamic';
 
-// GUID: API_HEALTH-001-v01
+// GUID: API_HEALTH-009-v01
+// [Intent] Module-level timestamp captured at Cloud Run instance startup.
+//          Used to detect cold starts: if this request arrives within 30s of instance load, it IS the cold start.
+//          Module-level variables persist for the lifetime of the Cloud Run instance (warm = reused).
+// [Inbound Trigger] Evaluated once when Node.js first loads this module.
+// [Downstream Impact] Enables cold-start logging to Firestore and instanceAge in health response.
+const SERVER_START_TIME = Date.now();
+let coldStartEventLogged = false; // ensure we log the cold-start event only once per instance
+
+// GUID: API_HEALTH-001-v02
 // [Intent] Interface defining the structure of health check responses with per-service status.
+//          instanceAge and coldStart added for cold-start detection (Wave 15+).
 // [Inbound Trigger] Used by the GET handler to structure response data.
 // [Downstream Impact] Monitoring systems parse this structure. Changes require monitor config updates.
 interface HealthCheckResult {
@@ -27,6 +40,8 @@ interface HealthCheckResult {
     auth: ServiceStatus;
   };
   responseTime: number;
+  instanceAge?: number;   // seconds since Cloud Run instance started (module load time)
+  coldStart?: boolean;    // true if this request arrived within 30s of instance startup
 }
 
 interface ServiceStatus {
@@ -35,15 +50,18 @@ interface ServiceStatus {
   error?: string;
 }
 
-// GUID: API_HEALTH-002-v01
+// GUID: API_HEALTH-002-v02
 // [Intent] GET handler that performs health checks on all critical services and returns aggregated status.
 //          Checks run in parallel for speed. Returns 200 for healthy, 503 for degraded/unhealthy.
+//          Cold-start detection: computes instanceAge from SERVER_START_TIME, logs to Firestore once per instance.
 // [Inbound Trigger] HTTP GET /api/health from monitoring systems or health dashboards.
 // [Downstream Impact] Response time should be <200ms for accurate health monitoring.
 //                     503 responses trigger alerts in monitoring systems.
 export async function GET(request: NextRequest) {
   const correlationId = generateCorrelationId();
   const startTime = Date.now();
+  const instanceAge = Math.floor((startTime - SERVER_START_TIME) / 1000); // seconds
+  const coldStart = instanceAge < 30; // Cloud Run cold start window is ~15-25s typically
 
   try {
     // GUID: API_HEALTH-003-v01
@@ -67,8 +85,27 @@ export async function GET(request: NextRequest) {
 
     const responseTime = Date.now() - startTime;
 
-    // GUID: API_HEALTH-005-v01
+    // GUID: API_HEALTH-010-v01
+    // [Intent] Log cold-start event to Firestore once per instance lifetime.
+    //          Uses module-level flag to prevent repeated writes on subsequent warm requests.
+    //          Fire-and-forget (no await) — never block the health response for logging.
+    // [Inbound Trigger] First request on a fresh Cloud Run instance (instanceAge < 30s).
+    // [Downstream Impact] cold_start_events collection in Firestore — admin visibility only.
+    if (coldStart && !coldStartEventLogged && firestoreStatus.status === 'up') {
+      coldStartEventLogged = true;
+      getFirebaseAdmin().then(({ db }) => {
+        db.collection('cold_start_events').add({
+          timestamp: new Date().toISOString(),
+          instanceAge,
+          version: APP_VERSION,
+          correlationId,
+        }).catch(() => { /* never throw on cold-start logging */ });
+      }).catch(() => { /* never throw on cold-start logging */ });
+    }
+
+    // GUID: API_HEALTH-005-v02
     // [Intent] Build health check response with version info from package.json.
+    //          instanceAge and coldStart added for operational visibility.
     // [Inbound Trigger] After status aggregation completes.
     // [Downstream Impact] Version string helps correlate health issues with deployments.
     const result: HealthCheckResult = {
@@ -80,6 +117,8 @@ export async function GET(request: NextRequest) {
         auth: authStatus,
       },
       responseTime,
+      instanceAge,
+      coldStart,
     };
 
     // Return 503 if degraded, 200 if healthy
