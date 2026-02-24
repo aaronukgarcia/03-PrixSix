@@ -1,6 +1,7 @@
-// GUID: LIB_CONSISTENCY-000-v08
+// GUID: LIB_CONSISTENCY-000-v09
 // @SECURITY_FIX: generateConsistencyCorrelationId() now uses crypto.randomUUID()/getRandomValues() instead of Math.random() (LIB-002).
 // @SECURITY_FIX (GEMINI-AUDIT-049): Hardcoded 'system' ownerId string replaced with SYSTEM_OWNER_ID named constant to prevent accidental privilege escalation via string comparison.
+// @SECURITY_FIX (RT4-A-obs): SYSTEM_OWNER_ID now imported from @/lib/types/league (SSoT). Removed local duplicate definition.
 // @SECURITY_FIX (ZfdQM8upCSadgj5Pk4cF): checkLeagues() now flags suspicious system-owned leagues that are not marked isGlobal, providing defense-in-depth server-side validation.
 // @SECURITY_FIX (GEMINI-AUDIT-050): parseBreakdown() now validates input format before parsing; returns safe defaults on malformed input and logs a warning with correlationId.
 // [Intent] Central consistency-checking library for the Prix Six application.
@@ -20,6 +21,7 @@
 import { F1Drivers, RaceSchedule, type Driver, type Race } from './data';
 import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scoring-rules';
 import { normalizeRaceIdForComparison, generateRaceId } from './normalize-race-id';
+import { SYSTEM_OWNER_ID } from './types/league'; // RT4-A-obs: SSoT — SYSTEM_OWNER_ID defined once in types/league.ts
 
 // --- Types ---
 
@@ -221,7 +223,7 @@ export interface LeagueData {
 //   warnings in the user consistency check.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// GUID: LIB_CONSISTENCY-013B-v02
+// GUID: LIB_CONSISTENCY-013B-v03
 // @SECURITY_FIX (GEMINI-AUDIT-049): Reserved system identifier extracted to a named constant.
 // @SECURITY_FIX (ZfdQM8upCSadgj5Pk4cF): Defense-in-depth documentation and suspicious-league
 //   guard added. Firestore rules (firestore.rules line 245) enforce that on CREATE a league's
@@ -230,17 +232,13 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 //   is belt-and-suspenders validation: it flags any league that somehow acquired ownerId 'system'
 //   without the isGlobal flag set, which would indicate either a data migration error or a
 //   Firestore rules bypass (e.g., direct Admin SDK write without setting isGlobal correctly).
-// SYSTEM_OWNER_ID: Reserved system identifier, never matches real user UIDs (GEMINI-AUDIT-049)
-// This constant is used exclusively for the global league owner field. Any request that
-// supplies a user-controlled ownerId equal to SYSTEM_OWNER_ID must be rejected to prevent
-// privilege escalation (a real user cannot claim system ownership).
-// [Intent] Canonical sentinel value for system-owned global leagues. Using a named constant
-//   (rather than inline 'system' string) prevents typos and makes all comparison sites
-//   discoverable via IDE references.
+// @FIX (RT4-A-obs): SYSTEM_OWNER_ID is no longer defined locally. It is imported from
+//   @/lib/types/league (SSoT). Golden Rule #3 — Single Source of Truth.
+// [Intent] Canonical sentinel value for system-owned global leagues. Using the single
+//   definition from types/league.ts prevents typos and makes all comparison sites discoverable.
 // [Inbound Trigger] Used by checkLeagues() when validating ownerId fields.
-// [Downstream Impact] If this value changes, the corresponding Firestore documents for
-//   global leagues must be migrated to use the new value.
-const SYSTEM_OWNER_ID = 'system';
+// [Downstream Impact] If this value changes, update types/league.ts. All consumers pick it up automatically.
+// SYSTEM_OWNER_ID imported from @/lib/types/league (see import at top of file)
 
 // GUID: LIB_CONSISTENCY-014-v04
 // @SECURITY_FIX: Replaced Math.random() with crypto.randomUUID()/getRandomValues() (LIB-002).

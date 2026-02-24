@@ -436,6 +436,21 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     calledBy: [],
     calls: [],
   },
+  // RT4-C3: Dedicated AI rate limit error (semantically distinct from EMAIL_RATE_LIMITED).
+  AI_RATE_LIMITED: {
+    key: 'AI_RATE_LIMITED',
+    code: 'PX-3102',
+    guid: 'LIB_ERROR_CODES-001',
+    module: 'LIB_ERROR_CODES',
+    file: 'app/src/app/api/ai/analysis/route.ts',
+    functionName: 'checkAiRateLimit',
+    message: 'AI analysis rate limit exceeded. Please try again later.',
+    severity: 'warning',
+    recovery: 'Wait for the 1-hour rate limit window to reset (20 requests/hour per user).',
+    failureModes: ['User exceeded 20 AI analysis requests/hour'],
+    calledBy: ['API_AI_ANALYSIS-012'],
+    calls: [],
+  },
   OPENF1_FETCH_FAILED: {
     key: 'OPENF1_FETCH_FAILED',
     code: 'PX-3201',

@@ -1,4 +1,5 @@
-// GUID: API_HEALTH-000-v02
+// GUID: API_HEALTH-000-v03
+// @SECURITY_FIX (GEMINI-AUDIT-125): checkFirestore() and checkAuth() now return generic error strings instead of raw error.message (prevents internal DB/auth config details leaking via public endpoint).
 // @PHASE_3C: Health check endpoint for monitoring and uptime checks (DEPLOY-005).
 // [Intent] Provides operational health status by checking connectivity to critical services:
 //          Firestore, Firebase Auth. Returns 200 if all healthy, 503 if degraded.
@@ -120,11 +121,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// GUID: API_HEALTH-007-v01
+// GUID: API_HEALTH-007-v02
 // [Intent] Check Firestore connectivity by attempting to read the global settings document.
 //          Uses a lightweight read operation that should complete in <100ms.
 // [Inbound Trigger] Called by GET handler as part of parallel health checks.
 // [Downstream Impact] If Firestore is down, all database operations fail. Critical service.
+// @SECURITY_FIX (GEMINI-AUDIT-125): Returns generic error string — does not expose raw error.message on this public endpoint.
 async function checkFirestore(): Promise<ServiceStatus> {
   const startTime = Date.now();
   try {
@@ -140,21 +142,23 @@ async function checkFirestore(): Promise<ServiceStatus> {
       status: 'up',
       responseTime,
     };
-  } catch (error: any) {
+  } catch (_error) {
+    // GEMINI-AUDIT-125: Return generic message — raw error.message could expose DB config details via public endpoint
     const responseTime = Date.now() - startTime;
     return {
       status: 'down',
       responseTime,
-      error: error.message || 'Firestore connection failed',
+      error: 'Firestore connection failed',
     };
   }
 }
 
-// GUID: API_HEALTH-008-v01
+// GUID: API_HEALTH-008-v02
 // [Intent] Check Firebase Auth connectivity by attempting to retrieve the Auth instance.
 //          This validates that Firebase Admin SDK can connect to Auth service.
 // [Inbound Trigger] Called by GET handler as part of parallel health checks.
 // [Downstream Impact] If Auth is down, users cannot login/signup. Critical service.
+// @SECURITY_FIX (GEMINI-AUDIT-125): Returns generic error string — does not expose raw error.message on this public endpoint.
 async function checkAuth(): Promise<ServiceStatus> {
   const startTime = Date.now();
   try {
@@ -168,12 +172,13 @@ async function checkAuth(): Promise<ServiceStatus> {
       status: 'up',
       responseTime,
     };
-  } catch (error: any) {
+  } catch (_error) {
+    // GEMINI-AUDIT-125: Return generic message — raw error.message could expose Auth config details via public endpoint
     const responseTime = Date.now() - startTime;
     return {
       status: 'down',
       responseTime,
-      error: error.message || 'Firebase Auth connection failed',
+      error: 'Firebase Auth connection failed',
     };
   }
 }
