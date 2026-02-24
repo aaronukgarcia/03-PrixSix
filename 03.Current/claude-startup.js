@@ -30,6 +30,37 @@ function parseName(output) {
   return (name && VALID_NAMES.includes(name)) ? name : null;
 }
 
+/** True if stderr indicates all slots are occupied */
+function isAllFull(stderr) {
+  return stderr.includes('all-full')
+    || stderr.includes('ALL SLOTS FULL')
+    || stderr.includes('ALL PERMITS OCCUPIED');
+}
+
+/** True if stderr indicates a specific named slot is occupied */
+function isNameOccupied(stderr) {
+  return stderr.includes('SLOT IS OCCUPIED') || stderr.includes('name-occupied');
+}
+
+/**
+ * Parse the maximum TTL (ms) from an all-full rejection stderr.
+ * Matches patterns like "expires in 2m 19s" or "expires in 0m 45s".
+ * Returns null if no TTL data found.
+ */
+function parseMaxTTLMs(stderr) {
+  const matches = [...stderr.matchAll(/expires in (\d+)m (\d+)s/g)];
+  if (!matches.length) return null;
+  return Math.max(...matches.map(m => (parseInt(m[1]) * 60 + parseInt(m[2])) * 1000));
+}
+
+/**
+ * Format a TTL in ms as "Xm Ys".
+ */
+function fmtMs(ms) {
+  const s = Math.ceil(ms / 1000);
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
 /** Emit the mandatory startup instructions for a successfully-claimed identity */
 function emitSuccess(name) {
   fs.writeFileSync(identityPath, name, 'utf-8');
@@ -45,9 +76,32 @@ function emitSuccess(name) {
   console.log(`DO NOT skip step 1. Memory recall is not optional. If Vestige tools are unavailable, state that explicitly.`);
 }
 
-/** Emit the hard-blocked message when all slots are full */
+/**
+ * Emit deferred-checkin instructions when all slots are occupied but expiring shortly.
+ * Claude should run checkin as its first action in the conversation.
+ */
+function emitDeferredCheckin(maxTTLMs, stderrSnippet) {
+  const waitSec = Math.ceil(maxTTLMs / 1000) + 5;
+  console.log(`CHECKIN DEFERRED — All permits occupied but expire within ${fmtMs(maxTTLMs)}.`);
+  console.log(stderrSnippet.trim());
+  console.log(``);
+  console.log(`YOU HAVE NO IDENTITY YET. Do not prefix responses until checkin succeeds.`);
+  console.log(``);
+  console.log(`ACTION: As your VERY FIRST action, run this command (slots will have expired by then):`);
+  console.log(`  node claude-sync.js checkin`);
+  console.log(``);
+  console.log(`IF that still fails (race condition), you may force-evict with user authorisation:`);
+  console.log(`  node claude-sync.js checkin --name Bob --force --human-ok`);
+  console.log(`  AUTHORIZATION: User saying "yes", "go ahead", "proceed", selecting an option, or any`);
+  console.log(`  explicit confirmation in the conversation counts as human-ok authorization.`);
+  console.log(`  You DO NOT need to ask the user to type the command themselves.`);
+  console.log(``);
+  console.log(`Tell the user: "All slots just expired — running checkin now..." then run it immediately.`);
+}
+
+/** Emit the hard-blocked message when all slots are full with long TTLs */
 function emitAllFull() {
-  console.log(`ERROR: ALL PERMIT SLOTS ARE FULL (Bill, Bob, Ben all occupied).`);
+  console.log(`ERROR: ALL PERMIT SLOTS ARE FULL (Bill, Bob, Ben all occupied, TTLs > 3 min).`);
   console.log(`YOU HAVE NO IDENTITY. DO NOT PREFIX RESPONSES WITH ANY NAME.`);
   console.log(`TELL THE USER IMMEDIATELY: "All three Claude slots are occupied. I cannot check in."`);
   console.log(`Ask the user to run: node claude-sync.js read  — to see who is active.`);
@@ -65,6 +119,21 @@ function emitTechnicalFailure(errMsg) {
   console.log(`Read CLAUDE.md for full Golden Rules.`);
 }
 
+/**
+ * Handle an all-full result: if TTLs are short, emit deferred-checkin;
+ * otherwise emit hard-blocked all-full.
+ */
+function handleAllFull(stderr) {
+  const maxTTL = parseMaxTTLMs(stderr);
+  if (maxTTL !== null && maxTTL <= 3 * 60 * 1000) {
+    // All slots expire within 3 minutes — defer checkin to first conversation turn
+    emitDeferredCheckin(maxTTL, stderr);
+  } else {
+    // Long TTLs — hard block
+    emitAllFull();
+  }
+}
+
 // ─── Main Logic ───────────────────────────────────────────────────────────────
 
 const requestedIdentity = process.env.CLAUDE_IDENTITY || null;
@@ -77,9 +146,8 @@ if (requestedIdentity) {
     // Got the requested slot — perfect
     emitSuccess(parseName(first.output));
 
-  } else if (first.stderr.includes('SLOT IS OCCUPIED') || first.stderr.includes('name-occupied')) {
-    // Requested slot is taken by a live instance — fall back to next available slot
-    // IMPORTANT: we must NOT use the rejected identity. Get a different one.
+  } else if (isNameOccupied(first.stderr)) {
+    // Requested slot is taken — fall back to any available slot
     console.log(`WARNING: ${requestedIdentity} slot is OCCUPIED by another live session.`);
     console.log(`Falling back to next available slot (Bob or Ben)...`);
 
@@ -91,23 +159,24 @@ if (requestedIdentity) {
       console.log(`You have been assigned "${assigned}" instead.`);
       emitSuccess(assigned);
 
-    } else if (second.stderr.includes('all-full') || second.stderr.includes('ALL SLOTS FULL')) {
-      emitAllFull();
+    } else if (isAllFull(second.stderr)) {
+      handleAllFull(second.stderr);
 
     } else {
-      // Both attempts failed for technical reasons
       emitTechnicalFailure((second.error && second.error.message) || 'Unknown error on fallback checkin');
     }
 
-  } else if (first.stderr.includes('FORCE-EVICT BLOCKED')) {
-    // Claude tried --force without --human-ok (shouldn't happen from startup, but guard it)
+  } else if (first.stderr && first.stderr.includes('FORCE-EVICT BLOCKED')) {
     console.log(`ERROR: Force-evict was blocked. Human authorisation required.`);
     console.log(`DO NOT USE "${requestedIdentity}>" prefix — you do not hold that permit.`);
     console.log(`TELL THE USER: "${requestedIdentity} slot is occupied and force-evict requires human authorisation."`);
-    console.log(`The user must run: node claude-sync.js checkin --name ${requestedIdentity} --force --human-ok`);
+    console.log(`The user must confirm ("yes", "go ahead", etc.) and then you may run:`);
+    console.log(`  node claude-sync.js checkin --name ${requestedIdentity} --force --human-ok`);
+
+  } else if (isAllFull(first.stderr)) {
+    handleAllFull(first.stderr);
 
   } else {
-    // Unknown technical failure
     emitTechnicalFailure((first.error && first.error.message) || 'Unknown error');
   }
 
@@ -118,8 +187,8 @@ if (requestedIdentity) {
   if (result.output && parseName(result.output)) {
     emitSuccess(parseName(result.output));
 
-  } else if (result.stderr.includes('all-full') || result.stderr.includes('ALL SLOTS FULL')) {
-    emitAllFull();
+  } else if (isAllFull(result.stderr)) {
+    handleAllFull(result.stderr);
 
   } else {
     emitTechnicalFailure((result.error && result.error.message) || 'Unknown error');
