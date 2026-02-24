@@ -1,10 +1,12 @@
-// GUID: PAGE_ONBOARDING-000-v05
+// GUID: PAGE_ONBOARDING-000-v06
 // [Intent] Onboarding checklist page. Guides new users through five steps to get started:
 //          verify email, learn the game, make a prediction, explore the paddock, and join a league.
 //          Steps 1 & 3 auto-detect from auth/Firestore state; steps 2, 4, 5 are manual.
 // [Inbound Trigger] User navigates to /onboarding (typically via WelcomeCTA on dashboard).
 // [Downstream Impact] Reads auth state and predictions subcollection. Writes progress to localStorage.
 // @FIX(v05) MANICURE-AUDIT-003: Replaced hardcoded #00FF88 (Cyber Green) with emerald-500 Tailwind tokens.
+// @SECURITY_FIX (GEMINI-AUDIT-058) v06: Migrated from error-registry (server-only) to error-registry-client.
+//   Prevents internal metadata (file paths, GUIDs, function names) from being bundled into client JS.
 
 "use client";
 
@@ -28,7 +30,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
-import { ERRORS } from "@/lib/error-registry";
+// @SECURITY_FIX (GEMINI-AUDIT-058): Use client-safe registry — no internal metadata in client bundle.
+import { CLIENT_ERRORS } from "@/lib/error-registry-client";
 import { createTracedError, logTracedError } from "@/lib/traced-error";
 
 // GUID: PAGE_ONBOARDING-001
@@ -180,7 +183,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (predictionsError) {
-      const traced = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+      const traced = createTracedError(CLIENT_ERRORS.FIRESTORE_READ_FAILED, {
         context: { route: "/onboarding", action: "predictions_auto_detect", userId: user?.id },
         cause: predictionsError instanceof Error ? predictionsError : undefined,
       });

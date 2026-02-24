@@ -204,12 +204,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // GUID: API_SUBMIT_PREDICTION-005a-v01
+    // GUID: API_SUBMIT_PREDICTION-005a-v02
     // [Intent] Normalize raceId to Title-Case format (e.g., "British-Grand-Prix-Sprint") for consistency.
     //          Client may send any case format, so we enforce single source of truth here.
     // [Inbound Trigger] After all validation passes, before storing prediction.
     // [Downstream Impact] Ensures all predictions use consistent Title-Case race IDs, matching the format
     //                     required for scoring and consistency checking.
+    //
+    // *** IMPORTANT — STORED FORMAT INCLUDES THE -GP SUFFIX ***
+    // generateRaceId produces "Australian-Grand-Prix-GP" (WITH the -GP suffix).
+    // This is intentional. The calculate-scores engine normalizes this stored value
+    // at lookup time (strips -GP via normalizeRaceId) so both sides match.
+    // DO NOT change this to strip -GP before storing — the scoring engine expects
+    // it and normalizes both sides symmetrically. (GEMINI-AUDIT-131: false alarm)
+    // NOTE: Carry-forward predictions (created by calculate-scores) are stored
+    // WITHOUT the -GP suffix. Both formats are handled. (GEMINI-AUDIT-132: fixed)
     const isSprintRace = raceId.toLowerCase().includes('sprint') || raceName.toLowerCase().includes('sprint');
     const baseRaceName = raceName.replace(/\s*-\s*(GP|Sprint)\s*$/i, '').trim();
     const normalizedRaceId = generateRaceId(baseRaceName, isSprintRace ? 'sprint' : 'gp');

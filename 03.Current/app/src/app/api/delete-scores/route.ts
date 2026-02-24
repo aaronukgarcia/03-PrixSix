@@ -103,8 +103,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For prediction lookup: strips -GP suffix, preserves -Sprint (matches stored prediction raceId)
-    const normalizedRaceId = normalizeRaceId(raceId);
+    // *** IMPORTANT — TWO PREDICTION FORMATS EXIST IN FIRESTORE (both must be deleted) ***
+    // User-submitted predictions store raceId WITH -GP suffix:  "Australian-Grand-Prix-GP"
+    // Carry-forward predictions store raceId WITHOUT -GP suffix: "Australian-Grand-Prix"
+    // This is a known, intentional asymmetry — see normalize-race-id.ts for full explanation.
+    // We derive both formats here and run dual collectionGroup queries below to catch all docs.
+    // (GEMINI-AUDIT-132: this dual-query was the real fix; GEMINI-AUDIT-131: scoring false alarm)
+    const normalizedRaceId = normalizeRaceId(raceId); // strips -GP → "Australian-Grand-Prix"
 
     // GUID: API_DELETE_SCORES-006-v05
     // @SECURITY_FIX: Added cascade deletion for predictions (ADMINCOMP-023).

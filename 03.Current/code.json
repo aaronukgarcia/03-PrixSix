@@ -37303,7 +37303,7 @@
     },
     {
       "guid": "API_CALCULATE_SCORES-004",
-      "version": 4,
+      "version": 5,
       "logic_category": "TRANSFORMATION",
       "description": "Normalises a raceId/raceName by stripping GP/Sprint suffixes and collapsing whitespace to hyphens, so predictions filed under the base race name can be matched.",
       "dependencies": [
@@ -37370,7 +37370,8 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-13T01:18:16Z"
+      "lastUpdated": "2026-02-24T00:00:00Z",
+      "designNote": "DESIGN NOTE (GEMINI-AUDIT-131): normalizeRaceIdForPredictions alias of normalizeRaceId intentionally strips -GP. Applied to BOTH the admin raceName (line 133) and each stored prediction raceId (line 210) before comparison — both sides arrive at the same stripped key. See normalize-race-id.ts for full audit history."
     },
     {
       "guid": "API_CALCULATE_SCORES-005",
@@ -38639,7 +38640,7 @@
     },
     {
       "guid": "API_DELETE_SCORES-005",
-      "version": 3,
+      "version": 5,
       "logic_category": "VALIDATION",
       "description": "Parses the request body and validates that a raceId is provided, then normalises it to match the stored score format.",
       "dependencies": [
@@ -38689,7 +38690,8 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-10T17:46:33Z"
+      "lastUpdated": "2026-02-24T00:00:00Z",
+      "designNote": "DESIGN NOTE (GEMINI-AUDIT-131/132): Two prediction raceId formats exist: user-submitted WITH -GP suffix, carry-forward WITHOUT -GP suffix. Both formats are queried here via dual collectionGroup calls to prevent orphaned predictions. This is the correct fix for GEMINI-AUDIT-132 and is unrelated to the scoring false alarm (GEMINI-AUDIT-131)."
     },
     {
       "guid": "API_DELETE_SCORES-006",
@@ -45260,7 +45262,8 @@
         "calls": []
       },
       "created": "2026-01-19T01:12:05Z",
-      "lastUpdated": "2026-02-17T22:33:06Z"
+      "lastUpdated": "2026-02-24T00:00:00Z",
+      "designNote": "DESIGN NOTE (GEMINI-AUDIT-131, 2026-02-24): predictions are stored with raceId in the WITH-SUFFIX format (\"Australian-Grand-Prix-GP\") via generateRaceId. The scoring engine normalizes this at lookup time. Carry-forward predictions (created by calculate-scores) store raceId WITHOUT the -GP suffix. Both formats are handled by dual collectionGroup queries in delete-scores (GEMINI-AUDIT-132). See normalize-race-id.ts for full design rationale."
     },
     {
       "guid": "API_SUBMIT_PREDICTION-007",
@@ -75837,7 +75840,7 @@
     },
     {
       "guid": "LIB_NORMALIZE_RACE_ID-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Single source of truth for race ID normalisation. Exports normalizeRaceId() (canonical, preserves case) and normalizeRaceIdForComparison() (lowercased, for cross-collection matching). Eliminates duplicated logic across scoring.ts, consistency.ts, calculate-scores/route.ts, delete-scores/route.ts, and ResultsManager.tsx.",
       "dependencies": [],
@@ -75870,7 +75873,8 @@
         "calls": []
       },
       "created": "2026-01-31T10:28:33Z",
-      "lastUpdated": "2026-02-12T23:56:09Z"
+      "lastUpdated": "2026-02-24T00:00:00Z",
+      "designNote": "DESIGN NOTE (GEMINI-AUDIT-131, 2026-02-24): The -GP suffix asymmetry between storage (generateRaceId appends -GP) and lookup (normalizeRaceId strips -GP) is INTENTIONAL and CORRECT. Both sides of the scoring comparison pass through normalizeRaceId, so both arrive at the same stripped key. Changing normalizeRaceId to preserve -GP would break Sprint carry-forward scoring (calculate-scores lines 251-259 derive the GP base key by stripping -Sprint; GP predictions must be keyed without -GP for this to work). Gemini-AUDIT-131 flagged this as a critical bug — it is a false alarm. Do not apply Gemini proposed fix."
     },
     {
       "guid": "LIB_PLACEHOLDER_IMAGES-000",
