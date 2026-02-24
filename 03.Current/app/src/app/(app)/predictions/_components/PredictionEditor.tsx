@@ -684,9 +684,26 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                 </Badge>
             </div>
             {!isLocked && (
+              <>
+                {/* GUID: COMPONENT_PREDICTION_EDITOR-023-v01
+                    @UX(VIRGIN-009): Prominent deadline display shown near the submit button when the pit
+                    lane is open. Surfaces the exact qualifying datetime so users know precisely when
+                    their window closes, addressing the virgin audit finding that deadline info was buried
+                    in the closure alert only.
+                    [Intent] Render the qualifying deadline as a human-readable local datetime string
+                             directly below the submit button row while the pit lane is open.
+                    [Inbound Trigger] Rendered only when isLocked is false (pit lane open).
+                    [Downstream Impact] Pure display — reads qualifyingTime prop, no state side effects. */}
+                <p className="text-xs font-medium text-amber-400">
+                  Deadline: {new Date(qualifyingTime).toLocaleString(undefined, {
+                    weekday: 'short', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+                  })}
+                </p>
                 <p className="text-xs text-muted-foreground">
                     Your prediction will stand until you edit it. You can change your picks anytime before the pit closes.
                 </p>
+              </>
             )}
         </CardFooter>
       </Card>

@@ -1,10 +1,11 @@
-// GUID: PAGE_SIGNUP-000-v04
+// GUID: PAGE_SIGNUP-000-v05
 // [Intent] Signup page for Prix Six. Allows new players to register with a team name,
 //          email, and 6-digit PIN. Includes weak PIN rejection and fun team name suggestions.
 // [Inbound Trigger] User navigates to /signup from the login page link.
 // [Downstream Impact] Successful signup calls useAuth().signup which creates Firebase Auth user
 //                     and Firestore user document, then redirects to /login.
 // @FIX(v04) VIRGIN-003: Replaced vague tagline with descriptive value proposition for new visitors.
+// @FIX(v05) VIRGIN-004: Added privacy policy / terms of service consent text near signup button.
 
 "use client";
 
@@ -353,6 +354,16 @@ export default function SignupPage() {
                         <Button type="submit" className="w-full" disabled={loading}>
                             {loading ? "Registering..." : "Sign Up"}
                         </Button>
+
+                        {/* GUID: PAGE_SIGNUP-012-v01
+                            [Intent] GDPR/legal consent notice shown below the Sign Up button. Informs
+                                     users that account creation implies acceptance of the Privacy Policy
+                                     and Terms of Service. Required for VIRGIN-004 compliance.
+                            [Inbound Trigger] Always visible when the signup form is rendered.
+                            [Downstream Impact] Pure informational UI — no state changes, no data flow. */}
+                        <p className="text-xs text-center text-muted-foreground">
+                            By creating an account, you agree to our Privacy Policy and Terms of Service.
+                        </p>
                     </form>
                 </Form>
                 {/* GUID: PAGE_SIGNUP-010-v03

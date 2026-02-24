@@ -1,4 +1,4 @@
-// GUID: PAGE_LOGIN-000-v05
+// GUID: PAGE_LOGIN-000-v06
 // [Intent] Login page for Prix Six. Authenticates users via email + 6-digit PIN,
 //          displays version number, and redirects to dashboard on success.
 // [Inbound Trigger] User navigates to /login or root route (/ renders this page).
@@ -6,6 +6,8 @@
 //                     Failed login displays selectable error with correlation ID.
 // @FIX(v04) Added "Formula 1 Prediction Game" tagline to CardDescription for clearer value prop.
 // @FIX(v05) VIRGIN-001: Expanded CardDescription with full value proposition for new visitors.
+// @SECURITY_FIX(v06) BOW-ZQyNrzzX4G7Yvzj6hM97: Replace raw e.message in catch blocks with
+//                    CLIENT_ERRORS generic messages + correlationId (login, Google, Apple paths).
 
 "use client";
 
@@ -41,6 +43,8 @@ import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { GoogleIcon, AppleIcon } from "@/components/icons/OAuthIcons";
+import { generateClientCorrelationId } from "@/lib/error-codes";
+import { CLIENT_ERRORS } from "@/lib/error-registry-client";
 
 
 // GUID: PAGE_LOGIN-001-v03
@@ -90,12 +94,14 @@ export default function LoginPage() {
         },
     });
 
-    // GUID: PAGE_LOGIN-003-v03
+    // GUID: PAGE_LOGIN-003-v04
     // [Intent] Form submission handler — calls login API, manages submit/redirect states,
     //          and displays error with correlation ID on failure.
     // [Inbound Trigger] User clicks "Sign In" button and form validation passes.
     // [Downstream Impact] Success: sets isRedirecting, pushes to /dashboard.
     //                     Failure: shows destructive toast and inline error with Ref ID.
+    // @SECURITY_FIX(v04) BOW-ZQyNrzzX4G7Yvzj6hM97: catch block now uses CLIENT_ERRORS + correlationId
+    //                    instead of raw e.message to prevent internal exception detail disclosure.
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setError(null);
         setIsSubmitting(true);
@@ -115,21 +121,26 @@ export default function LoginPage() {
                  setIsSubmitting(false);
             }
         } catch (e: any) {
-             setError(e.message);
-             toast({
+            // SECURITY (BOW-ZQyNrzzX4G7Yvzj6hM97): Do not expose raw e.message — could leak
+            // Firebase error codes or internal exception details to the client.
+            if (process.env.NODE_ENV !== 'production') console.error('[LoginPage] onSubmit catch:', e);
+            const cid = generateClientCorrelationId();
+            setError(`${CLIENT_ERRORS.UNKNOWN_ERROR.message} [${CLIENT_ERRORS.UNKNOWN_ERROR.code}] (Ref: ${cid})`);
+            toast({
                 variant: "destructive",
                 title: "Login Failed",
-                description: e.message,
+                description: `${CLIENT_ERRORS.UNKNOWN_ERROR.message} (${CLIENT_ERRORS.UNKNOWN_ERROR.code})`,
             });
             setIsSubmitting(false);
         }
     }
 
-    // GUID: PAGE_LOGIN-004-v03
+    // GUID: PAGE_LOGIN-004-v04
     // [Intent] Handle Google OAuth sign-in. If the user's email already has a PIN account,
     //          show linking dialog instead of auto-linking.
     // [Inbound Trigger] User clicks "Continue with Google" button.
     // [Downstream Impact] On success, redirects to /dashboard or /complete-profile (new users).
+    // @SECURITY_FIX(v04) BOW-ZQyNrzzX4G7Yvzj6hM97: catch block replaced raw e.message with CLIENT_ERRORS.
     async function handleGoogleSignIn() {
         setError(null);
         setIsGoogleLoading(true);
@@ -147,16 +158,20 @@ export default function LoginPage() {
                 setError(result.message);
             }
         } catch (e: any) {
-            setError(e.message);
+            // SECURITY (BOW-ZQyNrzzX4G7Yvzj6hM97): Do not expose raw OAuth exception messages.
+            if (process.env.NODE_ENV !== 'production') console.error('[LoginPage] handleGoogleSignIn catch:', e);
+            const cid = generateClientCorrelationId();
+            setError(`${CLIENT_ERRORS.AUTH_OAUTH_PROVIDER_ERROR.message} [${CLIENT_ERRORS.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${cid})`);
         } finally {
             setIsGoogleLoading(false);
         }
     }
 
-    // GUID: PAGE_LOGIN-005-v03
+    // GUID: PAGE_LOGIN-005-v04
     // [Intent] Handle Apple OAuth sign-in with same linking-dialog pattern as Google.
     // [Inbound Trigger] User clicks "Continue with Apple" button.
     // [Downstream Impact] Same as handleGoogleSignIn.
+    // @SECURITY_FIX(v04) BOW-ZQyNrzzX4G7Yvzj6hM97: catch block replaced raw e.message with CLIENT_ERRORS.
     async function handleAppleSignIn() {
         setError(null);
         setIsAppleLoading(true);
@@ -171,7 +186,10 @@ export default function LoginPage() {
                 setError(result.message);
             }
         } catch (e: any) {
-            setError(e.message);
+            // SECURITY (BOW-ZQyNrzzX4G7Yvzj6hM97): Do not expose raw OAuth exception messages.
+            if (process.env.NODE_ENV !== 'production') console.error('[LoginPage] handleAppleSignIn catch:', e);
+            const cid = generateClientCorrelationId();
+            setError(`${CLIENT_ERRORS.AUTH_OAUTH_PROVIDER_ERROR.message} [${CLIENT_ERRORS.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${cid})`);
         } finally {
             setIsAppleLoading(false);
         }
