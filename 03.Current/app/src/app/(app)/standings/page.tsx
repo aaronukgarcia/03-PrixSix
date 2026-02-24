@@ -1,4 +1,4 @@
-// GUID: PAGE_STANDINGS-000-v03
+// GUID: PAGE_STANDINGS-000-v04
 // [Intent] Season Standings page — displays cumulative league standings after each race weekend,
 //   with race-by-race selection, season progression chart, rank change indicators, and pagination.
 // [Inbound Trigger] Navigation to /standings route by authenticated user.
@@ -23,8 +23,9 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule } from "@/lib/data";
 import { generateRaceId } from "@/lib/normalize-race-id";
-import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair } from "lucide-react";
+import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
@@ -189,6 +190,7 @@ export default function StandingsPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
 
   // Track previous completed race count for auto-focus on new races
   const prevCompletedCountRef = useRef<number>(0);
@@ -916,6 +918,102 @@ export default function StandingsPage() {
             </div>
           </div>
         )}
+
+        {/* GUID: PAGE_STANDINGS-023-v01
+            [Intent] Collapsible "Table Guide" legend explaining all visual indicators in the standings
+              table: rank badges (gold/silver/bronze), rank change arrows, race winner badge, defending
+              champion badge, and column definitions (Old Overall, New Overall, Sprint, Gap).
+            [Inbound Trigger] User clicks the "Table Guide" trigger button to expand/collapse the legend.
+            [Downstream Impact] Pure presentational — no data fetching or state side-effects beyond
+              isLegendOpen toggle. Does not affect table layout or pagination. */}
+        <Collapsible open={isLegendOpen} onOpenChange={setIsLegendOpen}>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span>Table Guide</span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isLegendOpen ? "rotate-180" : ""}`} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                {/* Rank badges */}
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700 shrink-0">
+                    <Trophy className="h-3 w-3 mr-0.5" />1st
+                  </Badge>
+                  <span className="text-muted-foreground">Gold badge — 1st place</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 shrink-0">
+                    <Medal className="h-3 w-3 mr-0.5" />2nd
+                  </Badge>
+                  <span className="text-muted-foreground">Silver badge — 2nd place</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700 shrink-0">
+                    <Medal className="h-3 w-3 mr-0.5" />3rd
+                  </Badge>
+                  <span className="text-muted-foreground">Bronze badge — 3rd place</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1 py-0 text-[9px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700 shrink-0">
+                    Winner
+                  </Badge>
+                  <span className="text-muted-foreground">Team with most points in that race</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="px-1.5 py-0 text-[9px] bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700 shrink-0">
+                    <Crown className="h-3 w-3 mr-0.5 inline" />2025 Champion
+                  </Badge>
+                  <span className="text-muted-foreground">Defending 2025 season champion</span>
+                </div>
+                {/* Rank change arrows */}
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-0.5 shrink-0">
+                    <ChevronsUp className="h-4 w-4 text-green-500" />
+                  </span>
+                  <span className="text-muted-foreground">Jumped 2+ positions up</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ArrowUp className="h-4 w-4 text-green-500 shrink-0" />
+                  <span className="text-muted-foreground">Moved up 1 position</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Minus className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">No change in position</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ArrowDown className="h-4 w-4 text-red-500 shrink-0" />
+                  <span className="text-muted-foreground">Moved down 1 position</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ChevronsDown className="h-4 w-4 text-red-500 shrink-0" />
+                  <span className="text-muted-foreground">Dropped 2+ positions</span>
+                </div>
+                {/* Column definitions */}
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-foreground shrink-0 w-24">Old Overall</span>
+                  <span className="text-muted-foreground">Points before the selected race</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-foreground shrink-0 w-24">New Overall</span>
+                  <span className="text-muted-foreground">Cumulative total including selected race</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="flex items-center gap-1 font-medium text-foreground shrink-0 w-24">
+                    <Zap className="h-3 w-3" />Sprint
+                  </span>
+                  <span className="text-muted-foreground">Points from the sprint race (sprint weekends only)</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-foreground shrink-0 w-24">Gap</span>
+                  <span className="text-muted-foreground">Points behind the team directly above</span>
+                </div>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Progress indicator */}
         {!isLoading && totalItems > PAGE_SIZE && (

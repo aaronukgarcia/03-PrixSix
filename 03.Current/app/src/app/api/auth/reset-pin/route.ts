@@ -1,10 +1,13 @@
-// GUID: API_AUTH_RESET_PIN-000-v07
+// GUID: API_AUTH_RESET_PIN-000-v08
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // @SECURITY_FIX: email_logs now stores masked PIN (EMAIL-006) — plaintext PIN is only in the
 //   mail collection (consumed by the email service) and never persisted to admin-readable logs.
 // @SECURITY_FIX: Applied constant-time minimum delay to ALL return paths to prevent timing-based
 //   email enumeration (API-006). The startTime/TARGET_MIN_DURATION pattern now guards every exit
 //   point — not just the "user not found" branch.
+// @SECURITY_FIX (GEMINI-AUDIT-126): email_logs HTML now uses "[REDACTED]" in place of the PIN
+//   value to prevent admin log-viewers from recovering a user's temporary PIN and performing
+//   unauthorized account takeover.
 // [Intent] Server-side API route that handles PIN reset requests: validates the email, generates a new random 6-digit PIN, updates Firebase Auth, marks the user as mustChangePin, queues a reset email, and logs the action. Returns a generic success message regardless of whether the email exists to prevent enumeration attacks.
 // [Inbound Trigger] POST request from the client-side PIN reset form.
 // [Downstream Impact] Updates the user's password in Firebase Auth, sets mustChangePin=true on the Firestore user document, writes to the mail collection (consumed by the email sending service), writes to email_logs and audit_logs collections.
@@ -154,29 +157,32 @@ export async function POST(request: NextRequest) {
       mustChangePin: true,
     });
 
-    // GUID: API_AUTH_RESET_PIN-007-v04
+    // GUID: API_AUTH_RESET_PIN-007-v05
     // @SECURITY_FIX: email_logs now stores masked PIN (EMAIL-006). The mail collection document
-    //   retains the real PIN for email delivery, but the admin-readable log stores '••••••' to
+    //   retains the real PIN for email delivery, but the admin-readable log stores '[REDACTED]' to
     //   prevent admins from recovering a user's temporary PIN from audit logs.
+    // @SECURITY_FIX (GEMINI-AUDIT-126): Changed PIN masking in email_logs from '••••••' to
+    //   '[REDACTED]' — explicit string is unambiguous and cannot be mistaken for partial data.
+    //   The mail collection document is unchanged (real PIN required for email delivery).
     // [Intent] Queue the PIN reset email by writing to the mail collection (consumed by the email sending service) and log the email to the email_logs collection for auditing and debugging.
     // [Inbound Trigger] Runs after mustChangePin is set on the user document.
-    // [Downstream Impact] The mail collection document is picked up by the email sending Cloud Function or service. The email_logs entry provides a record for admin review. The logged HTML masks the PIN.
+    // [Downstream Impact] The mail collection document is picked up by the email sending Cloud Function or service. The email_logs entry provides a record for admin review. The logged HTML redacts the PIN.
     // Queue the email
     const mailHtml = `Hello,<br><br>A PIN reset was requested for your Prix Six account.<br><br>Your temporary PIN is: <strong>${newPin}</strong><br><br>You will be required to change this PIN after logging in.<br><br>If you did not request this, please contact support immediately.`;
     const mailSubject = "Your Prix Six PIN has been reset";
-    // SECURITY: Mask PIN in email_logs — admin-visible log never stores plaintext credentials (EMAIL-006)
-    const mailHtmlMasked = mailHtml.replace(`<strong>${newPin}</strong>`, '<strong>••••••</strong>');
+    // SECURITY: Redact PIN in email_logs — admin-visible log never stores plaintext credentials (GEMINI-AUDIT-126)
+    const mailHtmlRedacted = mailHtml.replace(`<strong>${newPin}</strong>`, '<strong>[REDACTED]</strong>');
 
     await db.collection('mail').add({
       to: normalizedEmail,
       message: { subject: mailSubject, html: mailHtml },
     });
 
-    // Log the email (with masked PIN)
+    // Log the email (with redacted PIN — GEMINI-AUDIT-126)
     await db.collection('email_logs').add({
       to: normalizedEmail,
       subject: mailSubject,
-      html: mailHtmlMasked,
+      html: mailHtmlRedacted,
       status: 'queued',
       timestamp: FieldValue.serverTimestamp(),
     });

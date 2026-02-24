@@ -1,9 +1,25 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-02-24",
-  "total_guids": 1060,
+  "total_guids": 1068,
   "guids": [
     {
+      "guid": "RACE_SCHEDULE_RULES-001",
+      "version": 4,
+      "logic_category": "SECURITY",
+      "description": "Firestore security rules for race_schedule collection (public F1 calendar data). Explicit rule documents allow for public reads (pitlane lock calculations) and admin-only writes. Bumped to v04 on GEMINI-001 fix (deleted orphan app/src/firebase/firestore/rules).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-02-20T00:00:00.000000Z",
+      "lastUpdated": "2026-02-24T00:00:00.000000Z"
+    },
+  {
       "guid": "ADMIN_ATTACK_MONITOR-000",
       "version": 6,
       "logic_category": "ORCHESTRATION",
@@ -34887,7 +34903,7 @@
     },
     {
       "guid": "API_AUTH_RESET_PIN-000",
-      "version": 7,
+      "version": 8,
       "logic_category": "ORCHESTRATION",
       "description": "Server-side API route that handles PIN reset requests: validates the email, generates a new random 6-digit PIN, updates Firebase Auth, marks the user as mustChangePin, queues a reset email, and logs the action. Returns a generic success message regardless of whether the email exists to prevent enumeration attacks.",
       "dependencies": [
@@ -34953,7 +34969,7 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "API_AUTH_RESET_PIN-001",
@@ -35373,7 +35389,7 @@
     },
     {
       "guid": "API_AUTH_RESET_PIN-007",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "Queue the PIN reset email by writing to the mail collection (consumed by the email sending service) and log the email to the email_logs collection for auditing and debugging.",
       "dependencies": [
@@ -35438,7 +35454,7 @@
         "calls": []
       },
       "created": "2026-01-22T18:51:23Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "API_AUTH_RESET_PIN-008",
@@ -53672,8 +53688,12 @@
         "filePath": "app/src/components/layout/AppSidebar.tsx"
       },
       "callChain": {
-        "calledBy": ["COMPONENT_APP_SIDEBAR-002"],
-        "calls": ["PAGE_ONBOARDING-000"]
+        "calledBy": [
+          "COMPONENT_APP_SIDEBAR-002"
+        ],
+        "calls": [
+          "PAGE_ONBOARDING-000"
+        ]
       },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
@@ -54814,9 +54834,9 @@
     },
     {
       "guid": "COMPONENT_DASHBOARD_CLIENT-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Client-side dashboard component providing real-time countdown to qualifying,",
+      "description": "Client-side dashboard component providing real-time countdown to qualifying, dismissible how-to-play welcome card (VIRGIN-005), compact prediction-status stats row (VIRGIN-006), deadline urgency warnings, and pit lane status.",
       "dependencies": [
         "LIB_DATA-000",
         "LIB_DATA-001",
@@ -54848,7 +54868,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "COMPONENT_DASHBOARD_CLIENT-001",
@@ -55119,6 +55139,47 @@
       },
       "created": "2026-01-18T19:25:01Z",
       "lastUpdated": "2026-01-30T17:28:25Z"
+    },
+    {
+      "guid": "COMPONENT_DASHBOARD_CLIENT-008",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "localStorage key constant and dismissible how-to-play welcome card for new users (VIRGIN-005). Shows three numbered steps explaining Prix Six game mechanics. Dismissed via 'Got it' button; persists to localStorage key 'prix6_welcome_seen'.",
+      "dependencies": [
+        "COMPONENT_DASHBOARD_CLIENT-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/DashboardClient.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "COMPONENT_DASHBOARD_CLIENT-004"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_DASHBOARD_CLIENT-009",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Compact stats row showing prediction status for the current race (VIRGIN-006). Displays a Badge with 'Prediction submitted' (green) or 'No prediction yet' (muted) based on hasPrediction; shows loading state while Firestore resolves.",
+      "dependencies": [
+        "COMPONENT_DASHBOARD_CLIENT-000",
+        "COMPONENT_DASHBOARD_CLIENT-006"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/DashboardClient.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "COMPONENT_DASHBOARD_CLIENT-004"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "COMPONENT_EMAIL_BANNER-000",
@@ -56619,9 +56680,9 @@
     },
     {
       "guid": "COMPONENT_PREDICTION_EDITOR-000",
-      "version": 5,
+      "version": 6,
       "logic_category": "ORCHESTRATION",
-      "description": "PredictionEditor component: the core prediction interface where users select, reorder, and submit their top-6 driver predictions for a race. Also provides AI-powered analysis with configurable weights, countdown timer, apply-to-all-teams option, and a change log.",
+      "description": "PredictionEditor component: the core prediction interface where users select, reorder, and submit their top-6 driver predictions for a race. Also provides AI-powered analysis with configurable weights, countdown timer, apply-to-all-teams option, and a change log. v06: Added F1 jargon tooltips (VIRGIN-007) for grid, Pit Lane, and Qualifying terms via JargonTip helper.",
       "dependencies": [
         "LIB_DATA-000",
         "LIB_DATA-001",
@@ -56734,11 +56795,13 @@
           "COMPONENT_OAUTH_ICONS-000",
           "ADMIN_WHATSAPP-023",
           "BACKUP_DASHBOARD-004",
-          "LIB_RESULTS_UTILS-016"
+          "LIB_RESULTS_UTILS-016",
+          "COMPONENT_PREDICTION_EDITOR-021",
+          "COMPONENT_PREDICTION_EDITOR-022"
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "COMPONENT_PREDICTION_EDITOR-001",
@@ -59095,6 +59158,50 @@
       },
       "created": "2026-02-23T00:00:00Z",
       "lastUpdated": "2026-02-23T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_PREDICTION_EDITOR-021",
+      "version": 1,
+      "logic_category": "PRESENTATION",
+      "description": "VIRGIN-007: JargonTip inline helper component. Renders a small Info icon that shows an F1 jargon definition on hover via Radix UI Tooltip. Used next to grid, Pit Lane, and Qualifying text in PredictionEditor. Pure UI — no state, no data fetch.",
+      "dependencies": [
+        "UI_TOOLTIP-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/PredictionEditor.tsx",
+        "functionName": "JargonTip"
+      },
+      "callChain": {
+        "calledBy": [
+          "COMPONENT_PREDICTION_EDITOR-019",
+          "COMPONENT_PREDICTION_EDITOR-022"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_PREDICTION_EDITOR-022",
+      "version": 1,
+      "logic_category": "PRESENTATION",
+      "description": "VIRGIN-007: Tooltip instances in PredictionEditor render output. Adds JargonTip icons next to 'grid' in the CardDescription (both locked and unlocked states) and next to 'PIT CLOSED'/'PIT OPEN' in the footer badge.",
+      "dependencies": [
+        "COMPONENT_PREDICTION_EDITOR-021"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/PredictionEditor.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "COMPONENT_PREDICTION_EDITOR-019"
+        ],
+        "calls": [
+          "COMPONENT_PREDICTION_EDITOR-021"
+        ]
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "COMPONENT_SECURITY_UPGRADE-000",
@@ -88409,9 +88516,9 @@
     },
     {
       "guid": "PAGE_PREDICTIONS-000",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "Predictions page - allows users to view, submit, and edit their driver predictions",
+      "description": "Predictions page - allows users to view, submit, and edit their driver predictions. v05: Added F1 jargon tooltips (VIRGIN-007) for 'Set your grid' and 'Qualifying has started' terms.",
       "dependencies": [
         "LIB_DATA-000",
         "LIB_DATA-001",
@@ -88477,11 +88584,13 @@
           "ADMIN_ONLINE_USERS-014",
           "COMPONENT_SECURITY_UPGRADE-000",
           "COMPONENT_PREDICTION_EDITOR-000",
-          "COMPONENT_PREDICTION_EDITOR-005"
+          "COMPONENT_PREDICTION_EDITOR-005",
+          "PAGE_PREDICTIONS-014",
+          "PAGE_PREDICTIONS-015"
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T19:14:37Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "PAGE_PREDICTIONS-001",
@@ -88636,6 +88745,48 @@
       },
       "created": "2026-01-18T19:25:01Z",
       "lastUpdated": "2026-02-17T19:14:37Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-014",
+      "version": 1,
+      "logic_category": "PRESENTATION",
+      "description": "VIRGIN-007: 'Set your grid' tooltip in the page subheading. Renders an inline Info icon via Radix UI Tooltip next to 'Set your grid' to help new users understand the term grid means the race starting order.",
+      "dependencies": [
+        "UI_TOOLTIP-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "PredictionsContent"
+      },
+      "callChain": {
+        "calledBy": [
+          "PAGE_PREDICTIONS-001"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-015",
+      "version": 1,
+      "logic_category": "PRESENTATION",
+      "description": "VIRGIN-007: 'Qualifying has started' tooltip in the Pit Lane Closed alert. Renders an inline Info icon via Radix UI Tooltip next to 'Qualifying' to explain to new users that qualifying is the time-trial session determining grid positions.",
+      "dependencies": [
+        "UI_TOOLTIP-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "PredictionsContent"
+      },
+      "callChain": {
+        "calledBy": [
+          "PAGE_PREDICTIONS-001"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "PAGE_PROFILE-000",
@@ -92303,9 +92454,9 @@
     },
     {
       "guid": "PAGE_STANDINGS-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Season Standings page â€” displays cumulative league standings after each race weekend,",
+      "description": "Season Standings page â€\" displays cumulative league standings after each race weekend,",
       "dependencies": [
         "LEAGUE_CONTEXT-000",
         "LIB_DATA-000",
@@ -92380,17 +92531,18 @@
           "ADMIN_ONLINE_USERS-011",
           "ADMIN_ONLINE_USERS-012",
           "ADMIN_ONLINE_USERS-013",
-          "ADMIN_ONLINE_USERS-014"
+          "ADMIN_ONLINE_USERS-014",
+          "PAGE_STANDINGS-023"
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T19:16:44Z"
+      "lastUpdated": "2026-02-24T00:00:00Z"
     },
     {
       "guid": "PAGE_STANDINGS-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Visual indicator for rank changes between race weekends â€” shows arrows/chevrons based",
+      "description": "Visual indicator for rank changes between race weekends â€\" shows arrows/chevrons based",
       "dependencies": [
         "LEAGUE_CONTEXT-000",
         "LIB_DATA-000",
@@ -92476,7 +92628,7 @@
       "guid": "PAGE_STANDINGS-002",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Badge for top-3 ranked teams â€” gold for 1st, silver for 2nd, bronze for 3rd.",
+      "description": "Badge for top-3 ranked teams â€\" gold for 1st, silver for 2nd, bronze for 3rd.",
       "dependencies": [
         "LEAGUE_CONTEXT-000",
         "LIB_DATA-000",
@@ -92990,7 +93142,7 @@
       "guid": "PAGE_STANDINGS-008",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Type for a completed race weekend â€” tracks base, sprint, and GP race IDs along with",
+      "description": "Type for a completed race weekend â€\" tracks base, sprint, and GP race IDs along with",
       "dependencies": [
         "LEAGUE_CONTEXT-000",
         "LIB_DATA-000",
@@ -93161,7 +93313,7 @@
       "guid": "PAGE_STANDINGS-010",
       "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Main Standings page component â€” subscribes to scores in real-time, computes cumulative",
+      "description": "Main Standings page component â€\" subscribes to scores in real-time, computes cumulative",
       "dependencies": [
         "LEAGUE_CONTEXT-000",
         "LIB_DATA-000",
@@ -93244,10 +93396,30 @@
       "lastUpdated": "2026-02-17T19:16:44Z"
     },
     {
+      "guid": "PAGE_STANDINGS-023",
+      "version": 1,
+      "logic_category": "PRESENTATION",
+      "description": "Collapsible Table Guide legend explaining all visual indicators in the standings table: rank badges (gold/silver/bronze), rank change arrows (up/down/no-change/double), race winner badge, defending champion badge, and column definitions (Old Overall, New Overall, Sprint, Gap). Defaults closed; expanded on user interaction.",
+      "dependencies": [
+        "PAGE_STANDINGS-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "PAGE_STANDINGS-000"
+        ],
+        "calls": []
+      },
+      "created": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
       "guid": "PAGE_SUBMISSIONS-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Submissions page â€” displays locked-in predictions for all teams for a selected race in a sortable,",
+      "description": "Submissions page â€\" displays locked-in predictions for all teams for a selected race in a sortable,",
       "dependencies": [
         "LEAGUE_CONTEXT-000",
         "LIB_DATA-000",
@@ -94266,7 +94438,7 @@
       "guid": "PAGE_TEAMS-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "Teams page â€” displays all team predictions for a selected race in an expandable accordion.",
+      "description": "Teams page â€\" displays all team predictions for a selected race in an expandable accordion.",
       "dependencies": [
         "LEAGUE_CONTEXT-000",
         "FIREBASE_PROVIDER-000",
@@ -96723,7 +96895,7 @@
       "guid": "PUBCHAT_PANEL-001",
       "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "PubChatPanel component â€” centres the pub chat animation and shows",
+      "description": "PubChatPanel component â€\" centres the pub chat animation and shows",
       "dependencies": [
         "FIRESTORE_SETTINGS-000",
         "BACKUP_ERRORS-001",

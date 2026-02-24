@@ -82,7 +82,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // GUID: RACE_SCHEDULE_RULES-001-v03
+    // @SECURITY_FIX: GEMINI-001 — Deleted orphan app/src/firebase/firestore/rules (stale, less-secure, NOT deployed). Canonical rules are here.
+    // GUID: RACE_SCHEDULE_RULES-001-v04
     // [Intent] Firestore security rules for race_schedule collection (public F1 calendar data).
     //          Resolves FIRESTORE-004 (RECOMMENDATION-001, Firestore Security Audit 2026-02-20).
     //          Converts implicit deny-all to explicit rule, documenting intent for maintainers.

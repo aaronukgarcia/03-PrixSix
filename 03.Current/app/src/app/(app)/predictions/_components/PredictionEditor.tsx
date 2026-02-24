@@ -1,10 +1,11 @@
 
-// GUID: COMPONENT_PREDICTION_EDITOR-000-v05
+// GUID: COMPONENT_PREDICTION_EDITOR-000-v06
 // @SECURITY_FIX: GEMINI-AUDIT-035 — Removed raw error.message exposure in handleSubmit and gated console.error
 //   calls behind NODE_ENV !== 'production' in both handleSubmit and handleAnalysis.
 // @SECURITY_FIX: GEMINI-AUDIT-036 — Added validateWeights() guard in saveWeights to reject invalid weight
 //   values (NaN, Infinity, out-of-range, non-integer) before any Firestore write. Prevents malicious or
 //   corrupted weight values from being persisted to users/{userId}.
+// @UX(VIRGIN-007): Added F1 jargon tooltips for "grid", "Pit Lane", and "Qualifying" to aid new users.
 // [Intent] PredictionEditor component: the core prediction interface where users select, reorder, and submit their top-6 driver predictions for a race. Also provides AI-powered analysis with configurable weights, countdown timer, apply-to-all-teams option, and a change log.
 // [Inbound Trigger] Rendered by the predictions page when a race is selected and the user has an active team.
 // [Downstream Impact] Submits predictions via POST /api/submit-prediction; requests AI analysis via POST /api/ai/analysis; persists AI weights to Firestore users collection. Changes here affect the entire prediction submission flow.
@@ -22,7 +23,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { Driver } from "@/lib/data";
-import { Check, ListCollapse, Timer, Sparkles, Settings2, RotateCcw, Loader2 } from "lucide-react";
+import { Check, ListCollapse, Timer, Sparkles, Settings2, RotateCcw, Loader2, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuth, useFirestore } from "@/firebase";
@@ -570,11 +572,32 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
     }
   };
 
+  // GUID: COMPONENT_PREDICTION_EDITOR-021-v01
+  // @UX(VIRGIN-007): F1 jargon tooltip helper. Inline Info icon that shows a definition on hover.
+  // [Intent] Reusable inline tooltip component for F1 jargon terms. Renders a small Info icon that
+  //   displays the provided definition text on hover/focus, helping new users understand F1-specific
+  //   terminology without cluttering the UI for experienced users.
+  // [Inbound Trigger] Used inline next to "grid", "Pit Lane", and "Qualifying" text in the render output.
+  // [Downstream Impact] Pure UI — no state, no data fetch, no side effects. Only adds hover tooltip elements.
+  const JargonTip = ({ text }: { text: string }) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex items-center cursor-help">
+          <Info className="h-3 w-3 inline text-muted-foreground ml-0.5 align-middle" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs text-xs leading-snug">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+
   // GUID: COMPONENT_PREDICTION_EDITOR-019-v03
   // [Intent] Main render: two-column layout with prediction grid card (left/top) and sidebar (right/bottom) containing available drivers, change log, and AI analysis panel. Full-width AI result card spans below both columns when analysis is active.
   // [Inbound Trigger] Component render cycle; re-renders on state changes to predictions, countdown, weights, analysis, etc.
   // [Downstream Impact] Renders interactive grid slots, available drivers list, submission controls, countdown badge, AI analysis card, and analysis result. All user interactions feed back into the state handlers above.
   return (
+    <TooltipProvider delayDuration={300}>
     <DndPredictionWrapper
       predictions={predictions}
       availableDrivers={availableDrivers}
@@ -586,9 +609,14 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle className="text-xl">{raceName}</CardTitle>
+          {/* GUID: COMPONENT_PREDICTION_EDITOR-022-v01 — @UX(VIRGIN-007): Grid tooltip */}
           <CardDescription className="text-base">
             Prediction for <span className="font-semibold text-accent">{teamName}</span>
-            {isLocked ? " - Grid locked" : " - Select drivers from the list to fill your grid"}
+            {isLocked ? (
+              <> - Grid<JargonTip text="The grid is the starting order for the race. Predict which drivers will start in positions 1–6." /> locked</>
+            ) : (
+              <> - Select drivers from the list to fill your grid<JargonTip text="The grid is the starting order for the race. Predict which drivers will start in positions 1–6." /></>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -646,11 +674,12 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
                     !isLocked && "bg-green-600 hover:bg-green-700"
                   )}
                 >
+                  {/* GUID: COMPONENT_PREDICTION_EDITOR-022-v01 — @UX(VIRGIN-007): Pit Lane tooltip */}
                   <Timer className="h-4 w-4" />
                   {isLocked ? (
-                    <span>PIT CLOSED</span>
+                    <span>PIT CLOSED<JargonTip text="The Pit Lane is the prediction window. It's open until qualifying starts, then closes — so submit your picks before qualifying begins!" /></span>
                   ) : (
-                    <span>PIT OPEN - {countdown}</span>
+                    <span>PIT OPEN<JargonTip text="The Pit Lane is the prediction window. It's open until qualifying starts, then closes — so submit your picks before qualifying begins!" /> - {countdown}</span>
                   )}
                 </Badge>
             </div>
@@ -819,5 +848,6 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
       )}
     </div>
     </DndPredictionWrapper>
+    </TooltipProvider>
   );
 }
