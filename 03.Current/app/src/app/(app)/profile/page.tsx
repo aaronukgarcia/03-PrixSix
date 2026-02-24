@@ -1528,7 +1528,13 @@ export default function ProfilePage() {
                   </form>
                 </Form>
             </div>
-            {!user?.mustChangePin && <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-destructive/50 p-4">
+            {/* GUID: PAGE_PROFILE-043-v03
+                [Intent] Danger zone — Close Account section. Visual separation via large top margin
+                         and destructive background tint warns users this is an irreversible action.
+                [Inbound Trigger] Rendered when user is not in mustChangePin state.
+                [Downstream Impact] Triggers handleCloseAccount on confirmation. Account deletion is permanent.
+                @FIX(v03) MANICURE-AUDIT-007: Added mt-12 and bg-destructive/10 for visual separation on mobile. */}
+            {!user?.mustChangePin && <div className="mt-12 flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-destructive/50 bg-destructive/10 p-4">
                 <div>
                     <h3 className="text-base font-medium text-destructive">Close Account</h3>
                     <p className="text-sm text-muted-foreground">Permanently delete your account and all of your data.</p>
