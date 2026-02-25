@@ -62,11 +62,12 @@ export type PubChatViewMode = 'leaderboard' | 'team-lens' | 'comparison';
 
 interface ThePaddockPubChatProps {
   timingData?: PubChatTimingData | null;
-  viewMode?: PubChatViewMode;       // Section 2/3: which view to render (default: leaderboard)
-  selectedTeam?: string;            // Section 2: team name to focus on (e.g. "Williams")
+  viewMode?: PubChatViewMode;         // Section 2/3: which view to render (default: leaderboard)
+  selectedTeam?: string;              // Section 2: display name (e.g. "Williams")
+  teamDriverNumbers?: number[];       // Section 2: driver numbers from official_teams — precise join key to OpenF1
 }
 
-const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam }: ThePaddockPubChatProps) => {
+const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam, teamDriverNumbers }: ThePaddockPubChatProps) => {
   // Section 3: internal multi-select state for driver comparison
   const [compareSelected, setCompareSelected] = useState<Set<number>>(new Set());
 
@@ -111,9 +112,12 @@ const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam 
     },
   };
 
-  // FEAT-PC-001 Section 2: Team Lens — only show drivers for the selected team, no cross-team fallback
+  // FEAT-PC-001 Section 2: Team Lens — filter by official driver numbers (precise join key) when
+  // provided from official_teams Firestore collection, else fall back to team name string match.
   const lensTeam = selectedTeam || 'Williams';
-  const lensDrivers = drivers.filter(d => d.team.toLowerCase().includes(lensTeam.toLowerCase()));
+  const lensDrivers = (teamDriverNumbers && teamDriverNumbers.length > 0)
+    ? drivers.filter(d => teamDriverNumbers.includes(d.driverNumber))
+    : drivers.filter(d => d.team.toLowerCase().includes(lensTeam.toLowerCase()));
   const leaderMs_ref = drivers.length > 0 ? parseTimeToMs(drivers[0].time) : 0;
 
   // FEAT-PC-001 Section 3: Comparison — driven by internal checkbox state

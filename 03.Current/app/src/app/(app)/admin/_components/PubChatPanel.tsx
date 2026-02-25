@@ -1,4 +1,4 @@
-// GUID: PUBCHAT_PANEL-000-v11
+// GUID: PUBCHAT_PANEL-000-v12
 // @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-PUBCHAT-001): v10→v11: Tightened DOMPurify config on pub chat HTML renderer. Added FORCE_BODY, FORBID_TAGS, FORBID_ATTR. See PUBCHAT_PANEL-038.
 // @UX_IMPROVEMENT: Smart validation - prevent fetching future/invalid sessions BEFORE user clicks.
 // @UX_REDESIGN: Major 4-area collapsible layout overhaul with live leaderboard and today highlighting:
@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/collapsible';
 import { useFirestore, useAuth } from '@/firebase';
 import { getPubChatSettings, PubChatSettings, getPubChatTimingData, PubChatTimingData } from '@/firebase/firestore/settings';
+import { getOfficialTeams, OfficialTeam } from '@/firebase/firestore/official-teams';
 import { Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { generateClientCorrelationId } from '@/lib/error-codes';
@@ -170,6 +171,8 @@ export function PubChatPanel() {
     // FEAT-PC-001 Sections 2 & 3: View mode toggle and team lens / comparison controls
     const [pubChatViewMode, setPubChatViewMode] = useState<PubChatViewMode>('leaderboard');
     const [lensTeam, setLensTeam] = useState<string>('Williams');
+    // official_teams: loaded on mount — used to resolve driver numbers for Team Lens
+    const [officialTeams, setOfficialTeams] = useState<OfficialTeam[]>([]);
 
     // GUID: PUBCHAT_PANEL-030-v09
     // @UX_REDESIGN: Collapsible sections state for 3-column layout.
@@ -225,6 +228,11 @@ export function PubChatPanel() {
     useEffect(() => {
         fetchContent();
     }, [fetchContent]);
+
+    // Load official teams once on mount — Team Lens uses driver numbers as join key to OpenF1
+    useEffect(() => {
+        getOfficialTeams(firestore).then(setOfficialTeams);
+    }, [firestore]);
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -690,15 +698,18 @@ export function PubChatPanel() {
                                                 {mode === 'leaderboard' ? '🏁 Leaderboard' : mode === 'team-lens' ? '🔭 Team Lens' : '⚔️ Compare'}
                                             </Button>
                                         ))}
-                                        {/* Team selector — visible only in team-lens mode */}
+                                        {/* Team selector — visible only in team-lens mode; sourced from official_teams */}
                                         {pubChatViewMode === 'team-lens' && (
                                             <Select value={lensTeam} onValueChange={setLensTeam}>
                                                 <SelectTrigger className="h-8 w-40 text-xs">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {['Williams', 'Red Bull', 'Ferrari', 'Mercedes', 'McLaren', 'Aston Martin', 'Alpine', 'Haas', 'Racing Bulls', 'Kick Sauber', 'Cadillac', 'Audi'].map(t => (
-                                                        <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                                                    {(officialTeams.length > 0
+                                                        ? [...officialTeams].sort((a, b) => a.teamName.localeCompare(b.teamName))
+                                                        : [{ id: 'williams', teamName: 'Williams' }, { id: 'red_bull', teamName: 'Red Bull' }, { id: 'ferrari', teamName: 'Ferrari' }, { id: 'mercedes', teamName: 'Mercedes' }, { id: 'mclaren', teamName: 'McLaren' }, { id: 'aston_martin', teamName: 'Aston Martin' }, { id: 'alpine', teamName: 'Alpine' }, { id: 'haas', teamName: 'Haas' }, { id: 'racing_bulls', teamName: 'Racing Bulls' }, { id: 'audi', teamName: 'Audi' }, { id: 'cadillac', teamName: 'Cadillac' }]
+                                                    ).map(t => (
+                                                        <SelectItem key={t.id} value={t.teamName} className="text-xs">{t.teamName}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
@@ -712,6 +723,7 @@ export function PubChatPanel() {
                                             timingData={timingData}
                                             viewMode={pubChatViewMode}
                                             selectedTeam={lensTeam}
+                                            teamDriverNumbers={officialTeams.find(t => t.teamName === lensTeam)?.drivers.map(d => d.number)}
                                         />
                                     </div>
                                 </CardContent>
