@@ -19,13 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collection, query, where, getDocs, orderBy, getDoc, doc } from "firebase/firestore";
+import { collection, collectionGroup, query, where, getDocs, orderBy, getDoc, doc } from "firebase/firestore";
+import { calculateDriverPoints, SCORING_POINTS } from "@/lib/scoring-rules";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Zap, Flag, Loader2, User, Search, X, TrendingUp, Target, BarChart3 } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { SCORING_POINTS } from "@/lib/scoring-rules";
 import {
     ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
@@ -179,30 +179,86 @@ export default function MyResultsPage() {
         fetchAllTeams();
     }, [firestore]);
 
-    // Compute season leader from all scores
+    // GUID: PAGE_MY_RESULTS-011-v01
+    // @ARCH_CHANGE (SSOT-001): Compute season leader from race_results + predictions in real-time.
+    //   No scores collection read. Carry-forward resolution applied per team per race.
+    // [Intent] Computes total season points for all teams by replaying the scoring engine over
+    //   all race_results and predictions. Used to display the leader line on the chart and the
+    //   user's season rank.
     useEffect(() => {
         if (!firestore) return;
 
         const fetchLeader = async () => {
             try {
-                const scoresSnapshot = await getDocs(collection(firestore, "scores"));
+                const [raceResultsSnap, allPredictionsSnap] = await Promise.all([
+                    getDocs(collection(firestore, "race_results")),
+                    getDocs(collectionGroup(firestore, "predictions")),
+                ]);
 
-                // Aggregate totalPoints per userId
+                if (raceResultsSnap.size === 0) return;
+
+                // Build race results map: resultDocId → top-6 array
+                const raceResultsMap = new Map<string, string[]>();
+                raceResultsSnap.forEach(rDoc => {
+                    const d = rDoc.data();
+                    raceResultsMap.set(rDoc.id.toLowerCase(), [d.driver1, d.driver2, d.driver3, d.driver4, d.driver5, d.driver6]);
+                });
+
+                // Build teamPredictionsByRace: teamId → normalizedRaceId → { predictions, timestamp }
+                const teamPredictionsByRace = new Map<string, Map<string, { predictions: string[]; timestamp: Date }>>();
+                allPredictionsSnap.forEach(predDoc => {
+                    const predData = predDoc.data();
+                    if (!Array.isArray(predData.predictions) || predData.predictions.length !== 6) return;
+                    const pathParts = predDoc.ref.path.split('/');
+                    const userId = pathParts[1];
+                    const teamId: string = predData.teamId || userId;
+                    const timestamp = predData.submittedAt?.toDate?.() || predData.createdAt?.toDate?.() || new Date(0);
+                    const rawRaceId = predData.raceId as string | undefined;
+                    if (!rawRaceId) return;
+                    const predRaceId = rawRaceId.toLowerCase().replace(/-gp$/i, '');
+                    if (!teamPredictionsByRace.has(teamId)) teamPredictionsByRace.set(teamId, new Map());
+                    const teamRaces = teamPredictionsByRace.get(teamId)!;
+                    const existing = teamRaces.get(predRaceId);
+                    if (!existing || timestamp > existing.timestamp) {
+                        teamRaces.set(predRaceId, { predictions: predData.predictions, timestamp });
+                    }
+                });
+
+                // Compute totals and per-race points for every team
                 const totals = new Map<string, number>();
                 const perRace = new Map<string, Map<string, number>>();
 
-                scoresSnapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    const userId = data.userId as string;
-                    const raceId = (data.raceId as string)?.toLowerCase();
-                    const pts = data.totalPoints as number;
+                raceResultsMap.forEach((actualResults, resultDocId) => {
+                    const normalizedResultId = resultDocId.replace(/-gp$/i, '');
+                    teamPredictionsByRace.forEach((raceMap, teamId) => {
+                        let teamPredictions: string[] | null = null;
+                        if (raceMap.has(normalizedResultId)) {
+                            teamPredictions = raceMap.get(normalizedResultId)!.predictions;
+                        } else if (normalizedResultId.endsWith('-sprint')) {
+                            const baseRaceId = normalizedResultId.replace(/-sprint$/, '');
+                            if (raceMap.has(baseRaceId)) teamPredictions = raceMap.get(baseRaceId)!.predictions;
+                        }
+                        if (!teamPredictions) {
+                            let latestTs = new Date(0);
+                            raceMap.forEach(({ predictions, timestamp }) => {
+                                if (timestamp > latestTs) { latestTs = timestamp; teamPredictions = predictions; }
+                            });
+                        }
+                        if (!teamPredictions) return;
 
-                    totals.set(userId, (totals.get(userId) || 0) + pts);
+                        let totalPoints = 0;
+                        let correctCount = 0;
+                        (teamPredictions as string[]).forEach((driverId, predictedPosition) => {
+                            const actualPosition = actualResults.indexOf(driverId);
+                            totalPoints += calculateDriverPoints(predictedPosition, actualPosition);
+                            if (actualPosition !== -1) correctCount++;
+                        });
+                        if (correctCount === 6) totalPoints += SCORING_POINTS.bonusAll6;
 
-                    if (!perRace.has(userId)) {
-                        perRace.set(userId, new Map());
-                    }
-                    perRace.get(userId)!.set(raceId, pts);
+                        totals.set(teamId, (totals.get(teamId) || 0) + totalPoints);
+                        if (!perRace.has(teamId)) perRace.set(teamId, new Map());
+                        perRace.get(teamId)!.set(normalizedResultId, totalPoints);
+                    });
                 });
 
                 if (totals.size === 0) return;
@@ -213,16 +269,17 @@ export default function MyResultsPage() {
                 let leaderId = "";
                 let leaderTotal = -1;
                 for (const [uid, total] of totals) {
-                    if (total > leaderTotal) {
-                        leaderTotal = total;
-                        leaderId = uid;
-                    }
+                    if (total > leaderTotal) { leaderTotal = total; leaderId = uid; }
                 }
 
                 // Resolve leader's team name
-                const leaderDoc = await getDoc(doc(firestore, "users", leaderId));
+                const isSecondaryLeader = leaderId.endsWith('-secondary');
+                const baseLeaderId = isSecondaryLeader ? leaderId.replace('-secondary', '') : leaderId;
+                const leaderDoc = await getDoc(doc(firestore, "users", baseLeaderId));
                 const leaderTeamName = leaderDoc.exists()
-                    ? (leaderDoc.data().teamName as string) || leaderId
+                    ? isSecondaryLeader
+                        ? ((leaderDoc.data().secondaryTeamName as string) || leaderId)
+                        : ((leaderDoc.data().teamName as string) || leaderId)
                     : leaderId;
 
                 setLeaderData({
@@ -336,24 +393,22 @@ export default function MyResultsPage() {
             setIsLoading(true);
 
             try {
-                const [predictionsResult, raceResultsResult, scoresResult] = await Promise.all([
+                const [predictionsResult, raceResultsResult] = await Promise.all([
                     getDocs(query(
                         collection(firestore, "users", user.id, "predictions"),
                         where("teamId", "==", activeTeamId)
                     )),
                     getDocs(collection(firestore, "race_results")),
-                    getDocs(query(
-                        collection(firestore, "scores"),
-                        where("userId", "==", activeTeamId)
-                    )),
                 ]);
 
                 if (cancelled) return;
 
+                // Pass empty array for scoresResult — scores are computed in real-time from
+                // race_results + predictions (SSOT-001: no scores collection).
                 const processed = processResults(
                     predictionsResult.docs,
                     raceResultsResult.docs,
-                    scoresResult.docs,
+                    [],
                 );
 
                 setRaceResults(processed);
@@ -389,16 +444,12 @@ export default function MyResultsPage() {
                     ? `${viewingTeam.userId}-secondary`
                     : viewingTeam.userId;
 
-                const [predictionsResult, raceResultsResult, scoresResult] = await Promise.all([
+                const [predictionsResult, raceResultsResult] = await Promise.all([
                     getDocs(query(
                         collection(firestore, "users", viewingTeam.userId, "predictions"),
                         where("teamId", "==", teamId)
                     )),
                     getDocs(collection(firestore, "race_results")),
-                    getDocs(query(
-                        collection(firestore, "scores"),
-                        where("userId", "==", teamId)
-                    )),
                 ]);
 
                 if (cancelled) return;
@@ -406,7 +457,7 @@ export default function MyResultsPage() {
                 const processed = processResults(
                     predictionsResult.docs,
                     raceResultsResult.docs,
-                    scoresResult.docs,
+                    [],
                 );
 
                 setOtherTeamResults(processed);

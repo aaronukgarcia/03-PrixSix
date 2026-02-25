@@ -1,7 +1,8 @@
-// GUID: API_CALCULATE_SCORES-000-v03
+// GUID: API_CALCULATE_SCORES-000-v04
 // [Intent] API route that calculates race scores for all teams based on submitted race results and team predictions. Core scoring engine for the Prix Six fantasy league.
 // [Inbound Trigger] Admin submits race results via the admin scoring page (POST request with top-6 driver finishing order).
-// [Downstream Impact] Writes to scores, race_results, and audit_logs collections. Creates carry-forward prediction documents. Feeds the standings page and all downstream score displays.
+// [Downstream Impact] Writes to race_results and audit_logs collections. Creates carry-forward prediction documents. Scores are NOT persisted — they are computed in real-time on the Standings and My Results pages (SSOT-001).
+// @ARCH_CHANGE (SSOT-001): Eliminated scores collection. Score docs were previously written here; now scores are computed from race_results + predictions on every page load. No scores collection writes remain.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
@@ -416,16 +417,9 @@ export async function POST(request: NextRequest) {
 
       calculatedScores.push({ userId, totalPoints, breakdown: breakdownParts.join(', ') });
 
-      // Add to batch - use resultDocId to distinguish Sprint from GP scores
-      const scoreDocRef = db.collection('scores').doc(`${resultDocId}_${userId}`);
-      batch.set(scoreDocRef, {
-        userId,
-        raceId: resultDocId, // Store with GP/Sprint distinction
-        raceName: raceName,  // Store original display name
-        totalPoints,
-        breakdown: breakdownParts.join(', '),
-        calculatedAt: FieldValue.serverTimestamp(),
-      });
+      // NOTE (SSOT-001): Score documents are NOT written to Firestore.
+      // Scores are computed in real-time from race_results + predictions on every page load.
+      // The scores collection has been eliminated to enforce single source of truth.
 
       scores.push({
         teamName: userMap.get(userId) || 'Unknown',
@@ -509,19 +503,17 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Scoring] Successfully calculated ${calculatedScores.length} scores`);
 
-    // GUID: API_CALCULATE_SCORES-017-v03
-    // [Intent] Aggregates all scores across all races to produce updated overall league standings with tie-aware ranking, returned in the API response.
+    // GUID: API_CALCULATE_SCORES-017-v04
+    // [Intent] Aggregates this race's scores to produce per-race standings for the API response.
+    //   NOTE (SSOT-001): Cumulative season standings are computed in real-time on the Standings page
+    //   from race_results + predictions. This response only shows the current race's per-team scores
+    //   for immediate admin confirmation. No scores collection read needed.
     // [Inbound Trigger] After the batch commit succeeds.
-    // [Downstream Impact] The standings array is returned to the admin UI for immediate display. This is a read-time aggregation, not persisted; the standings page performs its own aggregation.
-    // Calculate overall standings
-    const allScoresSnapshot = await db.collection('scores').get();
+    // [Downstream Impact] The standings array is returned to the admin UI for immediate display.
+    // Build standings from in-memory calculated scores (current race only)
     const userTotals = new Map<string, number>();
-
-    allScoresSnapshot.forEach(doc => {
-      const scoreData = doc.data();
-      const userId = scoreData.userId;
-      const points = scoreData.totalPoints || 0;
-      userTotals.set(userId, (userTotals.get(userId) || 0) + points);
+    calculatedScores.forEach(({ userId, totalPoints }) => {
+      userTotals.set(userId, (userTotals.get(userId) || 0) + totalPoints);
     });
 
     // Build standings with tie-breaking
