@@ -29,7 +29,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import ThePaddockPubChat from '@/components/ThePaddockPubChat';
+import ThePaddockPubChat, { type PubChatViewMode } from '@/components/ThePaddockPubChat';
 import { LiveTrackVisualization } from '@/components/LiveTrackVisualization';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,7 +68,10 @@ interface MeetingOption {
 interface SessionOption {
     sessionKey: number;
     sessionName: string;
+    sessionType?: string;
     dateStart: string;
+    dateEnd?: string;
+    hasData?: boolean; // FEAT-PC-001 Section 4: true if OpenF1 has lap data for this session
 }
 
 // GUID: PUBCHAT_PANEL-010-v02
@@ -163,6 +166,10 @@ export function PubChatPanel() {
     // Pub closed state (OpenF1 session active)
     const [pubClosed, setPubClosed] = useState(false);
     const [nextAvailableTime, setNextAvailableTime] = useState<string | null>(null);
+
+    // FEAT-PC-001 Sections 2 & 3: View mode toggle and team lens / comparison controls
+    const [pubChatViewMode, setPubChatViewMode] = useState<PubChatViewMode>('leaderboard');
+    const [lensTeam, setLensTeam] = useState<string>('Williams');
 
     // GUID: PUBCHAT_PANEL-030-v09
     // @UX_REDESIGN: Collapsible sections state for 3-column layout.
@@ -312,7 +319,8 @@ export function PubChatPanel() {
             setLoadingSessions(true);
             setSelectedSessionKey('');
             try {
-                const res = await fetch(`/api/admin/openf1-sessions?meetingKey=${selectedMeetingKey}`, {
+                // FEAT-PC-001 Section 4: validate=true triggers per-session lap existence checks on the server
+                const res = await fetch(`/api/admin/openf1-sessions?meetingKey=${selectedMeetingKey}&validate=true`, {
                     headers: {
                         'Authorization': `Bearer ${authToken}`,
                     },
@@ -668,44 +676,45 @@ export function PubChatPanel() {
                                 </CardHeader>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
-                                <CardContent className="max-h-[500px] overflow-y-auto">
-                                    {!timingData ? (
-                                        <div className="text-center py-8 text-sm text-muted-foreground">
-                                            <Trophy className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                                            <p>No timing data yet</p>
-                                            <p className="text-xs mt-1">Select a meeting and session below, then click "Fetch from OpenF1"</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {timingData.drivers.slice(0, 10).map((driver, idx) => (
-                                                <div
-                                                    key={driver.driverNumber}
-                                                    className="flex items-center gap-3 p-2 rounded hover:bg-accent/50 transition-colors"
-                                                >
-                                                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                                                        idx === 0 ? 'bg-yellow-500 text-black' :
-                                                        idx === 1 ? 'bg-gray-400 text-black' :
-                                                        idx === 2 ? 'bg-amber-700 text-white' :
-                                                        'bg-muted text-muted-foreground'
-                                                    }`}>
-                                                        {driver.position}
-                                                    </div>
-                                                    <div
-                                                        className="w-1 h-8 rounded"
-                                                        style={{ backgroundColor: `#${driver.teamColour}` }}
-                                                    />
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-semibold truncate">{driver.driver}</p>
-                                                        <p className="text-xs text-muted-foreground truncate">{driver.team}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-sm font-mono font-bold">{driver.time}</p>
-                                                        <p className="text-xs text-muted-foreground">{driver.laps} laps</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                <CardContent className="space-y-4">
+                                    {/* FEAT-PC-001 — View mode toggle buttons */}
+                                    <div className="flex gap-2 flex-wrap">
+                                        {(['leaderboard', 'team-lens', 'comparison'] as PubChatViewMode[]).map(mode => (
+                                            <Button
+                                                key={mode}
+                                                size="sm"
+                                                variant={pubChatViewMode === mode ? 'default' : 'outline'}
+                                                onClick={() => setPubChatViewMode(mode)}
+                                                className="text-xs capitalize"
+                                            >
+                                                {mode === 'leaderboard' ? '🏁 Leaderboard' : mode === 'team-lens' ? '🔭 Team Lens' : '⚔️ Compare'}
+                                            </Button>
+                                        ))}
+                                        {/* Team selector — visible only in team-lens mode */}
+                                        {pubChatViewMode === 'team-lens' && (
+                                            <Select value={lensTeam} onValueChange={setLensTeam}>
+                                                <SelectTrigger className="h-8 w-40 text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {['Williams', 'Red Bull', 'Ferrari', 'Mercedes', 'McLaren', 'Aston Martin', 'Alpine', 'Haas', 'Racing Bulls', 'Kick Sauber', 'Cadillac', 'Audi'].map(t => (
+                                                        <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+
+                                    {/* ThePaddockPubChat widget — FEAT-PC-001 all 3 view modes */}
+                                    <div className="flex justify-center">
+                                        <ThePaddockPubChat
+                                            key={refreshKey}
+                                            timingData={timingData}
+                                            viewMode={pubChatViewMode}
+                                            selectedTeam={lensTeam}
+                                            comparisonDrivers={pubChatViewMode === 'comparison' ? selectedDriverNumbers : undefined}
+                                        />
+                                    </div>
                                 </CardContent>
                             </CollapsibleContent>
                         </Card>
@@ -933,11 +942,13 @@ export function PubChatPanel() {
                 </CardContent>
             </Card>
 
-            {/* GUID: PUBCHAT_PANEL-020-v01
+            {/* GUID: PUBCHAT_PANEL-020-v02
                 @UX_REDESIGN: Session selector as visual cards.
+                FEAT-PC-001 Section 4: Data-aware — sessions marked with hasData from server-side lap existence check.
+                Sessions with no data shown as disabled/grayed. Green badge on sessions confirmed to have data.
                 [Intent] Session cards for Practice/Qualifying/Race selection.
-                [Inbound Trigger] Meeting selected, sessions fetched.
-                [Downstream Impact] User clicks session card to enable data fetching. */}
+                [Inbound Trigger] Meeting selected, sessions fetched with validate=true.
+                [Downstream Impact] User clicks session card to enable data fetching. Only sessions with data are selectable (past sessions). */}
             {selectedMeetingKey && (
                 <Card>
                     <CardHeader>
@@ -946,7 +957,9 @@ export function PubChatPanel() {
                             Select Session
                         </CardTitle>
                         <CardDescription>
-                            Choose which session to analyze (Practice, Qualifying, Race)
+                            {loadingSessions
+                                ? 'Checking OpenF1 for available data…'
+                                : 'Only sessions with confirmed OpenF1 data are selectable'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -968,50 +981,56 @@ export function PubChatPanel() {
                                 {sessions.map(session => {
                                     const isSelected = selectedSessionKey === String(session.sessionKey);
                                     const isFuture = isSessionInFuture(session.dateStart);
-                                    const isTooOld = isSessionTooOld(session.dateStart);
+                                    // FEAT-PC-001 Section 4: hasData from server-side lap existence check.
+                                    // undefined = validate not yet run (older sessions without the field), fall back to non-future check
+                                    const hasData = session.hasData;
+                                    const validated = hasData !== undefined;
+                                    const isDisabled = isFuture || (validated && !hasData);
 
                                     return (
                                         <Card
                                             key={session.sessionKey}
                                             className={`transition-all ${
-                                                isFuture
+                                                isDisabled
                                                     ? 'opacity-40 cursor-not-allowed'
                                                     : 'cursor-pointer hover:shadow-md'
                                             } ${
                                                 isSelected
                                                     ? 'border-primary border-2 shadow-md bg-primary/5'
+                                                    : hasData
+                                                    ? 'border-green-500/40 hover:border-green-500/80'
                                                     : 'hover:border-primary/50'
                                             }`}
                                             onClick={() => {
-                                                if (!isFuture) {
-                                                    setSelectedSessionKey(String(session.sessionKey));
-                                                }
+                                                if (!isDisabled) setSelectedSessionKey(String(session.sessionKey));
                                             }}
                                         >
                                             <CardHeader className="text-center p-4">
-                                                <CardTitle className="text-sm font-semibold">
+                                                <CardTitle className="text-sm font-semibold leading-tight">
                                                     {session.sessionName}
+                                                </CardTitle>
+                                                <div className="flex flex-wrap justify-center gap-1 mt-1">
                                                     {isFuture && (
-                                                        <Badge variant="outline" className="ml-2 text-xs border-muted-foreground/30">
+                                                        <Badge variant="outline" className="text-xs border-muted-foreground/30">
                                                             Future
                                                         </Badge>
                                                     )}
-                                                    {isTooOld && !isFuture && (
-                                                        <Badge variant="outline" className="ml-2 text-xs border-yellow-500/30 text-yellow-600">
-                                                            Old
+                                                    {!isFuture && validated && hasData && (
+                                                        <Badge variant="outline" className="text-xs border-green-500 text-green-600">
+                                                            Data ✓
                                                         </Badge>
                                                     )}
-                                                </CardTitle>
+                                                    {!isFuture && validated && !hasData && (
+                                                        <Badge variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground">
+                                                            No data
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     {new Date(session.dateStart).toLocaleDateString(undefined, {
                                                         month: 'short',
-                                                        day: 'numeric'
+                                                        day: 'numeric',
                                                     })}
-                                                    {isFuture && (
-                                                        <span className="block text-xs text-muted-foreground/60 mt-1">
-                                                            No data yet
-                                                        </span>
-                                                    )}
                                                 </p>
                                             </CardHeader>
                                         </Card>

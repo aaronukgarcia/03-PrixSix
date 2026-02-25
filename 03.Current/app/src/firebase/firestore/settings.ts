@@ -248,6 +248,7 @@ export interface PubChatTimingDriver {
     laps: number;
     bestLapDuration: number;   // Seconds (float)
     time: string;              // Formatted: "1:29.117"
+    tyreCompound?: string;     // FEAT-PC-001 Section 1: "SOFT" | "MEDIUM" | "HARD" | "INTERMEDIATE" | "WET" (from OpenF1 stints)
 }
 
 export interface PubChatTimingData {

@@ -7,15 +7,15 @@ import type { PubChatTimingData } from "@/firebase/firestore/settings";
 
 // ─── FALLBACK DATA ──────────────────────────────────────────────────────────
 const FALLBACK_DRIVER_DATA = [
-  { position: 1, driver: "Hadjar",    team: "Red Bull",     teamColour: "3671C6", laps: 108, time: "1:18.159", bestLapDuration: 78.159, fullName: "Isack HADJAR",       driverNumber: 6  },
-  { position: 2, driver: "Russell",   team: "Mercedes",     teamColour: "27F4D2", laps:  95, time: "1:18.696", bestLapDuration: 78.696, fullName: "George RUSSELL",     driverNumber: 63 },
-  { position: 3, driver: "Colapinto", team: "Alpine",       teamColour: "FF87BC", laps:  60, time: "1:20.189", bestLapDuration: 80.189, fullName: "Franco COLAPINTO",   driverNumber: 43 },
-  { position: 4, driver: "Antonelli", team: "Mercedes",     teamColour: "27F4D2", laps:  59, time: "1:20.700", bestLapDuration: 80.700, fullName: "Andrea Kimi ANTONELLI", driverNumber: 12 },
-  { position: 5, driver: "Ocon",      team: "Haas",         teamColour: "B6BABD", laps: 154, time: "1:21.301", bestLapDuration: 81.301, fullName: "Esteban OCON",       driverNumber: 31 },
-  { position: 6, driver: "Lawson",    team: "Racing Bulls", teamColour: "6692FF", laps:  88, time: "1:21.513", bestLapDuration: 81.513, fullName: "Liam LAWSON",        driverNumber: 30 },
-  { position: 7, driver: "Bottas",    team: "Cadillac",     teamColour: "1E5D3A", laps:  34, time: "1:24.651", bestLapDuration: 84.651, fullName: "Valtteri BOTTAS",    driverNumber: 77 },
-  { position: 8, driver: "Bortoleto", team: "Audi",         teamColour: "52E252", laps:  28, time: "1:25.296", bestLapDuration: 85.296, fullName: "Gabriel BORTOLETO",  driverNumber: 5  },
-  { position: 9, driver: "Perez",     team: "Cadillac",     teamColour: "1E5D3A", laps:  11, time: "1:25.974", bestLapDuration: 85.974, fullName: "Sergio PEREZ",       driverNumber: 11 },
+  { position: 1, driver: "Hadjar",    team: "Red Bull",     teamColour: "3671C6", laps: 108, time: "1:18.159", bestLapDuration: 78.159, fullName: "Isack HADJAR",         driverNumber: 6,  tyreCompound: "MEDIUM" },
+  { position: 2, driver: "Russell",   team: "Mercedes",     teamColour: "27F4D2", laps:  95, time: "1:18.696", bestLapDuration: 78.696, fullName: "George RUSSELL",       driverNumber: 63, tyreCompound: "SOFT"   },
+  { position: 3, driver: "Colapinto", team: "Alpine",       teamColour: "FF87BC", laps:  60, time: "1:20.189", bestLapDuration: 80.189, fullName: "Franco COLAPINTO",     driverNumber: 43, tyreCompound: "SOFT"   },
+  { position: 4, driver: "Antonelli", team: "Mercedes",     teamColour: "27F4D2", laps:  59, time: "1:20.700", bestLapDuration: 80.700, fullName: "Andrea Kimi ANTONELLI", driverNumber: 12, tyreCompound: "MEDIUM" },
+  { position: 5, driver: "Ocon",      team: "Haas",         teamColour: "B6BABD", laps: 154, time: "1:21.301", bestLapDuration: 81.301, fullName: "Esteban OCON",         driverNumber: 31, tyreCompound: "HARD"   },
+  { position: 6, driver: "Lawson",    team: "Racing Bulls", teamColour: "6692FF", laps:  88, time: "1:21.513", bestLapDuration: 81.513, fullName: "Liam LAWSON",          driverNumber: 30, tyreCompound: "MEDIUM" },
+  { position: 7, driver: "Bottas",    team: "Cadillac",     teamColour: "1E5D3A", laps:  34, time: "1:24.651", bestLapDuration: 84.651, fullName: "Valtteri BOTTAS",      driverNumber: 77, tyreCompound: "HARD"   },
+  { position: 8, driver: "Bortoleto", team: "Audi",         teamColour: "52E252", laps:  28, time: "1:25.296", bestLapDuration: 85.296, fullName: "Gabriel BORTOLETO",    driverNumber: 5,  tyreCompound: "SOFT"   },
+  { position: 9, driver: "Perez",     team: "Cadillac",     teamColour: "1E5D3A", laps:  11, time: "1:25.974", bestLapDuration: 85.974, fullName: "Sergio PEREZ",         driverNumber: 11, tyreCompound: "MEDIUM" },
 ];
 
 const FALLBACK_SESSION = {
@@ -32,12 +32,42 @@ function parseTimeToMs(t: string): number {
   return +m * 60_000 + +s * 1_000 + +ms;
 }
 
-// ─── COMPONENT ───────────────────────────────────────────────────────────────
-interface ThePaddockPubChatProps {
-  timingData?: PubChatTimingData | null;
+// FEAT-PC-001 Section 1: Map tyre compound to F1-standard colours and abbreviation
+const TYRE_STYLE: Record<string, { bg: string; label: string }> = {
+  SOFT:         { bg: '#e8002d', label: 'S' },
+  MEDIUM:       { bg: '#ffd700', label: 'M' },
+  HARD:         { bg: '#e0e0e0', label: 'H' },
+  INTERMEDIATE: { bg: '#39b54a', label: 'I' },
+  WET:          { bg: '#0067ff', label: 'W' },
+};
+
+function TyreIndicator({ compound }: { compound?: string }) {
+  if (!compound) return null;
+  const style = TYRE_STYLE[compound.toUpperCase()];
+  if (!style) return null;
+  return (
+    <span
+      className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-black leading-none"
+      style={{ backgroundColor: style.bg, color: compound === 'HARD' ? '#111' : '#fff' }}
+      title={compound.charAt(0) + compound.slice(1).toLowerCase()}
+    >
+      {style.label}
+    </span>
+  );
 }
 
-const ThePaddockPubChat = ({ timingData }: ThePaddockPubChatProps) => {
+// ─── COMPONENT ───────────────────────────────────────────────────────────────
+// FEAT-PC-001: view modes — 'leaderboard' (Section 1), 'team-lens' (Section 2), 'comparison' (Section 3)
+export type PubChatViewMode = 'leaderboard' | 'team-lens' | 'comparison';
+
+interface ThePaddockPubChatProps {
+  timingData?: PubChatTimingData | null;
+  viewMode?: PubChatViewMode;       // Section 2/3: which view to render (default: leaderboard)
+  selectedTeam?: string;            // Section 2: team name to focus on (e.g. "Williams")
+  comparisonDrivers?: number[];     // Section 3: driver numbers to compare side-by-side
+}
+
+const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam, comparisonDrivers }: ThePaddockPubChatProps) => {
   const drivers = timingData?.drivers?.length ? timingData.drivers : FALLBACK_DRIVER_DATA;
   const session = timingData?.session || FALLBACK_SESSION;
 
@@ -78,6 +108,18 @@ const ThePaddockPubChat = ({ timingData }: ThePaddockPubChatProps) => {
       transition: { delay: 0.2, duration: 0.8, ease: brakingEase },
     },
   };
+
+  // FEAT-PC-001 Section 2: Team Lens — derive the two drivers for the selected team
+  const lensTeam = selectedTeam || 'Williams';
+  const teamDrivers = drivers.filter(d => d.team.toLowerCase().includes(lensTeam.toLowerCase()));
+  // If team not found, fall back to top-2 drivers
+  const lensDrivers = teamDrivers.length >= 1 ? teamDrivers : drivers.slice(0, 2);
+  const leaderMs_ref = drivers.length > 0 ? parseTimeToMs(drivers[0].time) : 0;
+
+  // FEAT-PC-001 Section 3: Comparison — filter drivers by selected numbers
+  const compareDrivers = (comparisonDrivers && comparisonDrivers.length > 0)
+    ? drivers.filter(d => comparisonDrivers.includes(d.driverNumber))
+    : drivers.slice(0, 4); // default to top 4 if none selected
 
   // Build header text from session metadata
   const headerLabel = session.meetingName || "Pre-season Testing";
@@ -125,98 +167,172 @@ const ThePaddockPubChat = ({ timingData }: ThePaddockPubChatProps) => {
         <div className="absolute inset-0 h-px bg-gradient-to-r from-transparent via-blue-400/20 to-transparent blur-sm" />
       </div>
 
-      {/* ── timing data ── */}
+      {/* ── timing data — view-mode aware ── */}
       <motion.div
         className="relative z-10 px-5 pt-4 pb-5"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {/* column headers */}
-        <div className="flex justify-between text-[9px] uppercase tracking-[0.15em] text-slate-500/80 mb-2.5 px-2 font-semibold">
-          <div className="flex items-center gap-3.5">
-            <span className="w-5 text-center">P</span>
-            <span>Driver</span>
-          </div>
-          <div className="flex gap-5">
-            <span className="w-8 text-center">Laps</span>
-            <span className="w-[4.5rem] text-right">Time</span>
-            <span className="w-14 text-right">Gap</span>
-          </div>
-        </div>
 
-        {/* rows */}
-        <div className="space-y-0.5">
-          {drivers.map((row, i) => {
-            const gap =
-              i === 0
-                ? ""
-                : `+${((parseTimeToMs(row.time) - leaderMs) / 1000).toFixed(3)}`;
-
-            return (
-              <motion.div
-                key={row.driverNumber ?? row.driver}
-                variants={rowVariants}
-                className={`flex items-center justify-between py-2 px-2 rounded-lg transition-colors duration-200 hover:bg-white/[0.04] ${
-                  i === 0
-                    ? "bg-gradient-to-r from-purple-500/[0.08] to-transparent border border-purple-500/10"
-                    : "border border-transparent"
-                }`}
-              >
-                {/* position + name */}
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`w-5 text-center text-xs font-bold tabular-nums ${
-                      i === 0
-                        ? "text-purple-400"
-                        : i < 3
-                          ? "text-slate-300"
-                          : "text-slate-500"
-                    }`}
-                  >
-                    {i + 1}
-                  </span>
-                  <div className="flex flex-col leading-tight">
-                    <span
-                      className={`font-bold text-sm ${
-                        i === 0 ? "text-white" : "text-slate-200"
-                      }`}
-                    >
-                      {row.driver}
+        {/* ── VIEW: LEADERBOARD (Section 1) ── */}
+        {viewMode === 'leaderboard' && (<>
+          {/* column headers */}
+          <div className="flex justify-between text-[9px] uppercase tracking-[0.15em] text-slate-500/80 mb-2.5 px-2 font-semibold">
+            <div className="flex items-center gap-3.5">
+              <span className="w-5 text-center">P</span>
+              <span>Driver</span>
+            </div>
+            <div className="flex gap-5 items-center">
+              <span className="w-4 text-center">T</span>
+              <span className="w-8 text-center">Laps</span>
+              <span className="w-[4.5rem] text-right">Time</span>
+              <span className="w-14 text-right">Gap</span>
+            </div>
+          </div>
+          {/* rows */}
+          <div className="space-y-0.5">
+            {drivers.map((row, i) => {
+              const gap = i === 0 ? "" : `+${((parseTimeToMs(row.time) - leaderMs) / 1000).toFixed(3)}`;
+              return (
+                <motion.div
+                  key={row.driverNumber ?? row.driver}
+                  variants={rowVariants}
+                  className={`flex items-center justify-between py-2 px-2 rounded-lg transition-colors duration-200 hover:bg-white/[0.04] ${
+                    i === 0 ? "bg-gradient-to-r from-purple-500/[0.08] to-transparent border border-purple-500/10" : "border border-transparent"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`w-5 text-center text-xs font-bold tabular-nums ${i === 0 ? "text-purple-400" : i < 3 ? "text-slate-300" : "text-slate-500"}`}>
+                      {i + 1}
                     </span>
-                    <span
-                      className="text-[10px] uppercase tracking-wide"
-                      style={{ color: `#${row.teamColour}` }}
-                    >
-                      {row.team}
-                    </span>
+                    <div className="flex flex-col leading-tight">
+                      <span className={`font-bold text-sm ${i === 0 ? "text-white" : "text-slate-200"}`}>{row.driver}</span>
+                      <span className="text-[10px] uppercase tracking-wide" style={{ color: `#${row.teamColour}` }}>{row.team}</span>
+                    </div>
                   </div>
-                </div>
+                  <div className="flex gap-5 items-center font-mono">
+                    <span className="w-4 flex justify-center"><TyreIndicator compound={row.tyreCompound} /></span>
+                    <span className="w-8 text-center text-[11px] text-slate-500 tabular-nums">{row.laps}</span>
+                    <span className={`w-[4.5rem] text-right text-[13px] font-bold tabular-nums tracking-tight ${i === 0 ? "text-purple-400" : "text-slate-100"}`}>{row.time}</span>
+                    <span className={`w-14 text-right text-[11px] tabular-nums ${i === 0 ? "text-purple-400/60" : "text-slate-500"}`}>{gap || "\u2014"}</span>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </>)}
 
-                {/* laps + time + gap */}
-                <div className="flex gap-5 items-baseline font-mono">
-                  <span className="w-8 text-center text-[11px] text-slate-500 tabular-nums">
-                    {row.laps}
-                  </span>
-                  <span
-                    className={`w-[4.5rem] text-right text-[13px] font-bold tabular-nums tracking-tight ${
-                      i === 0 ? "text-purple-400" : "text-slate-100"
-                    }`}
+        {/* ── VIEW: TEAM LENS (Section 2) ── */}
+        {viewMode === 'team-lens' && (<>
+          {/* Team name header */}
+          <div className="text-center mb-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500/80 font-semibold mb-1">Team Lens</p>
+            <div className="flex items-center justify-center gap-2">
+              {lensDrivers[0] && (
+                <div className="h-0.5 w-8 rounded" style={{ backgroundColor: `#${lensDrivers[0].teamColour}` }} />
+              )}
+              <span className="text-base font-bold text-white">{lensTeam}</span>
+              {lensDrivers[0] && (
+                <div className="h-0.5 w-8 rounded" style={{ backgroundColor: `#${lensDrivers[0].teamColour}` }} />
+              )}
+            </div>
+            {teamDrivers.length === 0 && (
+              <p className="text-[10px] text-slate-500 mt-1">Team not found — showing top drivers</p>
+            )}
+          </div>
+          {/* 2-column driver cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {lensDrivers.slice(0, 2).map((row) => {
+              const gapMs = leaderMs_ref > 0 ? parseTimeToMs(row.time) - leaderMs_ref : 0;
+              const gapStr = gapMs <= 0 ? "Leader" : `+${(gapMs / 1000).toFixed(3)}`;
+              return (
+                <motion.div
+                  key={row.driverNumber}
+                  variants={rowVariants}
+                  className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex flex-col items-center gap-2"
+                >
+                  {/* Tyre compound — big circle */}
+                  <div className="relative">
+                    <TyreIndicator compound={row.tyreCompound} />
+                  </div>
+                  {/* Driver name */}
+                  <div className="text-center leading-tight">
+                    <p className="font-bold text-sm text-white">{row.driver}</p>
+                    <p className="text-[9px] uppercase tracking-wide" style={{ color: `#${row.teamColour}` }}>#{row.driverNumber}</p>
+                  </div>
+                  {/* Stats */}
+                  <div className="w-full space-y-1 mt-1">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-slate-500">Best lap</span>
+                      <span className="font-mono font-bold text-slate-100">{row.time}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-slate-500">Gap</span>
+                      <span className={`font-mono ${gapStr === 'Leader' ? 'text-purple-400' : 'text-slate-400'}`}>{gapStr}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-slate-500">Pos</span>
+                      <span className="font-mono font-bold text-slate-200">P{row.position}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-slate-500">Laps</span>
+                      <span className="font-mono text-slate-400">{row.laps}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+          {/* If team has only 1 driver with data */}
+          {lensDrivers.length === 1 && (
+            <p className="text-center text-[10px] text-slate-600 mt-3">Only one driver with lap data this session</p>
+          )}
+        </>)}
+
+        {/* ── VIEW: DRIVER COMPARISON (Section 3) ── */}
+        {viewMode === 'comparison' && (<>
+          <div className="text-center mb-3">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500/80 font-semibold">Driver Comparison</p>
+            <p className="text-[9px] text-slate-600 mt-0.5">{compareDrivers.length} driver{compareDrivers.length !== 1 ? 's' : ''} selected</p>
+          </div>
+          {compareDrivers.length === 0 ? (
+            <p className="text-center text-[11px] text-slate-500 py-4">No drivers selected</p>
+          ) : (
+            <div className="space-y-1">
+              {/* header row */}
+              <div className="grid text-[9px] uppercase tracking-[0.1em] text-slate-600 font-semibold mb-1 px-1" style={{ gridTemplateColumns: '1fr 1fr 2.5rem 3.5rem 3rem' }}>
+                <span>Driver</span>
+                <span>Team</span>
+                <span className="text-center">T</span>
+                <span className="text-right">Time</span>
+                <span className="text-right">Gap</span>
+              </div>
+              {compareDrivers.map((row) => {
+                const gapMs = leaderMs_ref > 0 ? parseTimeToMs(row.time) - leaderMs_ref : 0;
+                const gapStr = gapMs <= 0 ? "—" : `+${(gapMs / 1000).toFixed(3)}`;
+                return (
+                  <motion.div
+                    key={row.driverNumber}
+                    variants={rowVariants}
+                    className="grid items-center py-1.5 px-1 rounded-lg hover:bg-white/[0.03] border border-transparent"
+                    style={{ gridTemplateColumns: '1fr 1fr 2.5rem 3.5rem 3rem' }}
                   >
-                    {row.time}
-                  </span>
-                  <span
-                    className={`w-14 text-right text-[11px] tabular-nums ${
-                      i === 0 ? "text-purple-400/60" : "text-slate-500"
-                    }`}
-                  >
-                    {gap || "\u2014"}
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                    <div>
+                      <p className="text-[12px] font-bold text-slate-100">{row.driver}</p>
+                      <p className="text-[9px] text-slate-600">#{row.driverNumber}</p>
+                    </div>
+                    <p className="text-[10px] uppercase tracking-wide truncate" style={{ color: `#${row.teamColour}` }}>{row.team}</p>
+                    <span className="flex justify-center"><TyreIndicator compound={row.tyreCompound} /></span>
+                    <p className="text-right font-mono text-[12px] font-bold text-slate-100">{row.time}</p>
+                    <p className={`text-right font-mono text-[10px] ${gapMs <= 0 ? 'text-purple-400' : 'text-slate-500'}`}>{gapStr}</p>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </>)}
+
       </motion.div>
 
       {/* ── gradient footer strip ── */}

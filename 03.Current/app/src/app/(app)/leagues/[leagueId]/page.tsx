@@ -276,7 +276,8 @@ export default function LeagueDetailPage() {
     }
   };
 
-  // GUID: PAGE_LEAGUE_DETAIL-009-v04
+  // GUID: PAGE_LEAGUE_DETAIL-009-v05
+  // @BUG_FIX: Added missing catch block for try statement (caused TypeScript build failure).
   // [Intent] Permanently deletes the league (owner-only action) via server-side API route and
   //          navigates back to leagues list.
   //          SECURITY FIX (GEMINI-002): Routes through /api/leagues/delete (Admin SDK) instead of
@@ -309,6 +310,15 @@ export default function LeagueDetailPage() {
           title: 'Delete Failed',
           description: `${data.error || 'Failed to delete league'} (${data.errorCode || ''} ID: ${data.correlationId || ''})`,
         });
+      }
+    } catch (err) {
+      const correlationId = generateClientCorrelationId();
+      console.error(`[League Delete Error ${ERRORS.UNKNOWN_ERROR.code}] ${correlationId}:`, err);
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+        description: `An unexpected error occurred. [${ERRORS.UNKNOWN_ERROR.code}] Ref: ${correlationId}`,
+      });
     }
   };
 

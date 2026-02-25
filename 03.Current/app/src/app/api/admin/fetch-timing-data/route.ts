@@ -942,6 +942,48 @@ export async function POST(request: NextRequest) {
       .sort((a, b) => a.bestLapDuration - b.bestLapDuration)
       .map((r, i) => ({ ...r, position: i + 1 }));
 
+    // -------------------------------------------------------------------------
+    // GUID: API_ADMIN_FETCH_TIMING_DATA-011-v01
+    // FEAT-PC-001 Section 1: Fetch stints to get each driver's most recent tyre compound.
+    // One call for all drivers — build a map of driverNumber → latestCompound.
+    // Fire-and-best-effort: tyre data is enrichment only, never blocks the write.
+    // [Intent] Enrich driver results with the tyre compound they were on for their best lap.
+    // [Downstream Impact] tyreCompound field added to PubChatTimingDriver for display in leaderboard widget.
+    // -------------------------------------------------------------------------
+    try {
+      const opf1Headers: HeadersInit = openf1Token ? { 'Authorization': `Bearer ${openf1Token}` } : {};
+      const stintsRes = await fetchWithTimeout(
+        `${OPENF1_BASE}/stints?session_key=${sessionKey}`,
+        { headers: opf1Headers },
+        8_000,
+      );
+      if (stintsRes.ok) {
+        const rawStints = await stintsRes.text();
+        const stints: any[] = JSON.parse(rawStints);
+        if (Array.isArray(stints) && stints.length > 0) {
+          // For each driver, find the stint with the highest lap_start (most recently started stint = current compound)
+          const latestCompoundMap = new Map<number, string>();
+          for (const s of stints) {
+            const dNum = s.driver_number;
+            const compound = (s.compound || '').toUpperCase();
+            if (!dNum || !compound) continue;
+            const existing = latestCompoundMap.get(dNum);
+            if (!existing || (s.lap_start || 0) > (stints.find(x => x.driver_number === dNum && x.compound === existing)?.lap_start || 0)) {
+              latestCompoundMap.set(dNum, compound);
+            }
+          }
+          for (const r of validResults) {
+            const compound = latestCompoundMap.get(r.driverNumber);
+            if (compound) (r as any).tyreCompound = compound;
+          }
+          console.log(`[fetch-timing-data POST ${correlationId}] Tyre compounds added for ${latestCompoundMap.size} drivers.`);
+        }
+      }
+    } catch (stintsErr) {
+      // Non-fatal — tyre data is best-effort enrichment
+      console.warn(`[fetch-timing-data POST ${correlationId}] Stints fetch failed (non-fatal):`, stintsErr);
+    }
+
     console.log(`[fetch-timing-data POST ${correlationId}] ${validResults.length} drivers with valid lap data.`);
 
     // If every driver returned null, there is nothing useful to write.
