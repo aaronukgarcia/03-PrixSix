@@ -120,13 +120,29 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
   const [analysisText, setAnalysisText] = useState('');
   const [isAnalysing, setIsAnalysing] = useState(false);
 
-  // GUID: COMPONENT_PREDICTION_EDITOR-006-v03
-  // [Intent] Load user's saved AI analysis weights from Firestore on mount. Overrides DEFAULT_WEIGHTS if the user has previously customised and saved their preferences.
+  // GUID: COMPONENT_PREDICTION_EDITOR-006-v04
+  // @FIX(v04): Merge saved weights into DEFAULT_WEIGHTS instead of replacing outright.
+  //   If new facets have been added to DEFAULT_WEIGHTS since the user last saved, their stored
+  //   object will have fewer keys than DEFAULT_WEIGHTS. A direct replace caused validateWeights()
+  //   to fail the key-count check (PX-2002 "Invalid analysis weight values detected").
+  //   Now: known valid saved values are kept; new facets fall back to their default; stale/removed
+  //   facets are discarded. The result always has exactly the right keys and passes validation.
+  // [Intent] Load user's saved AI analysis weights from Firestore on mount. Merges saved values
+  //   into DEFAULT_WEIGHTS so schema evolution (added/removed facets) never breaks validation.
   // [Inbound Trigger] Fires when user.aiAnalysisWeights changes (typically once after auth resolves).
   // [Downstream Impact] Sets the weights state which controls AI analysis facet emphasis and slider positions.
   useEffect(() => {
     if (user?.aiAnalysisWeights) {
-      setWeights(user.aiAnalysisWeights);
+      const saved = user.aiAnalysisWeights;
+      // Start from defaults so every current key is present, then overlay valid saved values.
+      const merged = { ...DEFAULT_WEIGHTS };
+      for (const key of Object.keys(DEFAULT_WEIGHTS) as Array<keyof AnalysisWeights>) {
+        const v = saved[key];
+        if (typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v) && v >= 0 && v <= 10) {
+          merged[key] = v;
+        }
+      }
+      setWeights(merged);
     }
   }, [user?.aiAnalysisWeights]);
 
