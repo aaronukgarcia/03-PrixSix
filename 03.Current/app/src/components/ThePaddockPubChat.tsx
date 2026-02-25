@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Timer, MapPin } from "lucide-react";
 import type { PubChatTimingData } from "@/firebase/firestore/settings";
@@ -64,10 +64,12 @@ interface ThePaddockPubChatProps {
   timingData?: PubChatTimingData | null;
   viewMode?: PubChatViewMode;       // Section 2/3: which view to render (default: leaderboard)
   selectedTeam?: string;            // Section 2: team name to focus on (e.g. "Williams")
-  comparisonDrivers?: number[];     // Section 3: driver numbers to compare side-by-side
 }
 
-const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam, comparisonDrivers }: ThePaddockPubChatProps) => {
+const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam }: ThePaddockPubChatProps) => {
+  // Section 3: internal multi-select state for driver comparison
+  const [compareSelected, setCompareSelected] = useState<Set<number>>(new Set());
+
   const drivers = timingData?.drivers?.length ? timingData.drivers : FALLBACK_DRIVER_DATA;
   const session = timingData?.session || FALLBACK_SESSION;
 
@@ -109,17 +111,15 @@ const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam,
     },
   };
 
-  // FEAT-PC-001 Section 2: Team Lens — derive the two drivers for the selected team
+  // FEAT-PC-001 Section 2: Team Lens — only show drivers for the selected team, no cross-team fallback
   const lensTeam = selectedTeam || 'Williams';
-  const teamDrivers = drivers.filter(d => d.team.toLowerCase().includes(lensTeam.toLowerCase()));
-  // If team not found, fall back to top-2 drivers
-  const lensDrivers = teamDrivers.length >= 1 ? teamDrivers : drivers.slice(0, 2);
+  const lensDrivers = drivers.filter(d => d.team.toLowerCase().includes(lensTeam.toLowerCase()));
   const leaderMs_ref = drivers.length > 0 ? parseTimeToMs(drivers[0].time) : 0;
 
-  // FEAT-PC-001 Section 3: Comparison — filter drivers by selected numbers
-  const compareDrivers = (comparisonDrivers && comparisonDrivers.length > 0)
-    ? drivers.filter(d => comparisonDrivers.includes(d.driverNumber))
-    : drivers.slice(0, 4); // default to top 4 if none selected
+  // FEAT-PC-001 Section 3: Comparison — driven by internal checkbox state
+  const compareDrivers = compareSelected.size > 0
+    ? drivers.filter(d => compareSelected.has(d.driverNumber))
+    : [];
 
   // Build header text from session metadata
   const headerLabel = session.meetingName || "Pre-season Testing";
@@ -237,54 +237,51 @@ const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam,
                 <div className="h-0.5 w-8 rounded" style={{ backgroundColor: `#${lensDrivers[0].teamColour}` }} />
               )}
             </div>
-            {teamDrivers.length === 0 && (
-              <p className="text-[10px] text-slate-500 mt-1">Team not found — showing top drivers</p>
-            )}
           </div>
-          {/* 2-column driver cards */}
-          <div className="grid grid-cols-2 gap-3">
-            {lensDrivers.slice(0, 2).map((row) => {
-              const gapMs = leaderMs_ref > 0 ? parseTimeToMs(row.time) - leaderMs_ref : 0;
-              const gapStr = gapMs <= 0 ? "Leader" : `+${(gapMs / 1000).toFixed(3)}`;
-              return (
-                <motion.div
-                  key={row.driverNumber}
-                  variants={rowVariants}
-                  className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex flex-col items-center gap-2"
-                >
-                  {/* Tyre compound — big circle */}
-                  <div className="relative">
+          {/* Driver cards — or empty state if team has no drivers in this session */}
+          {lensDrivers.length === 0 ? (
+            <p className="text-center text-[11px] text-slate-500 py-6">
+              No {lensTeam} drivers in this session
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {lensDrivers.slice(0, 2).map((row) => {
+                const gapMs = leaderMs_ref > 0 ? parseTimeToMs(row.time) - leaderMs_ref : 0;
+                const gapStr = gapMs <= 0 ? "Leader" : `+${(gapMs / 1000).toFixed(3)}`;
+                return (
+                  <motion.div
+                    key={row.driverNumber}
+                    variants={rowVariants}
+                    className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex flex-col items-center gap-2"
+                  >
                     <TyreIndicator compound={row.tyreCompound} />
-                  </div>
-                  {/* Driver name */}
-                  <div className="text-center leading-tight">
-                    <p className="font-bold text-sm text-white">{row.driver}</p>
-                    <p className="text-[9px] uppercase tracking-wide" style={{ color: `#${row.teamColour}` }}>#{row.driverNumber}</p>
-                  </div>
-                  {/* Stats */}
-                  <div className="w-full space-y-1 mt-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-slate-500">Best lap</span>
-                      <span className="font-mono font-bold text-slate-100">{row.time}</span>
+                    <div className="text-center leading-tight">
+                      <p className="font-bold text-sm text-white">{row.driver}</p>
+                      <p className="text-[9px] uppercase tracking-wide" style={{ color: `#${row.teamColour}` }}>#{row.driverNumber}</p>
                     </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-slate-500">Gap</span>
-                      <span className={`font-mono ${gapStr === 'Leader' ? 'text-purple-400' : 'text-slate-400'}`}>{gapStr}</span>
+                    <div className="w-full space-y-1 mt-1">
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-slate-500">Best lap</span>
+                        <span className="font-mono font-bold text-slate-100">{row.time}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-slate-500">Gap</span>
+                        <span className={`font-mono ${gapStr === 'Leader' ? 'text-purple-400' : 'text-slate-400'}`}>{gapStr}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-slate-500">Pos</span>
+                        <span className="font-mono font-bold text-slate-200">P{row.position}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-slate-500">Laps</span>
+                        <span className="font-mono text-slate-400">{row.laps}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-slate-500">Pos</span>
-                      <span className="font-mono font-bold text-slate-200">P{row.position}</span>
-                    </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-slate-500">Laps</span>
-                      <span className="font-mono text-slate-400">{row.laps}</span>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-          {/* If team has only 1 driver with data */}
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
           {lensDrivers.length === 1 && (
             <p className="text-center text-[10px] text-slate-600 mt-3">Only one driver with lap data this session</p>
           )}
@@ -292,15 +289,51 @@ const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam,
 
         {/* ── VIEW: DRIVER COMPARISON (Section 3) ── */}
         {viewMode === 'comparison' && (<>
-          <div className="text-center mb-3">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500/80 font-semibold">Driver Comparison</p>
-            <p className="text-[9px] text-slate-600 mt-0.5">{compareDrivers.length} driver{compareDrivers.length !== 1 ? 's' : ''} selected</p>
+          {/* Multi-select driver picker */}
+          <div className="mb-3">
+            <p className="text-[9px] uppercase tracking-[0.15em] text-slate-500/80 mb-1.5 font-semibold px-1">
+              Select drivers to compare
+            </p>
+            <div className="grid grid-cols-2 gap-x-1 gap-y-0.5">
+              {drivers.map(d => {
+                const checked = compareSelected.has(d.driverNumber);
+                return (
+                  <button
+                    key={d.driverNumber}
+                    type="button"
+                    onClick={() => {
+                      const next = new Set(compareSelected);
+                      if (checked) next.delete(d.driverNumber);
+                      else next.add(d.driverNumber);
+                      setCompareSelected(next);
+                    }}
+                    className={`flex items-center gap-1.5 py-1 px-2 rounded-lg text-left transition-colors ${
+                      checked
+                        ? 'bg-purple-500/20 border border-purple-500/30'
+                        : 'hover:bg-white/[0.04] border border-transparent'
+                    }`}
+                  >
+                    <span className={`w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center ${
+                      checked ? 'border-purple-400 bg-purple-500/40' : 'border-slate-600'
+                    }`}>
+                      {checked && <span className="text-purple-200 text-[7px] font-black leading-none">✓</span>}
+                    </span>
+                    <span className="text-[11px] text-slate-200 font-semibold truncate">{d.driver}</span>
+                    <span className="text-[9px] ml-auto flex-shrink-0" style={{ color: `#${d.teamColour}` }}>
+                      {d.team.split(' ')[0]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+          {/* Divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-3" />
+          {/* Comparison table */}
           {compareDrivers.length === 0 ? (
-            <p className="text-center text-[11px] text-slate-500 py-4">No drivers selected</p>
+            <p className="text-center text-[11px] text-slate-600 py-3">Select drivers above to compare</p>
           ) : (
             <div className="space-y-1">
-              {/* header row */}
               <div className="grid text-[9px] uppercase tracking-[0.1em] text-slate-600 font-semibold mb-1 px-1" style={{ gridTemplateColumns: '1fr 1fr 2.5rem 3.5rem 3rem' }}>
                 <span>Driver</span>
                 <span>Team</span>

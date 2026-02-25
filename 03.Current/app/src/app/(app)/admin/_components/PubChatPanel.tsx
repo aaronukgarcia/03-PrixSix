@@ -712,7 +712,6 @@ export function PubChatPanel() {
                                             timingData={timingData}
                                             viewMode={pubChatViewMode}
                                             selectedTeam={lensTeam}
-                                            comparisonDrivers={pubChatViewMode === 'comparison' ? selectedDriverNumbers : undefined}
                                         />
                                     </div>
                                 </CardContent>
