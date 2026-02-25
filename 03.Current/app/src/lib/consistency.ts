@@ -1279,7 +1279,7 @@ function parseBreakdown(
   return { entries, bonusPoints, sum, malformed: false };
 }
 
-// GUID: LIB_CONSISTENCY-028-v07
+// GUID: LIB_CONSISTENCY-028-v08
 // @ERROR_PRONE: Breakdown string parsing (splitting on comma, matching "+N" patterns) is fragile.
 //   If the breakdown format changes in scoring.ts, the score type counting here will silently break.
 // @AUDIT_NOTE: Late-joiner handicap scores surface an 'info' note (not warning) if totalPoints
@@ -1292,6 +1292,10 @@ function parseBreakdown(
 // @FIX(v07): Added comprehensive double cross-check: breakdown math verification, ghost point
 //   detection, per-driver point accuracy (reverse Team→Admin check), forward Admin→Team check,
 //   and bonus verification. Runs for every score with a breakdown and matched prediction.
+// @FIX(v08): Orphan score severity downgraded to 'info' for users with no predictions at all.
+//   Prevents test/seed users (who have scores but never submitted predictions) from generating
+//   false 'warning' noise. Real players who have some predictions but are missing one race still
+//   receive a 'warning'.
 // [Intent] The most comprehensive check function. Validates all score documents against
 //   race results, predictions, and users. Performs:
 //   - Late-joiner handicap score validation (special raceId 'late-joiner-handicap')
@@ -1500,10 +1504,16 @@ export function checkScores(
       const predKey = `${normalizedScoreRaceId}_${score.userId}`;
       const predKeyAlt = `${score.raceId.toLowerCase()}_${score.userId}`;
       if (!(predictionMap.get(predKey)?.length || predictionMap.get(predKeyAlt)?.length)) {
+        // Downgrade to 'info' for users with zero predictions anywhere — these are test/seed
+        // users who have scores but never submitted predictions, not real data integrity gaps.
+        // Real players who have some predictions but are missing one specific race stay 'warning'.
+        const hasAnyPrediction = userAllPredictions.has(score.userId);
         issues.push({
-          severity: 'warning',
+          severity: hasAnyPrediction ? 'warning' : 'info',
           entity: entityName,
-          message: `Score exists but no prediction found`,
+          message: hasAnyPrediction
+            ? 'Score exists but no race-specific prediction found'
+            : 'Score exists but user has submitted no predictions (likely test/seed user)',
           details: { raceId: score.raceId, userId: score.userId },
         });
       }
