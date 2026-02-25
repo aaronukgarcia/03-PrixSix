@@ -718,13 +718,19 @@ export function PubChatPanel() {
 
                                     {/* ThePaddockPubChat widget — FEAT-PC-001 all 3 view modes */}
                                     <div className="flex justify-center">
-                                        <ThePaddockPubChat
-                                            key={refreshKey}
-                                            timingData={timingData}
-                                            viewMode={pubChatViewMode}
-                                            selectedTeam={lensTeam}
-                                            teamDriverNumbers={officialTeams.find(t => t.teamName === lensTeam)?.drivers.map(d => d.number)}
-                                        />
+                                        {(() => {
+                                            const selectedOfficialTeam = officialTeams.find(t => t.teamName === lensTeam);
+                                            return (
+                                                <ThePaddockPubChat
+                                                    key={refreshKey}
+                                                    timingData={timingData}
+                                                    viewMode={pubChatViewMode}
+                                                    selectedTeam={lensTeam}
+                                                    officialDrivers={selectedOfficialTeam?.drivers}
+                                                    officialTeamColour={selectedOfficialTeam?.teamColour}
+                                                />
+                                            );
+                                        })()}
                                     </div>
                                 </CardContent>
                             </CollapsibleContent>

@@ -60,14 +60,21 @@ function TyreIndicator({ compound }: { compound?: string }) {
 // FEAT-PC-001: view modes — 'leaderboard' (Section 1), 'team-lens' (Section 2), 'comparison' (Section 3)
 export type PubChatViewMode = 'leaderboard' | 'team-lens' | 'comparison';
 
-interface ThePaddockPubChatProps {
-  timingData?: PubChatTimingData | null;
-  viewMode?: PubChatViewMode;         // Section 2/3: which view to render (default: leaderboard)
-  selectedTeam?: string;              // Section 2: display name (e.g. "Williams")
-  teamDriverNumbers?: number[];       // Section 2: driver numbers from official_teams — precise join key to OpenF1
+interface OfficialDriverEntry {
+  surname: string;
+  fullName: string;
+  number: number;
 }
 
-const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam, teamDriverNumbers }: ThePaddockPubChatProps) => {
+interface ThePaddockPubChatProps {
+  timingData?: PubChatTimingData | null;
+  viewMode?: PubChatViewMode;              // Section 2/3: which view to render (default: leaderboard)
+  selectedTeam?: string;                   // Section 2: display name (e.g. "Williams")
+  officialDrivers?: OfficialDriverEntry[]; // Section 2: official driver roster from official_teams — always shown in Team Lens
+  officialTeamColour?: string;             // Section 2: team hex colour (without #) for cards when no timing data
+}
+
+const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam, officialDrivers, officialTeamColour }: ThePaddockPubChatProps) => {
   // Section 3: internal multi-select state for driver comparison
   const [compareSelected, setCompareSelected] = useState<Set<number>>(new Set());
 
@@ -112,13 +119,20 @@ const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam,
     },
   };
 
-  // FEAT-PC-001 Section 2: Team Lens — filter by official driver numbers (precise join key) when
-  // provided from official_teams Firestore collection, else fall back to team name string match.
+  // FEAT-PC-001 Section 2: Team Lens — always render from officialDrivers roster (official_teams
+  // Firestore collection), enriched with timing data by driver number where available.
+  // Falls back to string-match filter when officialDrivers not loaded yet.
   const lensTeam = selectedTeam || 'Williams';
-  const lensDrivers = (teamDriverNumbers && teamDriverNumbers.length > 0)
-    ? drivers.filter(d => teamDriverNumbers.includes(d.driverNumber))
-    : drivers.filter(d => d.team.toLowerCase().includes(lensTeam.toLowerCase()));
   const leaderMs_ref = drivers.length > 0 ? parseTimeToMs(drivers[0].time) : 0;
+  // Build lens rows: one entry per official driver, timing enriched if available
+  const lensRows = (officialDrivers && officialDrivers.length > 0)
+    ? officialDrivers.map(od => ({
+        official: od,
+        timing: drivers.find(d => d.driverNumber === od.number) ?? null,
+      }))
+    : drivers
+        .filter(d => d.team.toLowerCase().includes(lensTeam.toLowerCase()))
+        .map(d => ({ official: { surname: d.driver, fullName: d.driver, number: d.driverNumber }, timing: d }));
 
   // FEAT-PC-001 Section 3: Comparison — driven by internal checkbox state
   const compareDrivers = compareSelected.size > 0
@@ -230,64 +244,61 @@ const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam,
         {/* ── VIEW: TEAM LENS (Section 2) ── */}
         {viewMode === 'team-lens' && (<>
           {/* Team name header */}
-          <div className="text-center mb-4">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500/80 font-semibold mb-1">Team Lens</p>
-            <div className="flex items-center justify-center gap-2">
-              {lensDrivers[0] && (
-                <div className="h-0.5 w-8 rounded" style={{ backgroundColor: `#${lensDrivers[0].teamColour}` }} />
-              )}
-              <span className="text-base font-bold text-white">{lensTeam}</span>
-              {lensDrivers[0] && (
-                <div className="h-0.5 w-8 rounded" style={{ backgroundColor: `#${lensDrivers[0].teamColour}` }} />
-              )}
-            </div>
-          </div>
-          {/* Driver cards — or empty state if team has no drivers in this session */}
-          {lensDrivers.length === 0 ? (
-            <p className="text-center text-[11px] text-slate-500 py-6">
-              No {lensTeam} drivers in this session
-            </p>
+          {(() => {
+            const accentColour = lensRows.find(r => r.timing)?.timing?.teamColour || officialTeamColour || 'ffffff';
+            return (
+              <div className="text-center mb-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500/80 font-semibold mb-1">Team Lens</p>
+                <div className="flex items-center justify-center gap-2">
+                  <div className="h-0.5 w-8 rounded" style={{ backgroundColor: `#${accentColour}` }} />
+                  <span className="text-base font-bold text-white">{lensTeam}</span>
+                  <div className="h-0.5 w-8 rounded" style={{ backgroundColor: `#${accentColour}` }} />
+                </div>
+              </div>
+            );
+          })()}
+          {/* Driver cards — always rendered from official roster; timing enriched where available */}
+          {lensRows.length === 0 ? (
+            <p className="text-center text-[11px] text-slate-500 py-6">No drivers found for {lensTeam}</p>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {lensDrivers.slice(0, 2).map((row) => {
-                const gapMs = leaderMs_ref > 0 ? parseTimeToMs(row.time) - leaderMs_ref : 0;
-                const gapStr = gapMs <= 0 ? "Leader" : `+${(gapMs / 1000).toFixed(3)}`;
+              {lensRows.map(({ official, timing }) => {
+                const colour = timing?.teamColour || officialTeamColour || 'ffffff';
+                const gapMs = timing && leaderMs_ref > 0 ? parseTimeToMs(timing.time) - leaderMs_ref : null;
+                const gapStr = gapMs === null ? null : gapMs <= 0 ? 'Leader' : `+${(gapMs / 1000).toFixed(3)}`;
                 return (
                   <motion.div
-                    key={row.driverNumber}
+                    key={official.number}
                     variants={rowVariants}
                     className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex flex-col items-center gap-2"
                   >
-                    <TyreIndicator compound={row.tyreCompound} />
+                    {timing ? <TyreIndicator compound={timing.tyreCompound} /> : <div className="w-4 h-4" />}
                     <div className="text-center leading-tight">
-                      <p className="font-bold text-sm text-white">{row.driver}</p>
-                      <p className="text-[9px] uppercase tracking-wide" style={{ color: `#${row.teamColour}` }}>#{row.driverNumber}</p>
+                      <p className="font-bold text-sm text-white">{official.surname}</p>
+                      <p className="text-[9px] uppercase tracking-wide" style={{ color: `#${colour}` }}>#{official.number}</p>
                     </div>
                     <div className="w-full space-y-1 mt-1">
                       <div className="flex justify-between text-[10px]">
                         <span className="text-slate-500">Best lap</span>
-                        <span className="font-mono font-bold text-slate-100">{row.time}</span>
+                        <span className="font-mono font-bold text-slate-100">{timing?.time ?? '—'}</span>
                       </div>
                       <div className="flex justify-between text-[10px]">
                         <span className="text-slate-500">Gap</span>
-                        <span className={`font-mono ${gapStr === 'Leader' ? 'text-purple-400' : 'text-slate-400'}`}>{gapStr}</span>
+                        <span className={`font-mono ${gapStr === 'Leader' ? 'text-purple-400' : 'text-slate-400'}`}>{gapStr ?? '—'}</span>
                       </div>
                       <div className="flex justify-between text-[10px]">
                         <span className="text-slate-500">Pos</span>
-                        <span className="font-mono font-bold text-slate-200">P{row.position}</span>
+                        <span className="font-mono font-bold text-slate-200">{timing ? `P${timing.position}` : '—'}</span>
                       </div>
                       <div className="flex justify-between text-[10px]">
                         <span className="text-slate-500">Laps</span>
-                        <span className="font-mono text-slate-400">{row.laps}</span>
+                        <span className="font-mono text-slate-400">{timing?.laps ?? '—'}</span>
                       </div>
                     </div>
                   </motion.div>
                 );
               })}
             </div>
-          )}
-          {lensDrivers.length === 1 && (
-            <p className="text-center text-[10px] text-slate-600 mt-3">Only one driver with lap data this session</p>
           )}
         </>)}
 
