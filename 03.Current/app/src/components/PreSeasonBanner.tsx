@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FlaskConical } from "lucide-react";
 
 // Set to false when the F1 season officially starts and all test data has been purged.
-export const IS_PRE_SEASON = true;
+export const IS_PRE_SEASON = false;
 
 export function PreSeasonBanner() {
     if (!IS_PRE_SEASON) return null;
