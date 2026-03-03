@@ -100788,7 +100788,7 @@
     },
     {
       "guid": "FIRESTORE_SETTINGS-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "PERSISTENCE",
       "description": "Firestore utility functions for app-settings documents. Handles hot news settings (content, isLocked, hotNewsFeedEnabled) and WhatsApp alert settings (master toggle, test mode, alert toggles, history). Includes default values and merge logic.",
       "dependencies": [],
@@ -104265,9 +104265,9 @@
     },
     {
       "guid": "HOT_NEWS_FLOW-008",
-      "version": 2,
+      "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather, builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news.",
+      "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather, builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news. Appends #NNNN messageId suffix to generated text (starts at #0018).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/ai/flows/hot-news-feed.ts",

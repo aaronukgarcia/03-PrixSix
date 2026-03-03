@@ -200,12 +200,13 @@ async function fetchOpenF1Weather(): Promise<{ trackTemp: number; rainfall: numb
     }
 }
 
-// GUID: HOT_NEWS_FLOW-008-v02
+// GUID: HOT_NEWS_FLOW-008-v03
 // [Intent] Core AI generation flow — fetches weather, builds prompt, calls Gemini 2.0 Flash,
-//          writes result to Firestore with refreshCount increment.
+//          writes result to Firestore with refreshCount increment and messageId suffix in text.
 //          This is the function called by both the admin "Refresh Now" button and the hourly cron.
 // [Inbound Trigger] Admin panel server action or /api/cron/refresh-hot-news POST route.
-// [Downstream Impact] Writes app-settings/hot-news content + refreshCount. Read by getHotNewsFeed().
+// [Downstream Impact] Writes app-settings/hot-news content (with #NNNN suffix) + refreshCount + messageId.
+//                     Read by getHotNewsFeed(). messageId starts at 18 and increments on every generation.
 export const hotNewsFeedFlow = ai.defineFlow(
     {
         name: "hotNewsFeedFlow",
@@ -253,24 +254,38 @@ Plain text only. Use bullet points starting with •. No markdown headers. No pr
         const response = await ai.generate(prompt);
         const newsFeed = response.text;
 
-        // Write to Firestore — increment refreshCount atomically
+        // Compute the next messageId — read current doc first.
+        // messageId starts at 17 (so first increment produces #0018 per user requirement).
         const { db } = await getFirebaseAdmin();
-        await db.collection('app-settings').doc('hot-news').set(
+        const hotNewsRef = db.collection('app-settings').doc('hot-news');
+        const currentDoc = await hotNewsRef.get();
+        const currentMessageId = currentDoc.data()?.messageId;
+        const nextMessageId = Math.max(
+            (typeof currentMessageId === 'number' ? currentMessageId : 17) + 1,
+            18
+        );
+
+        // Append message ID suffix to the generated text
+        const newsFeedWithId = newsFeed + `\n#${String(nextMessageId).padStart(4, '0')}`;
+
+        // Write to Firestore — increment refreshCount atomically, set messageId as plain number
+        await hotNewsRef.set(
             {
-                content: newsFeed,
+                content: newsFeedWithId,
                 lastUpdated: Timestamp.now(),
                 refreshCount: FieldValue.increment(1),
                 hotNewsFeedEnabled: true,
+                messageId: nextMessageId,
             },
             { merge: true }
         );
 
         // Read back the current refreshCount for the response
-        const snap = await db.collection('app-settings').doc('hot-news').get();
+        const snap = await hotNewsRef.get();
         const refreshCount = snap.data()?.refreshCount ?? 1;
 
         return {
-            newsFeed,
+            newsFeed: newsFeedWithId,
             lastUpdated: new Date().toISOString(),
             refreshCount,
         };
