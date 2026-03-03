@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'crypto';
 import express, { Request, Response } from 'express';
 import { initializeFirebase } from './firebase-config';
 import { WhatsAppClient } from './whatsapp-client';
@@ -13,30 +14,48 @@ app.use(express.json());
 let whatsappClient: WhatsAppClient;
 let queueProcessor: QueueProcessor;
 
-// SECURITY: Authentication middleware for sensitive endpoints (WHATSAPP-002 fix)
-// Verifies WORKER_API_KEY is set and matches the request header
-function requireAuth(req: Request, res: Response, next: Function) {
-  const apiKey = process.env.WORKER_API_KEY;
-
-  if (!apiKey) {
-    console.error('WORKER_API_KEY environment variable is not set');
-    res.status(500).json({ error: 'Server misconfigured: API key not set' });
+// GUID: WHATSAPP_WORKER-000-v01
+// [Intent] HMAC SHA-256 authentication middleware — verifies that incoming requests originate
+//          from the trusted Next.js proxy by checking the X-Hub-Signature-256 header.
+//          The proxy signs the endpoint name (path without leading slash) with WHATSAPP_APP_SECRET.
+//          Uses timing-safe comparison (GR#11) to prevent oracle attacks.
+// [Inbound Trigger] Applied to all sensitive endpoints (/status, /qr, /ping, /process-queue, /trigger-test).
+//                   /health is intentionally left public for Docker HEALTHCHECK and the admin health monitor.
+// [Downstream Impact] Rejects any request that lacks or presents an invalid HMAC signature with 401.
+//                     Requests from outside the proxy will always fail this check.
+function verifyHmacSignature(req: Request, res: Response, next: Function) {
+  const secret = process.env.WHATSAPP_APP_SECRET;
+  if (!secret) {
+    console.error('[auth] WHATSAPP_APP_SECRET is not set');
+    res.status(500).json({ error: 'Server misconfigured' });
     return;
   }
 
-  const providedKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  const signature = req.headers['x-hub-signature-256'] as string | undefined;
+  if (!signature) {
+    res.status(401).json({ error: 'Unauthorized: Missing signature' });
+    return;
+  }
 
-  if (providedKey !== apiKey) {
-    res.status(401).json({ error: 'Unauthorized: Invalid or missing API key' });
+  // The proxy signs the endpoint name — path without leading slash (e.g. "status", "qr", "ping")
+  const endpoint = req.path.slice(1);
+  const expected = `sha256=${crypto.createHmac('sha256', secret).update(endpoint).digest('hex')}`;
+
+  // Timing-safe comparison to prevent length/timing oracle attacks (GR#11)
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    res.status(401).json({ error: 'Unauthorized: Invalid signature' });
     return;
   }
 
   next();
 }
 
-// Health check endpoint
-// SECURITY: Protected with authentication (WHATSAPP-002 fix)
-app.get('/health', requireAuth, (req: Request, res: Response) => {
+// Health check endpoint — intentionally PUBLIC (no auth)
+// Docker HEALTHCHECK and the admin health monitor route both call /health without credentials.
+// This endpoint returns no sensitive data; full status with QR requires /status (authenticated).
+app.get('/health', (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus() || {
     ready: false,
     qrCode: null,
@@ -59,8 +78,7 @@ app.get('/health', requireAuth, (req: Request, res: Response) => {
 });
 
 // Status endpoint with more details
-// SECURITY: Protected with authentication (WHATSAPP-002 fix)
-app.get('/status', requireAuth, async (req: Request, res: Response) => {
+app.get('/status', verifyHmacSignature, async (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus() || {
     ready: false,
     qrCode: null,
@@ -101,8 +119,8 @@ app.get('/status', requireAuth, async (req: Request, res: Response) => {
 });
 
 // QR Code endpoint (for remote setup)
-// SECURITY: CRITICAL - Protected with authentication to prevent session hijacking (WHATSAPP-002 fix)
-app.get('/qr', requireAuth, (req: Request, res: Response) => {
+// SECURITY: CRITICAL - Protected with HMAC signature to prevent session hijacking
+app.get('/qr', verifyHmacSignature, (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus();
 
   if (!status?.qrCode) {
@@ -118,8 +136,7 @@ app.get('/qr', requireAuth, (req: Request, res: Response) => {
 });
 
 // Manual ping endpoint (for testing keep-alive)
-// SECURITY: Protected with authentication (WHATSAPP-002 fix)
-app.post('/ping', requireAuth, async (req: Request, res: Response) => {
+app.post('/ping', verifyHmacSignature, async (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus();
 
   if (!status?.ready) {
@@ -144,8 +161,8 @@ app.post('/ping', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Manual trigger endpoint (for testing)
-app.post('/trigger-test', async (req: Request, res: Response) => {
+// Manual trigger endpoint (for testing) — SECURITY: auth was missing, now protected
+app.post('/trigger-test', verifyHmacSignature, async (req: Request, res: Response) => {
   const status = whatsappClient?.getStatus();
 
   if (!status?.ready) {
@@ -164,10 +181,9 @@ app.post('/trigger-test', async (req: Request, res: Response) => {
   }
 });
 
-// NEW: Process queue endpoint for Container Apps scale-to-zero
+// Process queue endpoint for Container Apps scale-to-zero
 // This endpoint is called when a message is queued, triggering scale-up
-// SECURITY: Protected with authentication (WHATSAPP-002 fix - consolidated with requireAuth middleware)
-app.post('/process-queue', requireAuth, async (req: Request, res: Response) => {
+app.post('/process-queue', verifyHmacSignature, async (req: Request, res: Response) => {
   console.log('📬 Received request to process queue');
 
   const status = whatsappClient?.getStatus();

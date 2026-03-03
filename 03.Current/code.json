@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
-  "generated": "2026-02-24",
-  "total_guids": 1143,
+  "generated": "2026-03-03",
+  "total_guids": 1453,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -37888,35 +37888,17 @@
         "functionName": "POST"
       },
       "callChain": {
-        "calledBy": [
-          "ADMIN_RESULTS-000",
-          "ADMIN_RESULTS-001",
-          "ADMIN_RESULTS-002",
-          "ADMIN_RESULTS-003",
-          "ADMIN_RESULTS-004",
-          "ADMIN_RESULTS-005",
-          "ADMIN_RESULTS-006",
-          "ADMIN_RESULTS-007",
-          "ADMIN_RESULTS-008",
-          "ADMIN_RESULTS-009",
-          "ADMIN_RESULTS-010",
-          "ADMIN_RESULTS-011",
-          "ADMIN_RESULTS-012",
-          "ADMIN_RESULTS-013",
-          "ADMIN_RESULTS-014",
-          "ADMIN_RESULTS-015",
-          "ADMIN_RESULTS-016",
-          "ADMIN_RESULTS-017",
-          "ADMIN_RESULTS-018",
-          "ADMIN_RESULTS-019",
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
+        "calls": [
+          "LIB_SCORING-004",
+          "LIB_NORMALIZE_RACE_ID-000",
+          "LIB_SCORING_RULES-000"
         ],
-        "calls": []
+        "calledBy": [
+          "ADMIN_SCORING_PAGE"
+        ]
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-13T01:18:16Z"
+      "lastUpdated": "2026-03-03T19:18:53.567Z"
     },
     {
       "guid": "API_CALCULATE_SCORES-007",
@@ -38956,35 +38938,16 @@
         "functionName": "POST"
       },
       "callChain": {
-        "calledBy": [
-          "ADMIN_RESULTS-000",
-          "ADMIN_RESULTS-001",
-          "ADMIN_RESULTS-002",
-          "ADMIN_RESULTS-003",
-          "ADMIN_RESULTS-004",
-          "ADMIN_RESULTS-005",
-          "ADMIN_RESULTS-006",
-          "ADMIN_RESULTS-007",
-          "ADMIN_RESULTS-008",
-          "ADMIN_RESULTS-009",
-          "ADMIN_RESULTS-010",
-          "ADMIN_RESULTS-011",
-          "ADMIN_RESULTS-012",
-          "ADMIN_RESULTS-013",
-          "ADMIN_RESULTS-014",
-          "ADMIN_RESULTS-015",
-          "ADMIN_RESULTS-016",
-          "ADMIN_RESULTS-017",
-          "ADMIN_RESULTS-018",
-          "ADMIN_RESULTS-019",
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
+        "calls": [
+          "LIB_SCORING-007",
+          "LIB_NORMALIZE_RACE_ID-000"
         ],
-        "calls": []
+        "calledBy": [
+          "ADMIN_SCORING_PAGE"
+        ]
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-10T17:46:33Z"
+      "lastUpdated": "2026-03-03T19:18:53.567Z"
     },
     {
       "guid": "API_DELETE_SCORES-004",
@@ -45375,35 +45338,17 @@
         "functionName": "POST"
       },
       "callChain": {
-        "calledBy": [
-          "COMPONENT_PREDICTION_EDITOR-000",
-          "COMPONENT_PREDICTION_EDITOR-001",
-          "COMPONENT_PREDICTION_EDITOR-002",
-          "COMPONENT_PREDICTION_EDITOR-003",
-          "COMPONENT_PREDICTION_EDITOR-004",
-          "COMPONENT_PREDICTION_EDITOR-005",
-          "COMPONENT_PREDICTION_EDITOR-006",
-          "COMPONENT_PREDICTION_EDITOR-007",
-          "COMPONENT_PREDICTION_EDITOR-008",
-          "COMPONENT_PREDICTION_EDITOR-009",
-          "COMPONENT_PREDICTION_EDITOR-010",
-          "COMPONENT_PREDICTION_EDITOR-011",
-          "COMPONENT_PREDICTION_EDITOR-012",
-          "COMPONENT_PREDICTION_EDITOR-013",
-          "COMPONENT_PREDICTION_EDITOR-014",
-          "COMPONENT_PREDICTION_EDITOR-015",
-          "COMPONENT_PREDICTION_EDITOR-016",
-          "COMPONENT_PREDICTION_EDITOR-017",
-          "COMPONENT_PREDICTION_EDITOR-018",
-          "COMPONENT_PREDICTION_EDITOR-019",
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
+        "calls": [
+          "LIB_NORMALIZE_RACE_ID-000",
+          "LIB_CSRF-000"
         ],
-        "calls": []
+        "calledBy": [
+          "PAGE_PREDICTIONS-000",
+          "COMPONENT_PREDICTION_EDITOR-000"
+        ]
       },
       "created": "2026-01-19T01:12:05Z",
-      "lastUpdated": "2026-02-17T22:33:06Z"
+      "lastUpdated": "2026-03-03T19:18:53.567Z"
     },
     {
       "guid": "API_SUBMIT_PREDICTION-003",
@@ -76129,32 +76074,18 @@
         "filePath": "app/src/lib/normalize-race-id.ts"
       },
       "callChain": {
+        "calls": [],
         "calledBy": [
-          "ADMIN_RESULTS-000",
-          "ADMIN_RESULTS-001",
-          "ADMIN_RESULTS-002",
-          "ADMIN_RESULTS-003",
-          "ADMIN_RESULTS-004",
-          "ADMIN_RESULTS-005",
-          "ADMIN_RESULTS-006",
-          "ADMIN_RESULTS-007",
-          "ADMIN_RESULTS-008",
-          "ADMIN_RESULTS-009",
-          "ADMIN_RESULTS-010",
-          "ADMIN_RESULTS-011",
-          "ADMIN_RESULTS-012",
-          "ADMIN_RESULTS-013",
-          "ADMIN_RESULTS-014",
-          "ADMIN_RESULTS-015",
-          "ADMIN_RESULTS-016",
-          "ADMIN_RESULTS-017",
-          "ADMIN_RESULTS-018",
-          "ADMIN_RESULTS-019"
-        ],
-        "calls": []
+          "API_CALCULATE_SCORES-006",
+          "API_DELETE_SCORES-003",
+          "LIB_SCORING-004",
+          "LIB_SCORING-006",
+          "LIB_SCORING-007",
+          "API_SUBMIT_PREDICTION-002"
+        ]
       },
       "created": "2026-01-31T10:28:33Z",
-      "lastUpdated": "2026-02-24T00:00:00Z",
+      "lastUpdated": "2026-03-03T19:18:53.567Z",
       "designNote": "DESIGN NOTE (GEMINI-AUDIT-131, 2026-02-24): The -GP suffix asymmetry between storage (generateRaceId appends -GP) and lookup (normalizeRaceId strips -GP) is INTENTIONAL and CORRECT. Both sides of the scoring comparison pass through normalizeRaceId, so both arrive at the same stripped key. Changing normalizeRaceId to preserve -GP would break Sprint carry-forward scoring (calculate-scores lines 251-259 derive the GP base key by stripping -Sprint; GP predictions must be keyed without -GP for this to work). Gemini-AUDIT-131 flagged this as a critical bug — it is a false alarm. Do not apply Gemini proposed fix."
     },
     {
@@ -77520,11 +77451,17 @@
         }
       },
       "callChain": {
-        "calledBy": [],
-        "calls": []
+        "calls": [
+          "LIB_SCORING_RULES-000",
+          "LIB_NORMALIZE_RACE_ID-000"
+        ],
+        "calledBy": [
+          "LIB_SCORING-006",
+          "API_CALCULATE_SCORES-014"
+        ]
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T18:36:01Z"
+      "lastUpdated": "2026-03-03T19:18:53.567Z"
     },
     {
       "guid": "LIB_SCORING-005",
@@ -77622,11 +77559,16 @@
         }
       },
       "callChain": {
-        "calledBy": [],
-        "calls": []
+        "calls": [
+          "LIB_SCORING-004",
+          "LIB_NORMALIZE_RACE_ID-000"
+        ],
+        "calledBy": [
+          "API_CALCULATE_SCORES-006"
+        ]
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T18:36:01Z"
+      "lastUpdated": "2026-03-03T19:18:53.567Z"
     },
     {
       "guid": "LIB_SCORING-007",
@@ -77682,11 +77624,15 @@
         }
       },
       "callChain": {
-        "calledBy": [],
-        "calls": []
+        "calls": [
+          "LIB_NORMALIZE_RACE_ID-000"
+        ],
+        "calledBy": [
+          "API_DELETE_SCORES-006"
+        ]
       },
       "created": "2026-01-19T00:03:55Z",
-      "lastUpdated": "2026-02-17T18:36:01Z"
+      "lastUpdated": "2026-03-03T19:18:53.567Z"
     },
     {
       "guid": "LIB_SCORING-008",
@@ -77740,11 +77686,14 @@
         "filePath": "app/src/lib/scoring-rules.ts"
       },
       "callChain": {
-        "calledBy": [],
-        "calls": []
+        "calls": [],
+        "calledBy": [
+          "LIB_SCORING-004",
+          "API_CALCULATE_SCORES-014"
+        ]
       },
       "created": "2026-01-21T13:07:59Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
+      "lastUpdated": "2026-03-03T19:18:53.567Z"
     },
     {
       "guid": "LIB_SCORING_RULES-001",
@@ -102674,7 +102623,8 @@
         "calls": []
       },
       "created": "2026-02-23T00:00:00Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-02-23T00:00:00Z",
+      "dependencies": []
     },
     {
       "guid": "LIB_EMAIL-005a",
@@ -102689,7 +102639,8 @@
         "calls": []
       },
       "created": "2026-02-23T00:00:00Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-02-23T00:00:00Z",
+      "dependencies": []
     },
     {
       "guid": "API_HEALTH-000",
@@ -104247,9 +104198,7 @@
         "functionName": "getHotNewsFeed"
       },
       "callChain": {
-        "calledBy": [
-          "DASHBOARD_HOT_NEWS_FEED"
-        ],
+        "calledBy": [],
         "calls": []
       },
       "created": "2026-03-03T18:13:54.532Z",
@@ -104326,8 +104275,7 @@
       },
       "callChain": {
         "calledBy": [
-          "CRON_HOT_NEWS-002",
-          "ADMIN_HOT_NEWS_PANEL"
+          "CRON_HOT_NEWS-002"
         ],
         "calls": [
           "HOT_NEWS_FLOW-005",
@@ -104419,6 +104367,5278 @@
       },
       "created": "2026-03-03T18:13:54.532Z",
       "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "FIREBASE_ERROR_EMITTER-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "AppEvents interface — typed event contract for all Firebase error signals; adding an event here widens the emitter type signature.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/error-emitter.ts",
+        "functionName": "AppEvents"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_ERROR_EMITTER-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Generic strongly-typed pub/sub factory returning an emitter with on/off/emit methods constrained to the event map type T.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/error-emitter.ts",
+        "functionName": "createEventEmitter"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_ERROR_EMITTER-002",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Module-level singleton errorEmitter typed with AppEvents — the single hub through which all Firestore permission errors propagate to FirebaseErrorListener.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/error-emitter.ts",
+        "functionName": "errorEmitter"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_ERRORS-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Internal type definitions (SecurityRuleContext, FirebaseAuthToken, FirebaseAuthObject, SecurityRuleRequest) modelling Firestore security rule objects for LLM-friendly error formatting.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/errors.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_ERRORS-001",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Converts a Firebase User into a FirebaseAuthObject mirroring request.auth in Firestore security rules — used to build diagnostic error payloads.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/errors.ts",
+        "functionName": "buildAuthObject"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_ERRORS-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Assembles the full simulated SecurityRuleRequest by combining operation context with current auth state; safe against uninitialized Firebase app.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/errors.ts",
+        "functionName": "buildRequestObject"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_ERRORS-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Formats the security rule request object into a human/LLM-readable string matching the Firestore \"Missing or insufficient permissions\" error format.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/errors.ts",
+        "functionName": "buildErrorMessage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_ERRORS-004",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "FirestorePermissionError — custom error class wrapping Firestore permission failures with a structured SecurityRuleRequest payload designed for LLM-assisted debugging.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/errors.ts",
+        "functionName": "FirestorePermissionError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_NON_BLOCKING_LOGIN-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Fire-and-forget anonymous sign-in — deliberately not awaited so the UI does not freeze; auth state change propagates via onAuthStateChanged listener.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/non-blocking-login.tsx",
+        "functionName": "initiateAnonymousSignIn"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_NON_BLOCKING_LOGIN-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Fire-and-forget email/password account creation — not awaited; result arrives via the onAuthStateChanged listener.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/non-blocking-login.tsx",
+        "functionName": "initiateEmailSignUp"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_NON_BLOCKING_LOGIN-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Fire-and-forget email/password sign-in — not awaited; auth state change propagates via onAuthStateChanged listener.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/non-blocking-login.tsx",
+        "functionName": "initiateEmailSignIn"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_NON_BLOCKING_UPDATES-000",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Fire-and-forget setDoc wrapper — writes the document without blocking; emits FirestorePermissionError via errorEmitter on permission failure.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/non-blocking-updates.tsx",
+        "functionName": "setDocumentNonBlocking"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_NON_BLOCKING_UPDATES-001",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Fire-and-forget addDoc wrapper — creates a new document without blocking; has explicit cascade-prevention for error_logs to avoid infinite error loops (skipErrorEmit flag).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/non-blocking-updates.tsx",
+        "functionName": "addDocumentNonBlocking"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_NON_BLOCKING_UPDATES-002",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Fire-and-forget updateDoc wrapper — merges fields into an existing document without blocking; emits permission-error on failure.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/non-blocking-updates.tsx",
+        "functionName": "updateDocumentNonBlocking"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIREBASE_NON_BLOCKING_UPDATES-003",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Fire-and-forget deleteDoc wrapper — removes a document without blocking; emits permission-error on failure.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/non-blocking-updates.tsx",
+        "functionName": "deleteDocumentNonBlocking"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "WhatsApp alert schema interfaces (WhatsAppAlertToggles, WhatsAppAlertSettings, WhatsAppAlertHistoryEntry) — mirrors the admin_configuration/whatsapp_alerts Firestore document structure.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-002",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Reads WhatsApp alert settings from admin_configuration/whatsapp_alerts; creates the document with defaults if absent.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts",
+        "functionName": "getWhatsAppAlertSettings"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-003",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Merges partial WhatsApp alert settings into admin_configuration/whatsapp_alerts — used by the admin panel to toggle individual alert types.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts",
+        "functionName": "updateWhatsAppAlertSettings"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-004",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Builds a Firestore Query for whatsapp_alert_history ordered by createdAt descending — returns a Query for real-time listener attachment by the admin history table.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts",
+        "functionName": "getWhatsAppAlertHistoryQuery"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-005",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Appends a new entry to whatsapp_alert_history, recording alert type, message, target group, status, and timestamps for send/fail audit trail.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts",
+        "functionName": "addWhatsAppAlertHistoryEntry"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-006",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "PubChat settings interface, defaults, reader (getPubChatSettings), and writer (updatePubChatContent) — manages the app-settings/pub-chat admin-editable announcement text.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts",
+        "functionName": "getPubChatSettings"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-007",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "PubChatTimingDriver and PubChatTimingData TypeScript interfaces defining the shape of the app-settings/pub-chat-timing Firestore document sourced from OpenF1 API.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "FIRESTORE_SETTINGS-008",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Reads session timing data from app-settings/pub-chat-timing; returns null if absent; supports forceServer flag to bypass cache after an admin OpenF1 fetch.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/settings.ts",
+        "functionName": "getPubChatTimingData"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:21:06.745Z",
+      "lastUpdated": "2026-03-03T18:21:06.745Z"
+    },
+    {
+      "guid": "HOOK_USE_ERROR_COPY-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "React hook that builds a copyable error string (errorCode | correlationId | digest | moduleName) with a 2-second copied confirmation — implements Golden Rule #1 selectable-error requirement.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/hooks/use-error-copy.ts",
+        "functionName": "useErrorCopy"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:29:43.392Z",
+      "lastUpdated": "2026-03-03T18:29:43.392Z"
+    },
+    {
+      "guid": "HOOK_USE_MOBILE-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "React hook returning true when viewport width is below the 768px mobile breakpoint; updates reactively via MediaQueryList change events.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/hooks/use-mobile.tsx",
+        "functionName": "useIsMobile"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:29:43.392Z",
+      "lastUpdated": "2026-03-03T18:29:43.392Z"
+    },
+    {
+      "guid": "HOOK_USE_TOAST-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Module-level toast notification state machine with reducer, listener array, and useToast hook — provides the imperative toast() API and the Toaster component's data source. TOAST_LIMIT=1 enforces single-toast display.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/hooks/use-toast.ts",
+        "functionName": "useToast"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:29:43.392Z",
+      "lastUpdated": "2026-03-03T18:29:43.392Z"
+    },
+    {
+      "guid": "COMPONENT_FIREBASE_ERROR_LISTENER-000",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Invisible component subscribed to errorEmitter's permission-error event; logs errors to the audit trail and throws them into React's error boundary for Next.js global-error.tsx display.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/FirebaseErrorListener.tsx",
+        "functionName": "FirebaseErrorListener"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:29:43.392Z",
+      "lastUpdated": "2026-03-03T18:29:43.392Z"
+    },
+    {
+      "guid": "COMPONENT_LOGO-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Renders the Prix Six SVG logo at sm/md/lg size with priority loading to prevent layout shift on auth and branded pages.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/Logo.tsx",
+        "functionName": "Logo"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:29:43.392Z",
+      "lastUpdated": "2026-03-03T18:29:43.392Z"
+    },
+    {
+      "guid": "COMPONENT_PRE_SEASON_BANNER-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "IS_PRE_SEASON flag and amber alert banner informing players that test-season points will reset before race 1; returns null immediately when IS_PRE_SEASON=false.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/PreSeasonBanner.tsx",
+        "functionName": "PreSeasonBanner"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:29:43.392Z",
+      "lastUpdated": "2026-03-03T18:29:43.392Z"
+    },
+    {
+      "guid": "COMPONENT_PUB_CHAT-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "The Paddock Pub Chat widget with three view modes: leaderboard (ranked timing), team-lens (official driver roster joined with OpenF1 timing), and comparison (multi-select driver delta). Falls back to pre-season test data when Firestore timing is absent.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/ThePaddockPubChat.tsx",
+        "functionName": "ThePaddockPubChat"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:29:43.392Z",
+      "lastUpdated": "2026-03-03T18:29:43.392Z"
+    },
+    {
+      "guid": "AI_DEV-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Genkit dev entry point — loads env vars and imports all AI flow modules so the Genkit dev server discovers them for local testing. Not loaded in production.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/dev.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "AI_DYNAMIC_DRIVERS-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Genkit flow with placeholder scrapeF1DriversTool — intended to scrape F1.com for the current driver list and update Firestore; implementation is a TODO stub with deferred GR#7 violations.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/dynamic-driver-updates.ts",
+        "functionName": "updateDriverList"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "AI_TEAM_NAME_GENERATOR-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Genkit flow that uses a Vertex AI prompt to generate a punny F1 team name based on an existing real team name — utility flow for the team name selection feature.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/team-name-generator.ts",
+        "functionName": "generateTeamName"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "PAGE_ADMIN_VERIFY-001",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "Admin magic-link verification page — extracts token and uid from URL params, POSTs to /api/admin/verify-access, and redirects to /admin on success. Single-use, 10-minute expiry.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/verify/page.tsx",
+        "functionName": "AdminVerifyPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "DASHBOARD_HOT_NEWS_FEED-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Server component fetching AI-generated Hot News Feed content and rendering it as a card with timestamp and refresh counter; also exports HotNewsFeedSkeleton for Suspense boundaries.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/HotNewsFeed.tsx",
+        "functionName": "HotNewsFeed"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "DASHBOARD_RESOLVED_FEEDBACK-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "One-time dashboard notification for resolved feedback items — queries feedback collection, shows green alerts for resolved but unnotified items, sets resolvedNotifiedAt on dismiss.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/ResolvedFeedbackNotifier.tsx",
+        "functionName": "ResolvedFeedbackNotifier"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "COMPONENT_LEAGUE_SELECTOR-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "League dropdown selector — only renders when user belongs to more than one league; reads/writes selected league via LeagueContext to drive league-filtered views.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/league/LeagueSelector.tsx",
+        "functionName": "LeagueSelector"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "TypeScript types and interfaces for the centralized Book of Work system: BookOfWorkCategory, BookOfWorkStatus, BookOfWorkSeverity, BookOfWorkSource, BookOfWorkPackage enums and BookOfWorkEntry/Stats interfaces.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkCategory type — defines all possible categories for work items: security, ui, feature, cosmetic, infrastructure, system-error, user-error.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkCategory"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-002",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkStatus type — defines the work item status lifecycle: tbd, in_progress, done, wont_fix, duplicate.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkStatus"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-003",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkSeverity type — defines priority levels: critical, high, medium, low, informational.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkSeverity"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-004",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkSource type — tracks origin of work items: vestige-security, vestige-redteam, virgin-ux, error-log, feedback, manual, historical, firestore-existing, archived-security-audit.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkSource"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-004A",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkPackage type — filter packages for admin UI: virgin-ux-audit, security-critical/high/medium/low, vestige-audit.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkPackage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-005",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkEntry interface — main schema for book_of_work Firestore documents; includes id, title, description, category, severity, status, source, version tracking, assignment, and tags fields.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkEntry"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-006",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkEntryCreate helper type — BookOfWorkEntry without id/timestamps (optional) for use with addDoc() and migration scripts with historical dates.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkEntryCreate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-007",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkEntryUpdate helper type — partial BookOfWorkEntry with required updatedAt for use with updateDoc() partial updates in the admin UI.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkEntryUpdate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "TYPES_BOOKOFWORK-008",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "BookOfWorkStats interface — summary statistics for the admin dashboard banner: total count, breakdown by status, breakdown by category.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/types/book-of-work.ts",
+        "functionName": "BookOfWorkStats"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T18:43:11.401Z",
+      "lastUpdated": "2026-03-03T18:43:11.401Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Extends BookOfWorkEntry interface with Firestore document ID for client-side usage",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Maps category values to display-friendly labels and icon components",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Maps status values to display labels, icon components, and Tailwind CSS styling",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-004",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Maps severity values to badge color classes for visual prioritization",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "toDate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-004A",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Helper function to safely convert Firestore Timestamp or Date to Date object",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "toDate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-005",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Main BookOfWorkManager component providing centralized work item tracking with filtering, search, and inline editing",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "BookOfWorkManager"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-006",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Local state for work items, loading flag, filter selections, search query, and editing state Added loadingProgress to track \"record X of Y\" during initial load",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-007",
+      "version": 7,
+      "logic_category": "TRANSFORMATION",
+      "description": "Sets up real-time Firestore listener on book_of_work collection, ordered by last update descending Shows loading progress \"record X of Y\" during initial load Added timeout fallback to detect hanging Firestore connections",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "timeoutId"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-008",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Filters and searches work items based on user-selected criteria",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "filteredEntries"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-009",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Calculates summary statistics (total count, by status, by category, last updated)",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "stats"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-010",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Handles status update for a work item",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "handleStatusUpdate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-011",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Enters edit mode for a work item, populating edit form with current values",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "startEditing"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-012",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Saves inline edits to Firestore",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "saveEdit"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-013",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Cancels edit mode without saving changes",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": "cancelEdit"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-014",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "admin bookofwork block.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-015",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "admin bookofwork block.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-016",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "admin bookofwork block.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_BOOKOFWORK-017",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Loading skeleton with progress indicator showing \"Loading record X of Y\"",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_CONSISTENCY-012",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Enforce 5-minute cooldown between runs to prevent Denial of Wallet via repeated unbounded Firestore reads (GEMINI-AUDIT-017).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/ConsistencyChecker.tsx",
+        "functionName": "COOLDOWN_MS"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_CONSISTENCY-013",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Live countdown timer — updates cooldownRemaining every second while cooldown is active.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/ConsistencyChecker.tsx",
+        "functionName": "update"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_EMAILLOG-016",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Sanitize stored email HTML from Firestore before rendering in the admin preview pane. Uses a strict allowlist of safe tags/attrs sufficient for email body display.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/EmailLogManager.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_HOTLINK_CLEANUP-001",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Hourly cron job to delete expired admin challenge tokens from the admin_challenges collection. Provides defensive redundancy alongside Firestore TTL policy (Option C approach). Prevents token accumulation and ensures tokens older than 10 minutes are purged.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "cleanupExpiredAdminTokens"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_HOTLINK_RULES-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for admin_challenges collection (Admin Hot Link tokens). Denies all client-side access. Tokens are created and verified server-side only via /api/auth/admin-challenge and /api/admin/verify-access endpoints.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Admin component for real-time health monitoring of external interfaces (PubChat/OpenF1, WhatsApp, Email/Graph API). Provides RAG (Red/Amber/Green) status indicators with diagnostic information to quickly identify interface failures.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "InterfaceHealthMonitor component — displays real-time health status for PubChat, WhatsApp, and Email interfaces with RAG indicators and diagnostic info.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": "InterfaceHealthMonitor"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-002",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Check PubChat/OpenF1 interface health by calling the sessions API endpoint.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": "checkPubChatHealth"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-003",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Check WhatsApp worker interface health by calling the health endpoint.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": "checkWhatsAppHealth"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-004",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Check Email/Graph API interface health by calling the health endpoint.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": "checkEmailHealth"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-005",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Run all health checks in parallel and update lastFullCheck timestamp.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": "runAllChecks"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "ADMIN_VERIFICATION_RULES-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for secondary_email_verification_tokens collection. Denies all client-side access. Tokens created server-side only.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Server-side account closure endpoint — permanently deletes a user's Firestore document, predictions subcollection, presence document, and Firebase Auth account using Admin SDK. Client-side Firestore rules deny user-document deletes; this route bypasses them safely.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": "DELETE_SUBCOLLECTION_BATCH_SIZE"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "DELETE_SUBCOLLECTION_BATCH_SIZE controls how many prediction documents are deleted per Firestore batch write. Firestore enforces a hard limit of 500 operations per batch.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": "DELETE_SUBCOLLECTION_BATCH_SIZE"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — verifies the caller's Firebase ID token, then atomically deletes: 1. All documents in users/{uid}/predictions subcollection (batched) 2. The users/{uid} Firestore document 3. The presence/{uid} Firestore document (best-effort, non-fatal if missing) 4. The Firebase Auth account record for uid Writes an audit log entry before deletion completes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Authenticate the request via the Authorization: Bearer <token> header. Returns 401 immediately for missing, expired, or invalid tokens.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": "authHeader"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-004",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Delete all documents in users/{uid}/predictions subcollection using batched writes. Subcollection documents are NOT automatically deleted when the parent document is deleted, so explicit deletion is required to prevent orphaned prediction data.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": "predictionsRef"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Write a final audit log entry recording the account closure event before the user document is deleted. This ensures an audit trail exists even after the account is gone. Written directly via Admin SDK since the client-side audit module is unavailable here.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Delete the users/{uid} Firestore document via Admin SDK. Admin SDK bypasses the Firestore security rules that deny client-side deletes on user documents.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-007",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Delete the presence/{uid} document. Presence documents track online status and are separate from the users collection. Best-effort: a missing presence doc is not an error.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-008",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Delete the Firebase Auth account for uid using the Admin Auth SDK. This is the final step so that re-authentication is impossible after all Firestore data is removed. If this step fails, the Firestore data is already deleted — the user has no document to sign in to, and the auth record can be cleaned up manually by an admin.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ACCOUNT_CLOSE-009",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Top-level catch for any unhandled error during the deletion pipeline. Logs to error_logs via logError (Golden Rule #1) and returns a structured error response with correlation ID so the user can report the exact failure to support.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/account/close/route.ts",
+        "functionName": "err"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ADMIN_FETCH_TIMING_DATA-016",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Generic helper to fetch any OpenF1 data type for a session, with an optional driver filter. Builds the URL from dataType and sessionKey, then calls fetchWithTimeout() and safeParseJson() to guard against hangs and non-JSON responses.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/fetch-timing-data/route.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ADMIN_OPENF1_SESSIONS-008",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "When validate=true, fire a parallel /laps?session_key=X&limit=1 check for each past session to determine whether OpenF1 actually has lap data. Future sessions are unconditionally hasData=false. Returns hasData field on each session so the client can suppress sessions with no data without the user seeing empty fetches.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/openf1-sessions/route.ts",
+        "functionName": "validate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ADMIN_PREDICTION_COUNT-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Authenticate and authorise the request. Only admin users may read the aggregate prediction count. This replaces the previous unauthenticated client-side collectionGroup read.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/prediction-count/route.ts",
+        "functionName": "authHeader"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ADMIN_PREDICTION_COUNT-004",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Fetch prediction documents server-side with a hard cap (PREDICTION_FETCH_CAP) to prevent unbounded reads. Count unique team entries (primary and secondary) by building a Set of \"{userId}_{teamName}\" keys.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/prediction-count/route.ts",
+        "functionName": "predictionsSnap"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_ADMIN_PREDICTION_COUNT-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Top-level error handler — catches any unhandled exception, logs with correlation ID, and returns a safe 500 with correlationId for support tracing (Golden Rule #1 compliance).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/prediction-count/route.ts",
+        "functionName": "traced"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Authenticate the user via Authorization header.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": "authHeader"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-004",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Verify the authenticated user has admin privileges.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": "userDoc"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Generate verification token and store in Firestore with 30-minute expiry.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": "token"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Build admin verification URL with encoded parameters.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": "isProduction"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-007",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Send verification email with magic link button.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": "htmlContent"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-008",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Send the email via Graph API.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": "emailResult"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_AUTH_ADMIN_CHALLENGE-009",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Log successful admin verification request to audit log.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/admin-challenge/route.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_AUTH_SIGNUP-022",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Validate that the request originates from an allowed domain to prevent CSRF attacks.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/signup/route.ts",
+        "functionName": "csrfError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_DELETE_SCORES-008",
+      "version": 4,
+      "logic_category": "ORCHESTRATION",
+      "description": "Find ALL user predictions for this race across all user subcollections, handling both raceId storage formats (raw with -GP suffix and normalized without).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/delete-scores/route.ts",
+        "functionName": "predictionsQuery1"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_DELETE_SCORES-009",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Remove all user predictions for the race to prevent orphaned data.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/delete-scores/route.ts",
+        "functionName": "resultDocId"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_EMAIL_QUEUE-001A",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Limit the number of pending emails fetched per push to prevent memory exhaustion and execution-time timeout. With ~1s per email (Graph API call), 50 emails ≈ 50s — within the Next.js 60s default timeout. Admins can push multiple times to drain a larger queue. hasMore=true in the push response signals that another push is required.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/email-queue/route.ts",
+        "functionName": "PUSH_BATCH_LIMIT"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_HEALTH-009",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Module-level timestamp captured at Cloud Run instance startup. Used to detect cold starts: if this request arrives within 30s of instance load, it IS the cold start. Module-level variables persist for the lifetime of the Cloud Run instance (warm = reused).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts",
+        "functionName": "SERVER_START_TIME"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_HEALTH-010",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Log cold-start event to Firestore once per instance lifetime. Uses module-level flag to prevent repeated writes on subsequent warm requests. Fire-and-forget (no await) — never block the health response for logging.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/health/route.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_DELETE-000",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Server-side API route for deleting a league. Uses Admin SDK to bypass Firestore security rules, enforcing ownership or admin privilege server-side. Resolves GEMINI-002 breakage where Firestore rules restricted client-side delete to admin-only, leaving non-admin owners unable to delete their own leagues.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/delete/route.ts",
+        "functionName": "dynamic"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_DELETE-001",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — authenticates user, validates leagueId format, verifies league ownership or admin status atomically via Firestore transaction, then deletes + audits in one operation.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/delete/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_DELETE-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Authenticate the requesting user via Firebase ID token.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/delete/route.ts",
+        "functionName": "authHeader"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_DELETE-003",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Validate request body — leagueId must match Firestore ID character set. Rejects path traversal chars (slashes, dots) before any SDK call. @RED_TEAM (Wave 13): Added LEAGUE_ID_REGEX to prevent path traversal via slash/dot in leagueId.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/delete/route.ts",
+        "functionName": "body"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_DELETE-004",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Check user admin status before entering transaction (isAdmin field is protected by Firestore rules, so TOCTOU risk for this read is negligible).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/delete/route.ts",
+        "functionName": "userDoc"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_DELETE-005",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Atomically read league, enforce all business rules, delete league, and write audit log using a Firestore transaction. Eliminates TOCTOU races on isGlobal and ownerId. @RED_TEAM (Wave 13): runTransaction replaces batch — re-reads league inside transaction so any isGlobal or ownerId change between validation and deletion is caught atomically. Audit log write is inside the same transaction (not a sequential await) for guaranteed atomicity.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/delete/route.ts",
+        "functionName": "leagueRef"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_DELETE-006",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Double global guard — checks both the constant ID and the isGlobal field. Either condition alone is sufficient to block deletion of the global league. @RED_TEAM (Wave 13): Double guard prevents deletion even if isGlobal is temporarily flipped to false by admin error. Both checks execute inside the transaction.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/delete/route.ts",
+        "functionName": "isOwner"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_JOIN-002",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Rate limit configuration — max 10 join attempts per IP per 15-minute window. Chosen to allow legitimate retries (mistyped codes) while blocking enumeration.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/join-by-code/route.ts",
+        "functionName": "JOIN_RATE_LIMIT_MAX"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_JOIN-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Derive the originating client IP from request headers in priority order.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/join-by-code/route.ts",
+        "functionName": "getClientIP"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_JOIN-004",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Check whether the given IP has exceeded JOIN_RATE_LIMIT_MAX attempts within the current 15-minute window. Returns false on any read failure (fail-open for availability).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/join-by-code/route.ts",
+        "functionName": "safeIP"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_JOIN-005",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Increment attempt counter for this IP. Resets window if expired or doc missing. Write failures are logged but non-blocking — one missed count is acceptable.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/join-by-code/route.ts",
+        "functionName": "safeIP"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_LEAGUE_JOIN-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Enforce max 10 join attempts per IP per 15-minute window. Returns HTTP 429 if exceeded, before any league data is accessed.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/leagues/join-by-code/route.ts",
+        "functionName": "clientIP"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_SEND_HOT_NEWS_EMAIL-001A",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Escape HTML special characters to prevent XSS injection in hot news email content. Converts &<>\"'/ to their HTML entity equivalents to safely embed user-controlled data (team names, admin-authored content) into HTML email templates.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/send-hot-news-email/route.ts",
+        "functionName": "escapeHtml"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_SEND_HOT_NEWS_EMAIL-005A",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Verifies the Bearer token, then checks UID match and Firestore isAdmin flag before allowing any email broadcast.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/send-hot-news-email/route.ts",
+        "functionName": "authHeader"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_SEND_PROVIDER_LINKED_EMAIL-001A",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Escape HTML special characters to prevent XSS injection in provider linked email. Converts &<>\"'/ to their HTML entity equivalents to safely embed user-controlled data (team names) into HTML email templates.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/send-provider-linked-email/route.ts",
+        "functionName": "escapeHtml"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "API_SEND_RESULTS_EMAIL-001C",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Server-side email recording using Admin SDK. Replaces client-side recordSentEmail which used incompatible firebase/firestore SDK.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/send-results-email/route.ts",
+        "functionName": "today"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "APP_LAYOUT-001",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Initialize Firebase Analytics once on app mount.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/layout.tsx",
+        "functionName": "FirebaseServicesTracker"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "AUDIT_LOG_RULES-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for the audit_logs collection (FIRESTORE-007). Client-side audit writes are permitted for navigation and UI events where server round-trips are impractical. The userId field-match check prevents cross-user log spoofing. Security-critical audit entries (login, admin actions) are written server-side via Admin SDK which bypasses these rules. Update and delete are blocked unconditionally — audit records are immutable. This is the correct pattern: not a security gap.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_ADMIN_TAB-002",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "14th tab trigger for the Backup Health dashboard. Sky-600 colour",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_ADMIN_TAB-003",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Mount the BackupHealthDashboard when the Backups tab is active.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-021",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Backup Status Card — shows the last daily backup result including",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-022",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Immutability Lock Card — displays the bucket retention lock status.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-023",
+      "version": 3,
+      "logic_category": "RECOVERY",
+      "description": "Smoke Test Card — shows the last Sunday recovery verification result",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-033",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Backup History table — shows all past backup runs with date/time,",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-000",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Provides automated daily backups of Firestore data and Firebase Auth user records to Google Cloud Storage, plus a weekly Sunday smoke test that restores the latest backup into a disposable recovery project and validates that critical documents survived the round-trip.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-019",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Back up Firebase Storage files (profile photos and other user-uploaded content). This backs up user-generated content that cannot be regenerated, unlike application code which is already versioned in Git.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "storageFilesBackedUp"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-023A",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Verify Auth backup file exists and contains user records. Auth data is critical for account recovery — if backup exists but Auth JSON is missing, the backup is incomplete.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "authFileExists"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-023B",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Verify Storage backup exists and contains files. Storage files are user-generated content (profile photos) that cannot be regenerated — critical for complete recovery.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "storageFileCount"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_RULES-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for the backup_status collection. Grants admin-only read access so the BackupHealthDashboard can subscribe to backup_status/latest. Denies all client-side writes — only Cloud Functions (via Admin SDK, which bypasses rules) can write.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "BACKUP_RULES-002",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for the backup_history collection. Grants admin-only read access for the backup history table in BackupHealthDashboard. Denies all client-side writes — history entries are written by Cloud Functions (Admin SDK) only.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_APP_SIDEBAR-004",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Collapsible \"Results\" group with Race Results and My Results sub-items.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/layout/AppSidebar.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_EMAIL_BANNER-004",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Auto-check verification status when the page becomes visible (user returns from clicking the email verification link in another tab/window). Uses the Page Visibility API.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/EmailVerificationBanner.tsx",
+        "functionName": "handleVisibilityChange"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_FEEDBACK_LINK-000",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Compact feedback entry point for the dashboard. Shows a single-line link that expands to reveal the full FeedbackForm when clicked. Reduces dashboard clutter while keeping feedback accessible.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/FeedbackLink.tsx",
+        "functionName": "FeedbackLink"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_FEEDBACK_LINK-001",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Main component — renders a clickable row that toggles the FeedbackForm visibility.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/_components/FeedbackLink.tsx",
+        "functionName": "FeedbackLink"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-001",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Check if error is a chunk load error (already handled by ChunkErrorHandler).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "isChunkLoadError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-002",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Send error details to server for persistent logging in error_logs collection.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "correlationId"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-003",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Main component that sets up global error and promise rejection listeners. Captures all client-side errors except chunk load errors (handled separately).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "GlobalErrorLogger"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-004",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Handle window-level unhandled errors (runtime errors, syntax errors, etc.).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "handleError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-005",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Handle unhandled promise rejections (async errors, failed fetches, etc.).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "handleRejection"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-006",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Detect Firebase Performance attribute errors caused by Tailwind CSS class strings being passed to putAttribute() by auto-instrumentation (PERF-001). These are SDK-level noise — not actionable errors — and must be suppressed to keep error_logs clean.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "isFirebasePerformanceError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-007",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Detect known web crawler / bot user-agents and suppress error logging for them. Bots (Bingbot, Googlebot, etc.) execute JavaScript and make authenticated Firebase API calls which fail — these are not real user errors and pollute error_logs with noise (BUG-ERR-002). Bot errors are unactionable: the app cannot serve bots correctly because they have no auth session.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "isBotCrawler"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "COMPONENT_PREDICTION_EDITOR-023",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "component prediction editor block.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/_components/PredictionEditor.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "FIRESTORE_BOOKOFWORK-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for book_of_work collection (centralized issue tracking). Grants admin-only full access. All work items (security audits, UX findings, error logs, feedback) are consolidated here for centralized tracking.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "FS_OFFICIAL_TEAMS-000",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Client-side Firestore module for reading the official_teams collection. Maps 2026 F1 team names → their two drivers (with OpenF1 driver numbers). Driver numbers are the canonical join key to OpenF1 timing data.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/official-teams.ts",
+        "functionName": "OfficialDriver"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "FS_OFFICIAL_TEAMS-001",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Shape of a driver entry within an official team document.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/official-teams.ts",
+        "functionName": "OfficialDriver"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "FS_OFFICIAL_TEAMS-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Shape of a team document in the official_teams collection.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/official-teams.ts",
+        "functionName": "OfficialTeam"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "FS_OFFICIAL_TEAMS-003",
+      "version": 1,
+      "logic_category": "RECOVERY",
+      "description": "Fetch all official team documents from Firestore (11 teams). Returns empty array on error — Team Lens degrades gracefully to string matching.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firebase/firestore/official-teams.ts",
+        "functionName": "getOfficialTeams"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LEAGUE_RULES-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for the leagues collection (GEMINI-002 fix). Resolves unauthorized league modification: admins can now update any league (required for admin tools to correct league state). League deletion is restricted to admins only — owners use the UI delete button which calls an admin-authenticated API route, not direct client SDK delete. FIRESTORE-003 (inviteCode visibility) mitigations are documented below.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_CSRF-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Extract the origin from Referer header if Origin header is missing.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/csrf-protection.ts",
+        "functionName": "refererUrl"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_CSRF-004",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Reject requests without Origin or Referer headers (potential CSRF).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/csrf-protection.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_CSRF-005",
+      "version": 2,
+      "logic_category": "VALIDATION",
+      "description": "Validate that the request origin exactly matches one of the allowed origins. Only strict equality (===) is used. No prefix, substring, or regex matching.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/csrf-protection.ts",
+        "functionName": "isAllowed"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_RACE_SCHEDULE_SERVER-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Server-side module to fetch race schedule from Firestore with in-memory caching. Replaces hardcoded RaceSchedule imports in API routes to prevent client tampering.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/race-schedule-server.ts",
+        "functionName": "RaceScheduleDoc"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_RACE_SCHEDULE_SERVER-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "TypeScript interface for race schedule document from Firestore. Matches the structure seeded by seed-race-schedule.ts script.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/race-schedule-server.ts",
+        "functionName": "RaceScheduleDoc"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_RACE_SCHEDULE_SERVER-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "In-memory cache for race schedule with timestamp for TTL enforcement. Reduces Firestore reads and improves API response times.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/race-schedule-server.ts",
+        "functionName": "CACHE_TTL_MS"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_RACE_SCHEDULE_SERVER-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Fetch race schedule from Firestore race_schedule collection with in-memory caching. Returns races sorted by round number (chronological order). Cache expires after 1 hour.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/race-schedule-server.ts",
+        "functionName": "getRaceSchedule"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_RACE_SCHEDULE_SERVER-004",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Find a specific race by name from the cached/fetched schedule. Handles name matching with flexible formatting (spaces vs hyphens).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/race-schedule-server.ts",
+        "functionName": "getRaceByName"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_RACE_SCHEDULE_SERVER-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Manually clear the in-memory cache to force fresh Firestore fetch. Useful for admin operations that update race schedule and need immediate reflection.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/race-schedule-server.ts",
+        "functionName": "clearScheduleCache"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-000",
+      "version": 2,
+      "logic_category": "VALIDATION",
+      "description": "Provides abstraction layer for fetching secrets from Azure Key Vault in production or environment variables in development. Eliminates hardcoded secrets in source code.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Lazy-loaded imports for Azure SDK to prevent build failures when packages not installed. These imports only execute when Key Vault is actually used (production mode).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-002",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Singleton Key Vault client instance to avoid re-authentication on every secret fetch. Initialized lazily on first use in production mode.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "USE_KEY_VAULT"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Environment-based feature flag to control Key Vault usage. Defaults to false for safety (uses env vars unless explicitly enabled).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "USE_KEY_VAULT"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-004",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Azure Key Vault URL from environment variable. Required when USE_KEY_VAULT=true. Format: https://<vault-name>.vault.azure.net/",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "KEY_VAULT_URL"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-005",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "In-memory cache for secrets to reduce Key Vault API calls and improve performance. Secrets cached for the lifetime of the Node.js process (serverless functions: per-instance).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "secretCache"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-006",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Cache TTL in milliseconds. Secrets cached for 5 minutes to balance freshness vs performance.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "CACHE_TTL"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-007",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Initialize Azure Key Vault client with DefaultAzureCredential for production authentication. Supports Managed Identity (production) and Azure CLI (local development with az login).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-008",
+      "version": 2,
+      "logic_category": "VALIDATION",
+      "description": "Fetch secret from Azure Key Vault with caching and error handling. Uses secret name as Key Vault secret identifier (e.g., 'firebase-admin-key').",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "client"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-009",
+      "version": 2,
+      "logic_category": "CONFIGURATION",
+      "description": "Main public interface for fetching secrets. Abstracts Key Vault vs environment variable logic. Tries cache first, then Key Vault (if enabled), then env vars as fallback.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-010",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Check cache first to avoid unnecessary Key Vault API calls.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "cached"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-011",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Fetch from Azure Key Vault if enabled, otherwise use environment variables.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-012",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Validate secret was found and cache it for future requests.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-013",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Clear the secret cache. Useful for testing or forcing fresh fetches.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "clearSecretCache"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_SECRETS_MANAGER-014",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Get current cache statistics for monitoring and debugging.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/secrets-manager.ts",
+        "functionName": "getSecretCacheStats"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_TRACED_ERROR-004",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Minimal common interface satisfied by BOTH ErrorDefinition (full, server-side) AND ClientErrorDefinition (stripped, client-safe). createTracedError accepts this interface so 'use client' components can pass CLIENT_ERRORS entries without importing the full server-only error-registry which bundles internal file paths, GUIDs, and call graphs.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/traced-error.ts",
+        "functionName": "CoreErrorInput"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIB_UTILS-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Mask sensitive PIN/password data before logging to Firestore or console. Returns a fixed-length masking string ('••••••') regardless of actual PIN length to prevent length-based information disclosure.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/utils.ts",
+        "functionName": "maskPin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIVE_TRACK_VIZ-000",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Canvas-based circuit visualization showing car positions as colored dots with speed trails. Color coding: Green (hot lap), Amber (in/out lap), Red (stationary). Hover tooltips show driver names. Auto-update every 1 second when \"Show Live\" enabled.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/LiveTrackVisualization.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIVE_TRACK_VIZ-001",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Fetch car positions via /api/admin/openf1-location proxy.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/LiveTrackVisualization.tsx",
+        "functionName": "fetchPositions"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIVE_TRACK_VIZ-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Auto-update loop when \"Show Live\" is enabled.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/LiveTrackVisualization.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIVE_TRACK_VIZ-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Canvas rendering loop - draws track, cars, trails at 60fps.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/LiveTrackVisualization.tsx",
+        "functionName": "canvas"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LIVE_TRACK_VIZ-004",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Mouse hover detection for driver tooltips.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/LiveTrackVisualization.tsx",
+        "functionName": "handleMouseMove"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "LOGON_RULES-001",
+      "version": 3,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for the user_logons collection. Grants authenticated read access so the profile page can query logon history. Denies all client-side writes — only API routes and Cloud Functions (via Admin SDK) can write.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_ADMIN_SERVER-000",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Server Component wrapper for admin page that securely reads httpOnly cookie for admin verification status. Prevents XSS-based verification bypass.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/page.tsx",
+        "functionName": "AdminPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_ADMIN_SERVER-001",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Server Component that securely reads httpOnly adminVerified cookie and passes verification status to client component as prop.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/page.tsx",
+        "functionName": "AdminPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_ADMIN_SERVER-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Read httpOnly adminVerified cookie server-side. This cookie is set by api/admin/verify-access after successful magic link verification.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/page.tsx",
+        "functionName": "cookieStore"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_ADMIN_SERVER-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Pass server-verified admin status to client component.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_COMPLETE_PROFILE-007",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "AlertDialog shown when the chosen team name resembles the user's email.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/complete-profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_GLOBAL_ERROR-000",
+      "version": 1,
+      "logic_category": "RECOVERY",
+      "description": "Global error boundary that catches errors in the root layout. Renders a complete HTML document (replaces root layout on catastrophic crash).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/global-error.tsx",
+        "functionName": "GlobalError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_LOGIN-006",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "OAuth sign-in divider and buttons for Google and Apple.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/login/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_LOGIN-007",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Dialog explaining that the email already has a PIN account and",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/login/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_LOGIN-009",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Demoted version number: nearly invisible in the page corner so it's available",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/login/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_MY_RESULTS-010",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Track viewport width so the XAxis labels can be hidden on narrow screens (MANICURE-AUDIT-005). On mobile (< 640px) the rotated labels overlap; hiding them keeps the chart readable — the tooltip still shows full race names on tap/hover. Initialised as null (not 1024) so SSR and first client render both produce identical output (labels shown), avoiding a React hydration mismatch on mobile devices.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/my-results/page.tsx",
+        "functionName": "handleResize"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_MY_RESULTS-011",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Computes total season points for all teams by replaying the scoring engine over all race_results and predictions. Used to display the leader line on the chart and the user's season rank.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/my-results/page.tsx",
+        "functionName": "fetchLeader"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-002",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Real-time query for all race_results documents to determine which races are complete.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "raceResultsQuery"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-003",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Computes the next open race by finding the first race in the schedule without GP results in Firestore. Falls back to findNextRace() if all races have results.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "nextRace"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-004",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Determines if the pit lane is open (predictions allowed) by checking both race results existence and qualifying start time.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "isPitlaneOpen"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-005",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Constructs the Firestore prediction document ID from team ID and race ID. Handles primary vs secondary team distinction using \"-secondary\" suffix.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "predictionDocId"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-006",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Memoised Firestore document reference for the user's prediction for the current race/team.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "predictionRef"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-007",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Query to fetch recent predictions for the selected team, used for carry-over logic when no prediction exists for the current race.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "allPredictionsQuery"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-008",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Logs errors from the allPredictions query (e.g., missing composite index, permissions).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "hasPredictionForCurrentRace"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-009",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Finds the most recent previous prediction (not for the current race) to carry over when the user has no prediction for this race. Skips if query failed.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "previousPrediction"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-010",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Builds the initial 6-slot driver prediction array from either the current race prediction or the carried-over previous prediction. Resolves driver IDs to Driver objects.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-011",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Ensures selectedTeam is set once user data loads (handles initial mount race condition).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "isLoading"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-012",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Determines why the pit lane is closed — either race results entered or qualifying started. Used for more specific messaging in the closure alert.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "closureReason"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-006",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Initialise notification preferences form with user's saved values or sensible defaults.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "profileForm"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-007",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Reset form values when user data loads or changes (e.g. after Firestore round-trip).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "secondTeamForm"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-008",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Initialise secondary team form with existing secondary team name if one exists.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "secondTeamForm"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-009",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Initialise change PIN form with empty defaults.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "changePinForm"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-010",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Sync secondary team name into form when user data loads.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-011",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Sync secondary email into local state when user data loads.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-012",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Save notification preferences to Firestore and log audit event.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "newPreferences"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-013",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Request a new temporary PIN to be emailed to the user.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-014",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Permanently close the user's account by calling the server-side /api/account/close endpoint, which deletes Firestore documents and Firebase Auth record via Admin SDK.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-015",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Use AI to suggest a fun secondary team name based on the user's primary team name.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-016",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Create the user's secondary team via the auth context function.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-017",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Change the user's PIN and force re-login for security.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-018",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Send a verification email to the user's primary email address.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-019",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Refresh the email verification status from Firebase Auth.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-020",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Save or update the user's secondary email address.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-021",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Remove the user's secondary email by passing null to the update function.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-022",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Remove the user's secondary team by deleting the secondaryTeamName field from Firestore.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-023",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Send a verification email to the user's secondary email address.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-024",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Save a profile photo URL (from manual entry or preset selection) to Firestore.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "userRef"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-025",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Handle file upload for profile photo — validates, compresses, uploads to Firebase Storage, then updates Firestore with the download URL.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "file"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-026",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Preset avatar options generated from external avatar services using the user's ID/team name.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "presetAvatars"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-027",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Derive the current avatar URL — user's saved photo or a fallback generated avatar.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "currentAvatarUrl"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-028",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Link Google account to current user from profile page.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-029",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Link Apple account to current user from profile page.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "result"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-030",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Unlink a provider from the current user, preventing unlinking the last provider.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "providers"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-031",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Linked Sign-In Methods card showing PIN, Google, and Apple provider status",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-040",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Memoised Firestore query for the current user's logon records, ordered by logonTimestamp descending. Returns null when user is unavailable so useCollection gracefully waits.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "logonHistoryQuery"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-041",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Client-side pagination for logon history — 5 items per page.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": "LOGONS_PER_PAGE"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-042",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Logon History card showing paginated logon events (5 per page) with total",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_PROFILE-043",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Danger zone — Close Account section. Visual separation via large top margin",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/profile/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_RESULTS-025A",
+      "version": 6,
+      "logic_category": "TRANSFORMATION",
+      "description": "Real-time listener for scores collection - updates automatically when admin submits results. Task #8 fix: Converted from getDocs to onSnapshot for automatic score updates.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/results/page.tsx",
+        "functionName": "unsubscribe"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_RESULTS-025B",
+      "version": 6,
+      "logic_category": "TRANSFORMATION",
+      "description": "Fetch predictions and count for the selected race (one-time fetch with pagination). Separated from scores listener to keep pagination working while scores update in real-time.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/results/page.tsx",
+        "functionName": "cancelled"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_SIGNUP-010",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "OAuth sign-up divider and buttons for Google and Apple.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/signup/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_SIGNUP-011",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "AlertDialog shown when the chosen team name resembles the user's email.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/signup/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_SIGNUP-012",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "GDPR/legal consent notice shown below the Sign Up button. Informs",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/signup/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-011",
+      "version": 8,
+      "logic_category": "TRANSFORMATION",
+      "description": "Real-time subscription to the race_results collection. When race results change (new race scored or result deleted), fetches all predictions via collectionGroup and re-computes all team scores in memory using the full carry-forward resolution logic. Produces allScores with normalised raceId values — downstream memos are unchanged.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "unsubscribe"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-012",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Filter raw scores by the selected league's member user IDs (or pass all if global).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "filteredScores"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-013",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Calculate cumulative standings for the selected race weekend — computes old/new overall points, sprint/GP breakdown, rank with tie handling, rank change from previous race, and gap.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "standings"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-014",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Determine the race winners (highest GP and Sprint points) for the selected race weekend, returning Sets of userIds to handle ties — all teams with the max score get the Winner badge.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "raceWinners"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-015",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Build chart data for season progression — cumulative points per team after each race weekend (including separate Sprint/GP data points for sprint weekends), up to selected race.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "chartData"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-016",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Derive the current user's primary and secondary userIds for chart line filtering.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "userTeamIds"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-017",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Filter chart lines to approximately 11 teams based on chartMode (top10 or myPosition). In top10 mode: top 10 teams + user's team(s) if outside top 10. In myPosition mode: user's team + 5 above + 5 below in standings.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "chartTeams"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-018",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Generate a deterministic HSL colour for each team name — ensures the same team always gets the same colour regardless of which race is selected.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "getStableTeamColor"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-019",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Calculate maximum points for the chart Y-axis with a 10% buffer for visual headroom.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "maxPoints"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-020",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Client-side pagination — tracks how many standings rows to display and whether more exist.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "totalItems"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-021",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Load the next page of standings rows with a small delay for smooth UX.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "loadMore"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_STANDINGS-022",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Navigate to the Results page for a specific race, optionally filtering by team.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/standings/page.tsx",
+        "functionName": "navigateToResults"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-005",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Fetches race_results on mount to determine which race to show by default (most recent with results).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "fetchDefaultRace"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-006",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Fetches the total user count using Firestore server-side aggregation (no document downloads).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "fetchCount"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-007",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Converts raw Firestore prediction data into an array of F1Driver objects for display.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "formatPrediction"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-008",
+      "version": 4,
+      "logic_category": "TRANSFORMATION",
+      "description": "Fetches paginated team list from Firestore users collection WITHOUT predictions (fast initial load).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "fetchTeams"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-009",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Checks whether a team's createdAt timestamp is after the selected race's qualifying time.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "didTeamJoinAfterRace"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-010",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Fetches predictions for a single team on-demand when the user expands an accordion item. Uses a client-side prediction cache keyed by raceId to avoid redundant Firestore reads.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "fetchPredictionForTeam"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-011",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Handles accordion open/close events and triggers on-demand prediction fetching for the opened team.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "handleAccordionChange"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-012",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Triggers the initial team list fetch once the default race has been determined.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-013",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Resets all team prediction data and closes the accordion when the selected race changes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "loadMore"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-014",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Delegates to fetchTeams with isLoadMore=true for paginated loading.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "loadMore"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PAGE_TEAMS-015",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Filters the full teams list to only members of the selected league (or shows all if global).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/teams/page.tsx",
+        "functionName": "filteredTeams"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_ADMIN_TAB-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "15th tab trigger for the PubChat panel. Amber-500 colour",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_ADMIN_TAB-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Mount the PubChatPanel when the PubChat tab is active.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-009",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "\"Pub Closed\" overlay when OpenF1 free tier is blocked during active F1 sessions.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-010",
+      "version": 2,
+      "logic_category": "CONFIGURATION",
+      "description": "Data type options for exploiting the rich OpenF1 API beyond just lap times.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-011",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Available data types that can be fetched from OpenF1 API.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-012",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Enhanced fetch controls state for rich OpenF1 API exploitation with multi-driver comparison.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-013",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Fetch driver list when a session is selected to populate driver filter checkboxes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "fetchDrivers"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-014",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Auto-refresh mechanism for near real-time data updates when toggle is enabled.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "countdownTimer"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-016",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Toggle driver selection in multi-select mode for comparison view.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "toggleDriverSelection"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-017",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Format date range for meeting cards (e.g., \"Feb 18-20\").",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "formatDateRange"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-018",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Check if a meeting is happening now (for visual highlighting).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "isMeetingLive"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-019",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Meeting selector as visual cards with flags, circuits, and dates.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-020",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "pubchat panel block.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-021",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Enhanced fetch controls with data type selection and multi-select drivers.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-030",
+      "version": 9,
+      "logic_category": "TRANSFORMATION",
+      "description": "Track which sections are open/closed for focused viewing.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-031",
+      "version": 9,
+      "logic_category": "TRANSFORMATION",
+      "description": "Keep leaderboard data fresh with latest OpenF1 results.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-032",
+      "version": 9,
+      "logic_category": "TRANSFORMATION",
+      "description": "Keep the leaderboard data fresh by auto-fetching timing data every 10s when a session is selected.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-033",
+      "version": 9,
+      "logic_category": "TRANSFORMATION",
+      "description": "Check if today's date falls within the meeting's date range.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "isMeetingToday"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-034",
+      "version": 9,
+      "logic_category": "TRANSFORMATION",
+      "description": "Find the first meeting that is happening today and select it automatically.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "todaysMeeting"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-035",
+      "version": 10,
+      "logic_category": "TRANSFORMATION",
+      "description": "Split screen into 4 collapsible sections (Leaderboard, Pub Chat, Telemetry, Live Track).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-036",
+      "version": 10,
+      "logic_category": "TRANSFORMATION",
+      "description": "Prevent users from trying to fetch data for sessions that haven't happened yet.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "isSessionInFuture"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-037",
+      "version": 10,
+      "logic_category": "TRANSFORMATION",
+      "description": "Warn users about sessions that are too old (OpenF1 may not have data).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "isSessionTooOld"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-038",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Sanitize Firestore-stored pub chat HTML before rendering in the admin PubChat panel.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Configuration for the migration script with safety controls.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "CONFIG"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Initialize Firebase Admin SDK with service account credentials.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "initializeFirebase"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Mask a PIN value using the same logic as maskPin() in utils.ts. Returns fixed-length masking string to prevent length-based disclosure.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "maskPin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-004",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Determine if a PIN value is plaintext (needs masking) or already masked.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "isPlaintextPin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Create timestamped backup directory and ensure log directory exists.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "prepareDirectories"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Log migration events to both console and file for audit trail.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "log"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-007",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Scan email_logs collection and identify documents with plaintext PINs.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "snapshot"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-008",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Create JSON backup of documents that will be modified.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "createBackup"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-009",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Update documents in batches to mask plaintext PINs. Uses Firestore batch writes for atomicity and performance.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "samples"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-010",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Verify migration by re-scanning and checking for remaining plaintext PINs.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "snapshot"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-011",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Generate migration summary report with statistics and next steps.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "generateReport"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_MIGRATE_MASK_PINS-012",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main migration orchestrator function.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/migrate-mask-pins.ts",
+        "functionName": "db"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_ROLLBACK_MASK_PINS-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Configuration for rollback script with safety controls.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/rollback-mask-pins.ts",
+        "functionName": "CONFIG"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_ROLLBACK_MASK_PINS-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Initialize Firebase Admin SDK.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/rollback-mask-pins.ts",
+        "functionName": "initializeFirebase"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_ROLLBACK_MASK_PINS-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Find the most recent backup file to restore from.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/rollback-mask-pins.ts",
+        "functionName": "findLatestBackup"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_ROLLBACK_MASK_PINS-004",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Load backup data from JSON file.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/rollback-mask-pins.ts",
+        "functionName": "loadBackup"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_ROLLBACK_MASK_PINS-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Prompt user for confirmation before executing rollback. Requires explicit \"YES\" to proceed.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/rollback-mask-pins.ts",
+        "functionName": "rl"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_ROLLBACK_MASK_PINS-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Restore documents from backup to Firestore. Removes migration metadata fields.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/rollback-mask-pins.ts",
+        "functionName": "samples"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "SCRIPT_ROLLBACK_MASK_PINS-007",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main rollback orchestrator function.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/rollback-mask-pins.ts",
+        "functionName": "backupPath"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "TEAM_NAMES_RULES-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Deny all client-side access to team_names collection. Sentinel documents are created, checked, and deleted exclusively via Admin SDK in the signup API route. Blocking client access prevents sentinel manipulation that could allow bypassing team name uniqueness enforcement.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "USER_RULES-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Firestore security rules for the users collection. Prevents privilege escalation (FIRESTORE-004): isAdmin, points, badLoginAttempts, lastFailedLoginAt, id, and createdAt are in protectedFields and cannot be changed by the owning user. Admin SDK (server routes) handles all protected-field writes. uid spoofing is blocked via 'id' in protectedFields (user doc uses 'id' field). Account deletion is admin-only; /api/account/close uses Admin SDK (bypasses rules) so no client-side delete rule change is needed (FIRESTORE-005 non-issue).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-03T19:10:12.267Z",
+      "lastUpdated": "2026-03-03T19:10:12.267Z"
+    },
+    {
+      "guid": "WHATSAPP_WORKER-000",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "HMAC SHA-256 authentication middleware — verifies incoming requests originate from the trusted Next.js proxy via X-Hub-Signature-256 header. Uses timing-safe comparison (GR#11).",
+      "dependencies": [],
+      "location": {
+        "filePath": "whatsapp-worker/src/index.ts",
+        "functionName": "verifyHmacSignature"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_WHATSAPP_PROXY-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-03T19:11:13.183Z",
+      "lastUpdated": "2026-03-03T19:18:04.040Z"
     }
   ],
   "firestoreCollections": {
