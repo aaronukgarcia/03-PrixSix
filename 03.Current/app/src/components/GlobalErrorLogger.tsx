@@ -1,8 +1,10 @@
-// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-000-v02
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-000-v03
 // @SECURITY_FIX: GEMINI-AUDIT-044 — console.error now redacts stack/context/error object in production.
 //   Previously: full error object, stack trace, and context logged unconditionally → visible in
 //   any user's DevTools. Fixed: development logs full details; production logs correlationId + message only.
 //   Also: console.log init message now suppressed in production.
+// @FIX(v03): Added isBotCrawler() filter (BUG-ERR-002). Bots executing JS without auth sessions
+//   produce unactionable error noise (bingbot "Failed to fetch", 403s, etc.). Suppressed at source.
 // [Intent] Comprehensive client-side error logger that captures ALL unhandled errors and
 //          promise rejections, sends them to the server via /api/log-client-error.
 //          Works alongside ChunkErrorHandler (which handles chunk errors separately).
@@ -34,7 +36,7 @@ function isChunkLoadError(error: any): boolean {
   );
 }
 
-// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-006-v01
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-006-v02
 // [Intent] Detect Firebase Performance attribute errors caused by Tailwind CSS class strings
 //          being passed to putAttribute() by auto-instrumentation (PERF-001). These are SDK-level
 //          noise — not actionable errors — and must be suppressed to keep error_logs clean.
@@ -45,6 +47,19 @@ function isChunkLoadError(error: any): boolean {
 function isFirebasePerformanceError(error: any): boolean {
   const message = error?.message || error?.toString() || '';
   return message.includes('performance/invalid attribute value');
+}
+
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-007-v01
+// [Intent] Detect known web crawler / bot user-agents and suppress error logging for them.
+//          Bots (Bingbot, Googlebot, etc.) execute JavaScript and make authenticated Firebase
+//          API calls which fail — these are not real user errors and pollute error_logs with
+//          noise (BUG-ERR-002). Bot errors are unactionable: the app cannot serve bots correctly
+//          because they have no auth session.
+// [Inbound Trigger] Called by error/rejection handlers before deciding whether to log.
+// [Downstream Impact] Returns true if the current user-agent is a known crawler (skip logging).
+function isBotCrawler(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /bot|crawl|spider|slurp|facebookexternalhit|ia_archiver/i.test(navigator.userAgent);
 }
 
 // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-002-v02
@@ -109,12 +124,14 @@ async function logErrorToServer(
 // [Downstream Impact] Runs for the entire app session. Logs all unhandled errors to server.
 export function GlobalErrorLogger() {
   useEffect(() => {
-    // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-004-v02
+    // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-004-v03
     // [Intent] Handle window-level unhandled errors (runtime errors, syntax errors, etc.).
     // [Inbound Trigger] Fires on any unhandled error in the browser context.
-    // [Downstream Impact] Sends error to server unless it's a chunk load error or Firebase
-    //                     Performance attribute noise (PERF-001, v1.58.68).
+    // [Downstream Impact] Sends error to server unless it's a chunk load error, Firebase
+    //                     Performance attribute noise (PERF-001, v1.58.68), or a bot crawler.
     const handleError = (event: ErrorEvent) => {
+      // Skip bot crawlers — they execute JS without auth sessions, all their errors are noise
+      if (isBotCrawler()) return;
       // Skip chunk errors (handled by ChunkErrorHandler)
       if (isChunkLoadError(event.error || event)) {
         return;
@@ -133,12 +150,14 @@ export function GlobalErrorLogger() {
       });
     };
 
-    // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-005-v02
+    // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-005-v03
     // [Intent] Handle unhandled promise rejections (async errors, failed fetches, etc.).
     // [Inbound Trigger] Fires when a Promise is rejected without a .catch() handler.
-    // [Downstream Impact] Sends rejection to server unless it's a chunk load error or Firebase
-    //                     Performance attribute noise (PERF-001, v1.58.68).
+    // [Downstream Impact] Sends rejection to server unless it's a chunk load error, Firebase
+    //                     Performance attribute noise (PERF-001, v1.58.68), or a bot crawler.
     const handleRejection = (event: PromiseRejectionEvent) => {
+      // Skip bot crawlers — they execute JS without auth sessions, all their errors are noise
+      if (isBotCrawler()) return;
       // Skip chunk errors (handled by ChunkErrorHandler)
       if (isChunkLoadError(event.reason)) {
         return;
