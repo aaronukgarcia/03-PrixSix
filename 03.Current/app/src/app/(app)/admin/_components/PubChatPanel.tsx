@@ -266,7 +266,13 @@ export function PubChatPanel() {
                 });
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
-                    setMeetings(json.data);
+                    // Filter out pre-season testing meetings — PubChat is for race weekends only.
+                    // Testing sessions have no useful lap data for the league and confuse the
+                    // auto-select (they are the most-recently-completed meetings before Race 1).
+                    const raceMeetings = json.data.filter(
+                        (m: MeetingOption) => !m.meetingName.toLowerCase().includes('testing')
+                    );
+                    setMeetings(raceMeetings);
                     setPubClosed(false); // Pub is open!
                 } else {
                     // Check if this is a "session active" restriction (pub closed) vs real error
@@ -602,18 +608,38 @@ export function PubChatPanel() {
         return today >= startDay && today <= endDay;
     };
 
-    // GUID: PUBCHAT_PANEL-034-v09
-    // @ENHANCEMENT: Auto-select today's meeting as default on load.
-    // [Intent] Find the first meeting that is happening today and select it automatically.
+    // GUID: PUBCHAT_PANEL-034-v10
+    // @ENHANCEMENT: Auto-select best meeting as default on load.
+    // [Intent] Select the most relevant race meeting when meetings load. Priority:
+    //          (1) A meeting happening today (race weekend in progress)
+    //          (2) Nearest upcoming meeting (e.g. Australian GP before it starts)
+    //          (3) Most recently completed meeting (post-race week)
+    //          Pre-season testing meetings are already filtered from the list
+    //          before this runs (see filter in fetchMeetings).
     // [Inbound Trigger] Meetings list populated from OpenF1.
-    // [Downstream Impact] selectedMeetingKey set to today's meeting if one exists.
+    // [Downstream Impact] selectedMeetingKey set so admin lands on the right meeting
+    //                     without manual selection. Sessions auto-select follows via
+    //                     PUBCHAT_PANEL-039-v01.
     useEffect(() => {
         if (meetings.length === 0 || selectedMeetingKey) return; // Don't override user selection
 
+        const now = new Date();
+
+        // Priority 1: a meeting happening today
         const todaysMeeting = meetings.find(m => isMeetingToday(m.dateStart, m.dateEnd));
-        if (todaysMeeting) {
-            setSelectedMeetingKey(String(todaysMeeting.meetingKey));
-        }
+        if (todaysMeeting) { setSelectedMeetingKey(String(todaysMeeting.meetingKey)); return; }
+
+        // Priority 2: nearest upcoming meeting
+        const upcoming = meetings
+            .filter(m => new Date(m.dateStart) > now)
+            .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime());
+        if (upcoming.length > 0) { setSelectedMeetingKey(String(upcoming[0].meetingKey)); return; }
+
+        // Priority 3: most recently completed meeting
+        const past = meetings
+            .filter(m => new Date(m.dateStart) <= now)
+            .sort((a, b) => new Date(b.dateStart).getTime() - new Date(a.dateStart).getTime());
+        if (past.length > 0) { setSelectedMeetingKey(String(past[0].meetingKey)); }
     }, [meetings]);
 
     // GUID: PUBCHAT_PANEL-036-v10
