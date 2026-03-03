@@ -74910,9 +74910,9 @@
     },
     {
       "guid": "LIB_FIREBASE_ADMIN-003",
-      "version": 4,
+      "version": 5,
       "logic_category": "VALIDATION",
-      "description": "Verifies a Firebase ID token from an Authorization header and returns the decoded user identity (uid and email), or null if invalid/missing.",
+      "description": "Verifies a Firebase ID token from an Authorization header; ensures Firebase Admin is initialised first (BUG-AUTH-001 cold-start fix).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/firebase-admin.ts",
@@ -74923,7 +74923,7 @@
         "calls": []
       },
       "created": "2026-01-19T18:44:38Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-03-03T19:46:02.719Z"
     },
     {
       "guid": "LIB_FIREBASE_ADMIN-004",
