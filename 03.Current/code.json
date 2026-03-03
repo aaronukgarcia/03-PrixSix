@@ -1,7 +1,968 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-02-24",
-  "total_guids": 1136,
+  "total_guids": 1143,
+  "variables": [
+    {
+      "name": "ADMIN_CHALLENGE_RATE_LIMITS",
+      "type": "constant",
+      "value": "{",
+      "description": "Rate limit configuration for the admin challenge endpoint. Controls how many attempts are allowed before lockout.",
+      "definedIn": "app/src/lib/validation.ts",
+      "usedIn": []
+    },
+    {
+      "name": "APP_VERSION",
+      "type": "constant",
+      "value": "\"1.99.5\"",
+      "description": "Single source of truth for displayed app version. Must match package.json (Golden Rule #2). Updated in both app/src/lib/version.ts and package.json on every release.",
+      "definedIn": "app/src/lib/version.ts",
+      "usedIn": []
+    },
+    {
+      "name": "ATTACK_THRESHOLDS",
+      "type": "constant",
+      "value": "{",
+      "description": "Thresholds configuration for attack detection — triggers for bot detection, brute-force, and distributed attack classification. Used by attack-detection.ts.",
+      "definedIn": "app/src/lib/attack-detection.ts",
+      "usedIn": []
+    },
+    {
+      "name": "ERROR_CODES",
+      "type": "constant",
+      "value": "{",
+      "description": "Error code registry — all user-facing errors must use codes from this registry (Golden Rule #7). Never create ad-hoc error codes outside this object.",
+      "definedIn": "app/src/lib/error-codes.ts",
+      "usedIn": []
+    },
+    {
+      "name": "GAMEPLAY_RULES",
+      "type": "constant",
+      "value": "[",
+      "description": "Core gameplay rules array displayed on the How to Play / Rules page. Defines the human-readable explanation of scoring.",
+      "definedIn": "app/src/lib/scoring-rules.ts",
+      "usedIn": []
+    },
+    {
+      "name": "GLOBAL_LEAGUE_ID",
+      "type": "constant",
+      "value": "'global'",
+      "description": "Firestore document ID for the main Prix Six global league. Hardcoded as 'global' — do not change without migrating all league member references.",
+      "definedIn": "app/src/lib/types/league.ts",
+      "usedIn": []
+    },
+    {
+      "name": "INVITE_CODE_LENGTH",
+      "type": "constant",
+      "value": "6",
+      "description": "Length of league invite codes in characters (currently 6). Used in league creation and join-by-code validation.",
+      "definedIn": "app/src/lib/types/league.ts",
+      "usedIn": []
+    },
+    {
+      "name": "IS_PRE_SEASON",
+      "type": "constant",
+      "value": "false",
+      "description": "Feature flag controlling pre-season banner visibility in PreSeasonBanner.tsx. Set to false at season start (Australian GP 2026). Disable via IS_PRE_SEASON = false.",
+      "definedIn": "app/src/components/PreSeasonBanner.tsx",
+      "usedIn": []
+    },
+    {
+      "name": "MAX_LEAGUES_PER_USER",
+      "type": "constant",
+      "value": "5;  // Including global league",
+      "description": "Maximum number of leagues a user can join, including the global league. Enforced in the league join API route.",
+      "definedIn": "app/src/lib/types/league.ts",
+      "usedIn": []
+    },
+    {
+      "name": "SCORING_DERIVED",
+      "type": "constant",
+      "value": "{",
+      "description": "Derived scoring configuration calculated from base SCORING_RULES and SCORING_POINTS. Pre-computed values for performance in the hot path.",
+      "definedIn": "app/src/lib/scoring-rules.ts",
+      "usedIn": []
+    },
+    {
+      "name": "SCORING_POINTS",
+      "type": "constant",
+      "value": "{",
+      "description": "Points values object for each scoring category (constructor, driver, fastest-lap, etc.). Consumed by scoring.ts.",
+      "definedIn": "app/src/lib/scoring-rules.ts",
+      "usedIn": []
+    },
+    {
+      "name": "SCORING_RULES",
+      "type": "constant",
+      "value": "[",
+      "description": "Array defining all scoring rules for the Prix Six F1 prediction game. Used in scoring.ts calculation and displayed in the Rules page. Source of truth for all point awards.",
+      "definedIn": "app/src/lib/scoring-rules.ts",
+      "usedIn": []
+    },
+    {
+      "name": "SYSTEM_OWNER_ID",
+      "type": "constant",
+      "value": "'system'",
+      "description": "Sentinel user ID ('system') for system-generated records (audit logs, automated entries). Never a real user.",
+      "definedIn": "app/src/lib/types/league.ts",
+      "usedIn": []
+    },
+    {
+      "name": "TIEBREAKER_RULE",
+      "type": "constant",
+      "value": "{",
+      "description": "Tiebreaker rule configuration for equal-score scenarios. Defines how standings are sorted when two players have the same total points.",
+      "definedIn": "app/src/lib/scoring-rules.ts",
+      "usedIn": []
+    },
+    {
+      "name": "ADMIN_EMAIL",
+      "type": "env-var",
+      "value": null,
+      "description": "Admin email address used in server-side admin validation checks.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/send-hot-news-email/route.ts",
+        "app/src/app/api/send-results-email/route.ts",
+        "app/src/lib/email-tracking.ts",
+        "app/src/lib/email.ts"
+      ]
+    },
+    {
+      "name": "AZURE_CLIENT_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure service principal client ID — used for Azure SDK authentication in WhatsApp worker.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/secrets-manager.ts"
+      ]
+    },
+    {
+      "name": "AZURE_CLIENT_SECRET",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure service principal client secret. NEVER commit.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/secrets-manager.ts"
+      ]
+    },
+    {
+      "name": "AZURE_STORAGE_CONNECTION_STRING",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure Blob Storage connection string for WhatsApp session persistence.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/whatsapp-client.ts",
+        "whatsapp-worker/src/azure-store.ts"
+      ]
+    },
+    {
+      "name": "AZURE_STORAGE_CONTAINER",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure Blob Storage container name for WhatsApp session files.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/azure-store.ts"
+      ]
+    },
+    {
+      "name": "AZURE_TENANT_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure AD tenant ID for Azure SDK auth (separate from Graph API tenant).",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/secrets-manager.ts"
+      ]
+    },
+    {
+      "name": "FIREBASE_CLIENT_EMAIL",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase admin SDK service account email. Do NOT commit.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/firebase-admin.ts"
+      ]
+    },
+    {
+      "name": "FIREBASE_PRIVATE_KEY",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase admin SDK private key. Do NOT commit. Used in local development or CI only.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/firebase-admin.ts"
+      ]
+    },
+    {
+      "name": "FIREBASE_PROJECT_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase project ID for server-side admin SDK. Inferred from service account credential in production.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/firebase-admin.ts"
+      ]
+    },
+    {
+      "name": "FIREBASE_SERVICE_ACCOUNT",
+      "type": "env-var",
+      "value": null,
+      "description": "Path to Firebase service account JSON file. Points to service-account.json in local dev.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/firebase-config.ts"
+      ]
+    },
+    {
+      "name": "FIREBASE_STORAGE_BUCKET",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase Storage bucket name for admin SDK (server-side). Separate from NEXT_PUBLIC_ equivalent.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/firebase-config.ts"
+      ]
+    },
+    {
+      "name": "GCLOUD_PROJECT",
+      "type": "env-var",
+      "value": null,
+      "description": "Google Cloud project ID — set by App Hosting runtime automatically.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/firebase-admin.ts"
+      ]
+    },
+    {
+      "name": "GOOGLE_APPLICATION_CREDENTIALS",
+      "type": "env-var",
+      "value": null,
+      "description": "Path to Google service account JSON for Application Default Credentials (ADC). Set locally to service-account.json.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/log-client-error/route.ts",
+        "app/src/lib/email.ts",
+        "whatsapp-worker/src/firebase-config.ts"
+      ]
+    },
+    {
+      "name": "GOOGLE_CLOUD_PROJECT",
+      "type": "env-var",
+      "value": null,
+      "description": "Google Cloud project ID — alternative env var set by GCP runtime.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/ai/genkit.ts",
+        "app/src/app/api/auth/admin-challenge/route.ts",
+        "app/src/app/api/send-secondary-email-verification/route.ts",
+        "app/src/app/api/send-verification-email/route.ts",
+        "app/src/lib/firebase-admin.ts"
+      ]
+    },
+    {
+      "name": "GRAPH_CLIENT_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure AD app registration client ID for Microsoft Graph email sending. Set via firebase apphosting:secrets:set GRAPH_CLIENT_ID.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/email/health/route.ts",
+        "app/src/app/api/email-health/route.ts",
+        "app/src/app/api/send-provider-linked-email/route.ts",
+        "app/src/app/api/send-secondary-email-verification/route.ts",
+        "app/src/app/api/send-verification-email/route.ts",
+        "app/src/lib/email.ts"
+      ]
+    },
+    {
+      "name": "GRAPH_CLIENT_SECRET",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure AD app client secret for Microsoft Graph. Set via firebase apphosting:secrets:set GRAPH_CLIENT_SECRET. NEVER commit.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/email/health/route.ts",
+        "app/src/app/api/email-health/route.ts",
+        "app/src/app/api/send-provider-linked-email/route.ts",
+        "app/src/app/api/send-secondary-email-verification/route.ts",
+        "app/src/app/api/send-verification-email/route.ts",
+        "app/src/lib/email.ts"
+      ]
+    },
+    {
+      "name": "GRAPH_SENDER_EMAIL",
+      "type": "env-var",
+      "value": null,
+      "description": "Email address to send from via Microsoft Graph (aaron@garcia.ltd). Set via firebase apphosting:secrets:set GRAPH_SENDER_EMAIL.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/email/health/route.ts",
+        "app/src/app/api/email-health/route.ts",
+        "app/src/app/api/send-hot-news-email/route.ts",
+        "app/src/app/api/send-results-email/route.ts",
+        "app/src/lib/email-tracking.ts",
+        "app/src/lib/email.ts"
+      ]
+    },
+    {
+      "name": "GRAPH_TENANT_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure AD tenant ID for Microsoft Graph OAuth. Set via firebase apphosting:secrets:set GRAPH_TENANT_ID.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/email/health/route.ts",
+        "app/src/app/api/email-health/route.ts",
+        "app/src/app/api/send-provider-linked-email/route.ts",
+        "app/src/app/api/send-secondary-email-verification/route.ts",
+        "app/src/app/api/send-verification-email/route.ts",
+        "app/src/lib/email.ts"
+      ]
+    },
+    {
+      "name": "KEY_VAULT_URL",
+      "type": "env-var",
+      "value": null,
+      "description": "Azure Key Vault URL for secret retrieval via secrets-manager.ts.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/secrets-manager.ts"
+      ]
+    },
+    {
+      "name": "NEXT_PUBLIC_FIREBASE_API_KEY",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase client SDK API key — browser-safe, embedded in the Next.js bundle. Set in apphosting.yaml.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/auth/login/route.ts",
+        "app/src/firebase/config.ts"
+      ]
+    },
+    {
+      "name": "NEXT_PUBLIC_FIREBASE_APP_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase client SDK app ID — browser-safe. Set in apphosting.yaml.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/firebase/config.ts"
+      ]
+    },
+    {
+      "name": "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase auth domain for client SDK — browser-safe. Set in apphosting.yaml.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/firebase/config.ts"
+      ]
+    },
+    {
+      "name": "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase Analytics measurement ID — browser-safe. Set in apphosting.yaml.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/firebase/config.ts"
+      ]
+    },
+    {
+      "name": "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase Cloud Messaging sender ID — browser-safe. Set in apphosting.yaml.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/firebase/config.ts"
+      ]
+    },
+    {
+      "name": "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase project ID for client SDK — browser-safe. Set in apphosting.yaml.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/firebase/config.ts",
+        "app/src/lib/email.ts",
+        "app/src/lib/firebase-admin.ts"
+      ]
+    },
+    {
+      "name": "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+      "type": "env-var",
+      "value": null,
+      "description": "Firebase Storage bucket URL — browser-safe. Set in apphosting.yaml.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/firebase/config.ts"
+      ]
+    },
+    {
+      "name": "NODE_ENV",
+      "type": "env-var",
+      "value": null,
+      "description": "Node.js environment: 'development', 'production', or 'test'. Set by Next.js automatically.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/ai/flows/dynamic-driver-updates.ts",
+        "app/src/ai/flows/hot-news-feed.ts",
+        "app/src/app/(app)/admin/AdminPageClient.tsx",
+        "app/src/app/(app)/admin/_components/AttackMonitor.tsx",
+        "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx",
+        "app/src/app/(app)/predictions/_components/PredictionEditor.tsx",
+        "app/src/app/(auth)/login/page.tsx",
+        "app/src/app/api/account/close/route.ts",
+        "app/src/app/api/admin/delete-user/route.ts",
+        "app/src/app/api/admin/fetch-timing-data/route.ts",
+        "app/src/app/api/admin/openf1-drivers/route.ts",
+        "app/src/app/api/admin/openf1-location/route.ts",
+        "app/src/app/api/admin/openf1-sessions/route.ts",
+        "app/src/app/api/admin/update-user/route.ts",
+        "app/src/app/api/admin/verify-access/route.ts",
+        "app/src/app/api/ai/analysis/route.ts",
+        "app/src/app/api/auth/admin-challenge/route.ts",
+        "app/src/app/api/auth/complete-oauth-profile/route.ts",
+        "app/src/app/api/auth/login/route.ts",
+        "app/src/app/api/auth/record-logon/route.ts",
+        "app/src/app/api/auth/record-logout/route.ts",
+        "app/src/app/api/auth/reset-pin/route.ts",
+        "app/src/app/api/auth/signup/route.ts",
+        "app/src/app/api/calculate-scores/route.ts",
+        "app/src/app/api/health/route.ts",
+        "app/src/app/api/leagues/join-by-code/route.ts",
+        "app/src/app/api/log-client-error/route.ts",
+        "app/src/app/api/send-hot-news-email/route.ts",
+        "app/src/app/api/send-provider-linked-email/route.ts",
+        "app/src/app/api/send-results-email/route.ts",
+        "app/src/app/api/send-secondary-email-verification/route.ts",
+        "app/src/app/api/send-verification-email/route.ts",
+        "app/src/app/api/whatsapp-proxy/route.ts",
+        "app/src/app/global-error.tsx",
+        "app/src/components/GlobalErrorLogger.tsx",
+        "app/src/components/SecurityUpgradeCard.tsx",
+        "app/src/firebase/firestore/official-teams.ts",
+        "app/src/firebase/firestore/settings.ts",
+        "app/src/firebase/index.ts",
+        "app/src/firebase/provider.tsx",
+        "app/src/lib/attack-detection.ts",
+        "app/src/lib/audit.ts",
+        "app/src/lib/email-tracking.ts",
+        "app/src/lib/email.ts",
+        "app/src/lib/firebase-admin.ts",
+        "app/src/lib/leagues.ts",
+        "app/src/lib/scoring.ts",
+        "app/src/lib/secrets-manager.ts",
+        "app/src/lib/traced-error.ts",
+        "app/src/services/authService.ts"
+      ]
+    },
+    {
+      "name": "OPENF1_PASSWORD",
+      "type": "env-var",
+      "value": null,
+      "description": "Optional OpenF1 API password. NEVER commit.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/openf1-drivers/route.ts"
+      ]
+    },
+    {
+      "name": "OPENF1_USERNAME",
+      "type": "env-var",
+      "value": null,
+      "description": "Optional OpenF1 API username for authenticated data access.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/openf1-drivers/route.ts"
+      ]
+    },
+    {
+      "name": "PORT",
+      "type": "env-var",
+      "value": null,
+      "description": "HTTP port for the server process. Defaults to 3000 in dev.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/index.ts"
+      ]
+    },
+    {
+      "name": "PUPPETEER_EXECUTABLE_PATH",
+      "type": "env-var",
+      "value": null,
+      "description": "Path to Chromium executable for Puppeteer. Required in Docker/CI environments where Chrome is not in PATH.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/whatsapp-client.ts"
+      ]
+    },
+    {
+      "name": "REMOTE_AUTH_DATA_PATH",
+      "type": "env-var",
+      "value": null,
+      "description": "Path to remote auth data file for local development configuration.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/whatsapp-client.ts",
+        "whatsapp-worker/src/azure-store.ts"
+      ]
+    },
+    {
+      "name": "USE_KEY_VAULT",
+      "type": "env-var",
+      "value": null,
+      "description": "Feature flag — set to 'true' to fetch secrets from Azure Key Vault instead of env vars.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/secrets-manager.ts"
+      ]
+    },
+    {
+      "name": "VERCEL_URL",
+      "type": "env-var",
+      "value": null,
+      "description": "Automatically set by Vercel hosting — the deployment URL. Not used in Firebase App Hosting.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/csrf-protection.ts"
+      ]
+    },
+    {
+      "name": "WHATSAPP_APP_SECRET",
+      "type": "env-var",
+      "value": null,
+      "description": "Shared secret for WhatsApp worker authentication. Must match between app and worker.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/whatsapp-proxy/route.ts"
+      ]
+    },
+    {
+      "name": "WHATSAPP_WORKER_URL",
+      "type": "env-var",
+      "value": null,
+      "description": "Base URL of the WhatsApp worker process (Express server). Used by the proxy route to forward messages.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/whatsapp/health/route.ts"
+      ]
+    },
+    {
+      "name": "WORKER_API_KEY",
+      "type": "env-var",
+      "value": null,
+      "description": "API key for authenticating calls to the WhatsApp worker service.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/index.ts"
+      ]
+    },
+    {
+      "name": "admin_challenges",
+      "type": "collection-name",
+      "value": "admin_challenges",
+      "description": "Admin authentication challenges — used in the admin-challenge MFA flow.",
+      "definedIn": null,
+      "usedIn": [
+        "functions/index.js"
+      ]
+    },
+    {
+      "name": "admin_configuration",
+      "type": "collection-name",
+      "value": "admin_configuration",
+      "description": "Admin system configuration document. Admin-only read and write.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/single-user-mode/route.ts",
+        "app/src/app/api/admin/update-site-functions/route.ts",
+        "app/src/app/api/auth/complete-oauth-profile/route.ts",
+        "app/src/app/api/auth/signup/route.ts",
+        "app/src/app/api/health/route.ts",
+        "app/src/app/api/send-hot-news-email/route.ts"
+      ]
+    },
+    {
+      "name": "admin_verification_tokens",
+      "type": "collection-name",
+      "value": "admin_verification_tokens",
+      "description": "Short-lived tokens for admin identity verification.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/verify-access/route.ts",
+        "app/src/app/api/auth/admin-challenge/route.ts"
+      ]
+    },
+    {
+      "name": "attack_alerts",
+      "type": "collection-name",
+      "value": "attack_alerts",
+      "description": "Attack alert documents written by attack-detection.ts. Displayed in AttackMonitor admin UI. Acknowledgement tracked here.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/acknowledge-attack/route.ts",
+        "app/src/lib/attack-detection.ts"
+      ]
+    },
+    {
+      "name": "audit_logs",
+      "type": "collection-name",
+      "value": "audit_logs",
+      "description": "Audit trail for sensitive operations (admin actions, data changes). Written by lib/audit.ts.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/account/close/route.ts",
+        "app/src/app/api/add-secondary-team/route.ts",
+        "app/src/app/api/admin/delete-user/route.ts",
+        "app/src/app/api/admin/fetch-timing-data/route.ts",
+        "app/src/app/api/admin/single-user-mode/route.ts",
+        "app/src/app/api/admin/unlock-account/route.ts",
+        "app/src/app/api/admin/update-hot-news/route.ts",
+        "app/src/app/api/admin/update-site-functions/route.ts",
+        "app/src/app/api/admin/update-user/route.ts",
+        "app/src/app/api/admin/verify-access/route.ts",
+        "app/src/app/api/auth/admin-challenge/route.ts",
+        "app/src/app/api/auth/complete-oauth-profile/route.ts",
+        "app/src/app/api/auth/login/route.ts",
+        "app/src/app/api/auth/reset-pin/route.ts",
+        "app/src/app/api/auth/signup/route.ts",
+        "app/src/app/api/calculate-scores/route.ts",
+        "app/src/app/api/delete-scores/route.ts",
+        "app/src/app/api/leagues/delete/route.ts",
+        "app/src/app/api/leagues/join-by-code/route.ts",
+        "app/src/app/api/send-hot-news-email/route.ts",
+        "app/src/app/api/send-secondary-email-verification/route.ts",
+        "app/src/app/api/send-verification-email/route.ts",
+        "app/src/app/api/submit-prediction/route.ts",
+        "app/src/app/api/update-secondary-email/route.ts",
+        "app/src/app/api/verify-email/route.ts",
+        "app/src/app/api/verify-secondary-email/route.ts"
+      ]
+    },
+    {
+      "name": "cold_start_events",
+      "type": "collection-name",
+      "value": "cold_start_events",
+      "description": "Firebase function cold-start telemetry — tracks when functions boot cold.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/health/route.ts"
+      ]
+    },
+    {
+      "name": "drivers",
+      "type": "collection-name",
+      "value": "drivers",
+      "description": "Driver reference data — names, numbers, team assignments for the current season.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/ai/flows/dynamic-driver-updates.ts"
+      ]
+    },
+    {
+      "name": "email_daily_stats",
+      "type": "collection-name",
+      "value": "email_daily_stats",
+      "description": "Aggregated daily email sending statistics (sent/failed counts per day).",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/email-queue/route.ts",
+        "app/src/app/api/send-hot-news-email/route.ts",
+        "app/src/app/api/send-results-email/route.ts"
+      ]
+    },
+    {
+      "name": "email_logs",
+      "type": "collection-name",
+      "value": "email_logs",
+      "description": "Email send history — records each email dispatched via the email system.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/auth/reset-pin/route.ts",
+        "app/src/app/api/email-health/route.ts",
+        "app/src/lib/email.ts",
+        "app/scripts/migrate-mask-pins.ts",
+        "app/scripts/rollback-mask-pins.ts"
+      ]
+    },
+    {
+      "name": "email_queue",
+      "type": "collection-name",
+      "value": "email_queue",
+      "description": "Outbound email queue — documents are processed by the email API route and deleted on success.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/email-health/route.ts",
+        "app/src/app/api/email-queue/route.ts"
+      ]
+    },
+    {
+      "name": "email_verification_tokens",
+      "type": "collection-name",
+      "value": "email_verification_tokens",
+      "description": "Email address verification tokens — created on signup, consumed on verify.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/send-verification-email/route.ts",
+        "app/src/app/api/verify-email/route.ts"
+      ]
+    },
+    {
+      "name": "error_logs",
+      "type": "collection-name",
+      "value": "error_logs",
+      "description": "Client and server error records — written by logError() and GlobalErrorLogger. Used for monitoring and triage.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/admin/resolve-error/route.ts",
+        "app/src/app/api/admin/verify-access/route.ts",
+        "app/src/app/api/auth/admin-challenge/route.ts",
+        "app/src/app/api/auth/signup/route.ts",
+        "app/src/app/api/log-client-error/route.ts",
+        "app/src/lib/firebase-admin.ts",
+        "app/src/lib/traced-error.ts"
+      ]
+    },
+    {
+      "name": "join_rate_limits",
+      "type": "collection-name",
+      "value": "join_rate_limits",
+      "description": "Rate limiting records for league join attempts by IP/user.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/leagues/join-by-code/route.ts"
+      ]
+    },
+    {
+      "name": "leagues",
+      "type": "collection-name",
+      "value": "leagues",
+      "description": "League membership and configuration. Main league doc ID is 'global' (GLOBAL_LEAGUE_ID constant).",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/add-secondary-team/route.ts",
+        "app/src/app/api/admin/delete-user/route.ts",
+        "app/src/app/api/auth/complete-oauth-profile/route.ts",
+        "app/src/app/api/auth/signup/route.ts",
+        "app/src/app/api/leagues/delete/route.ts",
+        "app/src/app/api/leagues/join-by-code/route.ts"
+      ]
+    },
+    {
+      "name": "login_attempts",
+      "type": "collection-name",
+      "value": "login_attempts",
+      "description": "Failed login attempts — used for brute-force and attack detection (attack-detection.ts).",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/attack-detection.ts"
+      ]
+    },
+    {
+      "name": "mail",
+      "type": "collection-name",
+      "value": "mail",
+      "description": "Firebase Extensions mail queue collection (if using Firebase email extension).",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/auth/reset-pin/route.ts"
+      ]
+    },
+    {
+      "name": "predictions",
+      "type": "collection-name",
+      "value": "predictions",
+      "description": "User predictions subcollection under users/{uid}/predictions. Two doc formats: with and without -GP suffix (normalised).",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/account/close/route.ts",
+        "app/src/app/api/admin/update-user/route.ts",
+        "app/src/app/api/calculate-scores/route.ts",
+        "app/src/app/api/delete-scores/route.ts",
+        "app/src/app/api/submit-prediction/route.ts"
+      ]
+    },
+    {
+      "name": "presence",
+      "type": "collection-name",
+      "value": "presence",
+      "description": "Real-time presence tracking — records which users are currently online.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/account/close/route.ts",
+        "app/src/app/api/admin/delete-user/route.ts",
+        "app/src/app/api/admin/single-user-mode/route.ts",
+        "app/src/app/api/auth/complete-oauth-profile/route.ts",
+        "app/src/app/api/auth/signup/route.ts"
+      ]
+    },
+    {
+      "name": "race_results",
+      "type": "collection-name",
+      "value": "race_results",
+      "description": "Admin-entered official race results. Presence of a doc for a race locks the predictions page (pit lane closed). Delete to unlock.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/calculate-scores/route.ts",
+        "app/src/app/api/delete-scores/route.ts",
+        "app/src/app/api/submit-prediction/route.ts"
+      ]
+    },
+    {
+      "name": "race_schedule",
+      "type": "collection-name",
+      "value": "race_schedule",
+      "description": "F1 race calendar — static reference data with race names, dates, qualifying times. Public read, admin write.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/lib/race-schedule-server.ts"
+      ]
+    },
+    {
+      "name": "scores",
+      "type": "collection-name",
+      "value": "scores",
+      "description": "Computed per-user per-race scores. Key format: {normalizedRaceId}_{userId}. Source: calculate-scores API.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/add-secondary-team/route.ts",
+        "app/src/app/api/auth/complete-oauth-profile/route.ts",
+        "app/src/app/api/auth/signup/route.ts"
+      ]
+    },
+    {
+      "name": "secondary_email_verification_tokens",
+      "type": "collection-name",
+      "value": "secondary_email_verification_tokens",
+      "description": "Verification tokens for secondary email addresses added by users.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/send-secondary-email-verification/route.ts",
+        "app/src/app/api/verify-secondary-email/route.ts"
+      ]
+    },
+    {
+      "name": "system_status",
+      "type": "collection-name",
+      "value": "system_status",
+      "description": "System health and status flags — used by health check endpoint and admin status display.",
+      "definedIn": null,
+      "usedIn": [
+        "functions/index.js"
+      ]
+    },
+    {
+      "name": "team_names",
+      "type": "collection-name",
+      "value": "team_names",
+      "description": "Lookup table for team display names. Used in predictions and results display.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/auth/signup/route.ts"
+      ]
+    },
+    {
+      "name": "user_logons",
+      "type": "collection-name",
+      "value": "user_logons",
+      "description": "Login events — records each successful authentication with timestamp and IP.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/auth/login/route.ts",
+        "app/src/app/api/auth/record-logon/route.ts",
+        "app/src/app/api/auth/record-logout/route.ts",
+        "functions/index.js"
+      ]
+    },
+    {
+      "name": "users",
+      "type": "collection-name",
+      "value": "users",
+      "description": "Core user profiles — auth, display name, team selections, email, admin flag.",
+      "definedIn": null,
+      "usedIn": [
+        "app/src/app/api/account/close/route.ts",
+        "app/src/app/api/add-secondary-team/route.ts",
+        "app/src/app/api/admin/acknowledge-attack/route.ts",
+        "app/src/app/api/admin/delete-user/route.ts",
+        "app/src/app/api/admin/fetch-timing-data/route.ts",
+        "app/src/app/api/admin/openf1-drivers/route.ts",
+        "app/src/app/api/admin/openf1-location/route.ts",
+        "app/src/app/api/admin/openf1-sessions/route.ts",
+        "app/src/app/api/admin/prediction-count/route.ts",
+        "app/src/app/api/admin/resolve-error/route.ts",
+        "app/src/app/api/admin/single-user-mode/route.ts",
+        "app/src/app/api/admin/unlock-account/route.ts",
+        "app/src/app/api/admin/update-hot-news/route.ts",
+        "app/src/app/api/admin/update-site-functions/route.ts",
+        "app/src/app/api/admin/update-user/route.ts",
+        "app/src/app/api/admin/verify-access/route.ts",
+        "app/src/app/api/admin/whatsapp/health/route.ts",
+        "app/src/app/api/ai/analysis/route.ts",
+        "app/src/app/api/auth/admin-challenge/route.ts",
+        "app/src/app/api/auth/complete-oauth-profile/route.ts",
+        "app/src/app/api/auth/login/route.ts",
+        "app/src/app/api/auth/reset-pin/route.ts",
+        "app/src/app/api/auth/signup/route.ts",
+        "app/src/app/api/calculate-scores/route.ts",
+        "app/src/app/api/delete-scores/route.ts",
+        "app/src/app/api/email-health/route.ts",
+        "app/src/app/api/email-queue/route.ts",
+        "app/src/app/api/leagues/delete/route.ts",
+        "app/src/app/api/send-hot-news-email/route.ts",
+        "app/src/app/api/send-results-email/route.ts",
+        "app/src/app/api/send-secondary-email-verification/route.ts",
+        "app/src/app/api/submit-prediction/route.ts",
+        "app/src/app/api/team-name-suggestions/route.ts",
+        "app/src/app/api/update-secondary-email/route.ts",
+        "app/src/app/api/verify-email/route.ts",
+        "app/src/app/api/verify-secondary-email/route.ts",
+        "app/src/app/api/whatsapp-proxy/route.ts",
+        "functions/index.js"
+      ]
+    },
+    {
+      "name": "whatsapp_queue",
+      "type": "collection-name",
+      "value": "whatsapp_queue",
+      "description": "Outbound WhatsApp message queue — processed by the WhatsApp worker.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/queue-processor.ts"
+      ]
+    },
+    {
+      "name": "whatsapp_status",
+      "type": "collection-name",
+      "value": "whatsapp_status",
+      "description": "WhatsApp worker connection status — current state (connected/disconnected/scanning).",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/whatsapp-client.ts"
+      ]
+    },
+    {
+      "name": "whatsapp_status_log",
+      "type": "collection-name",
+      "value": "whatsapp_status_log",
+      "description": "Historical log of WhatsApp worker status changes.",
+      "definedIn": null,
+      "usedIn": [
+        "whatsapp-worker/src/whatsapp-client.ts"
+      ]
+    }
+  ],
   "guids": [
     {
       "guid": "RACE_SCHEDULE_RULES-001",
@@ -392,232 +1353,7 @@
       "guid": "ADMIN_AUDIT-001",
       "version": 3,
       "logic_category": "VALIDATION",
-      "description": "Type definition for the audit settings shape stored in admin_configuration/global.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/admin/_components/AuditManager.tsx",
-        "functionName": "getAuditSettings"
-      },
-      "callChain": {
-        "calledBy": [
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
-        ],
-        "calls": [
-          "ADMIN_ERRORLOG-000",
-          "ADMIN_ERRORLOG-001",
-          "ADMIN_ERRORLOG-001a",
-          "ADMIN_ERRORLOG-002",
-          "ADMIN_ERRORLOG-003",
-          "ADMIN_ERRORLOG-004",
-          "ADMIN_ERRORLOG-005",
-          "ADMIN_ERRORLOG-006",
-          "ADMIN_ERRORLOG-007",
-          "ADMIN_ERRORLOG-008",
-          "ADMIN_ERRORLOG-009",
-          "ADMIN_ERRORLOG-010",
-          "ADMIN_ERRORLOG-011",
-          "ADMIN_ERRORLOG-012",
-          "ADMIN_ERRORLOG-013",
-          "ADMIN_ERRORLOG-014",
-          "ADMIN_ERRORLOG-015",
-          "ADMIN_ERRORLOG-016",
-          "API_LOG_CLIENT_ERROR-000",
-          "API_LOG_CLIENT_ERROR-001",
-          "API_LOG_CLIENT_ERROR-002",
-          "API_LOG_CLIENT_ERROR-003",
-          "API_LOG_CLIENT_ERROR-004",
-          "API_LOG_CLIENT_ERROR-005",
-          "API_LOG_CLIENT_ERROR-006",
-          "API_LOG_CLIENT_ERROR-007",
-          "BACKUP_ERRORS-001",
-          "LIB_ERROR_CODES-000",
-          "LIB_ERROR_CODES-001",
-          "LIB_ERROR_CODES-002",
-          "LIB_ERROR_CODES-003",
-          "LIB_ERROR_CODES-004",
-          "LIB_ERROR_CODES-005",
-          "LIB_ERROR_CODES-006",
-          "LIB_ERROR_CODES-007",
-          "LIB_TRACED_ERROR-000",
-          "LIB_TRACED_ERROR-001",
-          "LIB_TRACED_ERROR-002",
-          "LIB_TRACED_ERROR-003",
-          "TYPES_ERRORS-000",
-          "TYPES_ERRORS-001",
-          "TYPES_ERRORS-002",
-          "ROOT_ERROR-000",
-          "GLOBAL_ERROR-000",
-          "APP_ERROR-000",
-          "AUTH_ERROR-000",
-          "ERROR_REGISTRY-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-001",
-          "COMPONENT_CHUNK_ERROR_HANDLER-002",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
-    },
-    {
-      "guid": "ADMIN_AUDIT-002",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Reads the current audit settings from the admin_configuration/global Firestore document, defaulting to disabled.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/admin/_components/AuditManager.tsx",
-        "functionName": "getAuditSettings"
-      },
-      "callChain": {
-        "calledBy": [
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
-        ],
-        "calls": [
-          "ADMIN_ERRORLOG-000",
-          "ADMIN_ERRORLOG-001",
-          "ADMIN_ERRORLOG-001a",
-          "ADMIN_ERRORLOG-002",
-          "ADMIN_ERRORLOG-003",
-          "ADMIN_ERRORLOG-004",
-          "ADMIN_ERRORLOG-005",
-          "ADMIN_ERRORLOG-006",
-          "ADMIN_ERRORLOG-007",
-          "ADMIN_ERRORLOG-008",
-          "ADMIN_ERRORLOG-009",
-          "ADMIN_ERRORLOG-010",
-          "ADMIN_ERRORLOG-011",
-          "ADMIN_ERRORLOG-012",
-          "ADMIN_ERRORLOG-013",
-          "ADMIN_ERRORLOG-014",
-          "ADMIN_ERRORLOG-015",
-          "ADMIN_ERRORLOG-016",
-          "API_LOG_CLIENT_ERROR-000",
-          "API_LOG_CLIENT_ERROR-001",
-          "API_LOG_CLIENT_ERROR-002",
-          "API_LOG_CLIENT_ERROR-003",
-          "API_LOG_CLIENT_ERROR-004",
-          "API_LOG_CLIENT_ERROR-005",
-          "API_LOG_CLIENT_ERROR-006",
-          "API_LOG_CLIENT_ERROR-007",
-          "BACKUP_ERRORS-001",
-          "LIB_ERROR_CODES-000",
-          "LIB_ERROR_CODES-001",
-          "LIB_ERROR_CODES-002",
-          "LIB_ERROR_CODES-003",
-          "LIB_ERROR_CODES-004",
-          "LIB_ERROR_CODES-005",
-          "LIB_ERROR_CODES-006",
-          "LIB_ERROR_CODES-007",
-          "LIB_TRACED_ERROR-000",
-          "LIB_TRACED_ERROR-001",
-          "LIB_TRACED_ERROR-002",
-          "LIB_TRACED_ERROR-003",
-          "TYPES_ERRORS-000",
-          "TYPES_ERRORS-001",
-          "TYPES_ERRORS-002",
-          "ROOT_ERROR-000",
-          "GLOBAL_ERROR-000",
-          "APP_ERROR-000",
-          "AUTH_ERROR-000",
-          "ERROR_REGISTRY-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-001",
-          "COMPONENT_CHUNK_ERROR_HANDLER-002",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
-    },
-    {
-      "guid": "ADMIN_AUDIT-003",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Writes updated audit settings to the admin_configuration/global Firestore document using merge to preserve other fields.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/admin/_components/AuditManager.tsx",
-        "functionName": "updateAuditSettings"
-      },
-      "callChain": {
-        "calledBy": [
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
-        ],
-        "calls": [
-          "ADMIN_ERRORLOG-000",
-          "ADMIN_ERRORLOG-001",
-          "ADMIN_ERRORLOG-001a",
-          "ADMIN_ERRORLOG-002",
-          "ADMIN_ERRORLOG-003",
-          "ADMIN_ERRORLOG-004",
-          "ADMIN_ERRORLOG-005",
-          "ADMIN_ERRORLOG-006",
-          "ADMIN_ERRORLOG-007",
-          "ADMIN_ERRORLOG-008",
-          "ADMIN_ERRORLOG-009",
-          "ADMIN_ERRORLOG-010",
-          "ADMIN_ERRORLOG-011",
-          "ADMIN_ERRORLOG-012",
-          "ADMIN_ERRORLOG-013",
-          "ADMIN_ERRORLOG-014",
-          "ADMIN_ERRORLOG-015",
-          "ADMIN_ERRORLOG-016",
-          "API_LOG_CLIENT_ERROR-000",
-          "API_LOG_CLIENT_ERROR-001",
-          "API_LOG_CLIENT_ERROR-002",
-          "API_LOG_CLIENT_ERROR-003",
-          "API_LOG_CLIENT_ERROR-004",
-          "API_LOG_CLIENT_ERROR-005",
-          "API_LOG_CLIENT_ERROR-006",
-          "API_LOG_CLIENT_ERROR-007",
-          "BACKUP_ERRORS-001",
-          "LIB_ERROR_CODES-000",
-          "LIB_ERROR_CODES-001",
-          "LIB_ERROR_CODES-002",
-          "LIB_ERROR_CODES-003",
-          "LIB_ERROR_CODES-004",
-          "LIB_ERROR_CODES-005",
-          "LIB_ERROR_CODES-006",
-          "LIB_ERROR_CODES-007",
-          "LIB_TRACED_ERROR-000",
-          "LIB_TRACED_ERROR-001",
-          "LIB_TRACED_ERROR-002",
-          "LIB_TRACED_ERROR-003",
-          "TYPES_ERRORS-000",
-          "TYPES_ERRORS-001",
-          "TYPES_ERRORS-002",
-          "ROOT_ERROR-000",
-          "GLOBAL_ERROR-000",
-          "APP_ERROR-000",
-          "AUTH_ERROR-000",
-          "ERROR_REGISTRY-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-001",
-          "COMPONENT_CHUNK_ERROR_HANDLER-002",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
-    },
-    {
-      "guid": "ADMIN_AUDIT-004",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Main exported component providing a toggle switch and save button for enabling/disabling global audit logging.",
+      "description": "Read-only admin component displaying audit logging status as always-on. Replaces the former toggle UI (GEMINI-AUDIT-002 fix — toggle was a security bypass vector). Logging is permanently enabled; change requires code deployment.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/_components/AuditManager.tsx",
@@ -686,231 +1422,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
-    },
-    {
-      "guid": "ADMIN_AUDIT-005",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Loads the current audit settings from Firestore on component mount.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/admin/_components/AuditManager.tsx"
-      },
-      "callChain": {
-        "calledBy": [
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
-        ],
-        "calls": [
-          "ADMIN_ERRORLOG-000",
-          "ADMIN_ERRORLOG-001",
-          "ADMIN_ERRORLOG-001a",
-          "ADMIN_ERRORLOG-002",
-          "ADMIN_ERRORLOG-003",
-          "ADMIN_ERRORLOG-004",
-          "ADMIN_ERRORLOG-005",
-          "ADMIN_ERRORLOG-006",
-          "ADMIN_ERRORLOG-007",
-          "ADMIN_ERRORLOG-008",
-          "ADMIN_ERRORLOG-009",
-          "ADMIN_ERRORLOG-010",
-          "ADMIN_ERRORLOG-011",
-          "ADMIN_ERRORLOG-012",
-          "ADMIN_ERRORLOG-013",
-          "ADMIN_ERRORLOG-014",
-          "ADMIN_ERRORLOG-015",
-          "ADMIN_ERRORLOG-016",
-          "API_LOG_CLIENT_ERROR-000",
-          "API_LOG_CLIENT_ERROR-001",
-          "API_LOG_CLIENT_ERROR-002",
-          "API_LOG_CLIENT_ERROR-003",
-          "API_LOG_CLIENT_ERROR-004",
-          "API_LOG_CLIENT_ERROR-005",
-          "API_LOG_CLIENT_ERROR-006",
-          "API_LOG_CLIENT_ERROR-007",
-          "BACKUP_ERRORS-001",
-          "LIB_ERROR_CODES-000",
-          "LIB_ERROR_CODES-001",
-          "LIB_ERROR_CODES-002",
-          "LIB_ERROR_CODES-003",
-          "LIB_ERROR_CODES-004",
-          "LIB_ERROR_CODES-005",
-          "LIB_ERROR_CODES-006",
-          "LIB_ERROR_CODES-007",
-          "LIB_TRACED_ERROR-000",
-          "LIB_TRACED_ERROR-001",
-          "LIB_TRACED_ERROR-002",
-          "LIB_TRACED_ERROR-003",
-          "TYPES_ERRORS-000",
-          "TYPES_ERRORS-001",
-          "TYPES_ERRORS-002",
-          "ROOT_ERROR-000",
-          "GLOBAL_ERROR-000",
-          "APP_ERROR-000",
-          "AUTH_ERROR-000",
-          "ERROR_REGISTRY-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-001",
-          "COMPONENT_CHUNK_ERROR_HANDLER-002",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
-    },
-    {
-      "guid": "ADMIN_AUDIT-006",
-      "version": 3,
-      "logic_category": "RECOVERY",
-      "description": "Persists the current audit logging toggle state to Firestore and shows a success/failure toast.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/admin/_components/AuditManager.tsx",
-        "functionName": "handleSave"
-      },
-      "callChain": {
-        "calledBy": [
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
-        ],
-        "calls": [
-          "ADMIN_ERRORLOG-000",
-          "ADMIN_ERRORLOG-001",
-          "ADMIN_ERRORLOG-001a",
-          "ADMIN_ERRORLOG-002",
-          "ADMIN_ERRORLOG-003",
-          "ADMIN_ERRORLOG-004",
-          "ADMIN_ERRORLOG-005",
-          "ADMIN_ERRORLOG-006",
-          "ADMIN_ERRORLOG-007",
-          "ADMIN_ERRORLOG-008",
-          "ADMIN_ERRORLOG-009",
-          "ADMIN_ERRORLOG-010",
-          "ADMIN_ERRORLOG-011",
-          "ADMIN_ERRORLOG-012",
-          "ADMIN_ERRORLOG-013",
-          "ADMIN_ERRORLOG-014",
-          "ADMIN_ERRORLOG-015",
-          "ADMIN_ERRORLOG-016",
-          "API_LOG_CLIENT_ERROR-000",
-          "API_LOG_CLIENT_ERROR-001",
-          "API_LOG_CLIENT_ERROR-002",
-          "API_LOG_CLIENT_ERROR-003",
-          "API_LOG_CLIENT_ERROR-004",
-          "API_LOG_CLIENT_ERROR-005",
-          "API_LOG_CLIENT_ERROR-006",
-          "API_LOG_CLIENT_ERROR-007",
-          "BACKUP_ERRORS-001",
-          "LIB_ERROR_CODES-000",
-          "LIB_ERROR_CODES-001",
-          "LIB_ERROR_CODES-002",
-          "LIB_ERROR_CODES-003",
-          "LIB_ERROR_CODES-004",
-          "LIB_ERROR_CODES-005",
-          "LIB_ERROR_CODES-006",
-          "LIB_ERROR_CODES-007",
-          "LIB_TRACED_ERROR-000",
-          "LIB_TRACED_ERROR-001",
-          "LIB_TRACED_ERROR-002",
-          "LIB_TRACED_ERROR-003",
-          "TYPES_ERRORS-000",
-          "TYPES_ERRORS-001",
-          "TYPES_ERRORS-002",
-          "ROOT_ERROR-000",
-          "GLOBAL_ERROR-000",
-          "APP_ERROR-000",
-          "AUTH_ERROR-000",
-          "ERROR_REGISTRY-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-001",
-          "COMPONENT_CHUNK_ERROR_HANDLER-002",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
-    },
-    {
-      "guid": "ADMIN_AUDIT-007",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Updates the local settings state when the toggle switch is changed, without persisting until save.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(app)/admin/_components/AuditManager.tsx",
-        "functionName": "handleToggle"
-      },
-      "callChain": {
-        "calledBy": [
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
-        ],
-        "calls": [
-          "ADMIN_ERRORLOG-000",
-          "ADMIN_ERRORLOG-001",
-          "ADMIN_ERRORLOG-001a",
-          "ADMIN_ERRORLOG-002",
-          "ADMIN_ERRORLOG-003",
-          "ADMIN_ERRORLOG-004",
-          "ADMIN_ERRORLOG-005",
-          "ADMIN_ERRORLOG-006",
-          "ADMIN_ERRORLOG-007",
-          "ADMIN_ERRORLOG-008",
-          "ADMIN_ERRORLOG-009",
-          "ADMIN_ERRORLOG-010",
-          "ADMIN_ERRORLOG-011",
-          "ADMIN_ERRORLOG-012",
-          "ADMIN_ERRORLOG-013",
-          "ADMIN_ERRORLOG-014",
-          "ADMIN_ERRORLOG-015",
-          "ADMIN_ERRORLOG-016",
-          "API_LOG_CLIENT_ERROR-000",
-          "API_LOG_CLIENT_ERROR-001",
-          "API_LOG_CLIENT_ERROR-002",
-          "API_LOG_CLIENT_ERROR-003",
-          "API_LOG_CLIENT_ERROR-004",
-          "API_LOG_CLIENT_ERROR-005",
-          "API_LOG_CLIENT_ERROR-006",
-          "API_LOG_CLIENT_ERROR-007",
-          "BACKUP_ERRORS-001",
-          "LIB_ERROR_CODES-000",
-          "LIB_ERROR_CODES-001",
-          "LIB_ERROR_CODES-002",
-          "LIB_ERROR_CODES-003",
-          "LIB_ERROR_CODES-004",
-          "LIB_ERROR_CODES-005",
-          "LIB_ERROR_CODES-006",
-          "LIB_ERROR_CODES-007",
-          "LIB_TRACED_ERROR-000",
-          "LIB_TRACED_ERROR-001",
-          "LIB_TRACED_ERROR-002",
-          "LIB_TRACED_ERROR-003",
-          "TYPES_ERRORS-000",
-          "TYPES_ERRORS-001",
-          "TYPES_ERRORS-002",
-          "ROOT_ERROR-000",
-          "GLOBAL_ERROR-000",
-          "APP_ERROR-000",
-          "AUTH_ERROR-000",
-          "ERROR_REGISTRY-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-000",
-          "COMPONENT_CHUNK_ERROR_HANDLER-001",
-          "COMPONENT_CHUNK_ERROR_HANDLER-002",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "ADMIN_AUDITLOG-000",
@@ -6243,12 +6755,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
           "ADMIN_ERRORLOG-002",
@@ -6387,12 +6893,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001a",
           "ADMIN_ERRORLOG-002",
@@ -6532,12 +7032,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-002",
@@ -6676,12 +7170,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -6820,12 +7308,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -6965,12 +7447,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -7110,12 +7586,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -7255,12 +7725,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -7399,12 +7863,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -7543,12 +8001,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -7688,12 +8140,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -7832,12 +8278,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -7976,12 +8416,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -8121,12 +8555,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -8266,12 +8694,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -8411,12 +8833,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -8556,12 +8972,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -8701,12 +9111,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_ERRORLOG-000",
           "ADMIN_ERRORLOG-001",
           "ADMIN_ERRORLOG-001a",
@@ -14152,8 +14556,7 @@
         "FIREBASE_PROVIDER-061"
       ],
       "location": {
-        "filePath": "app/src/app/(app)/admin/_components/LeaguesManager.tsx",
-        "functionName": "handleCopyInviteCode"
+        "filePath": "app/src/app/(app)/admin/_components/LeaguesManager.tsx"
       },
       "callChain": {
         "calledBy": [
@@ -14253,7 +14656,7 @@
         ]
       },
       "created": "2026-01-29T19:34:25Z",
-      "lastUpdated": "2026-02-10T14:34:41Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "ADMIN_LEAGUES-007",
@@ -32923,8 +33326,7 @@
         "LIB_ERROR_CODES-007"
       ],
       "location": {
-        "filePath": "app/src/app/api/auth/complete-oauth-profile/route.ts",
-        "functionName": "existingDoc"
+        "filePath": "app/src/app/api/auth/complete-oauth-profile/route.ts"
       },
       "callChain": {
         "calledBy": [
@@ -32941,7 +33343,7 @@
         "calls": []
       },
       "created": "2026-01-30T20:21:35Z",
-      "lastUpdated": "2026-02-17T20:40:25Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "API_AUTH_COMPLETE_OAUTH-007",
@@ -32971,8 +33373,7 @@
         "LIB_ERROR_CODES-007"
       ],
       "location": {
-        "filePath": "app/src/app/api/auth/complete-oauth-profile/route.ts",
-        "functionName": "allUsersSnapshot"
+        "filePath": "app/src/app/api/auth/complete-oauth-profile/route.ts"
       },
       "callChain": {
         "calledBy": [
@@ -32989,7 +33390,7 @@
         "calls": []
       },
       "created": "2026-01-30T20:21:35Z",
-      "lastUpdated": "2026-02-17T20:40:25Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "API_AUTH_COMPLETE_OAUTH-008",
@@ -39911,12 +40312,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -40056,12 +40451,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -40201,12 +40590,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -40347,12 +40730,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -40493,12 +40870,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -40656,12 +41027,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -40801,12 +41166,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -40946,12 +41305,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -42993,7 +43346,7 @@
       ],
       "location": {
         "filePath": "app/src/app/api/send-results-email/route.ts",
-        "functionName": "getAdminDb"
+        "functionName": "getAdminFirebase"
       },
       "callChain": {
         "calledBy": [
@@ -43120,7 +43473,7 @@
         "calls": []
       },
       "created": "2026-01-19T00:38:00Z",
-      "lastUpdated": "2026-02-10T15:42:20Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "API_SEND_RESULTS_EMAIL-001B",
@@ -50874,7 +51227,7 @@
       "description": "Import statement for BackupHealthDashboard component in the admin page. Lazy-loaded by Next.js when the admin route is visited.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [
@@ -50885,7 +51238,7 @@
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "BACKUP_DASHBOARD-000",
@@ -51107,12 +51460,6 @@
           "ADMIN_ATTACK_MONITOR-009",
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -52761,12 +53108,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -56108,12 +56449,6 @@
           "ADMIN_ATTACK_MONITOR-009",
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -59223,12 +59558,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_AUDITLOG-000",
           "ADMIN_AUDITLOG-001",
           "ADMIN_AUDITLOG-002",
@@ -70153,14 +70482,14 @@
       ],
       "location": {
         "filePath": "app/src/lib/csrf-protection.ts",
-        "functionName": "validateCsrfOrigin"
+        "functionName": "ALLOWED_ORIGINS"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-02-20T00:00:00Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "LIB_CSRF-002",
@@ -73099,12 +73428,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -73703,12 +74026,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -73786,12 +74103,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -73869,12 +74180,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -73953,12 +74258,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -74037,12 +74336,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -74121,12 +74414,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -74205,12 +74492,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -77681,12 +77962,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -77829,12 +78104,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -77933,12 +78202,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -78037,12 +78300,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -81044,14 +81301,14 @@
       "description": "Admin panel page â€” tabbed interface providing access to all league management tools.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_ADMIN-001",
@@ -81060,14 +81317,14 @@
       "description": "Import LeaguesManager for the 16th admin tab.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_ADMIN-002",
@@ -81076,14 +81333,14 @@
       "description": "Import AttackMonitor component for security monitoring displayed above the tabs.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_ADMIN-003",
@@ -81092,7 +81349,7 @@
       "description": "Main admin page component â€” enforces admin-only access, fetches all users,",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx",
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx",
         "functionName": "AdminPage"
       },
       "callChain": {
@@ -81100,7 +81357,7 @@
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_ADMIN-004",
@@ -81109,14 +81366,14 @@
       "description": "Memoised Firestore query for all users â€” only created when user is confirmed admin.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_ADMIN-005",
@@ -81125,14 +81382,14 @@
       "description": "Admin access guard â€” redirects non-admin users to /dashboard and logs an",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_ADMIN-006",
@@ -81141,14 +81398,14 @@
       "description": "Loading/access-denied guard render â€” shows \"Verifying access...\" while auth loads",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_ADMIN-007",
@@ -81157,14 +81414,14 @@
       "description": "Main admin panel render â€” AttackMonitor at top, then 16-tab interface covering",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_AUDIT-000",
@@ -86867,7 +87124,7 @@
       ],
       "location": {
         "filePath": "app/src/app/(auth)/login/page.tsx",
-        "functionName": "useEffect (auth redirect)"
+        "functionName": "useEffect"
       },
       "callChain": {
         "calledBy": [
@@ -86900,7 +87157,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T19:14:37Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_MY_RESULTS-000",
@@ -91179,8 +91436,7 @@
         "LIB_RESULTS_UTILS-016"
       ],
       "location": {
-        "filePath": "app/src/app/(app)/results/page.tsx",
-        "functionName": "fetchAllData"
+        "filePath": "app/src/app/(app)/results/page.tsx"
       },
       "callChain": {
         "calledBy": [
@@ -91218,7 +91474,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-17T18:36:01Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_RESULTS-026",
@@ -94788,7 +95044,7 @@
       ],
       "location": {
         "filePath": "app/src/app/(app)/teams/page.tsx",
-        "functionName": "findMostRecentRaceWithResults"
+        "functionName": "findNextRaceAfterResults"
       },
       "callChain": {
         "calledBy": [
@@ -94823,7 +95079,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-31T21:14:53Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PAGE_TEAMS-004",
@@ -96806,7 +97062,7 @@
       "description": "Import PubChatPanel component for the 15th admin tab.",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/app/(app)/admin/page.tsx"
+        "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
       },
       "callChain": {
         "calledBy": [
@@ -96817,7 +97073,7 @@
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-12T22:59:58Z"
+      "lastUpdated": "2026-03-03T00:00:00Z"
     },
     {
       "guid": "PUBCHAT_PANEL-000",
@@ -97562,12 +97818,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -97649,12 +97899,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -97736,12 +97980,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -98334,12 +98572,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -98491,12 +98723,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_CONSISTENCY-000",
           "ADMIN_CONSISTENCY-001",
           "ADMIN_CONSISTENCY-002",
@@ -98642,12 +98868,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -98752,12 +98972,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -99282,12 +99496,6 @@
           "ADMIN_ATTACK_MONITOR-009",
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_AUDITLOG-000",
           "ADMIN_AUDITLOG-001",
           "ADMIN_AUDITLOG-002",
@@ -99970,12 +100178,6 @@
           "ADMIN_ATTACK_MONITOR-009",
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_AUDITLOG-000",
           "ADMIN_AUDITLOG-001",
           "ADMIN_AUDITLOG-002",
@@ -100950,12 +101152,6 @@
           "ADMIN_ATTACK_MONITOR-009",
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_AUDITLOG-000",
           "ADMIN_AUDITLOG-001",
           "ADMIN_AUDITLOG-002",
@@ -101640,12 +101836,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -101726,12 +101916,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -101812,12 +101996,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -101898,12 +102076,6 @@
         "calledBy": [
           "ADMIN_AUDIT-000",
           "ADMIN_AUDIT-001",
-          "ADMIN_AUDIT-002",
-          "ADMIN_AUDIT-003",
-          "ADMIN_AUDIT-004",
-          "ADMIN_AUDIT-005",
-          "ADMIN_AUDIT-006",
-          "ADMIN_AUDIT-007",
           "ADMIN_HOT_NEWS-000",
           "ADMIN_HOT_NEWS-001",
           "ADMIN_HOT_NEWS-002",
@@ -103986,6 +104158,267 @@
       },
       "created": "2026-02-24T00:00:00Z",
       "lastUpdated": "2026-02-24T00:00:00Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-000",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Module-level fileOverview for hot-news-feed.ts — AI-generated race bulletin using live weather; defines flow architecture and write contract.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "HOT_NEWS_FLOW-004",
+          "HOT_NEWS_FLOW-008"
+        ]
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Zod output schema for hot news feed — newsFeed string, optional lastUpdated ISO timestamp, optional refreshCount.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "HotNewsFeedOutputSchema"
+      },
+      "callChain": {
+        "calledBy": [
+          "HOT_NEWS_FLOW-008"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-002",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Hardcoded lat/lng coordinates for all 24 F1 race venues to support Open-Meteo weather lookups without an API key.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "VENUE_COORDS"
+      },
+      "callChain": {
+        "calledBy": [
+          "HOT_NEWS_FLOW-008"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "WMO weather code to human-readable description map for converting Open-Meteo numeric codes into readable text for the AI prompt.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "WMO_CODES"
+      },
+      "callChain": {
+        "calledBy": [
+          "HOT_NEWS_FLOW-006"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-004",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "getHotNewsFeed() — reads app-settings/hot-news from Firestore via Admin SDK; returns content, lastUpdated, and refreshCount for the dashboard component.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "getHotNewsFeed"
+      },
+      "callChain": {
+        "calledBy": [
+          "DASHBOARD_HOT_NEWS_FEED"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-005",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "getNextRace() helper — finds the next upcoming race from RaceSchedule by qualifying time; used to target weather fetches at the correct venue.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "getNextRace"
+      },
+      "callChain": {
+        "calledBy": [
+          "HOT_NEWS_FLOW-008"
+        ],
+        "calls": [
+          "LIB_DATA-008"
+        ]
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-006",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "fetchOpenMeteoWeather() — fetches 3-day weather forecast from Open-Meteo (free, no key) for a given lat/lng; returns structured weather object or null on failure.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "fetchOpenMeteoWeather"
+      },
+      "callChain": {
+        "calledBy": [
+          "HOT_NEWS_FLOW-008"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-007",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "fetchOpenF1Weather() — opportunistically fetches live track weather from OpenF1 latest session; returns null if session is older than 6h or on any error.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "fetchOpenF1Weather"
+      },
+      "callChain": {
+        "calledBy": [
+          "HOT_NEWS_FLOW-008"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-008",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather, builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "hotNewsFeedFlow"
+      },
+      "callChain": {
+        "calledBy": [
+          "CRON_HOT_NEWS-002",
+          "ADMIN_HOT_NEWS_PANEL"
+        ],
+        "calls": [
+          "HOT_NEWS_FLOW-005",
+          "HOT_NEWS_FLOW-006",
+          "HOT_NEWS_FLOW-007"
+        ]
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "CRON_HOT_NEWS-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Module-level fileOverview for /api/cron/refresh-hot-news route — cron-authenticated POST endpoint that triggers AI hot news regeneration hourly.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/refresh-hot-news/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-070"
+        ],
+        "calls": [
+          "CRON_HOT_NEWS-001",
+          "CRON_HOT_NEWS-002"
+        ]
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "CRON_HOT_NEWS-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "isAuthorized() — timing-safe bearer token validation against CRON_SECRET env var; prevents token oracle attacks on the cron endpoint.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/refresh-hot-news/route.ts",
+        "functionName": "isAuthorized"
+      },
+      "callChain": {
+        "calledBy": [
+          "CRON_HOT_NEWS-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "CRON_HOT_NEWS-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler for /api/cron/refresh-hot-news — validates bearer token, calls hotNewsFeedFlow(), returns { success, refreshCount }.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/refresh-hot-news/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-070"
+        ],
+        "calls": [
+          "CRON_HOT_NEWS-001",
+          "HOT_NEWS_FLOW-008"
+        ]
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-070",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "refreshHotNews Cloud Function — hourly onSchedule trigger that HTTP POSTs to /api/cron/refresh-hot-news with CRON_SECRET to regenerate the AI hot news bulletin.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "refreshHotNews"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "CRON_HOT_NEWS-002"
+        ]
+      },
+      "created": "2026-03-03T18:13:54.532Z",
+      "lastUpdated": "2026-03-03T18:13:54.532Z"
     }
   ],
   "firestoreCollections": {

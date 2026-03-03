@@ -9,6 +9,7 @@ export interface HotNewsSettings {
     hotNewsFeedEnabled: boolean;
     content: string;
     lastUpdated: Timestamp;
+    refreshCount: number;
 }
 
 const defaultSettings: HotNewsSettings = {
@@ -16,6 +17,7 @@ const defaultSettings: HotNewsSettings = {
     hotNewsFeedEnabled: true,
     content: "Welcome to the Hot News Feed! The AI is warming up its engines...",
     lastUpdated: new Timestamp(0, 0),
+    refreshCount: 0,
 };
 
 /**

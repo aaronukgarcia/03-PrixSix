@@ -1,3 +1,7 @@
+// GUID: FIREBASE_CONFIG-000-v01
+// [Intent] Exports the Firebase client configuration object assembled from NEXT_PUBLIC_ env vars.
+// [Inbound Trigger] Imported by firebase/index.ts (client) and firebase/server.ts (server) at module init.
+// [Downstream Impact] All Firebase SDK initialisation — auth, Firestore, storage, functions depend on this object.
 export const firebaseConfig = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",

@@ -16,7 +16,7 @@ function formatNewsTimestamp(isoString?: string) {
 }
 
 export async function HotNewsFeed() {
-    const { newsFeed, lastUpdated } = await getHotNewsFeed();
+    const { newsFeed, lastUpdated, refreshCount } = await getHotNewsFeed();
 
     return (
         <Card>
@@ -37,6 +37,11 @@ export async function HotNewsFeed() {
             </CardHeader>
             <CardContent>
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">{newsFeed}</p>
+                {refreshCount !== undefined && (
+                    <p className="mt-3 text-right text-[10px] text-muted-foreground/40 font-mono select-none">
+                        #{String(refreshCount).padStart(4, '0')}
+                    </p>
+                )}
             </CardContent>
         </Card>
     );

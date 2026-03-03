@@ -39,6 +39,10 @@ env:
   # WhatsApp Worker authentication secret (for HMAC proxy verification)
   - variable: WHATSAPP_APP_SECRET
     secret: WHATSAPP_APP_SECRET
+  # Cron authentication secret — shared between Cloud Function (refreshHotNews) and app
+  # Set via: firebase apphosting:secrets:set CRON_SECRET
+  - variable: CRON_SECRET
+    secret: CRON_SECRET
   # OpenF1 API OAuth2 credentials for Sponsor Tier access
   - variable: OPENF1_USERNAME
     secret: OPENF1_USERNAME
