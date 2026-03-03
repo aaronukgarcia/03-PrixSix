@@ -1,3 +1,15 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST
+// Auth:        CSRF validation (Origin/Referer) — no Firebase bearer token (pre-auth route)
+// Reads:       users (email lookup + lockout state), Firebase Identity Toolkit REST API (PIN verify)
+// Writes:      users (badLoginAttempts, lastFailedLoginAt reset), audit_logs, login_attempts, user_logons
+// Errors:      PX-1001 (missing fields), PX-2001 (auth token), PX-9001 (unknown)
+// Idempotent:  NO — increments lockout counters; may trigger account lockout
+// Side-effects: Progressive lockout after 5+ failures (15min → 1hr → 24hr). Creates custom token on success.
+// Key gotcha:  Admin SDK cannot verify passwords — uses Firebase Identity Toolkit REST API.
+//              "User not found" path is padded to TARGET_MIN_DURATION (800ms) to prevent
+//              timing-based email enumeration (API-006). CSRF protection fires BEFORE credentials checked.
+// ──────────────────────────────────────────────────────────────────
 // GUID: API_AUTH_LOGIN-000-v09
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // @SECURITY_FIX: Implemented progressive account lockout to prevent brute-force attacks (GEMINI-AUDIT-012).

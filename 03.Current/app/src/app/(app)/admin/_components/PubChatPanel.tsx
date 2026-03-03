@@ -363,6 +363,39 @@ export function PubChatPanel() {
         fetchSessions();
     }, [selectedMeetingKey, authToken, toast]);
 
+    // GUID: PUBCHAT_PANEL-039-v01
+    // [Intent] Auto-select the nearest session when sessions load for the selected meeting.
+    //          Priority: (1) session currently in progress, (2) next upcoming session,
+    //          (3) most recently completed session. Prevents stale pre-season data from
+    //          showing as the default — admin always lands on the most relevant session.
+    // [Inbound Trigger] sessions state changes (populated after a meeting is selected).
+    // [Downstream Impact] Sets selectedSessionKey so the admin can click Fetch immediately
+    //                     without manually hunting for the right session. BUG-PC-002 fix.
+    useEffect(() => {
+        if (sessions.length === 0 || selectedSessionKey) return; // Don't override user selection
+        const now = new Date();
+
+        // Priority 1: session currently in progress
+        const current = sessions.find(s => {
+            const start = new Date(s.dateStart);
+            const end = s.dateEnd ? new Date(s.dateEnd) : null;
+            return start <= now && (!end || end >= now);
+        });
+        if (current) { setSelectedSessionKey(String(current.sessionKey)); return; }
+
+        // Priority 2: nearest upcoming session
+        const upcoming = sessions
+            .filter(s => new Date(s.dateStart) > now)
+            .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime());
+        if (upcoming.length > 0) { setSelectedSessionKey(String(upcoming[0].sessionKey)); return; }
+
+        // Priority 3: most recently completed session
+        const past = sessions
+            .filter(s => new Date(s.dateStart) <= now)
+            .sort((a, b) => new Date(b.dateStart).getTime() - new Date(a.dateStart).getTime());
+        if (past.length > 0) { setSelectedSessionKey(String(past[0].sessionKey)); }
+    }, [sessions]);
+
     // GUID: PUBCHAT_PANEL-013-v02
     // [Intent] Fetch driver list when a session is selected to populate driver filter checkboxes.
     // [Inbound Trigger] selectedSessionKey changes to a non-empty value.

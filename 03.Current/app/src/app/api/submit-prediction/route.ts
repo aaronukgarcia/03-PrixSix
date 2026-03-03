@@ -1,3 +1,14 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST
+// Auth:        Firebase Auth bearer token + userId ownership check (token uid must match request userId)
+// Reads:       race_results/{raceId} (lockout check), users/{uid} (team ownership), race schedule
+// Writes:      users/{userId}/predictions/{teamId}_{raceId}, audit_logs
+// Errors:      PX-2001 (auth), PX-2002 (ownership), PX-3003 (pit lane closed), PX-1001 (validation)
+// Idempotent:  YES — re-submitting overwrites the existing prediction doc
+// Side-effects: None beyond the prediction doc write
+// Key gotcha:  Server enforces lockout independently of client UI — if race_results/{raceId}
+//              exists OR qualifyingTime has passed, submission is rejected regardless of UI state.
+// ──────────────────────────────────────────────────────────────────
 // GUID: API_SUBMIT_PREDICTION-000-v06
 // @SECURITY_FIX: Fixed broken team ownership check (API-013) - teamId is user UID pattern, not teamName. Added correlationId hoisting, logError + errorCode on all 4xx paths.
 // @SECURITY_FIX: Race lookup now fails-closed (GEMINI-AUDIT-122) - if race name doesn't match Firestore schedule, submission is rejected rather than proceeding without deadline enforcement.

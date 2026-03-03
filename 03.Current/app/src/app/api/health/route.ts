@@ -1,3 +1,14 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      GET
+// Auth:        None — public endpoint (monitoring systems, uptime checkers)
+// Reads:       admin_configuration/global (lightweight Firestore probe), Firebase Auth SDK
+// Writes:      cold_start_events (fire-and-forget, ONCE per Cloud Run instance lifetime)
+// Errors:      None written to error_logs (high-frequency public endpoint — correlationId returned only)
+// Idempotent:  YES
+// Side-effects: cold_start_events write fires on first request after Cloud Run cold start (instanceAge < 30s)
+// Key gotcha:  No auth — do NOT add sensitive data to the response.
+//              Returns 200 if healthy, 503 if any service is degraded/unhealthy.
+// ──────────────────────────────────────────────────────────────────
 // GUID: API_HEALTH-000-v04
 // @SECURITY_FIX (GEMINI-AUDIT-125): checkFirestore() and checkAuth() now return generic error strings instead of raw error.message (prevents internal DB/auth config details leaking via public endpoint).
 // @COLD_START (Wave 15+): SERVER_START_TIME captured at module load to detect Cloud Run cold starts.

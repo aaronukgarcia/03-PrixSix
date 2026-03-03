@@ -1,3 +1,13 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST
+// Auth:        Firebase Auth bearer token + isAdmin check
+// Reads:       users (all), collectionGroup(predictions) (all, unbounded — see GOTCHAS #9)
+// Writes:      race_results/{resultDocId}, users/{uid}/predictions (carry-forwards), audit_logs
+// Errors:      PX-2001 (auth required), PX-2003 (admin required), PX-1001 (validation)
+// Idempotent:  NO — re-running recalculates and overwrites race_results doc
+// Side-effects: Creates carry-forward prediction docs for teams with no race-specific prediction
+// Key gotcha:  normalizedRaceId ≠ resultDocId — see GOTCHAS #1. DO NOT unify these.
+// ──────────────────────────────────────────────────────────────────
 // GUID: API_CALCULATE_SCORES-000-v04
 // [Intent] API route that calculates race scores for all teams based on submitted race results and team predictions. Core scoring engine for the Prix Six fantasy league.
 // [Inbound Trigger] Admin submits race results via the admin scoring page (POST request with top-6 driver finishing order).

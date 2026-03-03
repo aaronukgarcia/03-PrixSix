@@ -1,5 +1,9 @@
 "use client";
 
+// GUID: COMPONENT_PUB_CHAT-000-v01
+// [Intent] The Paddock Pub Chat widget — renders three view modes: leaderboard (ranked timing table), team-lens (official driver roster vs live timing join), and comparison (multi-select driver delta table). Uses OpenF1 timing data from Firestore or fallback pre-season data.
+// [Inbound Trigger] Mounted by PubChatPanel (admin preview) and any dashboard widget that embeds the pub chat widget.
+// [Downstream Impact] Depends on PubChatTimingData from FIRESTORE_SETTINGS-008; Team Lens requires officialDrivers prop populated from the official_teams Firestore collection.
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Timer, MapPin } from "lucide-react";
@@ -334,8 +338,8 @@ const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam,
                       {checked && <span className="text-purple-200 text-[7px] font-black leading-none">✓</span>}
                     </span>
                     <span className="text-[11px] text-slate-200 font-semibold truncate">{d.driver}</span>
-                    <span className="text-[9px] ml-auto flex-shrink-0" style={{ color: `#${d.teamColour}` }}>
-                      {d.team.split(' ')[0]}
+                    <span className="text-[9px] ml-auto truncate" style={{ color: `#${d.teamColour}` }}>
+                      {d.team}
                     </span>
                   </button>
                 );

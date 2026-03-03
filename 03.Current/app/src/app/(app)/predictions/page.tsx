@@ -7,6 +7,40 @@
 //                     Reads from Firestore: race_results, user predictions. Writes via PredictionEditor.
 // @FIX(v04) Added "How Scoring Works" contextual help link to surface /rules page where users need it most.
 // @UX(VIRGIN-007, v05): Added "Set your grid" and "Qualifying" F1 jargon tooltips for new user clarity.
+//
+// ══════════════════════════════════════════════════════════════════
+// PIT LANE STATE MACHINE
+// ══════════════════════════════════════════════════════════════════
+//
+//   OPEN:   hasResults === false  AND  now < qualifyingTime
+//   CLOSED: hasResults === true   OR   now >= qualifyingTime
+//
+//   hasResults  = race_results/{raceId} doc EXISTS in Firestore
+//                 (raceId = generateRaceIdLowercase(race.name, 'gp'))
+//
+//   qualifyingTime = nextRace.qualifyingTime from RaceSchedule in data.ts
+//
+//   nextRace = first race in RaceSchedule WITHOUT a race_results GP doc.
+//              Falls back to findNextRace() if all races have results.
+//
+// ── WHY DASHBOARD AND PREDICTIONS PAGE CAN DISAGREE ───────────────
+//
+//   Dashboard uses qualifyingTime ONLY (no race_results check).
+//   Predictions page uses BOTH conditions (AND logic).
+//
+//   If they disagree → stale race_results doc is almost always the cause.
+//   Check: does race_results/{raceId} exist for a race where qualifying
+//   hasn't started yet? Delete the stale doc to re-open the pit lane.
+//
+// ── SERVER-SIDE LOCKOUT (submit-prediction/route.ts) ──────────────
+//
+//   The API enforces its OWN lockout independently:
+//   - Rejects if race_results/{raceId} exists (results already in)
+//   - Rejects if now >= qualifyingTime from race schedule
+//   - Rejects if race not found in server-side race schedule
+//   Client-side lock state is display only — server is authoritative.
+//
+// ══════════════════════════════════════════════════════════════════
 
 'use client';
 

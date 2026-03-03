@@ -1,3 +1,15 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST
+// Auth:        Per-IP rate limit (10/15min) checked BEFORE Firebase bearer token (blocks unauthenticated enumeration)
+// Reads:       join_rate_limits (IP rate check), leagues (inviteCode lookup + membership check)
+// Writes:      join_rate_limits (attempt counter), leagues/{id} (memberUserIds arrayUnion), audit_logs
+// Errors:      PX-2001 (auth), PX-2002 (rate limit / global league block), PX-1001 (missing/invalid code), PX-1004 (duplicate)
+// Idempotent:  NO — appends to memberUserIds; duplicate returns 409
+// Side-effects: None beyond league membership update
+// Key gotcha:  Rate limit check runs before auth to block unauthenticated code enumeration.
+//              Invite codes are 6 chars (uppercase); do not reveal exact length in error messages (timing oracle).
+//              Global league (id='global' or isGlobal=true) cannot be joined via code — returns 403.
+// ──────────────────────────────────────────────────────────────────
 /**
  * POST /api/leagues/join-by-code
  *

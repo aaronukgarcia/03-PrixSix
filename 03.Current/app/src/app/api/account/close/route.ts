@@ -1,3 +1,16 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST
+// Auth:        Firebase Auth bearer token (uid from token — user deletes own account only)
+// Reads:       None (all operations are deletes)
+// Writes:      DELETE users/{uid}/predictions/* (batched, 400/batch), DELETE users/{uid},
+//              DELETE presence/{uid} (best-effort), DELETE Firebase Auth record; audit_logs
+// Errors:      PX-2001 (auth), PX-4003 (write failed)
+// Idempotent:  NO — re-attempting after deletion fails (user doc/Auth record already gone)
+// Side-effects: IRREVERSIBLE — all user data, predictions, and Auth record permanently removed
+// Key gotcha:  Subcollection docs (predictions) are NOT auto-deleted with parent — explicit deletion required.
+//              Auth deletion is LAST so re-authentication is impossible after Firestore data is gone.
+//              Audit log is written BEFORE users/{uid} delete to preserve trail.
+// ──────────────────────────────────────────────────────────────────
 // GUID: API_ACCOUNT_CLOSE-000-v01
 // [Intent] Server-side account closure endpoint — permanently deletes a user's Firestore document,
 //   predictions subcollection, presence document, and Firebase Auth account using Admin SDK.

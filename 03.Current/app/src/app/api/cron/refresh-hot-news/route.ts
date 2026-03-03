@@ -1,3 +1,15 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST (no GET handler — prevents browser/crawler trigger by design)
+// Auth:        CRON_SECRET bearer token (NOT Firebase Auth); timing-safe comparison (crypto.timingSafeEqual)
+// Reads:       None directly (hotNewsFeedFlow handles its own Firestore reads)
+// Writes:      app-settings/hot-news (via hotNewsFeedFlow → Genkit AI + Firestore)
+// Errors:      401 (bad/missing token), 500 (hotNewsFeedFlow failure) — no error_logs write
+// Idempotent:  YES — re-running regenerates hot news and overwrites the existing doc
+// Side-effects: AI generation cost per invocation (Gemini 2.0 Flash via Genkit)
+// Key gotcha:  CRON_SECRET must be set via `firebase apphosting:secrets:set CRON_SECRET` before first deploy.
+//              Length check before timingSafeEqual prevents length-leaking timing oracle.
+//              Called hourly by refreshHotNews Cloud Function in functions/index.js.
+// ──────────────────────────────────────────────────────────────────
 /**
  * GUID: CRON_HOT_NEWS-000-v01
  *

@@ -1,3 +1,14 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST
+// Auth:        Firebase Auth bearer token + isAdmin check
+// Reads:       collectionGroup(predictions) x2 (both raceId formats — see GOTCHAS #5)
+// Writes:      DELETE predictions (all formats), DELETE race_results/{raceId}, audit_logs
+// Errors:      PX-2001 (auth), PX-2003 (admin), PX-1001 (missing raceId)
+// Idempotent:  YES — deleting already-deleted docs is a no-op
+// Side-effects: Lifts pit lane lock (race_results doc gone → predictions re-open)
+// Key gotcha:  Must run TWO collectionGroup queries (raw + normalized raceId) — one format
+//              misses carry-forward predictions. See API_DELETE_SCORES-008 for detail.
+// ──────────────────────────────────────────────────────────────────
 // GUID: API_DELETE_SCORES-000-v06
 // @ARCH_CHANGE (SSOT-001): scores collection eliminated. This route now deletes predictions + race_result only.
 //   Score documents are no longer written or deleted — scores are computed in real-time from race_results + predictions.

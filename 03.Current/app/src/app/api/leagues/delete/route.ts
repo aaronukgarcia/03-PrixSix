@@ -1,3 +1,15 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST
+// Auth:        Firebase Auth bearer token; must be league owner OR isAdmin
+// Reads:       users/{uid} (isAdmin), leagues/{leagueId} (ownership + isGlobal — INSIDE transaction)
+// Writes:      DELETE leagues/{leagueId}, audit_logs (both inside same Firestore transaction)
+// Errors:      PX-2001 (auth), PX-2002 (permission denied / global protected), PX-1002 (invalid leagueId format), PX-9001 (unknown)
+// Idempotent:  NO — re-attempting after deletion returns 404
+// Side-effects: All member associations permanently lost
+// Key gotcha:  runTransaction (not batch) to eliminate TOCTOU race on isGlobal + ownerId.
+//              Double global guard: checks BOTH leagueId === 'global' AND isGlobal field.
+//              leagueId is regex-validated before any Firestore call to block path traversal.
+// ──────────────────────────────────────────────────────────────────
 // GUID: API_LEAGUE_DELETE-000-v02
 // [Intent] Server-side API route for deleting a league. Uses Admin SDK to bypass Firestore
 //          security rules, enforcing ownership or admin privilege server-side.
