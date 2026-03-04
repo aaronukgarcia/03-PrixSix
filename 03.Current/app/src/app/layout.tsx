@@ -6,11 +6,12 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ChunkErrorHandler } from '@/components/ChunkErrorHandler';
 import { GlobalErrorLogger } from '@/components/GlobalErrorLogger';
+import { NewVersionBanner } from '@/components/NewVersionBanner';
 import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
 import { useEffect } from 'react';
 import { useFirebaseApp } from '@/firebase';
 
-// GUID: APP_LAYOUT-001-v04
+// GUID: APP_LAYOUT-001-v05
 // @PERF_FIX (PERF-001): Performance SDK initialization removed from here (v1.58.72).
 //   It is now handled in getSdks() in firebase/index.ts, which runs synchronously
 //   before React renders any DOM — the only timing that reliably prevents PX-9002.
@@ -59,6 +60,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <FirebaseClientProvider>
           <FirebaseServicesTracker />
+          <NewVersionBanner />
           <ChunkErrorHandler />
           <GlobalErrorLogger />
           {children}
