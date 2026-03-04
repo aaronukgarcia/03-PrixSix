@@ -41,6 +41,7 @@ import {
   User,
   BookOpen,
   HelpCircle,
+  Radio,
 } from "lucide-react";
 import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { Logo } from "@/components/Logo";
@@ -56,13 +57,15 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 
-// GUID: COMPONENT_APP_SIDEBAR-001-v04
+// GUID: COMPONENT_APP_SIDEBAR-001-v05
 // [Intent] Menu items rendered ABOVE the Results collapsible group.
+// @FIX(v05) Added "Live Timing" link to surface the player-facing timing page.
 const menuItemsTop = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/schedule", label: "Schedule", icon: Calendar },
-  { href: "/predictions", label: "Predictions", icon: Rocket },
-  { href: "/standings", label: "Standings", icon: Trophy },
+  { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
+  { href: "/schedule",    label: "Schedule",      icon: Calendar },
+  { href: "/predictions", label: "Predictions",   icon: Rocket },
+  { href: "/standings",   label: "Standings",     icon: Trophy },
+  { href: "/live",        label: "Live Timing",   icon: Radio },
 ];
 
 // GUID: COMPONENT_APP_SIDEBAR-001B-v05

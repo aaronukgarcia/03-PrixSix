@@ -12,7 +12,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect, useRef } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, collection, serverTimestamp, doc, setDoc, onSnapshot as onDocSnapshot, updateDoc, deleteDoc, writeBatch, query, where, getDocs, getDoc, limit, arrayUnion } from 'firebase/firestore';
+import { Firestore, Timestamp, collection, serverTimestamp, doc, setDoc, onSnapshot as onDocSnapshot, updateDoc, deleteDoc, writeBatch, query, where, getDocs, getDoc, limit, arrayUnion } from 'firebase/firestore';
 import { GLOBAL_LEAGUE_ID } from '@/lib/types/league';
 import { Auth, User as FirebaseAuthUser, onAuthStateChanged, createUserWithEmailAndPassword, signInWithCustomToken, signOut, updatePassword, getRedirectResult, OAuthCredential, OAuthProvider } from 'firebase/auth';
 import {
@@ -87,6 +87,7 @@ export interface User {
   secondaryEmailVerified?: boolean; // Whether secondary email is verified
   providers?: string[]; // ['password', 'google.com', 'apple.com']
   lastLogin?: any; // Timestamp of last login
+  createdAt?: Timestamp; // Registration date — written by /api/auth/signup as serverTimestamp()
 }
 
 // GUID: FIREBASE_PROVIDER-004-v03

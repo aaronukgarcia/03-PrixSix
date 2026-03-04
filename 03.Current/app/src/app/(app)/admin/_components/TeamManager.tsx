@@ -1,21 +1,23 @@
 
-// GUID: ADMIN_TEAM-000-v05
+// GUID: ADMIN_TEAM-000-v06
 // @SECURITY_FIX: Added input validation for team name changes (ADMINCOMP-022).
 // [Intent] Admin component for managing user teams: view, edit, delete, toggle admin status, unlock locked accounts, and resend welcome email.
 // @FIX (v05): Added "Resend Welcome Email" button per row — calls /api/admin/resend-welcome-email,
 //   which generates a new PIN, updates Firebase Auth, sets mustChangePin, and sends via Microsoft Graph.
+// @FIX (v06): Added "Registered" column with registration date, plus sortable column headers
+//   (Team Name, Email, Registered). Default sort: newest registered first.
 // [Inbound Trigger] Rendered within the admin panel when the "Teams" tab is selected.
 // [Downstream Impact] Modifies user records in Firestore via useAuth() hooks. Changes to team name, email, admin status, and account lock state propagate to all user-facing components.
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit, Shield, Trash2, Lock, Unlock, Mail } from "lucide-react";
+import { Edit, Shield, Trash2, Lock, Unlock, Mail, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,14 +55,77 @@ interface TeamManagerProps {
     isUserLoading: boolean;
 }
 
-// GUID: ADMIN_TEAM-002-v03
-// [Intent] Main TeamManager component that renders a table of all users with edit, admin toggle, and delete actions.
+// GUID: ADMIN_TEAM-002-v06
+// [Intent] Main TeamManager component that renders a sortable table of all users with edit, admin toggle, and delete actions.
+// @FIX (v06): Added sort state and sorted users memo; Registered column with createdAt date.
 // [Inbound Trigger] Rendered by the admin page when the Teams management tab is active.
 // [Downstream Impact] All user mutations (edit, delete, admin toggle, unlock) flow through useAuth() hooks which update Firestore user documents.
+
+type SortField = 'teamName' | 'email' | 'createdAt';
+type SortDir   = 'asc' | 'desc';
+
+// GUID: ADMIN_TEAM-002A-v01
+// [Intent] Format a Firestore Timestamp (or any object with toDate()) to a short date string for display.
+//          Returns "—" if the value is null/undefined.
+// [Inbound Trigger] Called per-row to render the Registered column.
+// [Downstream Impact] Display only — does not affect Firestore data.
+function formatDate(ts: any): string {
+    if (!ts) return '—';
+    try {
+        const d: Date = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+        return '—';
+    }
+}
+
 export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
     const { toast } = useToast();
     const { updateUser, deleteUser, firebaseUser } = useAuth();
     const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
+
+    // GUID: ADMIN_TEAM-002B-v01
+    // [Intent] Sort state for the table. Default: newest registrations first.
+    // [Inbound Trigger] Updated when a column header is clicked.
+    // [Downstream Impact] sortedUsers memo re-computes whenever sortField/sortDir or allUsers changes.
+    const [sortField, setSortField] = useState<SortField>('createdAt');
+    const [sortDir,   setSortDir]   = useState<SortDir>('desc');
+
+    // GUID: ADMIN_TEAM-002C-v01
+    // [Intent] Toggle sort field/direction. Clicking the same field flips direction; clicking a new field
+    //          sets it ascending (except createdAt which starts desc — newest first is most useful).
+    // [Inbound Trigger] Clicking a sortable column header.
+    // [Downstream Impact] Re-sorts the displayed rows without touching Firestore.
+    const handleSort = (field: SortField) => {
+        if (field === sortField) {
+            setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDir(field === 'createdAt' ? 'desc' : 'asc');
+        }
+    };
+
+    // GUID: ADMIN_TEAM-002D-v01
+    // [Intent] Sorted copy of allUsers. Rows with missing createdAt sort to the bottom when sorting by date.
+    // [Inbound Trigger] Recomputed when allUsers, sortField, or sortDir changes.
+    // [Downstream Impact] Drives the rendered table rows.
+    const sortedUsers = useMemo(() => {
+        if (!allUsers) return [];
+        return [...allUsers].sort((a, b) => {
+            let cmp = 0;
+            if (sortField === 'teamName') {
+                cmp = a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
+            } else if (sortField === 'email') {
+                cmp = a.email.localeCompare(b.email, undefined, { sensitivity: 'base' });
+            } else {
+                // createdAt: null/undefined goes to the end
+                const aMs = a.createdAt ? (typeof a.createdAt.toMillis === 'function' ? a.createdAt.toMillis() : 0) : -Infinity;
+                const bMs = b.createdAt ? (typeof b.createdAt.toMillis === 'function' ? b.createdAt.toMillis() : 0) : -Infinity;
+                cmp = aMs - bMs;
+            }
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+    }, [allUsers, sortField, sortDir]);
 
     // GUID: ADMIN_TEAM-003-v03
     // [Intent] Local state for the edit dialog: tracks which user is selected and what editable fields contain.
@@ -219,22 +284,52 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
         }
     };
 
-    // GUID: ADMIN_TEAM-009-v03
-    // [Intent] Renders the team management UI: a table of users with action buttons and an edit dialog.
+    // GUID: ADMIN_TEAM-009-v06
+    // [Intent] Renders the team management UI: a sortable table of users with action buttons and an edit dialog.
+    // @FIX (v06): Column headers for Team Name, Email, and Registered are now clickable sort triggers.
+    //             Default sort is Registered desc (newest first). A Registered date column is added.
     // [Inbound Trigger] Component render cycle; displays skeleton rows while isUserLoading is true.
     // [Downstream Impact] Provides the visual interface for all team management operations (edit, admin toggle, delete, unlock).
+
+    // Helper to render the sort icon next to a column header label.
+    const SortIcon = ({ field }: { field: SortField }) => {
+        if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40 inline" />;
+        return sortDir === 'asc'
+            ? <ArrowUp   className="ml-1 h-3 w-3 inline" />
+            : <ArrowDown className="ml-1 h-3 w-3 inline" />;
+    };
+
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Manage Teams</CardTitle>
-                <CardDescription>View, edit, or remove teams from the league.</CardDescription>
+                <CardDescription>
+                    {allUsers ? `${allUsers.length} teams` : 'View, edit, or remove teams from the league.'}
+                    {' '}— click a column header to sort.
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Team Name</TableHead>
-                            <TableHead>Email</TableHead>
+                            <TableHead
+                                className="cursor-pointer select-none hover:text-foreground"
+                                onClick={() => handleSort('teamName')}
+                            >
+                                Team Name<SortIcon field="teamName" />
+                            </TableHead>
+                            <TableHead
+                                className="cursor-pointer select-none hover:text-foreground"
+                                onClick={() => handleSort('email')}
+                            >
+                                Email<SortIcon field="email" />
+                            </TableHead>
+                            <TableHead
+                                className="cursor-pointer select-none hover:text-foreground whitespace-nowrap"
+                                onClick={() => handleSort('createdAt')}
+                            >
+                                Registered<SortIcon field="createdAt" />
+                            </TableHead>
                             <TableHead>Role</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
@@ -246,15 +341,19 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
                                 <TableRow key={i}>
                                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                                     <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                                     <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                                 </TableRow>
                             ))
-                        ) : allUsers?.map((user) => (
+                        ) : sortedUsers.map((user) => (
                             <TableRow key={user.id}>
                                 <TableCell className="font-medium">{user.teamName}</TableCell>
                                 <TableCell>{user.email}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                    {formatDate(user.createdAt)}
+                                </TableCell>
                                 <TableCell>
                                     <Badge variant={user.isAdmin ? "default" : "secondary"}>
                                         {user.isAdmin ? "Admin" : "User"}
