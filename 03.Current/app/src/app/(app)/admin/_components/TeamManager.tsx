@@ -1,7 +1,9 @@
 
-// GUID: ADMIN_TEAM-000-v04
+// GUID: ADMIN_TEAM-000-v05
 // @SECURITY_FIX: Added input validation for team name changes (ADMINCOMP-022).
-// [Intent] Admin component for managing user teams: view, edit, delete, toggle admin status, and unlock locked accounts.
+// [Intent] Admin component for managing user teams: view, edit, delete, toggle admin status, unlock locked accounts, and resend welcome email.
+// @FIX (v05): Added "Resend Welcome Email" button per row — calls /api/admin/resend-welcome-email,
+//   which generates a new PIN, updates Firebase Auth, sets mustChangePin, and sends via Microsoft Graph.
 // [Inbound Trigger] Rendered within the admin panel when the "Teams" tab is selected.
 // [Downstream Impact] Modifies user records in Firestore via useAuth() hooks. Changes to team name, email, admin status, and account lock state propagate to all user-facing components.
 
@@ -13,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit, Shield, Trash2, Lock, Unlock } from "lucide-react";
+import { Edit, Shield, Trash2, Lock, Unlock, Mail } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import type { User } from "@/firebase/provider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 // GUID: ADMIN_TEAM-001-v03
@@ -56,7 +59,8 @@ interface TeamManagerProps {
 // [Downstream Impact] All user mutations (edit, delete, admin toggle, unlock) flow through useAuth() hooks which update Firestore user documents.
 export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
     const { toast } = useToast();
-    const { updateUser, deleteUser } = useAuth();
+    const { updateUser, deleteUser, user } = useAuth();
+    const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
 
     // GUID: ADMIN_TEAM-003-v03
     // [Intent] Local state for the edit dialog: tracks which user is selected and what editable fields contain.
@@ -177,6 +181,44 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
         setIsEditDialogOpen(false);
     }
 
+    // GUID: ADMIN_TEAM-009A-v01
+    // [Intent] Resets the user's PIN and sends a welcome email via /api/admin/resend-welcome-email.
+    //          Generates a new 6-digit PIN server-side, updates Firebase Auth, sets mustChangePin=true,
+    //          and dispatches the email via Microsoft Graph.
+    // [Inbound Trigger] Clicking the Mail icon button on a user row in the Teams table.
+    // [Downstream Impact] User's PIN is changed immediately; they must use the new PIN on next login.
+    const handleResendWelcome = async (targetUser: User) => {
+        if (!user) return;
+        setResendingIds(prev => new Set(prev).add(targetUser.id));
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('/api/admin/resend-welcome-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ userId: targetUser.id }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                toast({
+                    title: 'Welcome Email Sent',
+                    description: data.queued
+                        ? `Email queued for ${targetUser.teamName} — PIN has been reset.`
+                        : `Welcome email sent to ${targetUser.email} — PIN has been reset.`,
+                });
+            } else {
+                toast({ variant: 'destructive', title: 'Failed', description: data.error || 'An unexpected error occurred.' });
+            }
+        } catch (_error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
+        } finally {
+            setResendingIds(prev => {
+                const next = new Set(prev);
+                next.delete(targetUser.id);
+                return next;
+            });
+        }
+    };
+
     // GUID: ADMIN_TEAM-009-v03
     // [Intent] Renders the team management UI: a table of users with action buttons and an edit dialog.
     // [Inbound Trigger] Component render cycle; displays skeleton rows while isUserLoading is true.
@@ -229,13 +271,38 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
                                      )}
                                 </TableCell>
                                 <TableCell className="text-right">
+                                    <TooltipProvider>
                                     <div className="flex justify-end items-center gap-2">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}>
-                                            <Edit className="h-4 w-4"/>
-                                        </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleToggleAdmin(user)}>
-                                            <Shield className="h-4 w-4"/>
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}>
+                                                    <Edit className="h-4 w-4"/>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Edit</TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" onClick={() => handleToggleAdmin(user)}>
+                                                    <Shield className="h-4 w-4"/>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Toggle admin</TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleResendWelcome(user)}
+                                                    disabled={resendingIds.has(user.id)}
+                                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                >
+                                                    <Mail className={`h-4 w-4 ${resendingIds.has(user.id) ? 'animate-pulse' : ''}`} />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Resend welcome email (resets PIN)</TooltipContent>
+                                        </Tooltip>
                                          <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
@@ -257,6 +324,7 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
                                             </AlertDialogContent>
                                         </AlertDialog>
                                     </div>
+                                    </TooltipProvider>
                                 </TableCell>
                             </TableRow>
                         ))}
