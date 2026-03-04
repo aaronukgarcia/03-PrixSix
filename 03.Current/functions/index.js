@@ -1397,6 +1397,94 @@ exports.cleanupExpiredAdminTokens = onSchedule(
 );
 
 // ── refreshHotNews ────────────────────────────────────────────
+// GUID: BACKUP_FUNCTIONS-071-v01
+/**
+ * processEmailQueue — Scheduled Cloud Function (2nd-gen, Cloud Run)
+ *
+ * [Intent] Every 15 minutes, POST to the Next.js cron route
+ *          /api/cron/process-email-queue which drains the email_queue
+ *          collection by sending pending emails via Microsoft Graph.
+ *          All email logic lives in the app — this function is a thin HTTP trigger.
+ *
+ * [Inbound Trigger] Cloud Scheduler cron: "*/15 * * * *" (every 15 minutes, UTC).
+ *
+ * [Downstream Impact]
+ *   - Calls /api/cron/process-email-queue which sends pending emails and
+ *     updates email_queue docs (sent/failed) and email_daily_stats.
+ *   - Failure is logged but does NOT throw (no retry — prevents email spam).
+ *
+ * Env vars required in Cloud Function config:
+ *   CRON_SECRET — shared secret matching CRON_SECRET in App Hosting secrets
+ *   APP_URL     — production URL, defaults to https://prix6.win
+ */
+exports.processEmailQueue = onSchedule(
+  {
+    schedule: "*/15 * * * *",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 120,
+    memory: "256MiB",
+    retryCount: 0,
+  },
+  async () => {
+    const correlationId = generateCorrelationId("eq");
+    const secret = process.env.CRON_SECRET;
+    const appUrl = process.env.APP_URL || "https://prix6.win";
+
+    if (!secret) {
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "PROCESS_EMAIL_QUEUE_MISSING_SECRET",
+        correlationId,
+        timestamp: new Date().toISOString(),
+      }));
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${appUrl}/api/cron/process-email-queue`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${secret}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const body = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        console.error(JSON.stringify({
+          severity: "ERROR",
+          message: "PROCESS_EMAIL_QUEUE_HTTP_ERROR",
+          correlationId,
+          status: resp.status,
+          body,
+          timestamp: new Date().toISOString(),
+        }));
+        return;
+      }
+
+      console.log(JSON.stringify({
+        severity: "INFO",
+        message: "PROCESS_EMAIL_QUEUE_OK",
+        correlationId,
+        processed: body.processed ?? 0,
+        summary: body.summary ?? {},
+        hasMore: body.hasMore ?? false,
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (err) {
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "PROCESS_EMAIL_QUEUE_FAILED",
+        correlationId,
+        error: err.message || String(err),
+        timestamp: new Date().toISOString(),
+      }));
+    }
+  }
+);
+
 // GUID: BACKUP_FUNCTIONS-070-v01
 /**
  * refreshHotNews — Scheduled Cloud Function (2nd-gen, Cloud Run)
