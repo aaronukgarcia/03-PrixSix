@@ -1,8 +1,11 @@
-// GUID: ADMIN_EMAILLOG-000-v06
+// GUID: ADMIN_EMAILLOG-000-v07
 // @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-EMAIL-001): DOMPurify config for email body preview further tightened (v04→v05).
 //   v04: Removed overly-permissive tags; added FORCE_HTTPS: true. See ADMIN_EMAILLOG-016 for full detail.
 //   v05: Removed 'style' from ALLOWED_ATTR (CSS expression/javascript: XSS vector); added FORCE_BODY: true; added FORBID_ATTR event-handler list.
 // @SECURITY_FIX (RT4-E3-2): All catch blocks now use safe generic error messages in toasts instead of error.message to prevent internal details leaking to the admin UI (v06).
+// @FIX (v07): All fetch calls to /api/email-queue now include Authorization: Bearer token — the API requires
+//   Firebase auth on GET/POST/DELETE but the component was sending unauthenticated requests, causing 401
+//   responses, empty queue state, and greyed-out Push All button.
 // [Intent] Admin component for managing the email queue (push, resend, delete) and viewing historical email send logs.
 // [Inbound Trigger] Rendered on the admin Email Logs tab.
 // [Downstream Impact] Reads from email_logs and email_queue Firestore collections via API; sends/deletes queued emails via /api/email-queue.
@@ -82,15 +85,19 @@ export function EmailLogManager() {
     const [isDeletingAll, setIsDeletingAll] = useState(false);
     const [isResendingAll, setIsResendingAll] = useState(false);
 
-    // GUID: ADMIN_EMAILLOG-004-v03
+    // GUID: ADMIN_EMAILLOG-004-v04
     // [Intent] Fetches all queued emails (including failed) from the /api/email-queue endpoint.
     // [Inbound Trigger] Called on component mount (if admin), after each queue action, and on manual refresh.
     // [Downstream Impact] Populates the queuedEmails state that drives the queue management table.
-    // Fetch all emails including failed ones
+    // @FIX (v04): Added Authorization: Bearer token — API requires Firebase auth on GET.
     const fetchQueuedEmails = useCallback(async () => {
+        if (!user) return;
         setIsLoadingQueue(true);
         try {
-            const response = await fetch('/api/email-queue?includeAll=true');
+            const token = await user.getIdToken();
+            const response = await fetch('/api/email-queue?includeAll=true', {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
             const data = await response.json();
             if (data.success) {
                 setQueuedEmails(data.emails);
@@ -100,7 +107,7 @@ export function EmailLogManager() {
         } finally {
             setIsLoadingQueue(false);
         }
-    }, []);
+    }, [user]);
 
     // GUID: ADMIN_EMAILLOG-005-v03
     // [Intent] Triggers the initial fetch of queued emails when the admin user is confirmed.
@@ -112,16 +119,19 @@ export function EmailLogManager() {
         }
     }, [user?.isAdmin, fetchQueuedEmails]);
 
-    // GUID: ADMIN_EMAILLOG-006-v04
+    // GUID: ADMIN_EMAILLOG-006-v05
     // [Intent] Sends a single queued email immediately via the /api/email-queue push action.
     // [Inbound Trigger] Called when the admin clicks the send button on a pending queued email row.
     // [Downstream Impact] Triggers email delivery via Microsoft Graph; refreshes the queue list on completion.
+    // @FIX (v05): Added Authorization: Bearer token.
     const handlePushEmail = async (emailId: string) => {
+        if (!user) return;
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
+            const token = await user.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ action: 'push', emailIds: [emailId] }),
             });
             const data = await response.json();
@@ -143,16 +153,19 @@ export function EmailLogManager() {
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-007-v04
+    // GUID: ADMIN_EMAILLOG-007-v05
     // [Intent] Re-queues a single failed email for another round of retry attempts.
     // [Inbound Trigger] Called when the admin clicks the resend button on a failed email row.
     // [Downstream Impact] Resets the email's status to pending in the queue; it will be retried up to 3 times.
+    // @FIX (v05): Added Authorization: Bearer token.
     const handleResendEmail = async (emailId: string) => {
+        if (!user) return;
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
+            const token = await user.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ action: 'resend', emailIds: [emailId] }),
             });
             const data = await response.json();
@@ -174,16 +187,19 @@ export function EmailLogManager() {
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-008-v04
+    // GUID: ADMIN_EMAILLOG-008-v05
     // [Intent] Deletes a single queued email from the queue, discarding it permanently.
     // [Inbound Trigger] Called when the admin clicks the delete button on a queued email row.
     // [Downstream Impact] Removes the email document from the email_queue collection; email will never be sent.
+    // @FIX (v05): Added Authorization: Bearer token.
     const handleDeleteEmail = async (emailId: string) => {
+        if (!user) return;
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
+            const token = await user.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ emailIds: [emailId] }),
             });
             const data = await response.json();
@@ -205,16 +221,19 @@ export function EmailLogManager() {
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-009-v04
+    // GUID: ADMIN_EMAILLOG-009-v05
     // [Intent] Pushes all pending queued emails for immediate sending in a single batch operation.
     // [Inbound Trigger] Called when the admin clicks the "Push All" button.
     // [Downstream Impact] Triggers email delivery for all pending emails; may result in multiple Microsoft Graph API calls.
+    // @FIX (v05): Added Authorization: Bearer token.
     const handlePushAll = async () => {
+        if (!user) return;
         setIsProcessingAll(true);
         try {
+            const token = await user.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ action: 'push' }),
             });
             const data = await response.json();
@@ -232,19 +251,22 @@ export function EmailLogManager() {
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-010-v04
+    // GUID: ADMIN_EMAILLOG-010-v05
     // [Intent] Re-queues all failed emails for another round of retry attempts in a single batch operation.
     // [Inbound Trigger] Called when the admin clicks the "Resend Failed" button.
     // [Downstream Impact] Resets all failed emails to pending status; each will be retried up to 3 times.
+    // @FIX (v05): Added Authorization: Bearer token.
     const handleResendAllFailed = async () => {
+        if (!user) return;
         const failedIds = queuedEmails.filter(e => e.status === 'failed').map(e => e.id);
         if (failedIds.length === 0) return;
 
         setIsResendingAll(true);
         try {
+            const token = await user.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ action: 'resend', emailIds: failedIds }),
             });
             const data = await response.json();
@@ -262,16 +284,19 @@ export function EmailLogManager() {
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-011-v04
+    // GUID: ADMIN_EMAILLOG-011-v05
     // [Intent] Deletes all emails from the queue, clearing it entirely.
     // [Inbound Trigger] Called when the admin clicks the "Delete All" button.
     // [Downstream Impact] Permanently removes all email_queue documents; no queued emails will be sent.
+    // @FIX (v05): Added Authorization: Bearer token.
     const handleDeleteAll = async () => {
+        if (!user) return;
         setIsDeletingAll(true);
         try {
+            const token = await user.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({}),
             });
             const data = await response.json();

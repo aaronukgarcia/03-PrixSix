@@ -1,6 +1,7 @@
 {
   "lastUpdated": "2026-03-04",
   "commits": [
+    {"id": "pending", "date": "2026-03-04", "version": "2.0.7", "author": "Bertie (Claude Code)", "message": "fix: add Authorization header to all EmailLogManager fetch calls — queue was returning 401, graying out Push All (v2.0.7)", "major": false},
     {"id": "pending", "date": "2026-03-04", "version": "2.0.6", "author": "Bertie (Claude Code)", "message": "feat: auto-drain email queue — processEmailQueue Cloud Function (every 15 min) + /api/cron/process-email-queue route (v2.0.6)", "major": false},
     {"id": "5638f8a", "date": "2026-02-24", "version": "1.58.76", "author": "Bob (Claude Code)", "message": "security+UX: Wave 7 — login error disclosure (BOW-ZQyNrzzX4G7Yvzj6hM97), invite code rate limit (LEAGUES-003), legal consent (VIRGIN-004), deadline display (VIRGIN-009) (v1.58.76)", "major": false},
     {"id": "5cff0a0", "date": "2026-02-24", "version": "1.58.75", "author": "Bill (Claude Code)", "message": "feat(UX)+security: Wave 6 — dashboard onboarding/stats (VIRGIN-005/006), F1 tooltips (VIRGIN-007), standings legend (VIRGIN-012), Firestore rules orphan deleted (GEMINI-001), PIN redaction (GEMINI-AUDIT-126) (v1.58.75)", "major": false},
