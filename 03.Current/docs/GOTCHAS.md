@@ -2,7 +2,7 @@
 
 > Every time a subtle bug bites you, it goes here.
 > These are NOT "to fix" — they are "know before you touch".
-> Last updated: 2026-03-03
+> Last updated: 2026-03-04
 
 ---
 
@@ -164,6 +164,36 @@ db.collection('consistency_reports').where('correlationId', '==', 'cc_xxx_yyy').
 **Why it doesn't:** The guard uses `useEffect` — the full HTML shell renders on the server before the client checks auth state and redirects. Bots and crawlers see the page HTML.
 
 **Mitigation:** `robots.txt` blocks all app routes. Do not add server-sensitive data to the initial HTML shell.
+
+---
+
+## 15. Never Pass Raw Firestore Data as a Server→Client Component Prop
+
+**The trap:** A Server Component reads a Firestore document via Admin SDK and passes `snap.data()` directly as a prop to a Client Component (`"use client"`). Works in dev. Crashes in production with:
+
+```
+PX-9001 — An error occurred in the Server Components render.
+```
+
+**Why:** Firestore Admin SDK `Timestamp` objects (and other class instances) are **not JSON-serializable**. Next.js App Router serialises Server Component props to JSON when streaming to the client. `Timestamp` has `_seconds`, `_nanoseconds`, and prototype methods — the serializer throws.
+
+**The same component can work fine client-side** (e.g. in the admin panel) where Firestore data never crosses the server/client boundary.
+
+**Rule:** Before returning Firestore data from a server-side function for use as a Client Component prop, strip or convert all non-plain values:
+
+```typescript
+// BAD — crashes in production:
+return snap.data() as MyType;
+
+// GOOD — strip Timestamps:
+const { fetchedAt: _dropped, ...serializable } = snap.data()!;
+return serializable as MyType;
+
+// GOOD — convert to millis if you need the value:
+return { ...snap.data(), fetchedAt: snap.data()!.fetchedAt?.toMillis() ?? null } as MyType;
+```
+
+**Caused:** PX-9001 crash on `/live` page (v2.0.18–v2.0.19). Fixed v2.0.20.
 
 ---
 
