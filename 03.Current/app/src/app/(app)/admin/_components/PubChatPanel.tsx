@@ -28,7 +28,7 @@
 //                     Writes to app-settings/pub-chat-timing via /api/admin/fetch-timing-data.
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ThePaddockPubChat, { type PubChatViewMode } from '@/components/ThePaddockPubChat';
 import { LiveTrackVisualization } from '@/components/LiveTrackVisualization';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -228,6 +228,25 @@ export function PubChatPanel() {
     useEffect(() => {
         fetchContent();
     }, [fetchContent]);
+
+    // GUID: PUBCHAT_PANEL-002A-v01
+    // [Intent] After initial Firestore read completes, if there is no timing data, automatically
+    //          call /api/live/refresh-timing (same endpoint as the /live player page) to pull the
+    //          latest session from OpenF1 — so the admin never needs to manually trigger the first fetch.
+    //          A ref guards against re-firing on subsequent renders.
+    // [Inbound Trigger] loading transitions to false with timingData === null.
+    // [Downstream Impact] Writes to app-settings/pub-chat-timing; fetchContent(true) then re-reads it.
+    const autoFetchAttempted = useRef(false);
+    useEffect(() => {
+        if (loading || timingData !== null || autoFetchAttempted.current || !authToken) return;
+        autoFetchAttempted.current = true;
+        fetch('/api/live/refresh-timing', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${authToken}` },
+        })
+            .then(res => res.ok ? fetchContent(true) : undefined)
+            .catch(() => undefined); // silent — user can still manually fetch
+    }, [loading, timingData, authToken, fetchContent]);
 
     // Load official teams once on mount — Team Lens uses driver numbers as join key to OpenF1
     useEffect(() => {
