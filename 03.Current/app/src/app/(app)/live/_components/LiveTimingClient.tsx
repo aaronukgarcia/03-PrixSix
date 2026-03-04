@@ -1,6 +1,6 @@
 "use client";
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v01
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v02
 // [Intent] Client component for the /live page. Shows the ThePaddockPubChat
 //          leaderboard widget with auto-refresh every 2 minutes. On mount and
 //          on each tick, POSTs to /api/live/refresh-timing (rate-gated on server);
@@ -12,13 +12,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Radio, CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ThePaddockPubChat from "@/components/ThePaddockPubChat";
 import { useAuth, useFirestore } from "@/firebase";
 import { getPubChatTimingData } from "@/firebase/firestore/settings";
 import type { PubChatTimingData } from "@/firebase/firestore/settings";
+import { findNextRace } from "@/lib/data";
 
 // Auto-refresh interval: re-check every 2 minutes
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
@@ -27,7 +28,22 @@ interface LiveTimingClientProps {
   initialTimingData: PubChatTimingData | null;
 }
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-001-v01
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-003-v01
+// [Intent] Derive the next expected FP1 session label from the race schedule.
+//          FP1 is approximately 1 day before qualifying (2 days for sprint weekends).
+// [Inbound Trigger] Called inline in the render pass of LiveTimingClient.
+// [Downstream Impact] Used to render "Next expected: [location] FP1 · [day]" hint.
+function getNextTracksideLabel(): { location: string; dayLabel: string } | null {
+  const next = findNextRace();
+  if (!next) return null;
+  const fp1 = new Date(
+    new Date(next.qualifyingTime).getTime() - (next.hasSprint ? 2 : 1) * 24 * 60 * 60 * 1000
+  );
+  const dayLabel = fp1.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return { location: next.location, dayLabel };
+}
+
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-001-v02
 // [Intent] Main client component. Manages timing data state, auto-refresh
 //          interval, and renders the PubChat leaderboard widget.
 // [Inbound Trigger] Mounted by server page component on /live route.
@@ -151,6 +167,24 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
               {timingData.fetchedBy === 'auto' ? 'Live' : 'Admin fetch'}
             </Badge>
           )}
+        </div>
+
+        <div className="mt-2 space-y-0.5 border-t border-border/40 pt-2">
+          {timingData && (
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <Radio className="h-3 w-3 flex-shrink-0" />
+              Last from track: {timingData.session.sessionName} · {timingData.session.location}
+            </p>
+          )}
+          {(() => {
+            const n = getNextTracksideLabel();
+            return n ? (
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                <CalendarClock className="h-3 w-3 flex-shrink-0" />
+                Next expected: {n.location} FP1 · {n.dayLabel}
+              </p>
+            ) : null;
+          })()}
         </div>
       </CardHeader>
 
