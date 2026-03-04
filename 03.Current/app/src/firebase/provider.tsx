@@ -872,15 +872,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-016-v05
+  // GUID: FIREBASE_PROVIDER-016-v06
   // @SECURITY_RISK: Previously returned raw e.message to UI, potentially leaking Firebase internals.
   //   Now returns generic error message with PX error code for all non-specific errors.
+  // @FIX (BUG-PIN-002): Replaced client-side addDocumentNonBlocking(collection(firestore, 'mail'), ...)
+  //   with a server-side POST to /api/auth/notify-pin-changed. The client write was denied by
+  //   Firestore rules (allow create: if false on mail) AND would have been a dead queue regardless.
+  //   Errors were recorded in error_logs for real users on 2026-03-04.
   // [Intent] Changes the current user's PIN (password) via Firebase Auth, clears the mustChangePin
-  // flag, sends a confirmation email, logs audit events, and forces a logout so the user must
-  // re-authenticate with the new PIN.
+  // flag, sends a confirmation email via server-side Graph API, logs audit events, and forces a
+  // logout so the user must re-authenticate with the new PIN.
   // [Inbound Trigger] Called from the profile page PIN change form.
   // [Downstream Impact] Updates Firebase Auth password, clears mustChangePin in Firestore,
-  // queues a notification email, and triggers logout (FIREBASE_PROVIDER-014).
+  // calls /api/auth/notify-pin-changed (sends email + logs), and triggers logout (FIREBASE_PROVIDER-014).
   const changePin = async (email: string, newPin: string): Promise<AuthResult> => {
     if (!firebaseUser) return { success: false, message: "You are not logged in."};
 
@@ -890,16 +894,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         const userDocRef = doc(firestore, 'users', firebaseUser.uid);
         await updateDoc(userDocRef, { mustChangePin: false });
 
-        const mailHtml = `Hello ${user?.teamName},<br><br>Your PIN for Prix Six was just changed. If you did not make this change, please contact support immediately.`;
-        const mailSubject = "Your Prix Six PIN Has Changed";
-        addDocumentNonBlocking(collection(firestore, 'mail'), {
-            to: email, message: { subject: mailSubject, html: mailHtml }
-        });
-        addDocumentNonBlocking(collection(firestore, 'email_logs'), {
-            to: email, subject: mailSubject, html: mailHtml, pin: "N/A", status: 'queued', timestamp: serverTimestamp()
-        });
+        // Send PIN changed notification via server-side Graph API (non-blocking — PIN change
+        // already succeeded, notification failure should not block logout).
+        const idToken = await firebaseUser.getIdToken();
+        fetch('/api/auth/notify-pin-changed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+          body: JSON.stringify({ email, teamName: user?.teamName }),
+        }).catch(() => {}); // fire-and-forget — user is logged out immediately after
 
-        logAuditEvent(firestore, firebaseUser.uid, 'pin_changed_email_queued', { email });
         logAuditEvent(firestore, firebaseUser.uid, 'pin_changed', {});
 
         await logout();
