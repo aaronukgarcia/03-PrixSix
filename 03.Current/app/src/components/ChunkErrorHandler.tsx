@@ -11,14 +11,15 @@
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-// GUID: COMPONENT_CHUNK_ERROR_HANDLER-001-v01
+// GUID: COMPONENT_CHUNK_ERROR_HANDLER-001-v02
 // [Intent] Detects if an error is a webpack chunk loading failure by checking error message
 //          and error type. Returns true for ChunkLoadError or timeout loading chunks.
+//          Includes Safari/iOS pattern: dynamic import failures surface as TypeError "Load failed".
 // [Inbound Trigger] Called by error event listener for every unhandled error.
 // [Downstream Impact] If true, triggers auto-refresh. If false, error propagates normally.
-function isChunkLoadError(error: Error | ErrorEvent): boolean {
-  const message = error instanceof Error ? error.message : error.message || '';
-  const name = error instanceof Error ? error.name : '';
+function isChunkLoadError(error: Error | ErrorEvent | any): boolean {
+  const message = error instanceof Error ? error.message : (error?.message || '');
+  const name = error instanceof Error ? error.name : (error?.name || '');
 
   // Match ChunkLoadError or chunk loading failures
   return (
@@ -26,7 +27,9 @@ function isChunkLoadError(error: Error | ErrorEvent): boolean {
     message.includes('ChunkLoadError') ||
     message.includes('Loading chunk') ||
     message.includes('Failed to fetch dynamically imported module') ||
-    /chunk.*failed/i.test(message)
+    /chunk.*failed/i.test(message) ||
+    // iOS Safari reports dynamic import (chunk) failures as TypeError: "Load failed"
+    (name === 'TypeError' && message === 'Load failed')
   );
 }
 

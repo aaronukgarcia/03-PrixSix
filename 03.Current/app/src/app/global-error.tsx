@@ -1,16 +1,39 @@
-// GUID: PAGE_GLOBAL_ERROR-000-v01
+// GUID: PAGE_GLOBAL_ERROR-000-v02
 // @SECURITY_FIX: GEMINI-AUDIT-044 — console.error now omits full error object in production.
 //   Previously: console.error(`[Global Error ${id}]`, error) logged full Error including .stack
 //   and .digest to every user's DevTools. Fixed: development logs full details; production
 //   logs only the correlation ID so users can reference it with support.
+// @FIX(v02): Added chunk error detection + auto-reload (BUG-ERR-003). Previously, webpack
+//   ChunkLoadErrors caught by the React error boundary were logged to error_logs and showed the
+//   "Critical Error" page. Now detected silently and reloaded to fetch the new build.
 // [Intent] Global error boundary that catches errors in the root layout.
 //   Renders a complete HTML document (replaces root layout on catastrophic crash).
+//   Chunk load errors (stale bundle after deploy) are silently reloaded rather than shown.
 // [Inbound Trigger] Next.js invokes this when any error propagates to the root layout.
 // [Downstream Impact] Displays correlation ID to user; logs full details to server (error_logs).
+//                     Chunk errors → silent reload. Real errors → error page + error_logs.
 
 'use client';
 
 import { useEffect, useState } from 'react';
+
+// GUID: PAGE_GLOBAL_ERROR-002-v01
+// [Intent] Detect webpack chunk load failures in the React error boundary context.
+//          These occur when a new deployment invalidates chunk hashes while a user has the
+//          old bundle loaded — React catches the failure before window event handlers can.
+// [Inbound Trigger] Called in useEffect and render to decide reload vs error page.
+// [Downstream Impact] Returns true → reload silently. Returns false → show error page + log.
+function isChunkLoadError(error: Error): boolean {
+    const msg = error?.message || '';
+    const name = error?.name || '';
+    return (
+        name === 'ChunkLoadError' ||
+        msg.includes('ChunkLoadError') ||
+        msg.includes('Loading chunk') ||
+        msg.includes('Failed to fetch dynamically imported module') ||
+        /chunk.*failed/i.test(msg)
+    );
+}
 // @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
 import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
@@ -25,6 +48,19 @@ export default function GlobalError({
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    // GUID: PAGE_GLOBAL_ERROR-001-v02
+    // [Intent] On mount: if the error is a stale-bundle chunk load failure, reload silently
+    //          instead of logging to error_logs and showing the critical error page.
+    //          Real errors proceed to generate a correlation ID and log to server.
+    // [Inbound Trigger] Fires whenever this error boundary renders (i.e. on each new error).
+    // [Downstream Impact] Chunk errors → window.location.reload() (no error_logs entry).
+    //                     Real errors → correlation ID + server log + error UI shown.
+    if (isChunkLoadError(error)) {
+      console.warn('[GlobalError] Chunk load error detected — reloading for new build');
+      window.location.reload();
+      return;
+    }
+
     // Generate correlation ID for this error
     const id = generateClientCorrelationId();
     setCorrelationId(id);
@@ -63,6 +99,17 @@ export default function GlobalError({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // For chunk errors: show a brief "updating" page while the reload triggers (useEffect above).
+  if (isChunkLoadError(error)) {
+    return (
+      <html lang="en">
+        <body style={{ fontFamily: 'system-ui, -apple-system, sans-serif', backgroundColor: '#0a0a0a', color: '#a1a1aa', margin: 0, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>
+          <p>Updating to latest version…</p>
+        </body>
+      </html>
+    );
+  }
 
   // This component must render html and body since it replaces the root layout
   return (

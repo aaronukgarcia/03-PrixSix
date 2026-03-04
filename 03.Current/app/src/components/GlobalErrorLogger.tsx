@@ -19,8 +19,10 @@ import { generateClientCorrelationId } from '@/lib/error-codes';
 // @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
 import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 
-// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-001-v01
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-001-v02
 // [Intent] Check if error is a chunk load error (already handled by ChunkErrorHandler).
+//          Includes Safari/iOS pattern: dynamic import failures surface as TypeError "Load failed"
+//          with no chunk-specific message — caught as unhandledrejection.
 // [Inbound Trigger] Called by error listeners to avoid duplicate logging.
 // [Downstream Impact] Returns true for chunk errors (skip logging), false for all others.
 function isChunkLoadError(error: any): boolean {
@@ -32,7 +34,9 @@ function isChunkLoadError(error: any): boolean {
     message.includes('ChunkLoadError') ||
     message.includes('Loading chunk') ||
     message.includes('Failed to fetch dynamically imported module') ||
-    /chunk.*failed/i.test(message)
+    /chunk.*failed/i.test(message) ||
+    // iOS Safari reports dynamic import (chunk) failures as TypeError: "Load failed"
+    (name === 'TypeError' && message === 'Load failed')
   );
 }
 
