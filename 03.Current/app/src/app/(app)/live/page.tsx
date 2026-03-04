@@ -1,4 +1,4 @@
-// GUID: PAGE_LIVE-000-v01
+// GUID: PAGE_LIVE-000-v02
 // [Intent] Server component wrapper for the player-facing Live Timing page.
 //          Reads initial timing data from Firestore via Admin SDK (server-side)
 //          to avoid a loading flash on first render. Passes data to the client
@@ -18,18 +18,25 @@ export const metadata: Metadata = { title: 'PubChat | Prix Six' };
 // Force dynamic so the server-side Firestore read always gets fresh data.
 export const dynamic = 'force-dynamic';
 
-// GUID: PAGE_LIVE-001-v01
+// GUID: PAGE_LIVE-001-v02
 // [Intent] Server-side initial data fetch from app-settings/pub-chat-timing.
 //          Returns null if the document doesn't exist — client handles null gracefully.
 // [Inbound Trigger] Called once on each page request (server-side render).
 // [Downstream Impact] Prevents the loading spinner on first paint; client then
 //                     takes over polling. Errors are swallowed — null fallback.
+// @FIX(v02) Strip fetchedAt (Admin SDK Timestamp) before passing to Client Component.
+//           Firestore Timestamps are not JSON-serializable across the server/client
+//           boundary in Next.js App Router. fetchedAt is only used server-side for
+//           rate-gating; the client re-reads Firestore on mount and gets a live value.
 async function getInitialTimingData(): Promise<PubChatTimingData | null> {
   try {
     const { db } = await getFirebaseAdmin();
     const snap = await db.doc('app-settings/pub-chat-timing').get();
     if (!snap.exists) return null;
-    return snap.data() as PubChatTimingData;
+    const raw = snap.data()!;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { fetchedAt: _dropped, ...serializable } = raw;
+    return serializable as PubChatTimingData;
   } catch {
     return null;
   }
