@@ -1406,7 +1406,7 @@ exports.cleanupExpiredAdminTokens = onSchedule(
  *          collection by sending pending emails via Microsoft Graph.
  *          All email logic lives in the app — this function is a thin HTTP trigger.
  *
- * [Inbound Trigger] Cloud Scheduler cron: "*/15 * * * *" (every 15 minutes, UTC).
+ * [Inbound Trigger] Cloud Scheduler cron: every 15 minutes (0,15,30,45 * * * *) UTC.
  *
  * [Downstream Impact]
  *   - Calls /api/cron/process-email-queue which sends pending emails and
@@ -1485,7 +1485,7 @@ exports.processEmailQueue = onSchedule(
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-070-v01
+// GUID: BACKUP_FUNCTIONS-070-v02
 /**
  * refreshHotNews — Scheduled Cloud Function (2nd-gen, Cloud Run)
  *
@@ -1513,6 +1513,7 @@ exports.refreshHotNews = onSchedule(
     timeoutSeconds: 60,
     memory: "256MiB",
     retryCount: 0,
+    secrets: ["CRON_SECRET"],
   },
   async () => {
     const correlationId = generateCorrelationId("news");
