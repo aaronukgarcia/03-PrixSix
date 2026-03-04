@@ -49,7 +49,8 @@
 //   for this fix pass.
 // =============================================================================
 
-// GUID: API_ADMIN_OPENF1_SESSIONS-000-v04
+// GUID: API_ADMIN_OPENF1_SESSIONS-000-v05
+// FEAT-PC-001 (Section 4): Added validate=true mode — parallel /laps existence checks per session, returns hasData field.
 // @SECURITY_FIX: Replaced hardcoded ERROR_CODES.UNEXPECTED_ERROR fallback with ERROR_CODES.UNKNOWN_ERROR.code (GEMINI-AUDIT-009).
 // AUTHOR: gill — 2026-02-19
 // @AUTH_FIX:    Added OpenF1 OAuth2 authentication with token caching (previous author).
@@ -556,16 +557,71 @@ export async function GET(request: NextRequest) {
 
       console.log(`[openf1-sessions GET ${correlationId}] ${Array.isArray(sessions) ? sessions.length : 0} sessions returned for meetingKey=${meetingKey}.`);
 
-      // Map to the subset of fields the client dropdown needs.
+      const mappedSessions = Array.isArray(sessions)
+        ? sessions.map((s: any) => ({
+            sessionKey:  s.session_key,
+            sessionName: s.session_name,
+            sessionType: s.session_type,
+            dateStart:   s.date_start,
+            dateEnd:     s.date_end,
+          }))
+        : [];
+
+      // -----------------------------------------------------------------------
+      // GUID: API_ADMIN_OPENF1_SESSIONS-008-v01
+      // FEAT-PC-001 Section 4 — Data-Aware Selector
+      // [Intent] When validate=true, fire a parallel /laps?session_key=X&limit=1
+      //          check for each past session to determine whether OpenF1 actually
+      //          has lap data. Future sessions are unconditionally hasData=false.
+      //          Returns hasData field on each session so the client can suppress
+      //          sessions with no data without the user seeing empty fetches.
+      // [Inbound Trigger] ?meetingKey=X&validate=true
+      // [Downstream Impact] Read-only lap checks, no Firestore writes.
+      // -----------------------------------------------------------------------
+      const validate = searchParams.get('validate') === 'true';
+      if (validate && mappedSessions.length > 0 && openf1Token) {
+        const now = Date.now();
+        const headers: HeadersInit = { 'Authorization': `Bearer ${openf1Token}` };
+
+        const dataChecks = await Promise.allSettled(
+          mappedSessions.map(async (s) => {
+            const isPast = new Date(s.dateStart).getTime() < now;
+            if (!isPast) return { sessionKey: s.sessionKey, hasData: false };
+            try {
+              const lapRes = await fetchWithTimeout(
+                `${OPENF1_BASE}/laps?session_key=${s.sessionKey}&limit=1`,
+                { headers },
+                5_000, // shorter 5s timeout for existence checks
+              );
+              if (!lapRes.ok) return { sessionKey: s.sessionKey, hasData: false };
+              const lapText = await lapRes.text();
+              const lapArr = JSON.parse(lapText);
+              return { sessionKey: s.sessionKey, hasData: Array.isArray(lapArr) && lapArr.length > 0 };
+            } catch {
+              return { sessionKey: s.sessionKey, hasData: false };
+            }
+          })
+        );
+
+        const dataMap = new Map<number, boolean>();
+        dataChecks.forEach(result => {
+          if (result.status === 'fulfilled') dataMap.set(result.value.sessionKey, result.value.hasData);
+        });
+
+        return NextResponse.json({
+          success: true,
+          validated: true,
+          data: mappedSessions.map(s => ({
+            ...s,
+            hasData: dataMap.get(s.sessionKey) ?? false,
+          })),
+        });
+      }
+
+      // Non-validated path — return sessions without hasData field
       return NextResponse.json({
         success: true,
-        data: Array.isArray(sessions)
-          ? sessions.map((s: any) => ({
-              sessionKey:  s.session_key,
-              sessionName: s.session_name,
-              dateStart:   s.date_start,
-            }))
-          : [],
+        data: mappedSessions,
       });
     }
 

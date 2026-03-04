@@ -1,14 +1,22 @@
-// GUID: API_DELETE_SCORES-000-v05
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Method:      POST
+// Auth:        Firebase Auth bearer token + isAdmin check
+// Reads:       collectionGroup(predictions) x2 (both raceId formats — see GOTCHAS #5)
+// Writes:      DELETE predictions (all formats), DELETE race_results/{raceId}, audit_logs
+// Errors:      PX-2001 (auth), PX-2003 (admin), PX-1001 (missing raceId)
+// Idempotent:  YES — deleting already-deleted docs is a no-op
+// Side-effects: Lifts pit lane lock (race_results doc gone → predictions re-open)
+// Key gotcha:  Must run TWO collectionGroup queries (raw + normalized raceId) — one format
+//              misses carry-forward predictions. See API_DELETE_SCORES-008 for detail.
+// ──────────────────────────────────────────────────────────────────
+// GUID: API_DELETE_SCORES-000-v06
+// @ARCH_CHANGE (SSOT-001): scores collection eliminated. This route now deletes predictions + race_result only.
+//   Score documents are no longer written or deleted — scores are computed in real-time from race_results + predictions.
 // @SECURITY_FIX: Added cascade deletion for predictions (ADMINCOMP-023).
-// @BUG_FIX: GEMINI-AUDIT-132 — Fixed two cascade deletion bugs: (1) score query was using
-//   normalizeRaceIdForComparison (lowercase) but scores are stored in Title-Case with -GP/-Sprint
-//   suffix (e.g., "Australian-Grand-Prix-GP"), so the query always returned 0 scores. Fixed by
-//   querying scores with the raw raceId sent from the admin page. (2) predictions query was
-//   targeting db.collection('predictions') (top-level) but predictions live in
-//   users/{uid}/predictions subcollections — fixed by using db.collectionGroup('predictions').
-// [Intent] API route that deletes all scores, predictions, and the race result document for a given race. Used by admins to undo/re-do scoring.
-// [Inbound Trigger] Admin triggers score deletion from the admin scoring page (POST request with raceId).
-// [Downstream Impact] Removes score documents from the scores collection, prediction documents from the predictions subcollections, and the race result from race_results. Standings recalculate on next page load. Audit log records the deletion.
+// @BUG_FIX: GEMINI-AUDIT-132 — predictions query fixed to use collectionGroup + dual-format lookup.
+// [Intent] API route that deletes all predictions and the race result document for a given race. Used by admins to undo/re-do scoring.
+// [Inbound Trigger] Admin triggers deletion from the admin scoring page (POST request with raceId).
+// [Downstream Impact] Removes prediction documents from the predictions subcollections, and the race result from race_results. Standings recalculate on next page load (no scores to delete). Audit log records the deletion.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
@@ -111,22 +119,18 @@ export async function POST(request: NextRequest) {
     // (GEMINI-AUDIT-132: this dual-query was the real fix; GEMINI-AUDIT-131: scoring false alarm)
     const normalizedRaceId = normalizeRaceId(raceId); // strips -GP → "Australian-Grand-Prix"
 
-    // GUID: API_DELETE_SCORES-006-v05
+    // GUID: API_DELETE_SCORES-006-v06
+    // @ARCH_CHANGE (SSOT-001): Score documents are no longer stored or deleted here.
+    //   Scores are computed in real-time from race_results + predictions on every page load.
     // @SECURITY_FIX: Added cascade deletion for predictions (ADMINCOMP-023).
-    // @BUG_FIX: GEMINI-AUDIT-132 — Score query now uses raw raceId (matches stored Title-Case
-    //   "Australian-Grand-Prix-GP" format). Previously used lowercase normalized ID → 0 scores found.
-    // [Intent] Queries all score and prediction documents matching the race, deletes them in a batch
+    // [Intent] Queries all prediction documents matching the race, deletes them in a batch
     //   along with the race result document, and writes an audit log entry -- all committed atomically.
     // [Inbound Trigger] After request validation and normalisation.
-    // [Downstream Impact] Removes all score documents, all prediction documents for the race, and the
+    // [Downstream Impact] Removes all prediction documents for the race, and the
     //   race_results document. The batch is atomic; either all deletes succeed or none do. Standings
-    //   will reflect the removal on next load.
-    // Find all scores for this race (scores stored with raw raceId, e.g. "Australian-Grand-Prix-GP")
-    const scoresQuery = await db.collection('scores')
-      .where('raceId', '==', raceId)
-      .get();
+    //   will recompute correctly on next load (no race_results = no scores shown).
 
-    // GUID: API_DELETE_SCORES-008-v03
+    // GUID: API_DELETE_SCORES-008-v04
     // @SECURITY_FIX: Query predictions for cascade deletion (ADMINCOMP-023).
     // @BUG_FIX: GEMINI-AUDIT-132 — Changed from db.collection('predictions') (top-level, always
     //   returns 0) to db.collectionGroup('predictions') (queries all user subcollections).
@@ -162,16 +166,9 @@ export async function POST(request: NextRequest) {
 
     // Create batch delete
     const batch = db.batch();
-    let scoresDeleted = 0;
     let predictionsDeleted = 0;
 
-    // Delete all scores
-    scoresQuery.forEach((scoreDoc) => {
-      batch.delete(scoreDoc.ref);
-      scoresDeleted++;
-    });
-
-    // GUID: API_DELETE_SCORES-009-v01
+    // GUID: API_DELETE_SCORES-009-v02
     // @SECURITY_FIX: Delete predictions in same batch (ADMINCOMP-023).
     // [Intent] Remove all user predictions for the race to prevent orphaned data.
     // [Inbound Trigger] Part of atomic batch delete operation.
@@ -195,7 +192,6 @@ export async function POST(request: NextRequest) {
       details: {
         raceId: resultDocId,
         raceName: raceName || raceId,
-        scoresDeleted,
         predictionsDeleted,
         deletedAt: new Date().toISOString(),
       },
@@ -205,11 +201,10 @@ export async function POST(request: NextRequest) {
     // Commit all deletes atomically
     await batch.commit();
 
-    console.log(`[DeleteScores] Deleted ${scoresDeleted} scores and ${predictionsDeleted} predictions for race ${raceId}`);
+    console.log(`[DeleteScores] Deleted ${predictionsDeleted} predictions and race result for race ${raceId}`);
 
     return NextResponse.json({
       success: true,
-      scoresDeleted,
       predictionsDeleted,
     });
 

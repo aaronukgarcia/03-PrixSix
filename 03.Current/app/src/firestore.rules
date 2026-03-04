@@ -123,6 +123,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // GUID: OFFICIAL_TEAMS_RULES-001-v01
+    // [Intent] Public F1 reference data — team names, driver numbers, team colours.
+    //          Read by PubChatPanel Team Lens (signed-in admin) to resolve driver numbers
+    //          as the join key to OpenF1 timing data. Write restricted to admins.
+    // [Inbound Trigger] getOfficialTeams(firestore) called on PubChatPanel mount.
+    // [Downstream Impact] Without read permission, getOfficialTeams() silently returns []
+    //                     and Team Lens falls back to string-match (shows no Williams drivers
+    //                     since Sainz/Albon aren't in the pre-season fallback data). BUG-PC-003.
+    match /official_teams/{teamId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /app-settings/{settingId} {
       allow get, list: if true;
       // SECURITY_FIX (GEMINI-AUDIT-022): All writes via Admin SDK only.

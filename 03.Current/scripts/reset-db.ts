@@ -3,6 +3,9 @@
 // [Intent] DESTRUCTIVE: Deletes entire database (users, races). For dev/test environments ONLY.
 // [Inbound Trigger] Manual execution by developer for clean slate testing.
 // [Downstream Impact] TOTAL DATA LOSS - all users and races deleted. Now blocked on production.
+// ⚠️  DANGER: This script performs DESTRUCTIVE operations on the production Firebase database.
+// ⚠️  Operations are IRREVERSIBLE. Read scripts/DANGER.md before proceeding.
+// ⚠️  BOW SCRIPTS-001 security audit flag (2026-02-24).
 
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';

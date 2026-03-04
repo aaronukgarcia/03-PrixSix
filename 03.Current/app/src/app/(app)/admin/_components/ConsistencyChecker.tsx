@@ -1,9 +1,12 @@
-// GUID: ADMIN_CONSISTENCY-000-v06
+// GUID: ADMIN_CONSISTENCY-000-v07
 // @SECURITY_FIX: Added 5-minute cooldown rate limit to runChecks (GEMINI-AUDIT-017). Prevents Denial of Wallet via repeated unbounded Firestore collection reads.
 // @SECURITY_FIX: Added .limit(1000) safety cap to all four on-demand Firestore queries in runChecks (GEMINI-AUDIT-017). Prevents a single consistency check from reading thousands of documents and exhausting Firestore quota/billing.
 // [Intent] Admin component for running data integrity checks across all Firestore collections and displaying results. Validates users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues.
 // [Inbound Trigger] Lazy-loaded and rendered when admin navigates to the Consistency Checker tab in the admin panel.
 // [Downstream Impact] Read-only validation component. Can export reports to consistency_reports collection. Does not modify source data. Check functions are defined in @/lib/consistency.
+// @FIX(v07): cappedFetches state tracks which collection fetches hit the 1000-doc safety cap.
+//   A visible amber warning banner is shown in the UI and the cap info is included in exports,
+//   replacing the previous silent console.warn-only approach.
 
 'use client';
 
@@ -200,16 +203,19 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
   const [currentPhase, setCurrentPhase] = useState<CheckPhase>('idle');
   const [summary, setSummary] = useState<ConsistencyCheckSummary | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  // Tracks which collection fetches hit the CC_FETCH_CAP safety limit during the last run.
+  // Surfaced as an amber warning banner so admins know results may be incomplete.
+  const [cappedFetches, setCappedFetches] = useState<string[]>([]);
 
   // Data is now fetched ON-DEMAND when running checks, not on component mount
   // This prevents loading 4+ MB of Firestore data just by viewing the CC tab
 
-  // GUID: ADMIN_CONSISTENCY-009-v05
+  // GUID: ADMIN_CONSISTENCY-009-v06
   // @SECURITY_FIX: Rate-limited to once per 5 minutes per session (GEMINI-AUDIT-017).
   // @SECURITY_FIX: Added .limit(CC_FETCH_CAP) to all four on-demand Firestore queries to prevent unbounded reads exhausting quota/billing (GEMINI-AUDIT-017).
   // [Intent] Execute the full consistency check pipeline: users, drivers, races, predictions, team coverage, race results, scores, standings, and leagues. Fetches Firestore data on-demand per phase with a safety cap to minimise memory usage and prevent Denial of Wallet.
   // [Inbound Trigger] Called when admin clicks "Run Consistency Check" button.
-  // [Downstream Impact] Sets summary state with all check results, which drives the Summary Table, Score Type Breakdown, Issues Detail, and Export button. Fetches from collectionGroup('predictions'), collection('race_results'), collection('scores'), and collection('leagues'). Each fetch is capped at CC_FETCH_CAP documents.
+  // [Downstream Impact] Sets summary state with all check results, which drives the Summary Table, Score Type Breakdown, Issues Detail, and Export button. Fetches from collectionGroup('predictions'), collection('race_results'), collection('scores'), and collection('leagues'). Each fetch is capped at CC_FETCH_CAP documents. Sets cappedFetches state when any collection hits the cap, driving the amber warning banner.
   const CC_FETCH_CAP = 1000; // Safety cap to prevent unbounded reads (GEMINI-AUDIT-017)
   const runChecks = useCallback(async () => {
     if (!allUsers || !firestore) return;
@@ -224,6 +230,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     setIsRunning(true);
     setSummary(null);
     const results: CheckResult[] = [];
+    const capped: string[] = [];
 
     try {
       // Check Users
@@ -256,6 +263,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       const predictionsSnap = await getDocs(query(collectionGroup(firestore, 'predictions'), limit(CC_FETCH_CAP)));
       if (predictionsSnap.size >= CC_FETCH_CAP) {
         console.warn(`[ConsistencyChecker] predictions fetch hit cap of ${CC_FETCH_CAP} — results may be incomplete (GEMINI-AUDIT-017)`);
+        capped.push('predictions');
       }
 
       // Build a map of user's secondary team names for matching
@@ -305,6 +313,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       const raceResultsSnap = await getDocs(query(collection(firestore, 'race_results'), limit(CC_FETCH_CAP)));
       if (raceResultsSnap.size >= CC_FETCH_CAP) {
         console.warn(`[ConsistencyChecker] race_results fetch hit cap of ${CC_FETCH_CAP} — results may be incomplete (GEMINI-AUDIT-017)`);
+        capped.push('race_results');
       }
       const resultData: RaceResultData[] = raceResultsSnap.docs.map(doc => {
         const r = doc.data();
@@ -327,6 +336,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       const scoresSnap = await getDocs(query(collection(firestore, 'scores'), limit(CC_FETCH_CAP)));
       if (scoresSnap.size >= CC_FETCH_CAP) {
         console.warn(`[ConsistencyChecker] scores fetch hit cap of ${CC_FETCH_CAP} — results may be incomplete (GEMINI-AUDIT-017)`);
+        capped.push('scores');
       }
       const scoreData: ScoreData[] = scoresSnap.docs.map(doc => {
         const s = doc.data();
@@ -351,6 +361,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       const leaguesSnap = await getDocs(query(collection(firestore, 'leagues'), limit(CC_FETCH_CAP)));
       if (leaguesSnap.size >= CC_FETCH_CAP) {
         console.warn(`[ConsistencyChecker] leagues fetch hit cap of ${CC_FETCH_CAP} — results may be incomplete (GEMINI-AUDIT-017)`);
+        capped.push('leagues');
       }
       const leagueData: LeagueData[] = leaguesSnap.docs.map(doc => {
         const l = doc.data();
@@ -367,6 +378,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
 
       // Generate summary
       setCurrentPhase('complete');
+      setCappedFetches(capped);
       const checkSummary = generateSummary(results);
       setSummary(checkSummary);
 
@@ -406,11 +418,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
     }
   }, [allUsers, firestore, toast, lastRunTime]);
 
-  // GUID: ADMIN_CONSISTENCY-010-v04
+  // GUID: ADMIN_CONSISTENCY-010-v05
   // [Intent] Export all detected issues to the consistency_reports Firestore collection with a correlation ID for tracking.
   // FIXED: Changed from error_logs to consistency_reports - these are validation reports, not errors.
   // [Inbound Trigger] Called when admin clicks "Export Report" button (only visible when issues exist).
-  // [Downstream Impact] Creates a document in consistency_reports with type 'consistency_check', summary counts, all issues, correlation ID, and timestamp. This is the only write operation in this component.
+  // [Downstream Impact] Creates a document in consistency_reports with type 'consistency_check', summary counts, all issues, correlation ID, fetchCapWarning (if any collections hit the cap), and timestamp. This is the only write operation in this component.
   const exportToErrorLog = useCallback(async () => {
     if (!firestore || !summary || !user) return;
 
@@ -433,6 +445,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
           warnings: summary.warnings,
           errors: summary.errors,
         },
+        ...(cappedFetches.length > 0 && { fetchCapWarning: cappedFetches }),
         issues: allIssues,
         exportedBy: user.id,
       };
@@ -541,6 +554,17 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
           {/* Summary Table */}
           {summary && (
             <div className="space-y-4">
+              {cappedFetches.length > 0 && (
+                <Alert className="bg-amber-50 border-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-amber-800">Fetch cap reached — results may be incomplete</AlertTitle>
+                  <AlertDescription className="text-amber-700">
+                    The {CC_FETCH_CAP}-document safety cap was hit for: <strong>{cappedFetches.join(', ')}</strong>.
+                    Orphan score warnings may include false positives for users whose predictions were not retrieved.
+                    Consider cleaning up test data to stay under the cap.
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="flex items-center gap-4 text-sm">
                 <span className="font-medium">Correlation ID:</span>
                 <code className="px-2 py-1 bg-muted rounded text-xs">{summary.correlationId}</code>

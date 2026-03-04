@@ -8,23 +8,21 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { ERRORS } from '@/lib/error-registry';
 
-// GUID: API_LOG_CLIENT_ERROR-001-v03
+// GUID: API_LOG_CLIENT_ERROR-001-v04
 // [Intent] Initialise Firebase Admin SDK if not already done. Supports both production (Application Default Credentials) and local development (service account file).
 // [Inbound Trigger] Module load — runs once when the route is first imported.
 // [Downstream Impact] Provides the Firestore db instance used by the POST handler. If initialisation fails, all subsequent requests to this route will fail.
+// [SEC-005] Removed hardcoded projectId fallback — project is inferred from credential file (local) or GCP metadata (production).
 let app: App;
 if (!getApps().length) {
   // In production (Firebase App Hosting), use default credentials
-  // Locally, use service account from env
+  // Locally, use service account from env (project ID is embedded in the credential file)
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     app = initializeApp({
       credential: cert(process.env.GOOGLE_APPLICATION_CREDENTIALS),
-      projectId: process.env.GOOGLE_CLOUD_PROJECT || 'studio-6033436327-281b1',
     });
   } else {
-    app = initializeApp({
-      projectId: process.env.GOOGLE_CLOUD_PROJECT || 'studio-6033436327-281b1',
-    });
+    app = initializeApp();
   }
 } else {
   app = getApps()[0];

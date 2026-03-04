@@ -33,7 +33,8 @@ import { generateRaceId, normalizeRaceIdForComparison } from "@/lib/normalize-ra
 import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
+import { collection, collectionGroup, doc, getDoc, getDocs, onSnapshot } from "firebase/firestore";
+import { calculateDriverPoints, SCORING_POINTS } from "@/lib/scoring-rules";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -204,16 +205,16 @@ export default function StandingsPage() {
   // Track previous completed race count for auto-focus on new races
   const prevCompletedCountRef = useRef<number>(0);
 
-  // GUID: PAGE_STANDINGS-011-v06
-  // [Intent] Real-time subscription to the entire scores collection — processes raw score documents,
-  //   normalises raceId values via normalizeRaceIdForComparison() before storage so that legacy IDs
-  //   (e.g., "Australian-Grand-Prix") and new-format IDs (e.g., "Australian-Grand-Prix-GP") both
-  //   resolve to the same key ("australian-grand-prix"). Determines completed race weekends and
-  //   fetches team names for all scoring users. Auto-focuses on latest race when new results arrive.
-  // [Inbound Trigger] Fires on component mount and whenever firestore reference changes; re-fires
-  //   on any score document change in the scores collection.
-  // [Downstream Impact] Populates allScores (with normalised raceId), completedRaceWeekends, userNames,
-  //   and lastUpdated state. All downstream memos (standings, chartData, raceWinners) depend on these.
+  // GUID: PAGE_STANDINGS-011-v08
+  // @ARCH_CHANGE (SSOT-001): Eliminated scores collection. Scores are now computed in real-time
+  //   from race_results + predictions on every snapshot update. No scores collection reads.
+  // [Intent] Real-time subscription to the race_results collection. When race results change
+  //   (new race scored or result deleted), fetches all predictions via collectionGroup and
+  //   re-computes all team scores in memory using the full carry-forward resolution logic.
+  //   Produces allScores with normalised raceId values — downstream memos are unchanged.
+  // [Inbound Trigger] Fires on component mount and whenever race_results collection changes.
+  // [Downstream Impact] Populates allScores (normalised raceId), completedRaceWeekends, userNames,
+  //   and lastUpdated state. All downstream memos (standings, chartData, raceWinners) are unchanged.
   //   IMPORTANT: allScores.raceId values are normalised (lowercase, no -GP suffix). Any code comparing
   //   against them MUST also normalise the comparison key via normalizeRaceIdForComparison().
   useEffect(() => {
@@ -221,138 +222,189 @@ export default function StandingsPage() {
 
     setIsLoading(true);
 
-    // Subscribe to scores collection for real-time updates
+    // Subscribe to race_results collection — fires when admin submits or deletes race results
     const unsubscribe = onSnapshot(
-      collection(firestore, "scores"),
-      async (scoresSnapshot) => {
+      collection(firestore, "race_results"),
+      async (raceResultsSnapshot) => {
         try {
+          // Build race results map: resultDocId → top-6 array
+          const raceResultsMap = new Map<string, string[]>();
+          raceResultsSnapshot.forEach((resultDoc) => {
+            const data = resultDoc.data();
+            if (!data) return;
+            raceResultsMap.set(resultDoc.id, [
+              data.driver1, data.driver2, data.driver3,
+              data.driver4, data.driver5, data.driver6,
+            ]);
+          });
+
+          // No race results yet — empty standings
+          if (raceResultsMap.size === 0) {
+            setAllScores([]);
+            setCompletedRaceWeekends([]);
+            setUserNames(new Map());
+            setLastUpdated(new Date());
+            setIsLoading(false);
+            return;
+          }
+
+          // Fetch all predictions across all users via collectionGroup
+          const allPredictionsSnapshot = await getDocs(collectionGroup(firestore, "predictions"));
+
+          // Build teamPredictionsByRace: teamId → normalizedRaceId → { predictions, timestamp }
+          // Normalise stored raceId via normalizeRaceIdForComparison so both formats match:
+          //   "Australian-Grand-Prix-GP" → "australian-grand-prix"
+          //   "Australian-Grand-Prix"    → "australian-grand-prix"
+          const teamPredictionsByRace = new Map<string, Map<string, { predictions: string[]; timestamp: Date }>>();
+          allPredictionsSnapshot.forEach((predDoc) => {
+            const predData = predDoc.data();
+            if (!Array.isArray(predData.predictions) || predData.predictions.length !== 6) return;
+
+            // Extract userId from path: users/{userId}/predictions/{predId}
+            const pathParts = predDoc.ref.path.split('/');
+            const userId = pathParts[1];
+            const teamId: string = predData.teamId || userId;
+            const timestamp = predData.submittedAt?.toDate?.() || predData.createdAt?.toDate?.() || new Date(0);
+            const predRaceId = predData.raceId ? normalizeRaceIdForComparison(predData.raceId) : null;
+            if (!predRaceId) return;
+
+            if (!teamPredictionsByRace.has(teamId)) {
+              teamPredictionsByRace.set(teamId, new Map());
+            }
+            const teamRaces = teamPredictionsByRace.get(teamId)!;
+            const existing = teamRaces.get(predRaceId);
+            if (!existing || timestamp > existing.timestamp) {
+              teamRaces.set(predRaceId, { predictions: predData.predictions, timestamp });
+            }
+          });
+
+          // Compute scores for each race result × each team (with carry-forward resolution)
           const scores: ScoreData[] = [];
           const raceIdsWithScores = new Set<string>();
 
-          scoresSnapshot.forEach((doc) => {
-            try {
-              const data = doc.data();
-              if (!data) return;
-              const userId = data.oduserId || data.userId;
-              if (!userId) return; // Skip invalid scores
-              // Normalise raceId so legacy format ("Australian-Grand-Prix") and new format
-              // ("Australian-Grand-Prix-GP") both map to the same key ("australian-grand-prix").
-              // normalizeRaceId() strips the -GP suffix; lowercasing handles any casing variation.
-              const rawRaceId = data.raceId || '';
-              const raceId = rawRaceId ? normalizeRaceIdForComparison(rawRaceId) : '';
-              scores.push({
-                userId,
-                raceId,
-                totalPoints: data.totalPoints || 0,
-              });
-              if (raceId) {
-                raceIdsWithScores.add(raceId);
+          raceResultsMap.forEach((actualResults, resultDocId) => {
+            // Normalise the result doc ID: "Australian-Grand-Prix-GP" → "australian-grand-prix"
+            const normalizedResultId = normalizeRaceIdForComparison(resultDocId);
+
+            teamPredictionsByRace.forEach((raceMap, teamId) => {
+              // Carry-forward resolution — same logic as calculate-scores API:
+              // 1. Race-specific prediction for this exact race
+              // 2. For Sprint: fall back to GP prediction (base race ID)
+              // 3. Fall back to latest prediction from any prior race
+              let teamPredictions: string[] | null = null;
+
+              if (raceMap.has(normalizedResultId)) {
+                teamPredictions = raceMap.get(normalizedResultId)!.predictions;
+              } else if (normalizedResultId.endsWith('-sprint')) {
+                const baseRaceId = normalizedResultId.replace(/-sprint$/, '');
+                if (raceMap.has(baseRaceId)) {
+                  teamPredictions = raceMap.get(baseRaceId)!.predictions;
+                }
               }
-            } catch (docErr) {
-              console.error('Error processing score doc:', doc.id, docErr);
-            }
-          });
+              if (!teamPredictions) {
+                let latestTs = new Date(0);
+                raceMap.forEach(({ predictions, timestamp }) => {
+                  if (timestamp > latestTs) {
+                    latestTs = timestamp;
+                    teamPredictions = predictions;
+                  }
+                });
+              }
+              if (!teamPredictions) return;
 
-        setAllScores(scores);
+              // Compute points using prix six hybrid rules
+              let totalPoints = 0;
+              let correctCount = 0;
+              teamPredictions.forEach((driverId, predictedPosition) => {
+                const actualPosition = actualResults.indexOf(driverId);
+                totalPoints += calculateDriverPoints(predictedPosition, actualPosition);
+                if (actualPosition !== -1) correctCount++;
+              });
+              if (correctCount === 6) totalPoints += SCORING_POINTS.bonusAll6;
 
-        // Determine completed race weekends (races that have at least GP scores).
-        // raceIdsWithScores contains normalised IDs (lowercase, no -GP suffix), so we normalise
-        // the lookup keys here too. normalizeRaceIdForComparison("X-GP") => "x" and
-        // normalizeRaceIdForComparison("X") => "x" — both formats map to the same key, so
-        // no legacy-format shim is needed.
-        const completed: RaceWeekend[] = [];
-        RaceSchedule.forEach((race, index) => {
-          const sprintRaceId = race.hasSprint ? generateRaceId(race.name, 'sprint') : null;
-          const gpRaceId = generateRaceId(race.name, 'gp');
-
-          // Normalise lookup keys to match the normalised raceIdsWithScores set
-          const normalisedGpKey = normalizeRaceIdForComparison(gpRaceId);
-          const normalisedSprintKey = sprintRaceId ? normalizeRaceIdForComparison(sprintRaceId) : null;
-
-          const hasGpScores = raceIdsWithScores.has(normalisedGpKey);
-          const hasSprintScores = normalisedSprintKey ? raceIdsWithScores.has(normalisedSprintKey) : false;
-
-          if (hasGpScores) {
-            // gpRaceId and sprintRaceId are kept in Title-Case with suffix for navigation URL params.
-            // All comparison logic uses normalizeRaceIdForComparison() — see standings/chartData memos.
-            completed.push({
-              name: race.name,
-              sprintRaceId: sprintRaceId || null,
-              gpRaceId,
-              hasSprint: race.hasSprint,
-              index,
-              hasSprintScores,
-              hasGpScores,
+              scores.push({ userId: teamId, raceId: normalizedResultId, totalPoints });
+              raceIdsWithScores.add(normalizedResultId);
             });
-          }
-        });
+          });
 
-        setCompletedRaceWeekends(completed);
+          setAllScores(scores);
 
-        // Real-time auto-focus: Jump to latest race when new races added
-        setSelectedRaceIndex(prev => {
-          if (completed.length === 0) return -1;
+          // Determine completed race weekends (races that have at least GP scores)
+          const completed: RaceWeekend[] = [];
+          RaceSchedule.forEach((race, index) => {
+            const sprintRaceId = race.hasSprint ? generateRaceId(race.name, 'sprint') : null;
+            const gpRaceId = generateRaceId(race.name, 'gp');
+            const normalisedGpKey = normalizeRaceIdForComparison(gpRaceId);
+            const normalisedSprintKey = sprintRaceId ? normalizeRaceIdForComparison(sprintRaceId) : null;
+            const hasGpScores = raceIdsWithScores.has(normalisedGpKey);
+            const hasSprintScores = normalisedSprintKey ? raceIdsWithScores.has(normalisedSprintKey) : false;
 
-          const prevCount = prevCompletedCountRef.current;
-
-          // Auto-focus on latest race when:
-          // 1. First load (prev < 0) → jump to latest
-          // 2. New races added (completed.length > prevCount) → jump to latest
-          // 3. Out of bounds (prev >= completed.length) → jump to latest
-          const shouldAutoFocus = (prev < 0) || (completed.length > prevCount) || (prev >= completed.length);
-
-          if (shouldAutoFocus) {
-            prevCompletedCountRef.current = completed.length; // Update ref ONLY when auto-focusing
-            return completed.length - 1; // Jump to latest race (e.g., R24)
-          }
-
-          // User manually selected a race - preserve their selection
-          return prev;
-        });
-
-        // Get unique user IDs and fetch team names
-        // Handle secondary teams: userId ends with "-secondary", use secondaryTeamName field
-        const userIds = new Set<string>();
-        scores.forEach(s => userIds.add(s.userId));
-
-        const names = new Map<string, string>();
-        const batchSize = 10;
-        const userIdArray = Array.from(userIds);
-
-        for (let i = 0; i < userIdArray.length; i += batchSize) {
-          const batch = userIdArray.slice(i, i + batchSize);
-          const promises = batch.map(async (scoreUserId) => {
-            // Check if this is a secondary team
-            const isSecondary = scoreUserId.endsWith('-secondary');
-            const baseUserId = isSecondary ? scoreUserId.replace('-secondary', '') : scoreUserId;
-
-            const userDoc = await getDoc(doc(firestore, "users", baseUserId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              // Use secondaryTeamName for secondary teams, teamName for primary
-              const teamName = isSecondary
-                ? (userData.secondaryTeamName || "Unknown Secondary")
-                : (userData.teamName || "Unknown");
-              names.set(scoreUserId, teamName);
-            } else {
-              names.set(scoreUserId, "Unknown Team");
+            if (hasGpScores) {
+              completed.push({
+                name: race.name,
+                sprintRaceId: sprintRaceId || null,
+                gpRaceId,
+                hasSprint: race.hasSprint,
+                index,
+                hasSprintScores,
+                hasGpScores,
+              });
             }
           });
-          await Promise.all(promises);
-        }
 
-        setUserNames(names);
-        setLastUpdated(new Date());
-        setIsLoading(false);
+          setCompletedRaceWeekends(completed);
+
+          // Auto-focus latest race when new races are added
+          setSelectedRaceIndex(prev => {
+            if (completed.length === 0) return -1;
+            const prevCount = prevCompletedCountRef.current;
+            const shouldAutoFocus = (prev < 0) || (completed.length > prevCount) || (prev >= completed.length);
+            if (shouldAutoFocus) {
+              prevCompletedCountRef.current = completed.length;
+              return completed.length - 1;
+            }
+            return prev;
+          });
+
+          // Fetch team names for all scoring user IDs
+          const userIds = new Set<string>();
+          scores.forEach(s => userIds.add(s.userId));
+
+          const names = new Map<string, string>();
+          const batchSize = 10;
+          const userIdArray = Array.from(userIds);
+
+          for (let i = 0; i < userIdArray.length; i += batchSize) {
+            const batch = userIdArray.slice(i, i + batchSize);
+            const promises = batch.map(async (scoreUserId) => {
+              const isSecondary = scoreUserId.endsWith('-secondary');
+              const baseUserId = isSecondary ? scoreUserId.replace('-secondary', '') : scoreUserId;
+              const userDoc = await getDoc(doc(firestore, "users", baseUserId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const teamName = isSecondary
+                  ? (userData.secondaryTeamName || "Unknown Secondary")
+                  : (userData.teamName || "Unknown");
+                names.set(scoreUserId, teamName);
+              } else {
+                names.set(scoreUserId, "Unknown Team");
+              }
+            });
+            await Promise.all(promises);
+          }
+
+          setUserNames(names);
+          setLastUpdated(new Date());
+          setIsLoading(false);
         } catch (err: any) {
-          console.error('Error in scores snapshot handler:', err);
+          console.error('Error computing standings from race_results:', err);
           const correlationId = generateClientCorrelationId();
           setError(`Error processing standings data: ${err?.message || 'Unknown error'} [${ERRORS.UNKNOWN_ERROR.code}] (Ref: ${correlationId})`);
           setIsLoading(false);
         }
       },
       (error: any) => {
-        console.error("Error fetching standings:", error);
+        console.error("Error fetching race results:", error);
         const correlationId = generateClientCorrelationId();
         let errorMsg: string;
         if (error?.code === 'failed-precondition') {
@@ -367,7 +419,6 @@ export default function StandingsPage() {
       }
     );
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [firestore]);
 

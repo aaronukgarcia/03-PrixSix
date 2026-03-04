@@ -188,10 +188,11 @@ IMPORTANT RULES:
 Begin your analysis:`;
 };
 
-// GUID: API_AI_ANALYSIS-012-v01
+// GUID: API_AI_ANALYSIS-012-v02
 // [Intent] Enforce per-user AI analysis rate limit using a Firestore sliding-window counter. Reads the users/{userId}/aiRateLimit sub-document, resets the window if the 1-hour period has elapsed, and atomically increments the counter. Returns true if the request is allowed, false if the limit (20 requests/hour) has been exceeded.
 // [Inbound Trigger] Called by the POST handler immediately after successful auth verification, before any AI processing.
-// [Downstream Impact] Prevents financial DoS via runaway AI API costs. Writes to users/{userId}/aiRateLimit in Firestore on every allowed request. Uses a Firestore transaction to guarantee atomic read-modify-write. On rate-limit breach, the caller returns HTTP 429 with ERRORS.EMAIL_RATE_LIMITED.
+// [Downstream Impact] Prevents financial DoS via runaway AI API costs. Writes to users/{userId}/aiRateLimit in Firestore on every allowed request. Uses a Firestore transaction to guarantee atomic read-modify-write. On rate-limit breach, the caller returns HTTP 429 with ERRORS.AI_RATE_LIMITED.
+// @FIX (RT4-C3): Now uses ERRORS.AI_RATE_LIMITED (PX-3102) instead of ERRORS.EMAIL_RATE_LIMITED (semantically correct).
 async function checkAiRateLimit(userId: string): Promise<{ allowed: boolean; count: number; resetAt: Date }> {
   const AI_RATE_LIMIT_MAX = 20;
   const AI_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -245,10 +246,10 @@ async function checkAiRateLimit(userId: string): Promise<{ allowed: boolean; cou
   return result;
 }
 
-// GUID: API_AI_ANALYSIS-007-v05
+// GUID: API_AI_ANALYSIS-007-v06
 // [Intent] POST handler that verifies auth, enforces per-user AI rate limit (20 req/hour via Firestore), validates weights, sanitizes user-controlled fields, builds the prediction list and weighted prompt, calls Genkit AI (Gemini), and returns the analysis text. Includes dedicated error handling for AI generation failures separate from general errors.
 // [Inbound Trigger] POST /api/ai/analysis with JSON body matching AnalysisRequest interface.
-// [Downstream Impact] Calls Google AI via Genkit (incurs API costs). Returns analysis text to client. Logs AI-specific and general errors to error_logs with AI_GENERATION_FAILED error code. Console-logs audit info for each successful analysis. Rate limit violations return 429 with EMAIL_RATE_LIMITED error code.
+// [Downstream Impact] Calls Google AI via Genkit (incurs API costs). Returns analysis text to client. Logs AI-specific and general errors to error_logs with AI_GENERATION_FAILED error code. Console-logs audit info for each successful analysis. Rate limit violations return 429 with AI_RATE_LIMITED error code (PX-3102).
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -285,8 +286,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: ERRORS.EMAIL_RATE_LIMITED.message,
-          errorCode: ERRORS.EMAIL_RATE_LIMITED.code,
+          error: ERRORS.AI_RATE_LIMITED.message,
+          errorCode: ERRORS.AI_RATE_LIMITED.code,
           correlationId,
           retryAfter: rateLimitResult.resetAt.toISOString(),
         },

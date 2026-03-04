@@ -21,12 +21,20 @@ function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
-// GUID: API_SEND_VERIFICATION_EMAIL-002-v05
+// GUID: API_SEND_VERIFICATION_EMAIL-002-v06
 // @SECURITY_FIX: Added URL parameter encoding to prevent injection (EMAIL-002).
 //   Previous version did not encode token/uid parameters in verification URL.
-// [Intent] POST handler — validates required fields (uid, email), checks Graph API config, generates a verification token with 2-hour expiry, stores it in Firestore, builds a branded verification email with CTA button, sends via Graph API, and logs an audit event on success.
+// @FIX (BUG-VERIFY-001): No longer overwrites a valid existing token on resend. Overwriting caused
+//   "Invalid verification link" when the user clicked an earlier link after a later resend had
+//   replaced the token doc. Now reuses the valid token; only generates a new token when the
+//   existing one is used or expired.
+// [Intent] POST handler — validates required fields (uid, email), checks Graph API config, reuses
+//   existing valid token or generates a new one with 2-hour expiry, stores it in Firestore if new,
+//   builds a branded verification email with CTA button, sends via Graph API, and logs an audit event.
 // [Inbound Trigger] HTTP POST with JSON body containing uid, email, and optional teamName.
-// [Downstream Impact] Creates/overwrites email_verification_tokens/{uid} document. Sends email. Writes to audit_logs on success. Errors logged to error_logs with correlation ID and ERROR_CODES mapping.
+// [Downstream Impact] Creates/overwrites email_verification_tokens/{uid} document only when no valid
+//   token exists. Sends email. Writes to audit_logs on success. Errors logged to error_logs with
+//   correlation ID and ERROR_CODES mapping.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
@@ -61,18 +69,51 @@ export async function POST(request: NextRequest) {
 
     const { db } = await getFirebaseAdmin();
 
-    // Generate verification token
-    const token = generateVerificationToken();
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+    // GUID: API_SEND_VERIFICATION_EMAIL-003-v01
+    // [Intent] Reuse an existing valid (unused, unexpired) token instead of overwriting it.
+    //          Overwriting on every resend was the root cause of BUG-VERIFY-001: the user clicks
+    //          an old link just as a new resend lands, the token doc gets overwritten, and the
+    //          old link returns "Invalid verification link" even though the user never did anything wrong.
+    // [Inbound Trigger] Every call to this endpoint — both initial send and all resends.
+    // [Downstream Impact] email_verification_tokens/{uid} is only written when there is no existing
+    //          valid token. Multiple resend attempts will now send the same link until it expires or is used.
+    const existingTokenDoc = await db.collection('email_verification_tokens').doc(uid).get();
+    let token: string;
+    let expiresAt: Date;
 
-    // Store token in Firestore
-    await db.collection('email_verification_tokens').doc(uid).set({
-      token,
-      email,
-      createdAt: Timestamp.now(),
-      expiresAt: Timestamp.fromDate(expiresAt),
-      used: false,
-    });
+    if (existingTokenDoc.exists) {
+      const existing = existingTokenDoc.data()!;
+      const isUsed = existing.used === true;
+      const isExpired = existing.expiresAt && existing.expiresAt.toMillis() < Date.now();
+
+      if (!isUsed && !isExpired) {
+        // Reuse the valid token — resend the same link. Do NOT overwrite.
+        token = existing.token;
+        expiresAt = existing.expiresAt.toDate();
+      } else {
+        // Old token is spent or expired — generate a fresh one
+        token = generateVerificationToken();
+        expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        await db.collection('email_verification_tokens').doc(uid).set({
+          token,
+          email,
+          createdAt: Timestamp.now(),
+          expiresAt: Timestamp.fromDate(expiresAt),
+          used: false,
+        });
+      }
+    } else {
+      // No token yet — first send
+      token = generateVerificationToken();
+      expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      await db.collection('email_verification_tokens').doc(uid).set({
+        token,
+        email,
+        createdAt: Timestamp.now(),
+        expiresAt: Timestamp.fromDate(expiresAt),
+        used: false,
+      });
+    }
 
     // Build verification URL - use the primary domain
     const isProduction = process.env.NODE_ENV === 'production' || !!process.env.GOOGLE_CLOUD_PROJECT;

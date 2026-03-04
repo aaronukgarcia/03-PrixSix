@@ -1,7 +1,8 @@
-// GUID: ADMIN_EMAILLOG-000-v05
+// GUID: ADMIN_EMAILLOG-000-v06
 // @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-EMAIL-001): DOMPurify config for email body preview further tightened (v04→v05).
 //   v04: Removed overly-permissive tags; added FORCE_HTTPS: true. See ADMIN_EMAILLOG-016 for full detail.
 //   v05: Removed 'style' from ALLOWED_ATTR (CSS expression/javascript: XSS vector); added FORCE_BODY: true; added FORBID_ATTR event-handler list.
+// @SECURITY_FIX (RT4-E3-2): All catch blocks now use safe generic error messages in toasts instead of error.message to prevent internal details leaking to the admin UI (v06).
 // [Intent] Admin component for managing the email queue (push, resend, delete) and viewing historical email send logs.
 // [Inbound Trigger] Rendered on the admin Email Logs tab.
 // [Downstream Impact] Reads from email_logs and email_queue Firestore collections via API; sends/deletes queued emails via /api/email-queue.
@@ -111,7 +112,7 @@ export function EmailLogManager() {
         }
     }, [user?.isAdmin, fetchQueuedEmails]);
 
-    // GUID: ADMIN_EMAILLOG-006-v03
+    // GUID: ADMIN_EMAILLOG-006-v04
     // [Intent] Sends a single queued email immediately via the /api/email-queue push action.
     // [Inbound Trigger] Called when the admin clicks the send button on a pending queued email row.
     // [Downstream Impact] Triggers email delivery via Microsoft Graph; refreshes the queue list on completion.
@@ -130,8 +131,9 @@ export function EmailLogManager() {
             } else {
                 toast({ variant: 'destructive', title: 'Failed', description: data.error });
             }
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } catch (_error) {
+            // RT4-E3-2: Do not expose error.message — internal network/fetch errors may leak stack/URL details
+            toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
         } finally {
             setProcessingIds(prev => {
                 const next = new Set(prev);
@@ -141,7 +143,7 @@ export function EmailLogManager() {
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-007-v03
+    // GUID: ADMIN_EMAILLOG-007-v04
     // [Intent] Re-queues a single failed email for another round of retry attempts.
     // [Inbound Trigger] Called when the admin clicks the resend button on a failed email row.
     // [Downstream Impact] Resets the email's status to pending in the queue; it will be retried up to 3 times.
@@ -160,8 +162,9 @@ export function EmailLogManager() {
             } else {
                 toast({ variant: 'destructive', title: 'Failed', description: data.error });
             }
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } catch (_error) {
+            // RT4-E3-2: Safe generic message — do not expose error.message
+            toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
         } finally {
             setProcessingIds(prev => {
                 const next = new Set(prev);
@@ -171,7 +174,7 @@ export function EmailLogManager() {
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-008-v03
+    // GUID: ADMIN_EMAILLOG-008-v04
     // [Intent] Deletes a single queued email from the queue, discarding it permanently.
     // [Inbound Trigger] Called when the admin clicks the delete button on a queued email row.
     // [Downstream Impact] Removes the email document from the email_queue collection; email will never be sent.
@@ -190,8 +193,9 @@ export function EmailLogManager() {
             } else {
                 toast({ variant: 'destructive', title: 'Failed', description: data.error });
             }
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } catch (_error) {
+            // RT4-E3-2: Safe generic message
+            toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
         } finally {
             setProcessingIds(prev => {
                 const next = new Set(prev);
@@ -201,7 +205,7 @@ export function EmailLogManager() {
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-009-v03
+    // GUID: ADMIN_EMAILLOG-009-v04
     // [Intent] Pushes all pending queued emails for immediate sending in a single batch operation.
     // [Inbound Trigger] Called when the admin clicks the "Push All" button.
     // [Downstream Impact] Triggers email delivery for all pending emails; may result in multiple Microsoft Graph API calls.
@@ -220,14 +224,15 @@ export function EmailLogManager() {
             } else {
                 toast({ variant: 'destructive', title: 'Failed', description: data.error });
             }
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } catch (_error) {
+            // RT4-E3-2: Safe generic message
+            toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
         } finally {
             setIsProcessingAll(false);
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-010-v03
+    // GUID: ADMIN_EMAILLOG-010-v04
     // [Intent] Re-queues all failed emails for another round of retry attempts in a single batch operation.
     // [Inbound Trigger] Called when the admin clicks the "Resend Failed" button.
     // [Downstream Impact] Resets all failed emails to pending status; each will be retried up to 3 times.
@@ -249,14 +254,15 @@ export function EmailLogManager() {
             } else {
                 toast({ variant: 'destructive', title: 'Failed', description: data.error });
             }
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } catch (_error) {
+            // RT4-E3-2: Safe generic message
+            toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
         } finally {
             setIsResendingAll(false);
         }
     };
 
-    // GUID: ADMIN_EMAILLOG-011-v03
+    // GUID: ADMIN_EMAILLOG-011-v04
     // [Intent] Deletes all emails from the queue, clearing it entirely.
     // [Inbound Trigger] Called when the admin clicks the "Delete All" button.
     // [Downstream Impact] Permanently removes all email_queue documents; no queued emails will be sent.
@@ -275,8 +281,9 @@ export function EmailLogManager() {
             } else {
                 toast({ variant: 'destructive', title: 'Failed', description: data.error });
             }
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } catch (_error) {
+            // RT4-E3-2: Safe generic message
+            toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
         } finally {
             setIsDeletingAll(false);
         }

@@ -75,3 +75,9 @@ email/
 
 # dataconnect generated files
 .dataconnect
+
+# TypeScript incremental build info (local build artifact, not for version control)
+*.tsbuildinfo
+
+# One-off admin scripts (kept local, not committed)
+send-bulk-temp.ts

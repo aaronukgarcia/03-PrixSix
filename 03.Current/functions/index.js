@@ -1395,3 +1395,91 @@ exports.cleanupExpiredAdminTokens = onSchedule(
     }
   }
 );
+
+// ── refreshHotNews ────────────────────────────────────────────
+// GUID: BACKUP_FUNCTIONS-070-v01
+/**
+ * refreshHotNews — Scheduled Cloud Function (2nd-gen, Cloud Run)
+ *
+ * [Intent] Every hour at the top of the hour, POST to the Next.js cron route
+ *          /api/cron/refresh-hot-news which triggers AI generation of the hot
+ *          news bulletin using live weather data (Open-Meteo + OpenF1).
+ *          All AI logic lives in the app — this function is a thin HTTP trigger.
+ *
+ * [Inbound Trigger] Cloud Scheduler cron: "0 * * * *" (top of every hour, UTC).
+ *
+ * [Downstream Impact]
+ *   - Calls /api/cron/refresh-hot-news which writes to app-settings/hot-news.
+ *   - Dashboard HotNewsFeed component reads that document on next page load.
+ *   - Failure is logged but does NOT throw (no retry — prevents billing spikes).
+ *
+ * Env vars required in Cloud Function config:
+ *   CRON_SECRET — shared secret matching CRON_SECRET in App Hosting secrets
+ *   APP_URL     — production URL, defaults to https://prix6.win
+ */
+exports.refreshHotNews = onSchedule(
+  {
+    schedule: "0 * * * *",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    retryCount: 0,
+  },
+  async () => {
+    const correlationId = generateCorrelationId("news");
+    const secret = process.env.CRON_SECRET;
+    const appUrl = process.env.APP_URL || "https://prix6.win";
+
+    if (!secret) {
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "REFRESH_HOT_NEWS_MISSING_SECRET",
+        correlationId,
+        timestamp: new Date().toISOString(),
+      }));
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${appUrl}/api/cron/refresh-hot-news`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${secret}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const body = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        console.error(JSON.stringify({
+          severity: "ERROR",
+          message: "REFRESH_HOT_NEWS_HTTP_ERROR",
+          correlationId,
+          status: resp.status,
+          body,
+          timestamp: new Date().toISOString(),
+        }));
+        return;
+      }
+
+      console.log(JSON.stringify({
+        severity: "INFO",
+        message: "REFRESH_HOT_NEWS_OK",
+        correlationId,
+        refreshCount: body.refreshCount ?? null,
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (err) {
+      // Log but don't rethrow — prevents Cloud Functions retries from hammering the AI endpoint
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "REFRESH_HOT_NEWS_FAILED",
+        correlationId,
+        error: err.message || String(err),
+        timestamp: new Date().toISOString(),
+      }));
+    }
+  }
+);

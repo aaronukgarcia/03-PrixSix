@@ -94,8 +94,12 @@ export async function getFirebaseAdmin(): Promise<{
   return { db: adminDb, FieldValue: adminFieldValue, Timestamp: adminTimestamp };
 }
 
-// GUID: LIB_FIREBASE_ADMIN-003-v04
+// GUID: LIB_FIREBASE_ADMIN-003-v05
 // @SECURITY_FIX: Wave 2 RT carryover — verifyAuthToken catch now logs only sanitized error message/code, not full error object.
+// @FIX (BUG-AUTH-001): Call getFirebaseAdmin() first to ensure the Admin SDK is initialised before
+//   getAuth() is called. On a cold-start Cloud Run instance, adminApp is null; getAuth() would throw
+//   "No Firebase app" which was silently caught and returned as null → HTTP 401. Calling
+//   getFirebaseAdmin() first guarantees the default app exists for all subsequent getAuth() calls.
 // [Intent] Verifies a Firebase ID token from an Authorization header and returns the decoded user identity (uid and email), or null if invalid/missing.
 // [Inbound Trigger] Called by protected API routes to authenticate incoming requests via the Bearer token in the Authorization header.
 // [Downstream Impact] All protected API endpoints depend on this for authentication. Returning null causes the caller to reject the request as unauthorised. Changes to token verification logic affect the entire auth boundary.
@@ -114,6 +118,10 @@ export async function verifyAuthToken(authHeader: string | null): Promise<{
   const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
   try {
+    // Ensure the Firebase Admin app is initialised before calling getAuth().
+    // On a cold-start Cloud Run instance the default app does not yet exist;
+    // getAuth() would throw and verifyIdToken would never be reached.
+    await getFirebaseAdmin();
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
     const decodedToken = await auth.verifyIdToken(token);

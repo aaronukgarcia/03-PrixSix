@@ -10,6 +10,9 @@
  * [Inbound Trigger] Manual execution by admin to clear old feedback/errors.
  * [Downstream Impact] Permanently deletes all feedback items and error logs.
  */
+// ⚠️  DANGER: This script performs DESTRUCTIVE operations on the production Firebase database.
+// ⚠️  Operations are IRREVERSIBLE. Read scripts/DANGER.md before proceeding.
+// ⚠️  BOW SCRIPTS-001 security audit flag (2026-02-24).
 
 import * as admin from 'firebase-admin';
 import { readFileSync } from 'fs';

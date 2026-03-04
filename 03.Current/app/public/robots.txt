@@ -1,6 +1,9 @@
-# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
+# Prix Six — members-only app
+# Default-deny: all routes blocked except the two public pages.
+# Any new route added is automatically protected without a robots.txt update.
+# Note: Disallow is advisory — authentication enforces actual access control.
 
 User-agent: *
-Allow: /
-
-Sitemap: /sitemap.xml
+Allow: /login
+Allow: /about
+Disallow: /

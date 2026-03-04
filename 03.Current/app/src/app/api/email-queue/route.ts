@@ -1,3 +1,15 @@
+// ── CONTRACT ──────────────────────────────────────────────────────
+// Methods:     GET (view queue), POST (push/resend actions), DELETE (clear queue)
+// Auth:        Firebase Auth bearer token + isAdmin check — ALL three methods
+// Reads:       email_queue, users (admin check)
+// Writes:      email_queue (status updates), email_daily_stats (on successful send via push)
+// Errors:      PX-4002 (database read, GET), PX-9001 (unknown, POST/DELETE)
+// Idempotent:  GET=YES; POST resend=YES; POST push=NO (sends emails); DELETE=YES
+// Side-effects: POST push calls sendEmail() → Graph API (external, billable, irreversible)
+// Key gotcha:  push is capped at PUSH_BATCH_LIMIT=50 per invocation; hasMore=true signals more to drain.
+//              Previously had NO AUTH — added as security fix. Do not remove auth checks.
+//              MAX_RETRY_ATTEMPTS=3 then permanently failed; RETRY_DELAY_MINUTES=5 between retries.
+// ──────────────────────────────────────────────────────────────────
 // GUID: API_EMAIL_QUEUE-000-v05
 // @SECURITY_FIX: GEMINI-AUDIT-119 — added .limit() to all unbounded email_queue queries in GET (pending)
 //   and POST push action. Previously the 'push' action fetched ALL pending emails with no upper bound;

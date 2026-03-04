@@ -1,4 +1,4 @@
-// GUID: PUBCHAT_PANEL-000-v11
+// GUID: PUBCHAT_PANEL-000-v12
 // @SECURITY_FIX (GEMINI-AUDIT-019 / XSS-PUBCHAT-001): v10→v11: Tightened DOMPurify config on pub chat HTML renderer. Added FORCE_BODY, FORBID_TAGS, FORBID_ATTR. See PUBCHAT_PANEL-038.
 // @UX_IMPROVEMENT: Smart validation - prevent fetching future/invalid sessions BEFORE user clicks.
 // @UX_REDESIGN: Major 4-area collapsible layout overhaul with live leaderboard and today highlighting:
@@ -29,7 +29,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import ThePaddockPubChat from '@/components/ThePaddockPubChat';
+import ThePaddockPubChat, { type PubChatViewMode } from '@/components/ThePaddockPubChat';
 import { LiveTrackVisualization } from '@/components/LiveTrackVisualization';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/collapsible';
 import { useFirestore, useAuth } from '@/firebase';
 import { getPubChatSettings, PubChatSettings, getPubChatTimingData, PubChatTimingData } from '@/firebase/firestore/settings';
+import { getOfficialTeams, OfficialTeam } from '@/firebase/firestore/official-teams';
 import { Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { generateClientCorrelationId } from '@/lib/error-codes';
@@ -68,7 +69,10 @@ interface MeetingOption {
 interface SessionOption {
     sessionKey: number;
     sessionName: string;
+    sessionType?: string;
     dateStart: string;
+    dateEnd?: string;
+    hasData?: boolean; // FEAT-PC-001 Section 4: true if OpenF1 has lap data for this session
 }
 
 // GUID: PUBCHAT_PANEL-010-v02
@@ -164,6 +168,12 @@ export function PubChatPanel() {
     const [pubClosed, setPubClosed] = useState(false);
     const [nextAvailableTime, setNextAvailableTime] = useState<string | null>(null);
 
+    // FEAT-PC-001 Sections 2 & 3: View mode toggle and team lens / comparison controls
+    const [pubChatViewMode, setPubChatViewMode] = useState<PubChatViewMode>('leaderboard');
+    const [lensTeam, setLensTeam] = useState<string>('Williams');
+    // official_teams: loaded on mount — used to resolve driver numbers for Team Lens
+    const [officialTeams, setOfficialTeams] = useState<OfficialTeam[]>([]);
+
     // GUID: PUBCHAT_PANEL-030-v09
     // @UX_REDESIGN: Collapsible sections state for 3-column layout.
     // [Intent] Track which sections are open/closed for focused viewing.
@@ -219,6 +229,11 @@ export function PubChatPanel() {
         fetchContent();
     }, [fetchContent]);
 
+    // Load official teams once on mount — Team Lens uses driver numbers as join key to OpenF1
+    useEffect(() => {
+        getOfficialTeams(firestore).then(setOfficialTeams);
+    }, [firestore]);
+
     const handleRefresh = () => {
         setRefreshing(true);
         setRefreshKey(k => k + 1);
@@ -251,7 +266,13 @@ export function PubChatPanel() {
                 });
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
-                    setMeetings(json.data);
+                    // Filter out pre-season testing meetings — PubChat is for race weekends only.
+                    // Testing sessions have no useful lap data for the league and confuse the
+                    // auto-select (they are the most-recently-completed meetings before Race 1).
+                    const raceMeetings = json.data.filter(
+                        (m: MeetingOption) => !m.meetingName.toLowerCase().includes('testing')
+                    );
+                    setMeetings(raceMeetings);
                     setPubClosed(false); // Pub is open!
                 } else {
                     // Check if this is a "session active" restriction (pub closed) vs real error
@@ -312,7 +333,8 @@ export function PubChatPanel() {
             setLoadingSessions(true);
             setSelectedSessionKey('');
             try {
-                const res = await fetch(`/api/admin/openf1-sessions?meetingKey=${selectedMeetingKey}`, {
+                // FEAT-PC-001 Section 4: validate=true triggers per-session lap existence checks on the server
+                const res = await fetch(`/api/admin/openf1-sessions?meetingKey=${selectedMeetingKey}&validate=true`, {
                     headers: {
                         'Authorization': `Bearer ${authToken}`,
                     },
@@ -346,6 +368,39 @@ export function PubChatPanel() {
         };
         fetchSessions();
     }, [selectedMeetingKey, authToken, toast]);
+
+    // GUID: PUBCHAT_PANEL-039-v01
+    // [Intent] Auto-select the nearest session when sessions load for the selected meeting.
+    //          Priority: (1) session currently in progress, (2) next upcoming session,
+    //          (3) most recently completed session. Prevents stale pre-season data from
+    //          showing as the default — admin always lands on the most relevant session.
+    // [Inbound Trigger] sessions state changes (populated after a meeting is selected).
+    // [Downstream Impact] Sets selectedSessionKey so the admin can click Fetch immediately
+    //                     without manually hunting for the right session. BUG-PC-002 fix.
+    useEffect(() => {
+        if (sessions.length === 0 || selectedSessionKey) return; // Don't override user selection
+        const now = new Date();
+
+        // Priority 1: session currently in progress
+        const current = sessions.find(s => {
+            const start = new Date(s.dateStart);
+            const end = s.dateEnd ? new Date(s.dateEnd) : null;
+            return start <= now && (!end || end >= now);
+        });
+        if (current) { setSelectedSessionKey(String(current.sessionKey)); return; }
+
+        // Priority 2: nearest upcoming session
+        const upcoming = sessions
+            .filter(s => new Date(s.dateStart) > now)
+            .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime());
+        if (upcoming.length > 0) { setSelectedSessionKey(String(upcoming[0].sessionKey)); return; }
+
+        // Priority 3: most recently completed session
+        const past = sessions
+            .filter(s => new Date(s.dateStart) <= now)
+            .sort((a, b) => new Date(b.dateStart).getTime() - new Date(a.dateStart).getTime());
+        if (past.length > 0) { setSelectedSessionKey(String(past[0].sessionKey)); }
+    }, [sessions]);
 
     // GUID: PUBCHAT_PANEL-013-v02
     // [Intent] Fetch driver list when a session is selected to populate driver filter checkboxes.
@@ -553,18 +608,38 @@ export function PubChatPanel() {
         return today >= startDay && today <= endDay;
     };
 
-    // GUID: PUBCHAT_PANEL-034-v09
-    // @ENHANCEMENT: Auto-select today's meeting as default on load.
-    // [Intent] Find the first meeting that is happening today and select it automatically.
+    // GUID: PUBCHAT_PANEL-034-v10
+    // @ENHANCEMENT: Auto-select best meeting as default on load.
+    // [Intent] Select the most relevant race meeting when meetings load. Priority:
+    //          (1) A meeting happening today (race weekend in progress)
+    //          (2) Nearest upcoming meeting (e.g. Australian GP before it starts)
+    //          (3) Most recently completed meeting (post-race week)
+    //          Pre-season testing meetings are already filtered from the list
+    //          before this runs (see filter in fetchMeetings).
     // [Inbound Trigger] Meetings list populated from OpenF1.
-    // [Downstream Impact] selectedMeetingKey set to today's meeting if one exists.
+    // [Downstream Impact] selectedMeetingKey set so admin lands on the right meeting
+    //                     without manual selection. Sessions auto-select follows via
+    //                     PUBCHAT_PANEL-039-v01.
     useEffect(() => {
         if (meetings.length === 0 || selectedMeetingKey) return; // Don't override user selection
 
+        const now = new Date();
+
+        // Priority 1: a meeting happening today
         const todaysMeeting = meetings.find(m => isMeetingToday(m.dateStart, m.dateEnd));
-        if (todaysMeeting) {
-            setSelectedMeetingKey(String(todaysMeeting.meetingKey));
-        }
+        if (todaysMeeting) { setSelectedMeetingKey(String(todaysMeeting.meetingKey)); return; }
+
+        // Priority 2: nearest upcoming meeting
+        const upcoming = meetings
+            .filter(m => new Date(m.dateStart) > now)
+            .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime());
+        if (upcoming.length > 0) { setSelectedMeetingKey(String(upcoming[0].meetingKey)); return; }
+
+        // Priority 3: most recently completed meeting
+        const past = meetings
+            .filter(m => new Date(m.dateStart) <= now)
+            .sort((a, b) => new Date(b.dateStart).getTime() - new Date(a.dateStart).getTime());
+        if (past.length > 0) { setSelectedMeetingKey(String(past[0].meetingKey)); }
     }, [meetings]);
 
     // GUID: PUBCHAT_PANEL-036-v10
@@ -668,44 +743,54 @@ export function PubChatPanel() {
                                 </CardHeader>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
-                                <CardContent className="max-h-[500px] overflow-y-auto">
-                                    {!timingData ? (
-                                        <div className="text-center py-8 text-sm text-muted-foreground">
-                                            <Trophy className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                                            <p>No timing data yet</p>
-                                            <p className="text-xs mt-1">Select a meeting and session below, then click "Fetch from OpenF1"</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {timingData.drivers.slice(0, 10).map((driver, idx) => (
-                                                <div
-                                                    key={driver.driverNumber}
-                                                    className="flex items-center gap-3 p-2 rounded hover:bg-accent/50 transition-colors"
-                                                >
-                                                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                                                        idx === 0 ? 'bg-yellow-500 text-black' :
-                                                        idx === 1 ? 'bg-gray-400 text-black' :
-                                                        idx === 2 ? 'bg-amber-700 text-white' :
-                                                        'bg-muted text-muted-foreground'
-                                                    }`}>
-                                                        {driver.position}
-                                                    </div>
-                                                    <div
-                                                        className="w-1 h-8 rounded"
-                                                        style={{ backgroundColor: `#${driver.teamColour}` }}
-                                                    />
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-semibold truncate">{driver.driver}</p>
-                                                        <p className="text-xs text-muted-foreground truncate">{driver.team}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-sm font-mono font-bold">{driver.time}</p>
-                                                        <p className="text-xs text-muted-foreground">{driver.laps} laps</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                <CardContent className="space-y-4">
+                                    {/* FEAT-PC-001 — View mode toggle buttons */}
+                                    <div className="flex gap-2 flex-wrap">
+                                        {(['leaderboard', 'team-lens', 'comparison'] as PubChatViewMode[]).map(mode => (
+                                            <Button
+                                                key={mode}
+                                                size="sm"
+                                                variant={pubChatViewMode === mode ? 'default' : 'outline'}
+                                                onClick={() => setPubChatViewMode(mode)}
+                                                className="text-xs capitalize"
+                                            >
+                                                {mode === 'leaderboard' ? '🏁 Leaderboard' : mode === 'team-lens' ? '🔭 Team Lens' : '⚔️ Compare'}
+                                            </Button>
+                                        ))}
+                                        {/* Team selector — visible only in team-lens mode; sourced from official_teams */}
+                                        {pubChatViewMode === 'team-lens' && (
+                                            <Select value={lensTeam} onValueChange={setLensTeam}>
+                                                <SelectTrigger className="h-8 w-40 text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {(officialTeams.length > 0
+                                                        ? [...officialTeams].sort((a, b) => a.teamName.localeCompare(b.teamName))
+                                                        : [{ id: 'williams', teamName: 'Williams' }, { id: 'red_bull', teamName: 'Red Bull' }, { id: 'ferrari', teamName: 'Ferrari' }, { id: 'mercedes', teamName: 'Mercedes' }, { id: 'mclaren', teamName: 'McLaren' }, { id: 'aston_martin', teamName: 'Aston Martin' }, { id: 'alpine', teamName: 'Alpine' }, { id: 'haas', teamName: 'Haas' }, { id: 'racing_bulls', teamName: 'Racing Bulls' }, { id: 'audi', teamName: 'Audi' }, { id: 'cadillac', teamName: 'Cadillac' }]
+                                                    ).map(t => (
+                                                        <SelectItem key={t.id} value={t.teamName} className="text-xs">{t.teamName}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+
+                                    {/* ThePaddockPubChat widget — FEAT-PC-001 all 3 view modes */}
+                                    <div className="flex justify-center">
+                                        {(() => {
+                                            const selectedOfficialTeam = officialTeams.find(t => t.teamName === lensTeam);
+                                            return (
+                                                <ThePaddockPubChat
+                                                    key={refreshKey}
+                                                    timingData={timingData}
+                                                    viewMode={pubChatViewMode}
+                                                    selectedTeam={lensTeam}
+                                                    officialDrivers={selectedOfficialTeam?.drivers}
+                                                    officialTeamColour={selectedOfficialTeam?.teamColour}
+                                                />
+                                            );
+                                        })()}
+                                    </div>
                                 </CardContent>
                             </CollapsibleContent>
                         </Card>
@@ -933,11 +1018,13 @@ export function PubChatPanel() {
                 </CardContent>
             </Card>
 
-            {/* GUID: PUBCHAT_PANEL-020-v01
+            {/* GUID: PUBCHAT_PANEL-020-v02
                 @UX_REDESIGN: Session selector as visual cards.
+                FEAT-PC-001 Section 4: Data-aware — sessions marked with hasData from server-side lap existence check.
+                Sessions with no data shown as disabled/grayed. Green badge on sessions confirmed to have data.
                 [Intent] Session cards for Practice/Qualifying/Race selection.
-                [Inbound Trigger] Meeting selected, sessions fetched.
-                [Downstream Impact] User clicks session card to enable data fetching. */}
+                [Inbound Trigger] Meeting selected, sessions fetched with validate=true.
+                [Downstream Impact] User clicks session card to enable data fetching. Only sessions with data are selectable (past sessions). */}
             {selectedMeetingKey && (
                 <Card>
                     <CardHeader>
@@ -946,7 +1033,9 @@ export function PubChatPanel() {
                             Select Session
                         </CardTitle>
                         <CardDescription>
-                            Choose which session to analyze (Practice, Qualifying, Race)
+                            {loadingSessions
+                                ? 'Checking OpenF1 for available data…'
+                                : 'Only sessions with confirmed OpenF1 data are selectable'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -968,50 +1057,56 @@ export function PubChatPanel() {
                                 {sessions.map(session => {
                                     const isSelected = selectedSessionKey === String(session.sessionKey);
                                     const isFuture = isSessionInFuture(session.dateStart);
-                                    const isTooOld = isSessionTooOld(session.dateStart);
+                                    // FEAT-PC-001 Section 4: hasData from server-side lap existence check.
+                                    // undefined = validate not yet run (older sessions without the field), fall back to non-future check
+                                    const hasData = session.hasData;
+                                    const validated = hasData !== undefined;
+                                    const isDisabled = isFuture || (validated && !hasData);
 
                                     return (
                                         <Card
                                             key={session.sessionKey}
                                             className={`transition-all ${
-                                                isFuture
+                                                isDisabled
                                                     ? 'opacity-40 cursor-not-allowed'
                                                     : 'cursor-pointer hover:shadow-md'
                                             } ${
                                                 isSelected
                                                     ? 'border-primary border-2 shadow-md bg-primary/5'
+                                                    : hasData
+                                                    ? 'border-green-500/40 hover:border-green-500/80'
                                                     : 'hover:border-primary/50'
                                             }`}
                                             onClick={() => {
-                                                if (!isFuture) {
-                                                    setSelectedSessionKey(String(session.sessionKey));
-                                                }
+                                                if (!isDisabled) setSelectedSessionKey(String(session.sessionKey));
                                             }}
                                         >
                                             <CardHeader className="text-center p-4">
-                                                <CardTitle className="text-sm font-semibold">
+                                                <CardTitle className="text-sm font-semibold leading-tight">
                                                     {session.sessionName}
+                                                </CardTitle>
+                                                <div className="flex flex-wrap justify-center gap-1 mt-1">
                                                     {isFuture && (
-                                                        <Badge variant="outline" className="ml-2 text-xs border-muted-foreground/30">
+                                                        <Badge variant="outline" className="text-xs border-muted-foreground/30">
                                                             Future
                                                         </Badge>
                                                     )}
-                                                    {isTooOld && !isFuture && (
-                                                        <Badge variant="outline" className="ml-2 text-xs border-yellow-500/30 text-yellow-600">
-                                                            Old
+                                                    {!isFuture && validated && hasData && (
+                                                        <Badge variant="outline" className="text-xs border-green-500 text-green-600">
+                                                            Data ✓
                                                         </Badge>
                                                     )}
-                                                </CardTitle>
+                                                    {!isFuture && validated && !hasData && (
+                                                        <Badge variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground">
+                                                            No data
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     {new Date(session.dateStart).toLocaleDateString(undefined, {
                                                         month: 'short',
-                                                        day: 'numeric'
+                                                        day: 'numeric',
                                                     })}
-                                                    {isFuture && (
-                                                        <span className="block text-xs text-muted-foreground/60 mt-1">
-                                                            No data yet
-                                                        </span>
-                                                    )}
                                                 </p>
                                             </CardHeader>
                                         </Card>

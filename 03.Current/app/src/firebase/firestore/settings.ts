@@ -4,11 +4,17 @@ import { doc, getDoc, getDocFromServer, setDoc, serverTimestamp, Timestamp, Fire
 // Hot News Settings
 // ============================================
 
+// GUID: FIRESTORE_SETTINGS-000-v04
+// [Intent] HotNews settings interface, defaults, and getHotNewsSettings reader — fetches the app-settings/hot-news doc from Firestore; returns in-memory defaults if missing (client SDK never writes defaults per GEMINI-AUDIT-022).
+// [Inbound Trigger] Called by the Hot News feed component and the admin Hot News panel on mount.
+// [Downstream Impact] Controls whether the Hot News feed is enabled, locked, and what content is displayed.
 export interface HotNewsSettings {
     isLocked: boolean;
     hotNewsFeedEnabled: boolean;
     content: string;
     lastUpdated: Timestamp;
+    refreshCount: number;
+    messageId?: number; // Auto-incremented message identifier appended to AI-generated content as #0018 etc.
 }
 
 const defaultSettings: HotNewsSettings = {
@@ -16,6 +22,7 @@ const defaultSettings: HotNewsSettings = {
     hotNewsFeedEnabled: true,
     content: "Welcome to the Hot News Feed! The AI is warming up its engines...",
     lastUpdated: new Timestamp(0, 0),
+    refreshCount: 0,
 };
 
 /**
@@ -51,6 +58,10 @@ export async function getHotNewsSettings(db: Firestore): Promise<HotNewsSettings
 // WhatsApp Alert Settings
 // ============================================
 
+// GUID: FIRESTORE_SETTINGS-001-v01
+// [Intent] TypeScript interfaces defining the WhatsApp alert configuration schema: per-alert-type toggle flags, master settings, and alert history entry shape — mirrors the admin_configuration/whatsapp_alerts Firestore document structure.
+// [Inbound Trigger] Imported by WhatsApp alert admin panel, WhatsApp worker, and all alert send/read operations.
+// [Downstream Impact] Changing these interfaces requires updating Firestore documents and the WhatsApp worker's expectations.
 export interface WhatsAppAlertToggles {
     // Race Weekend
     qualifyingReminder: boolean;
@@ -117,6 +128,10 @@ const defaultWhatsAppAlertSettings: WhatsAppAlertSettings = {
  * @param {Firestore} db - The Firestore instance.
  * @returns {Promise<WhatsAppAlertSettings>} The current WhatsApp alert settings.
  */
+// GUID: FIRESTORE_SETTINGS-002-v01
+// [Intent] Reads WhatsApp alert settings from admin_configuration/whatsapp_alerts; creates the document with defaults if absent (unlike hot-news, this collection is writable by the client admin).
+// [Inbound Trigger] Called by the WhatsApp admin panel on mount to hydrate the settings form.
+// [Downstream Impact] Settings doc controls which alert types are enabled and whether master send is active.
 export async function getWhatsAppAlertSettings(db: Firestore): Promise<WhatsAppAlertSettings> {
     const settingsRef = doc(db, "admin_configuration", "whatsapp_alerts");
     try {
@@ -144,6 +159,10 @@ export async function getWhatsAppAlertSettings(db: Firestore): Promise<WhatsAppA
  * @param {Firestore} db - The Firestore instance.
  * @param {Partial<WhatsAppAlertSettings>} data - The data to update.
  */
+// GUID: FIRESTORE_SETTINGS-003-v01
+// [Intent] Merges partial WhatsApp alert settings into admin_configuration/whatsapp_alerts — used by the admin panel to toggle individual alert types or flip the master enable switch.
+// [Inbound Trigger] Called by WhatsApp admin panel save handlers.
+// [Downstream Impact] Changes persist to Firestore and are read by the WhatsApp worker before each send.
 export async function updateWhatsAppAlertSettings(
     db: Firestore,
     data: Partial<Omit<WhatsAppAlertSettings, 'lastUpdated'> & { lastUpdated?: FieldValue }>
@@ -158,6 +177,10 @@ export async function updateWhatsAppAlertSettings(
  * @param {number} maxEntries - Maximum number of entries to fetch.
  * @returns {Query} The Firestore query.
  */
+// GUID: FIRESTORE_SETTINGS-004-v01
+// [Intent] Builds a Firestore Query for the whatsapp_alert_history collection, ordered by createdAt descending — returns a Query object for real-time listener attachment.
+// [Inbound Trigger] Called by the WhatsApp admin history panel to set up an onSnapshot listener.
+// [Downstream Impact] Used by the history table in the admin panel; not a fetch — the caller attaches a listener to the returned query.
 export function getWhatsAppAlertHistoryQuery(db: Firestore, maxEntries: number = 50): Query {
     const historyRef = collection(db, "whatsapp_alert_history");
     return query(historyRef, orderBy("createdAt", "desc"), limit(maxEntries));
@@ -168,6 +191,10 @@ export function getWhatsAppAlertHistoryQuery(db: Firestore, maxEntries: number =
  * @param {Firestore} db - The Firestore instance.
  * @param {Omit<WhatsAppAlertHistoryEntry, 'id'>} entry - The history entry to add.
  */
+// GUID: FIRESTORE_SETTINGS-005-v01
+// [Intent] Appends a new entry to the whatsapp_alert_history collection, recording the alert type, message, target group, status, and timestamps for audit trail purposes.
+// [Inbound Trigger] Called by WhatsApp send handlers (admin manual send + worker automated send) after each alert dispatch attempt.
+// [Downstream Impact] Populates the alert history table in the admin panel; used for send/fail audit trail.
 export async function addWhatsAppAlertHistoryEntry(
     db: Firestore,
     entry: Omit<WhatsAppAlertHistoryEntry, 'id' | 'createdAt'> & { createdAt?: FieldValue }
@@ -183,6 +210,10 @@ export async function addWhatsAppAlertHistoryEntry(
 // Pub Chat Settings
 // ============================================
 
+// GUID: FIRESTORE_SETTINGS-006-v01
+// [Intent] PubChat settings interface, defaults, reader (getPubChatSettings), and writer (updatePubChatContent) — manages the app-settings/pub-chat document that holds the admin-editable Pub Chat announcement text.
+// [Inbound Trigger] getPubChatSettings called by ThePaddockPubChat on mount; updatePubChatContent called by PubChatPanel admin save.
+// [Downstream Impact] Controls what custom message text appears in the Paddock Pub Chat widget for all players.
 export interface PubChatSettings {
     content: string;
     lastUpdated: Timestamp;
@@ -238,6 +269,10 @@ export async function updatePubChatContent(
 // Pub Chat Timing Data (OpenF1)
 // ============================================
 
+// GUID: FIRESTORE_SETTINGS-007-v01
+// [Intent] TypeScript interfaces for OpenF1-sourced session timing data (PubChatTimingDriver, PubChatTimingData) — defines the shape of the app-settings/pub-chat-timing Firestore document.
+// [Inbound Trigger] Imported by ThePaddockPubChat (display) and the admin fetch-timing API route (write).
+// [Downstream Impact] Drives the leaderboard and team-lens views in the PubChat widget; tyreCompound field (FEAT-PC-001) added from OpenF1 stints data.
 export interface PubChatTimingDriver {
     position: number;
     driver: string;            // Last name: "Verstappen"
@@ -248,6 +283,7 @@ export interface PubChatTimingDriver {
     laps: number;
     bestLapDuration: number;   // Seconds (float)
     time: string;              // Formatted: "1:29.117"
+    tyreCompound?: string;     // FEAT-PC-001 Section 1: "SOFT" | "MEDIUM" | "HARD" | "INTERMEDIATE" | "WET" (from OpenF1 stints)
 }
 
 export interface PubChatTimingData {
@@ -275,6 +311,10 @@ const defaultPubChatTimingData: PubChatTimingData | null = null;
  * @param {boolean} forceServer - If true, bypasses cache and fetches from server.
  * @returns {Promise<PubChatTimingData | null>} The current timing data, or null.
  */
+// GUID: FIRESTORE_SETTINGS-008-v01
+// [Intent] Reads session timing data from app-settings/pub-chat-timing; returns null if absent; supports forceServer flag to bypass cache for freshness after an admin fetch.
+// [Inbound Trigger] Called by ThePaddockPubChat on mount and after admin triggers a fresh OpenF1 data fetch.
+// [Downstream Impact] Drives leaderboard/team-lens driver data in the PubChat widget; null return hides the timing section.
 export async function getPubChatTimingData(db: Firestore, forceServer = false): Promise<PubChatTimingData | null> {
     const settingsRef = doc(db, "app-settings", "pub-chat-timing");
     try {

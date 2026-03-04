@@ -31,11 +31,14 @@
 !03.Current/prix_six_engine.py
 !03.Current/GARTH-ONBOARDING.md
 !03.Current/GARTH-QUICK-START.md
-!03.Current/GARTH-CREDENTIALS-TEMPLATE.md
 !03.Current/AARON-TODO-FOR-GARTH.md
 !03.Current/FIRESTORE-SECURITY-AUDIT-2026-02-20.md
 !.gitignore
 !README.md
+
+# Security: untracked sensitive files (SEC-003, SEC-004)
+03.Current/GARTH-CREDENTIALS-TEMPLATE.md
+03.Current/app/scripts/.puppeteer-test-profile/
 
 # But always ignore these even if in 03.Current/app
 03.Current/app/.env
