@@ -59,7 +59,7 @@ interface TeamManagerProps {
 // [Downstream Impact] All user mutations (edit, delete, admin toggle, unlock) flow through useAuth() hooks which update Firestore user documents.
 export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
     const { toast } = useToast();
-    const { updateUser, deleteUser, user } = useAuth();
+    const { updateUser, deleteUser, firebaseUser } = useAuth();
     const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
 
     // GUID: ADMIN_TEAM-003-v03
@@ -188,10 +188,10 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
     // [Inbound Trigger] Clicking the Mail icon button on a user row in the Teams table.
     // [Downstream Impact] User's PIN is changed immediately; they must use the new PIN on next login.
     const handleResendWelcome = async (targetUser: User) => {
-        if (!user) return;
+        if (!firebaseUser) return;
         setResendingIds(prev => new Set(prev).add(targetUser.id));
         try {
-            const token = await user.getIdToken();
+            const token = await firebaseUser.getIdToken();
             const response = await fetch('/api/admin/resend-welcome-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },

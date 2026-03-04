@@ -76,7 +76,7 @@ interface QueuedEmail {
 // [Downstream Impact] Calls /api/email-queue for queue operations; reads email_logs collection for history. Queue actions trigger actual email sends via Microsoft Graph.
 export function EmailLogManager() {
     const firestore = useFirestore();
-    const { user } = useAuth();
+    const { user, firebaseUser } = useAuth();
     const { toast } = useToast();
     const [queuedEmails, setQueuedEmails] = useState<QueuedEmail[]>([]);
     const [isLoadingQueue, setIsLoadingQueue] = useState(false);
@@ -91,10 +91,10 @@ export function EmailLogManager() {
     // [Downstream Impact] Populates the queuedEmails state that drives the queue management table.
     // @FIX (v04): Added Authorization: Bearer token — API requires Firebase auth on GET.
     const fetchQueuedEmails = useCallback(async () => {
-        if (!user) return;
+        if (!firebaseUser) return;
         setIsLoadingQueue(true);
         try {
-            const token = await user.getIdToken();
+            const token = await firebaseUser.getIdToken();
             const response = await fetch('/api/email-queue?includeAll=true', {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
@@ -107,7 +107,7 @@ export function EmailLogManager() {
         } finally {
             setIsLoadingQueue(false);
         }
-    }, [user]);
+    }, [firebaseUser]);
 
     // GUID: ADMIN_EMAILLOG-005-v03
     // [Intent] Triggers the initial fetch of queued emails when the admin user is confirmed.
@@ -125,10 +125,10 @@ export function EmailLogManager() {
     // [Downstream Impact] Triggers email delivery via Microsoft Graph; refreshes the queue list on completion.
     // @FIX (v05): Added Authorization: Bearer token.
     const handlePushEmail = async (emailId: string) => {
-        if (!user) return;
+        if (!firebaseUser) return;
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
-            const token = await user.getIdToken();
+            const token = await firebaseUser.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -159,10 +159,10 @@ export function EmailLogManager() {
     // [Downstream Impact] Resets the email's status to pending in the queue; it will be retried up to 3 times.
     // @FIX (v05): Added Authorization: Bearer token.
     const handleResendEmail = async (emailId: string) => {
-        if (!user) return;
+        if (!firebaseUser) return;
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
-            const token = await user.getIdToken();
+            const token = await firebaseUser.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -193,10 +193,10 @@ export function EmailLogManager() {
     // [Downstream Impact] Removes the email document from the email_queue collection; email will never be sent.
     // @FIX (v05): Added Authorization: Bearer token.
     const handleDeleteEmail = async (emailId: string) => {
-        if (!user) return;
+        if (!firebaseUser) return;
         setProcessingIds(prev => new Set(prev).add(emailId));
         try {
-            const token = await user.getIdToken();
+            const token = await firebaseUser.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -227,10 +227,10 @@ export function EmailLogManager() {
     // [Downstream Impact] Triggers email delivery for all pending emails; may result in multiple Microsoft Graph API calls.
     // @FIX (v05): Added Authorization: Bearer token.
     const handlePushAll = async () => {
-        if (!user) return;
+        if (!firebaseUser) return;
         setIsProcessingAll(true);
         try {
-            const token = await user.getIdToken();
+            const token = await firebaseUser.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -257,13 +257,13 @@ export function EmailLogManager() {
     // [Downstream Impact] Resets all failed emails to pending status; each will be retried up to 3 times.
     // @FIX (v05): Added Authorization: Bearer token.
     const handleResendAllFailed = async () => {
-        if (!user) return;
+        if (!firebaseUser) return;
         const failedIds = queuedEmails.filter(e => e.status === 'failed').map(e => e.id);
         if (failedIds.length === 0) return;
 
         setIsResendingAll(true);
         try {
-            const token = await user.getIdToken();
+            const token = await firebaseUser.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -290,10 +290,10 @@ export function EmailLogManager() {
     // [Downstream Impact] Permanently removes all email_queue documents; no queued emails will be sent.
     // @FIX (v05): Added Authorization: Bearer token.
     const handleDeleteAll = async () => {
-        if (!user) return;
+        if (!firebaseUser) return;
         setIsDeletingAll(true);
         try {
-            const token = await user.getIdToken();
+            const token = await firebaseUser.getIdToken();
             const response = await fetch('/api/email-queue', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
