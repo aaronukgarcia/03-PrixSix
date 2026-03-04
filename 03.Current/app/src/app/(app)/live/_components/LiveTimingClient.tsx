@@ -1,22 +1,23 @@
 "use client";
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v04
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v05
 // [Intent] Client component for the /live (PubChat) page. Shows the ThePaddockPubChat
-//          widget with Leaderboard, Team Lens, and Comparison tabs, plus auto-refresh every
-//          2 minutes. On mount and on each tick, POSTs to /api/live/refresh-timing (rate-gated
-//          on server); if the server updated the data, re-reads Firestore and re-renders.
-//          Loads official_teams collection for the Team Lens tab; defaults to Williams.
+//          widget with Leaderboard, Team Lens, Comparison, and Chatter tabs, plus
+//          auto-refresh every 2 minutes.
+//          Chatter tab: calls /api/ai/pit-chatter to generate paddock commentary
+//          from the current live timing snapshot. Rate-limited to 5/hour per user.
 // [Inbound Trigger] Mounted by LivePage server component (page.tsx) with optional
 //                   initialTimingData prop to avoid first-paint loading flash.
 // [Downstream Impact] Reads and displays app-settings/pub-chat-timing. Calls
 //                     /api/live/refresh-timing to trigger OpenF1 fetch when stale.
-// @FIX(v04) Added Team Lens tab with Williams default + team selector.
+// @FIX(v05) Added Chatter tab with AI-generated pit-side commentary.
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, RefreshCw, Radio, CalendarClock } from "lucide-react";
+import { Loader2, RefreshCw, Radio, CalendarClock, Mic2, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ThePaddockPubChat from "@/components/ThePaddockPubChat";
@@ -31,7 +32,13 @@ import { findNextRace } from "@/lib/data";
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 const DEFAULT_TEAM = 'Williams';
 
-type ViewTab = 'leaderboard' | 'team-lens' | 'comparison';
+type ViewTab = 'leaderboard' | 'team-lens' | 'comparison' | 'chatter';
+
+interface ChatterState {
+  text: string;
+  persona: string;
+  personaTitle: string;
+}
 
 interface LiveTimingClientProps {
   initialTimingData: PubChatTimingData | null;
@@ -70,6 +77,9 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
   const [activeTab, setActiveTab] = useState<ViewTab>('leaderboard');
   const [officialTeams, setOfficialTeams] = useState<OfficialTeam[]>([]);
   const [selectedTeamName, setSelectedTeamName] = useState<string>(DEFAULT_TEAM);
+  const [chatter, setChatter] = useState<ChatterState | null>(null);
+  const [isGeneratingChatter, setIsGeneratingChatter] = useState(false);
+  const [chatterError, setChatterError] = useState<string | null>(null);
 
   // Ref so the interval callback always has access to the latest firebaseUser
   const firebaseUserRef = useRef(firebaseUser);
@@ -124,6 +134,54 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
       setIsRefreshing(false);
     }
   }, [db]);
+
+  // GUID: COMPONENT_LIVE_TIMING_CLIENT-004-v01
+  // [Intent] POST current timing snapshot to /api/ai/pit-chatter and store the
+  //          returned commentary in state. Rate-limited server-side (5/hour).
+  // [Inbound Trigger] User clicks "Generate Chatter" or "New Take" button.
+  // [Downstream Impact] Calls Vertex AI (Gemini). Chatter lives in component state only.
+  const generateChatter = useCallback(async () => {
+    const currentUser = firebaseUserRef.current;
+    if (!currentUser || !timingData) return;
+
+    setIsGeneratingChatter(true);
+    setChatterError(null);
+    try {
+      const token = await currentUser.getIdToken();
+      const payload = {
+        session: {
+          name: timingData.session.sessionName,
+          meeting: timingData.session.meetingName,
+          location: timingData.session.location,
+        },
+        drivers: timingData.drivers.slice(0, 10).map(d => ({
+          position: d.position,
+          name: d.driver,
+          team: d.team,
+          time: d.time,
+          tyre: d.tyreCompound ?? null,
+          laps: d.laps,
+        })),
+      };
+      const res = await fetch('/api/ai/pit-chatter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setChatter({ text: json.chatter, persona: json.persona, personaTitle: json.personaTitle });
+      } else if (res.status === 429) {
+        setChatterError('Rate limit reached — try again in an hour.');
+      } else {
+        setChatterError('Could not generate chatter. Try again.');
+      }
+    } catch {
+      setChatterError('Connection error — try again.');
+    } finally {
+      setIsGeneratingChatter(false);
+    }
+  }, [timingData]);
 
   // Trigger on mount
   useEffect(() => {
@@ -237,6 +295,13 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
               >
                 Comparison
               </TabsTrigger>
+              <TabsTrigger
+                value="chatter"
+                className="h-8 px-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs flex items-center gap-1"
+              >
+                <Mic2 className="h-3 w-3" />
+                Chatter
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -280,6 +345,74 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
               timingData={timingData}
               viewMode="comparison"
             />
+          </TabsContent>
+
+          <TabsContent value="chatter" className="mt-0">
+            <div className="px-4 py-5 space-y-4">
+              {/* Empty state / Generate button */}
+              {!chatter && !isGeneratingChatter && (
+                <div className="flex flex-col items-center gap-3 py-6 text-center">
+                  <Mic2 className="h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">
+                    Get a live take from the paddock
+                  </p>
+                  <p className="text-xs text-muted-foreground/60">
+                    AI commentary based on the current session data · 5 generates/hour
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={generateChatter}
+                    disabled={!timingData}
+                    className="mt-1"
+                  >
+                    Generate Chatter
+                  </Button>
+                </div>
+              )}
+
+              {/* Loading */}
+              {isGeneratingChatter && (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">Listening in from the pitwall…</p>
+                </div>
+              )}
+
+              {/* Error */}
+              {chatterError && !isGeneratingChatter && (
+                <div className="text-center py-4 space-y-2">
+                  <p className="text-xs text-destructive">{chatterError}</p>
+                  <Button size="sm" variant="outline" onClick={generateChatter}>
+                    Try again
+                  </Button>
+                </div>
+              )}
+
+              {/* Chatter result */}
+              {chatter && !isGeneratingChatter && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold">{chatter.persona}</p>
+                      <p className="text-[10px] text-muted-foreground">{chatter.personaTitle}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1.5 text-xs text-muted-foreground"
+                      onClick={generateChatter}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      New take
+                    </Button>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{chatter.text}</p>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/50 text-right">AI generated · not real quotes</p>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>
