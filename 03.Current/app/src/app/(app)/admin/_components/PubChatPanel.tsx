@@ -266,15 +266,7 @@ export function PubChatPanel() {
                 });
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
-                    // Filter out pre-season test meetings — PubChat is for race weekends only.
-                    // OpenF1 uses "Pre-Season Test" (not "Testing") so filter on 'test' not 'testing'.
-                    // Also filter on 'pre-season' as a belt-and-braces catch.
-                    const raceMeetings = json.data.filter(
-                        (m: MeetingOption) => {
-                            const name = m.meetingName.toLowerCase();
-                            return !name.includes('test') && !name.includes('pre-season');
-                        }
-                    );
+                    const raceMeetings = json.data;
                     setMeetings(raceMeetings);
                     setPubClosed(false); // Pub is open!
                 } else {

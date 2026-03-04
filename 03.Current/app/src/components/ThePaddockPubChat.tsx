@@ -9,25 +9,7 @@ import { motion } from "framer-motion";
 import { Timer, MapPin } from "lucide-react";
 import type { PubChatTimingData } from "@/firebase/firestore/settings";
 
-// ─── FALLBACK DATA ──────────────────────────────────────────────────────────
-const FALLBACK_DRIVER_DATA = [
-  { position: 1, driver: "Hadjar",    team: "Red Bull",     teamColour: "3671C6", laps: 108, time: "1:18.159", bestLapDuration: 78.159, fullName: "Isack HADJAR",         driverNumber: 6,  tyreCompound: "MEDIUM" },
-  { position: 2, driver: "Russell",   team: "Mercedes",     teamColour: "27F4D2", laps:  95, time: "1:18.696", bestLapDuration: 78.696, fullName: "George RUSSELL",       driverNumber: 63, tyreCompound: "SOFT"   },
-  { position: 3, driver: "Colapinto", team: "Alpine",       teamColour: "FF87BC", laps:  60, time: "1:20.189", bestLapDuration: 80.189, fullName: "Franco COLAPINTO",     driverNumber: 43, tyreCompound: "SOFT"   },
-  { position: 4, driver: "Antonelli", team: "Mercedes",     teamColour: "27F4D2", laps:  59, time: "1:20.700", bestLapDuration: 80.700, fullName: "Andrea Kimi ANTONELLI", driverNumber: 12, tyreCompound: "MEDIUM" },
-  { position: 5, driver: "Ocon",      team: "Haas",         teamColour: "B6BABD", laps: 154, time: "1:21.301", bestLapDuration: 81.301, fullName: "Esteban OCON",         driverNumber: 31, tyreCompound: "HARD"   },
-  { position: 6, driver: "Lawson",    team: "Racing Bulls", teamColour: "6692FF", laps:  88, time: "1:21.513", bestLapDuration: 81.513, fullName: "Liam LAWSON",          driverNumber: 30, tyreCompound: "MEDIUM" },
-  { position: 7, driver: "Bottas",    team: "Cadillac",     teamColour: "1E5D3A", laps:  34, time: "1:24.651", bestLapDuration: 84.651, fullName: "Valtteri BOTTAS",      driverNumber: 77, tyreCompound: "HARD"   },
-  { position: 8, driver: "Bortoleto", team: "Audi",         teamColour: "52E252", laps:  28, time: "1:25.296", bestLapDuration: 85.296, fullName: "Gabriel BORTOLETO",    driverNumber: 5,  tyreCompound: "SOFT"   },
-  { position: 9, driver: "Perez",     team: "Cadillac",     teamColour: "1E5D3A", laps:  11, time: "1:25.974", bestLapDuration: 85.974, fullName: "Sergio PEREZ",         driverNumber: 11, tyreCompound: "MEDIUM" },
-];
-
-const FALLBACK_SESSION = {
-  meetingName: "Pre-season Testing",
-  sessionName: "Day 1",
-  circuitName: "Barcelona",
-  location: "Barcelona",
-};
+// No fallback data — when timingData is null the component renders an empty state.
 
 /** Parse "M:SS.mmm" → milliseconds */
 function parseTimeToMs(t: string): number {
@@ -82,8 +64,17 @@ const ThePaddockPubChat = ({ timingData, viewMode = 'leaderboard', selectedTeam,
   // Section 3: internal multi-select state for driver comparison
   const [compareSelected, setCompareSelected] = useState<Set<number>>(new Set());
 
-  const drivers = timingData?.drivers?.length ? timingData.drivers : FALLBACK_DRIVER_DATA;
-  const session = timingData?.session || FALLBACK_SESSION;
+  if (!timingData?.drivers?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50 text-sm gap-2">
+        <Timer className="h-6 w-6" />
+        <span>No session data — fetch a session from the admin panel</span>
+      </div>
+    );
+  }
+
+  const drivers = timingData.drivers;
+  const session = timingData.session;
 
   const leaderMs = parseTimeToMs(drivers[0].time);
 
