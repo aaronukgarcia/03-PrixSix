@@ -1,15 +1,16 @@
 "use client";
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v03
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v04
 // [Intent] Client component for the /live (PubChat) page. Shows the ThePaddockPubChat
-//          widget with Leaderboard and Comparison tabs, plus auto-refresh every 2 minutes.
-//          On mount and on each tick, POSTs to /api/live/refresh-timing (rate-gated on server);
-//          if the server updated the data, re-reads Firestore and re-renders.
+//          widget with Leaderboard, Team Lens, and Comparison tabs, plus auto-refresh every
+//          2 minutes. On mount and on each tick, POSTs to /api/live/refresh-timing (rate-gated
+//          on server); if the server updated the data, re-reads Firestore and re-renders.
+//          Loads official_teams collection for the Team Lens tab; defaults to Williams.
 // [Inbound Trigger] Mounted by LivePage server component (page.tsx) with optional
 //                   initialTimingData prop to avoid first-paint loading flash.
 // [Downstream Impact] Reads and displays app-settings/pub-chat-timing. Calls
 //                     /api/live/refresh-timing to trigger OpenF1 fetch when stale.
-// @FIX(v03) Added Leaderboard/Comparison tab selector; renamed page title to PubChat.
+// @FIX(v04) Added Team Lens tab with Williams default + team selector.
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -17,16 +18,20 @@ import { Loader2, RefreshCw, Radio, CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ThePaddockPubChat from "@/components/ThePaddockPubChat";
 import { useAuth, useFirestore } from "@/firebase";
 import { getPubChatTimingData } from "@/firebase/firestore/settings";
 import type { PubChatTimingData } from "@/firebase/firestore/settings";
+import { getOfficialTeams } from "@/firebase/firestore/official-teams";
+import type { OfficialTeam } from "@/firebase/firestore/official-teams";
 import { findNextRace } from "@/lib/data";
 
 // Auto-refresh interval: re-check every 2 minutes
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
+const DEFAULT_TEAM = 'Williams';
 
-type ViewTab = 'leaderboard' | 'comparison';
+type ViewTab = 'leaderboard' | 'team-lens' | 'comparison';
 
 interface LiveTimingClientProps {
   initialTimingData: PubChatTimingData | null;
@@ -47,9 +52,10 @@ function getNextTracksideLabel(): { location: string; dayLabel: string } | null 
   return { location: next.location, dayLabel };
 }
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-001-v03
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-001-v04
 // [Intent] Main client component. Manages timing data state, tab selection,
-//          auto-refresh interval, and renders the PubChat widget.
+//          team lens selection (defaults to Williams), auto-refresh interval,
+//          and renders the PubChat widget with all three view modes.
 // [Inbound Trigger] Mounted by server page component on /live route.
 // [Downstream Impact] Triggers /api/live/refresh-timing on mount and every
 //                     2 minutes. Re-reads Firestore when server signals new data.
@@ -62,10 +68,18 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ViewTab>('leaderboard');
+  const [officialTeams, setOfficialTeams] = useState<OfficialTeam[]>([]);
+  const [selectedTeamName, setSelectedTeamName] = useState<string>(DEFAULT_TEAM);
 
   // Ref so the interval callback always has access to the latest firebaseUser
   const firebaseUserRef = useRef(firebaseUser);
   useEffect(() => { firebaseUserRef.current = firebaseUser; }, [firebaseUser]);
+
+  // Load official teams once on mount for Team Lens
+  useEffect(() => {
+    if (!db) return;
+    getOfficialTeams(db).then(setOfficialTeams);
+  }, [db]);
 
   // GUID: COMPONENT_LIVE_TIMING_CLIENT-002-v01
   // [Intent] POST to /api/live/refresh-timing to trigger an OpenF1 refresh.
@@ -131,6 +145,14 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
         .filter(Boolean)
         .join(' · ')
     : null;
+
+  // Resolve Team Lens props from selected team name
+  const selectedTeam = officialTeams.find(t => t.teamName === selectedTeamName);
+  const officialDrivers = selectedTeam?.drivers ?? [];
+  const officialTeamColour = selectedTeam?.teamColour;
+
+  // Sorted team names for the selector
+  const teamNames = officialTeams.map(t => t.teamName).sort();
 
   return (
     <Card className="overflow-hidden">
@@ -204,6 +226,12 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
                 Leaderboard
               </TabsTrigger>
               <TabsTrigger
+                value="team-lens"
+                className="h-8 px-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs"
+              >
+                Team Lens
+              </TabsTrigger>
+              <TabsTrigger
                 value="comparison"
                 className="h-8 px-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs"
               >
@@ -217,6 +245,34 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
               timingData={timingData}
               viewMode="leaderboard"
             />
+          </TabsContent>
+
+          <TabsContent value="team-lens" className="mt-0">
+            {teamNames.length > 0 && (
+              <div className="px-4 pt-3 pb-1">
+                <Select value={selectedTeamName} onValueChange={setSelectedTeamName}>
+                  <SelectTrigger className="h-8 text-xs w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamNames.map(name => (
+                      <SelectItem key={name} value={name} className="text-xs">
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex justify-center">
+              <ThePaddockPubChat
+                timingData={timingData}
+                viewMode="team-lens"
+                selectedTeam={selectedTeamName}
+                officialDrivers={officialDrivers}
+                officialTeamColour={officialTeamColour}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="comparison" className="mt-0 flex justify-center">
