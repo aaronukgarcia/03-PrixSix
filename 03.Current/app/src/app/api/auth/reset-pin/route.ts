@@ -1,22 +1,26 @@
-// GUID: API_AUTH_RESET_PIN-000-v09
+// GUID: API_AUTH_RESET_PIN-000-v10
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
-// @SECURITY_FIX: email_logs now stores masked PIN (EMAIL-006) — plaintext PIN is only in the
-//   mail collection (consumed by the email service) and never persisted to admin-readable logs.
+// @SECURITY_FIX: email_logs now stores masked PIN (EMAIL-006) — plaintext PIN is never persisted to admin-readable logs.
 // @SECURITY_FIX: Applied constant-time minimum delay to ALL return paths to prevent timing-based
 //   email enumeration (API-006). The startTime/TARGET_MIN_DURATION pattern now guards every exit
 //   point — not just the "user not found" branch.
 // @SECURITY_FIX (GEMINI-AUDIT-126): email_logs HTML now uses "[REDACTED]" in place of the PIN
 //   value to prevent admin log-viewers from recovering a user's temporary PIN and performing
 //   unauthorized account takeover.
-// [Intent] Server-side API route that handles PIN reset requests: validates the email, generates a new random 6-digit PIN, updates Firebase Auth, marks the user as mustChangePin, queues a reset email, and logs the action. Returns a generic success message regardless of whether the email exists to prevent enumeration attacks.
+// @FIX (BUG-PIN-001): Replaced dead `mail` collection write with direct Graph API sendEmail() call.
+//   The Firebase Trigger Email extension is not installed, so writing to `mail` silently dropped
+//   every PIN reset email since the feature was built. Now uses the same Graph API path as all
+//   other transactional emails in the app.
+// [Intent] Server-side API route that handles PIN reset requests: validates the email, generates a new random 6-digit PIN, updates Firebase Auth, marks the user as mustChangePin, sends a reset email via Graph API, and logs the action. Returns a generic success message regardless of whether the email exists to prevent enumeration attacks.
 // [Inbound Trigger] POST request from the client-side PIN reset form.
-// [Downstream Impact] Updates the user's password in Firebase Auth, sets mustChangePin=true on the Firestore user document, writes to the mail collection (consumed by the email sending service), writes to email_logs and audit_logs collections.
+// [Downstream Impact] Updates the user's password in Firebase Auth, sets mustChangePin=true on the Firestore user document, sends email via Graph API, writes to email_logs and audit_logs collections.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { validateCsrfProtection } from '@/lib/csrf-protection';
+import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
 
 // Force dynamic to skip static analysis at build time
@@ -30,10 +34,10 @@ interface ResetPinRequest {
   email: string;
 }
 
-// GUID: API_AUTH_RESET_PIN-002-v04
-// [Intent] Main PIN reset POST handler. Validates the email, looks up the user in Firestore, generates a cryptographically random 6-digit PIN, updates Firebase Auth, flags the user for mandatory PIN change, queues a reset email, and writes audit records. Returns a deliberately ambiguous success message to prevent email enumeration.
+// GUID: API_AUTH_RESET_PIN-002-v05
+// [Intent] Main PIN reset POST handler. Validates the email, looks up the user in Firestore, generates a cryptographically random 6-digit PIN, updates Firebase Auth, flags the user for mandatory PIN change, sends a reset email via Graph API, and writes audit records. Returns a deliberately ambiguous success message to prevent email enumeration.
 // [Inbound Trigger] HTTP POST to /api/auth/reset-pin from the client-side forgot-PIN form.
-// [Downstream Impact] On success: changes the user's Firebase Auth password, sets mustChangePin on the user document (forces PIN change on next login), queues an email in the mail collection. On failure: logs error with correlation ID. The ambiguous response message is intentional for security.
+// [Downstream Impact] On success: changes the user's Firebase Auth password, sets mustChangePin on the user document (forces PIN change on next login), sends email via Graph API. On failure: logs error with correlation ID. The ambiguous response message is intentional for security.
 // @SECURITY_FIX (API-006): startTime is recorded immediately so that ALL email-processing return
 //   paths (user found or not found) are padded to TARGET_MIN_DURATION before responding. This
 //   prevents timing-based email enumeration — previously only the "user not found" branch applied
@@ -143,7 +147,7 @@ export async function POST(request: NextRequest) {
         cause: authError instanceof Error ? authError : undefined,
       });
       await logTracedError(traced, db);
-      await padToMinDuration(startTime);
+      await padToMinDuration();
       return NextResponse.json(
         { success: false, error: traced.definition.message, errorCode: traced.definition.code, correlationId: traced.correlationId },
         { status: 500 }
@@ -159,40 +163,86 @@ export async function POST(request: NextRequest) {
       mustChangePin: true,
     });
 
-    // GUID: API_AUTH_RESET_PIN-007-v05
-    // @SECURITY_FIX: email_logs now stores masked PIN (EMAIL-006). The mail collection document
-    //   retains the real PIN for email delivery, but the admin-readable log stores '[REDACTED]' to
-    //   prevent admins from recovering a user's temporary PIN from audit logs.
-    // @SECURITY_FIX (GEMINI-AUDIT-126): Changed PIN masking in email_logs from '••••••' to
-    //   '[REDACTED]' — explicit string is unambiguous and cannot be mistaken for partial data.
-    //   The mail collection document is unchanged (real PIN required for email delivery).
-    // [Intent] Queue the PIN reset email by writing to the mail collection (consumed by the email sending service) and log the email to the email_logs collection for auditing and debugging.
+    // GUID: API_AUTH_RESET_PIN-007-v06
+    // @FIX (BUG-PIN-001): Now sends via Graph API (sendEmail) instead of writing to the dead
+    //   `mail` Firestore collection. The Firebase Trigger Email extension was never installed, so
+    //   the previous implementation silently dropped every PIN reset email.
+    // @SECURITY_FIX: email_logs stores '[REDACTED]' in place of the PIN (EMAIL-006 / GEMINI-AUDIT-126).
+    // [Intent] Send the PIN reset email directly via Graph API and log the result to email_logs.
     // [Inbound Trigger] Runs after mustChangePin is set on the user document.
-    // [Downstream Impact] The mail collection document is picked up by the email sending Cloud Function or service. The email_logs entry provides a record for admin review. The logged HTML redacts the PIN.
-    // Queue the email
-    const mailHtml = `Hello,<br><br>A PIN reset was requested for your Prix Six account.<br><br>Your temporary PIN is: <strong>${newPin}</strong><br><br>You will be required to change this PIN after logging in.<br><br>If you did not request this, please contact support immediately.`;
-    const mailSubject = "Your Prix Six PIN has been reset";
-    // SECURITY: Redact PIN in email_logs — admin-visible log never stores plaintext credentials (GEMINI-AUDIT-126)
-    const mailHtmlRedacted = mailHtml.replace(`<strong>${newPin}</strong>`, '<strong>[REDACTED]</strong>');
+    // [Downstream Impact] Email is sent immediately via Graph API (same path as all other transactional
+    //   emails). email_logs entry records the outcome. If send fails, the error is logged but the
+    //   response is still generic success (Auth password already changed; user can re-request).
+    const mailSubject = 'Your Prix Six PIN has been reset';
+    const mailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #e10600 0%, #1e1e1e 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .pin-box { background: #1e1e1e; color: #e10600; font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; padding: 20px; border-radius: 8px; margin: 20px 0; font-family: monospace; }
+    .security-note { background: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #ffc107; }
+    .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>PIN Reset</h1>
+      <p>Prix Six — F1 Prediction League</p>
+    </div>
+    <div class="content">
+      <p>A PIN reset was requested for your Prix Six account.</p>
+      <p>Your temporary PIN is:</p>
+      <div class="pin-box">${newPin}</div>
+      <p>You will be required to change this PIN immediately after logging in.</p>
+      <div class="security-note">
+        <strong>Did not request this?</strong> Your account password has been changed. Please contact support immediately.
+      </div>
+    </div>
+    <div class="footer">
+      <p>Prix Six — F1 Prediction League</p>
+    </div>
+  </div>
+</body>
+</html>`.trim();
 
-    await db.collection('mail').add({
-      to: normalizedEmail,
-      message: { subject: mailSubject, html: mailHtml },
+    // SECURITY: Redact PIN in email_logs — admin-visible log never stores plaintext credentials (GEMINI-AUDIT-126)
+    const mailHtmlRedacted = mailHtml.replace(newPin, '[REDACTED]');
+
+    const emailResult = await sendEmail({
+      toEmail: normalizedEmail,
+      subject: mailSubject,
+      htmlContent: mailHtml,
     });
 
-    // Log the email (with redacted PIN — GEMINI-AUDIT-126)
+    // Log the email outcome (with redacted PIN — GEMINI-AUDIT-126)
     await db.collection('email_logs').add({
       to: normalizedEmail,
       subject: mailSubject,
       html: mailHtmlRedacted,
-      status: 'queued',
+      status: emailResult.success ? 'sent' : 'failed',
+      emailGuid: emailResult.emailGuid ?? null,
       timestamp: FieldValue.serverTimestamp(),
     });
 
-    // GUID: API_AUTH_RESET_PIN-008-v04
-    // [Intent] Write an audit log entry recording that a PIN reset email was queued for this user,
+    // If the Graph API send failed, log it — but do not change the response (Auth password is
+    // already updated; user can request again and the same PIN flow repeats cleanly).
+    if (!emailResult.success) {
+      const traced = createTracedError(ERRORS.EMAIL_SEND_FAILED, {
+        correlationId,
+        context: { route: '/api/auth/reset-pin', action: 'send_email', userId, email: normalizedEmail },
+      });
+      await logTracedError(traced, db);
+    }
+
+    // GUID: API_AUTH_RESET_PIN-008-v05
+    // [Intent] Write an audit log entry recording that a PIN reset email was sent for this user,
     //          pad the response to the minimum duration, then return the generic success message.
-    // [Inbound Trigger] Runs after the email is queued and logged.
+    // [Inbound Trigger] Runs after the email send is attempted and logged.
     // [Downstream Impact] The audit log provides a permanent record for admin review and security
     //          investigations. The response message is deliberately ambiguous to prevent email
     //          enumeration. padToMinDuration() ensures the "user found" success path takes at
@@ -201,7 +251,7 @@ export async function POST(request: NextRequest) {
     // Audit log
     await db.collection('audit_logs').add({
       userId,
-      action: 'reset_pin_email_queued',
+      action: 'reset_pin_email_sent',
       details: { email: normalizedEmail, method: 'server_api' },
       timestamp: FieldValue.serverTimestamp(),
     });
