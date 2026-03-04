@@ -1,3 +1,7 @@
+// GUID: COMPONENT_LOGO-000-v01
+// [Intent] Renders the Prix Six SVG logo at a specified size (sm/md/lg), with priority loading to avoid layout shift on auth pages.
+// [Inbound Trigger] Used on login, signup, about, and sidebar header components wherever the brand logo is needed.
+// [Downstream Impact] Changing logo.svg or the sizes map here affects all branded surfaces simultaneously.
 import Image from 'next/image';
 
 interface LogoProps {

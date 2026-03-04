@@ -1,3 +1,7 @@
+// GUID: DASHBOARD_HOT_NEWS_FEED-000-v01
+// [Intent] Server component that fetches the latest AI-generated Hot News Feed content from getHotNewsFeed() and renders it as a card with timestamp and refresh counter; also exports HotNewsFeedSkeleton for Suspense boundaries.
+// [Inbound Trigger] Rendered by the dashboard page inside a React Suspense boundary; re-fetches on each page load (no client-side caching).
+// [Downstream Impact] Displays the Vertex AI-generated paddock news to all players; refresh counter shown as subtle four-digit ID.
 import { getHotNewsFeed } from "@/ai/flows/hot-news-feed";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, Clock } from "lucide-react";

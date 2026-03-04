@@ -39,10 +39,14 @@ export interface InternalQuery extends Query<DocumentData> {
   }
 }
 
+// GUID: USE_COLLECTION-000-v01
+// [Intent] Real-time Firestore collection/query subscription hook with a 3-second permission-error delay to handle OAuth redirect auth sync races; enforces memoized query ref requirement.
+// [Inbound Trigger] Used across admin components, standings, predictions, and any page that subscribes to a Firestore collection in real-time.
+// [Downstream Impact] Data, loading, and error state drive component rendering; permission errors propagate via errorEmitter after the 3-second window.
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
  * Handles nullable references/queries.
- * 
+ *
  *
  * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
  * use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable

@@ -1,5 +1,9 @@
 'use client';
 
+// GUID: COMPONENT_LEAGUE_SELECTOR-000-v01
+// [Intent] Dropdown select component for switching between leagues; only renders if the user belongs to more than one league (returns null otherwise). Reads and writes to LeagueContext via useLeague().
+// [Inbound Trigger] Rendered in the navigation/sidebar for multi-league users to switch context.
+// [Downstream Impact] Changing selected league updates LeagueContext which drives league-filtered views throughout the app (standings, predictions, teams).
 import { Globe, Users } from 'lucide-react';
 import {
   Select,

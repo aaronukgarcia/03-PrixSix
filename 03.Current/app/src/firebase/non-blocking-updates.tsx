@@ -12,6 +12,10 @@ import {
 import { errorEmitter } from '@/firebase/error-emitter';
 import {FirestorePermissionError} from '@/firebase/errors';
 
+// GUID: FIREBASE_NON_BLOCKING_UPDATES-000-v01
+// [Intent] Fire-and-forget setDoc wrapper — writes the document without blocking the caller; emits permission-error via errorEmitter on failure.
+// [Inbound Trigger] Used by components that need to write Firestore data without awaiting the result (e.g. user profile updates, preferences).
+// [Downstream Impact] On permission failure, FirestorePermissionError is emitted to errorEmitter → caught by FirebaseErrorListener for display.
 /**
  * Initiates a setDoc operation for a document reference.
  * Does NOT await the write operation internally.
@@ -31,6 +35,10 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
 }
 
 
+// GUID: FIREBASE_NON_BLOCKING_UPDATES-001-v01
+// [Intent] Fire-and-forget addDoc wrapper — creates a new document without blocking; has explicit cascade-prevention logic for the error_logs collection to avoid infinite error loops.
+// [Inbound Trigger] Used by error logging, audit trails, and any component that appends documents non-blocking.
+// [Downstream Impact] skipErrorEmit=true must be set when writing to error_logs; otherwise permission failures propagate via errorEmitter.
 /**
  * Initiates an addDoc operation for a collection reference.
  * Does NOT await the write operation internally.
@@ -60,6 +68,10 @@ export function addDocumentNonBlocking(colRef: CollectionReference, data: any, s
 }
 
 
+// GUID: FIREBASE_NON_BLOCKING_UPDATES-002-v01
+// [Intent] Fire-and-forget updateDoc wrapper — merges fields into an existing document without blocking; emits permission-error on failure.
+// [Inbound Trigger] Used for partial field updates (e.g. user status, last-seen) where blocking is undesirable.
+// [Downstream Impact] Permission failures propagate via errorEmitter to FirebaseErrorListener.
 /**
  * Initiates an updateDoc operation for a document reference.
  * Does NOT await the write operation internally.
@@ -79,6 +91,10 @@ export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) 
 }
 
 
+// GUID: FIREBASE_NON_BLOCKING_UPDATES-003-v01
+// [Intent] Fire-and-forget deleteDoc wrapper — removes a document without blocking the caller; emits permission-error on failure.
+// [Inbound Trigger] Used for UI-triggered deletions where immediate feedback is not required.
+// [Downstream Impact] Permission failures propagate via errorEmitter to FirebaseErrorListener.
 /**
  * Initiates a deleteDoc operation for a document reference.
  * Does NOT await the write operation internally.

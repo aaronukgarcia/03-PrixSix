@@ -1,5 +1,9 @@
 'use client';
 
+// GUID: DASHBOARD_RESOLVED_FEEDBACK-000-v01
+// [Intent] One-time dashboard notification component that queries feedback docs resolved but not yet notified; shows a green alert for each resolved item and sets resolvedNotifiedAt on dismiss so the notification never re-appears.
+// [Inbound Trigger] Mounted on the dashboard for authenticated users; queries the feedback collection on mount.
+// [Downstream Impact] Marks feedback docs with resolvedNotifiedAt timestamp; improves user awareness of resolved feature requests and bug fixes.
 import { useState, useEffect } from 'react';
 import { useFirestore, useAuth } from '@/firebase';
 import { collection, query, where, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';

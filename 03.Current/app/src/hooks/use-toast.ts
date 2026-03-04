@@ -1,5 +1,9 @@
 "use client"
 
+// GUID: HOOK_USE_TOAST-000-v01
+// [Intent] Module-level toast notification state machine with a memory store, reducer, listener array, and useToast hook — provides the toast() imperative API and the Toaster component's data source.
+// [Inbound Trigger] toast() is called from error handlers, form submissions, and success callbacks throughout the app; useToast is mounted in the Toaster component.
+// [Downstream Impact] TOAST_LIMIT=1 enforces one toast at a time; TOAST_REMOVE_DELAY is intentionally very long so the shadcn Toaster controls dismissal visually.
 // Inspired by react-hot-toast library
 import * as React from "react"
 

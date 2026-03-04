@@ -1,5 +1,9 @@
 "use client";
 
+// GUID: COMPONENT_PRE_SEASON_BANNER-000-v01
+// [Intent] IS_PRE_SEASON flag (toggle to disable banner when season starts) and the amber alert banner component — informs players that accumulated test points will be reset before race 1.
+// [Inbound Trigger] Rendered on the dashboard and standings pages; IS_PRE_SEASON=false disables it immediately with a null return.
+// [Downstream Impact] IS_PRE_SEASON is checked in MEMORY.md — set to false when real-season data is live and test users are purged.
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FlaskConical } from "lucide-react";
 

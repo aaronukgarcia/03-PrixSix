@@ -24,10 +24,14 @@ export interface UseDocResult<T> {
   error: FirestoreError | Error | null; // Error object, or null.
 }
 
+// GUID: USE_DOC-000-v01
+// [Intent] Real-time Firestore single-document subscription hook; same 3-second permission-error delay as useCollection to tolerate OAuth redirect auth sync races.
+// [Inbound Trigger] Used by any component that subscribes to a specific Firestore document in real-time (user profiles, settings documents, race data).
+// [Downstream Impact] Data, loading, and error state drive component rendering; permission errors propagate via errorEmitter after the delay window.
 /**
  * React hook to subscribe to a single Firestore document in real-time.
  * Handles nullable references.
- * 
+ *
  * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
  * use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable
  * references

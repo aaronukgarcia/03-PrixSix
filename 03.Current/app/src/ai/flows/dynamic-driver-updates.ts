@@ -1,5 +1,9 @@
 'use server';
 
+// GUID: AI_DYNAMIC_DRIVERS-000-v01
+// [Intent] Genkit flow (updateDriverListFlow) with a placeholder scrapeF1DriversTool — intended to scrape the official F1 website for the current driver list and update Firestore. Implementation is a TODO stub with noted GR#7 violations deferred from Wave 11.
+// [Inbound Trigger] Called via updateDriverList() exported function — trigger mechanism TBD (manual admin action or scheduled).
+// [Downstream Impact] When complete, will update the drivers Firestore collection used for team selection and predictions.
 /**
  * @fileOverview This file defines a Genkit flow to dynamically update the list of F1 drivers.
  *

@@ -7,6 +7,10 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { useAuth, useFirestore } from '@/firebase';
 import { logPermissionError } from '@/lib/audit';
 
+// GUID: COMPONENT_FIREBASE_ERROR_LISTENER-000-v01
+// [Intent] Invisible component that subscribes to errorEmitter's 'permission-error' event; logs the error to the audit trail and then throws it into React's error boundary so Next.js global-error.tsx handles display.
+// [Inbound Trigger] Mounted near the root of the authenticated layout so it is active for the full session lifetime.
+// [Downstream Impact] Permission errors from useCollection/useDoc/non-blocking-writes surface as audited, user-visible error boundaries rather than silent failures.
 /**
  * An invisible component that listens for globally emitted 'permission-error' events.
  * It logs the error to the audit log and then throws it to be caught by Next.js's global-error.tsx.

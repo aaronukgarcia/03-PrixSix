@@ -1,5 +1,9 @@
 'use server';
 
+// GUID: AI_TEAM_NAME_GENERATOR-000-v01
+// [Intent] Genkit flow (generateTeamNameFlow) that uses a Vertex AI prompt to generate a punny F1 team name based on an existing real team name — a utility flow for the team name selection feature.
+// [Inbound Trigger] Called via generateTeamName(input) — used by the team setup flow when players pick a team name.
+// [Downstream Impact] Returns a suggested punny team name string; the player's actual team name is stored separately in Firestore.
 /**
  * @fileOverview This file defines a Genkit flow to generate a punny F1 team name.
  *

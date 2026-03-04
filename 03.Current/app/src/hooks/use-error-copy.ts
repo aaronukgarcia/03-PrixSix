@@ -1,5 +1,9 @@
 "use client";
 
+// GUID: HOOK_USE_ERROR_COPY-000-v01
+// [Intent] React hook that builds a copyable error string (errorCode | correlationId | digest | moduleName) and provides a handleCopy callback with a 2-second "copied" confirmation state — implements Golden Rule #1's selectable-error requirement.
+// [Inbound Trigger] Used by all user-facing error display components (dialogs, toasts, error pages) that must allow users to copy their error code.
+// [Downstream Impact] Clipboard write gives users a string they can paste into support requests; digest and moduleName are optional fields for Next.js error boundaries.
 import { useState, useCallback, useMemo } from "react";
 
 interface UseErrorCopyParams {
