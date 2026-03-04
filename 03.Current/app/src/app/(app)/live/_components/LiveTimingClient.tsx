@@ -1,20 +1,22 @@
 "use client";
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v02
-// [Intent] Client component for the /live page. Shows the ThePaddockPubChat
-//          leaderboard widget with auto-refresh every 2 minutes. On mount and
-//          on each tick, POSTs to /api/live/refresh-timing (rate-gated on server);
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v03
+// [Intent] Client component for the /live (PubChat) page. Shows the ThePaddockPubChat
+//          widget with Leaderboard and Comparison tabs, plus auto-refresh every 2 minutes.
+//          On mount and on each tick, POSTs to /api/live/refresh-timing (rate-gated on server);
 //          if the server updated the data, re-reads Firestore and re-renders.
 // [Inbound Trigger] Mounted by LivePage server component (page.tsx) with optional
 //                   initialTimingData prop to avoid first-paint loading flash.
 // [Downstream Impact] Reads and displays app-settings/pub-chat-timing. Calls
 //                     /api/live/refresh-timing to trigger OpenF1 fetch when stale.
+// @FIX(v03) Added Leaderboard/Comparison tab selector; renamed page title to PubChat.
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Loader2, RefreshCw, Radio, CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import ThePaddockPubChat from "@/components/ThePaddockPubChat";
 import { useAuth, useFirestore } from "@/firebase";
 import { getPubChatTimingData } from "@/firebase/firestore/settings";
@@ -23,6 +25,8 @@ import { findNextRace } from "@/lib/data";
 
 // Auto-refresh interval: re-check every 2 minutes
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
+
+type ViewTab = 'leaderboard' | 'comparison';
 
 interface LiveTimingClientProps {
   initialTimingData: PubChatTimingData | null;
@@ -43,9 +47,9 @@ function getNextTracksideLabel(): { location: string; dayLabel: string } | null 
   return { location: next.location, dayLabel };
 }
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-001-v02
-// [Intent] Main client component. Manages timing data state, auto-refresh
-//          interval, and renders the PubChat leaderboard widget.
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-001-v03
+// [Intent] Main client component. Manages timing data state, tab selection,
+//          auto-refresh interval, and renders the PubChat widget.
 // [Inbound Trigger] Mounted by server page component on /live route.
 // [Downstream Impact] Triggers /api/live/refresh-timing on mount and every
 //                     2 minutes. Re-reads Firestore when server signals new data.
@@ -57,6 +61,7 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ViewTab>('leaderboard');
 
   // Ref so the interval callback always has access to the latest firebaseUser
   const firebaseUserRef = useRef(firebaseUser);
@@ -132,7 +137,7 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-lg font-bold tracking-tight">Live Timing</h1>
+            <h1 className="text-lg font-bold tracking-tight">PubChat</h1>
             {sessionLabel && (
               <p className="text-sm text-muted-foreground truncate">{sessionLabel}</p>
             )}
@@ -188,11 +193,39 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
         </div>
       </CardHeader>
 
-      <CardContent className="p-0 flex justify-center">
-        <ThePaddockPubChat
-          timingData={timingData}
-          viewMode="leaderboard"
-        />
+      <CardContent className="p-0">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewTab)}>
+          <div className="px-4 pb-0 border-b border-border/60">
+            <TabsList className="h-8 bg-transparent p-0 gap-4">
+              <TabsTrigger
+                value="leaderboard"
+                className="h-8 px-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs"
+              >
+                Leaderboard
+              </TabsTrigger>
+              <TabsTrigger
+                value="comparison"
+                className="h-8 px-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs"
+              >
+                Comparison
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="leaderboard" className="mt-0 flex justify-center">
+            <ThePaddockPubChat
+              timingData={timingData}
+              viewMode="leaderboard"
+            />
+          </TabsContent>
+
+          <TabsContent value="comparison" className="mt-0 flex justify-center">
+            <ThePaddockPubChat
+              timingData={timingData}
+              viewMode="comparison"
+            />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

@@ -1,4 +1,4 @@
-// GUID: COMPONENT_APP_SIDEBAR-000-v04
+// GUID: COMPONENT_APP_SIDEBAR-000-v05
 // [Intent] Main application sidebar component providing navigation links, admin panel access,
 // user profile display, and logout functionality. Renders within the ShadCN Sidebar layout.
 // [Inbound Trigger] Rendered by the authenticated app layout on every page within the (app) route group.
@@ -57,15 +57,15 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 
-// GUID: COMPONENT_APP_SIDEBAR-001-v05
+// GUID: COMPONENT_APP_SIDEBAR-001-v06
 // [Intent] Menu items rendered ABOVE the Results collapsible group.
-// @FIX(v05) Added "Live Timing" link to surface the player-facing timing page.
+// @FIX(v06) Renamed "Live Timing" → "PubChat" to match the feature name.
 const menuItemsTop = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
   { href: "/schedule",    label: "Schedule",      icon: Calendar },
   { href: "/predictions", label: "Predictions",   icon: Rocket },
   { href: "/standings",   label: "Standings",     icon: Trophy },
-  { href: "/live",        label: "Live Timing",   icon: Radio },
+  { href: "/live",        label: "PubChat",        icon: Radio },
 ];
 
 // GUID: COMPONENT_APP_SIDEBAR-001B-v05

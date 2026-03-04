@@ -13,7 +13,7 @@ import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import type { PubChatTimingData } from '@/firebase/firestore/settings';
 import LiveTimingClient from './_components/LiveTimingClient';
 
-export const metadata: Metadata = { title: 'Live Timing | Prix Six' };
+export const metadata: Metadata = { title: 'PubChat | Prix Six' };
 
 // Force dynamic so the server-side Firestore read always gets fresh data.
 export const dynamic = 'force-dynamic';
