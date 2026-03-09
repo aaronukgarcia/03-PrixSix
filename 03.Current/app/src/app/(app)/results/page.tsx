@@ -206,8 +206,9 @@ function ResultsContent() {
         const fetchRaceResult = async () => {
             setIsLoadingResult(true);
             try {
-                const resultId = selectedRaceId.toLowerCase();
-                const resultDocRef = doc(firestore, "race_results", resultId);
+                // race_results docs are stored with Title-Case IDs (e.g. "Australian-Grand-Prix-GP").
+                // Do NOT toLowerCase() — Firestore doc IDs are case-sensitive.
+                const resultDocRef = doc(firestore, "race_results", selectedRaceId);
                 const resultDoc = await getDoc(resultDocRef);
                 if (resultDoc.exists()) {
                     setRaceResult(resultDoc.data() as RaceResult);
