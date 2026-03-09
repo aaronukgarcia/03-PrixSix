@@ -14,7 +14,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, RefreshCw, Radio, CalendarClock, Mic2, RotateCcw, Flag } from "lucide-react";
+import { Loader2, RefreshCw, Radio, CalendarClock, Mic2, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,19 +44,20 @@ interface LiveTimingClientProps {
   initialTimingData: PubChatTimingData | null;
 }
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-003-v01
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-003-v02
 // [Intent] Derive the next expected FP1 session label from the race schedule.
 //          FP1 is approximately 1 day before qualifying (2 days for sprint weekends).
 // [Inbound Trigger] Called inline in the render pass of LiveTimingClient.
-// [Downstream Impact] Used to render "Next expected: [location] FP1 · [day]" hint.
-function getNextTracksideLabel(): { location: string; dayLabel: string } | null {
+// [Downstream Impact] Used to render "Next expected: [location] FP1 · [day]" hint
+//          and the between-races "PubChat next opens at" panel.
+function getNextTracksideLabel(): { location: string; raceName: string; dayLabel: string; fp1Date: Date } | null {
   const next = findNextRace();
   if (!next) return null;
-  const fp1 = new Date(
+  const fp1Date = new Date(
     new Date(next.qualifyingTime).getTime() - (next.hasSprint ? 2 : 1) * 24 * 60 * 60 * 1000
   );
-  const dayLabel = fp1.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-  return { location: next.location, dayLabel };
+  const dayLabel = fp1Date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return { location: next.location, raceName: next.name, dayLabel, fp1Date };
 }
 
 // GUID: COMPONENT_LIVE_TIMING_CLIENT-001-v04
@@ -291,58 +292,66 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
 
       <CardContent className="p-0">
         {/* Between race weekends — show next race info instead of stale lap data */}
-        {isBetweenRaces && nextRace && (
-          <div className="px-4 py-8 space-y-5 text-center">
-            <div className="space-y-1">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Between Races</p>
-              <h2 className="text-lg font-bold">{nextRace.name}</h2>
-              <p className="text-sm text-muted-foreground">{nextRace.location}</p>
-            </div>
+        {isBetweenRaces && nextRace && (() => {
+          const fp1 = getNextTracksideLabel();
+          const fp1TimeStr = fp1
+            ? fp1.fp1Date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+            : null;
+          return (
+            <div className="px-4 py-8 space-y-5 text-center">
+              {/* Primary message — the thing users want to know */}
+              <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-4 space-y-1">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">PubChat next opens at</p>
+                <p className="text-base font-bold">
+                  {fp1 ? `${fp1.raceName} FP1` : `${nextRace.name} FP1`}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {fp1
+                    ? `${fp1.dayLabel}${fp1TimeStr ? ` · ${fp1TimeStr}` : ''}`
+                    : 'Check back closer to the weekend'}
+                </p>
+                {fp1 && (
+                  <p className="text-[11px] text-muted-foreground/70">
+                    {formatDistanceToNow(fp1.fp1Date, { addSuffix: true })}
+                  </p>
+                )}
+              </div>
 
-            <div className="grid grid-cols-2 gap-3 text-left">
-              <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-0.5">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Qualifying</p>
-                <p className="text-sm font-semibold">
-                  {new Date(nextRace.qualifyingTime).toLocaleDateString('en-GB', {
-                    weekday: 'short', day: 'numeric', month: 'short',
-                  })}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {formatDistanceToNow(new Date(nextRace.qualifyingTime), { addSuffix: true })}
-                </p>
+              {/* Supporting race weekend info */}
+              <div className="grid grid-cols-2 gap-3 text-left">
+                <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-0.5">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Qualifying</p>
+                  <p className="text-sm font-semibold">
+                    {new Date(nextRace.qualifyingTime).toLocaleDateString('en-GB', {
+                      weekday: 'short', day: 'numeric', month: 'short',
+                    })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {formatDistanceToNow(new Date(nextRace.qualifyingTime), { addSuffix: true })}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-0.5">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Race</p>
+                  <p className="text-sm font-semibold">
+                    {new Date(nextRace.raceTime).toLocaleDateString('en-GB', {
+                      weekday: 'short', day: 'numeric', month: 'short',
+                    })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {formatDistanceToNow(new Date(nextRace.raceTime), { addSuffix: true })}
+                  </p>
+                </div>
               </div>
-              <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-0.5">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Race</p>
-                <p className="text-sm font-semibold">
-                  {new Date(nextRace.raceTime).toLocaleDateString('en-GB', {
-                    weekday: 'short', day: 'numeric', month: 'short',
-                  })}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {formatDistanceToNow(new Date(nextRace.raceTime), { addSuffix: true })}
-                </p>
-              </div>
-            </div>
 
-            <div className="rounded-lg border border-dashed border-border/40 p-3 space-y-1">
-              <div className="flex items-center justify-center gap-1.5">
-                <Flag className="h-3 w-3 text-muted-foreground/60" />
-                <p className="text-[11px] text-muted-foreground">
-                  Live timing available from{' '}
-                  {(() => {
-                    const n = getNextTracksideLabel();
-                    return n ? `${n.location} FP1 · ${n.dayLabel}` : 'FP1';
-                  })()}
-                </p>
-              </div>
               {timingData && (
-                <p className="text-[10px] text-muted-foreground/50">
+                <p className="text-[10px] text-muted-foreground/50 flex items-center justify-center gap-1.5">
+                  <Radio className="h-2.5 w-2.5" />
                   Last session: {timingData.session.sessionName} · {timingData.session.location}
                 </p>
               )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Active race weekend — show leaderboard tabs */}
         {!isBetweenRaces && <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewTab)}>
