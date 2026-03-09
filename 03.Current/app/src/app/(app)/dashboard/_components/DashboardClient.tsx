@@ -79,17 +79,19 @@ const calculateTimeLeft = (targetDate: string): TimeLeft | null => {
 //   See COMPONENT_WELCOME_CTA-001 for full warning on when this pattern is NOT acceptable.
 const WELCOME_SEEN_KEY = "prix6_welcome_seen";
 
-// GUID: COMPONENT_DASHBOARD_CLIENT-004-v05
+// GUID: COMPONENT_DASHBOARD_CLIENT-004-v06
 // [Intent] Main client dashboard component — renders how-to-play welcome card (dismissible),
 //          compact stats row, countdown timer, deadline warnings, and pit lane status card.
-//          isPitlaneOpen is now server-computed (admin override + clock logic) and passed as prop.
+//          isPitlaneOpen is server-computed (admin override + clock logic) and passed as prop.
+//          countdownRace is the next race with qualifying in the future — may differ from nextRace
+//          when qualifying for the active (unscored) race has already passed.
 //          When the countdown expires the page auto-reloads so the server returns the next race.
-// [Inbound Trigger] Rendered by DashboardPage with nextRace + isPitlaneOpen props.
+// [Inbound Trigger] Rendered by DashboardPage with nextRace + countdownRace + isPitlaneOpen props.
 // [Downstream Impact] Links to /predictions page. Shows correct open/closed pit lane status.
-export function DashboardClient({ nextRace, isPitlaneOpen }: { nextRace: Race; isPitlaneOpen: boolean }) {
+export function DashboardClient({ nextRace, countdownRace, isPitlaneOpen }: { nextRace: Race; countdownRace: Race; isPitlaneOpen: boolean }) {
   const { user } = useAuth();
   const firestore = useFirestore();
-  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => calculateTimeLeft(nextRace.qualifyingTime));
+  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => calculateTimeLeft(countdownRace.qualifyingTime));
   const [didExpire, setDidExpire] = useState(false);
 
   const raceId = nextRace.name.replace(/\s+/g, '-');
@@ -127,7 +129,7 @@ export function DashboardClient({ nextRace, isPitlaneOpen }: { nextRace: Race; i
   //   expired), triggers window.location.reload() after 5s so dashboard advances to next race.
   useEffect(() => {
     const timer = setTimeout(() => {
-      const newTimeLeft = calculateTimeLeft(nextRace.qualifyingTime);
+      const newTimeLeft = calculateTimeLeft(countdownRace.qualifyingTime);
       setTimeLeft(newTimeLeft);
       // Auto-reload once when countdown expires so server re-computes next race
       if (!newTimeLeft && !didExpire) {
@@ -242,7 +244,7 @@ export function DashboardClient({ nextRace, isPitlaneOpen }: { nextRace: Race; i
 
        <Card className="bg-gradient-to-r from-primary/80 to-primary">
           <CardHeader className="flex flex-row items-center justify-between pb-2 text-primary-foreground">
-              <CardTitle className="text-sm font-medium">Time to Qualifying</CardTitle>
+              <CardTitle className="text-sm font-medium">Time to Qualifying — {countdownRace.name}</CardTitle>
               <Clock className="h-4 w-4 text-primary-foreground/80" />
           </CardHeader>
           <CardContent>

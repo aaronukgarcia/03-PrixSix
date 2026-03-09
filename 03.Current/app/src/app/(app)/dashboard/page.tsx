@@ -28,12 +28,17 @@ import { APP_VERSION } from '@/lib/version';
 // [Downstream Impact] Ensures page is always server-rendered at request time, never statically generated.
 export const dynamic = 'force-dynamic';
 
-// GUID: PAGE_DASHBOARD-003-v04
+// GUID: PAGE_DASHBOARD-003-v05
 // [Intent] Main dashboard page component — fetches pit lane state + next unscored race from
 //          Firestore server-side, computes effective isPitlaneOpen (admin override + auto clock),
 //          then passes these to DashboardClient for real-time countdown and status display.
+//          Two race pointers are maintained:
+//            activeRace    — first unscored race (drives pit lane state and prediction doc ID)
+//            countdownRace — next race with qualifying in the future (drives the countdown timer)
+//          If qualifying for the active race has already passed (e.g. results not yet entered),
+//          the countdown advances to the next upcoming race so users always see a meaningful timer.
 // [Inbound Trigger] Route navigation to /dashboard.
-// [Downstream Impact] DashboardClient receives server-computed nextRace + isPitlaneOpen.
+// [Downstream Impact] DashboardClient receives server-computed activeRace + countdownRace + isPitlaneOpen.
 //                     DashboardClient auto-reloads when countdown expires to get the updated race.
 export default async function DashboardPage() {
     // Server-side: fetch race_results + pit-lane override to compute correct state
@@ -46,28 +51,42 @@ export default async function DashboardPage() {
     const resultIds = new Set(raceResultsSnap.docs.map(d => d.id.toLowerCase()));
     const pitLaneOverride = pitLaneSnap.exists ? (pitLaneSnap.data()?.override ?? null) : null;
 
-    // Find first unscored race (same logic as predictions page)
-    let nextRace = RaceSchedule[RaceSchedule.length - 1];
+    // activeRace: first unscored race — governs pit lane state and prediction submission
+    let activeRace = RaceSchedule[RaceSchedule.length - 1];
     for (const race of RaceSchedule) {
         const gpId = generateRaceIdLowercase(race.name, 'gp');
-        if (!resultIds.has(gpId)) { nextRace = race; break; }
+        if (!resultIds.has(gpId)) { activeRace = race; break; }
     }
 
-    // Effective pit lane state: override wins, then auto clock logic
-    const autoOpen = !resultIds.has(generateRaceIdLowercase(nextRace.name, 'gp'))
-                  && new Date(nextRace.qualifyingTime) > new Date();
+    // countdownRace: next race whose qualifying is still in the future — governs the countdown timer.
+    // If activeRace qualifying has already passed (results not yet entered), advance to the next race.
+    const now = new Date();
+    let countdownRace = activeRace;
+    if (new Date(activeRace.qualifyingTime) <= now) {
+        const activeIdx = RaceSchedule.indexOf(activeRace);
+        for (let i = activeIdx + 1; i < RaceSchedule.length; i++) {
+            if (new Date(RaceSchedule[i].qualifyingTime) > now) {
+                countdownRace = RaceSchedule[i];
+                break;
+            }
+        }
+    }
+
+    // Effective pit lane state: override wins, then auto clock logic (based on activeRace)
+    const autoOpen = !resultIds.has(generateRaceIdLowercase(activeRace.name, 'gp'))
+                  && new Date(activeRace.qualifyingTime) > new Date();
     const isPitlaneOpen = pitLaneOverride === 'open'  ? true
                         : pitLaneOverride === 'close' ? false
                         : autoOpen;
 
-    const qualifyingDate = new Date(nextRace.qualifyingTime);
-    const raceDate = new Date(nextRace.raceTime);
+    const qualifyingDate = new Date(countdownRace.qualifyingTime);
+    const raceDate = new Date(countdownRace.raceTime);
 
     return (
         <div className="grid gap-6">
             <WelcomeCTA />
 
-            <DashboardClient nextRace={nextRace} isPitlaneOpen={isPitlaneOpen} />
+            <DashboardClient nextRace={activeRace} countdownRace={countdownRace} isPitlaneOpen={isPitlaneOpen} />
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
