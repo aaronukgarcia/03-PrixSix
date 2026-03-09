@@ -12,9 +12,9 @@
 //                     /api/live/refresh-timing to trigger OpenF1 fetch when stale.
 // @FIX(v05) Added Chatter tab with AI-generated pit-side commentary.
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, RefreshCw, Radio, CalendarClock, Mic2, RotateCcw } from "lucide-react";
+import { Loader2, RefreshCw, Radio, CalendarClock, Mic2, RotateCcw, Flag } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -212,6 +212,22 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
   // Sorted team names for the selector
   const teamNames = officialTeams.map(t => t.teamName).sort();
 
+  // GUID: COMPONENT_LIVE_TIMING_CLIENT-005-v01
+  // [Intent] Detect "between race weekends" state — the stored timing data is from a
+  //          completed session (>6h since start) AND the next race qualifying is still
+  //          in the future. When true, show a next-race countdown panel instead of stale
+  //          lap data leaderboard. Prevents PubChat from being stuck on last week's race.
+  // [Inbound Trigger] Recomputed whenever timingData changes.
+  // [Downstream Impact] Replaces the leaderboard/tabs with a "Next Race" panel in the UI.
+  const nextRace = findNextRace();
+  const isBetweenRaces = useMemo(() => {
+    if (!timingData?.session?.dateStart || !nextRace) return false;
+    const hoursSinceSessionStart =
+      (Date.now() - new Date(timingData.session.dateStart).getTime()) / (1000 * 60 * 60);
+    const nextQualifyingInFuture = new Date(nextRace.qualifyingTime) > new Date();
+    return hoursSinceSessionStart > 6 && nextQualifyingInFuture;
+  }, [timingData, nextRace]);
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
@@ -274,7 +290,62 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
       </CardHeader>
 
       <CardContent className="p-0">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewTab)}>
+        {/* Between race weekends — show next race info instead of stale lap data */}
+        {isBetweenRaces && nextRace && (
+          <div className="px-4 py-8 space-y-5 text-center">
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Between Races</p>
+              <h2 className="text-lg font-bold">{nextRace.name}</h2>
+              <p className="text-sm text-muted-foreground">{nextRace.location}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-left">
+              <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-0.5">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Qualifying</p>
+                <p className="text-sm font-semibold">
+                  {new Date(nextRace.qualifyingTime).toLocaleDateString('en-GB', {
+                    weekday: 'short', day: 'numeric', month: 'short',
+                  })}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {formatDistanceToNow(new Date(nextRace.qualifyingTime), { addSuffix: true })}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-0.5">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Race</p>
+                <p className="text-sm font-semibold">
+                  {new Date(nextRace.raceTime).toLocaleDateString('en-GB', {
+                    weekday: 'short', day: 'numeric', month: 'short',
+                  })}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {formatDistanceToNow(new Date(nextRace.raceTime), { addSuffix: true })}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-dashed border-border/40 p-3 space-y-1">
+              <div className="flex items-center justify-center gap-1.5">
+                <Flag className="h-3 w-3 text-muted-foreground/60" />
+                <p className="text-[11px] text-muted-foreground">
+                  Live timing available from{' '}
+                  {(() => {
+                    const n = getNextTracksideLabel();
+                    return n ? `${n.location} FP1 · ${n.dayLabel}` : 'FP1';
+                  })()}
+                </p>
+              </div>
+              {timingData && (
+                <p className="text-[10px] text-muted-foreground/50">
+                  Last session: {timingData.session.sessionName} · {timingData.session.location}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Active race weekend — show leaderboard tabs */}
+        {!isBetweenRaces && <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewTab)}>
           <div className="px-4 pb-0 border-b border-border/60">
             <TabsList className="h-8 bg-transparent p-0 gap-4">
               <TabsTrigger
@@ -414,7 +485,7 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
               )}
             </div>
           </TabsContent>
-        </Tabs>
+        </Tabs>}
       </CardContent>
     </Card>
   );
