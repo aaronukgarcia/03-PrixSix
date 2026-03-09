@@ -43,7 +43,8 @@ import { hotNewsFeedFlow } from '@/ai/flows/hot-news-feed';
 // @SECURITY_FIX (GR#11): Use timingSafeEqual instead of === to prevent timing oracle attacks
 //   on the bearer token. Buffers are pre-padded to equal length to avoid length-leaking.
 function isAuthorized(request: NextRequest): boolean {
-    const secret = process.env.CRON_SECRET;
+    // Strip BOM (U+FEFF) — Secret Manager may prepend it on Windows-created secrets
+    const secret = (process.env.CRON_SECRET ?? '').replace(/^\uFEFF/, '');
     if (!secret) return false;
     const authHeader = request.headers.get('authorization');
     if (!authHeader) return false;

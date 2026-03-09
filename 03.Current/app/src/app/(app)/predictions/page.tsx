@@ -82,6 +82,19 @@ function PredictionsContent() {
 
   const { data: raceResults, isLoading: isResultsLoading } = useCollection<{ id: string }>(raceResultsQuery);
 
+  // GUID: PAGE_PREDICTIONS-002A-v01
+  // [Intent] Subscribe to app-settings/pit-lane to get the admin override state.
+  //          override: null = automatic (clock-based), 'open' = force open, 'close' = force close.
+  // [Inbound Trigger] firestore becomes available.
+  // [Downstream Impact] isPitlaneOpen computation uses this to apply admin override on top of auto logic.
+  const pitLaneRef = useMemo(() => {
+    if (!firestore) return null;
+    const ref = doc(firestore, 'app-settings', 'pit-lane');
+    (ref as any).__memo = true;
+    return ref;
+  }, [firestore]);
+  const { data: pitLaneDoc } = useDoc(pitLaneRef);
+
   // GUID: PAGE_PREDICTIONS-003-v03
   // [Intent] Computes the next open race by finding the first race in the schedule without
   //          GP results in Firestore. Falls back to findNextRace() if all races have results.
@@ -104,19 +117,26 @@ function PredictionsContent() {
   // @CASE_FIX: Use generateRaceId() for Title-Case consistency (Golden Rule #3)
   const raceId = generateRaceId(nextRace.name, 'gp');
 
-  // GUID: PAGE_PREDICTIONS-004-v03
-  // [Intent] Determines if the pit lane is open (predictions allowed) by checking both
-  //          race results existence and qualifying start time.
-  // [Inbound Trigger] raceResults or nextRace changes.
+  // GUID: PAGE_PREDICTIONS-004-v04
+  // [Intent] Determines if the pit lane is open (predictions allowed).
+  //          Logic (priority order):
+  //            1. Admin override 'open'  → always open
+  //            2. Admin override 'close' → always closed
+  //            3. Race results exist     → closed (auto)
+  //            4. Qualifying time passed → closed (auto)
+  //            5. Otherwise             → open (auto)
+  // [Inbound Trigger] raceResults, nextRace, or pitLaneDoc changes.
   // [Downstream Impact] Controls PredictionEditor lock state and "Pit Lane Closed" alert display.
   const isPitlaneOpen = useMemo(() => {
+    const override = pitLaneDoc?.override ?? null;
+    if (override === 'open')  return true;
+    if (override === 'close') return false;
+
     const resultIds = new Set((raceResults || []).map(r => r.id.toLowerCase()));
     const gpResultId = generateRaceIdLowercase(nextRace.name, 'gp');
-    const hasResults = resultIds.has(gpResultId);
-
-    if (hasResults) return false; // Results entered = closed
+    if (resultIds.has(gpResultId)) return false; // Results entered = closed
     return new Date(nextRace.qualifyingTime) > new Date(); // Otherwise check qualifying time
-  }, [raceResults, nextRace]);
+  }, [raceResults, nextRace, pitLaneDoc]);
 
   // GUID: PAGE_PREDICTIONS-005-v03
   // [Intent] Constructs the Firestore prediction document ID from team ID and race ID.
@@ -245,18 +265,20 @@ function PredictionsContent() {
   // Don't block on allPredictions loading/error - it's only for carry-over which is optional
   const isLoading = isUserLoading || isResultsLoading || (predictionRef && isPredictionLoading);
 
-  // GUID: PAGE_PREDICTIONS-012-v03
-  // [Intent] Determines why the pit lane is closed — either race results entered or qualifying started.
-  //          Used for more specific messaging in the closure alert.
-  // [Inbound Trigger] isPitlaneOpen, raceResults, or nextRace changes.
+  // GUID: PAGE_PREDICTIONS-012-v04
+  // [Intent] Determines why the pit lane is closed — admin override, race results, or qualifying started.
+  //          Priority: admin > results > qualifying.
+  // [Inbound Trigger] isPitlaneOpen, pitLaneDoc, raceResults, or nextRace changes.
   // [Downstream Impact] Controls the text in the "Pit Lane Closed" alert description.
   const closureReason = useMemo(() => {
     if (isPitlaneOpen) return null;
+    const override = pitLaneDoc?.override ?? null;
+    if (override === 'close') return 'admin';
     const resultIds = new Set((raceResults || []).map(r => r.id.toLowerCase()));
     const gpResultId = generateRaceIdLowercase(nextRace.name, 'gp');
     if (resultIds.has(gpResultId)) return 'results';
     return 'qualifying';
-  }, [isPitlaneOpen, raceResults, nextRace]);
+  }, [isPitlaneOpen, pitLaneDoc, raceResults, nextRace]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -313,6 +335,8 @@ function PredictionsContent() {
           <AlertDescription>
             {closureReason === 'results'
               ? 'Race results have been entered. Predictions are now locked. You can view your submission below.'
+              : closureReason === 'admin'
+              ? 'The race administrator has closed the pit lane. Predictions are locked until further notice — the pit lane reopens after the race. You can view your submission below.'
               : (
                 <>
                   Qualifying{" "}
@@ -326,7 +350,7 @@ function PredictionsContent() {
                       Qualifying is the time-trial session where drivers set their fastest laps to determine starting positions.
                     </TooltipContent>
                   </Tooltip>
-                  {" "}has started, and predictions are now locked. You can view your submission below.
+                  {" "}has started. The pit lane is closed — predictions are locked until race results are entered. You can view your submission below.
                 </>
               )}
           </AlertDescription>

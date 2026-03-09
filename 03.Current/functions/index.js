@@ -1428,7 +1428,8 @@ exports.processEmailQueue = onSchedule(
   },
   async () => {
     const correlationId = generateCorrelationId("eq");
-    const secret = process.env.CRON_SECRET;
+    // Strip BOM (U+FEFF) — Secret Manager may prepend it on Windows-created secrets
+    const secret = (process.env.CRON_SECRET || '').replace(/^\uFEFF/, '');
     const appUrl = process.env.APP_URL || "https://prix6.win";
 
     if (!secret) {
@@ -1517,7 +1518,8 @@ exports.refreshHotNews = onSchedule(
   },
   async () => {
     const correlationId = generateCorrelationId("news");
-    const secret = process.env.CRON_SECRET;
+    // Strip BOM (U+FEFF) — Secret Manager may prepend it on Windows-created secrets
+    const secret = (process.env.CRON_SECRET || '').replace(/^\uFEFF/, '');
     const appUrl = process.env.APP_URL || "https://prix6.win";
 
     if (!secret) {

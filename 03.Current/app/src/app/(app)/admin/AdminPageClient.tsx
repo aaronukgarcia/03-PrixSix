@@ -16,7 +16,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText, Activity } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText, Activity, Lock } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -56,6 +56,11 @@ import { BookOfWorkManager } from "./_components/BookOfWorkManager";
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders RAG health status for PubChat, WhatsApp, and Email interfaces.
 import { InterfaceHealthMonitor } from "./_components/InterfaceHealthMonitor";
+// GUID: PAGE_ADMIN-PITLANE-001-v01
+// [Intent] Import PitLaneAdmin for the 19th admin tab (Pit Lane override control).
+// [Inbound Trigger] Admin page load.
+// [Downstream Impact] Renders pit lane status, dual-timezone countdowns, and override controls.
+import { PitLaneAdmin } from "./_components/PitLaneAdmin";
 // GUID: PAGE_ADMIN-002-v03
 // [Intent] Import AttackMonitor component for security monitoring displayed above the tabs.
 // [Inbound Trigger] Admin page load.
@@ -396,6 +401,12 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                         [Downstream Impact] Activates TabsContent value="health" which mounts
                                             InterfaceHealthMonitor (ADMIN_INTERFACE_HEALTH-001). */}
                     <TabsTrigger value="health" className="data-[state=active]:bg-green-600 data-[state=active]:text-white"><Activity className="w-4 h-4 mr-2"/>Health</TabsTrigger>
+                    {/* GUID: PAGE_ADMIN-PITLANE-002-v01
+                        [Intent] 19th tab trigger for Pit Lane override control. Red colour signals
+                                 it controls a locked/unlocked state. Lock icon signals pit lane access.
+                        [Inbound Trigger] User clicks "Pit Lane" tab.
+                        [Downstream Impact] Mounts PitLaneAdmin — live countdowns and override controls. */}
+                    <TabsTrigger value="pitlane" className="data-[state=active]:bg-red-600 data-[state=active]:text-white"><Lock className="w-4 h-4 mr-2"/>Pit Lane</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
@@ -473,6 +484,14 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                                         WhatsApp, and Email interfaces (ADMIN_INTERFACE_HEALTH-001). */}
                 <TabsContent value="health">
                     <InterfaceHealthMonitor />
+                </TabsContent>
+                {/* GUID: PAGE_ADMIN-PITLANE-003-v01
+                    [Intent] Mount PitLaneAdmin when Pit Lane tab is active.
+                    [Inbound Trigger] TabsTrigger value="pitlane" selected.
+                    [Downstream Impact] PitLaneAdmin subscribes to app-settings/pit-lane and
+                                        race_results, renders status + dual-timezone countdowns. */}
+                <TabsContent value="pitlane">
+                    <PitLaneAdmin />
                 </TabsContent>
             </Tabs>
       </div>

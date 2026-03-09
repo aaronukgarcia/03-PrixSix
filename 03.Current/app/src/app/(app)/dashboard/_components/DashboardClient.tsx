@@ -79,20 +79,20 @@ const calculateTimeLeft = (targetDate: string): TimeLeft | null => {
 //   See COMPONENT_WELCOME_CTA-001 for full warning on when this pattern is NOT acceptable.
 const WELCOME_SEEN_KEY = "prix6_welcome_seen";
 
-// GUID: COMPONENT_DASHBOARD_CLIENT-004-v04
+// GUID: COMPONENT_DASHBOARD_CLIENT-004-v05
 // [Intent] Main client dashboard component — renders how-to-play welcome card (dismissible),
-//          compact stats row, countdown timer, deadline warnings, and pit lane status card
-//          with smart "Submit/Edit Prediction" link.
-// [Inbound Trigger] Rendered by DashboardPage with nextRace prop containing schedule data.
-// [Downstream Impact] Subscribes to user's prediction doc in Firestore via useDoc.
-//                     Links to /predictions page. Shows open/closed pit lane status.
-export function DashboardClient({ nextRace }: { nextRace: Race }) {
+//          compact stats row, countdown timer, deadline warnings, and pit lane status card.
+//          isPitlaneOpen is now server-computed (admin override + clock logic) and passed as prop.
+//          When the countdown expires the page auto-reloads so the server returns the next race.
+// [Inbound Trigger] Rendered by DashboardPage with nextRace + isPitlaneOpen props.
+// [Downstream Impact] Links to /predictions page. Shows correct open/closed pit lane status.
+export function DashboardClient({ nextRace, isPitlaneOpen }: { nextRace: Race; isPitlaneOpen: boolean }) {
   const { user } = useAuth();
   const firestore = useFirestore();
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => calculateTimeLeft(nextRace.qualifyingTime));
+  const [didExpire, setDidExpire] = useState(false);
 
   const raceId = nextRace.name.replace(/\s+/g, '-');
-  const isPitlaneOpen = new Date(nextRace.qualifyingTime) > new Date();
 
   // GUID: COMPONENT_DASHBOARD_CLIENT-005-v03
   // [Intent] Memoised prediction document ID constructed from user ID and race ID.
@@ -118,14 +118,22 @@ export function DashboardClient({ nextRace }: { nextRace: Race }) {
 
   const hasPrediction = predictionData?.predictions && Array.isArray(predictionData.predictions) && predictionData.predictions.length > 0;
 
-  // GUID: COMPONENT_DASHBOARD_CLIENT-007-v03
+  // GUID: COMPONENT_DASHBOARD_CLIENT-007-v04
   // [Intent] Recurring 1-second timer that recalculates the countdown to qualifying.
-  //          Runs indefinitely (no dependency array) to ensure real-time updates.
+  //          When the countdown reaches zero (qualifying starts), schedules a page reload
+  //          after 5 seconds so the server re-renders with the next race's data.
   // [Inbound Trigger] Every render triggers a new 1-second timeout.
-  // [Downstream Impact] Updates timeLeft state, which re-renders countdown display and deadline warnings.
+  // [Downstream Impact] Updates timeLeft state. When timeLeft transitions to null (countdown
+  //   expired), triggers window.location.reload() after 5s so dashboard advances to next race.
   useEffect(() => {
     const timer = setTimeout(() => {
-      setTimeLeft(calculateTimeLeft(nextRace.qualifyingTime));
+      const newTimeLeft = calculateTimeLeft(nextRace.qualifyingTime);
+      setTimeLeft(newTimeLeft);
+      // Auto-reload once when countdown expires so server re-computes next race
+      if (!newTimeLeft && !didExpire) {
+        setDidExpire(true);
+        setTimeout(() => window.location.reload(), 5000);
+      }
     }, 1000);
 
     return () => clearTimeout(timer);

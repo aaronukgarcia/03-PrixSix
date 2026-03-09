@@ -8,9 +8,11 @@
 
 import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { findNextRace } from "@/lib/data";
+import { findNextRace, RaceSchedule } from "@/lib/data";
 import { Flag, Calendar } from "lucide-react";
 import { DashboardClient } from "./_components/DashboardClient";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
+import { generateRaceIdLowercase } from "@/lib/normalize-race-id";
 import { FeedbackLink } from "./_components/FeedbackLink";
 import { ResolvedFeedbackNotifier } from "./_components/ResolvedFeedbackNotifier";
 import { HotNewsFeed, HotNewsFeedSkeleton } from "./_components/HotNewsFeed";
@@ -26,14 +28,37 @@ import { APP_VERSION } from '@/lib/version';
 // [Downstream Impact] Ensures page is always server-rendered at request time, never statically generated.
 export const dynamic = 'force-dynamic';
 
-// GUID: PAGE_DASHBOARD-003-v03
-// [Intent] Main dashboard page component — computes next race dates, renders countdown client,
-//          qualifying/race date cards, hot news feed, feedback form, and version footer.
+// GUID: PAGE_DASHBOARD-003-v04
+// [Intent] Main dashboard page component — fetches pit lane state + next unscored race from
+//          Firestore server-side, computes effective isPitlaneOpen (admin override + auto clock),
+//          then passes these to DashboardClient for real-time countdown and status display.
 // [Inbound Trigger] Route navigation to /dashboard.
-// [Downstream Impact] findNextRace() provides schedule data. DashboardClient handles real-time
-//                     countdown and pit lane status. HotNewsFeed loads asynchronously.
-export default function DashboardPage() {
-    const nextRace = findNextRace();
+// [Downstream Impact] DashboardClient receives server-computed nextRace + isPitlaneOpen.
+//                     DashboardClient auto-reloads when countdown expires to get the updated race.
+export default async function DashboardPage() {
+    // Server-side: fetch race_results + pit-lane override to compute correct state
+    const { db } = await getFirebaseAdmin();
+    const [raceResultsSnap, pitLaneSnap] = await Promise.all([
+        db.collection('race_results').get(),
+        db.collection('app-settings').doc('pit-lane').get(),
+    ]);
+
+    const resultIds = new Set(raceResultsSnap.docs.map(d => d.id.toLowerCase()));
+    const pitLaneOverride = pitLaneSnap.exists ? (pitLaneSnap.data()?.override ?? null) : null;
+
+    // Find first unscored race (same logic as predictions page)
+    let nextRace = RaceSchedule[RaceSchedule.length - 1];
+    for (const race of RaceSchedule) {
+        const gpId = generateRaceIdLowercase(race.name, 'gp');
+        if (!resultIds.has(gpId)) { nextRace = race; break; }
+    }
+
+    // Effective pit lane state: override wins, then auto clock logic
+    const autoOpen = !resultIds.has(generateRaceIdLowercase(nextRace.name, 'gp'))
+                  && new Date(nextRace.qualifyingTime) > new Date();
+    const isPitlaneOpen = pitLaneOverride === 'open'  ? true
+                        : pitLaneOverride === 'close' ? false
+                        : autoOpen;
 
     const qualifyingDate = new Date(nextRace.qualifyingTime);
     const raceDate = new Date(nextRace.raceTime);
@@ -42,7 +67,7 @@ export default function DashboardPage() {
         <div className="grid gap-6">
             <WelcomeCTA />
 
-            <DashboardClient nextRace={nextRace} />
+            <DashboardClient nextRace={nextRace} isPitlaneOpen={isPitlaneOpen} />
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

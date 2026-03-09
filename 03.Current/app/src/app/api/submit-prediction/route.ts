@@ -164,6 +164,24 @@ export async function POST(request: NextRequest) {
     // SECURITY: Use atomic batch write to prevent partial failures
     const { db, FieldValue } = await getFirebaseAdmin();
 
+    // GUID: API_SUBMIT_PREDICTION-004B-v01
+    // [Intent] Admin pit lane override gate — checks app-settings/pit-lane.override BEFORE
+    //          the time-based lock. If override is 'close', reject immediately regardless of clock.
+    //          If override is 'open', skip the time-based qualifying check (but results check still runs).
+    //          override: null = automatic (fall through to clock logic below).
+    // [Inbound Trigger] After payload validation passes, before race schedule lookup.
+    // [Downstream Impact] Returns 403 if admin has force-closed the pit lane. This is the
+    //   highest-priority gate — admin override takes precedence over qualifying time.
+    const pitLaneDoc = await db.collection('app-settings').doc('pit-lane').get();
+    const pitLaneOverride: string | null = pitLaneDoc.exists ? (pitLaneDoc.data()?.override ?? null) : null;
+
+    if (pitLaneOverride === 'close') {
+        return NextResponse.json(
+            { success: false, error: 'Pit lane is closed. The race administrator has locked predictions for this race. Check back after the race.', correlationId },
+            { status: 403 }
+        );
+    }
+
     // GUID: API_SUBMIT_PREDICTION-005-v05
     // @SECURITY_FIX: GEMINI-AUDIT-052 - Use Firestore race schedule instead of hardcoded RaceSchedule.
     //   Fetches race timing from trusted server-side Firestore source to prevent client tampering.
@@ -206,8 +224,9 @@ export async function POST(request: NextRequest) {
       }
 
       // SERVER-SIDE LOCKOUT ENFORCEMENT 2: Check if qualifying has started
+      // Skip this check if admin has force-opened the pit lane (override === 'open').
       const qualifyingTime = new Date(race.qualifyingTime).getTime();
-      if (Date.now() > qualifyingTime) {
+      if (pitLaneOverride !== 'open' && Date.now() > qualifyingTime) {
         return NextResponse.json(
           { success: false, error: 'Pit lane is closed. Predictions cannot be submitted after qualifying starts.' },
           { status: 403 }
