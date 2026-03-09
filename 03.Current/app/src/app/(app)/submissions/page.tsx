@@ -98,8 +98,13 @@ export default function SubmissionsPage() {
   // The same prediction is used for both Sprint and GP scoring
   const selectedRaceId = generateRaceId(baseRaceName, 'gp');
 
-  // GUID: PAGE_SUBMISSIONS-004-v03
-  // [Intent] Determines the first unscored race by comparing all scores in Firestore against the RaceSchedule,
+  // GUID: PAGE_SUBMISSIONS-004-v04
+  // @BUG_FIX: Was reading from `scores` collection which is empty (eliminated in SSOT-001 —
+  //   scores are now computed at read time from race_results + predictions). Always returned
+  //   empty set → always defaulted to Race 1 as "next to score" regardless of actual results.
+  //   Fix: read race_results instead — doc IDs are Title-Case (e.g. "Australian-Grand-Prix-GP"),
+  //   compare case-insensitively against generateRaceIdLowercase() using .toLowerCase().
+  // [Intent] Determines the first unscored race by comparing race_results docs against the RaceSchedule,
   //   then defaults the dropdown to that race and marks it for green highlighting.
   // [Inbound Trigger] Runs once when firestore is available on page mount.
   // [Downstream Impact] Sets selectedRace and nextRaceName state. nextRaceName drives the green CSS class on the dropdown item.
@@ -107,17 +112,16 @@ export default function SubmissionsPage() {
     if (!firestore) return;
     const determineNextUnscored = async () => {
       try {
-        const scoresSnapshot = await getDocs(collection(firestore, "scores"));
+        const resultsSnapshot = await getDocs(collection(firestore, "race_results"));
         const scoredRaceIds = new Set<string>();
-        scoresSnapshot.forEach((doc) => {
-          const raceId = doc.data().raceId;
-          if (raceId) scoredRaceIds.add(String(raceId).toLowerCase());
+        resultsSnapshot.forEach((doc) => {
+          // race_results doc IDs are Title-Case — lowercase for case-insensitive comparison
+          scoredRaceIds.add(doc.id.toLowerCase());
         });
 
         for (const race of RaceSchedule) {
           const gpId = generateRaceIdLowercase(race.name, 'gp');
-          const baseId = race.name.replace(/\s+/g, "-").toLowerCase(); // Keep for backward compatibility
-          if (!scoredRaceIds.has(gpId) && !scoredRaceIds.has(baseId)) {
+          if (!scoredRaceIds.has(gpId)) {
             setNextRaceName(race.name);
             setSelectedRace(race.name);
             return;
