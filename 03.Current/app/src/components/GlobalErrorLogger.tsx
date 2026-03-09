@@ -19,6 +19,48 @@ import { generateClientCorrelationId } from '@/lib/error-codes';
 // @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
 import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-008-v01
+// [Intent] Simple in-memory deduplication map — prevents flooding error_logs with the same
+//          error many times in quick succession (e.g. IndexedDB disconnect fires ~1/sec on
+//          Safari iOS). Key = errorMessage|route; value = last-logged timestamp.
+//          TTL: 60 seconds — same error on the same route within 60s is suppressed.
+// [Inbound Trigger] Checked inside logErrorToServer before every Firestore write.
+// [Downstream Impact] Max one log entry per unique error+route per 60 seconds.
+const recentErrors = new Map<string, number>();
+const DEDUP_TTL_MS = 60_000;
+
+function isDuplicate(message: string, route: string): boolean {
+  const key = `${message}|${route}`;
+  const last = recentErrors.get(key);
+  const now = Date.now();
+  if (last && now - last < DEDUP_TTL_MS) return true;
+  recentErrors.set(key, now);
+  // Prune stale keys to prevent unbounded growth
+  if (recentErrors.size > 50) {
+    for (const [k, t] of recentErrors) {
+      if (now - t >= DEDUP_TTL_MS) recentErrors.delete(k);
+    }
+  }
+  return false;
+}
+
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-009-v01
+// [Intent] Detect Safari/iOS IndexedDB disconnection errors from the Firebase SDK.
+//          "Connection to Indexed Database server lost" fires as an unhandledrejection
+//          with reason:{} — it is a browser environment issue (private browsing, low
+//          memory, OS-level IDB reset) and is entirely unactionable at the app level.
+//          Suppressing it keeps error_logs clean (BUG-ERR-003).
+// [Inbound Trigger] Called by rejection handler before deciding whether to log.
+// [Downstream Impact] Returns true → skip logging. IndexedDB errors are not sent to server.
+function isIndexedDBError(error: any): boolean {
+  const message = error?.message || error?.toString() || '';
+  return (
+    message.includes('Connection to Indexed Database server lost') ||
+    message.includes('IDBDatabase') ||
+    message.includes('indexed database')
+  );
+}
+
 // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-001-v02
 // [Intent] Check if error is a chunk load error (already handled by ChunkErrorHandler).
 //          Includes Safari/iOS pattern: dynamic import failures surface as TypeError "Load failed"
@@ -80,6 +122,10 @@ async function logErrorToServer(
   try {
     const correlationId = generateClientCorrelationId();
     const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    const route = typeof window !== 'undefined' ? window.location.pathname : 'unknown';
+
+    // Deduplicate — same error on same route within 60s logs once only (COMPONENT_GLOBAL_ERROR_LOGGER-008)
+    if (isDuplicate(errorMessage, route)) return;
     const stack = error?.stack || null;
 
     // In production: log only the correlation ID to prevent stack trace/context disclosure in DevTools.
@@ -144,6 +190,10 @@ export function GlobalErrorLogger() {
       if (isFirebasePerformanceError(event.error || event)) {
         return;
       }
+      // Skip Safari/iOS IndexedDB disconnects — browser environment issue, unactionable (BUG-ERR-003)
+      if (isIndexedDBError(event.error || event)) {
+        return;
+      }
 
       // Log all other errors to server
       logErrorToServer(event.error || new Error(event.message), 'error', {
@@ -168,6 +218,10 @@ export function GlobalErrorLogger() {
       }
       // Skip Firebase Performance attribute errors (PERF-001: Tailwind class strings in putAttribute)
       if (isFirebasePerformanceError(event.reason)) {
+        return;
+      }
+      // Skip Safari/iOS IndexedDB disconnects — browser environment issue, unactionable (BUG-ERR-003)
+      if (isIndexedDBError(event.reason)) {
         return;
       }
 
