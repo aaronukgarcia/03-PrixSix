@@ -8,6 +8,7 @@
 
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Flag, Zap, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,16 @@ export default function SchedulePage() {
   const sprintCount = RaceSchedule.filter(r => r.hasSprint).length;
   const nextRace = findNextRace();
   const now = new Date();
+  const nextRaceRef = useRef<HTMLDivElement>(null);
+
+  // GUID: PAGE_SCHEDULE-003-v01
+  // [Intent] On mount, scroll the next race card into view so it appears at the top of the list.
+  //          Past races are above — user scrolls up to see them. Future races are below.
+  // [Inbound Trigger] Component mounts.
+  // [Downstream Impact] Viewport snaps to next race without animation to avoid jarring jump.
+  useEffect(() => {
+    nextRaceRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
+  }, []);
 
   return (
     <div className="grid gap-6">
@@ -88,7 +99,8 @@ export default function SchedulePage() {
               return (
                 <div
                   key={race.name}
-                  className={`rounded-lg border p-4 ${
+                  ref={isNextRace ? nextRaceRef : undefined}
+                  className={`rounded-lg border p-4 scroll-mt-4 ${
                     isNextRace ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : ''
                   } ${isPast ? 'opacity-50' : ''}`}
                 >
