@@ -143,7 +143,7 @@ async function runConsistencyCheck(): Promise<ConsistencyCheckSummary> {
 
     // 8. Check Standings
     console.log('[8/9] Checking standings...');
-    results.push(checkStandings(scoreData, userData));
+    results.push(checkStandings(resultData, userData, predData));
 
     // 9. Check Leagues
     console.log('[9/9] Checking leagues...');

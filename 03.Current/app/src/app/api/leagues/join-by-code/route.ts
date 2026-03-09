@@ -125,7 +125,7 @@ interface JoinByCodeRequest {
 }
 
 export async function POST(request: NextRequest) {
-  const correlationId = generateCorrelationId('league_join');
+  const correlationId = generateCorrelationId();
 
   try {
     // GUID: API_LEAGUE_JOIN-006-v01

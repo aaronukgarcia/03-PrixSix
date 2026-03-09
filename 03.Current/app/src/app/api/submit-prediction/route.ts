@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       await logError({
         correlationId,
         error: `Invalid driver ID in predictions payload for user ${userId}`,
-        context: { route: '/api/submit-prediction', invalidEntry: String(invalidDriverEntry) },
+        context: { route: '/api/submit-prediction', additionalInfo: { invalidEntry: String(invalidDriverEntry) } },
       });
       return NextResponse.json(
         { success: false, error: ERROR_CODES.VALIDATION_INVALID_FORMAT.message, errorCode: ERROR_CODES.VALIDATION_INVALID_FORMAT.code, correlationId },
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
       await logError({
         correlationId,
         error: `Duplicate driver IDs in predictions payload for user ${userId}`,
-        context: { route: '/api/submit-prediction', predictions },
+        context: { route: '/api/submit-prediction', additionalInfo: { predictions } },
       });
       return NextResponse.json(
         { success: false, error: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.message, errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code, correlationId },
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
     // SECURITY: Fail-closed — if the race name doesn't match our schedule, reject the submission.
     // This prevents deadline bypass via race name format manipulation (GEMINI-AUDIT-122).
     if (!race) {
-      await logError({ correlationId, error: `Race not found for name: "${raceName}" — submission rejected to prevent deadline bypass`, context: { route: '/api/submit-prediction', raceName, raceId } });
+      await logError({ correlationId, error: `Race not found for name: "${raceName}" — submission rejected to prevent deadline bypass`, context: { route: '/api/submit-prediction', additionalInfo: { raceName, raceId } } });
       return NextResponse.json(
         { success: false, error: 'Race not found. Please refresh and try again.', correlationId },
         { status: 400 }

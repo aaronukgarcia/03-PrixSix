@@ -636,7 +636,7 @@ export function EmailLogManager() {
                                                             ALLOWED_ATTR: ['href', 'class'],
                                                             FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onkeydown', 'onkeyup', 'style'],
                                                             FORCE_HTTPS: true,
-                                                        })
+                                                        } as any)
                                                     }}
                                                 />
                                             </div>

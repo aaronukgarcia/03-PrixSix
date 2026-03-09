@@ -156,11 +156,13 @@ export function BookOfWorkManager() {
         }
 
         // Process documents with progress tracking
-        snapshot.forEach((docSnap, index) => {
+        let index = 0;
+        snapshot.forEach((docSnap) => {
           // Update progress only on first load
           if (isFirstLoadRef.current) {
             setLoadingProgress({ current: index + 1, total: totalDocs });
           }
+          index++;
 
           const data = docSnap.data();
           items.push({

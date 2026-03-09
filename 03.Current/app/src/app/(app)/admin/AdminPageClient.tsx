@@ -189,7 +189,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                     context: {
                         component: 'AdminPage',
                         function: 'requestAdminLink',
-                        userId: user?.uid
+                        userId: user?.id
                     }
                 })
             }).catch(() => {}); // Silent fail on logging error

@@ -212,7 +212,10 @@ async function checkFirestore(): Promise<ServiceStatus> {
 async function checkAuth(): Promise<ServiceStatus> {
   const startTime = Date.now();
   try {
-    const { auth } = await getFirebaseAdmin();
+    await getFirebaseAdmin();
+    // Calling getAuth() validates that the Admin SDK is initialised and Auth is reachable.
+    const { getAuth } = await import('firebase-admin/auth');
+    getAuth();
 
     // Simply getting the auth instance validates connectivity
     // We don't actually need to make a request

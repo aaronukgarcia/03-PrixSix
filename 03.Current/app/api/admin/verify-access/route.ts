@@ -15,6 +15,7 @@ import { adminAuth, adminFirestore } from '@/lib/firebase-admin';
 import { AdminHotLinkSchema, generateSecureCorrelationId } from '@/lib/validation';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
+import type { TracedError } from '@/types/errors';
 import { cookies } from 'next/headers';
 
 /**
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
     await challengeRef.delete();
 
     // 6. Set adminVerified session cookie (httpOnly, secure, sameSite)
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const adminVerifiedCookie = {
       name: 'adminVerified',
       value: 'true',
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     // Log error with correlation ID
-    await logTracedError(error as Error, db);
+    await logTracedError(error as TracedError, db);
 
     // Log failed verification attempt
     const ipAddress = getClientIP(request);
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
     const tracedError = error instanceof Error
       ? createTracedError(ERRORS.INTERNAL_ERROR, {
           correlationId,
-          originalError: error
+          cause: error
         })
       : error;
 

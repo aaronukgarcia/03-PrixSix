@@ -32,7 +32,7 @@ interface SiteSettings {
 // [Downstream Impact] Writes to admin_configuration/global in Firestore; login and signup flows check these flags to allow or block access.
 export function SiteFunctionsManager() {
     const firestore = useFirestore();
-    const { user } = useAuth();
+    const { user, firebaseUser } = useAuth();
     const { toast } = useToast();
     const [settings, setSettings] = useState<SiteSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +68,7 @@ export function SiteFunctionsManager() {
         setIsSaving(true);
         try {
             // Get Firebase Auth token for API authentication
-            const idToken = await user.firebaseUser?.getIdToken();
+            const idToken = await firebaseUser?.getIdToken();
             if (!idToken) {
                 throw new Error('Authentication token not available');
             }

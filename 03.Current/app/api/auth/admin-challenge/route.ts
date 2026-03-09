@@ -21,6 +21,7 @@ import {
 } from '@/lib/validation';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
+import type { TracedError } from '@/types/errors';
 import { sendEmail } from '@/lib/email';
 
 /**
@@ -212,11 +213,11 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://prix6.win';
     const emailHtml = generateMagicLinkEmail(email, challengeToken, baseUrl);
 
-    await sendEmail(
-      email,
-      'Prix Six Admin Access - Verify Your Identity',
-      emailHtml
-    );
+    await sendEmail({
+      toEmail: email,
+      subject: 'Prix Six Admin Access - Verify Your Identity',
+      htmlContent: emailHtml,
+    });
 
     // 8. Log successful challenge generation
     console.log({
@@ -237,13 +238,13 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     // Log error with correlation ID
-    await logTracedError(error as Error, db);
+    await logTracedError(error as TracedError, db);
 
     // Return standardized error response
     const tracedError = error instanceof Error
       ? createTracedError(ERRORS.INTERNAL_ERROR, {
           correlationId,
-          originalError: error
+          cause: error instanceof Error ? error : undefined
         })
       : error;
 

@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
     await logError({
       correlationId,
       error: `single-user-mode ${action} failed: ${error.message}`,
-      context: { route: '/api/admin/single-user-mode', action, adminUid },
+      context: { route: '/api/admin/single-user-mode', action, additionalInfo: { adminUid } },
     });
     return NextResponse.json(
       { success: false, error: 'Internal server error', correlationId },

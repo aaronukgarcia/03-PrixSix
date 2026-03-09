@@ -156,6 +156,38 @@ export function generateCorrelationId(): string {
   return `err_${timestamp}_${random}`;
 }
 
+// GUID: LIB_FIREBASE_ADMIN-006-v01
+// [Intent] Lazy synchronous-style accessors for adminAuth and adminFirestore for legacy routes
+//          that import these as named exports. These use getFirebaseAdmin() internally to ensure
+//          the Admin SDK is initialized, then delegate to firebase-admin/auth and firebase-admin/firestore.
+// [Inbound Trigger] Imported by api/admin/verify-access/route.ts and api/auth/admin-challenge/route.ts.
+// [Downstream Impact] If the Admin SDK is not yet initialized, calls to these will fail. Use
+//                     getFirebaseAdmin() directly in new code.
+import { getAuth as _getAdminAuth } from 'firebase-admin/auth';
+import { getFirestore as _getAdminFirestore } from 'firebase-admin/firestore';
+
+/**
+ * Lazy getter for Firebase Admin Auth instance.
+ * Ensure getFirebaseAdmin() has been called at least once before using this.
+ */
+export const adminAuth = {
+  verifyIdToken: async (token: string) => {
+    await getFirebaseAdmin();
+    return _getAdminAuth().verifyIdToken(token);
+  },
+};
+
+/**
+ * Lazy getter for Firebase Admin Firestore instance.
+ * Proxies all property accesses to the underlying Firestore instance after initialization.
+ */
+export const adminFirestore = new Proxy({} as FirebaseFirestore.Firestore, {
+  get(_target, prop) {
+    // We rely on caller having called getFirebaseAdmin() — same pattern as before.
+    return (_getAdminFirestore() as any)[prop];
+  },
+});
+
 // GUID: LIB_FIREBASE_ADMIN-005-v04
 // [Intent] Persists error details (message, stack trace, context, correlation ID) to the error_logs Firestore collection for centralised error tracking and debugging.
 // [Inbound Trigger] Called by API route catch blocks after generating a correlation ID (Golden Rule #1 compliance).

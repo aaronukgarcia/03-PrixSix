@@ -127,7 +127,7 @@ export default function LeaguesPage() {
         : undefined; // undefined = primary team (API defaults to userId)
 
       // SECURITY: Use server-side API to avoid client-side inviteCode Firestore query (FIRESTORE-003)
-      const idToken = await user.firebaseUser?.getIdToken();
+      const idToken = await firebaseUser?.getIdToken();
       if (!idToken) {
         toast({ variant: 'destructive', title: 'Error', description: 'Not authenticated. Please sign in again.' });
         setIsJoining(false);

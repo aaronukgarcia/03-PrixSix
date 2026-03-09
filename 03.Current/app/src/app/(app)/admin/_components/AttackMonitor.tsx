@@ -71,7 +71,7 @@ const ATTACK_TYPE_DESCRIPTIONS: Record<string, string> = {
 // [Downstream Impact] Reads attack_alerts where acknowledged==false; writes acknowledgement updates. The summary bar pulses when critical alerts are present.
 export function AttackMonitor() {
   const firestore = useFirestore();
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
 
@@ -114,7 +114,7 @@ export function AttackMonitor() {
     if (!user) return;
     setAcknowledging(alertId);
     try {
-      const token = await user.getIdToken();
+      const token = await firebaseUser?.getIdToken();
       const response = await fetch('/api/admin/acknowledge-attack', {
         method: 'POST',
         headers: {
@@ -149,7 +149,7 @@ export function AttackMonitor() {
     if (!user || !alerts?.length) return;
     setAcknowledging('all');
     try {
-      const token = await user.getIdToken();
+      const token = await firebaseUser?.getIdToken();
       const response = await fetch('/api/admin/acknowledge-attack', {
         method: 'POST',
         headers: {

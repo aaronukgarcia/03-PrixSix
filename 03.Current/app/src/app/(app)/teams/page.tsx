@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RaceSchedule, getDriverImage, F1Drivers, findNextRace } from "@/lib/data";
+import { generateRaceId } from "@/lib/normalize-race-id";
 import { collection, query, orderBy, limit, startAfter, getDocs, where, DocumentSnapshot, getCountFromServer, Timestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LastUpdated } from "@/components/ui/last-updated";
@@ -348,7 +349,7 @@ export default function TeamsPage() {
     const joinedAfterRace = didTeamJoinAfterRace(team);
     if (joinedAfterRace) {
       setTeams(prev => prev.map(t =>
-        `${t.teamName}-${prev.indexOf(t)}` === teamKey
+        `${t.teamName}-${t.oduserId}` === teamKey
           ? { ...t, predictions: [], joinedAfterRace: true, isLoadingPredictions: false }
           : t
       ));
@@ -359,7 +360,7 @@ export default function TeamsPage() {
     const cacheKey = `${team.oduserId}_${team.teamName}`;
     if (predictionCache[selectedRaceId]?.[cacheKey]) {
       setTeams(prev => prev.map(t =>
-        `${t.teamName}-${prev.indexOf(t)}` === teamKey
+        `${t.teamName}-${t.oduserId}` === teamKey
           ? { ...t, predictions: predictionCache[selectedRaceId][cacheKey], joinedAfterRace: false }
           : t
       ));
@@ -368,19 +369,25 @@ export default function TeamsPage() {
 
     // Mark as loading
     setTeams(prev => prev.map(t =>
-      `${t.teamName}-${prev.indexOf(t)}` === teamKey
+      `${t.teamName}-${t.oduserId}` === teamKey
         ? { ...t, isLoadingPredictions: true }
         : t
     ));
 
     try {
+      // Query using both stored raceId formats:
+      //   - generateRaceId produces "Australian-Grand-Prix-GP" (user submissions)
+      //   - base form "Australian-Grand-Prix" (carry-forward stored format)
+      const raceIdWithSuffix = generateRaceId(selectedRace!, 'gp');
+      const raceIdBase = selectedRace!.replace(/\s+/g, '-');
+
       const predQuery = query(
         collection(firestore, `users/${team.oduserId}/predictions`),
-        where("raceId", "==", selectedRaceId)
+        where("raceId", "in", [raceIdWithSuffix, raceIdBase])
       );
       const predSnapshot = await getDocs(predQuery);
 
-      // Find the right prediction
+      // Find the right prediction for this team (primary vs secondary)
       let pred;
       if (team.isSecondary) {
         pred = predSnapshot.docs.find(d => d.data().teamName === team.teamName);
@@ -388,6 +395,23 @@ export default function TeamsPage() {
         pred = predSnapshot.docs.find(d =>
           d.data().teamName === team.teamName || !d.data().teamName
         );
+      }
+
+      // Carry-forward: no submission for this race → show most recent prediction
+      if (!pred) {
+        const cfQuery = query(
+          collection(firestore, `users/${team.oduserId}/predictions`),
+          orderBy("submittedAt", "desc"),
+          limit(10)
+        );
+        const cfSnapshot = await getDocs(cfQuery);
+        if (team.isSecondary) {
+          pred = cfSnapshot.docs.find(d => d.data().teamName === team.teamName);
+        } else {
+          pred = cfSnapshot.docs.find(d =>
+            d.data().teamName === team.teamName || !d.data().teamName
+          );
+        }
       }
 
       const predictions = formatPrediction(pred?.data());
@@ -403,7 +427,7 @@ export default function TeamsPage() {
 
       // Update team with predictions
       setTeams(prev => prev.map(t =>
-        `${t.teamName}-${prev.indexOf(t)}` === teamKey
+        `${t.teamName}-${t.oduserId}` === teamKey
           ? { ...t, predictions, joinedAfterRace: false, isLoadingPredictions: false }
           : t
       ));
@@ -411,12 +435,12 @@ export default function TeamsPage() {
       console.error(`Error fetching prediction for ${team.teamName}:`, error);
       // Set empty predictions on error
       setTeams(prev => prev.map(t =>
-        `${t.teamName}-${prev.indexOf(t)}` === teamKey
+        `${t.teamName}-${t.oduserId}` === teamKey
           ? { ...t, predictions: Array(6).fill(null), joinedAfterRace: false, isLoadingPredictions: false }
           : t
       ));
     }
-  }, [firestore, selectedRaceId, predictionCache, formatPrediction, didTeamJoinAfterRace]);
+  }, [firestore, selectedRace, selectedRaceId, predictionCache, formatPrediction, didTeamJoinAfterRace]);
 
   // GUID: PAGE_TEAMS-011-v03
   // [Intent] Handles accordion open/close events and triggers on-demand prediction fetching for the opened team.
@@ -426,13 +450,10 @@ export default function TeamsPage() {
     setOpenAccordion(value);
 
     if (value) {
-      // Find the team and check if we need to load predictions
-      const teamIndex = teams.findIndex((t, i) => `${t.teamName}-${i}` === value);
-      if (teamIndex >= 0) {
-        const team = teams[teamIndex];
-        if (team.predictions === null && !team.isLoadingPredictions) {
-          fetchPredictionForTeam(value, team);
-        }
+      // Find the team using stable key (teamName + oduserId, not position-dependent)
+      const team = teams.find(t => `${t.teamName}-${t.oduserId}` === value);
+      if (team && team.predictions === null && !team.isLoadingPredictions) {
+        fetchPredictionForTeam(value, team);
       }
     }
   }, [teams, fetchPredictionForTeam]);
@@ -546,7 +567,7 @@ export default function TeamsPage() {
               ))
             ) : filteredTeams.length > 0 ? (
               filteredTeams.map((team, index) => (
-                <AccordionItem value={`${team.teamName}-${index}`} key={`${team.teamName}-${index}`}>
+                <AccordionItem value={`${team.teamName}-${team.oduserId}`} key={`${team.teamName}-${team.oduserId}`}>
                   <AccordionTrigger className="text-lg font-semibold hover:no-underline">
                     {team.teamName}
                   </AccordionTrigger>

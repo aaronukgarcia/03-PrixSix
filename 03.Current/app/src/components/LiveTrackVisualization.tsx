@@ -73,8 +73,8 @@ export function LiveTrackVisualization({ sessionKey, authToken, drivers }: LiveT
     const [isLoading, setIsLoading] = useState(false);
 
     // Refs for animation loop
-    const animationFrameRef = useRef<number>();
-    const updateIntervalRef = useRef<NodeJS.Timeout>();
+    const animationFrameRef = useRef<number | undefined>(undefined);
+    const updateIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
     // GUID: LIVE_TRACK_VIZ-001-v02
     // @FIX: Use server-side API route instead of direct OpenF1 call (fixes auth + CORS).
