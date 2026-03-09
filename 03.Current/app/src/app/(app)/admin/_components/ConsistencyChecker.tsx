@@ -353,7 +353,7 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       // Check Standings
       setCurrentPhase('standings');
       await new Promise(resolve => setTimeout(resolve, 100));
-      results.push(checkStandings(scoreData, userData));
+      results.push(checkStandings(resultData, userData, allPredictions));
 
       // Fetch leagues ON-DEMAND and check
       setCurrentPhase('leagues');

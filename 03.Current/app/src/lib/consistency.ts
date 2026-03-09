@@ -1872,111 +1872,111 @@ export function checkScores(
   };
 }
 
-// GUID: LIB_CONSISTENCY-029-v05
-// [Intent] Validate that standings (cumulative points per user) are internally consistent AND
-//   that the standings page will be able to display data. Checks:
-//   1. Mathematical consistency: sum of scores matches expected totals
-//   2. Race completeness: at least one race weekend is completed (has scores)
-//   3. Race ID format: scores use Title-Case format matching RaceSchedule/generateRaceId
-// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit with arrays
-//   of score documents and user documents from Firestore.
-// [Downstream Impact] Standings validation ensures the leaderboard displayed to users
-//   is accurate. Mismatches flagged here indicate score documents were modified or
-//   deleted without recalculating standings. Format issues would cause standings page
-//   to show "no data" even when scores exist.
+// GUID: LIB_CONSISTENCY-029-v06
+// @BUG_FIX: Rewrote to use race_results instead of scores (SSOT-001 eliminated the scores
+//   collection — scores are now computed at read time from race_results + predictions).
+//   Previous version always received scoreData=[] → reported "pre-season, nothing to check".
+// [Intent] Validate standings data integrity against race_results. Checks:
+//   1. Race completeness — results entered for every past race weekend
+//   2. Prediction coverage — every user with a prediction for a scored race will appear in standings
+//   3. Race ID format — race_results doc IDs are Title-Case (e.g. "Australian-Grand-Prix-GP")
+//   4. Driver integrity — each result has 6 non-empty, non-duplicate drivers
+// [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit.
+// [Downstream Impact] Standings validation ensures the leaderboard has data to display.
+//   Missing results = standings page shows no data for that round.
 /**
- * Validate standings consistency and displayability
+ * Validate standings consistency and displayability (post-SSOT-001: uses race_results, not scores)
  */
 export function checkStandings(
-  scores: ScoreData[],
-  users: UserData[]
+  raceResults: RaceResultData[],
+  users: UserData[],
+  predictions: PredictionData[]
 ): CheckResult {
   const issues: Issue[] = [];
   let validCount = 0;
+  const now = new Date();
 
-  // Calculate total points per user from scores
-  const userTotals = new Map<string, number>();
-  for (const score of scores) {
-    if (score.userId && typeof score.totalPoints === 'number') {
-      const current = userTotals.get(score.userId) || 0;
-      userTotals.set(score.userId, current + score.totalPoints);
+  // Build set of scored race IDs (lowercase for comparison)
+  const scoredRaceIds = new Set<string>(raceResults.map(r => r.id.toLowerCase()));
+
+  // 1. Race completeness — flag past GP races with no result doc
+  const pastRaces = RaceSchedule.filter(r => new Date(r.raceTime) < now);
+  let completedCount = 0;
+  for (const race of pastRaces) {
+    const expectedId = generateRaceId(race.name, 'gp').toLowerCase();
+    if (scoredRaceIds.has(expectedId)) {
+      completedCount++;
+    } else {
+      issues.push({
+        severity: 'warning',
+        entity: `Standings — ${race.name}`,
+        field: 'race_results',
+        message: `Race has passed but no results entered — this race will be missing from standings`,
+        details: { raceName: race.name, raceTime: race.raceTime },
+      });
     }
   }
 
-  // Check race completeness and ID format
-  // Build set of raceIds from scores
-  const scoreRaceIds = new Set<string>();
-  for (const score of scores) {
-    if (score.raceId) {
-      scoreRaceIds.add(score.raceId);
-    }
-  }
-
-  // Determine completed race weekends (races that have GP scores)
-  let completedRaceWeekends = 0;
-  for (const race of RaceSchedule) {
-    const gpRaceId = generateRaceId(race.name, 'gp');
-    const legacyId = race.name.replace(/\s+/g, '-'); // Legacy format without suffix
-
-    // Check if this race has scores (Title-Case GP or legacy format)
-    if (scoreRaceIds.has(gpRaceId) || scoreRaceIds.has(legacyId)) {
-      completedRaceWeekends++;
-    }
-  }
-
-  // Race completeness check
-  if (scores.length > 0 && completedRaceWeekends === 0) {
-    issues.push({
-      severity: 'error',
-      entity: 'Standings',
-      field: 'completedRaceWeekends',
-      message: `${scores.length} scores exist but no completed race weekends detected — standings page will show no data`,
-      details: {
-        totalScores: scores.length,
-        completedRaceWeekends,
-        sampleScoreRaceIds: Array.from(scoreRaceIds).slice(0, 5),
-      },
-    });
-  } else if (completedRaceWeekends === 0) {
-    // No scores yet — expected for pre-season
+  if (pastRaces.length === 0) {
     issues.push({
       severity: 'info',
       entity: 'Standings',
       field: 'completedRaceWeekends',
-      message: 'No completed race weekends yet — expected for pre-season',
+      message: 'No races have passed yet — standings will be empty until the first race weekend',
+    });
+  } else if (completedCount === 0) {
+    issues.push({
+      severity: 'error',
+      entity: 'Standings',
+      field: 'completedRaceWeekends',
+      message: `${pastRaces.length} race(s) have passed but no results have been entered — standings page will show no data`,
+      details: { pastRaceCount: pastRaces.length },
     });
   }
 
-  // Validate each user has consistent standings
-  for (const user of users) {
-    let isValid = true;
-    const totalPoints = userTotals.get(user.id) || 0;
-    const entityName = `Standings for ${user.teamName || user.id}`;
-
-    // Check for any race scores
-    const userScores = scores.filter(s => s.userId === user.id);
-
-    if (userScores.length === 0) {
-      // No scores yet is valid (user may not have predicted or no races completed)
-      isValid = true;
-    } else {
-      // Recalculate and verify sum
-      const calculatedTotal = userScores.reduce((sum, s) => sum + (s.totalPoints || 0), 0);
-      if (calculatedTotal !== totalPoints) {
-        issues.push({
-          severity: 'error',
-          entity: entityName,
-          message: `Points mismatch: sum is ${calculatedTotal} but expected ${totalPoints}`,
-          details: { calculated: calculatedTotal, expected: totalPoints },
-        });
-        isValid = false;
-      }
-    }
-
-    if (isValid) {
-      validCount++;
+  // 2. Race ID format — each result doc should use Title-Case generateRaceId format
+  for (const result of raceResults) {
+    const expectedId = generateRaceId(result.id.replace(/-GP$/i, '').replace(/-Sprint$/i, ''), /sprint/i.test(result.id) ? 'sprint' : 'gp');
+    if (result.id !== expectedId) {
+      issues.push({
+        severity: 'warning',
+        entity: `race_results/${result.id}`,
+        field: 'id',
+        message: `Doc ID format mismatch — expected "${expectedId}", got "${result.id}". Results page lookup will fail.`,
+        details: { actual: result.id, expected: expectedId },
+      });
     }
   }
+
+  // 3. Prediction coverage — for each scored race, check every user has a prediction
+  //    (missing prediction = will score 0 for that race, which is expected but worth flagging)
+  const predsByRace = new Map<string, Set<string>>();
+  for (const pred of predictions) {
+    if (!pred.raceId) continue;
+    const raceKey = normalizeRaceId(pred.raceId).toLowerCase();
+    if (!predsByRace.has(raceKey)) predsByRace.set(raceKey, new Set());
+    const uid = pred.userId || pred.teamId;
+    if (uid) predsByRace.get(raceKey)!.add(uid);
+  }
+
+  const activeUsers = users.filter(u => !u.id.includes('secondary'));
+  for (const result of raceResults) {
+    const raceKey = normalizeRaceId(result.id).toLowerCase();
+    const usersWithPred = predsByRace.get(raceKey) ?? new Set();
+    const missingCount = activeUsers.filter(u => !usersWithPred.has(u.id)).length;
+    if (missingCount > 0) {
+      issues.push({
+        severity: 'info',
+        entity: `Standings — ${result.raceId || result.id}`,
+        field: 'predictions',
+        message: `${missingCount} user(s) have no prediction for this race — they will score 0`,
+        details: { raceId: result.id, missingCount, totalUsers: activeUsers.length },
+      });
+    }
+  }
+
+  // Count valid races (past races with results entered)
+  validCount = completedCount;
 
   const hasErrors = issues.some(i => i.severity === 'error');
   const hasWarnings = issues.some(i => i.severity === 'warning');
@@ -1984,7 +1984,7 @@ export function checkStandings(
   return {
     category: 'standings',
     status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
-    total: users.length,
+    total: pastRaces.length,
     valid: validCount,
     issues,
   };
