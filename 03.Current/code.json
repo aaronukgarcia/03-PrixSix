@@ -37893,9 +37893,7 @@
           "LIB_NORMALIZE_RACE_ID-000",
           "LIB_SCORING_RULES-000"
         ],
-        "calledBy": [
-          "ADMIN_SCORING_PAGE"
-        ]
+        "calledBy": []
       },
       "created": "2026-01-21T12:17:07Z",
       "lastUpdated": "2026-03-03T19:18:53.567Z"
@@ -38942,9 +38940,7 @@
           "LIB_SCORING-007",
           "LIB_NORMALIZE_RACE_ID-000"
         ],
-        "calledBy": [
-          "ADMIN_SCORING_PAGE"
-        ]
+        "calledBy": []
       },
       "created": "2026-01-21T12:17:07Z",
       "lastUpdated": "2026-03-03T19:18:53.567Z"
@@ -98411,14 +98407,14 @@
       "description": "Next.js middleware for CSRF protection on state-changing requests (POST/PUT/PATCH/DELETE). Validates Origin header matches Host or X-Forwarded-Host. Returns 403 on mismatch. Applies security headers (X-Content-Type-Options, X-Frame-Options, Vary).",
       "dependencies": [],
       "location": {
-        "filePath": "app/src/middleware.ts"
+        "filePath": "app/src/proxy.ts"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-01-29T15:23:38Z",
-      "lastUpdated": "2026-01-29T15:42:30Z"
+      "lastUpdated": "2026-03-10T12:57:29.278Z"
     },
     {
       "guid": "ROOT_LAYOUT-000",
