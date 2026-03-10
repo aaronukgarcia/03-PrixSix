@@ -1,4 +1,4 @@
-// GUID: MIDDLEWARE-000-v02
+// GUID: MIDDLEWARE-000-v03
 // @SECURITY_FIX (GEMINI-AUDIT-074): Documented CSRF posture and known limitations.
 // [Intent] Next.js Edge middleware enforcing CSRF origin checks on state-changing API requests
 //          and setting baseline security response headers.
@@ -19,7 +19,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // CSRF protection for state-changing requests (see GUID block above for full posture)
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
     const origin = request.headers.get('origin');

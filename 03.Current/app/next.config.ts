@@ -9,23 +9,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  webpack: (config, { isServer }) => {
-    // Suppress "Critical dependency: the request of a dependency is an expression"
-    // warning from @opentelemetry/instrumentation (used by genkit). The dynamic
-    // require in that module is intentional and works fine at runtime.
-    config.module.rules.push({
-      test: /[\\/]@opentelemetry[\\/]instrumentation[\\/]/,
-      resolve: { fullySpecified: false },
-    });
-    config.ignoreWarnings = [
-      ...(config.ignoreWarnings || []),
-      { module: /opentelemetry/ },
-    ];
-    return config;
-  },
+  // eslint.ignoreDuringBuilds removed in Next.js 16; ESLint config handled via eslint.config.js
+  // Next.js 16: Turbopack is default. Empty turbopack config signals intentional use.
+  // The opentelemetry/instrumentation webpack workaround is not needed under Turbopack.
+  turbopack: {},
   images: {
     unoptimized: true,
     remotePatterns: [
