@@ -460,6 +460,7 @@ export async function POST(request: NextRequest) {
       await userDoc.ref.update({
         badLoginAttempts: 0,
         lastFailedLoginAt: null,
+        lastLogin: FieldValue.serverTimestamp(),
       });
 
       // Log successful login
