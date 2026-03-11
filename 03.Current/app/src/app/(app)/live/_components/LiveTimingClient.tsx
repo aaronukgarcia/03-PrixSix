@@ -226,7 +226,10 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
     const hoursSinceSessionStart =
       (Date.now() - new Date(timingData.session.dateStart).getTime()) / (1000 * 60 * 60);
     const nextQualifyingInFuture = new Date(nextRace.qualifyingTime) > new Date();
-    return hoursSinceSessionStart > 6 && nextQualifyingInFuture;
+    // If FP1 has already started, open PubChat regardless of OpenF1 data lag
+    const fp1Label = getNextTracksideLabel();
+    const fp1AlreadyStarted = fp1Label ? fp1Label.fp1Date <= new Date() : false;
+    return hoursSinceSessionStart > 6 && nextQualifyingInFuture && !fp1AlreadyStarted;
   }, [timingData, nextRace]);
 
   return (
