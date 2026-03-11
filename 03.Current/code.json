@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1453,
+  "total_guids": 1552,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -35148,14 +35148,6 @@
           "PAGE_LOGIN-005",
           "PAGE_LOGIN-008",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "USE_COLLECTION-000",
           "USE_DOC-000",
           "LEAGUE_CONTEXT-000"
@@ -35265,14 +35257,6 @@
           "PAGE_LOGIN-005",
           "PAGE_LOGIN-008",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "USE_COLLECTION-000",
           "USE_DOC-000",
           "LEAGUE_CONTEXT-000"
@@ -42601,14 +42585,6 @@
           "PAGE_PROFILE-004",
           "PAGE_PROFILE-005",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "PAGE_VERIFY_EMAIL-000",
           "PAGE_VERIFY_EMAIL-001",
           "PAGE_VERIFY_EMAIL-002",
@@ -42828,14 +42804,6 @@
           "PAGE_PROFILE-004",
           "PAGE_PROFILE-005",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "PAGE_VERIFY_EMAIL-000",
           "PAGE_VERIFY_EMAIL-001",
           "PAGE_VERIFY_EMAIL-002",
@@ -43055,14 +43023,6 @@
           "PAGE_PROFILE-004",
           "PAGE_PROFILE-005",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "PAGE_VERIFY_EMAIL-000",
           "PAGE_VERIFY_EMAIL-001",
           "PAGE_VERIFY_EMAIL-002",
@@ -45646,14 +45606,6 @@
           "PAGE_COMPLETE_PROFILE-005",
           "PAGE_COMPLETE_PROFILE-006",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "USE_COLLECTION-000",
           "USE_DOC-000",
           "LEAGUE_CONTEXT-000"
@@ -45698,14 +45650,6 @@
           "PAGE_COMPLETE_PROFILE-005",
           "PAGE_COMPLETE_PROFILE-006",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "USE_COLLECTION-000",
           "USE_DOC-000",
           "LEAGUE_CONTEXT-000"
@@ -51737,14 +51681,6 @@
           "PAGE_RESULTS-030",
           "PAGE_RESULTS-031",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "PAGE_STANDINGS-000",
           "PAGE_STANDINGS-001",
           "PAGE_STANDINGS-002",
@@ -56730,14 +56666,6 @@
           "PAGE_RULES-001",
           "PAGE_RULES-002",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "PAGE_STANDINGS-000",
           "PAGE_STANDINGS-001",
           "PAGE_STANDINGS-002",
@@ -59851,14 +59779,6 @@
           "PAGE_SCHEDULE-001",
           "PAGE_SCHEDULE-002",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "PAGE_STANDINGS-000",
           "PAGE_STANDINGS-001",
           "PAGE_STANDINGS-002",
@@ -60653,14 +60573,6 @@
           "PAGE_PREDICTIONS-001",
           "PAGE_PREDICTIONS-013",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "PAGE_VERIFY_EMAIL-000",
           "PAGE_VERIFY_EMAIL-001",
           "PAGE_VERIFY_EMAIL-002",
@@ -60753,14 +60665,6 @@
           "PAGE_PREDICTIONS-001",
           "PAGE_PREDICTIONS-013",
           "PAGE_SIGNUP-000",
-          "PAGE_SIGNUP-002",
-          "PAGE_SIGNUP-003",
-          "PAGE_SIGNUP-004",
-          "PAGE_SIGNUP-005",
-          "PAGE_SIGNUP-006",
-          "PAGE_SIGNUP-007",
-          "PAGE_SIGNUP-008",
-          "PAGE_SIGNUP-009",
           "PAGE_VERIFY_EMAIL-000",
           "PAGE_VERIFY_EMAIL-001",
           "PAGE_VERIFY_EMAIL-002",
@@ -92233,405 +92137,6 @@
       "lastUpdated": "2026-02-01T15:28:07Z"
     },
     {
-      "guid": "PAGE_SIGNUP-002",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Blocklist of common weak PINs to prevent trivially guessable credentials.",
-      "dependencies": [
-        "COMPONENT_OAUTH_ICONS-000",
-        "COMPONENT_OAUTH_ICONS-001",
-        "COMPONENT_OAUTH_ICONS-002",
-        "ERROR_REGISTRY-000",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "LIB_TEAM_NAME_SUGGESTIONS-000",
-        "LIB_TEAM_NAME_SUGGESTIONS-001",
-        "LIB_TEAM_NAME_SUGGESTIONS-002",
-        "LIB_TEAM_NAME_SUGGESTIONS-003"
-      ],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_TEAM_NAME_SUGGESTIONS-000",
-          "API_TEAM_NAME_SUGGESTIONS-001",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "FEATURE_ACCOUNT_LINKER-000",
-          "FEATURE_ACCOUNT_LINKER-001"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T15:28:07Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-003",
-      "version": 3,
-      "logic_category": "VALIDATION",
-      "description": "Zod schema for signup form â€” validates team name (min 3 chars), email,",
-      "dependencies": [
-        "COMPONENT_OAUTH_ICONS-000",
-        "COMPONENT_OAUTH_ICONS-001",
-        "COMPONENT_OAUTH_ICONS-002",
-        "ERROR_REGISTRY-000",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "LIB_TEAM_NAME_SUGGESTIONS-000",
-        "LIB_TEAM_NAME_SUGGESTIONS-001",
-        "LIB_TEAM_NAME_SUGGESTIONS-002",
-        "LIB_TEAM_NAME_SUGGESTIONS-003"
-      ],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_TEAM_NAME_SUGGESTIONS-000",
-          "API_TEAM_NAME_SUGGESTIONS-001",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "FEATURE_ACCOUNT_LINKER-000",
-          "FEATURE_ACCOUNT_LINKER-001"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T15:28:07Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-004",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "Main signup page component â€” renders registration form with team name suggestion,",
-      "dependencies": [
-        "COMPONENT_OAUTH_ICONS-000",
-        "COMPONENT_OAUTH_ICONS-001",
-        "COMPONENT_OAUTH_ICONS-002",
-        "ERROR_REGISTRY-000",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "LIB_TEAM_NAME_SUGGESTIONS-000",
-        "LIB_TEAM_NAME_SUGGESTIONS-001",
-        "LIB_TEAM_NAME_SUGGESTIONS-002",
-        "LIB_TEAM_NAME_SUGGESTIONS-003"
-      ],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx",
-        "functionName": "SignupPage"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_TEAM_NAME_SUGGESTIONS-000",
-          "API_TEAM_NAME_SUGGESTIONS-001",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "FEATURE_ACCOUNT_LINKER-000",
-          "FEATURE_ACCOUNT_LINKER-001"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T15:28:07Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-005",
-      "version": 4,
-      "logic_category": "ORCHESTRATION",
-      "description": "Client-only effect to set a random team name suggestion after hydration,",
-      "dependencies": [
-        "COMPONENT_OAUTH_ICONS-000",
-        "COMPONENT_OAUTH_ICONS-001",
-        "COMPONENT_OAUTH_ICONS-002",
-        "ERROR_REGISTRY-000",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "LIB_TEAM_NAME_SUGGESTIONS-000",
-        "LIB_TEAM_NAME_SUGGESTIONS-001",
-        "LIB_TEAM_NAME_SUGGESTIONS-002",
-        "LIB_TEAM_NAME_SUGGESTIONS-003"
-      ],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_TEAM_NAME_SUGGESTIONS-000",
-          "API_TEAM_NAME_SUGGESTIONS-001",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "FEATURE_ACCOUNT_LINKER-000",
-          "FEATURE_ACCOUNT_LINKER-001"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T15:28:07Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-006",
-      "version": 4,
-      "logic_category": "ORCHESTRATION",
-      "description": "Picks a random F1-themed team name from funnyNames and sets it in the form.",
-      "dependencies": [
-        "COMPONENT_OAUTH_ICONS-000",
-        "COMPONENT_OAUTH_ICONS-001",
-        "COMPONENT_OAUTH_ICONS-002",
-        "ERROR_REGISTRY-000",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "LIB_TEAM_NAME_SUGGESTIONS-000",
-        "LIB_TEAM_NAME_SUGGESTIONS-001",
-        "LIB_TEAM_NAME_SUGGESTIONS-002",
-        "LIB_TEAM_NAME_SUGGESTIONS-003"
-      ],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx",
-        "functionName": "suggestName"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_TEAM_NAME_SUGGESTIONS-000",
-          "API_TEAM_NAME_SUGGESTIONS-001",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "FEATURE_ACCOUNT_LINKER-000",
-          "FEATURE_ACCOUNT_LINKER-001"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T15:28:07Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-007",
-      "version": 4,
-      "logic_category": "ORCHESTRATION",
-      "description": "Form submission handler â€” calls signup API, shows success toast and redirects",
-      "dependencies": [
-        "COMPONENT_OAUTH_ICONS-000",
-        "COMPONENT_OAUTH_ICONS-001",
-        "COMPONENT_OAUTH_ICONS-002",
-        "ERROR_REGISTRY-000",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "LIB_TEAM_NAME_SUGGESTIONS-000",
-        "LIB_TEAM_NAME_SUGGESTIONS-001",
-        "LIB_TEAM_NAME_SUGGESTIONS-002",
-        "LIB_TEAM_NAME_SUGGESTIONS-003"
-      ],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx",
-        "functionName": "onSubmit"
-      },
-      "errorProfile": {
-        "throws": [
-          "PX-9001"
-        ],
-        "handles": [],
-        "emits": {
-          "PX-9001": {
-            "key": "UNKNOWN_ERROR",
-            "message": "An unexpected error occurred",
-            "severity": "error",
-            "recovery": "Check server logs with the correlation ID for root cause.",
-            "failureModes": [
-              "Unclassified error",
-              "Third-party library exception"
-            ]
-          }
-        }
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_TEAM_NAME_SUGGESTIONS-000",
-          "API_TEAM_NAME_SUGGESTIONS-001",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "FEATURE_ACCOUNT_LINKER-000",
-          "FEATURE_ACCOUNT_LINKER-001"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T15:28:07Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-008",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Handle Google OAuth sign-in from signup page. New users go to /complete-profile; existing users are signed in directly.",
-      "dependencies": [
-        "COMPONENT_OAUTH_ICONS-000",
-        "COMPONENT_OAUTH_ICONS-001",
-        "COMPONENT_OAUTH_ICONS-002",
-        "ERROR_REGISTRY-000",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "LIB_TEAM_NAME_SUGGESTIONS-000",
-        "LIB_TEAM_NAME_SUGGESTIONS-001",
-        "LIB_TEAM_NAME_SUGGESTIONS-002",
-        "LIB_TEAM_NAME_SUGGESTIONS-003"
-      ],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx",
-        "functionName": "handleGoogleSignIn"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_TEAM_NAME_SUGGESTIONS-000",
-          "API_TEAM_NAME_SUGGESTIONS-001",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "FEATURE_ACCOUNT_LINKER-000",
-          "FEATURE_ACCOUNT_LINKER-001"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T15:28:07Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-009",
-      "version": 3,
-      "logic_category": "ORCHESTRATION",
-      "description": "Handle Apple OAuth sign-in from signup page.",
-      "dependencies": [
-        "COMPONENT_OAUTH_ICONS-000",
-        "COMPONENT_OAUTH_ICONS-001",
-        "COMPONENT_OAUTH_ICONS-002",
-        "ERROR_REGISTRY-000",
-        "BACKUP_ERRORS-001",
-        "LIB_ERROR_CODES-000",
-        "LIB_ERROR_CODES-001",
-        "LIB_ERROR_CODES-002",
-        "LIB_ERROR_CODES-003",
-        "LIB_ERROR_CODES-004",
-        "LIB_ERROR_CODES-005",
-        "LIB_ERROR_CODES-006",
-        "LIB_ERROR_CODES-007",
-        "LIB_TEAM_NAME_SUGGESTIONS-000",
-        "LIB_TEAM_NAME_SUGGESTIONS-001",
-        "LIB_TEAM_NAME_SUGGESTIONS-002",
-        "LIB_TEAM_NAME_SUGGESTIONS-003"
-      ],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx",
-        "functionName": "handleAppleSignIn"
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": [
-          "API_TEAM_NAME_SUGGESTIONS-000",
-          "API_TEAM_NAME_SUGGESTIONS-001",
-          "COMPONENT_SECURITY_UPGRADE-000",
-          "API_AUTH_RECORD_LOGON-000",
-          "API_AUTH_RECORD_LOGOUT-000",
-          "BACKUP_DASHBOARD-003",
-          "COMPONENT_OAUTH_ICONS-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-000",
-          "API_SEND_PROVIDER_LINKED_EMAIL-001",
-          "API_SEND_PROVIDER_LINKED_EMAIL-002",
-          "FEATURE_ACCOUNT_LINKER-000",
-          "FEATURE_ACCOUNT_LINKER-001"
-        ]
-      },
-      "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T15:28:07Z"
-    },
-    {
       "guid": "PAGE_STANDINGS-000",
       "version": 4,
       "logic_category": "ORCHESTRATION",
@@ -108428,57 +107933,6 @@
       "lastUpdated": "2026-03-03T19:10:12.267Z"
     },
     {
-      "guid": "PAGE_SIGNUP-010",
-      "version": 3,
-      "logic_category": "TRANSFORMATION",
-      "description": "OAuth sign-up divider and buttons for Google and Apple.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx",
-        "functionName": ""
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      },
-      "created": "2026-03-03T19:10:12.267Z",
-      "lastUpdated": "2026-03-03T19:10:12.267Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-011",
-      "version": 1,
-      "logic_category": "TRANSFORMATION",
-      "description": "AlertDialog shown when the chosen team name resembles the user's email.",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx",
-        "functionName": ""
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      },
-      "created": "2026-03-03T19:10:12.267Z",
-      "lastUpdated": "2026-03-03T19:10:12.267Z"
-    },
-    {
-      "guid": "PAGE_SIGNUP-012",
-      "version": 1,
-      "logic_category": "TRANSFORMATION",
-      "description": "GDPR/legal consent notice shown below the Sign Up button. Informs",
-      "dependencies": [],
-      "location": {
-        "filePath": "app/src/app/(auth)/signup/page.tsx",
-        "functionName": ""
-      },
-      "callChain": {
-        "calledBy": [],
-        "calls": []
-      },
-      "created": "2026-03-03T19:10:12.267Z",
-      "lastUpdated": "2026-03-03T19:10:12.267Z"
-    },
-    {
       "guid": "PAGE_STANDINGS-011",
       "version": 8,
       "logic_category": "TRANSFORMATION",
@@ -109635,6 +109089,1876 @@
       },
       "created": "2026-03-03T19:11:13.183Z",
       "lastUpdated": "2026-03-03T19:18:04.040Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Admin panel component for monitoring and overriding the pit lane open/closed state. Shows live countdowns in dual timezones. All override actions written to audit_logs via /api/admin/pit-lane.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-001",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Format a UTC ISO datetime string in a given IANA timezone for track-local display using Intl.DateTimeFormat.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "formatInTimezone"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Format a UTC ISO datetime string in the browser local timezone for admin display.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "formatLocal"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Compute a human-readable countdown string from now to a target date. Returns \"Started / Past\" if target is in the past.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "formatCountdown"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-004",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Compute the effective pit lane state from admin override + automatic clock logic. Auto logic: open if qualifying time is in the future AND race has no results doc.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "computeEffectiveState"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-005",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Main PitLaneAdmin component. Subscribes to app-settings/pit-lane and race_results to compute effective pit lane state. Provides override controls with two-step confirm.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "PitLaneAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-006",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Subscribe to app-settings/pit-lane in real-time to reflect current override state.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "PitLaneAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-007",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Subscribe to race_results to detect if current race has results (auto-close trigger).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "PitLaneAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-008",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Live countdown tick — update every second for qualifying and race time displays.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "PitLaneAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-009",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Execute the admin override action — POST to /api/admin/pit-lane. Writes both the override state and audit log (server-side batch).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "executeAction"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-010",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Status card + override controls section. Shows effective state badge, override info alert, feedback alert, and action buttons (Force Open, Force Close, Clear Override).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "PitLaneAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-011",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Qualifying countdown card — shows countdown timer and dual-timezone qualifying time (track local + admin local).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "PitLaneAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_PIT_LANE-012",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Race countdown card — shows countdown timer and dual-timezone race start time (track local + admin local).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx",
+        "functionName": "PitLaneAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_AI_PIT_CHATTER-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "AI-powered pit-side chatter generator for PubChat. Accepts leaderboard snapshot and generates paddock commentary via Gemini. Persona chosen randomly per request. Rate-limited to 5 req/hour per user.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/ai/pit-chatter/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_AI_PIT_CHATTER-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Shape of each driver entry sent from the client to the pit chatter AI endpoint.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/ai/pit-chatter/route.ts",
+        "functionName": "ChatterDriver"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_AI_PIT_CHATTER-002",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Full request body shape for the pit chatter AI endpoint including session context and driver array.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/ai/pit-chatter/route.ts",
+        "functionName": "PitChatterRequest"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_AI_PIT_CHATTER-003",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Strip everything except safe display characters before interpolating Firestore strings into the AI prompt. Prevents prompt injection.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/ai/pit-chatter/route.ts",
+        "functionName": "sanitize"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_AI_PIT_CHATTER-004",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Per-user rate limiter using Firestore sliding window (pit-chatter bucket). Returns { allowed, resetAt }.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/ai/pit-chatter/route.ts",
+        "functionName": "checkRateLimit"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_AI_PIT_CHATTER-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Build the Gemini prompt from session + leaderboard data and persona config. All user-sourced strings are sanitized.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/ai/pit-chatter/route.ts",
+        "functionName": "buildPrompt"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_AI_PIT_CHATTER-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — auth, rate limit, prompt build, Vertex AI (Gemini) call via Genkit, response.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/ai/pit-chatter/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_LIVE_REFRESH_TIMING-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Module-level constants, token cache, and helpers for the live timing auto-refresh endpoint. Targets session_key=latest.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/live/refresh-timing/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_LIVE_REFRESH_TIMING-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Wrap fetch() with an AbortController-based timeout so no outbound HTTP call can hang longer than timeoutMs milliseconds.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/live/refresh-timing/route.ts",
+        "functionName": "fetchWithTimeout"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_LIVE_REFRESH_TIMING-002",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Safely parse JSON from an HTTP response — reads body as text first then JSON.parse. Throws descriptive error on non-JSON bodies.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/live/refresh-timing/route.ts",
+        "functionName": "safeParseJson"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_LIVE_REFRESH_TIMING-003",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Acquire an OpenF1 OAuth2 access token, caching it for 55 minutes. Returns null if credentials not configured.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/live/refresh-timing/route.ts",
+        "functionName": "getOpenF1Token"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_LIVE_REFRESH_TIMING-004",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Convert lap duration in decimal seconds to M:SS.mmm string format.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/live/refresh-timing/route.ts",
+        "functionName": "formatLapDuration"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_LIVE_REFRESH_TIMING-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main POST handler for the live timing auto-refresh endpoint. Verifies auth, checks rate gate (15min), fetches from OpenF1 (session/meeting/drivers/laps/stints), writes PubChatTimingData to Firestore.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/live/refresh-timing/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_LIVE_TIMING_CLIENT-000",
+      "version": 5,
+      "logic_category": "UI",
+      "description": "Client component for the /live (PubChat) page. Shows Leaderboard, Team Lens, Comparison, and Chatter tabs with auto-refresh every 2 minutes. Chatter tab calls /api/ai/pit-chatter.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_LIVE_TIMING_CLIENT-001",
+      "version": 4,
+      "logic_category": "UI",
+      "description": "Main LiveTimingClient component. Manages timing data state, tab selection, team lens selection (defaults to Williams), auto-refresh interval, and renders the PubChat widget.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
+        "functionName": "LiveTimingClient"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_LIVE_TIMING_CLIENT-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST to /api/live/refresh-timing to trigger an OpenF1 refresh. Rate gate enforced server-side. If stale, server fetches from OpenF1 and client re-reads Firestore.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
+        "functionName": "checkAndRefresh"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_LIVE_TIMING_CLIENT-003",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Derive the next expected FP1 session label from the race schedule. FP1 is approximately 1 day before qualifying (2 days for sprint weekends).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
+        "functionName": "getNextTracksideLabel"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_LIVE_TIMING_CLIENT-004",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST current timing snapshot to /api/ai/pit-chatter and store the returned commentary in state. Rate-limited server-side (5/hour).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
+        "functionName": "generateChatter"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_LIVE_TIMING_CLIENT-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Detect between-race-weekends state — stored timing data from completed session (>6h since start) AND next race qualifying still in future. When true, show next-race countdown panel instead of stale lap data.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
+        "functionName": "LiveTimingClient"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-000-v06",
+      "version": 6,
+      "logic_category": "UI",
+      "description": "Admin component for managing user teams: view, edit, delete, toggle admin status, unlock locked accounts, and resend welcome email. Added sortable Registered column in v06.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-001-v03",
+      "version": 3,
+      "logic_category": "CONFIGURATION",
+      "description": "Props contract for TeamManager requiring the full user list and its loading state.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "TeamManagerProps"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-002-v06",
+      "version": 6,
+      "logic_category": "UI",
+      "description": "Main TeamManager component that renders a sortable table of all users with edit, admin toggle, and delete actions. Sort state and sorted users memo added in v06.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "TeamManager"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-002A",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Format a Firestore Timestamp (or object with toDate()) to a short date string. Returns em-dash if null/undefined.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "formatDate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-002B",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Sort state for the team table. Default: newest registrations first. Updated when a column header is clicked.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "TeamManager"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-002C",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Toggle sort field/direction. Clicking the same field flips direction; clicking a new field sets it ascending (except createdAt which starts desc).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "handleSort"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-002D",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Sorted copy of allUsers memo. Rows with missing createdAt sort to bottom. Recomputed when allUsers, sortField, or sortDir changes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "sortedUsers"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-003-v03",
+      "version": 3,
+      "logic_category": "CONFIGURATION",
+      "description": "Local state for the edit dialog: tracks which user is selected and what editable fields contain.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "TeamManager"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-004-v03",
+      "version": 3,
+      "logic_category": "UI",
+      "description": "Opens the edit dialog and pre-populates form fields with the selected user current data.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "handleEditClick"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-005-v04",
+      "version": 4,
+      "logic_category": "DATA_ACCESS",
+      "description": "Persists edited user fields (teamName, email, isAdmin) to Firestore and closes the dialog. Added input validation for team names in v04 (length 2-50, blocks dangerous characters).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "handleSaveChanges"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-006-v03",
+      "version": 3,
+      "logic_category": "DATA_ACCESS",
+      "description": "Toggles a user admin status between admin and regular user.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "handleToggleAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-007-v03",
+      "version": 3,
+      "logic_category": "DATA_ACCESS",
+      "description": "Permanently deletes a user and all their data from the system. Irreversible action.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "handleDeleteUser"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-008-v03",
+      "version": 3,
+      "logic_category": "DATA_ACCESS",
+      "description": "Resets a locked user badLoginAttempts counter to zero, unlocking their account.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "handleUnlockUser"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-009A",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Resets user PIN and sends a welcome email via /api/admin/resend-welcome-email. Generates new 6-digit PIN server-side, updates Firebase Auth, sets mustChangePin=true, dispatches email via Microsoft Graph.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "handleResendWelcome"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_TEAM-009-v06",
+      "version": 6,
+      "logic_category": "UI",
+      "description": "Renders the team management UI: sortable table of users with action buttons and edit dialog. Column headers for Team Name, Email, and Registered are clickable sort triggers.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/TeamManager.tsx",
+        "functionName": "TeamManager"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_PIT_LANE-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Admin API route to manually override the pit lane open/closed state. Force-open, force-close, or clear the override. All actions written to audit_logs.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/pit-lane/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_PIT_LANE-001",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Validate action is one of the three permitted values: open, close, or clear.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/pit-lane/route.ts",
+        "functionName": "isValidAction"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_PIT_LANE-002",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — verifies admin auth, validates action, writes override to app-settings/pit-lane, and writes an audit_logs entry.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/pit-lane/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_PIT_LANE-003",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Admin-only gate — verify the calling user has isAdmin: true in Firestore. Non-admin users receive 403.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/pit-lane/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_PIT_LANE-004",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Write the override state to app-settings/pit-lane and record an audit entry. Uses a Firestore batch for atomicity.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/pit-lane/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "CRON_EMAIL_QUEUE-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Cron-authenticated POST endpoint that drains the email_queue collection by sending pending emails via Microsoft Graph. Called every 15 minutes by the processEmailQueue Cloud Function.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/process-email-queue/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "CRON_EMAIL_QUEUE-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Validate the Authorization: Bearer header against CRON_SECRET using timing-safe comparison to prevent token oracle attacks.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/process-email-queue/route.ts",
+        "functionName": "isAuthorized"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "CRON_EMAIL_QUEUE-002",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Handle a failed email send attempt with retry logic. If retryCount < MAX_RETRY_ATTEMPTS, schedules a retry after RETRY_DELAY_MINUTES. After max attempts, marks document permanently failed.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/process-email-queue/route.ts",
+        "functionName": "handleEmailFailure"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "CRON_EMAIL_QUEUE-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — validates bearer token, fetches up to PUSH_BATCH_LIMIT pending emails whose nextRetryAt has passed, sends each via sendEmail(), and updates queue document status.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/process-email-queue/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_LIVE-000",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Server component wrapper for the player-facing Live Timing page. Reads initial timing data from Firestore via Admin SDK to avoid a loading flash on first render.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/page.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_LIVE-001",
+      "version": 2,
+      "logic_category": "DATA_ACCESS",
+      "description": "Server-side initial data fetch from app-settings/pub-chat-timing. Returns null if the document does not exist. Strips fetchedAt Timestamp before passing to Client Component (GOTCHA #15).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/page.tsx",
+        "functionName": "getInitialTimingData"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_LIVE-002",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Skeleton shown while the Suspense boundary waits for server data. Prevents layout shift.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/page.tsx",
+        "functionName": "LiveTimingSkeleton"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_LIVE-003",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Page root — fetches initial data and renders the LiveTimingClient component. Client receives initialTimingData prop and immediately shows content without loading flash.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/page.tsx",
+        "functionName": "LivePage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESEND_WELCOME-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Admin-only endpoint that generates a fresh 6-digit PIN, updates Firebase Auth, sets mustChangePin=true, and sends a welcome email via Microsoft Graph.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/resend-welcome-email/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_RESEND_WELCOME-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — verifies admin auth, looks up user by userId, generates new 6-digit PIN, updates Firebase Auth, sets mustChangePin, and sends welcome email.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/resend-welcome-email/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_NOTIFY_PIN_CHANGED-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Authenticated POST endpoint that sends a PIN changed notification email via Graph API and writes result to email_logs and audit_logs. Called by changePin() in provider.tsx.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/notify-pin-changed/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_NOTIFY_PIN_CHANGED-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — verifies Firebase auth token, sends PIN changed notification via Graph API, logs result to email_logs and audit_logs. Returns success regardless of email outcome.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/notify-pin-changed/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-000-v03",
+      "version": 3,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Comprehensive client-side error logger that captures ALL unhandled errors and promise rejections, sends them to /api/log-client-error. Security fix: production console.error omits stack/context/error object in DevTools.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-001-v02",
+      "version": 2,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Check if error is a chunk load error (already handled by ChunkErrorHandler). Includes Safari/iOS pattern: dynamic import failures surface as TypeError Load failed.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "isChunkLoadError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-002-v02",
+      "version": 2,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Send error details to server for persistent logging in error_logs collection. Production omits stack/context from console. Fails silently if logging endpoint unavailable.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "logErrorToServer"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-003-v02",
+      "version": 2,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Main component that sets up global error and promise rejection listeners. Captures all client-side errors except chunk load errors (handled separately).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "GlobalErrorLogger"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-004-v03",
+      "version": 3,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Handle window-level unhandled errors. Skips chunk errors, Firebase Performance attribute noise (PERF-001), IndexedDB disconnects (BUG-ERR-003), and bot crawlers (BUG-ERR-002).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "GlobalErrorLogger"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-005-v03",
+      "version": 3,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Handle unhandled promise rejections. Skips chunk errors, Firebase Performance attribute noise, IndexedDB disconnects, and bot crawlers.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "GlobalErrorLogger"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-006-v02",
+      "version": 2,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Detect Firebase Performance attribute errors caused by Tailwind CSS class strings passed to putAttribute() by auto-instrumentation (PERF-001). These are SDK-level noise, not actionable.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "isFirebasePerformanceError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-007-v01",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Detect known web crawler/bot user-agents and suppress error logging. Bots execute JS without auth sessions so their errors are unactionable noise (BUG-ERR-002).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "isBotCrawler"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-008",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "In-memory deduplication map — prevents flooding error_logs with the same error many times in quick succession. TTL: 60 seconds per unique error+route combination.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "isDuplicate"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-009",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Detect Safari/iOS IndexedDB disconnection errors from the Firebase SDK. These are browser environment issues (private browsing, low memory) and are entirely unactionable at the app level (BUG-ERR-003).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx",
+        "functionName": "isIndexedDBError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_NEW_VERSION_BANNER-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Proactive stale-bundle banner — detects when a new build has been deployed while the user has the old bundle loaded and prompts them to refresh BEFORE hitting a ChunkLoadError.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/NewVersionBanner.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_NEW_VERSION_BANNER-001",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Renders a slim fixed top bar when a new version is detected. Dismissed state is local to the session. Refresh now triggers window.location.reload().",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/NewVersionBanner.tsx",
+        "functionName": "NewVersionBanner"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "HOOK_VERSION_CHECK-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Custom hook that polls /api/version every 2 minutes and compares server current version against APP_VERSION baked into the client bundle. Returns updateAvailable=true when they differ.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/hooks/use-version-check.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "HOOK_VERSION_CHECK-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Main hook body — sets up delayed first check (45s) then repeating 2-minute interval. Skips checks when tab is hidden. Returns { updateAvailable } — once true, stays true until reload.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/hooks/use-version-check.ts",
+        "functionName": "useVersionCheck"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_GLOBAL_ERROR-000-v02",
+      "version": 2,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Global error boundary that catches errors in the root layout. Renders a complete HTML document on catastrophic crash. Chunk load errors silently reloaded. Security fix: production console.error omits stack.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/global-error.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_GLOBAL_ERROR-001",
+      "version": 2,
+      "logic_category": "ERROR_HANDLING",
+      "description": "On mount: if error is a stale-bundle chunk load failure, reload silently instead of logging to error_logs. Real errors proceed to generate a correlation ID and log to server.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/global-error.tsx",
+        "functionName": "GlobalError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_GLOBAL_ERROR-002",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "Detect webpack chunk load failures in the React error boundary context. These occur when a new deployment invalidates chunk hashes while a user has the old bundle loaded.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/global-error.tsx",
+        "functionName": "isChunkLoadError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "GLOBAL_ERROR-000-v03",
+      "version": 3,
+      "logic_category": "ERROR_HANDLING",
+      "description": "GlobalError component export — root-level React error boundary rendered by Next.js when any error propagates to the root layout. Shows correlation ID and retry/go-home buttons.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/global-error.tsx",
+        "functionName": "GlobalError"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-010-v02",
+      "version": 2,
+      "logic_category": "UI",
+      "description": "PubChatPanel collapsible Live Leaderboard area — auto-refresh every 10s, green ring on today meeting card.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-011-v02",
+      "version": 2,
+      "logic_category": "UI",
+      "description": "PubChatPanel collapsible Pub Chat area with meeting selector and banter display.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_SEND_VERIFICATION_EMAIL-000-v05",
+      "version": 5,
+      "logic_category": "ORCHESTRATION",
+      "description": "API route that sends a primary email verification link to a user. Generates CSPRNG token, stores in Firestore with 2-hour expiry, builds branded HTML email, sends via Graph API.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/send-verification-email/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_SEND_VERIFICATION_EMAIL-001-v03",
+      "version": 3,
+      "logic_category": "SECURITY",
+      "description": "Generates a cryptographically secure 32-byte hex token for email verification links.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/send-verification-email/route.ts",
+        "functionName": "generateVerificationToken"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_SEND_VERIFICATION_EMAIL-002-v06",
+      "version": 6,
+      "logic_category": "ORCHESTRATION",
+      "description": "POST handler — validates required fields, checks Graph API config, reuses existing valid token or generates new one with 2-hour expiry, builds verification email, sends via Graph API. URL parameters encoded to prevent injection (EMAIL-002).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/send-verification-email/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_SEND_VERIFICATION_EMAIL-003",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Reuse an existing valid (unused, unexpired) token instead of overwriting it. Prevents BUG-VERIFY-001: user clicks old link just as a new resend overwrites the token doc.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/send-verification-email/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_SUBMIT_PREDICTION-000-v06",
+      "version": 6,
+      "logic_category": "ORCHESTRATION",
+      "description": "API route that accepts and stores a user top-6 driver prediction for a specific race and team. Enforces server-side lockout (results exist, qualifying started). Security: team ownership check, race fails-closed, per-driver-ID validation.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/submit-prediction/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_VERSION-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Lightweight public endpoint that returns the currently deployed app version. Used by the client-side version check hook to detect when a new build has been deployed. No auth required.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/version/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-000-v03",
+      "version": 3,
+      "logic_category": "ORCHESTRATION",
+      "description": "Prix Six Cloud Functions — Backup & Recovery. Automated daily Firestore backups to GCS plus weekly Sunday smoke test that restores backup into a disposable recovery project.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-001-v03",
+      "version": 3,
+      "logic_category": "CONFIGURATION",
+      "description": "Initialise the Firebase Admin SDK once at cold-start so all downstream function handlers can call getFirestore()/getAuth().",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "initializeApp"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-002-v05",
+      "version": 5,
+      "logic_category": "CONFIGURATION",
+      "description": "Centralise all environment-specific constants. Added project isolation guard (Wave 10) — throws at cold-start if RECOVERY_PROJECT equals MAIN_PROJECT to prevent accidental import into production.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "LIB_FIREBASE_ADMIN-000-v05",
+      "version": 5,
+      "logic_category": "CONFIGURATION",
+      "description": "Server-side Firebase Admin SDK initialisation and shared utilities for authentication verification, correlation ID generation, and centralised error logging. Security fix: credential leak in initialization error catch block.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/firebase-admin.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "LIB_FIREBASE_ADMIN-001-v03",
+      "version": 3,
+      "logic_category": "CONFIGURATION",
+      "description": "Module-level singleton cache for the Firebase Admin SDK app, Firestore instance, FieldValue, and Timestamp to avoid re-initialisation on every request.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/firebase-admin.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "LIB_FIREBASE_ADMIN-002-v04",
+      "version": 4,
+      "logic_category": "CONFIGURATION",
+      "description": "getFirebaseAdmin function — initialises or returns the Admin SDK singleton. Returns db, FieldValue, and Timestamp instances.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/firebase-admin.ts",
+        "functionName": "getFirebaseAdmin"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "FIRESTORE_BOOKOFWORK-001-v01",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Firestore security rules for the book-of-work collection. Controls read/write access to the papers BOW tracking collection.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-000-v05",
+      "version": 5,
+      "logic_category": "UI",
+      "description": "Predictions page — allows users to view, submit, and edit driver predictions for the next open race. Supports multiple teams, prediction carry-over, and pit lane open/closed status.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_SCHEDULE-000-v03",
+      "version": 3,
+      "logic_category": "UI",
+      "description": "Schedule page — displays the full 2026 F1 race calendar with qualifying, sprint, and GP times in the user local timezone. Highlights next upcoming race, dims past races.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/schedule/page.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_SCHEDULE-001-v03",
+      "version": 3,
+      "logic_category": "TRANSFORMATION",
+      "description": "Converts an ISO 8601 date string into a localised date and time pair for display. Called per race event (qualifying, sprint, GP) during the calendar rendering loop.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/schedule/page.tsx",
+        "functionName": "formatLocalDateTime"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_SIGNUP-000-v07",
+      "version": 7,
+      "logic_category": "UI",
+      "description": "Signup page — registration is CLOSED. Renders invitation-only card and links back to login. No Firebase SDK calls to avoid IndexedDB storms on Safari iOS (BUG-ERR-003 root cause).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/signup/page.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_SIGNUP-001",
+      "version": 7,
+      "logic_category": "UI",
+      "description": "Static server component — no client JS, no Firebase SDK, no IndexedDB. Renders registration closed message with a link to /login.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(auth)/signup/page.tsx",
+        "functionName": "SignupPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-10T00:00:00Z",
+      "lastUpdated": "2026-03-10T00:00:00Z"
+    },
+    {
+      "guid": "API_SUBMIT_PREDICTION-004B",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Admin pit lane override gate in the submit-prediction handler. Checks app-settings/pit-lane.override before the time-based qualifying lock — force-close rejects immediately, force-open bypasses the clock check while race results check still applies.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/submit-prediction/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-11T00:00:00Z",
+      "lastUpdated": "2026-03-11T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-071",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Scheduled Cloud Function (2nd-gen, Cloud Run) that fires every 15 minutes via Cloud Scheduler and POSTs to /api/cron/process-email-queue. A thin HTTP trigger — all email draining logic lives in the app route.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "processEmailQueue"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-11T00:00:00Z",
+      "lastUpdated": "2026-03-11T00:00:00Z"
+    },
+    {
+      "guid": "LIB_FIREBASE_ADMIN-006",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Lazy synchronous-style accessors (adminAuth, adminFirestore) for legacy routes that import them as named exports. Uses getFirebaseAdmin() internally to ensure Admin SDK is initialized. New code should prefer getFirebaseAdmin() directly.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/firebase-admin.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-11T00:00:00Z",
+      "lastUpdated": "2026-03-11T00:00:00Z"
+    },
+    {
+      "guid": "OFFICIAL_TEAMS_RULES-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Firestore security rule granting read access to official_teams collection for signed-in users. official_teams contains public F1 reference data (team names, driver numbers, colours) used by PubChatPanel Team Lens. Write restricted to admins.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-11T00:00:00Z",
+      "lastUpdated": "2026-03-11T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_PREDICTIONS-002A",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Subscribes to the app-settings/pit-lane Firestore document to get the admin override state (null = automatic clock-based, open = force open, close = force close). Used to compute the effective isPitlaneOpen value on the predictions page.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/predictions/page.tsx",
+        "functionName": "PredictionsPage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-11T00:00:00Z",
+      "lastUpdated": "2026-03-11T00:00:00Z"
+    },
+    {
+      "guid": "PAGE_SCHEDULE-003",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "On mount, scrolls the next race card into view so it appears at the top of the schedule list. Past races sit above, future races below. Uses instant scroll behaviour to avoid a jarring animated jump.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/schedule/page.tsx",
+        "functionName": "SchedulePage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-11T00:00:00Z",
+      "lastUpdated": "2026-03-11T00:00:00Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-002A",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Auto-fetch guard in PubChatPanel: when the initial Firestore read completes and there is no timing data, automatically calls /api/live/refresh-timing to pull the latest OpenF1 session — so the admin never needs to manually trigger the first fetch. A ref prevents re-firing on subsequent renders.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "PubChatPanel"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-11T00:00:00Z",
+      "lastUpdated": "2026-03-11T00:00:00Z"
+    },
+    {
+      "guid": "PUBCHAT_PANEL-039",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Auto-selects the most relevant session when sessions load for a selected meeting. Priority: (1) session in progress, (2) next upcoming session, (3) most recently completed. Prevents stale pre-season data from defaulting — admin lands on the correct session immediately (BUG-PC-002 fix).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PubChatPanel.tsx",
+        "functionName": "PubChatPanel"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-11T00:00:00Z",
+      "lastUpdated": "2026-03-11T00:00:00Z"
     }
   ],
   "firestoreCollections": {
