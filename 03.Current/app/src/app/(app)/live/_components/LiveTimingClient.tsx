@@ -216,21 +216,30 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
   // GUID: COMPONENT_LIVE_TIMING_CLIENT-005-v01
   // [Intent] Detect "between race weekends" state — the stored timing data is from a
   //          completed session (>6h since start) AND the next race qualifying is still
-  //          in the future. When true, show a next-race countdown panel instead of stale
-  //          lap data leaderboard. Prevents PubChat from being stuck on last week's race.
+  //          in the future AND FP1 hasn't started yet. When true, show a next-race
+  //          countdown panel instead of stale lap data leaderboard.
   // [Inbound Trigger] Recomputed whenever timingData changes.
   // [Downstream Impact] Replaces the leaderboard/tabs with a "Next Race" panel in the UI.
   const nextRace = findNextRace();
+  const fp1Label = getNextTracksideLabel();
   const isBetweenRaces = useMemo(() => {
     if (!timingData?.session?.dateStart || !nextRace) return false;
     const hoursSinceSessionStart =
       (Date.now() - new Date(timingData.session.dateStart).getTime()) / (1000 * 60 * 60);
     const nextQualifyingInFuture = new Date(nextRace.qualifyingTime) > new Date();
     // If FP1 has already started, open PubChat regardless of OpenF1 data lag
-    const fp1Label = getNextTracksideLabel();
     const fp1AlreadyStarted = fp1Label ? fp1Label.fp1Date <= new Date() : false;
     return hoursSinceSessionStart > 6 && nextQualifyingInFuture && !fp1AlreadyStarted;
-  }, [timingData, nextRace]);
+  }, [timingData, nextRace, fp1Label]);
+
+  // FP1 has started but stored Firestore data is from the previous race — OpenF1 lag.
+  // Show a "waiting for session data" panel rather than the stale leaderboard.
+  const isWaitingForNewSession = useMemo(() => {
+    if (!fp1Label || !timingData?.session?.dateStart) return false;
+    const fp1AlreadyStarted = fp1Label.fp1Date <= new Date();
+    const storedDataPreDatesFP1 = new Date(timingData.session.dateStart) < fp1Label.fp1Date;
+    return fp1AlreadyStarted && storedDataPreDatesFP1;
+  }, [timingData, fp1Label]);
 
   return (
     <Card className="overflow-hidden">
@@ -281,15 +290,18 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
               Last from track: {timingData.session.sessionName} · {timingData.session.location}
             </p>
           )}
-          {(() => {
-            const n = getNextTracksideLabel();
-            return n ? (
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                <CalendarClock className="h-3 w-3 flex-shrink-0" />
-                Next expected: {n.location} FP1 · {n.dayLabel}
-              </p>
-            ) : null;
-          })()}
+          {fp1Label && !isWaitingForNewSession && fp1Label.fp1Date > new Date() && (
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <CalendarClock className="h-3 w-3 flex-shrink-0" />
+              Next expected: {fp1Label.location} FP1 · {fp1Label.dayLabel}
+            </p>
+          )}
+          {isWaitingForNewSession && fp1Label && (
+            <p className="text-[11px] text-amber-500/80 flex items-center gap-1.5">
+              <Radio className="h-3 w-3 flex-shrink-0 animate-pulse" />
+              {fp1Label.raceName} FP1 underway — waiting for timing data
+            </p>
+          )}
         </div>
       </CardHeader>
 
@@ -356,8 +368,20 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
           );
         })()}
 
+        {/* FP1 started but OpenF1 hasn't updated yet — waiting for new session data */}
+        {isWaitingForNewSession && fp1Label && (
+          <div className="px-4 py-8 text-center space-y-3">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-5 space-y-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Session in progress</p>
+              <p className="text-base font-bold">{fp1Label.raceName} FP1</p>
+              <p className="text-sm text-muted-foreground">Waiting for timing data from OpenF1</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Auto-refreshing every 2 minutes</p>
+            </div>
+          </div>
+        )}
+
         {/* Active race weekend — show leaderboard tabs */}
-        {!isBetweenRaces && <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewTab)}>
+        {!isBetweenRaces && !isWaitingForNewSession && <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewTab)}>
           <div className="px-4 pb-0 border-b border-border/60">
             <TabsList className="h-8 bg-transparent p-0 gap-4">
               <TabsTrigger
