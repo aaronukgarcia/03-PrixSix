@@ -53,8 +53,11 @@ interface LiveTimingClientProps {
 function getNextTracksideLabel(): { location: string; raceName: string; dayLabel: string; fp1Date: Date } | null {
   const next = findNextRace();
   if (!next) return null;
+  // For sprint weekends, qualifyingTime = Sprint Qualifying (Thursday).
+  // FP1 is on the same day, ~4 hours earlier — NOT 2 days before.
+  // For normal weekends, qualifyingTime = Saturday qualifying; FP1 is Friday (1 day before).
   const fp1Date = new Date(
-    new Date(next.qualifyingTime).getTime() - (next.hasSprint ? 2 : 1) * 24 * 60 * 60 * 1000
+    new Date(next.qualifyingTime).getTime() - (next.hasSprint ? 4 : 24) * 60 * 60 * 1000
   );
   const dayLabel = fp1Date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   return { location: next.location, raceName: next.name, dayLabel, fp1Date };
