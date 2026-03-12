@@ -61,7 +61,7 @@ interface TeamManagerProps {
 // [Inbound Trigger] Rendered by the admin page when the Teams management tab is active.
 // [Downstream Impact] All user mutations (edit, delete, admin toggle, unlock) flow through useAuth() hooks which update Firestore user documents.
 
-type SortField = 'teamName' | 'email' | 'createdAt' | 'lastLogin';
+type SortField = 'teamName' | 'email' | 'createdAt' | 'lastSeen';
 type SortDir   = 'asc' | 'desc';
 
 // GUID: ADMIN_TEAM-002A-v01
@@ -101,7 +101,7 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
             setSortDir(d => d === 'asc' ? 'desc' : 'asc');
         } else {
             setSortField(field);
-            setSortDir(field === 'createdAt' || field === 'lastLogin' ? 'desc' : 'asc');
+            setSortDir(field === 'createdAt' || field === 'lastSeen' ? 'desc' : 'asc');
         }
     };
 
@@ -117,9 +117,9 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
                 cmp = a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
             } else if (sortField === 'email') {
                 cmp = a.email.localeCompare(b.email, undefined, { sensitivity: 'base' });
-            } else if (sortField === 'lastLogin') {
-                const aMs = a.lastLogin ? (typeof a.lastLogin.toMillis === 'function' ? a.lastLogin.toMillis() : new Date(a.lastLogin).getTime()) : -Infinity;
-                const bMs = b.lastLogin ? (typeof b.lastLogin.toMillis === 'function' ? b.lastLogin.toMillis() : new Date(b.lastLogin).getTime()) : -Infinity;
+            } else if (sortField === 'lastSeen') {
+                const aMs = a.lastSeen ? (typeof a.lastSeen.toMillis === 'function' ? a.lastSeen.toMillis() : new Date(a.lastSeen).getTime()) : -Infinity;
+                const bMs = b.lastSeen ? (typeof b.lastSeen.toMillis === 'function' ? b.lastSeen.toMillis() : new Date(b.lastSeen).getTime()) : -Infinity;
                 cmp = aMs - bMs;
             } else {
                 // createdAt: null/undefined goes to the end
@@ -336,9 +336,9 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
                             </TableHead>
                             <TableHead
                                 className="cursor-pointer select-none hover:text-foreground whitespace-nowrap"
-                                onClick={() => handleSort('lastLogin')}
+                                onClick={() => handleSort('lastSeen')}
                             >
-                                Last Login<SortIcon field="lastLogin" />
+                                Last Seen<SortIcon field="lastSeen" />
                             </TableHead>
                             <TableHead>Role</TableHead>
                             <TableHead>Status</TableHead>
@@ -366,7 +366,7 @@ export function TeamManager({ allUsers, isUserLoading }: TeamManagerProps) {
                                     {formatDate(user.createdAt)}
                                 </TableCell>
                                 <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                    {formatDate(user.lastLogin)}
+                                    {formatDate(user.lastSeen)}
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant={user.isAdmin ? "default" : "secondary"}>

@@ -13,7 +13,7 @@
 
 'use client';
 
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth, useFirestore, addDocumentNonBlocking } from '@/firebase';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
@@ -75,6 +75,8 @@ export function getCorrelationId(): string {
 
 // --- Auditing Logic ---
 
+// GUID: LIB_AUDIT-004-v03
+// [Note] isAuditingEnabled flag removed (GEMINI-AUDIT-002). Audit logging is now unconditionally enabled.
 // GUID: LIB_AUDIT-005-v06
 // @SECURITY_FIX: Removed admin-configurable isAuditingEnabled toggle (GEMINI-AUDIT-002).
 //               Audit logging is unconditionally enabled. No runtime toggle exists.
@@ -116,6 +118,12 @@ export async function logAuditEvent(
   // skipErrorEmit=true: prevents permission-error cascade loop on audit_logs collection
   // (an audit write failure must not itself trigger another audit write via errorEmitter)
   const writePromise = addDocumentNonBlocking(auditLogRef, logData, true);
+
+  // Fire-and-forget: stamp lastSeen on the user doc so admin can see when users were last active.
+  // Non-blocking — never throws, never delays the caller.
+  try {
+    updateDoc(doc(firestore, 'users', userId), { lastSeen: serverTimestamp() }).catch(() => {/* non-fatal */});
+  } catch {/* non-fatal */}
 
   // Golden Rule #7: Use ERRORS.AUDIT_LOG_FAILED (not inline strings) for write failure logging.
   // Golden Rule #1: 4-pillar error handling — log, type/code (ERRORS.AUDIT_LOG_FAILED),

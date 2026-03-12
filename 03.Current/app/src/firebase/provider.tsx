@@ -86,7 +86,8 @@ export interface User {
   secondaryEmail?: string; // Secondary email for communications only
   secondaryEmailVerified?: boolean; // Whether secondary email is verified
   providers?: string[]; // ['password', 'google.com', 'apple.com']
-  lastLogin?: any; // Timestamp of last login
+  lastLogin?: any; // Timestamp of last PIN login
+  lastSeen?: any;  // Timestamp of last navigation action (updated by logAuditEvent)
   createdAt?: Timestamp; // Registration date — written by /api/auth/signup as serverTimestamp()
 }
 
