@@ -1,10 +1,12 @@
-// GUID: PAGE_SUBMISSIONS-000-v03
-// [Intent] Submissions page — displays locked-in predictions for all teams for a selected race in a sortable,
-//   paginated table. Defaults to the first unscored race (highlighted green in the dropdown).
-//   Supports league filtering via LeagueSelector and sort toggle between date and team name.
+// GUID: PAGE_SUBMISSIONS-000-v04
+// [Intent] Submissions page — displays effective predictions for ALL teams for a selected race,
+//   combining explicit (manual) submissions and carry-forward (auto) predictions for teams that
+//   did not submit for this specific race. Defaults to the first unscored race.
+//   Supports league filtering via LeagueSelector and client-side sort by date or team name.
 // [Inbound Trigger] User navigates to /submissions in the app layout.
-// [Downstream Impact] Reads from Firestore "scores" collection and "predictions" collectionGroup.
-//   Changes to prediction document schema or collectionGroup indexes will break data fetching.
+// [Downstream Impact] Reads from Firestore "race_results", "users", and per-user "predictions" subcollections.
+//   Two-phase fetch: Phase 1 loads all users + explicit race predictions in parallel;
+//   Phase 2 fetches the latest prediction for each team with no explicit submission (carry-forward).
 
 "use client";
 
@@ -34,20 +36,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collection, collectionGroup, query, orderBy, where, limit, startAfter, getDocs, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
+import { collection, collectionGroup, query, orderBy, where, limit, getDocs } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { FileCheck, CalendarClock, ChevronDown, Loader2, ArrowUpDown, Clock, Users, RotateCcw, PenLine } from "lucide-react";
+import { FileCheck, CalendarClock, Loader2, ArrowUpDown, Clock, Users, RotateCcw, PenLine } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { RaceSchedule, findNextRace, formatDriverPredictions } from "@/lib/data";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 // @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
 import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 import { generateRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id";
 
-// GUID: PAGE_SUBMISSIONS-001-v03
+// GUID: PAGE_SUBMISSIONS-001-v04
 // [Intent] Defines the display shape for a single submission row in the table.
 // [Inbound Trigger] Constructed during fetchSubmissions from Firestore prediction documents.
 // [Downstream Impact] Drives table row rendering including team name, formatted predictions, timestamp, and carry-forward badge.
@@ -60,17 +61,15 @@ interface SubmissionDisplay {
   isCarryForward: boolean;
 }
 
-const PAGE_SIZE = 25;
-
-// GUID: PAGE_SUBMISSIONS-002-v03
+// GUID: PAGE_SUBMISSIONS-002-v04
 // [Intent] Union type for the two sortable columns: submission date or team name.
 // [Inbound Trigger] Used by sortField state and the sort toggle buttons.
-// [Downstream Impact] Controls the Firestore orderBy clause in fetchSubmissions — changing allowed values requires index updates.
+// [Downstream Impact] Controls client-side sort order in the sortedSubmissions memo.
 type SortField = "submittedAt" | "teamName";
 
-// GUID: PAGE_SUBMISSIONS-003-v03
+// GUID: PAGE_SUBMISSIONS-003-v04
 // [Intent] Main page component that orchestrates the submissions table with race selection, sorting,
-//   pagination, and league filtering for viewing locked-in predictions.
+//   and league filtering. Shows ALL teams' effective predictions including carry-forwards.
 // [Inbound Trigger] Rendered by Next.js router when user visits /submissions.
 // [Downstream Impact] Consumes useFirestore, useLeague hooks and RaceSchedule data.
 //   UI changes here affect the primary submission browsing experience for all users.
@@ -99,11 +98,6 @@ export default function SubmissionsPage() {
   const selectedRaceId = generateRaceId(baseRaceName, 'gp');
 
   // GUID: PAGE_SUBMISSIONS-004-v04
-  // @BUG_FIX: Was reading from `scores` collection which is empty (eliminated in SSOT-001 —
-  //   scores are now computed at read time from race_results + predictions). Always returned
-  //   empty set → always defaulted to Race 1 as "next to score" regardless of actual results.
-  //   Fix: read race_results instead — doc IDs are Title-Case (e.g. "Australian-Grand-Prix-GP"),
-  //   compare case-insensitively against generateRaceIdLowercase() using .toLowerCase().
   // [Intent] Determines the first unscored race by comparing race_results docs against the RaceSchedule,
   //   then defaults the dropdown to that race and marks it for green highlighting.
   // [Inbound Trigger] Runs once when firestore is available on page mount.
@@ -115,7 +109,6 @@ export default function SubmissionsPage() {
         const resultsSnapshot = await getDocs(collection(firestore, "race_results"));
         const scoredRaceIds = new Set<string>();
         resultsSnapshot.forEach((doc) => {
-          // race_results doc IDs are Title-Case — lowercase for case-insensitive comparison
           scoredRaceIds.add(doc.id.toLowerCase());
         });
 
@@ -127,30 +120,27 @@ export default function SubmissionsPage() {
             return;
           }
         }
-        // All races scored — no green highlight, keep findNextRace() default
         setNextRaceName(null);
       } catch (error) {
         console.error("Error determining next unscored race:", error);
-        // Fallback: keep findNextRace() default, no green highlight
       }
     };
     determineNextUnscored();
   }, [firestore]);
 
-  // Sort state - default to date/time (most recent first)
   const [sortField, setSortField] = useState<SortField>("submittedAt");
 
-  // Pagination state
-  const [submissions, setSubmissions] = useState<SubmissionDisplay[]>([]);
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+  // GUID: PAGE_SUBMISSIONS-005-v04
+  // [Intent] Raw unsorted submission data. Separated from sorted/filtered views so sort changes
+  //   do not trigger a re-fetch — only race changes trigger a network round-trip.
+  // [Inbound Trigger] Populated by fetchSubmissions.
+  // [Downstream Impact] Source for sortedSubmissions and filteredSubmissions memos.
+  const [rawSubmissions, setRawSubmissions] = useState<SubmissionDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // GUID: PAGE_SUBMISSIONS-005-v03
+  // GUID: PAGE_SUBMISSIONS-006-v04
   // [Intent] Formats a Firestore timestamp or Date into a human-readable en-GB date/time string.
   // [Inbound Trigger] Called per table row to display the "Submitted At" column.
   // [Downstream Impact] Purely presentational; no downstream data dependencies.
@@ -166,114 +156,119 @@ export default function SubmissionsPage() {
     });
   };
 
-  // GUID: PAGE_SUBMISSIONS-006-v03
+  // GUID: PAGE_SUBMISSIONS-007-v04
   // [Intent] Delegates to the centralised formatDriverPredictions utility for consistent driver name formatting.
   // [Inbound Trigger] Called per submission document during fetchSubmissions mapping.
-  // [Downstream Impact] Output displayed in the "Prediction (P1-P6)" column. Relies on data.ts formatDriverPredictions.
-  // Use centralized driver name formatting from data.ts
-  // This ensures consistent driver name display (e.g., "Hamilton" not "hamilton")
+  // [Downstream Impact] Output displayed in the "Prediction (P1-P6)" column.
   const formatPredictions = (predictions: any) => {
     return formatDriverPredictions(predictions);
   };
 
-  // GUID: PAGE_SUBMISSIONS-007-v03
-  // [Intent] Fetches the total prediction count for the selected race using Firestore server-side aggregation.
-  // [Inbound Trigger] Runs whenever selectedRaceId changes (race dropdown selection).
-  // [Downstream Impact] Populates totalCount used for the progress bar. Non-critical — count errors are silently ignored.
-  useEffect(() => {
-    if (!firestore || !selectedRaceId) return;
-
-    const fetchCount = async () => {
-      try {
-        const countQuery = query(
-          collectionGroup(firestore, "predictions"),
-          where("raceId", "==", selectedRaceId)
-        );
-        const countSnapshot = await getCountFromServer(countQuery);
-        setTotalCount(countSnapshot.data().count);
-      } catch (error: any) {
-        console.error("Error fetching count:", error);
-        setTotalCount(null);
-        // Count errors are non-critical, don't show to user
-      }
-    };
-    fetchCount();
-  }, [firestore, selectedRaceId]);
-
   // GUID: PAGE_SUBMISSIONS-008-v04
-  // [Intent] Fetches paginated submission data from the "predictions" collectionGroup filtered by raceId,
-  //   sorted by the current sortField. Supports both initial load and "Load More" pagination.
-  // [Inbound Trigger] Called on initial load, race change, sort change, and "Load More" button click.
-  // [Downstream Impact] Populates submissions state array rendered in the table. Error display uses PX error codes
-  //   with correlation IDs per Golden Rule #1. Requires Firestore composite indexes on predictions collectionGroup.
-  const fetchSubmissions = useCallback(async (isLoadMore = false) => {
+  // [Intent] Two-phase fetch that resolves the effective prediction for every team for the selected race.
+  //   Phase 1 (parallel): fetches all users and all explicit predictions for this race.
+  //   Phase 2 (parallel): for each team with no explicit submission, fetches their most recent
+  //   prediction from any prior race as a carry-forward.
+  //   This mirrors the scoring engine's carry-forward logic (API_CALCULATE_SCORES-012) but at
+  //   display time, so users can see all effective picks before scoring runs.
+  // [Inbound Trigger] Fires when firestore or selectedRaceId changes (race dropdown selection).
+  // [Downstream Impact] Populates rawSubmissions state. Error display uses PX error codes per Golden Rule #1.
+  const fetchSubmissions = useCallback(async () => {
     if (!firestore) return;
-
-    if (isLoadMore) {
-      setIsLoadingMore(true);
-    } else {
-      setIsLoading(true);
-      setSubmissions([]);
-      setLastDoc(null);
-      setError(null); // Clear any previous errors
-    }
+    setIsLoading(true);
+    setRawSubmissions([]);
+    setError(null);
 
     try {
-      // Determine sort direction: descending for date (newest first), ascending for team name
-      const sortDirection = sortField === "submittedAt" ? "desc" : "asc";
+      // Both stored raceId formats must be checked:
+      //   generateRaceId produces "Australian-Grand-Prix-GP" (user submissions)
+      //   base form "Australian-Grand-Prix" (carry-forward stored format)
+      const raceIdBase = baseRaceName.replace(/\s+/g, '-');
 
-      // Query predictions from user subcollections using collectionGroup
-      let submissionsQuery = query(
-        collectionGroup(firestore, "predictions"),
-        where("raceId", "==", selectedRaceId),
-        orderBy(sortField, sortDirection),
-        limit(PAGE_SIZE)
-      );
+      // Find qualifying time for this race to skip teams that joined after it
+      const raceInfo = RaceSchedule.find(r => r.name === baseRaceName);
+      const qualifyingTime = raceInfo?.qualifyingTime ? new Date(raceInfo.qualifyingTime) : null;
 
-      if (isLoadMore && lastDoc) {
-        submissionsQuery = query(
-          collectionGroup(firestore, "predictions"),
-          where("raceId", "==", selectedRaceId),
-          orderBy(sortField, sortDirection),
-          startAfter(lastDoc),
-          limit(PAGE_SIZE)
-        );
-      }
+      // Phase 1 (parallel): all users + explicit race predictions
+      const [usersSnapshot, explicitPredSnapshot] = await Promise.all([
+        getDocs(collection(firestore, 'users')),
+        getDocs(query(
+          collectionGroup(firestore, 'predictions'),
+          where('raceId', 'in', [selectedRaceId, raceIdBase])
+        )),
+      ]);
 
-      const snapshot = await getDocs(submissionsQuery);
-
-      if (snapshot.empty && !isLoadMore) {
-        setHasMore(false);
-        setSubmissions([]);
-        setLastUpdated(new Date());
-        return;
-      }
-
-      // Update pagination state
-      if (snapshot.docs.length > 0) {
-        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-      }
-      setHasMore(snapshot.docs.length === PAGE_SIZE);
-
-      // Map to display format
-      const newSubmissions: SubmissionDisplay[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          userId: data.userId || data.oduserId || "",
-          teamName: data.teamName || "Unknown Team",
-          predictions: formatPredictions(data.predictions),
-          submittedAt: data.submittedAt,
-          isCarryForward: data.isCarryForward === true,
-        };
+      // Index explicit predictions by userId for O(1) lookup
+      const explicitByUserId = new Map<string, any>();
+      explicitPredSnapshot.docs.forEach(d => {
+        const data = d.data();
+        const uid = data.userId || data.teamId;
+        if (uid && !explicitByUserId.has(uid)) {
+          explicitByUserId.set(uid, data);
+        }
       });
 
-      if (isLoadMore) {
-        setSubmissions((prev) => [...prev, ...newSubmissions]);
-      } else {
-        setSubmissions(newSubmissions);
+      // Partition users into explicit submissions vs carry-forward candidates
+      const explicitRows: SubmissionDisplay[] = [];
+      const missingUsers: { uid: string; teamName: string }[] = [];
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        if (!userData.teamName) continue; // Skip accounts without a team
+
+        const uid = userDoc.id;
+        const createdAt = userData.createdAt?.toDate?.() || null;
+
+        // Skip teams that joined after this race's qualifying — they had no valid window to submit
+        if (qualifyingTime && createdAt && createdAt > qualifyingTime) continue;
+
+        if (explicitByUserId.has(uid)) {
+          const data = explicitByUserId.get(uid);
+          explicitRows.push({
+            id: `${uid}_explicit`,
+            userId: uid,
+            teamName: data.teamName || userData.teamName,
+            predictions: formatPredictions(data.predictions),
+            submittedAt: data.submittedAt,
+            isCarryForward: false,
+          });
+        } else {
+          missingUsers.push({ uid, teamName: userData.teamName });
+        }
       }
 
+      // Phase 2 (parallel): fetch latest prediction for each team with no explicit submission
+      const carryForwardRows: SubmissionDisplay[] = [];
+      if (missingUsers.length > 0) {
+        const cfResults = await Promise.all(
+          missingUsers.map(async ({ uid, teamName }) => {
+            try {
+              const cfSnap = await getDocs(query(
+                collection(firestore, `users/${uid}/predictions`),
+                orderBy('submittedAt', 'desc'),
+                limit(1)
+              ));
+              if (!cfSnap.empty) {
+                const data = cfSnap.docs[0].data();
+                return {
+                  id: `${uid}_cf`,
+                  userId: uid,
+                  teamName: data.teamName || teamName,
+                  predictions: formatPredictions(data.predictions),
+                  submittedAt: data.submittedAt,
+                  isCarryForward: true,
+                } as SubmissionDisplay;
+              }
+              return null;
+            } catch {
+              return null; // Team exists but has no predictions yet
+            }
+          })
+        );
+        cfResults.forEach(cf => { if (cf) carryForwardRows.push(cf); });
+      }
+
+      setRawSubmissions([...explicitRows, ...carryForwardRows]);
       setLastUpdated(new Date());
     } catch (error: any) {
       console.error("Error fetching submissions:", error);
@@ -281,7 +276,6 @@ export default function SubmissionsPage() {
       let errorMsg: string;
       if (error?.code === 'failed-precondition') {
         errorMsg = `Database index required. Please contact an administrator. [${ERRORS.FIRESTORE_INDEX_REQUIRED.code}] (Ref: ${correlationId})`;
-        console.error(`[Submissions Index Error ${correlationId}]`, error?.message);
       } else if (error?.code === 'permission-denied') {
         errorMsg = `Permission denied. Please sign in again. [${ERRORS.AUTH_PERMISSION_DENIED.code}] (Ref: ${correlationId})`;
       } else {
@@ -290,40 +284,48 @@ export default function SubmissionsPage() {
       setError(errorMsg);
     } finally {
       setIsLoading(false);
-      setIsLoadingMore(false);
     }
-  }, [firestore, selectedRaceId, lastDoc, sortField]);
+  }, [firestore, selectedRaceId, baseRaceName]);
 
-  // GUID: PAGE_SUBMISSIONS-009-v03
-  // [Intent] Triggers fetchSubmissions on initial page load and whenever the race or sort field changes.
-  // [Inbound Trigger] Dependency on firestore, selectedRaceId, and sortField state changes.
-  // [Downstream Impact] Resets and reloads the submissions list from Firestore.
+  // GUID: PAGE_SUBMISSIONS-009-v04
+  // [Intent] Triggers fetchSubmissions when firestore or selected race changes.
+  //   Sort changes do NOT trigger a re-fetch — sorting is client-side (see PAGE_SUBMISSIONS-010).
+  // [Inbound Trigger] firestore availability or selectedRaceId change.
+  // [Downstream Impact] Resets and reloads rawSubmissions from Firestore.
   useEffect(() => {
-    fetchSubmissions(false);
-  }, [firestore, selectedRaceId, sortField]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchSubmissions();
+  }, [firestore, selectedRaceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // GUID: PAGE_SUBMISSIONS-010-v03
-  // [Intent] Delegates to fetchSubmissions with isLoadMore=true for paginated loading.
-  // [Inbound Trigger] User clicks "Load More Teams" button at the bottom of the table.
-  // [Downstream Impact] Appends the next page of submissions to the existing array.
-  const loadMore = () => {
-    fetchSubmissions(true);
-  };
+  // GUID: PAGE_SUBMISSIONS-010-v04
+  // [Intent] Client-side sort of rawSubmissions by the active sortField.
+  //   Sorting here avoids a re-fetch when the user toggles between Date and Team sort.
+  // [Inbound Trigger] Recomputed when rawSubmissions or sortField changes.
+  // [Downstream Impact] sortedSubmissions feeds into filteredSubmissions.
+  const sortedSubmissions = useMemo(() => {
+    return [...rawSubmissions].sort((a, b) => {
+      if (sortField === 'teamName') {
+        return a.teamName.localeCompare(b.teamName);
+      }
+      // Date sort: most recent first; carry-forwards (original submittedAt) sort last naturally
+      const aTime = a.submittedAt?.toDate?.()?.getTime?.() ?? 0;
+      const bTime = b.submittedAt?.toDate?.()?.getTime?.() ?? 0;
+      return bTime - aTime;
+    });
+  }, [rawSubmissions, sortField]);
 
-  // GUID: PAGE_SUBMISSIONS-011-v03
-  // [Intent] Filters the full submissions list to only members of the selected league (or shows all if global).
-  // [Inbound Trigger] Recomputed when submissions array or selectedLeague changes.
-  // [Downstream Impact] filteredSubmissions is the array rendered in the table; league filtering affects visible row count.
+  // GUID: PAGE_SUBMISSIONS-011-v04
+  // [Intent] Filters the sorted submissions list to only members of the selected league (or shows all if global).
+  // [Inbound Trigger] Recomputed when sortedSubmissions or selectedLeague changes.
+  // [Downstream Impact] filteredSubmissions is the array rendered in the table.
   const filteredSubmissions = useMemo(() => {
     if (!selectedLeague || selectedLeague.isGlobal) {
-      return submissions;
+      return sortedSubmissions;
     }
-    return submissions.filter(sub => selectedLeague.memberUserIds.includes(sub.userId));
-  }, [submissions, selectedLeague]);
+    return sortedSubmissions.filter(sub => selectedLeague.memberUserIds.includes(sub.userId));
+  }, [sortedSubmissions, selectedLeague]);
 
-  const progressPercent = totalCount && totalCount > 0
-    ? Math.round((filteredSubmissions.length / totalCount) * 100)
-    : 0;
+  const manualCount = filteredSubmissions.filter(s => !s.isCarryForward).length;
+  const autoCount = filteredSubmissions.filter(s => s.isCarryForward).length;
 
   return (
     <div className="space-y-6">
@@ -400,14 +402,20 @@ export default function SubmissionsPage() {
             </div>
           )}
 
-          {/* Progress indicator */}
-          {!isLoading && !error && totalCount && totalCount > PAGE_SIZE && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Showing {filteredSubmissions.length} of {totalCount} teams</span>
-                <span>{progressPercent}%</span>
-              </div>
-              <Progress value={progressPercent} className="h-2" />
+          {/* Summary counts */}
+          {!isLoading && !error && filteredSubmissions.length > 0 && (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span>{filteredSubmissions.length} team{filteredSubmissions.length !== 1 ? 's' : ''}</span>
+              <span className="text-border">·</span>
+              <span className="flex items-center gap-1">
+                <PenLine className="h-3 w-3 text-green-600" />
+                {manualCount} manual
+              </span>
+              <span className="text-border">·</span>
+              <span className="flex items-center gap-1">
+                <RotateCcw className="h-3 w-3 text-amber-600" />
+                {autoCount} carry-forward
+              </span>
             </div>
           )}
 
@@ -492,23 +500,6 @@ export default function SubmissionsPage() {
               )}
             </TableBody>
           </Table>
-
-          {/* Load more button */}
-          {hasMore && !isLoading && filteredSubmissions.length > 0 && (
-            <div className="flex justify-center pt-4">
-              {isLoadingMore ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Loading...</span>
-                </div>
-              ) : (
-                <Button variant="outline" onClick={loadMore} className="gap-2">
-                  <ChevronDown className="h-4 w-4" />
-                  Load More Teams
-                </Button>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
