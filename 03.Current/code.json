@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1562,
+  "total_guids": 1563,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -103707,7 +103707,7 @@
     },
     {
       "guid": "HOT_NEWS_FLOW-005",
-      "version": 1,
+      "version": 2,
       "logic_category": "TRANSFORMATION",
       "description": "getNextRace() helper — finds the next upcoming race from RaceSchedule by qualifying time; used to target weather fetches at the correct venue.",
       "dependencies": [],
@@ -103724,7 +103724,7 @@
         ]
       },
       "created": "2026-03-03T18:13:54.532Z",
-      "lastUpdated": "2026-03-03T18:13:54.532Z"
+      "lastUpdated": "2026-03-13T11:34:32.160Z"
     },
     {
       "guid": "HOT_NEWS_FLOW-006",
@@ -103766,7 +103766,7 @@
     },
     {
       "guid": "HOT_NEWS_FLOW-008",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather, builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news. Appends #NNNN messageId suffix to generated text (starts at #0018).",
       "dependencies": [],
@@ -103785,7 +103785,7 @@
         ]
       },
       "created": "2026-03-03T18:13:54.532Z",
-      "lastUpdated": "2026-03-03T18:13:54.532Z"
+      "lastUpdated": "2026-03-13T11:34:32.160Z"
     },
     {
       "guid": "CRON_HOT_NEWS-000",
@@ -111161,6 +111161,25 @@
       },
       "created": "2026-03-13T11:22:47.387Z",
       "lastUpdated": "2026-03-13T11:22:47.387Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-009",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "getWeekendPhase — computes human-readable current phase of race weekend (pre-qualifying, post-SQ/pre-sprint, post-sprint/pre-race) for injection into AI prompt context.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "getWeekendPhase"
+      },
+      "callChain": {
+        "calledBy": [
+          "HOT_NEWS_FLOW-008"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-13T11:34:32.160Z",
+      "lastUpdated": "2026-03-13T11:34:32.160Z"
     }
   ],
   "firestoreCollections": {

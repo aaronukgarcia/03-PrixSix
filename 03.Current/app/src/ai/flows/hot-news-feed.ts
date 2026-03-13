@@ -27,6 +27,8 @@ import { z } from 'zod';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { RaceSchedule } from '@/lib/data';
+import type { Race } from '@/lib/data';
+import { generateRaceIdLowercase } from '@/lib/normalize-race-id';
 
 // GUID: HOT_NEWS_FLOW-001-v01
 // [Intent] Output schema for the hot news feed — content string + metadata.
@@ -125,14 +127,55 @@ export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
     }
 }
 
-// GUID: HOT_NEWS_FLOW-005-v01
-// [Intent] Find the next upcoming race from RaceSchedule for weather targeting.
-//          Falls back to last race if season is complete.
+// GUID: HOT_NEWS_FLOW-005-v02
+// [Intent] Find the active race — the first unscored race — by checking race_results in Firestore.
+//          This mirrors the same "activeRace" logic used by the dashboard, ensuring the hot news
+//          bulletin targets the current race weekend even when qualifying has already passed
+//          (previously returned next race as soon as qualifying started — root cause of JP content
+//          appearing during the Chinese GP weekend).
+//          Falls back to time-based (raceTime > now) if Firestore is unavailable.
 // [Inbound Trigger] hotNewsFeedFlow() at generation time.
-// [Downstream Impact] Determines which venue's weather is fetched.
-function getNextRace() {
+// [Downstream Impact] Determines which venue's weather is fetched and what race context
+//                     the AI prompt uses. Wrong race → irrelevant bulletin.
+async function getActiveRace(): Promise<Race> {
+    try {
+        const { db } = await getFirebaseAdmin();
+        const resultsSnap = await db.collection('race_results').get();
+        const resultIds = new Set(resultsSnap.docs.map(d => d.id.toLowerCase()));
+        for (const race of RaceSchedule) {
+            if (!resultIds.has(generateRaceIdLowercase(race.name, 'gp'))) return race;
+        }
+    } catch {
+        // Firestore unavailable — fall back to time-based
+    }
     const now = new Date();
-    return RaceSchedule.find(r => new Date(r.qualifyingTime) > now) ?? RaceSchedule[RaceSchedule.length - 1];
+    return RaceSchedule.find(r => new Date(r.raceTime) > now) ?? RaceSchedule[RaceSchedule.length - 1];
+}
+
+// GUID: HOT_NEWS_FLOW-009-v01
+// [Intent] Compute a human-readable description of where we are in the race weekend.
+//          Used in the AI prompt so the bulletin is relevant to the CURRENT moment —
+//          e.g. "Sprint Race in ~18h" rather than a generic pre-qualifying preview.
+// [Inbound Trigger] hotNewsFeedFlow() after getActiveRace().
+// [Downstream Impact] Injected into the AI prompt as the CURRENT PHASE section.
+function getWeekendPhase(race: Race, now: Date): string {
+    const qt = new Date(race.qualifyingTime);
+    const rt = new Date(race.raceTime);
+    const st = race.hasSprint && race.sprintTime ? new Date(race.sprintTime) : null;
+
+    const hoursUntil = (d: Date) => Math.round((d.getTime() - now.getTime()) / 3_600_000);
+
+    if (qt > now) {
+        const label = race.hasSprint ? 'Sprint Qualifying' : 'Qualifying';
+        return `Pre-${label}. ${label} in ~${hoursUntil(qt)}h. Submit your predictions before then.`;
+    } else if (st && st > now) {
+        return `Sprint Qualifying complete. Sprint Race in ~${hoursUntil(st)}h. Grand Prix follows ~${hoursUntil(rt)}h after.`;
+    } else if (rt > now) {
+        const prefix = race.hasSprint ? 'Sprint Race complete. ' : 'Qualifying complete. ';
+        return `${prefix}Grand Prix in ~${hoursUntil(rt)}h.`;
+    } else {
+        return 'Race weekend complete. Awaiting results.';
+    }
 }
 
 // GUID: HOT_NEWS_FLOW-006-v01
@@ -214,10 +257,12 @@ export const hotNewsFeedFlow = ai.defineFlow(
         outputSchema: HotNewsFeedOutputSchema,
     },
     async () => {
-        const nextRace = getNextRace();
-        const location = nextRace.location;
-        const raceName = nextRace.name;
-        const sprintNote = nextRace.hasSprint ? 'Sprint weekend' : 'Standard weekend';
+        const now = new Date();
+        const activeRace = await getActiveRace();
+        const location = activeRace.location;
+        const raceName = activeRace.name;
+        const sprintNote = activeRace.hasSprint ? 'Sprint weekend' : 'Standard weekend';
+        const phase = getWeekendPhase(activeRace, now);
 
         const coords = VENUE_COORDS[location];
         const [openMeteo, openF1] = await Promise.all([
@@ -242,13 +287,15 @@ export const hotNewsFeedFlow = ai.defineFlow(
         }
 
         const prompt = `You are a race strategist for Prix Six, an F1 prediction league.
-Generate a hot news bulletin (3–4 bullet points, max 150 words) for the upcoming ${raceName} at ${location} (${sprintNote}).
+Generate a hot news bulletin (3–4 bullet points, max 150 words) for the ${raceName} at ${location} (${sprintNote}).
+
+CURRENT PHASE: ${phase}
 
 WEATHER at the circuit:
 ${weatherSection}
 
-Write punchy, factual bullets useful for F1 prediction-making.
-Cover: weather impact on strategy, tyre choices, team advantages based on conditions.
+Write punchy, factual bullets about the REMAINING sessions this weekend — relevant to predictions still to be made.
+Cover: weather impact on tyre strategy, conditions advantage for specific teams, what to watch for in the next session.
 Plain text only. Use bullet points starting with •. No markdown headers. No preamble.`;
 
         const response = await ai.generate(prompt);
