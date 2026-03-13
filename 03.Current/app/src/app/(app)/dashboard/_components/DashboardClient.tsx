@@ -15,7 +15,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Clock, CheckCircle2, AlertCircle, Loader2, AlertTriangle, HelpCircle, X } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Loader2, AlertTriangle, HelpCircle, X, Lock } from "lucide-react";
 import { doc } from "firebase/firestore";
 import Link from "next/link";
 
@@ -79,19 +79,36 @@ const calculateTimeLeft = (targetDate: string): TimeLeft | null => {
 //   See COMPONENT_WELCOME_CTA-001 for full warning on when this pattern is NOT acceptable.
 const WELCOME_SEEN_KEY = "prix6_welcome_seen";
 
-// GUID: COMPONENT_DASHBOARD_CLIENT-004-v06
+// GUID: COMPONENT_DASHBOARD_CLIENT-004-v07
 // [Intent] Main client dashboard component — renders how-to-play welcome card (dismissible),
 //          compact stats row, countdown timer, deadline warnings, and pit lane status card.
 //          isPitlaneOpen is server-computed (admin override + clock logic) and passed as prop.
-//          countdownRace is the next race with qualifying in the future — may differ from nextRace
-//          when qualifying for the active (unscored) race has already passed.
-//          When the countdown expires the page auto-reloads so the server returns the next race.
-// [Inbound Trigger] Rendered by DashboardPage with nextRace + countdownRace + isPitlaneOpen props.
+//          nextMilestone drives the countdown — it is the next upcoming session within the active
+//          race weekend (qualifying → sprint → GP race) so the timer shows the actual next event,
+//          not the next race's qualifying when we're mid-weekend.
+//          pitLaneClosedAt is the ISO timestamp when the pit lane was actually closed (may differ
+//          from scheduled qualifyingTime if admin extended the window due to weather).
+//          lockedSessions is a string listing which race sessions are now locked in.
+// [Inbound Trigger] Rendered by DashboardPage with nextRace + nextMilestone + isPitlaneOpen props.
 // [Downstream Impact] Links to /predictions page. Shows correct open/closed pit lane status.
-export function DashboardClient({ nextRace, countdownRace, isPitlaneOpen }: { nextRace: Race; countdownRace: Race; isPitlaneOpen: boolean }) {
+interface NextMilestone { targetTime: string; label: string; sessionType: string; }
+
+export function DashboardClient({
+  nextRace,
+  nextMilestone,
+  isPitlaneOpen,
+  pitLaneClosedAt,
+  lockedSessions,
+}: {
+  nextRace: Race;
+  nextMilestone: NextMilestone;
+  isPitlaneOpen: boolean;
+  pitLaneClosedAt: string | null;
+  lockedSessions: string;
+}) {
   const { user } = useAuth();
   const firestore = useFirestore();
-  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => calculateTimeLeft(countdownRace.qualifyingTime));
+  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => calculateTimeLeft(nextMilestone.targetTime));
   const [didExpire, setDidExpire] = useState(false);
 
   const raceId = nextRace.name.replace(/\s+/g, '-');
@@ -129,9 +146,9 @@ export function DashboardClient({ nextRace, countdownRace, isPitlaneOpen }: { ne
   //   expired), triggers window.location.reload() after 5s so dashboard advances to next race.
   useEffect(() => {
     const timer = setTimeout(() => {
-      const newTimeLeft = calculateTimeLeft(countdownRace.qualifyingTime);
+      const newTimeLeft = calculateTimeLeft(nextMilestone.targetTime);
       setTimeLeft(newTimeLeft);
-      // Auto-reload once when countdown expires so server re-computes next race
+      // Auto-reload once when milestone expires so server re-computes the next session
       if (!newTimeLeft && !didExpire) {
         setDidExpire(true);
         setTimeout(() => window.location.reload(), 5000);
@@ -244,7 +261,7 @@ export function DashboardClient({ nextRace, countdownRace, isPitlaneOpen }: { ne
 
        <Card className="bg-gradient-to-r from-primary/80 to-primary">
           <CardHeader className="flex flex-row items-center justify-between pb-2 text-primary-foreground">
-              <CardTitle className="text-sm font-medium">Time to Qualifying — {countdownRace.name}</CardTitle>
+              <CardTitle className="text-sm font-medium">Next: {nextMilestone.label}</CardTitle>
               <Clock className="h-4 w-4 text-primary-foreground/80" />
           </CardHeader>
           <CardContent>
@@ -268,7 +285,7 @@ export function DashboardClient({ nextRace, countdownRace, isPitlaneOpen }: { ne
                   </div>
               </div>
               ) : (
-                  <div className="text-center text-primary-foreground text-2xl font-bold">Qualifying has started!</div>
+                  <div className="text-center text-primary-foreground text-2xl font-bold">{nextMilestone.label} is underway!</div>
               )}
               {/* Deadline warning */}
               {timeLeft && (() => {
@@ -291,14 +308,14 @@ export function DashboardClient({ nextRace, countdownRace, isPitlaneOpen }: { ne
           </CardContent>
       </Card>
 
-      {/* Pit Lane Status Card - Smart status based on user prediction */}
+      {/* Pit Lane Status Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium">Pit Lane Status</CardTitle>
           {isPitlaneOpen ? (
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           ) : (
-            <AlertCircle className="h-4 w-4 text-red-500" />
+            <Lock className="h-4 w-4 text-amber-500" />
           )}
         </CardHeader>
         <CardContent>
@@ -324,13 +341,36 @@ export function DashboardClient({ nextRace, countdownRace, isPitlaneOpen }: { ne
               </AlertDescription>
             </Alert>
           ) : (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle className="font-bold">Closed</AlertTitle>
-              <AlertDescription>
-                Qualifying has started. Predictions are locked.
-              </AlertDescription>
-            </Alert>
+            <div className="rounded-lg border-2 border-amber-500/70 bg-amber-500/10 p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="shrink-0 rounded-full bg-amber-500 p-2">
+                  <Lock className="h-4 w-4 text-black" />
+                </div>
+                <div>
+                  <div className="font-bold text-amber-400 text-base leading-tight">
+                    {nextRace.name} — Locked
+                  </div>
+                  {pitLaneClosedAt && (
+                    <div className="text-xs text-amber-300/80 mt-0.5">
+                      Closed at{' '}
+                      <span className="font-semibold">
+                        {new Date(pitLaneClosedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
+                      </span>
+                      {' · '}
+                      {new Date(pitLaneClosedAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {lockedSessions && (
+                <p className="text-sm text-amber-200/80 mb-2">
+                  Now locked for: <span className="font-medium text-amber-300">{lockedSessions}</span>
+                </p>
+              )}
+              <p className="text-sm font-bold text-amber-400">
+                All predictions are locked in — good luck! 🏁
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

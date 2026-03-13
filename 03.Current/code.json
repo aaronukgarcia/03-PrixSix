@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1560,
+  "total_guids": 1562,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -55208,7 +55208,7 @@
     },
     {
       "guid": "COMPONENT_DASHBOARD_CLIENT-004",
-      "version": 3,
+      "version": 7,
       "logic_category": "TRANSFORMATION",
       "description": "Main client dashboard component â€” renders countdown timer, deadline warnings,",
       "dependencies": [
@@ -55243,7 +55243,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-01-30T17:28:25Z"
+      "lastUpdated": "2026-03-13T11:22:47.387Z"
     },
     {
       "guid": "COMPONENT_DASHBOARD_CLIENT-005",
@@ -83810,7 +83810,7 @@
     },
     {
       "guid": "PAGE_DASHBOARD-003",
-      "version": 3,
+      "version": 6,
       "logic_category": "TRANSFORMATION",
       "description": "Main dashboard page component â€” computes next race dates, renders countdown client,",
       "dependencies": [
@@ -83851,7 +83851,7 @@
         ]
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-01T23:02:07Z"
+      "lastUpdated": "2026-03-13T11:22:47.387Z"
     },
     {
       "guid": "PAGE_DEV-000",
@@ -111123,6 +111123,44 @@
       },
       "created": "2026-03-13T10:57:17.931Z",
       "lastUpdated": "2026-03-13T10:57:17.931Z"
+    },
+    {
+      "guid": "PAGE_DASHBOARD-004",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "nextMilestone computation — walks qualifying→sprint→race within active race weekend to find next upcoming session. Falls back to next race qualifying when all sessions are past.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/page.tsx",
+        "functionName": "DashboardPage"
+      },
+      "callChain": {
+        "calledBy": [
+          "PAGE_DASHBOARD-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-13T11:22:47.387Z",
+      "lastUpdated": "2026-03-13T11:22:47.387Z"
+    },
+    {
+      "guid": "PAGE_DASHBOARD-005",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "pitLaneClosedAt + lockedSessions computation — derives actual close timestamp from overriddenAt or scheduled qualifyingTime, builds locked sessions label for the pit lane closed card.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/dashboard/page.tsx",
+        "functionName": "DashboardPage"
+      },
+      "callChain": {
+        "calledBy": [
+          "PAGE_DASHBOARD-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-13T11:22:47.387Z",
+      "lastUpdated": "2026-03-13T11:22:47.387Z"
     }
   ],
   "firestoreCollections": {
