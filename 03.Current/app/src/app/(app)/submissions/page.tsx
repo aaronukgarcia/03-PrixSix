@@ -164,11 +164,14 @@ export default function SubmissionsPage() {
     return formatDriverPredictions(predictions);
   };
 
-  // GUID: PAGE_SUBMISSIONS-008-v04
-  // [Intent] Two-phase fetch that resolves the effective prediction for every team for the selected race.
+  // GUID: PAGE_SUBMISSIONS-008-v05
+  // [Intent] Two-phase fetch that resolves the effective prediction for every team (primary AND
+  //   secondary) for the selected race.
   //   Phase 1 (parallel): fetches all users and all explicit predictions for this race.
+  //     Explicit predictions are indexed by teamId (not userId) so primary and secondary teams
+  //     are tracked independently — users with two teams get two separate rows.
   //   Phase 2 (parallel): for each team with no explicit submission, fetches their most recent
-  //   prediction from any prior race as a carry-forward.
+  //   prediction filtered by teamId from any prior race as a carry-forward.
   //   This mirrors the scoring engine's carry-forward logic (API_CALCULATE_SCORES-012) but at
   //   display time, so users can see all effective picks before scoring runs.
   // [Inbound Trigger] Fires when firestore or selectedRaceId changes (race dropdown selection).
@@ -198,19 +201,22 @@ export default function SubmissionsPage() {
         )),
       ]);
 
-      // Index explicit predictions by userId for O(1) lookup
-      const explicitByUserId = new Map<string, any>();
+      // Index explicit predictions by teamId for O(1) lookup.
+      // Using teamId (not userId) ensures primary and secondary team predictions
+      // are tracked independently — both can appear as separate rows in the table.
+      const explicitByTeamId = new Map<string, any>();
       explicitPredSnapshot.docs.forEach(d => {
         const data = d.data();
-        const uid = data.userId || data.teamId;
-        if (uid && !explicitByUserId.has(uid)) {
-          explicitByUserId.set(uid, data);
+        const teamId = data.teamId;
+        if (teamId && !explicitByTeamId.has(teamId)) {
+          explicitByTeamId.set(teamId, data);
         }
       });
 
-      // Partition users into explicit submissions vs carry-forward candidates
+      // Partition teams (primary + secondary) into explicit submissions vs carry-forward candidates.
+      // Each user can contribute up to two rows — one per team.
       const explicitRows: SubmissionDisplay[] = [];
-      const missingUsers: { uid: string; teamName: string }[] = [];
+      const missingUsers: { uid: string; teamId: string; teamName: string }[] = [];
 
       for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data();
@@ -222,36 +228,48 @@ export default function SubmissionsPage() {
         // Skip teams that joined after this race's qualifying — they had no valid window to submit
         if (qualifyingTime && createdAt && createdAt > qualifyingTime) continue;
 
-        if (explicitByUserId.has(uid)) {
-          const data = explicitByUserId.get(uid);
-          explicitRows.push({
-            id: `${uid}_explicit`,
-            userId: uid,
-            teamName: data.teamName || userData.teamName,
-            predictions: formatPredictions(data.predictions),
-            submittedAt: data.submittedAt,
-            isCarryForward: false,
-          });
-        } else {
-          missingUsers.push({ uid, teamName: userData.teamName });
+        // Build the list of teams for this user: always primary, secondary if it exists
+        const userTeams: { teamId: string; teamName: string }[] = [
+          { teamId: uid, teamName: userData.teamName },
+          ...(userData.secondaryTeamName
+            ? [{ teamId: `${uid}-secondary`, teamName: userData.secondaryTeamName }]
+            : []),
+        ];
+
+        for (const { teamId, teamName } of userTeams) {
+          if (explicitByTeamId.has(teamId)) {
+            const data = explicitByTeamId.get(teamId);
+            explicitRows.push({
+              id: `${teamId}_explicit`,
+              userId: uid,
+              teamName: data.teamName || teamName,
+              predictions: formatPredictions(data.predictions),
+              submittedAt: data.submittedAt,
+              isCarryForward: false,
+            });
+          } else {
+            missingUsers.push({ uid, teamId, teamName });
+          }
         }
       }
 
-      // Phase 2 (parallel): fetch latest prediction for each team with no explicit submission
+      // Phase 2 (parallel): fetch latest prediction for each team with no explicit submission.
+      // Filter by teamId so carry-forward picks the correct team's history (not the other team's).
       const carryForwardRows: SubmissionDisplay[] = [];
       if (missingUsers.length > 0) {
         const cfResults = await Promise.all(
-          missingUsers.map(async ({ uid, teamName }) => {
+          missingUsers.map(async ({ uid, teamId, teamName }) => {
             try {
               const cfSnap = await getDocs(query(
                 collection(firestore, `users/${uid}/predictions`),
+                where('teamId', '==', teamId),
                 orderBy('submittedAt', 'desc'),
                 limit(1)
               ));
               if (!cfSnap.empty) {
                 const data = cfSnap.docs[0].data();
                 return {
-                  id: `${uid}_cf`,
+                  id: `${teamId}_cf`,
                   userId: uid,
                   teamName: data.teamName || teamName,
                   predictions: formatPredictions(data.predictions),
