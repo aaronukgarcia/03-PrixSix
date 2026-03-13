@@ -95,6 +95,19 @@ function isFirebasePerformanceError(error: any): boolean {
   return message.includes('performance/invalid attribute value');
 }
 
+// GUID: COMPONENT_GLOBAL_ERROR_LOGGER-010-v01
+// [Intent] Detect cross-origin script errors — the browser masks real error detail as "Script error."
+//          with empty filename and zero lineno/colno when the error originates in a cross-origin
+//          script (browser extensions, Apple's injected auth scripts, content blockers, Firebase
+//          auth iframes). These are completely unactionable: we cannot identify the source, fix
+//          the code, or reproduce them. Every major error tracker (Sentry, Bugsnag) filters these.
+//          The /profile page triggers this via Apple Sign-In injected scripts on iOS Safari.
+// [Inbound Trigger] Called by handleError before deciding whether to log.
+// [Downstream Impact] Returns true → skip logging. Cross-origin noise is not sent to server.
+function isCrossOriginScriptError(event: ErrorEvent): boolean {
+  return event.message === 'Script error.' && event.filename === '' && event.lineno === 0;
+}
+
 // GUID: COMPONENT_GLOBAL_ERROR_LOGGER-007-v01
 // [Intent] Detect known web crawler / bot user-agents and suppress error logging for them.
 //          Bots (Bingbot, Googlebot, etc.) execute JavaScript and make authenticated Firebase
@@ -182,6 +195,9 @@ export function GlobalErrorLogger() {
     const handleError = (event: ErrorEvent) => {
       // Skip bot crawlers — they execute JS without auth sessions, all their errors are noise
       if (isBotCrawler()) return;
+      // Skip cross-origin script errors — browser masks detail as "Script error." with empty
+      // filename/lineno (extensions, Apple auth scripts, content blockers, Firebase iframes)
+      if (isCrossOriginScriptError(event)) return;
       // Skip chunk errors (handled by ChunkErrorHandler)
       if (isChunkLoadError(event.error || event)) {
         return;

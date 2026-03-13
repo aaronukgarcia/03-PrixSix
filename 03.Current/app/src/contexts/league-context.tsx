@@ -1,3 +1,4 @@
+// GUID: LEAGUE_CONTEXT-000-v04
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
@@ -34,7 +35,7 @@ export const LeagueProvider: React.FC<LeagueProviderProps> = ({ children }) => {
   useEffect(() => {
     if (isUserLoading) return;
 
-    if (!user) {
+    if (!user || !firestore) {
       setLeagues([]);
       setSelectedLeagueState(null);
       setIsLoading(false);

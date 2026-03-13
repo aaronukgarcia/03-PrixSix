@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1563,
+  "total_guids": 1564,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -111180,6 +111180,24 @@
       },
       "created": "2026-03-13T11:34:32.160Z",
       "lastUpdated": "2026-03-13T11:34:32.160Z"
+    },
+    {
+      "guid": "COMPONENT_GLOBAL_ERROR_LOGGER-010",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "isCrossOriginScriptError() filter — detects browser-masked Script error. events (empty filename, lineno 0) from cross-origin scripts (Apple auth injections, extensions, content blockers, Firebase auth iframes). Returns true to skip logging; called by handleError before all other checks.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/components/GlobalErrorLogger.tsx"
+      },
+      "callChain": {
+        "calledBy": [
+          "COMPONENT_GLOBAL_ERROR_LOGGER-004"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-13T00:00:00Z",
+      "lastUpdated": "2026-03-13T00:00:00Z"
     }
   ],
   "firestoreCollections": {
