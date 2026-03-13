@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1552,
+  "total_guids": 1554,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -109534,9 +109534,9 @@
     },
     {
       "guid": "COMPONENT_LIVE_TIMING_CLIENT-000",
-      "version": 5,
+      "version": 6,
       "logic_category": "UI",
-      "description": "Client component for the /live (PubChat) page. Shows Leaderboard, Team Lens, Comparison, and Chatter tabs with auto-refresh every 2 minutes. Chatter tab calls /api/ai/pit-chatter.",
+      "description": "Client component for /live (PubChat) page. Leaderboard, Team Lens, Comparison, Chatter tabs, auto-refresh 2min. Upcoming session schedule list in between-races panel.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
@@ -109547,7 +109547,7 @@
         "calls": []
       },
       "created": "2026-03-10T00:00:00Z",
-      "lastUpdated": "2026-03-10T00:00:00Z"
+      "lastUpdated": "2026-03-12T00:00:00Z"
     },
     {
       "guid": "COMPONENT_LIVE_TIMING_CLIENT-001",
@@ -109585,9 +109585,9 @@
     },
     {
       "guid": "COMPONENT_LIVE_TIMING_CLIENT-003",
-      "version": 2,
+      "version": 3,
       "logic_category": "TRANSFORMATION",
-      "description": "Derive the next expected FP1 session label from the race schedule. FP1 is approximately 1 day before qualifying (2 days for sprint weekends).",
+      "description": "Derive next FP1 session label from race schedule. Returns isSprint flag. Sprint weekends: FP1 is 4h before SQ. Normal weekends: 24h before Q.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
@@ -109598,7 +109598,7 @@
         "calls": []
       },
       "created": "2026-03-10T00:00:00Z",
-      "lastUpdated": "2026-03-10T00:00:00Z"
+      "lastUpdated": "2026-03-12T00:00:00Z"
     },
     {
       "guid": "COMPONENT_LIVE_TIMING_CLIENT-004",
@@ -110959,6 +110959,40 @@
       },
       "created": "2026-03-11T00:00:00Z",
       "lastUpdated": "2026-03-11T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_LIVE_TIMING_CLIENT-006",
+      "version": 1,
+      "logic_category": "MODEL",
+      "description": "UpcomingSession interface — shape of a single session entry produced by getUpcomingSessions. Includes label, raceName, location, time, approx flag, locksPicks flag, and isSprint flag.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-12T00:00:00Z",
+      "lastUpdated": "2026-03-12T00:00:00Z"
+    },
+    {
+      "guid": "COMPONENT_LIVE_TIMING_CLIENT-007",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "Build list of next N upcoming F1 sessions by expanding RaceSchedule into individual sessions. Normal weekends: FP1/FP2/FP3/Q/GP. Sprint weekends: FP1/SQ/S/Q/GP. Filters to future only.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/live/_components/LiveTimingClient.tsx",
+        "functionName": "getUpcomingSessions"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-12T00:00:00Z",
+      "lastUpdated": "2026-03-12T00:00:00Z"
     }
   ],
   "firestoreCollections": {
@@ -111670,5 +111704,6 @@
         "description": "Performance testing data files. Contains HAR captures from browser network sessions used by scripts/analyze-firestore.js and scripts/analyze-har.js to map Firestore query patterns and identify performance issues (unbounded reads, N+1 queries)."
       }
     }
-  }
+  },
+  "last_updated": "2026-03-12T00:00:00Z"
 }
