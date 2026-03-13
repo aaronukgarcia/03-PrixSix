@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1554,
+  "total_guids": 1560,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -37403,7 +37403,7 @@
     },
     {
       "guid": "API_CALCULATE_SCORES-000",
-      "version": 3,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
       "description": "API route that calculates race scores for all teams based on submitted race results and team predictions. Core scoring engine for the Prix Six fantasy league.",
       "dependencies": [
@@ -37471,7 +37471,7 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-13T01:18:16Z"
+      "lastUpdated": "2026-03-13T10:57:29.631Z"
     },
     {
       "guid": "API_CALCULATE_SCORES-001",
@@ -38169,7 +38169,7 @@
     },
     {
       "guid": "API_CALCULATE_SCORES-011",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Builds a nested map (teamId -> raceId -> prediction) from all prediction documents, keeping only the latest prediction per team per race. Handles both primary and secondary team predictions.",
       "dependencies": [
@@ -38236,7 +38236,7 @@
         "calls": []
       },
       "created": "2026-01-21T12:17:07Z",
-      "lastUpdated": "2026-02-13T01:18:16Z"
+      "lastUpdated": "2026-03-13T10:57:29.631Z"
     },
     {
       "guid": "API_CALCULATE_SCORES-012",
@@ -110993,6 +110993,136 @@
       },
       "created": "2026-03-12T00:00:00Z",
       "lastUpdated": "2026-03-12T00:00:00Z"
+    },
+    {
+      "guid": "CRON_SYNC_SESSION_TIMES-000",
+      "version": 1,
+      "logic_category": "DATA_SYNC",
+      "description": "Module-level fileOverview for /api/cron/sync-session-times route — daily cron POST that syncs OpenF1 session start/end times into race_schedule Firestore collection.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/sync-session-times/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-072"
+        ],
+        "calls": [
+          "CRON_SYNC_SESSION_TIMES-001",
+          "CRON_SYNC_SESSION_TIMES-002",
+          "CRON_SYNC_SESSION_TIMES-003"
+        ]
+      },
+      "created": "2026-03-13T10:57:17.931Z",
+      "lastUpdated": "2026-03-13T10:57:17.931Z"
+    },
+    {
+      "guid": "CRON_SYNC_SESSION_TIMES-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "isAuthorized — validates CRON_SECRET bearer token with timing-safe comparison before OpenF1/Firestore access.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/sync-session-times/route.ts",
+        "functionName": "isAuthorized"
+      },
+      "callChain": {
+        "calledBy": [
+          "CRON_SYNC_SESSION_TIMES-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-13T10:57:17.931Z",
+      "lastUpdated": "2026-03-13T10:57:17.931Z"
+    },
+    {
+      "guid": "CRON_SYNC_SESSION_TIMES-002",
+      "version": 1,
+      "logic_category": "DATA_MODELS",
+      "description": "OpenF1Session interface — shape of session objects from OpenF1 /v1/sessions API used by the sync route.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/cron/sync-session-times/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "CRON_SYNC_SESSION_TIMES-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-13T10:57:17.931Z",
+      "lastUpdated": "2026-03-13T10:57:17.931Z"
+    },
+    {
+      "guid": "CRON_SYNC_SESSION_TIMES-003",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "POST handler — fetches OpenF1 sessions for next 30 days, matches to race_schedule docs, batch-writes qualifyingTime/sprintTime/raceTime/raceEndTime updates.",
+      "dependencies": [
+        "CRON_SYNC_SESSION_TIMES-001",
+        "CRON_SYNC_SESSION_TIMES-002",
+        "LIB_RACE_SCHEDULE_SERVER-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/cron/sync-session-times/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-072"
+        ],
+        "calls": [
+          "CRON_SYNC_SESSION_TIMES-001",
+          "CRON_SYNC_SESSION_TIMES-002"
+        ]
+      },
+      "created": "2026-03-13T10:57:17.931Z",
+      "lastUpdated": "2026-03-13T10:57:17.931Z"
+    },
+    {
+      "guid": "API_CALCULATE_SCORES-019",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "effectiveCutoff computation — reads app-settings/pit-lane and race_schedule to determine the actual scoring deadline, using overriddenAt if admin extended the window past scheduled qualifying.",
+      "dependencies": [
+        "LIB_RACE_SCHEDULE_SERVER-003",
+        "API_PIT_LANE-004"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/calculate-scores/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_CALCULATE_SCORES-006"
+        ],
+        "calls": [
+          "LIB_RACE_SCHEDULE_SERVER-003"
+        ]
+      },
+      "created": "2026-03-13T10:57:17.931Z",
+      "lastUpdated": "2026-03-13T10:57:17.931Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-072",
+      "version": 1,
+      "logic_category": "INFRASTRUCTURE",
+      "description": "syncSessionTimes — daily 05:00 UTC Cloud Function that POSTs to /api/cron/sync-session-times to sync OpenF1 session times into race_schedule Firestore collection.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "syncSessionTimes"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "CRON_SYNC_SESSION_TIMES-003"
+        ]
+      },
+      "created": "2026-03-13T10:57:17.931Z",
+      "lastUpdated": "2026-03-13T10:57:17.931Z"
     }
   ],
   "firestoreCollections": {

@@ -21,6 +21,7 @@ import { ERRORS } from '@/lib/error-registry';
 import { F1Drivers } from '@/lib/data';
 import { SCORING_POINTS, calculateDriverPoints } from '@/lib/scoring-rules';
 import { normalizeRaceId, generateRaceId } from '@/lib/normalize-race-id';
+import { getRaceByName } from '@/lib/race-schedule-server';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -160,6 +161,53 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Scoring] Processing race: ${raceName} (predictions: ${normalizedRaceId}, result doc: ${resultDocId})`);
 
+    // GUID: API_CALCULATE_SCORES-019-v01
+    // [Intent] Compute the effective scoring cutoff for this race — the latest time a
+    //          prediction could have been submitted and still count for scoring.
+    //          Normally this equals the scheduled qualifyingTime. If an admin manually
+    //          extended the pit lane window due to weather delays (override:'close' set
+    //          after the scheduled qualifying time), the actual close time is used instead.
+    //          This ensures that predictions submitted during an admin-extended window
+    //          (e.g. Tony extending Chinese GP SQ by 35 min due to weather) are scored.
+    // [Inbound Trigger] Called once per POST before the prediction collection loop.
+    // [Downstream Impact] Filters predictions for the current race in API_CALCULATE_SCORES-011.
+    //   Predictions submitted after effectiveCutoff for THIS race are excluded from scoring.
+    //   Carry-forward predictions (no race-specific pick) are unaffected.
+    let effectiveCutoff: Date;
+    try {
+      const baseRaceName = raceName.replace(/\s*-\s*(GP|Sprint)$/i, '').trim();
+      const [raceDoc, pitLaneDoc] = await Promise.all([
+        getRaceByName(baseRaceName),
+        db.collection('app-settings').doc('pit-lane').get(),
+      ]);
+
+      const scheduledQualifyingTime = raceDoc?.qualifyingTime
+        ? new Date(raceDoc.qualifyingTime)
+        : new Date(0); // fallback: no cutoff (shouldn't happen)
+
+      const pitLaneData = pitLaneDoc.exists ? pitLaneDoc.data() : null;
+      const pitLaneOverride = pitLaneData?.override ?? null;
+      const overriddenAt: Date | null = pitLaneData?.overriddenAt?.toDate?.() ?? null;
+
+      if (
+        pitLaneOverride === 'close' &&
+        overriddenAt !== null &&
+        overriddenAt > scheduledQualifyingTime
+      ) {
+        // Admin manually closed pit lane AFTER the scheduled time — use the actual close time
+        effectiveCutoff = overriddenAt;
+        console.log(`[Scoring] effectiveCutoff: overridden close at ${overriddenAt.toISOString()} (scheduled was ${scheduledQualifyingTime.toISOString()})`);
+      } else {
+        effectiveCutoff = scheduledQualifyingTime;
+        console.log(`[Scoring] effectiveCutoff: scheduled qualifying at ${scheduledQualifyingTime.toISOString()}`);
+      }
+    } catch (cutoffErr: any) {
+      // Non-fatal: fall back to a very permissive cutoff (score everything submitted)
+      // This preserves backward-compat if race_schedule or pit-lane doc is missing
+      console.warn('[Scoring] Could not compute effectiveCutoff — scoring all predictions:', cutoffErr?.message);
+      effectiveCutoff = new Date(8640000000000000); // max date
+    }
+
     // GUID: API_CALCULATE_SCORES-009-v03
     // [Intent] Loads all users to build lookup maps from userId/teamId to team names, including secondary teams, for score attribution.
     // [Inbound Trigger] After request validation succeeds.
@@ -216,10 +264,18 @@ export async function POST(request: NextRequest) {
       allPredictionsSnapshot = { size: 0, docs: [] } as any;
     }
 
-    // GUID: API_CALCULATE_SCORES-011-v03
-    // [Intent] Builds a nested map (teamId -> raceId -> prediction) from all prediction documents, keeping only the latest prediction per team per race. Handles both primary and secondary team predictions.
+    // GUID: API_CALCULATE_SCORES-011-v04
+    // [Intent] Builds a nested map (teamId -> raceId -> prediction) from all prediction documents,
+    //          keeping only the latest prediction per team per race. Handles both primary and
+    //          secondary team predictions.
+    //          SCORING CUTOFF: predictions for the current race submitted AFTER effectiveCutoff
+    //          are excluded. This covers weather-extended windows (e.g. admin re-opens pit lane
+    //          due to qualifying delay, then closes at the actual start — predictions in that
+    //          window count; anything after close does not). Carry-forward and past-race
+    //          predictions are not subject to this filter.
     // [Inbound Trigger] After all predictions are fetched.
-    // [Downstream Impact] Feeds into the carry-forward resolution logic (API_CALCULATE_SCORES-012). Incorrect team/race mapping here cascades into wrong scores.
+    // [Downstream Impact] Feeds into the carry-forward resolution logic (API_CALCULATE_SCORES-012).
+    //   Incorrect team/race mapping here cascades into wrong scores.
     // Build map of all predictions per team, organised by race
     // Key: teamId (e.g., "userId" or "userId-secondary")
     // Value: Map of raceId -> { predictions, timestamp, teamName }
@@ -251,13 +307,23 @@ export async function POST(request: NextRequest) {
 
       const timestamp = predData.submittedAt?.toDate?.() || predData.createdAt?.toDate?.() || new Date(0);
 
+      // Scoring cutoff: skip current-race predictions submitted after the effective close time.
+      // This applies only to predictions explicitly for THIS race — carry-forward and prior-race
+      // predictions are not filtered (they would have been valid at their original submit time).
+      const predRaceIdRaw = predData.raceId ? normalizeRaceIdForPredictions(predData.raceId) : null;
+      if (predRaceIdRaw === normalizedRaceId && timestamp > effectiveCutoff) {
+        console.log(`[Scoring] Skipping post-cutoff prediction: teamId=${teamId}, submittedAt=${timestamp.toISOString()}, cutoff=${effectiveCutoff.toISOString()}`);
+        return;
+      }
+
       // *** IMPORTANT — THIS IS THE KEY TO WHY SCORING WORKS ***
       // Stored predictions use raceId "Australian-Grand-Prix-GP" (from generateRaceId).
       // We normalize it HERE with the same function used for the lookup key (line 133),
       // so both sides strip to "Australian-Grand-Prix" → they match at line 243.
       // This is why the -GP asymmetry between storage and lookup is NOT a bug.
       // (GEMINI-AUDIT-131 false alarm — Gemini missed this normalization step)
-      const predRaceId = predData.raceId ? normalizeRaceIdForPredictions(predData.raceId) : null;
+      // Note: predRaceIdRaw was already computed above for the cutoff check — reuse it.
+      const predRaceId = predRaceIdRaw;
 
       // Get or create the team's prediction map
       if (!teamPredictionsByRace.has(teamId)) {
@@ -491,6 +557,8 @@ export async function POST(request: NextRequest) {
       driver5,
       driver6,
       submittedAt: FieldValue.serverTimestamp(),
+      // Store the effective scoring cutoff so it can be audited if a submission is disputed
+      effectiveCutoff: effectiveCutoff.getTime() < 8640000000000000 ? effectiveCutoff.toISOString() : null,
     });
 
     // Log audit event

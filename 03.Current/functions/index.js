@@ -1486,6 +1486,99 @@ exports.processEmailQueue = onSchedule(
   }
 );
 
+// GUID: BACKUP_FUNCTIONS-072-v01
+/**
+ * syncSessionTimes — Scheduled Cloud Function (2nd-gen, Cloud Run)
+ *
+ * [Intent] Every day at 05:00 UTC, POST to the Next.js cron route
+ *          /api/cron/sync-session-times which queries OpenF1 for upcoming
+ *          session start/end times and writes accurate qualifying/sprint/race
+ *          times to the race_schedule Firestore collection.
+ *          Prevents the pit lane closing at the wrong time due to stale estimates
+ *          in the static data.ts schedule (root cause of Chinese GP incident 2026-03-13).
+ *
+ * [Inbound Trigger] Cloud Scheduler cron: "0 5 * * *" (05:00 UTC daily).
+ *
+ * [Downstream Impact]
+ *   - Updates race_schedule docs (qualifyingTime, sprintTime, raceTime, raceEndTime).
+ *   - deadline enforcement in /api/submit-prediction reads from race_schedule via cache.
+ *   - scoring cutoff in /api/calculate-scores reads qualifyingTime for the race.
+ *   - Failure is logged but does NOT throw (no retry — prevents OpenF1 hammering).
+ *
+ * Env vars required in Cloud Function config:
+ *   CRON_SECRET — shared secret matching CRON_SECRET in App Hosting secrets
+ *   APP_URL     — production URL, defaults to https://prix6.win
+ */
+exports.syncSessionTimes = onSchedule(
+  {
+    schedule: "0 5 * * *",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    retryCount: 0,
+    secrets: ["CRON_SECRET"],
+  },
+  async () => {
+    const correlationId = generateCorrelationId("sst");
+    // Strip BOM (U+FEFF) — Secret Manager may prepend it on Windows-created secrets
+    const secret = (process.env.CRON_SECRET || '').replace(/^\uFEFF/, '');
+    const appUrl = process.env.APP_URL || "https://prix6.win";
+
+    if (!secret) {
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "SYNC_SESSION_TIMES_MISSING_SECRET",
+        correlationId,
+        timestamp: new Date().toISOString(),
+      }));
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${appUrl}/api/cron/sync-session-times`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${secret}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const body = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        console.error(JSON.stringify({
+          severity: "ERROR",
+          message: "SYNC_SESSION_TIMES_HTTP_ERROR",
+          correlationId,
+          status: resp.status,
+          body,
+          timestamp: new Date().toISOString(),
+        }));
+        return;
+      }
+
+      console.log(JSON.stringify({
+        severity: "INFO",
+        message: "SYNC_SESSION_TIMES_OK",
+        correlationId,
+        updated: body.updated ?? 0,
+        races: body.races ?? {},
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (err) {
+      // Log but don't rethrow — prevents Cloud Functions retries from hammering OpenF1
+      console.error(JSON.stringify({
+        severity: "ERROR",
+        message: "SYNC_SESSION_TIMES_FAILED",
+        correlationId,
+        error: err.message || String(err),
+        timestamp: new Date().toISOString(),
+      }));
+    }
+  }
+);
+
 // GUID: BACKUP_FUNCTIONS-070-v02
 /**
  * refreshHotNews — Scheduled Cloud Function (2nd-gen, Cloud Run)
