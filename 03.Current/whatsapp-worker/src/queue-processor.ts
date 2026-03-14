@@ -1,3 +1,4 @@
+// GUID: QUEUE_PROCESSOR-000-v03
 import { getFirestore } from './firebase-config';
 import { WhatsAppClient } from './whatsapp-client';
 import { Firestore, Timestamp } from 'firebase-admin/firestore';

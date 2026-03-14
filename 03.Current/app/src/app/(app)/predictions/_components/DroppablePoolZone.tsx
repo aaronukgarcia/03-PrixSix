@@ -1,3 +1,4 @@
+// GUID: DROPPABLE_POOL_ZONE-000-v03
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";

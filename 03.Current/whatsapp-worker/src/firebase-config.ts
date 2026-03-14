@@ -1,3 +1,4 @@
+// GUID: FIREBASE_CONFIG_WORKER-000-v03
 import * as admin from 'firebase-admin';
 import * as path from 'path';
 

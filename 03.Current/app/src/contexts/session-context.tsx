@@ -1,3 +1,4 @@
+// GUID: SESSION_CONTEXT-000-v03
 "use client";
 
 import { createContext, useContext, ReactNode } from "react";

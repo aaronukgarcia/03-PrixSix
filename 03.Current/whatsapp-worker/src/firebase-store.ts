@@ -1,3 +1,4 @@
+// GUID: FIREBASE_STORE-000-v03
 /**
  * Custom RemoteAuth store that saves WhatsApp session to Firebase Storage
  * This solves the ephemeral filesystem problem in containers

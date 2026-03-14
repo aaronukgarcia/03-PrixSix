@@ -288,7 +288,7 @@ function PredictionsContent() {
           <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">
             My Predictions
           </h1>
-          {/* PAGE_PREDICTIONS-014-v01 — @UX(VIRGIN-007): "Set your grid" tooltip */}
+          {/* GUID: PAGE_PREDICTIONS-014-v01 — @UX(VIRGIN-007): "Set your grid" tooltip */}
           <p className="text-muted-foreground">
             Set your grid{" "}
             <Tooltip>
@@ -331,7 +331,7 @@ function PredictionsContent() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Pit Lane Closed!</AlertTitle>
-          {/* PAGE_PREDICTIONS-015-v01 — @UX(VIRGIN-007): Qualifying tooltip in closed alert */}
+          {/* GUID: PAGE_PREDICTIONS-015-v01 — @UX(VIRGIN-007): Qualifying tooltip in closed alert */}
           <AlertDescription>
             {closureReason === 'results'
               ? 'Race results have been entered. Predictions are now locked. You can view your submission below.'

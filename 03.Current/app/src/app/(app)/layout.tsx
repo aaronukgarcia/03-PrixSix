@@ -1,4 +1,5 @@
 
+// GUID: APP_LAYOUT-000-v03
 "use client";
 
 import { AppSidebar } from "@/components/layout/AppSidebar";

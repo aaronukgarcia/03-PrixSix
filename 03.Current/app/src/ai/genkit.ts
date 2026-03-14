@@ -1,3 +1,4 @@
+// GUID: AI_GENKIT-000-v03
 import {genkit} from 'genkit';
 import {vertexAI} from '@genkit-ai/vertexai';
 

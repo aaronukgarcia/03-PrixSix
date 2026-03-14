@@ -1,4 +1,4 @@
-// GUID: COMPONENT_APP_SIDEBAR-000-v05
+// GUID: COMPONENT_APP_SIDEBAR-000-v06
 // [Intent] Main application sidebar component providing navigation links, admin panel access,
 // user profile display, and logout functionality. Renders within the ShadCN Sidebar layout.
 // [Inbound Trigger] Rendered by the authenticated app layout on every page within the (app) route group.
@@ -42,6 +42,7 @@ import {
   BookOpen,
   HelpCircle,
   Radio,
+  TowerControl,
 } from "lucide-react";
 import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { Logo } from "@/components/Logo";
@@ -57,15 +58,16 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 
-// GUID: COMPONENT_APP_SIDEBAR-001-v06
+// GUID: COMPONENT_APP_SIDEBAR-001-v07
 // [Intent] Menu items rendered ABOVE the Results collapsible group.
-// @FIX(v06) Renamed "Live Timing" → "PubChat" to match the feature name.
+// @FIX(v07) Added Pit Wall (/pit-wall) after PubChat — live race data module.
 const menuItemsTop = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
   { href: "/schedule",    label: "Schedule",      icon: Calendar },
   { href: "/predictions", label: "Predictions",   icon: Rocket },
   { href: "/standings",   label: "Standings",     icon: Trophy },
   { href: "/live",        label: "PubChat",        icon: Radio },
+  { href: "/pit-wall",    label: "Pit Wall",       icon: TowerControl },
 ];
 
 // GUID: COMPONENT_APP_SIDEBAR-001B-v05

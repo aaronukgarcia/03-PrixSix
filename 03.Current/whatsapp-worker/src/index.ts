@@ -1,3 +1,4 @@
+// GUID: WHATSAPP_WORKER_INDEX-000-v03
 import 'dotenv/config';
 import crypto from 'crypto';
 import express, { Request, Response } from 'express';

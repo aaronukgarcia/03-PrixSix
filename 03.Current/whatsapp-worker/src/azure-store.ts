@@ -1,3 +1,4 @@
+// GUID: AZURE_STORE-000-v03
 /**
  * Azure Blob Storage store for WhatsApp RemoteAuth session persistence
  * Saves session data to Azure Blob Storage for container persistence

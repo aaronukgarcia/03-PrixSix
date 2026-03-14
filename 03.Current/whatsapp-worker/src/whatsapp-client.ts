@@ -1,3 +1,4 @@
+// GUID: WHATSAPP_CLIENT-000-v03
 import { Client, LocalAuth, RemoteAuth, Message } from 'whatsapp-web.js';
 import * as qrcode from 'qrcode-terminal';
 import { AzureBlobStore } from './azure-store';

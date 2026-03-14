@@ -1,3 +1,4 @@
+// GUID: DND_PREDICTION_WRAPPER-000-v03
 "use client";
 
 import { useState, useCallback } from "react";

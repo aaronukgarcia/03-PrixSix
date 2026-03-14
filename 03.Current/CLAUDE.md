@@ -261,6 +261,7 @@ Full documentation for each module is in `docs/module-reference.md`.
 | 12 | Schedule & Data | `lib/data.ts`, `lib/normalize-race-id.ts` | None (static data) |
 | 13 | Error Handling | `lib/error-codes.ts`, `lib/error-registry.ts`, `lib/traced-error.ts` | `error_logs` |
 | 14 | WhatsApp Integration | `api/whatsapp-proxy/route.ts` | `users` (R) |
+| 15 | Pit Wall | `(app)/pit-wall/PitWallClient.tsx`, `api/pit-wall/live-data/route.ts` | None (OpenF1 + RainViewer, no Firestore) |
 
 ---
 ## Git Discipline

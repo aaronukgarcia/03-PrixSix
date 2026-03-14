@@ -1,4 +1,5 @@
 
+// GUID: ROOT_LAYOUT-000-v04
 "use client";
 
 import './globals.css';

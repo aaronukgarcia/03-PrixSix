@@ -1,3 +1,4 @@
+// GUID: DRAG_OVERLAY_CONTENT-000-v03
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

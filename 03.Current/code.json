@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1564,
+  "total_guids": 1695,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -111198,6 +111198,1447 @@
       },
       "created": "2026-03-13T00:00:00Z",
       "lastUpdated": "2026-03-13T00:00:00Z"
+    },
+    {
+      "guid": "PIT_WALL_TYPES-000",
+      "description": "Core TypeScript types module for the Pit Wall live race module",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TYPES-001",
+      "description": "SectorTime interface — sector times with F1-style status for colour coding",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TYPES-002",
+      "description": "DriverRaceState interface — complete state for a single driver during a live race session",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TYPES-003",
+      "description": "RadioMessage interface — a single team radio message from OpenF1",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TYPES-004",
+      "description": "RaceControlMessage interface — FIA race control message with flag and category metadata",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TYPES-005",
+      "description": "WeatherSnapshot interface — weather snapshot including RainViewer-derived rain intensity",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TYPES-006",
+      "description": "PitWallLiveDataResponse interface — full live data response shape from /api/pit-wall/live-data",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TYPES-007",
+      "description": "TrackBounds interface — track bounding box derived from GPS position data",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TYPES-008",
+      "description": "InterpolatedPosition interface — interpolated car position for smooth track map rendering",
+      "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_COLUMNS-000",
+      "description": "ColumnDef interface and column definitions module for the Pit Wall race data table",
+      "file": "app/src/app/(app)/pit-wall/_types/columns.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_COLUMNS-001",
+      "description": "PIT_WALL_COLUMNS — complete ordered list of all Pit Wall table columns with keys, labels, widths, and visibility defaults",
+      "file": "app/src/app/(app)/pit-wall/_types/columns.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_COLUMNS-002",
+      "description": "buildGridTemplate — derive CSS grid-template-columns string from visible column keys",
+      "file": "app/src/app/(app)/pit-wall/_types/columns.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_COLUMNS-003",
+      "description": "getDefaultVisibleColumns — get default visible column keys for initial settings",
+      "file": "app/src/app/(app)/pit-wall/_types/columns.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_SETTINGS_HOOK-000",
+      "description": "usePitWallSettings hook module — manages persistent Pit Wall user settings via localStorage",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts",
+      "type": "hook",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_SETTINGS_HOOK-001",
+      "description": "STORAGE_KEY constant and default interval values for Pit Wall settings persistence",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_SETTINGS_HOOK-002",
+      "description": "loadSettings — load Pit Wall settings from localStorage with safe fallback to defaults",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_SETTINGS_HOOK-003",
+      "description": "saveSettings — save Pit Wall settings to localStorage",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_SETTINGS_HOOK-004",
+      "description": "usePitWallSettings — React hook exposing pit-wall settings with typed setters for interval, columns, and radio zoom",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts",
+      "type": "hook",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RADIO_HOOK-000",
+      "description": "useRadioState hook module — manages team radio read/unread and mute state via localStorage",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useRadioState.ts",
+      "type": "hook",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RADIO_HOOK-001",
+      "description": "STORAGE_KEY and MAX_STORED_IDS constants for radio state persistence",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useRadioState.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RADIO_HOOK-002",
+      "description": "loadState — load radio read/mute state from localStorage",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useRadioState.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RADIO_HOOK-003",
+      "description": "saveState — save radio state to localStorage with ID trim if over limit",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useRadioState.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RADIO_HOOK-004",
+      "description": "useRadioState — React hook for radio read/mute state management with session key change detection",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useRadioState.ts",
+      "type": "hook",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_INTERP_HOOK-000",
+      "description": "useCarInterpolation hook module — smoothly interpolates car positions between GPS snapshots using RAF loop",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useCarInterpolation.ts",
+      "type": "hook",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_INTERP_HOOK-001",
+      "description": "PositionSnapshot interface — x/y position snapshot for interpolation",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useCarInterpolation.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_INTERP_HOOK-002",
+      "description": "lerp — linear interpolation between two numbers",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useCarInterpolation.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_INTERP_HOOK-003",
+      "description": "useCarInterpolation — RAF-based hook animating car positions from prev to next snapshot over the update interval",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useCarInterpolation.ts",
+      "type": "hook",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_DATA_HOOK-000",
+      "description": "usePitWallData hook module — master polling hook for all Pit Wall live data from /api/pit-wall/live-data",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts",
+      "type": "hook",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_DATA_HOOK-001",
+      "description": "UsePitWallDataReturn interface — return type for the usePitWallData hook",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_DATA_HOOK-002",
+      "description": "fetchLiveData — fetch live pit wall data from API route with Firebase auth token",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_DATA_HOOK-003",
+      "description": "usePitWallData — React hook managing the live data polling lifecycle with configurable interval and tab-visibility pause",
+      "file": "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts",
+      "type": "hook",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-000",
+      "description": "Pit Wall live data aggregation API route module — fans out to multiple OpenF1 endpoints in parallel",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "route",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-001",
+      "description": "OpenF1 API base URL, token URL, fetch timeout constants, and cached token state",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-002",
+      "description": "CIRCUIT_COORDS — hard-coded circuit lat/lon lookup by OpenF1 circuit_key for RainViewer tile sampling",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-003",
+      "description": "fetchWithTimeout — fetch wrapper with AbortController timeout",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-004",
+      "description": "safeParseJson — safe JSON parse with context-labelled error on non-JSON response",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-005",
+      "description": "getOpenF1Token — fetch and cache OpenF1 bearer token via password grant",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-006",
+      "description": "openF1Fetch — authenticated OpenF1 API fetch with timeout and null-on-error fallback",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-007",
+      "description": "parseTyreCompound — map OpenF1 compound string to typed TyreCompound union",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-008",
+      "description": "formatLapTime — normalise lap time seconds value (pass-through, strip invalid)",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-009",
+      "description": "latestPerDriver — get latest entry per driver from an array ordered by date descending",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-010",
+      "description": "GET handler — main live-data route handler aggregating all OpenF1 endpoints into PitWallLiveDataResponse",
+      "file": "app/src/app/api/pit-wall/live-data/route.ts",
+      "type": "route",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_RAINVIEWER-000",
+      "description": "RainViewer proxy API route module — server-side proxy for the RainViewer weather radar manifest API",
+      "file": "app/src/app/api/pit-wall/rainviewer-proxy/route.ts",
+      "type": "route",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_PIT_WALL_RAINVIEWER-001",
+      "description": "GET handler — validates auth and returns cached RainViewer manifest with 5-minute TTL",
+      "file": "app/src/app/api/pit-wall/rainviewer-proxy/route.ts",
+      "type": "route",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "ROLLING_LAP_TIME-000",
+      "description": "RollingLapTime component module — slot-machine digit-roll animation for lap times, F1 TV style",
+      "file": "app/src/app/(app)/pit-wall/_components/RollingLapTime.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "ROLLING_LAP_TIME-001",
+      "description": "RollingLapTimeProps interface — props for the RollingLapTime component",
+      "file": "app/src/app/(app)/pit-wall/_components/RollingLapTime.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "ROLLING_LAP_TIME-002",
+      "description": "formatLapTime — format seconds into M:SS.mmm string",
+      "file": "app/src/app/(app)/pit-wall/_components/RollingLapTime.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "ROLLING_LAP_TIME-003",
+      "description": "DigitRoller — animated single digit using slot-machine vertical scroll effect",
+      "file": "app/src/app/(app)/pit-wall/_components/RollingLapTime.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "ROLLING_LAP_TIME-004",
+      "description": "Separator — static separator character (colon or dot) with no animation",
+      "file": "app/src/app/(app)/pit-wall/_components/RollingLapTime.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "ROLLING_LAP_TIME-005",
+      "description": "RollingLapTime — main component parsing formatted lap time and rendering digit rollers and static separators",
+      "file": "app/src/app/(app)/pit-wall/_components/RollingLapTime.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "TYRE_BADGE-000",
+      "description": "TyreBadge component module — F1-standard tyre compound badge with wear indicator arc",
+      "file": "app/src/app/(app)/pit-wall/_components/TyreBadge.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "TYRE_BADGE-001",
+      "description": "TyreBadgeProps interface — props for the TyreBadge component",
+      "file": "app/src/app/(app)/pit-wall/_components/TyreBadge.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "TYRE_BADGE-002",
+      "description": "COMPOUND_CONFIG — F1 standard compound colour map and letter abbreviation map",
+      "file": "app/src/app/(app)/pit-wall/_components/TyreBadge.tsx",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "TYRE_BADGE-003",
+      "description": "WearArc — SVG wear arc shrinking from full circle as lap count increases",
+      "file": "app/src/app/(app)/pit-wall/_components/TyreBadge.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "TYRE_BADGE-004",
+      "description": "TyreBadge — main circular compound badge with opacity fade based on wear and SVG wear arc overlay",
+      "file": "app/src/app/(app)/pit-wall/_components/TyreBadge.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "DELTA_INDICATOR-000",
+      "description": "DeltaIndicator component module — animated gap/interval value display with F1 colour coding",
+      "file": "app/src/app/(app)/pit-wall/_components/DeltaIndicator.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "DELTA_INDICATOR-001",
+      "description": "DeltaIndicatorProps interface — props for the DeltaIndicator component",
+      "file": "app/src/app/(app)/pit-wall/_components/DeltaIndicator.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "DELTA_INDICATOR-002",
+      "description": "getColourClass — derive Tailwind colour class from delta value string",
+      "file": "app/src/app/(app)/pit-wall/_components/DeltaIndicator.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "DELTA_INDICATOR-003",
+      "description": "formatValue — format display value stripping leading plus sign, showing -- for null",
+      "file": "app/src/app/(app)/pit-wall/_components/DeltaIndicator.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "DELTA_INDICATOR-004",
+      "description": "DeltaIndicator — main component with AnimatePresence vertical slide-through value transitions",
+      "file": "app/src/app/(app)/pit-wall/_components/DeltaIndicator.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ICON-000",
+      "description": "RadioIcon component module — team radio status icon with unread pulse animation and mute state",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioIcon.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ICON-001",
+      "description": "RadioIconProps interface — props for the RadioIcon component",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioIcon.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ICON-002",
+      "description": "UnreadPulseDot — pulsing orange dot shown when driver has unread radio messages",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioIcon.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ICON-003",
+      "description": "UnreadCountBadge — badge showing unread count when count is greater than 1",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioIcon.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ICON-004",
+      "description": "MuteLine — diagonal mute line SVG overlay drawn over the radio icon",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioIcon.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ICON-005",
+      "description": "RadioIcon — main component rendering base icon, unread indicator, mute overlay, and count badge",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioIcon.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "UPDATE_SPEED_SLIDER-000",
+      "description": "UpdateSpeedSlider component module — compact slider controlling the live data polling interval",
+      "file": "app/src/app/(app)/pit-wall/_components/UpdateSpeedSlider.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "UPDATE_SPEED_SLIDER-001",
+      "description": "UpdateSpeedSliderProps interface — props for the UpdateSpeedSlider component",
+      "file": "app/src/app/(app)/pit-wall/_components/UpdateSpeedSlider.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "UPDATE_SPEED_SLIDER-002",
+      "description": "UpdateSpeedSlider — main component with labelled slider, value display, and high-data-use warning badge",
+      "file": "app/src/app/(app)/pit-wall/_components/UpdateSpeedSlider.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "COLUMN_SELECTOR-000",
+      "description": "ColumnSelector component module — popover-based column visibility toggle for the Pit Wall race table",
+      "file": "app/src/app/(app)/pit-wall/_components/ColumnSelector.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "COLUMN_SELECTOR-001",
+      "description": "ColumnSelectorProps interface — props for the ColumnSelector component",
+      "file": "app/src/app/(app)/pit-wall/_components/ColumnSelector.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "COLUMN_SELECTOR-002",
+      "description": "ColumnSelector — main component rendering trigger button and popover with column checkboxes",
+      "file": "app/src/app/(app)/pit-wall/_components/ColumnSelector.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "WEATHER_STRIP-000",
+      "description": "WeatherStrip component module — compact horizontal weather data strip for the Pit Wall header",
+      "file": "app/src/app/(app)/pit-wall/_components/WeatherStrip.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "WEATHER_STRIP-001",
+      "description": "WeatherStripProps interface — props for the WeatherStrip component",
+      "file": "app/src/app/(app)/pit-wall/_components/WeatherStrip.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "WEATHER_STRIP-002",
+      "description": "airTempColour — derive Tailwind colour class for air temperature value",
+      "file": "app/src/app/(app)/pit-wall/_components/WeatherStrip.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "WEATHER_STRIP-003",
+      "description": "WindArrow — compass arrow SVG rotated to wind direction in degrees from North",
+      "file": "app/src/app/(app)/pit-wall/_components/WeatherStrip.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "WEATHER_STRIP-004",
+      "description": "RainIntensityBar — animated rain intensity bar using blue fill proportional to 0-255 value",
+      "file": "app/src/app/(app)/pit-wall/_components/WeatherStrip.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "WEATHER_STRIP-005",
+      "description": "RainIcon — animated pulsing rain icon shown when rainfall is active",
+      "file": "app/src/app/(app)/pit-wall/_components/WeatherStrip.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "WEATHER_STRIP-006",
+      "description": "WeatherStrip — main component rendering horizontal strip of weather data items with AnimatePresence fade-in",
+      "file": "app/src/app/(app)/pit-wall/_components/WeatherStrip.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "FIA_RACE_CONTROL_FEED-000",
+      "description": "FIARaceControlFeed component module — sliding feed of FIA race control messages colour-coded by flag type",
+      "file": "app/src/app/(app)/pit-wall/_components/FIARaceControlFeed.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "FIA_RACE_CONTROL_FEED-001",
+      "description": "FIARaceControlFeedProps interface — props for the FIARaceControlFeed component",
+      "file": "app/src/app/(app)/pit-wall/_components/FIARaceControlFeed.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "FIA_RACE_CONTROL_FEED-002",
+      "description": "FlagConfig type and FLAG_CONFIG map — flag-to-styling config with border colour, icon, and optional badge",
+      "file": "app/src/app/(app)/pit-wall/_components/FIARaceControlFeed.tsx",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "FIA_RACE_CONTROL_FEED-003",
+      "description": "NOTABLE_CATEGORIES — set of categories that warrant a visible badge label on the message row",
+      "file": "app/src/app/(app)/pit-wall/_components/FIARaceControlFeed.tsx",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "FIA_RACE_CONTROL_FEED-004",
+      "description": "formatMessageTime — format ISO date string as HH:MM:SS for race control message timestamp",
+      "file": "app/src/app/(app)/pit-wall/_components/FIARaceControlFeed.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "FIA_RACE_CONTROL_FEED-005",
+      "description": "MessageRow — single race control message row with flag border, icon, time, lap, message text, and category badge",
+      "file": "app/src/app/(app)/pit-wall/_components/FIARaceControlFeed.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "FIA_RACE_CONTROL_FEED-006",
+      "description": "FIARaceControlFeed — main component rendering header and scrollable AnimatePresence message list newest-first",
+      "file": "app/src/app/(app)/pit-wall/_components/FIARaceControlFeed.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-000",
+      "description": "PitWallTrackMap component module — canvas-based live track map rendering interpolated car positions at 60fps",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-001",
+      "description": "PitWallTrackMapProps interface — props for the PitWallTrackMap component",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-002",
+      "description": "CANVAS_PADDING — padding in canvas pixels between track extent and canvas edge",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-003",
+      "description": "projectToCanvas — project GPS metres to canvas pixel coordinates with Y-axis inversion",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-004",
+      "description": "drawFrame — draw a single canvas frame with background, rain overlay, DRS indicators, and all driver dots",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-005",
+      "description": "PitWallTrackMap — main component managing canvas ref, ResizeObserver, and RAF draw loop",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-006",
+      "description": "startLoop — RAF draw loop using mutable refs so it never needs to be re-registered",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-007",
+      "description": "ResizeObserver effect — keeps canvas pixel dimensions in sync with CSS container size",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-008",
+      "description": "RAF lifecycle effect — starts RAF loop on mount and cancels on unmount",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-000",
+      "description": "PitWallRaceTable component module — div-grid race data table with Framer Motion row animations",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-001",
+      "description": "PitWallRaceTableProps interface — props for the PitWallRaceTable component",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-002",
+      "description": "formatSectorTime — format a sector time in seconds to S.mmm string",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-003",
+      "description": "sectorColour — derive Tailwind text colour class from SectorStatus value",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-004",
+      "description": "positionBorderColour — position medal colour for P1/P2/P3 left-border accent",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-005",
+      "description": "sortDrivers — sort drivers array by active sortKey defaulting to race position",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-006",
+      "description": "CellContent — render cell content for a given column key for one driver row",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-007",
+      "description": "rowBgClass — row background tint based on driver state (retired, pit, fastest lap, race leader)",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-008",
+      "description": "SortIndicator — header column sort indicator component showing active/inactive sort state",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-009",
+      "description": "PitWallRaceTable — main component with sticky header and AnimatePresence animated driver row list",
+      "file": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-000",
+      "description": "RadioZoomPanel component module — bottom panel sliding up 50vh with iMessage-style team radio centre",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-001",
+      "description": "RadioZoomPanelProps interface — props for the RadioZoomPanel component",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "type",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-002",
+      "description": "audioUnlocked — module-level audio unlock tracker required for mobile browser autoplay gate",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-003",
+      "description": "formatTime — format ISO date string as HH:MM:SS local time for radio message timestamps",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-004",
+      "description": "AudioWaveformPlayer — iMessage-style audio player with animated waveform bars and progress bar",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-005",
+      "description": "MessageBubble — single radio message bubble iMessage style with audio waveform or unavailable text",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-006",
+      "description": "DriverListColumn — left driver list column sorted by unread count descending then race position",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-007",
+      "description": "MessageThreadColumn — right message thread column showing selected driver messages oldest-first with auto-scroll",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "RADIO_ZOOM_PANEL-008",
+      "description": "RadioZoomPanel — main slide-up 50vh overlay with two-column layout and audio unlock listener on mount",
+      "file": "app/src/app/(app)/pit-wall/_components/RadioZoomPanel.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PAGE_PIT_WALL-000",
+      "description": "PitWallPage server component module — server wrapper for the Pit Wall live race data page",
+      "file": "app/src/app/(app)/pit-wall/page.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PAGE_PIT_WALL-001",
+      "description": "PitWallPage — server component rendering PitWallClient inside full-height dark wrapper with dark theme enforced",
+      "file": "app/src/app/(app)/pit-wall/page.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-000",
+      "description": "PitWallClient module — client-side orchestrator for the Pit Wall live race data module",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-001",
+      "description": "computeTrackBounds — derive TrackBounds from current driver GPS positions for canvas projection",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "function",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-002",
+      "description": "PitWallClient — main orchestrator component wiring all hooks and assembling the full Pit Wall layout",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-003",
+      "description": "Radio zoom panel state — radioZoomOpen and selectedRadioDriver state management",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-004",
+      "description": "lastUpdatedLabel — format last-updated timestamp for the toolbar display",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-005",
+      "description": "Header region — TrackMap (2/3 width) and FIA Race Control Feed (1/3 width) layout",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-006",
+      "description": "Toolbar region — UpdateSpeedSlider, ColumnSelector, session info, and last-updated timestamp",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-007",
+      "description": "Body region — PitWallRaceTable scrollable race data table",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-008",
+      "description": "Error state region — error display with error code, correlation ID, and retry button",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-009",
+      "description": "RadioZoomPanel region — slide-up radio panel layout anchored to bottom of viewport",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "type": "component",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-001",
+      "description": "PIT_WALL_FETCH_FAILED (PX-3301) — one or more OpenF1 endpoints failed during Pit Wall live-data fan-out",
+      "file": "app/src/lib/error-registry.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-002",
+      "description": "PIT_WALL_NO_SESSION (PX-3302) — no active F1 session found from OpenF1 session_key=latest",
+      "file": "app/src/lib/error-registry.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-003",
+      "description": "PIT_WALL_PARTIAL_DATA (PX-3303) — some Pit Wall data could not be loaded due to partial fan-out failure",
+      "file": "app/src/lib/error-registry.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-004",
+      "description": "PIT_WALL_RADIO_UNAVAIL (PX-3304) — team radio data unavailable for this session",
+      "file": "app/src/lib/error-registry.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-005",
+      "description": "PIT_WALL_RAIN_FETCH_FAILED (PX-3305) — weather radar data could not be loaded from RainViewer",
+      "file": "app/src/lib/error-registry.ts",
+      "type": "constant",
+      "callChain": {
+        "calls": [],
+        "calledBy": []
+      },
+      "dependencies": []
     }
   ],
   "firestoreCollections": {
@@ -111910,5 +113351,5 @@
       }
     }
   },
-  "last_updated": "2026-03-12T00:00:00Z"
+  "last_updated": "2026-03-13"
 }

@@ -163,6 +163,9 @@ export async function createLeague(
   }
 }
 
+// GUID: LIB_LEAGUES-003-v04
+// [Note] joinLeagueByCode() removed from client-side (FIRESTORE-003 — eliminated client-side invite code enumeration vector).
+//        Join-by-code is now server-side only via POST /api/leagues/join-by-code (API_LEAGUE_JOIN-001).
 
 // GUID: LIB_LEAGUES-004-v05
 // [Intent] Remove the requesting user from a league's memberUserIds array. Prevents leaving the global league and prevents the league owner from leaving (they must transfer ownership or delete instead).

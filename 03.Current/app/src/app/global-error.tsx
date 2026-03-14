@@ -37,6 +37,7 @@ function isChunkLoadError(error: Error): boolean {
 // @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
 import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
+// GUID: GLOBAL_ERROR-000-v03
 export default function GlobalError({
   error,
   reset,

@@ -1,3 +1,4 @@
+// GUID: APP_ERROR-000-v03
 'use client';
 
 import { useEffect, useState } from 'react';
