@@ -269,11 +269,15 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
   // Sorted team names for the selector
   const teamNames = officialTeams.map(t => t.teamName).sort();
 
-  // GUID: COMPONENT_LIVE_TIMING_CLIENT-005-v01
+  // GUID: COMPONENT_LIVE_TIMING_CLIENT-005-v02
   // [Intent] Detect "between race weekends" state — the stored timing data is from a
   //          completed session (>6h since start) AND the next race qualifying is still
   //          in the future AND FP1 hasn't started yet. When true, show a next-race
   //          countdown panel instead of stale lap data leaderboard.
+  // @FIX(v02) Added stillInRaceWeekend guard: if any race has qualifying started but
+  //           raceTime still in the future, we are inside an active weekend — PubChat
+  //           must remain open. Fixes sprint weekends where qualifying (SQ) fires on
+  //           Thursday/Friday but Sprint Race + GP run Saturday/Sunday.
   // [Inbound Trigger] Recomputed whenever timingData changes.
   // [Downstream Impact] Replaces the leaderboard/tabs with a "Next Race" panel in the UI.
   const nextRace = findNextRace();
@@ -285,7 +289,12 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
     const nextQualifyingInFuture = new Date(nextRace.qualifyingTime) > new Date();
     // If FP1 has already started, open PubChat regardless of OpenF1 data lag
     const fp1AlreadyStarted = fp1Label ? fp1Label.fp1Date <= new Date() : false;
-    return hoursSinceSessionStart > 6 && nextQualifyingInFuture && !fp1AlreadyStarted;
+    // If qualifying has begun but the race hasn't run yet, we're inside a live weekend
+    const now = new Date();
+    const stillInRaceWeekend = RaceSchedule.some(
+      race => new Date(race.qualifyingTime) <= now && new Date(race.raceTime) > now
+    );
+    return hoursSinceSessionStart > 6 && nextQualifyingInFuture && !fp1AlreadyStarted && !stillInRaceWeekend;
   }, [timingData, nextRace, fp1Label]);
 
   // FP1 has started but stored Firestore data is from the previous race — OpenF1 lag.
