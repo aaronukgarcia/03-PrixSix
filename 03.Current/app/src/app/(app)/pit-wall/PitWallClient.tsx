@@ -33,6 +33,7 @@ import { WeatherStrip } from './_components/WeatherStrip';
 import { PreRaceWarmupBanner } from './_components/PreRaceWarmupBanner';
 import { ShowreelSplash } from './_components/ShowreelSplash';
 import { RaceSelector } from './_components/RaceSelector';
+import { PitWallLoadingScreen } from './_components/PitWallLoadingScreen';
 import { AlertCircle, RefreshCw, TowerControl } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -225,7 +226,12 @@ export default function PitWallClient() {
     : sessionType;
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-slate-950">
+    <div className="relative flex flex-col h-full w-full overflow-hidden bg-slate-950">
+
+      {/* ── INITIAL LOAD OVERLAY ── */}
+      {/* GUID: PIT_WALL_CLIENT-017-v01 */}
+      {/* Only shown on first load (no drivers yet). Disappears on first successful fetch. */}
+      <PitWallLoadingScreen isLoading={isLoading && liveDrivers.length === 0} />
 
       {/* ── SHOWREEL BETWEEN SPLASH (full overlay) ── */}
       <AnimatePresence>

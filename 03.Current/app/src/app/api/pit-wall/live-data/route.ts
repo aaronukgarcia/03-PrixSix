@@ -18,12 +18,34 @@ import type {
 
 export const dynamic = 'force-dynamic';
 
-// GUID: API_PIT_WALL_LIVE_DATA-001-v01
+// GUID: API_PIT_WALL_LIVE_DATA-001-v02
+// [Intent] Module-level constants and shared server-side caches.
+//          v02: Added liveDataCache — one OpenF1 fan-out shared across all
+//               concurrent users. Auth still verified per-request; only the
+//               expensive OpenF1 calls are de-duplicated.
+//
+//  LIVE_DATA_CACHE_TTL_MS controls freshness vs API savings:
+//    10s = at most 6× reduction for users polling at 60s intervals;
+//          serves concurrent users hitting within the same 10s window.
+//    Between sessions the no-session response uses IDLE_CACHE_TTL_MS (60s).
 const OPENF1_BASE = 'https://api.openf1.org/v1';
 const OPENF1_TOKEN_URL = 'https://api.openf1.org/token';
 const FETCH_TIMEOUT_MS = 10_000;
+const LIVE_DATA_CACHE_TTL_MS = 2_000;   // active session cache — matches minimum poll interval
+const IDLE_CACHE_TTL_MS       = 60_000; // no-session / between-races cache
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// GUID: API_PIT_WALL_LIVE_DATA-011-v01
+// [Intent] Shared in-memory response cache — keyed by session_key so that
+//          a session change (e.g. quali → race) immediately invalidates the
+//          stale entry.  Module-level: one instance = one cache; multiple
+//          App Hosting instances each maintain their own copy (acceptable).
+let liveDataCache: {
+  sessionKey: number | null;
+  data: PitWallLiveDataResponse;
+  expiresAt: number;
+} | null = null;
 
 // GUID: API_PIT_WALL_LIVE_DATA-002-v01
 // [Intent] Hard-coded circuit lat/lon lookup by OpenF1 circuit_key.
@@ -158,6 +180,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // GUID: API_PIT_WALL_LIVE_DATA-012-v01
+  // [Intent] Serve from cache if the stored entry is still fresh.
+  //          Auth has already passed — every caller is authenticated.
+  //          The cache is shared: user 2…N get the same full dataset as
+  //          user 1 with zero additional OpenF1 calls during the TTL window.
+  const now = Date.now();
+  if (liveDataCache && liveDataCache.expiresAt > now) {
+    const cacheAgeMs = now - liveDataCache.data.fetchedAt;
+    return NextResponse.json({
+      ...liveDataCache.data,
+      cacheHit: true,
+      cacheAgeMs,
+    } satisfies PitWallLiveDataResponse);
+  }
+
   const token = await getOpenF1Token();
 
   // Fan out all OpenF1 endpoints in parallel
@@ -188,13 +225,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const totalLaps: number | null = session?.total_laps ?? null;
 
   if (!sessionKey) {
-    return NextResponse.json({
+    const idleResponse: PitWallLiveDataResponse = {
       sessionKey: null, sessionName: null, meetingName: null, circuitKey: null,
       circuitLat: null, circuitLon: null, drivers: [], raceControl: [],
       radioMessages: [], weather: null, totalLaps: null, sessionType: null,
-      fetchedAt: Date.now(),
-      _warning: ERRORS.PIT_WALL_NO_SESSION?.message ?? 'No active session',
-    } satisfies PitWallLiveDataResponse);
+      fetchedAt: Date.now(), cacheHit: false, cacheAgeMs: 0,
+    };
+    liveDataCache = { sessionKey: null, data: idleResponse, expiresAt: Date.now() + IDLE_CACHE_TTL_MS };
+    return NextResponse.json(idleResponse);
   }
 
   // Build lookup maps
@@ -391,6 +429,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     totalLaps,
     sessionType,
     fetchedAt: Date.now(),
+    cacheHit: false,
+    cacheAgeMs: 0,
+  };
+
+  // GUID: API_PIT_WALL_LIVE_DATA-013-v01
+  // [Intent] Store fresh response in the shared cache. Any user who calls
+  //          within the next LIVE_DATA_CACHE_TTL_MS will receive this data
+  //          without triggering a new OpenF1 fan-out.
+  //          Cache is keyed by sessionKey — if the session changes between
+  //          polls the new session always gets a fresh fan-out.
+  liveDataCache = {
+    sessionKey,
+    data: response,
+    expiresAt: Date.now() + LIVE_DATA_CACHE_TTL_MS,
   };
 
   return NextResponse.json(response);

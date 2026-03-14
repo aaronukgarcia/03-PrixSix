@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1756,
+  "total_guids": 1766,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -111267,14 +111267,21 @@
     },
     {
       "guid": "PIT_WALL_TYPES-006",
-      "description": "PitWallLiveDataResponse interface — full live data response shape from /api/pit-wall/live-data",
+      "description": "PitWallLiveDataResponse type — v02 adds cacheHit and cacheAgeMs fields for server-side cache observability.",
       "file": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
       "type": "type",
       "callChain": {
-        "calls": [],
-        "calledBy": []
+        "calledBy": [],
+        "calls": []
       },
-      "dependencies": []
+      "dependencies": [],
+      "version": 2,
+      "logic_category": "CONFIGURATION",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts",
+        "functionName": "PitWallLiveDataResponse"
+      },
+      "lastUpdated": "2026-03-14T14:30:18.116Z"
     },
     {
       "guid": "PIT_WALL_TYPES-007",
@@ -113807,6 +113814,205 @@
       },
       "created": "2026-03-14T08:33:53.324Z",
       "lastUpdated": "2026-03-14T08:33:53.324Z"
+    },
+    {
+      "guid": "PIT_WALL_LOADING-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "File-level GUID for PitWallLoadingScreen — full-screen loading overlay for Pit Wall initial mount.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallLoadingScreen.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-017"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T14:26:16.429Z",
+      "lastUpdated": "2026-03-14T14:26:16.429Z"
+    },
+    {
+      "guid": "PIT_WALL_LOADING-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "LOADING_STEPS constant — ordered list of 10 labels mirroring the 10 OpenF1 endpoints fanned out in the live-data route.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallLoadingScreen.tsx",
+        "functionName": "LOADING_STEPS"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_LOADING-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T14:26:16.430Z",
+      "lastUpdated": "2026-03-14T14:26:16.430Z"
+    },
+    {
+      "guid": "PIT_WALL_LOADING-002",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "PitWallLoadingScreenProps interface — isLoading prop drives completion detection.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallLoadingScreen.tsx",
+        "functionName": "PitWallLoadingScreenProps"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-017"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T14:26:16.430Z",
+      "lastUpdated": "2026-03-14T14:26:16.430Z"
+    },
+    {
+      "guid": "PIT_WALL_LOADING-003",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "PitWallLoadingScreen component — animated progress bar cycling through 10 data-type labels; fades out when first fetch completes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallLoadingScreen.tsx",
+        "functionName": "PitWallLoadingScreen"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-017"
+        ],
+        "calls": [
+          "PIT_WALL_LOADING-004",
+          "PIT_WALL_LOADING-005"
+        ]
+      },
+      "created": "2026-03-14T14:26:16.430Z",
+      "lastUpdated": "2026-03-14T14:26:16.430Z"
+    },
+    {
+      "guid": "PIT_WALL_LOADING-004",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Step-advance interval effect — increments step label and progress bar every 400ms up to 92% soft cap while isLoading is true.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallLoadingScreen.tsx",
+        "functionName": "PitWallLoadingScreen"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_LOADING-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T14:26:16.430Z",
+      "lastUpdated": "2026-03-14T14:26:16.430Z"
+    },
+    {
+      "guid": "PIT_WALL_LOADING-005",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Completion effect — when isLoading becomes false jumps progress to 100% and schedules fade-out unmount after 750ms.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallLoadingScreen.tsx",
+        "functionName": "PitWallLoadingScreen"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_LOADING-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T14:26:16.430Z",
+      "lastUpdated": "2026-03-14T14:26:16.430Z"
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-017",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Initial load overlay insertion point in PitWallClient — renders PitWallLoadingScreen when isLoading and no live drivers yet.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "PitWallClient"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": [
+          "PIT_WALL_LOADING-000"
+        ]
+      },
+      "created": "2026-03-14T14:26:16.430Z",
+      "lastUpdated": "2026-03-14T14:26:16.430Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-011",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "liveDataCache module-level variable — shared in-memory cache for live data responses, keyed by sessionKey with configurable TTL.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_LIVE_DATA-010"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T14:30:18.116Z",
+      "lastUpdated": "2026-03-14T14:30:18.116Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-012",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Cache hit check — returns cached PitWallLiveDataResponse with cacheHit:true when entry is still within TTL, avoiding a full OpenF1 fan-out.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_LIVE_DATA-010"
+        ],
+        "calls": [
+          "API_PIT_WALL_LIVE_DATA-011"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T14:30:18.116Z",
+      "lastUpdated": "2026-03-14T14:30:18.116Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-013",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Cache store — writes fresh fan-out response to liveDataCache with LIVE_DATA_CACHE_TTL_MS expiry so subsequent users within the window are served without new OpenF1 calls.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_LIVE_DATA-010"
+        ],
+        "calls": [
+          "API_PIT_WALL_LIVE_DATA-011"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T14:30:18.116Z",
+      "lastUpdated": "2026-03-14T14:30:18.116Z"
     }
   ],
   "firestoreCollections": {

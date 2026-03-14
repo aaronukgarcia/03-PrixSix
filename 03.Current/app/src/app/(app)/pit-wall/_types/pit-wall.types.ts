@@ -113,8 +113,9 @@ export interface WeatherSnapshot {
   fetchedAt: number;
 }
 
-// GUID: PIT_WALL_TYPES-006-v01
-// [Intent] Full live data response shape from /api/pit-wall/live-data
+// GUID: PIT_WALL_TYPES-006-v02
+// [Intent] Full live data response shape from /api/pit-wall/live-data.
+//          v02: Added cacheHit + cacheAgeMs for server-side cache observability.
 export interface PitWallLiveDataResponse {
   sessionKey: number | null;
   sessionName: string | null;
@@ -129,6 +130,10 @@ export interface PitWallLiveDataResponse {
   totalLaps: number | null;
   sessionType: string | null;
   fetchedAt: number;
+  /** True when the response was served from the server-side shared cache. */
+  cacheHit?: boolean;
+  /** How many ms old the cached data was when served (0 on a fresh fetch). */
+  cacheAgeMs?: number;
 }
 
 // GUID: PIT_WALL_TYPES-007-v01
