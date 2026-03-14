@@ -9,9 +9,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDefaultVisibleColumns } from '../_types/columns';
 
-// GUID: PIT_WALL_SETTINGS_HOOK-001-v01
+// GUID: PIT_WALL_SETTINGS_HOOK-001-v02
 const STORAGE_KEY = 'prix6_pitwall_settings_v1';
-const DEFAULT_INTERVAL = 10;
+const DEFAULT_INTERVAL = 60;
 const MIN_INTERVAL = 2;
 const MAX_INTERVAL = 60;
 
@@ -71,7 +71,7 @@ function saveSettings(settings: PitWallSettings): void {
   }
 }
 
-// GUID: PIT_WALL_SETTINGS_HOOK-004-v01
+// GUID: PIT_WALL_SETTINGS_HOOK-004-v02
 // [Intent] React hook exposing pit-wall settings with typed setters.
 export function usePitWallSettings(): UsePitWallSettingsReturn {
   const [settings, setSettings] = useState<PitWallSettings>(() => ({

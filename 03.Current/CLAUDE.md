@@ -262,6 +262,7 @@ Full documentation for each module is in `docs/module-reference.md`.
 | 13 | Error Handling | `lib/error-codes.ts`, `lib/error-registry.ts`, `lib/traced-error.ts` | `error_logs` |
 | 14 | WhatsApp Integration | `api/whatsapp-proxy/route.ts` | `users` (R) |
 | 15 | Pit Wall | `(app)/pit-wall/PitWallClient.tsx`, `api/pit-wall/live-data/route.ts` | None (OpenF1 + RainViewer, no Firestore) |
+| 16 | Pre-Race Showreel | `(app)/pit-wall/_hooks/usePreRaceMode.ts`, `_hooks/useHistoricalReplay.ts`, `api/pit-wall/historical-sessions/route.ts`, `api/pit-wall/historical-replay/route.ts` | None (OpenF1 2025 historical telemetry, no Firestore) |
 
 ---
 ## Git Discipline

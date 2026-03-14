@@ -544,6 +544,56 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     suggestedAction: 'Non-critical. Weather conditions still shown from OpenF1 weather endpoint.',
     modulePath: 'app/src/app/api/pit-wall/rainviewer-proxy/route.ts',
   },
+  // GUID: PIT_WALL_ERRORS-006-v01
+  PIT_WALL_HISTORICAL_LOOKUP_FAILED: {
+    key: 'PIT_WALL_HISTORICAL_LOOKUP_FAILED',
+    code: 'PX-3306',
+    message: 'Could not look up historical sessions for showreel',
+    severity: 'warning' as const,
+    description: 'The historical-sessions API failed to retrieve 2025 session data from OpenF1.',
+    suggestedAction: 'OpenF1 may restrict historical access during live sessions. Showreel will be skipped.',
+    modulePath: 'app/src/app/api/pit-wall/historical-sessions/route.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-007-v01
+  PIT_WALL_HISTORICAL_REPLAY_FAILED: {
+    key: 'PIT_WALL_HISTORICAL_REPLAY_FAILED',
+    code: 'PX-3307',
+    message: 'Historical replay data could not be loaded',
+    severity: 'warning' as const,
+    description: 'Position telemetry fetch from OpenF1 failed for the selected historical session.',
+    suggestedAction: 'Non-critical — showreel skips to next race or exits. Live mode unaffected.',
+    modulePath: 'app/src/app/api/pit-wall/historical-replay/route.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-008-v01
+  PIT_WALL_SHOWREEL_NO_SESSIONS: {
+    key: 'PIT_WALL_SHOWREEL_NO_SESSIONS',
+    code: 'PX-3308',
+    message: 'No 2025 historical sessions found for this circuit',
+    severity: 'info' as const,
+    description: 'OpenF1 returned no 2025 sessions for the circuit_key of the next race.',
+    suggestedAction: 'Showreel unavailable for this circuit. Normal standby mode shown.',
+    modulePath: 'app/src/app/api/pit-wall/historical-sessions/route.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-009-v01
+  PIT_WALL_OPENF1_RESTRICTED: {
+    key: 'PIT_WALL_OPENF1_RESTRICTED',
+    code: 'PX-3309',
+    message: 'OpenF1 historical data restricted during live session',
+    severity: 'info' as const,
+    description: 'OpenF1 restricts access to historical endpoints while a live F1 session is in progress.',
+    suggestedAction: 'Showreel skipped — live session is active. Switch to live Pit Wall mode.',
+    modulePath: 'app/src/app/api/pit-wall/historical-sessions/route.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-010-v01
+  PIT_WALL_SHOWREEL_SCHEDULE_FAILED: {
+    key: 'PIT_WALL_SHOWREEL_SCHEDULE_FAILED',
+    code: 'PX-3310',
+    message: 'Could not build showreel schedule',
+    severity: 'warning' as const,
+    description: 'The showreel scheduler failed to fit historical races into the available pre-race window.',
+    suggestedAction: 'Non-critical — countdown mode shown instead.',
+    modulePath: 'app/src/app/(app)/pit-wall/_hooks/usePreRaceMode.ts',
+  },
   FIRESTORE_READ_FAILED: {
     key: 'FIRESTORE_READ_FAILED',
     code: 'PX-4001',

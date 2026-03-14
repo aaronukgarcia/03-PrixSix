@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1695,
+  "total_guids": 1746,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -112639,6 +112639,980 @@
         "calledBy": []
       },
       "dependencies": []
+    },
+    {
+      "guid": "SHOWREEL_TYPES-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "File-level header for showreel types module — pre-race showreel TypeScript type definitions.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "HistoricalSession interface — a 2025 session entry returned by the historical-sessions API.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "HistoricalSession"
+      },
+      "callChain": {
+        "calledBy": [
+          "PRE_RACE_MODE_HOOK-001",
+          "HISTORICAL_REPLAY_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-002",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "ShowreelQueueItem interface — one item in the showreel schedule with compression factor and wall-clock windows.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "ShowreelQueueItem"
+      },
+      "callChain": {
+        "calledBy": [
+          "SHOWREEL_SCHEDULER-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-003",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "ShowreelSchedule interface — full ordered list of historical races timed to finish 5 minutes before the next real race.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "ShowreelSchedule"
+      },
+      "callChain": {
+        "calledBy": [
+          "SHOWREEL_SCHEDULER-001",
+          "PRE_RACE_MODE_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-004",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "PreRaceModeState union type — state machine states for the pre-race showreel.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "PreRaceModeState"
+      },
+      "callChain": {
+        "calledBy": [
+          "PRE_RACE_MODE_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-005",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "ReplayFrame interface — one compressed telemetry frame per 5s with positions per driver.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "ReplayFrame"
+      },
+      "callChain": {
+        "calledBy": [
+          "HISTORICAL_REPLAY_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-006",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "HistoricalDriver interface — driver metadata from historical session (name, team, colour).",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "HistoricalDriver"
+      },
+      "callChain": {
+        "calledBy": [
+          "HISTORICAL_REPLAY_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-007",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "HistoricalReplayData interface — full replay data package from the historical-replay API.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "HistoricalReplayData"
+      },
+      "callChain": {
+        "calledBy": [
+          "HISTORICAL_REPLAY_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-008",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "UseHistoricalReplayReturn interface — return type for useHistoricalReplay hook.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "UseHistoricalReplayReturn"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-009",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "ReplayDriverState interface — minimal driver state from replay, drop-in compatible with DriverRaceState.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "ReplayDriverState"
+      },
+      "callChain": {
+        "calledBy": [
+          "HISTORICAL_REPLAY_HOOK-001",
+          "PIT_WALL_CLIENT-015"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_TYPES-010",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "UsePreRaceModeReturn interface — return type for usePreRaceMode hook including mode, schedule, and on-demand selector.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_types/showreel.types.ts",
+        "functionName": "UsePreRaceModeReturn"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_SCHEDULER-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "File-level header for showreel-scheduler utility — pure functions for building the pre-race showreel schedule.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_utils/showreel-scheduler.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_SCHEDULER-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "buildShowreelSchedule — greedy fills a pre-race slot with historical sessions compressed to finish 5 minutes before race start.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_utils/showreel-scheduler.ts",
+        "functionName": "buildShowreelSchedule"
+      },
+      "callChain": {
+        "calledBy": [
+          "PRE_RACE_MODE_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_SCHEDULER-002",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "validateScheduleTiming — checks a built showreel schedule is still valid relative to current time.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_utils/showreel-scheduler.ts",
+        "functionName": "validateScheduleTiming"
+      },
+      "callChain": {
+        "calledBy": [
+          "PRE_RACE_MODE_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_SCHEDULER-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "findMatchingHistoricalSession — selects a historical session by type and optional circuit preference.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_utils/showreel-scheduler.ts",
+        "functionName": "findMatchingHistoricalSession"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_SESSIONS-000",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "File-level header for historical-sessions API — looks up 2025 F1 sessions from OpenF1 by circuit.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-sessions/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_SESSIONS-001",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "GET /api/pit-wall/historical-sessions — authenticated route returning 2025 historical sessions for a circuit from OpenF1.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-sessions/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "PRE_RACE_MODE_HOOK-001"
+        ],
+        "calls": [
+          "API_PIT_WALL_HISTORICAL_SESSIONS-002",
+          "API_PIT_WALL_HISTORICAL_SESSIONS-003"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_SESSIONS-002",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "fetchWithTimeout helper for historical-sessions route — wraps fetch with AbortController timeout.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-sessions/route.ts",
+        "functionName": "fetchWithTimeout"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_SESSIONS-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_SESSIONS-003",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "getOpenF1Token helper for historical-sessions route — fetches and caches Bearer token for authenticated OpenF1 requests.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-sessions/route.ts",
+        "functionName": "getOpenF1Token"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_SESSIONS-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_REPLAY-000",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "File-level header for historical-replay API — fetches and downsamples position telemetry for showreel playback.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_REPLAY-001",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "GET /api/pit-wall/historical-replay — authenticated route returning downsampled HistoricalReplayData for a session_key.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "HISTORICAL_REPLAY_HOOK-003"
+        ],
+        "calls": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-002",
+          "API_PIT_WALL_HISTORICAL_REPLAY-003"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_REPLAY-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "downsamplePositions — reduces OpenF1 position data from ~360k records to ~2.4k (1 sample per 5s per driver).",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts",
+        "functionName": "downsamplePositions"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_REPLAY-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "buildReplayFrames — groups downsampled positions into ReplayFrame objects with virtualTimeMs offsets from session start.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts",
+        "functionName": "buildReplayFrames"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_REPLAY-004",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "fetchWithTimeout helper for historical-replay route — wraps fetch with AbortController timeout.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts",
+        "functionName": "fetchWithTimeout"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_REPLAY-005",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "getOpenF1Token helper for historical-replay route — fetches and caches Bearer token for OpenF1 requests.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts",
+        "functionName": "getOpenF1Token"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_REPLAY-006",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "openF1Fetch helper for historical-replay route — generic typed fetch against OpenF1 with optional auth header.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts",
+        "functionName": "openF1Fetch"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "API_PIT_WALL_HISTORICAL_REPLAY-007",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "isRestrictedResponse — detects OpenF1 live-session API restriction from a JSON response body detail field.",
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts",
+        "functionName": "isRestrictedResponse"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PRE_RACE_MODE_HOOK-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "File-level header for usePreRaceMode — state machine hook for pre-race showreel mode.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/usePreRaceMode.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PRE_RACE_MODE_HOOK-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "usePreRaceMode — state machine hook managing LIVE/IDLE/SHOWREEL/COUNTDOWN transitions for the Pit Wall pre-race experience.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/usePreRaceMode.ts",
+        "functionName": "usePreRaceMode"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": [
+          "SHOWREEL_SCHEDULER-001",
+          "SHOWREEL_SCHEDULER-002",
+          "API_PIT_WALL_HISTORICAL_SESSIONS-001"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "HISTORICAL_REPLAY_HOOK-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "File-level header for useHistoricalReplay — RAF-based playback of historical OpenF1 telemetry.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/useHistoricalReplay.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "HISTORICAL_REPLAY_HOOK-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "useHistoricalReplay — RAF playback loop emitting ReplayDriverState[] at configurable compression speed for showreel.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/useHistoricalReplay.ts",
+        "functionName": "useHistoricalReplay"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": [
+          "HISTORICAL_REPLAY_HOOK-002",
+          "HISTORICAL_REPLAY_HOOK-003"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "HISTORICAL_REPLAY_HOOK-002",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "buildReplayDriverState — maps a ReplayFrame + HistoricalDriver into ReplayDriverState with null stubs for unused live fields.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/useHistoricalReplay.ts",
+        "functionName": "buildReplayDriverState"
+      },
+      "callChain": {
+        "calledBy": [
+          "HISTORICAL_REPLAY_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "HISTORICAL_REPLAY_HOOK-003",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "fetchReplayData — fetches HistoricalReplayData from /api/pit-wall/historical-replay with Firebase auth token.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/useHistoricalReplay.ts",
+        "functionName": "fetchReplayData"
+      },
+      "callChain": {
+        "calledBy": [
+          "HISTORICAL_REPLAY_HOOK-001"
+        ],
+        "calls": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PRE_RACE_WARMUP_BANNER-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "File-level header for PreRaceWarmupBanner — orange banner shown during pre-race showreel.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PreRaceWarmupBanner.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PRE_RACE_WARMUP_BANNER-001",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "formatCountdown — formats seconds into Xh Xm or MM:SS string for the warmup banner countdown display.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PreRaceWarmupBanner.tsx",
+        "functionName": "formatCountdown"
+      },
+      "callChain": {
+        "calledBy": [
+          "PRE_RACE_WARMUP_BANNER-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PRE_RACE_WARMUP_BANNER-002",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "PreRaceWarmupBanner — orange/red banner with historical race name and live countdown to actual race start.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PreRaceWarmupBanner.tsx",
+        "functionName": "PreRaceWarmupBanner"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": [
+          "PRE_RACE_WARMUP_BANNER-001"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_SPLASH-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "File-level header for ShowreelSplash — full-screen Prix Six branded splash between historical races.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/ShowreelSplash.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "SHOWREEL_SPLASH-001",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "ShowreelSplash — 2-second full-screen Prix Six branded overlay shown between historical races in showreel mode.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/ShowreelSplash.tsx",
+        "functionName": "ShowreelSplash"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "RACE_SELECTOR-000",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "File-level header for RaceSelector — on-demand 2025 race picker for showreel mode.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/RaceSelector.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "RACE_SELECTOR-001",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "RaceSelector — dropdown picker letting users select any 2025 historical session for on-demand replay in showreel mode.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/RaceSelector.tsx",
+        "functionName": "RaceSelector"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-010",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "findNextRaceFromSchedule — finds the next upcoming sprint or race from the static RaceSchedule for showreel targeting.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "findNextRaceFromSchedule"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-011",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "castReplayToLive — type cast from ReplayDriverState[] to DriverRaceState[] for drop-in component compatibility.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "castReplayToLive"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-012",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "idToken refresh effect — fetches Firebase ID token when firebaseUser changes for authenticated showreel API calls.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "PitWallClient"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-013",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "usePreRaceMode instantiation — wires next race info and circuit short name into the pre-race state machine.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "PitWallClient"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": [
+          "PRE_RACE_MODE_HOOK-001"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-014",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "useHistoricalReplay instantiation — wires current showreel item or on-demand session into the RAF replay hook.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "PitWallClient"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": [
+          "HISTORICAL_REPLAY_HOOK-001"
+        ]
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-015",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "activeDrivers memo — selects replay data source when showreel is playing, live data otherwise, for unified component consumption.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "PitWallClient"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-006",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "PIT_WALL_HISTORICAL_LOOKUP_FAILED (PX-3306) — historical-sessions API failed to retrieve 2025 sessions for showreel.",
+      "location": {
+        "filePath": "app/src/lib/error-registry.ts",
+        "functionName": "ERRORS.PIT_WALL_HISTORICAL_LOOKUP_FAILED"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_SESSIONS-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-007",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "PIT_WALL_HISTORICAL_REPLAY_FAILED (PX-3307) — position telemetry fetch failed for a historical session.",
+      "location": {
+        "filePath": "app/src/lib/error-registry.ts",
+        "functionName": "ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-008",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "PIT_WALL_SHOWREEL_NO_SESSIONS (PX-3308) — OpenF1 returned no 2025 sessions for the next race circuit.",
+      "location": {
+        "filePath": "app/src/lib/error-registry.ts",
+        "functionName": "ERRORS.PIT_WALL_SHOWREEL_NO_SESSIONS"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_SESSIONS-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-009",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "PIT_WALL_OPENF1_RESTRICTED (PX-3309) — OpenF1 blocks historical access during a live session.",
+      "location": {
+        "filePath": "app/src/lib/error-registry.ts",
+        "functionName": "ERRORS.PIT_WALL_OPENF1_RESTRICTED"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_PIT_WALL_HISTORICAL_SESSIONS-001",
+          "API_PIT_WALL_HISTORICAL_REPLAY-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-010",
+      "version": 1,
+      "logic_category": "ERROR_HANDLING",
+      "description": "PIT_WALL_SHOWREEL_SCHEDULE_FAILED (PX-3310) — showreel scheduler cannot fit races into the pre-race window.",
+      "location": {
+        "filePath": "app/src/lib/error-registry.ts",
+        "functionName": "ERRORS.PIT_WALL_SHOWREEL_SCHEDULE_FAILED"
+      },
+      "callChain": {
+        "calledBy": [
+          "PRE_RACE_MODE_HOOK-001"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:00:51.826Z",
+      "lastUpdated": "2026-03-14T08:00:51.826Z"
     }
   ],
   "firestoreCollections": {
