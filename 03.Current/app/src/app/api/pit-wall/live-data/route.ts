@@ -149,9 +149,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Auth — any signed-in user
   const authHeader = req.headers.get('Authorization');
-  const { db } = getFirebaseAdmin();
-  const authResult = await verifyAuthToken(authHeader, db);
-  if (!authResult.valid) {
+  getFirebaseAdmin(); // ensure Admin SDK is initialised
+  const authResult = await verifyAuthToken(authHeader);
+  if (!authResult) {
     return NextResponse.json(
       { error: ERRORS.SESSION_INVALID.message, code: ERRORS.SESSION_INVALID.code, correlationId },
       { status: 401 },

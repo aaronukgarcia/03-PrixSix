@@ -19,11 +19,11 @@ let cachedManifest: { data: any; expiresAt: number } | null = null;
 // GUID: API_PIT_WALL_RAINVIEWER-001-v01
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
-  const { db } = getFirebaseAdmin();
+  getFirebaseAdmin(); // ensure Admin SDK is initialised
 
   const authHeader = req.headers.get('Authorization');
-  const authResult = await verifyAuthToken(authHeader, db);
-  if (!authResult.valid) {
+  const authResult = await verifyAuthToken(authHeader);
+  if (!authResult) {
     return NextResponse.json(
       { error: ERRORS.SESSION_INVALID.message, code: ERRORS.SESSION_INVALID.code, correlationId },
       { status: 401 },
