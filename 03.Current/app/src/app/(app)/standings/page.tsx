@@ -1,4 +1,4 @@
-// GUID: PAGE_STANDINGS-000-v05
+// GUID: PAGE_STANDINGS-000-v06
 // [Intent] Season Standings page — displays cumulative league standings after each race weekend,
 //   with race-by-race selection, season progression chart, rank change indicators, and pagination.
 // [Inbound Trigger] Navigation to /standings route by authenticated user.
@@ -339,7 +339,7 @@ export default function StandingsPage() {
             const hasGpScores = raceIdsWithScores.has(normalisedGpKey);
             const hasSprintScores = normalisedSprintKey ? raceIdsWithScores.has(normalisedSprintKey) : false;
 
-            if (hasGpScores) {
+            if (hasGpScores || hasSprintScores) {
               completed.push({
                 name: race.name,
                 sprintRaceId: sprintRaceId || null,
