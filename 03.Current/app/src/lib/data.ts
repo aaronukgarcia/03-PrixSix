@@ -1,4 +1,4 @@
-// GUID: LIB_DATA-000-v05
+// GUID: LIB_DATA-000-v06
 // @SECURITY_FIX (GEMINI-AUDIT-051): imageId removed from public Driver interface and moved to
 //   internal InternalDriver type. Public F1Drivers export strips imageId to prevent asset enumeration.
 //   getDriverImage() is the only sanctioned API for resolving driver images.
@@ -219,7 +219,7 @@ export interface Race {
 export const RaceSchedule: Race[] = [
     // 2026 Official F1 Calendar (24 races)
     { name: "Australian Grand Prix",   location: "Melbourne",        raceTime: "2026-03-08T04:00:00Z", qualifyingTime: "2026-03-07T05:00:00Z", hasSprint: false, results: [], trackTimezone: "Australia/Melbourne" },
-    { name: "Chinese Grand Prix",      location: "Shanghai",         raceTime: "2026-03-15T07:00:00Z", qualifyingTime: "2026-03-13T07:00:00Z", sprintTime: "2026-03-14T07:00:00Z", hasSprint: true,  results: [], trackTimezone: "Asia/Shanghai" },
+    { name: "Chinese Grand Prix",      location: "Shanghai",         raceTime: "2026-03-15T07:00:00Z", qualifyingTime: "2026-03-13T07:00:00Z", sprintTime: "2026-03-14T03:00:00Z", hasSprint: true,  results: [], trackTimezone: "Asia/Shanghai" },
     { name: "Japanese Grand Prix",     location: "Suzuka",           raceTime: "2026-03-29T06:00:00Z", qualifyingTime: "2026-03-28T07:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Tokyo" },
     { name: "Bahrain Grand Prix",      location: "Sakhir",           raceTime: "2026-04-12T15:00:00Z", qualifyingTime: "2026-04-11T16:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Bahrain" },
     { name: "Saudi Arabian Grand Prix",location: "Jeddah",           raceTime: "2026-04-19T17:00:00Z", qualifyingTime: "2026-04-18T17:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Riyadh" },
@@ -245,15 +245,17 @@ export const RaceSchedule: Race[] = [
 ];
 
 // GUID: LIB_DATA-009-v03
-// [Intent] Find the next upcoming race based on the current date by comparing qualifying times.
-//          Returns the last race in the schedule if all races are in the past (end-of-season fallback).
-// [Inbound Trigger] Called by dashboard, predictions page, and deadline banner components to determine
-//                   which race to display and which deadline to count down to.
-// [Downstream Impact] If the qualifying time comparison logic changes, deadline banners and default
-//                     race selections across the app will be affected.
+// [Intent] Find the next upcoming race based on the current date by comparing race times.
+//          Uses raceTime (not qualifyingTime) so sprint weekends are not skipped after SQ fires
+//          but before the Sprint Race / GP has run. Returns the last race in the schedule if all
+//          races are in the past (end-of-season fallback).
+// [Inbound Trigger] Called by dashboard, predictions page, PubChat, and deadline banner components
+//                   to determine which race to display and which deadline to count down to.
+// [Downstream Impact] Changing the comparison field here affects which race is shown as "next"
+//                     across the app. Prediction-lock enforcement is server-side and unaffected.
+// @FIX: Changed qualifyingTime → raceTime. qualifyingTime = SQ on sprint weekends (fires Thu/Fri),
+//       so the old logic skipped the Chinese GP entirely between SQ and the actual race.
 export const findNextRace = () => {
     const now = new Date();
-    // For demo purposes, if all races are in the past, return the last one.
-    // In a real app, you might want to handle the end of a season differently.
-    return RaceSchedule.find(race => new Date(race.qualifyingTime) > now) ?? RaceSchedule[RaceSchedule.length - 1];
+    return RaceSchedule.find(race => new Date(race.raceTime) > now) ?? RaceSchedule[RaceSchedule.length - 1];
 };
