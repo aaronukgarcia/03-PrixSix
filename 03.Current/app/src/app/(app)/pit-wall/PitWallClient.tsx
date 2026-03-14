@@ -119,6 +119,8 @@ export default function PitWallClient() {
     toggleColumn,
     setRadioZoomMode,
     isHighFrequency,
+    intervalIsTemporary,
+    intervalResetMinutes,
   } = usePitWallSettings();
 
   // Live data polling
@@ -331,10 +333,20 @@ export default function PitWallClient() {
         {/* Controls */}
         <div className="flex items-center gap-3 ml-auto shrink-0">
           {!preRaceMode.isShowreel && (
-            <UpdateSpeedSlider
-              value={settings.updateIntervalSeconds}
-              onChange={setUpdateInterval}
-            />
+            <div className="flex items-center gap-1.5">
+              <UpdateSpeedSlider
+                value={settings.updateIntervalSeconds}
+                onChange={setUpdateInterval}
+              />
+              {intervalIsTemporary && (
+                <span
+                  className="text-[9px] text-amber-400 tabular-nums whitespace-nowrap"
+                  title={`Custom refresh rate resets to 60s in ${intervalResetMinutes}m`}
+                >
+                  ↺{intervalResetMinutes}m
+                </span>
+              )}
+            </div>
           )}
           <ColumnSelector
             visibleColumns={settings.visibleColumns}

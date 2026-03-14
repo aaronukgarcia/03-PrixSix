@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1746,
+  "total_guids": 1748,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -113613,6 +113613,44 @@
       "dependencies": [],
       "created": "2026-03-14T08:00:51.826Z",
       "lastUpdated": "2026-03-14T08:00:51.826Z"
+    },
+    {
+      "guid": "PIT_WALL_SETTINGS_HOOK-005",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "intervalChangedAt state — tracks when user last changed the update interval to drive the 20-minute auto-reset countdown.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts",
+        "functionName": "usePitWallSettings"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_SETTINGS_HOOK-004"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:07:54.057Z",
+      "lastUpdated": "2026-03-14T08:07:54.057Z"
+    },
+    {
+      "guid": "PIT_WALL_SETTINGS_HOOK-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Countdown effect — keeps intervalResetMinutes updated every minute so the toolbar shows correct time remaining before auto-reset.",
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts",
+        "functionName": "usePitWallSettings"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_SETTINGS_HOOK-004"
+        ],
+        "calls": []
+      },
+      "dependencies": [],
+      "created": "2026-03-14T08:07:54.057Z",
+      "lastUpdated": "2026-03-14T08:07:54.057Z"
     }
   ],
   "firestoreCollections": {
