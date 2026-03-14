@@ -1,4 +1,4 @@
-// GUID: PIT_WALL_RACE_TABLE-000-v01
+// GUID: PIT_WALL_RACE_TABLE-000-v02
 // [Intent] Div-grid race data table with Framer Motion row animations.
 //          F1 timing tower style — driver rows reorder with spring physics.
 // [Inbound Trigger] Rendered by PitWallClient as the primary race data view.
@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { buildGridTemplate, PIT_WALL_COLUMNS } from '../_types/columns';
@@ -80,16 +80,14 @@ function sortDrivers(drivers: DriverRaceState[], sortKey: string | null): Driver
 function CellContent({
   columnKey,
   driver,
-  radioMessages,
-  radioState,
+  unreadCount,
   onRadioClick,
   totalLaps,
 }: {
   columnKey: string;
   driver: DriverRaceState;
-  radioMessages: RadioMessage[];
-  radioState: UseRadioStateReturn;
-  onRadioClick: (n: number) => void;
+  unreadCount: number;
+  onRadioClick: () => void;
   totalLaps: number | null;
 }) {
   switch (columnKey) {
@@ -145,7 +143,6 @@ function CellContent({
     }
 
     case 'radio': {
-      const unreadCount = radioState.unreadCountFor(driver.driverNumber, radioMessages);
       return (
         <div className="flex items-center justify-center w-full h-full">
           <RadioIcon
@@ -153,7 +150,7 @@ function CellContent({
             hasUnread={driver.hasUnreadRadio}
             isMuted={driver.isMuted}
             unreadCount={unreadCount}
-            onClick={() => onRadioClick(driver.driverNumber)}
+            onClick={onRadioClick}
           />
         </div>
       );
@@ -342,6 +339,130 @@ function SortIndicator({ colKey, sortKey }: { colKey: string; sortKey: string | 
   return <span className="text-blue-400 ml-0.5">↑</span>;
 }
 
+// GUID: PIT_WALL_RACE_TABLE-010-v01
+// [Intent] Props for DriverRow — all values are primitives or stable references so
+//          React.memo can do a cheap equality check without deep comparison.
+interface DriverRowProps {
+  driver: DriverRaceState;
+  unreadCount: number;
+  visibleColDefs: typeof PIT_WALL_COLUMNS;
+  visibleColumns: string[];
+  gridTemplate: string;
+  onRadioClick: () => void;
+  totalLaps: number | null;
+  sortKey: string | null;
+}
+
+// GUID: PIT_WALL_RACE_TABLE-011-v01
+// [Intent] Memoised per-driver row component — skips re-render when all driving data
+//          and display config are unchanged between polls.
+//          Custom comparator checks every field that affects visual output:
+//          positional data, lap times, sectors, tyre, DRS, pit/retired flags,
+//          radio unread count, column layout, and sort key.
+//          onRadioClick must be a stable reference (useCallback in the parent) for
+//          memo to be effective.
+const DriverRow = memo(
+  function DriverRow({
+    driver,
+    unreadCount,
+    visibleColDefs,
+    gridTemplate,
+    onRadioClick,
+    totalLaps,
+  }: DriverRowProps) {
+    return (
+      <motion.div
+        layoutId={`pw-row-${driver.driverNumber}`}
+        layout="position"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ layout: { type: 'spring', stiffness: 500, damping: 40 } }}
+        className={cn(
+          'grid border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors',
+          rowBgClass(driver)
+        )}
+        style={{ gridTemplateColumns: gridTemplate }}
+        role="row"
+        aria-label={`${driver.driverCode} position ${driver.position}`}
+      >
+        {visibleColDefs.map((col) => (
+          <div
+            key={col.key}
+            className={cn(
+              'px-2 py-1.5 overflow-hidden',
+              col.key === 'position' && 'border-l-2'
+            )}
+            style={
+              col.key === 'position'
+                ? { borderLeftColor: positionBorderColour(driver.position) }
+                : undefined
+            }
+            role="cell"
+          >
+            <CellContent
+              columnKey={col.key}
+              driver={driver}
+              unreadCount={unreadCount}
+              onRadioClick={onRadioClick}
+              totalLaps={totalLaps}
+            />
+          </div>
+        ))}
+      </motion.div>
+    );
+  },
+  (prev, next) => {
+    const pd = prev.driver;
+    const nd = next.driver;
+
+    // Driver telemetry and state
+    if (pd.driverNumber       !== nd.driverNumber)       return false;
+    if (pd.position           !== nd.position)           return false;
+    if (pd.positionChange     !== nd.positionChange)     return false;
+    if (pd.lastLapTime        !== nd.lastLapTime)        return false;
+    if (pd.bestLapTime        !== nd.bestLapTime)        return false;
+    if (pd.gapToLeader        !== nd.gapToLeader)        return false;
+    if (pd.intervalToAhead    !== nd.intervalToAhead)    return false;
+    if (pd.sectors.s1         !== nd.sectors.s1)         return false;
+    if (pd.sectors.s2         !== nd.sectors.s2)         return false;
+    if (pd.sectors.s3         !== nd.sectors.s3)         return false;
+    if (pd.sectors.s1Status   !== nd.sectors.s1Status)   return false;
+    if (pd.sectors.s2Status   !== nd.sectors.s2Status)   return false;
+    if (pd.sectors.s3Status   !== nd.sectors.s3Status)   return false;
+    if (pd.tyreCompound       !== nd.tyreCompound)       return false;
+    if (pd.tyreLapAge         !== nd.tyreLapAge)         return false;
+    if (pd.pitStopCount       !== nd.pitStopCount)       return false;
+    if (pd.hasDrs             !== nd.hasDrs)             return false;
+    if (pd.retired            !== nd.retired)            return false;
+    if (pd.inPit              !== nd.inPit)              return false;
+    if (pd.speed              !== nd.speed)              return false;
+    if (pd.throttle           !== nd.throttle)           return false;
+    if (pd.currentLap         !== nd.currentLap)         return false;
+    if (pd.fastestLap         !== nd.fastestLap)         return false;
+    if (pd.teamColour         !== nd.teamColour)         return false;
+    if (pd.driverCode         !== nd.driverCode)         return false;
+    if (pd.hasUnreadRadio     !== nd.hasUnreadRadio)     return false;
+    if (pd.isMuted            !== nd.isMuted)            return false;
+
+    // Radio unread count (computed scalar passed from parent)
+    if (prev.unreadCount      !== next.unreadCount)      return false;
+
+    // Display config — shallow reference equality is sufficient because both are
+    // derived from the same useMemo in the parent and only change when columns change.
+    if (prev.visibleColumns   !== next.visibleColumns)   return false;
+    if (prev.visibleColDefs   !== next.visibleColDefs)   return false;
+    if (prev.gridTemplate     !== next.gridTemplate)     return false;
+    if (prev.sortKey          !== next.sortKey)          return false;
+    if (prev.totalLaps        !== next.totalLaps)        return false;
+
+    // Callback — must be a stable useCallback reference in the parent
+    if (prev.onRadioClick     !== next.onRadioClick)     return false;
+
+    return true; // nothing changed — skip re-render
+  }
+);
+
 // GUID: PIT_WALL_RACE_TABLE-009-v01
 // [Intent] Main PitWallRaceTable component — sticky header + AnimatePresence animated row list.
 export function PitWallRaceTable({
@@ -369,6 +490,18 @@ export function PitWallRaceTable({
     () => PIT_WALL_COLUMNS.filter(c => visibleColumns.includes(c.key)),
     [visibleColumns]
   );
+
+  // Stabilise per-driver radio click callbacks so React.memo comparisons on
+  // onRadioClick reference equality are not invalidated on every parent render.
+  // Each driver number gets its own stable callback; the map is keyed by driverNumber.
+  const radioClickCallbacks = useMemo(() => {
+    const map = new Map<number, () => void>();
+    for (const driver of drivers) {
+      map.set(driver.driverNumber, () => onRadioClick(driver.driverNumber));
+    }
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drivers, onRadioClick]);
 
   if (drivers.length === 0) {
     return (
@@ -413,47 +546,17 @@ export function PitWallRaceTable({
       <div className="flex-1 overflow-y-auto overflow-x-hidden" role="rowgroup">
         <AnimatePresence initial={false}>
           {sortedDrivers.map((driver) => (
-            <motion.div
+            <DriverRow
               key={driver.driverNumber}
-              layoutId={`pw-row-${driver.driverNumber}`}
-              layout="position"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ layout: { type: 'spring', stiffness: 500, damping: 40 } }}
-              className={cn(
-                'grid border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors',
-                rowBgClass(driver)
-              )}
-              style={{ gridTemplateColumns: gridTemplate }}
-              role="row"
-              aria-label={`${driver.driverCode} position ${driver.position}`}
-            >
-              {visibleColDefs.map((col) => (
-                <div
-                  key={col.key}
-                  className={cn(
-                    'px-2 py-1.5 overflow-hidden',
-                    col.key === 'position' && 'border-l-2'
-                  )}
-                  style={
-                    col.key === 'position'
-                      ? { borderLeftColor: positionBorderColour(driver.position) }
-                      : undefined
-                  }
-                  role="cell"
-                >
-                  <CellContent
-                    columnKey={col.key}
-                    driver={driver}
-                    radioMessages={radioMessages}
-                    radioState={radioState}
-                    onRadioClick={onRadioClick}
-                    totalLaps={totalLaps}
-                  />
-                </div>
-              ))}
-            </motion.div>
+              driver={driver}
+              unreadCount={radioState.unreadCountFor(driver.driverNumber, radioMessages)}
+              visibleColDefs={visibleColDefs}
+              visibleColumns={visibleColumns}
+              gridTemplate={gridTemplate}
+              onRadioClick={radioClickCallbacks.get(driver.driverNumber) ?? (() => onRadioClick(driver.driverNumber))}
+              totalLaps={totalLaps}
+              sortKey={sortKey}
+            />
           ))}
         </AnimatePresence>
       </div>

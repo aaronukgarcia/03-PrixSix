@@ -1,9 +1,11 @@
-// GUID: PIT_WALL_CLIENT-000-v02
+// GUID: PIT_WALL_CLIENT-000-v03
 // [Intent] Client-side orchestrator for the Pit Wall live race data module.
 //          Wires all hooks, manages layout (track map + FIA feed header, toolbar,
 //          race table, radio zoom panel), and enforces the dark F1 aesthetic.
 //          v02: Pre-Race Showreel integration — plays 2025 historical telemetry
 //               before live sessions via usePreRaceMode + useHistoricalReplay.
+//          v03: Removed useCarInterpolation — interpolation now done inside PitWallTrackMap
+//               in its single RAF loop. No React state on the hot path.
 // [Inbound Trigger] Rendered by page.tsx (server component) on every /pit-wall request.
 // [Downstream Impact] All Pit Wall state and data flow originates here.
 //                     Sub-components receive only the props they need — no prop drilling
@@ -17,7 +19,6 @@ import { useAuth } from '@/firebase';
 import { usePitWallSettings } from './_hooks/usePitWallSettings';
 import { usePitWallData } from './_hooks/usePitWallData';
 import { useRadioState } from './_hooks/useRadioState';
-import { useCarInterpolation } from './_hooks/useCarInterpolation';
 import { usePreRaceMode } from './_hooks/usePreRaceMode';
 import { useHistoricalReplay } from './_hooks/useHistoricalReplay';
 import type { TrackBounds, DriverRaceState } from './_types/pit-wall.types';
@@ -88,7 +89,7 @@ function castReplayToLive(replay: ReplayDriverState[]): DriverRaceState[] {
   return replay as unknown as DriverRaceState[];
 }
 
-// GUID: PIT_WALL_CLIENT-002-v02
+// GUID: PIT_WALL_CLIENT-002-v03
 // [Intent] Main orchestrator component — assembles the full Pit Wall layout.
 //          Layout regions:
 //            Showreel banner (optional, h-12): PreRaceWarmupBanner when in showreel mode
@@ -97,6 +98,8 @@ function castReplayToLive(replay: ReplayDriverState[]): DriverRaceState[] {
 //            Body: PitWallRaceTable (scrollable, fills remaining height)
 //            Bottom panel: RadioZoomPanel (slides up 50vh when open)
 //            Full overlay: ShowreelSplash (between historical races)
+//          v03: Passes drivers + updateIntervalMs directly to PitWallTrackMap;
+//               interpolation handled inside TrackMap's single RAF loop.
 // [Inbound Trigger] Rendered by page.tsx.
 // [Downstream Impact] All child components receive data via props — no child
 //                     components fetch independently.
@@ -181,12 +184,6 @@ export default function PitWallClient() {
     return liveDrivers;
   }, [preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
 
-  // Car interpolation (RAF 60fps smooth movement)
-  const interpolatedPositions = useCarInterpolation(
-    activeDrivers,
-    preRaceMode.isShowreel ? 5000 : settings.updateIntervalSeconds * 1000
-  );
-
   // Track bounds derived from driver GPS positions
   const trackBounds = useMemo(() => computeTrackBounds(activeDrivers), [activeDrivers]);
 
@@ -265,7 +262,8 @@ export default function PitWallClient() {
         {/* Track map */}
         <div className="flex-[2] min-w-0 border-r border-slate-800">
           <PitWallTrackMap
-            positions={interpolatedPositions}
+            drivers={activeDrivers}
+            updateIntervalMs={preRaceMode.isShowreel ? 5000 : settings.updateIntervalSeconds * 1000}
             bounds={trackBounds}
             circuitLat={circuitLat}
             circuitLon={circuitLon}

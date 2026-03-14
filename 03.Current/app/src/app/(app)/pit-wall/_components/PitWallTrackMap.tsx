@@ -1,25 +1,25 @@
-// GUID: PIT_WALL_TRACK_MAP-000-v01
-// [Intent] Canvas-based live track map. Renders interpolated car positions from useCarInterpolation
-//          using a requestAnimationFrame loop. No static SVG circuit paths — cars only.
+// GUID: PIT_WALL_TRACK_MAP-000-v02
+// [Intent] Canvas-based live track map. Absorbs interpolation logic directly — no useCarInterpolation hook.
+//          Single RAF loop lerps positions AND draws each frame, eliminating all React state from the hot path.
 //          Rain intensity overlay, DRS indicators, position badges, and retired/pit-state dimming.
-// [Inbound Trigger] Rendered in the Pit Wall layout. Receives live InterpolatedPosition[] from
-//                   useCarInterpolation hook and TrackBounds from usePitWallData.
+// [Inbound Trigger] Rendered in the Pit Wall layout. Receives DriverRaceState[] directly from PitWallClient.
 // [Downstream Impact] Pure canvas rendering — no state writes, no Firestore reads.
 
 'use client';
 
 import { useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import type { InterpolatedPosition, TrackBounds } from '../_types/pit-wall.types';
+import type { DriverRaceState, InterpolatedPosition, TrackBounds } from '../_types/pit-wall.types';
 
-// GUID: PIT_WALL_TRACK_MAP-001-v01
+// GUID: PIT_WALL_TRACK_MAP-001-v02
 // [Intent] Props for the PitWallTrackMap component.
 interface PitWallTrackMapProps {
-  positions: InterpolatedPosition[];
+  drivers: DriverRaceState[];        // replaces positions — interpolation done internally
+  updateIntervalMs: number;          // used for lerp timing (matches data polling interval)
   bounds: TrackBounds | null;
   circuitLat: number | null;
   circuitLon: number | null;
-  rainIntensity: number | null; // 0-255 from WeatherSnapshot
+  rainIntensity: number | null;      // 0-255 from WeatherSnapshot
   sessionType: string | null;
   className?: string;
 }
@@ -51,11 +51,17 @@ function projectToCanvas(
   return { px, py };
 }
 
+// GUID: PIT_WALL_TRACK_MAP-010-v01
+// [Intent] Linear interpolation between two numbers. Clamped to [0,1].
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * Math.max(0, Math.min(1, t));
+}
+
 // GUID: PIT_WALL_TRACK_MAP-004-v01
 // [Intent] Draw a single frame onto the canvas using the latest interpolated positions.
 function drawFrame(
   ctx: CanvasRenderingContext2D,
-  positions: InterpolatedPosition[],
+  interpolated: InterpolatedPosition[],
   bounds: TrackBounds | null,
   rainIntensity: number | null,
   sessionType: string | null,
@@ -91,17 +97,23 @@ function drawFrame(
   ctx.fillText(sessionType ?? 'SESSION', 8, 8);
 
   // ── 5. No data guard ────────────────────────────────────────────────────────
-  if (positions.length === 0 || bounds === null) {
+  if (interpolated.length === 0 || bounds === null) {
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     ctx.font = '11px "SF Mono", "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('LIVE DATA', w / 2, h / 2);
+    const msg = interpolated.length === 0 ? 'POSITION DATA UNAVAILABLE' : 'LIVE DATA';
+    ctx.fillText(msg, w / 2, h / 2 - 8);
+    if (interpolated.length === 0) {
+      ctx.font = '9px "SF Mono", "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillText('race table showing live timing', w / 2, h / 2 + 8);
+    }
     return;
   }
 
   // ── 6. Sort by position for Z-ordering (P1 drawn last = on top) ─────────────
-  const sorted = [...positions].sort((a, b) => b.position - a.position);
+  const sorted = [...interpolated].sort((a, b) => b.position - a.position);
 
   for (const pos of sorted) {
     const { px, py } = projectToCanvas(pos.x, pos.y, bounds, w, h);
@@ -201,10 +213,13 @@ function drawFrame(
   ctx.textBaseline = 'alphabetic';
 }
 
-// GUID: PIT_WALL_TRACK_MAP-005-v01
+// GUID: PIT_WALL_TRACK_MAP-005-v02
 // [Intent] Main PitWallTrackMap component — manages canvas, ResizeObserver, and RAF loop.
+//          v02: Interpolation absorbed internally. Single RAF loop lerps positions AND draws,
+//               eliminating all React state from the rendering hot path.
 export function PitWallTrackMap({
-  positions,
+  drivers,
+  updateIntervalMs,
   bounds,
   rainIntensity,
   sessionType,
@@ -215,35 +230,102 @@ export function PitWallTrackMap({
   const rafRef = useRef<number>(0);
 
   // Latest mutable refs so RAF callback always sees current data without re-registering
-  const positionsRef = useRef(positions);
+  const driversRef = useRef(drivers);
+  const updateIntervalMsRef = useRef(updateIntervalMs);
   const boundsRef = useRef(bounds);
   const rainRef = useRef(rainIntensity);
   const sessionTypeRef = useRef(sessionType);
 
-  positionsRef.current = positions;
+  driversRef.current = drivers;
+  updateIntervalMsRef.current = updateIntervalMs;
   boundsRef.current = bounds;
   rainRef.current = rainIntensity;
   sessionTypeRef.current = sessionType;
 
-  // GUID: PIT_WALL_TRACK_MAP-006-v01
-  // [Intent] RAF draw loop — reads from refs so it never needs to be re-registered.
+  // Interpolation refs — no React state, pure mutable slots
+  const prevPositionsRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const nextPositionsRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const snapshotTimestampRef = useRef<number>(Date.now());
+
+  // GUID: PIT_WALL_TRACK_MAP-009-v01
+  // [Intent] When drivers snapshot changes, promote current next→prev and store new GPS targets.
+  //          Resets snapshot timestamp so the lerp restarts from t=0 toward the new positions.
+  useEffect(() => {
+    const prev = new Map<number, { x: number; y: number }>();
+    // Carry whatever we had in next as the new prev (smooth handoff)
+    drivers.forEach(d => {
+      const current = nextPositionsRef.current.get(d.driverNumber);
+      if (current) {
+        prev.set(d.driverNumber, current);
+      } else if (d.x !== null && d.y !== null) {
+        prev.set(d.driverNumber, { x: d.x, y: d.y });
+      }
+    });
+    prevPositionsRef.current = prev;
+
+    const next = new Map<number, { x: number; y: number }>();
+    drivers.forEach(d => {
+      if (d.x !== null && d.y !== null) {
+        next.set(d.driverNumber, { x: d.x, y: d.y });
+      } else {
+        // Hold last known position if GPS dropped out
+        const last = prevPositionsRef.current.get(d.driverNumber);
+        if (last) next.set(d.driverNumber, last);
+      }
+    });
+    nextPositionsRef.current = next;
+    snapshotTimestampRef.current = Date.now();
+  }, [drivers]);
+
+  // GUID: PIT_WALL_TRACK_MAP-006-v02
+  // [Intent] Single RAF draw loop — interpolates positions AND draws each frame.
+  //          Reads all data from refs so it never needs to be re-registered.
+  //          v02: lerp logic merged in from useCarInterpolation; no setInterpolated state call.
   const startLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const loop = () => {
       const ctx = canvas.getContext('2d');
-      if (ctx) {
-        drawFrame(
-          ctx,
-          positionsRef.current,
-          boundsRef.current,
-          rainRef.current,
-          sessionTypeRef.current,
-          canvas.width,
-          canvas.height
-        );
-      }
+      if (!ctx) { rafRef.current = requestAnimationFrame(loop); return; }
+
+      // ── Interpolate positions inline ─────────────────────────────────────────
+      const now = Date.now();
+      const elapsed = now - snapshotTimestampRef.current;
+      const t = Math.min(1, elapsed / (updateIntervalMsRef.current || 60000));
+      const currentDrivers = driversRef.current;
+
+      const interpolated: InterpolatedPosition[] = currentDrivers
+        .filter(d => nextPositionsRef.current.has(d.driverNumber))
+        .map(d => {
+          const prev = prevPositionsRef.current.get(d.driverNumber);
+          const next = nextPositionsRef.current.get(d.driverNumber)!;
+          const x = prev ? lerp(prev.x, next.x, t) : next.x;
+          const y = prev ? lerp(prev.y, next.y, t) : next.y;
+          return {
+            driverNumber: d.driverNumber,
+            x,
+            y,
+            teamColour: d.teamColour,
+            driverCode: d.driverCode,
+            position: d.position,
+            hasDrs: d.hasDrs,
+            retired: d.retired,
+            inPit: d.inPit,
+          };
+        });
+
+      // ── Draw ─────────────────────────────────────────────────────────────────
+      drawFrame(
+        ctx,
+        interpolated,
+        boundsRef.current,
+        rainRef.current,
+        sessionTypeRef.current,
+        canvas.width,
+        canvas.height
+      );
+
       rafRef.current = requestAnimationFrame(loop);
     };
 

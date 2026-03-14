@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1748,
+  "total_guids": 1756,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -113651,6 +113651,162 @@
       "dependencies": [],
       "created": "2026-03-14T08:07:54.057Z",
       "lastUpdated": "2026-03-14T08:07:54.057Z"
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-010",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "DriverRowProps interface — defines props for the memoised DriverRow sub-component in PitWallRaceTable.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+        "functionName": "DriverRowProps"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_RACE_TABLE-011"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T08:33:53.324Z",
+      "lastUpdated": "2026-03-14T08:33:53.324Z"
+    },
+    {
+      "guid": "PIT_WALL_RACE_TABLE-011",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "DriverRow — React.memo-wrapped row component for PitWallRaceTable. Custom comparator skips re-render when all data fields are unchanged, cutting 60s-poll re-renders from 20 rows to only changed rows.",
+      "dependencies": [
+        "PIT_WALL_RACE_TABLE-010"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx",
+        "functionName": "DriverRow"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_RACE_TABLE-009"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T08:33:53.324Z",
+      "lastUpdated": "2026-03-14T08:33:53.324Z"
+    },
+    {
+      "guid": "PIT_WALL_DATA_HOOK-004",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "pitWallDataReducer — handles FETCH_SUCCESS/FETCH_ERROR/SET_LOADING actions, updating all 16 data fields atomically in one dispatch instead of 11 separate setState calls.",
+      "dependencies": [
+        "PIT_WALL_DATA_HOOK-005"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts",
+        "functionName": "pitWallDataReducer"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_DATA_HOOK-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T08:33:53.324Z",
+      "lastUpdated": "2026-03-14T08:33:53.324Z"
+    },
+    {
+      "guid": "PIT_WALL_DATA_HOOK-005",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "PitWallDataState — internal reducer state type holding all 16 fields for usePitWallData. Replaces 14 individual useState declarations.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts",
+        "functionName": "PitWallDataState"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_DATA_HOOK-004"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T08:33:53.324Z",
+      "lastUpdated": "2026-03-14T08:33:53.324Z"
+    },
+    {
+      "guid": "PIT_WALL_WORKER-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "pit-wall.worker.ts — Web Worker for off-main-thread JSON parsing of OpenF1 live data responses. Receives raw text, parses, posts result back. Falls back inline if Worker unavailable.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/pit-wall.worker.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_DATA_HOOK-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T08:33:53.324Z",
+      "lastUpdated": "2026-03-14T08:33:53.324Z"
+    },
+    {
+      "guid": "PIT_WALL_WORKER-001",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Worker message handler — receives PROCESS_JSON, parses rawText, posts PROCESS_RESULT or PROCESS_ERROR back to main thread.",
+      "dependencies": [
+        "PIT_WALL_WORKER-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/pit-wall.worker.ts",
+        "functionName": "self.onmessage"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-14T08:33:53.324Z",
+      "lastUpdated": "2026-03-14T08:33:53.324Z"
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-009",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "useEffect([drivers]) snapshot update — promotes next→prev positions and resets snapshotTimestampRef when the drivers snapshot changes. Triggers lerp restart from new origin.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+        "functionName": "PitWallTrackMap"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_TRACK_MAP-005"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T08:33:53.324Z",
+      "lastUpdated": "2026-03-14T08:33:53.324Z"
+    },
+    {
+      "guid": "PIT_WALL_TRACK_MAP-010",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "lerp() — linear interpolation helper copied into PitWallTrackMap for use in the merged RAF loop. Clamps t to [0,1].",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx",
+        "functionName": "lerp"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_TRACK_MAP-006"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-14T08:33:53.324Z",
+      "lastUpdated": "2026-03-14T08:33:53.324Z"
     }
   ],
   "firestoreCollections": {

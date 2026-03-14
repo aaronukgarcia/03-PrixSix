@@ -202,9 +202,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   (driversRaw ?? []).forEach((d: any) => driverMap.set(d.driver_number, d));
 
   const latestPositions = latestPerDriver(positionsRaw ?? []);
+  if (latestPositions.size === 0 && driversRaw && driversRaw.length > 0) {
+    console.warn(`[pit-wall/live-data] Position data empty for session ${sessionKey} — track map will show no cars`);
+  }
   const latestIntervals = latestPerDriver(intervalsRaw ?? []);
   const latestCarData = latestPerDriver(carDataRaw ?? []);
-  const latestLocation = latestPerDriver((lapsRaw ?? []).filter((l: any) => l.x_position != null));
 
   // Latest stint per driver
   const latestStints = new Map<number, any>();
