@@ -10,6 +10,7 @@ import { getTodayDateString } from '@/lib/email-tracking';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { calculateDriverPoints, SCORING_POINTS } from '@/lib/scoring-rules';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -109,6 +110,94 @@ async function recordSentEmailAdmin(
   }
 }
 
+// GUID: API_SEND_RESULTS_EMAIL-005-v01
+// [Intent] Compute real cumulative season standings from all race_results + prediction docs in Firestore.
+//          Called by the POST handler instead of using the standings passed from /api/calculate-scores,
+//          which only contains the current race's points (bug reported by Tony Green, 2026-03-14).
+// [Inbound Trigger] Called once per POST request after all users are fetched.
+// [Downstream Impact] Returns [{rank, teamName, totalPoints}] sorted by totalPoints desc with tie ranks.
+//                     Used as the Season Standings table in all results emails.
+async function computeCumulativeStandings(
+  db: Awaited<ReturnType<typeof getFirebaseAdmin>>['db'],
+  teamNameByUid: Map<string, string>,
+): Promise<{ rank: number; teamName: string; totalPoints: number }[]> {
+  // Fetch all race results and all predictions in parallel
+  const [raceResultsSnap, predictionsSnap] = await Promise.all([
+    db.collection('race_results').get(),
+    db.collectionGroup('predictions').get(),
+  ]);
+
+  // Build: uid -> Map<normalizedRaceId, {driver1..6}>
+  // Normalise: lowercase + strip leading/trailing whitespace (mirrors the scoring engine)
+  const normalise = (id: string) => id.trim().toLowerCase();
+
+  const predsByUser = new Map<string, Map<string, Record<string, string>>>();
+  predictionsSnap.docs.forEach((doc: any) => {
+    const data = doc.data();
+    const pathParts: string[] = doc.ref.path.split('/'); // users/{uid}/predictions/{id}
+    const uid = pathParts[1];
+    if (!data.raceId) return;
+    const key = normalise(data.raceId);
+    if (!predsByUser.has(uid)) predsByUser.set(uid, new Map());
+    // Keep latest prediction per race (collectionGroup may return multiple)
+    const existing = predsByUser.get(uid)!.get(key);
+    if (!existing || (data.submittedAt?.toMillis?.() ?? 0) > (existing._ts ?? 0)) {
+      predsByUser.get(uid)!.set(key, { ...data, _ts: data.submittedAt?.toMillis?.() ?? 0 });
+    }
+  });
+
+  // Accumulate points: teamName -> totalPoints
+  const totals = new Map<string, number>();
+
+  raceResultsSnap.docs.forEach((raceDoc: any) => {
+    const result = raceDoc.data();
+    const raceKey = normalise(raceDoc.id);
+    const actualTop6: string[] = [
+      result.driver1, result.driver2, result.driver3,
+      result.driver4, result.driver5, result.driver6,
+    ].filter(Boolean);
+    if (actualTop6.length < 6) return; // incomplete result, skip
+
+    teamNameByUid.forEach((teamName, uid) => {
+      const userPreds = predsByUser.get(uid);
+      if (!userPreds) return;
+
+      // Try exact match first, then strip -gp/-sprint suffix (carry-forward edge case)
+      const pred = userPreds.get(raceKey) ?? userPreds.get(raceKey.replace(/-?(gp|sprint)$/i, '').trim());
+      if (!pred) return; // no prediction for this race = no points
+
+      const userDrivers: string[] = [
+        pred.driver1, pred.driver2, pred.driver3,
+        pred.driver4, pred.driver5, pred.driver6,
+      ].filter(Boolean);
+
+      let racePoints = 0;
+      userDrivers.forEach((driver, i) => {
+        const actualPos = actualTop6.indexOf(driver);
+        racePoints += calculateDriverPoints(i, actualPos);
+      });
+
+      // Bonus: all 6 in exact order
+      if (userDrivers.length === 6 && userDrivers.every((d, i) => d === actualTop6[i])) {
+        racePoints += SCORING_POINTS.bonusAll6;
+      }
+
+      totals.set(teamName, (totals.get(teamName) ?? 0) + racePoints);
+    });
+  });
+
+  // Sort and assign ranks with ties
+  const sorted = Array.from(totals.entries())
+    .map(([teamName, totalPoints]) => ({ teamName, totalPoints }))
+    .sort((a, b) => b.totalPoints - a.totalPoints);
+
+  let rank = 1;
+  return sorted.map((entry, i) => {
+    if (i > 0 && entry.totalPoints < sorted[i - 1].totalPoints) rank = i + 1;
+    return { ...entry, rank };
+  });
+}
+
 // GUID: API_SEND_RESULTS_EMAIL-002-v03
 // [Intent] Type definition for the incoming request body — identifies the race, its official result, per-team scores, and current season standings.
 // [Inbound Trigger] Used to type the parsed JSON body in the POST handler.
@@ -136,7 +225,7 @@ interface ResultsEmailRequest {
 export async function POST(request: NextRequest) {
   try {
     const data: ResultsEmailRequest = await request.json();
-    const { raceId, raceName, officialResult, scores, standings } = data;
+    const { raceId, raceName, officialResult, scores } = data;
 
     // Get all users who have opted in to results notifications
     const { db, FieldValue } = await getAdminFirebase();
@@ -146,6 +235,17 @@ export async function POST(request: NextRequest) {
       // Default to true if no preference set
       return userData.emailPreferences?.resultsNotifications !== false;
     });
+
+    // Build uid -> teamName map for all users (needed for cumulative standings)
+    const teamNameByUid = new Map<string, string>();
+    usersSnapshot.docs.forEach(doc => {
+      const d = doc.data();
+      if (d.teamName) teamNameByUid.set(doc.id, d.teamName);
+    });
+
+    // Compute real cumulative season standings from all race_results + predictions.
+    // The standings array passed from /api/calculate-scores is current-race only (SSOT-001 constraint).
+    const standings = await computeCumulativeStandings(db, teamNameByUid);
 
     const results: { email: string; success: boolean; error?: string }[] = [];
 

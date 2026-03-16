@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1770,
+  "total_guids": 1771,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -114069,6 +114069,27 @@
       },
       "created": "2026-03-16T12:32:15.252Z",
       "lastUpdated": "2026-03-16T12:32:15.252Z"
+    },
+    {
+      "guid": "API_SEND_RESULTS_EMAIL-005",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "computeCumulativeStandings — queries all race_results + predictions from Firestore, scores each user/race pair using calculateDriverPoints, returns real season standings for email. Fixes bug where emails showed single-race points as Season Standings.",
+      "dependencies": [
+        "LIB_SCORING_RULES-003"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/send-results-email/route.ts",
+        "functionName": "computeCumulativeStandings"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_SEND_RESULTS_EMAIL-003"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-16T16:56:44.208Z",
+      "lastUpdated": "2026-03-16T16:56:44.208Z"
     }
   ],
   "firestoreCollections": {
