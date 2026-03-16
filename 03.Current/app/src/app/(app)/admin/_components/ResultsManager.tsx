@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useFirestore, useCollection, useAuth } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Trophy, Users, AlertCircle, CheckCircle2, ArrowUp, ArrowDown, X, ChevronLeft } from "lucide-react";
+import { Trash2, Trophy, Users, AlertCircle, CheckCircle2, ArrowUp, ArrowDown, X, ChevronLeft, ExternalLink, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRaceResultSummary } from "@/lib/scoring";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -46,7 +46,7 @@ function getDriverCode(driverId: string): string {
     return lastName.substring(0, 3).toUpperCase();
 }
 
-// GUID: ADMIN_RESULTS-003-v03
+// GUID: ADMIN_RESULTS-003-v04
 // [Intent] TypeScript interface for a race result document stored in the race_results Firestore collection.
 // [Inbound Trigger] Used to type the results fetched via useCollection hook and passed to delete/display functions.
 // [Downstream Impact] Changes require matching updates in the /api/calculate-scores endpoint that writes these documents.
@@ -60,6 +60,7 @@ interface RaceResult {
     driver5: string;
     driver6: string;
     submittedAt: any;
+    fiaClassificationUrl?: string | null;
 }
 
 // GUID: ADMIN_RESULTS-004-v03
@@ -92,6 +93,12 @@ export function ResultsManager() {
     // GUID: ADMIN_RESULTS-020-v01
     // [Intent] Tracks the admin's typed confirmation text — must match the race name before submit is enabled.
     const [confirmRaceName, setConfirmRaceName] = useState('');
+
+    // GUID: ADMIN_RESULTS-022-v01
+    // [Intent] FIA official classification PDF URL — pasted by admin, stored on the race_results doc,
+    //          shown to players on the public results page. Optional; blank = no link stored.
+    const [fiaUrl, setFiaUrl] = useState('');
+    const [fiaUnavailable, setFiaUnavailable] = useState(false);
 
     // Submission count for selected race
     const [submissionCount, setSubmissionCount] = useState<number | null>(null);
@@ -270,6 +277,7 @@ export function ResultsManager() {
                     driver1: predictions[0]?.id,
                     driver2: predictions[1]?.id,
                     driver3: predictions[2]?.id,
+                    fiaClassificationUrl: (!fiaUnavailable && fiaUrl.trim()) ? fiaUrl.trim() : null,
                     driver4: predictions[3]?.id,
                     driver5: predictions[4]?.id,
                     driver6: predictions[5]?.id,
@@ -314,6 +322,8 @@ export function ResultsManager() {
             setPredictions(Array(6).fill(null));
             setSelectedRace(undefined);
             setConfirmRaceName('');
+            setFiaUrl('');
+            setFiaUnavailable(false);
             setStep('select-race');
 
         } catch (e: any) {
@@ -560,6 +570,75 @@ export function ResultsManager() {
                         <ChevronLeft className="h-4 w-4 mr-2" />
                         Back to Race Selection
                     </Button>
+
+                    {/* GUID: ADMIN_RESULTS-023-v01 */}
+                    {/* [Intent] FIA official classification PDF panel — admin pastes the URL from fia.com before */}
+                    {/*          submitting results. Stored on the race_results doc; shown to players on /results. */}
+                    {/* [Inbound Trigger] Shown whenever step === 'enter-results'. */}
+                    {/* [Downstream Impact] fiaUrl passed to /api/calculate-scores, stored on race_results doc. */}
+                    <Card className="border-slate-200 dark:border-slate-700">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <FileText className="w-4 h-4" />
+                                FIA Official Classification Document
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="space-y-1.5">
+                                <p className="text-xs text-muted-foreground">
+                                    Paste the FIA PDF URL so players can verify the official result on the results page.
+                                    Find documents at{' '}
+                                    <a
+                                        href="https://www.fia.com/events/fia-formula-one-world-championship/season-2026/2026-fia-formula-one-world-championship"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline hover:text-foreground"
+                                    >
+                                        fia.com → Decision Documents
+                                    </a>
+                                    .
+                                </p>
+                                <div className="text-xs text-muted-foreground space-y-0.5 bg-muted/50 rounded p-2 font-mono">
+                                    <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-sans">Examples</p>
+                                    <p className="break-all">GP: …/2026_chinese_grand_prix_-_final_race_classification.pdf</p>
+                                    <p className="break-all">Sprint: …/2026_chinese_grand_prix_-_final_sprint_qualifying_classification.pdf</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 items-start">
+                                <Input
+                                    value={fiaUrl}
+                                    onChange={e => setFiaUrl(e.target.value)}
+                                    placeholder="https://www.fia.com/system/files/decision-document/…"
+                                    disabled={fiaUnavailable}
+                                    className="text-xs"
+                                />
+                                {fiaUrl && !fiaUnavailable && (
+                                    <a
+                                        href={fiaUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="shrink-0"
+                                    >
+                                        <Button variant="outline" size="icon" type="button" title="Open PDF">
+                                            <ExternalLink className="w-4 h-4" />
+                                        </Button>
+                                    </a>
+                                )}
+                            </div>
+                            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={fiaUnavailable}
+                                    onChange={e => {
+                                        setFiaUnavailable(e.target.checked);
+                                        if (e.target.checked) setFiaUrl('');
+                                    }}
+                                    className="rounded"
+                                />
+                                FIA document not yet available — proceed without
+                            </label>
+                        </CardContent>
+                    </Card>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <Card className="lg:col-span-2">

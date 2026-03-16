@@ -38,7 +38,7 @@ import {
 import { collectionGroup, collection, query, where, doc, getDoc, getDocs, onSnapshot, orderBy, limit, startAfter, getCountFromServer, DocumentSnapshot } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag, Lock } from "lucide-react";
+import { CalendarClock, Trophy, ChevronDown, Loader2, ArrowUpDown, Zap, Flag, Lock, ExternalLink } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -591,9 +591,22 @@ function ResultsContent() {
                </div>
              ) : raceResult ? (
                <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2">
-                 <div className="flex items-center gap-2 text-sm font-medium">
-                   <Trophy className="w-4 h-4 text-accent" />
-                   Official Result
+                 <div className="flex items-center justify-between gap-2 flex-wrap">
+                   <div className="flex items-center gap-2 text-sm font-medium">
+                     <Trophy className="w-4 h-4 text-accent" />
+                     Official Result
+                   </div>
+                   {raceResult.fiaClassificationUrl && (
+                     <a
+                       href={raceResult.fiaClassificationUrl}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                     >
+                       <ExternalLink className="w-3 h-3" />
+                       FIA Classification
+                     </a>
+                   )}
                  </div>
                  <p className="text-sm font-mono">{getOfficialResult()}</p>
                  <div className="flex items-center gap-2 text-xs text-muted-foreground">

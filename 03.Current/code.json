@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1768,
+  "total_guids": 1770,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -76172,48 +76172,22 @@
     },
     {
       "guid": "LIB_RESULTS_UTILS-003",
-      "version": 1,
-      "logic_category": "ORCHESTRATION",
-      "description": "Type for the official race result document — stores the actual top-6 driver finish order.",
-      "dependencies": [
-        "LIB_DATA-000",
-        "LIB_DATA-001",
-        "LIB_DATA-002",
-        "LIB_DATA-003",
-        "LIB_DATA-004",
-        "LIB_DATA-005",
-        "LIB_DATA-006",
-        "LIB_DATA-007",
-        "LIB_DATA-008",
-        "LIB_DATA-009",
-        "LIB_SCORING_RULES-000",
-        "LIB_SCORING_RULES-001",
-        "LIB_SCORING_RULES-002",
-        "LIB_SCORING_RULES-003",
-        "LIB_SCORING_RULES-004",
-        "LIB_SCORING_RULES-005",
-        "LIB_SCORING_RULES-006",
-        "LIB_SCORING_RULES-007",
-        "LIB_NORMALIZE_RACE_ID-000"
-      ],
+      "version": 2,
+      "logic_category": "CONFIGURATION",
+      "description": "RaceResult interface v02 — added fiaClassificationUrl optional field for linking official FIA classification PDF on results page.",
+      "dependencies": [],
       "location": {
         "filePath": "app/src/lib/results-utils.tsx",
         "functionName": "RaceResult"
       },
       "callChain": {
         "calledBy": [
-          "USE_COLLECTION-000",
-          "USE_DOC-000",
-          "LEAGUE_CONTEXT-000"
+          "PAGE_RESULTS-011"
         ],
-        "calls": [
-          "ADMIN_WHATSAPP-023",
-          "BACKUP_DASHBOARD-004",
-          "LIB_RESULTS_UTILS-016"
-        ]
+        "calls": []
       },
-      "created": "2026-01-31T21:27:42Z",
-      "lastUpdated": "2026-02-17T18:36:01Z"
+      "created": "2026-03-16T12:32:15.252Z",
+      "lastUpdated": "2026-03-16T12:32:15.254Z"
     },
     {
       "guid": "LIB_RESULTS_UTILS-004",
@@ -114054,6 +114028,47 @@
       },
       "created": "2026-03-16T09:46:21.328Z",
       "lastUpdated": "2026-03-16T09:46:21.328Z"
+    },
+    {
+      "guid": "ADMIN_RESULTS-022",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "fiaUrl + fiaUnavailable state — admin-pasted FIA classification PDF URL and bypass checkbox for when document is not yet available.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/ResultsManager.tsx",
+        "functionName": "ResultsManager"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_RESULTS-023"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-16T12:32:15.251Z",
+      "lastUpdated": "2026-03-16T12:32:15.252Z"
+    },
+    {
+      "guid": "ADMIN_RESULTS-023",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "FIA official classification panel in step 2 — URL input with guidance notes, open-PDF button, and unavailable checkbox. Passes fiaClassificationUrl to /api/calculate-scores on submit.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/ResultsManager.tsx",
+        "functionName": "ResultsManager"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_RESULTS-005"
+        ],
+        "calls": [
+          "ADMIN_RESULTS-022",
+          "API_CALCULATE_SCORES-016"
+        ]
+      },
+      "created": "2026-03-16T12:32:15.252Z",
+      "lastUpdated": "2026-03-16T12:32:15.252Z"
     }
   ],
   "firestoreCollections": {

@@ -34,8 +34,9 @@ export interface DriverPrediction {
     scoreType: ScoreType;
 }
 
-// GUID: LIB_RESULTS_UTILS-003-v01
+// GUID: LIB_RESULTS_UTILS-003-v02
 // [Intent] Type for the official race result document — stores the actual top-6 driver finish order.
+//          v02: Added fiaClassificationUrl for linking to the official FIA PDF on the results page.
 export interface RaceResult {
     id: string;
     raceId: string;
@@ -46,6 +47,7 @@ export interface RaceResult {
     driver5: string;
     driver6: string;
     submittedAt: any;
+    fiaClassificationUrl?: string | null;
 }
 
 // GUID: LIB_RESULTS_UTILS-004-v02

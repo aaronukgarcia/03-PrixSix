@@ -39,6 +39,7 @@ interface RaceResultRequest {
   driver4: string;
   driver5: string;
   driver6: string;
+  fiaClassificationUrl?: string | null;
 }
 
 // GUID: API_CALCULATE_SCORES-002-v03
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
     // [Inbound Trigger] After successful auth and admin check.
     // [Downstream Impact] The six driver IDs become the "actual results" against which all predictions are scored. Missing fields cause a 400 error.
     const data: RaceResultRequest = await request.json();
-    const { raceId, raceName, driver1, driver2, driver3, driver4, driver5, driver6 } = data;
+    const { raceId, raceName, driver1, driver2, driver3, driver4, driver5, driver6, fiaClassificationUrl } = data;
 
     // Validate required fields
     if (!raceId || !raceName || !driver1 || !driver2 || !driver3 || !driver4 || !driver5 || !driver6) {
@@ -559,6 +560,8 @@ export async function POST(request: NextRequest) {
       submittedAt: FieldValue.serverTimestamp(),
       // Store the effective scoring cutoff so it can be audited if a submission is disputed
       effectiveCutoff: effectiveCutoff.getTime() < 8640000000000000 ? effectiveCutoff.toISOString() : null,
+      // FIA official classification PDF URL — optional, shown to players on the results page
+      fiaClassificationUrl: fiaClassificationUrl ?? null,
     });
 
     // Log audit event
