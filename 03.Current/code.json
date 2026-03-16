@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1766,
+  "total_guids": 1768,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -114013,6 +114013,47 @@
       "dependencies": [],
       "created": "2026-03-14T14:30:18.116Z",
       "lastUpdated": "2026-03-14T14:30:18.116Z"
+    },
+    {
+      "guid": "ADMIN_RESULTS-020",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "confirmRaceName state — tracks admin typed text in submit confirmation dialog; must match race name before submit is enabled.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/ResultsManager.tsx",
+        "functionName": "ResultsManager"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_RESULTS-021"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-16T09:46:21.327Z",
+      "lastUpdated": "2026-03-16T09:46:21.328Z"
+    },
+    {
+      "guid": "ADMIN_RESULTS-021",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Type-to-confirm AlertDialog guard — admin must type exact race name before Yes, Submit Results button is enabled. Prevents wrong-race submissions.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/ResultsManager.tsx",
+        "functionName": "ResultsManager"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_RESULTS-005"
+        ],
+        "calls": [
+          "ADMIN_RESULTS-020",
+          "ADMIN_RESULTS-014"
+        ]
+      },
+      "created": "2026-03-16T09:46:21.328Z",
+      "lastUpdated": "2026-03-16T09:46:21.328Z"
     }
   ],
   "firestoreCollections": {

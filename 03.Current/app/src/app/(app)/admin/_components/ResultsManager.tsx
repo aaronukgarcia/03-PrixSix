@@ -23,6 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { normalizeRaceId as sharedNormalizeRaceId, generateRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id";
 
@@ -88,6 +89,9 @@ export function ResultsManager() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    // GUID: ADMIN_RESULTS-020-v01
+    // [Intent] Tracks the admin's typed confirmation text — must match the race name before submit is enabled.
+    const [confirmRaceName, setConfirmRaceName] = useState('');
 
     // Submission count for selected race
     const [submissionCount, setSubmissionCount] = useState<number | null>(null);
@@ -309,6 +313,7 @@ export function ResultsManager() {
             // Reset to initial state
             setPredictions(Array(6).fill(null));
             setSelectedRace(undefined);
+            setConfirmRaceName('');
             setStep('select-race');
 
         } catch (e: any) {
@@ -388,7 +393,14 @@ export function ResultsManager() {
     return (
         <div className="space-y-6">
             {/* Confirmation Dialog */}
-            <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+            {/* GUID: ADMIN_RESULTS-021-v01 */}
+            {/* [Intent] Type-to-confirm guard — admin must type the exact race name before submit is enabled. */}
+            {/* [Inbound Trigger] Opens when admin clicks Submit in step 2. */}
+            {/* [Downstream Impact] Prevents accidental wrong-race submissions (e.g. Garth incident 2026-03-15). */}
+            <AlertDialog open={showConfirmDialog} onOpenChange={(open) => {
+                setShowConfirmDialog(open);
+                if (!open) setConfirmRaceName('');
+            }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Confirm Race Results</AlertDialogTitle>
@@ -402,12 +414,26 @@ export function ResultsManager() {
                                 <p className="text-amber-600 dark:text-amber-400">
                                     This will trigger scoring for all {submissionCount || 0} team submissions.
                                 </p>
+                                <div className="space-y-1.5">
+                                    <p className="text-sm font-medium">
+                                        Type <span className="font-mono font-bold text-foreground">{selectedRace?.replace(/ - (GP|Sprint)$/, '')}</span> to confirm:
+                                    </p>
+                                    <Input
+                                        value={confirmRaceName}
+                                        onChange={e => setConfirmRaceName(e.target.value)}
+                                        placeholder="e.g. Chinese Grand Prix"
+                                        autoComplete="off"
+                                    />
+                                </div>
                             </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmedSubmit}>
+                        <AlertDialogAction
+                            onClick={handleConfirmedSubmit}
+                            disabled={confirmRaceName.trim().toLowerCase() !== (selectedRace?.replace(/ - (GP|Sprint)$/, '') ?? '').toLowerCase()}
+                        >
                             Yes, Submit Results
                         </AlertDialogAction>
                     </AlertDialogFooter>
