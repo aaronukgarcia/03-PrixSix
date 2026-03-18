@@ -293,6 +293,54 @@ export async function POST(request: NextRequest) {
     // Commit all writes atomically
     await batch.commit();
 
+    // GUID: API_SUBMIT_PREDICTION-008
+    // [Intent] Fire-and-forget clone rule engine. After the primary submission commits, check if any
+    //          active prediction_clone_rules exist for this user. If so, write inverted predictions to
+    //          each destination team. Never blocks the user's response — all errors are non-fatal.
+    //          Only fires for primary team submissions (teamId === userId), not secondary teams.
+    // [Inbound Trigger] After batch.commit() — every successful prediction submission by a primary team.
+    // [Downstream Impact] Writes inverted prediction docs to destination users' predictions subcollections.
+    //                     Destination predictions carry isCloned:true, cloneSource, cloneRuleId fields.
+    //                     Errors logged to console only — never surfaced to the submitting user.
+    const isPrimaryTeam = teamId === userId;
+    if (isPrimaryTeam) {
+      (async () => {
+        try {
+          const rulesSnap = await db.collection('prediction_clone_rules')
+            .where('sourceUserId', '==', userId)
+            .where('active', '==', true)
+            .get();
+          if (rulesSnap.empty) return;
+          const cloneBatch = db.batch();
+          rulesSnap.forEach(ruleDoc => {
+            const rule = ruleDoc.data();
+            const invertedPredictions = [...predictions].reverse();
+            const destPredId = `${rule.destinationTeamId}_${normalizedRaceId}`;
+            const destRef = db
+              .collection('users').doc(rule.destinationUserId)
+              .collection('predictions').doc(destPredId);
+            cloneBatch.set(destRef, {
+              id: destPredId,
+              userId: rule.destinationUserId,
+              teamId: rule.destinationTeamId,
+              teamName: rule.destinationTeamName,
+              raceId: normalizedRaceId,
+              raceName,
+              predictions: invertedPredictions,
+              submittedAt: FieldValue.serverTimestamp(),
+              isCloned: true,
+              cloneSource: teamId,
+              cloneRuleId: ruleDoc.id,
+            }, { merge: true });
+          });
+          await cloneBatch.commit();
+          console.log(`[submit-prediction] Clone engine: ${rulesSnap.size} rule(s) applied for ${userId}`);
+        } catch (cloneError: any) {
+          console.error('[submit-prediction] Clone rule engine error (non-fatal):', cloneError.message);
+        }
+      })();
+    }
+
     return NextResponse.json({ success: true, message: 'Prediction submitted successfully' });
 
   // GUID: API_SUBMIT_PREDICTION-007-v04

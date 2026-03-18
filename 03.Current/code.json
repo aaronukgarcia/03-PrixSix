@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1772,
+  "total_guids": 1797,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -114106,6 +114106,393 @@
       "dependencies": [
         "LIB_RACE_SCHEDULE_SERVER-003"
       ]
+    },
+    {
+      "guid": "API_SUBMIT_PREDICTION-008",
+      "file": "app/src/app/api/submit-prediction/route.ts",
+      "intent": "Fire-and-forget clone rule engine. After the primary submission commits, query prediction_clone_rules for active rules matching this user, reverse the prediction order, and write inverted predictions to each destination team. Never blocks the user response. Only fires for primary team submissions (teamId === userId).",
+      "inboundTrigger": "After batch.commit() on every successful prediction submission by a primary team.",
+      "downstreamImpact": "Writes inverted prediction docs to destination users predictions subcollections with isCloned:true, cloneSource, cloneRuleId fields. Errors are non-fatal and logged to console only.",
+      "callChain": {
+        "calledBy": [
+          "API_SUBMIT_PREDICTION-006"
+        ],
+        "calls": []
+      },
+      "dependencies": [
+        "API_SUBMIT_PREDICTION-006"
+      ]
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-021",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "intent": "GPS Replay mode state — user enters replay by clicking the REPLAY button. Replay overrides the live data source; live polling continues in background.",
+      "inboundTrigger": "User clicks REPLAY button in Pit Wall toolbar.",
+      "downstreamImpact": "Sets isReplayMode flag; live data source overridden by replay driver state.",
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-000"
+        ],
+        "calls": [
+          "REPLAY_PLAYER_HOOK-003"
+        ]
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-022",
+      "file": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+      "intent": "Fetch available replay sessions from Firestore when entering replay mode. Only fetched once per mount.",
+      "inboundTrigger": "User enters replay mode (isReplayMode becomes true).",
+      "downstreamImpact": "Calls /api/pit-wall/replay-sessions, populates replaySessions state for session picker.",
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-021"
+        ],
+        "calls": [
+          "API_REPLAY_SESSIONS-001"
+        ]
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_CONTROLS-000",
+      "file": "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx",
+      "intent": "Classic media player transport controls for the GPS Replay player. Provides prev/rewind/pause/play/fastforward/next buttons, scrub bar, elapsed/total time display, and speed selector. Matches the dark F1 aesthetic.",
+      "inboundTrigger": "Rendered by PitWallClient when isReplayMode is true.",
+      "downstreamImpact": "Controls flow into useReplayPlayer — no direct data access.",
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-000"
+        ],
+        "calls": [
+          "REPLAY_PLAYER_HOOK-003"
+        ]
+      },
+      "dependencies": [
+        "REPLAY_TYPES-004"
+      ]
+    },
+    {
+      "guid": "REPLAY_CONTROLS-001",
+      "file": "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx",
+      "intent": "Format milliseconds to MM:SS or H:MM:SS display string.",
+      "inboundTrigger": "Called within ReplayControls to format elapsedMs and durationMs.",
+      "downstreamImpact": "Pure formatting function — no side effects.",
+      "callChain": {
+        "calledBy": [
+          "REPLAY_CONTROLS-000"
+        ],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_CONTROLS-002",
+      "file": "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx",
+      "intent": "Transport button component — single styled button in the ReplayControls bar.",
+      "inboundTrigger": "Rendered for each transport action (skip-back, rewind, play/pause, fast-forward, skip-forward).",
+      "downstreamImpact": "Calls the corresponding handler from useReplayPlayer on click.",
+      "callChain": {
+        "calledBy": [
+          "REPLAY_CONTROLS-000"
+        ],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_CONTROLS-003",
+      "file": "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx",
+      "intent": "Main ReplayControls export — renders transport buttons, scrub bar, time display, and speed selector.",
+      "inboundTrigger": "Rendered by PitWallClient when isReplayMode is active.",
+      "downstreamImpact": "User interactions flow to useReplayPlayer controls.",
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-000"
+        ],
+        "calls": [
+          "REPLAY_CONTROLS-001",
+          "REPLAY_CONTROLS-002"
+        ]
+      },
+      "dependencies": [
+        "REPLAY_TYPES-004"
+      ]
+    },
+    {
+      "guid": "REPLAY_PLAYER_HOOK-000",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts",
+      "intent": "Full-transport RAF playback hook for pre-ingested GPS replay sessions. Downloads HistoricalReplayData JSON from Firebase Storage, exposes play/pause/seek/speed/step controls, and emits ReplayDriverState[] on each frame change — drop-in replacement for live DriverRaceState[].",
+      "inboundTrigger": "Called by PitWallClient when isReplayMode is true.",
+      "downstreamImpact": "replayDrivers[] flows into activeDrivers to track map and race table.",
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-021"
+        ],
+        "calls": []
+      },
+      "dependencies": [
+        "REPLAY_TYPES-000",
+        "REPLAY_TYPES-001",
+        "REPLAY_TYPES-002",
+        "REPLAY_TYPES-003",
+        "REPLAY_TYPES-004"
+      ]
+    },
+    {
+      "guid": "REPLAY_PLAYER_HOOK-001",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts",
+      "intent": "Build a ReplayDriverState from driver metadata and position entry. Kept local to avoid coupling with useHistoricalReplay.",
+      "inboundTrigger": "Called inside the RAF loop to build driver state for each frame.",
+      "downstreamImpact": "Returns a ReplayDriverState object for each driver on each frame.",
+      "callChain": {
+        "calledBy": [
+          "REPLAY_PLAYER_HOOK-003"
+        ],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_PLAYER_HOOK-002",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts",
+      "intent": "Download replay JSON from a public Storage URL with progress tracking. Uses fetch ReadableStream to report progress via onProgress callback.",
+      "inboundTrigger": "Called by useReplayPlayer when a session is selected and play is triggered.",
+      "downstreamImpact": "Returns HistoricalReplayData; reports download progress 0-1 via callback.",
+      "callChain": {
+        "calledBy": [
+          "REPLAY_PLAYER_HOOK-003"
+        ],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_PLAYER_HOOK-003",
+      "file": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts",
+      "intent": "Full-transport RAF-based playback hook. Manages download, virtual time, and controls. Virtual time is: virtualOffsetMs + (Date.now() - startWallMs) x speed.",
+      "inboundTrigger": "Called by PitWallClient with the selected ReplaySessionMetadata.",
+      "downstreamImpact": "Emits replayDrivers[], playbackState, progress, elapsedMs, speed. All replay controls (play/pause/seek/speed/skip) exposed as callbacks.",
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-021"
+        ],
+        "calls": [
+          "REPLAY_PLAYER_HOOK-001",
+          "REPLAY_PLAYER_HOOK-002"
+        ]
+      },
+      "dependencies": [
+        "REPLAY_TYPES-001",
+        "REPLAY_TYPES-002",
+        "REPLAY_TYPES-003",
+        "REPLAY_TYPES-004"
+      ]
+    },
+    {
+      "guid": "REPLAY_TYPES-000",
+      "file": "app/src/app/(app)/pit-wall/_types/replay.types.ts",
+      "intent": "TypeScript types for the GPS Replay player feature. Replay data is pre-ingested into Firebase Storage. The replay_sessions Firestore collection catalogs available sessions.",
+      "inboundTrigger": "Imported by useReplayPlayer, ReplayControls, replay-sessions API route.",
+      "downstreamImpact": "Changes here ripple to all replay hooks and components.",
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_TYPES-001",
+      "file": "app/src/app/(app)/pit-wall/_types/replay.types.ts",
+      "intent": "ReplaySessionMetadata — metadata for one available replay session returned by /api/pit-wall/replay-sessions. Stored in Firestore replay_sessions collection.",
+      "inboundTrigger": "Used by PitWallClient session picker and useReplayPlayer to identify sessions.",
+      "downstreamImpact": "downloadUrl field is used by useReplayPlayer to fetch replay data from Firebase Storage.",
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_TYPES-002",
+      "file": "app/src/app/(app)/pit-wall/_types/replay.types.ts",
+      "intent": "ReplayPlaybackState — playback state machine states for useReplayPlayer (idle/loading/ready/playing/paused/complete/error).",
+      "inboundTrigger": "Used by useReplayPlayer and ReplayControls to drive UI state.",
+      "downstreamImpact": "Controls button enabled/disabled states and loading spinner visibility.",
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_TYPES-003",
+      "file": "app/src/app/(app)/pit-wall/_types/replay.types.ts",
+      "intent": "ReplaySpeed — discrete playback speed multipliers for the speed selector (0.5x 1x 2x 4x 8x).",
+      "inboundTrigger": "Used by useReplayPlayer and ReplayControls speed selector.",
+      "downstreamImpact": "Speed value is applied to virtual time advancement in the RAF loop.",
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "REPLAY_TYPES-004",
+      "file": "app/src/app/(app)/pit-wall/_types/replay.types.ts",
+      "intent": "UseReplayPlayerReturn — return type for the useReplayPlayer hook. Defines the contract between useReplayPlayer and its consumers.",
+      "inboundTrigger": "Defines the interface consumed by PitWallClient and ReplayControls.",
+      "downstreamImpact": "All replay controls and state are consumed via this interface.",
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_REPLAY_SESSIONS-000",
+      "file": "app/src/app/api/pit-wall/replay-sessions/route.ts",
+      "intent": "Returns the list of available GPS replay sessions from Firestore replay_sessions collection. Authenticated users only. Sessions are pre-ingested by scripts/ingest-*-replay.js.",
+      "inboundTrigger": "Called by PitWallClient on entering replay mode to populate session picker.",
+      "downstreamImpact": "Returns ReplaySessionMetadata[] for useReplayPlayer.",
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-022"
+        ],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "API_REPLAY_SESSIONS-001",
+      "file": "app/src/app/api/pit-wall/replay-sessions/route.ts",
+      "intent": "GET handler — verifies auth, queries replay_sessions where status==available ordered by dateStart desc, returns array of session metadata objects.",
+      "inboundTrigger": "HTTP GET to /api/pit-wall/replay-sessions with Bearer token.",
+      "downstreamImpact": "Returns sessions array. On auth failure: 401 SESSION_INVALID. On Firestore error: 500 PIT_WALL_REPLAY_SESSIONS_FAILED.",
+      "callChain": {
+        "calledBy": [
+          "API_REPLAY_SESSIONS-000"
+        ],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-011",
+      "file": "app/src/lib/error-registry.ts",
+      "intent": "Error definition PX-3311 PIT_WALL_REPLAY_LOAD_FAILED — GPS replay data could not be loaded. Used by useReplayPlayer when Firebase Storage download fails.",
+      "inboundTrigger": "ERRORS.PIT_WALL_REPLAY_LOAD_FAILED referenced in useReplayPlayer on fetch error.",
+      "downstreamImpact": "Surfaced to user as an error state in ReplayControls.",
+      "callChain": {
+        "calledBy": [
+          "REPLAY_PLAYER_HOOK-002"
+        ],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-012",
+      "file": "app/src/lib/error-registry.ts",
+      "intent": "Error definition PX-3312 PIT_WALL_REPLAY_SESSIONS_FAILED — could not load available replay sessions. Used by /api/pit-wall/replay-sessions on Firestore error.",
+      "inboundTrigger": "ERRORS.PIT_WALL_REPLAY_SESSIONS_FAILED referenced in replay-sessions route on Firestore error.",
+      "downstreamImpact": "Returns 500 with structured error code to client.",
+      "callChain": {
+        "calledBy": [
+          "API_REPLAY_SESSIONS-001"
+        ],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "SCRIPT_INGEST_REPLAY-000",
+      "file": "scripts/ingest-chinese-gp-replay.js",
+      "intent": "One-time ingest script: fetches OpenF1 location data for a race session, resamples to 500ms intervals, compresses to gzip, uploads to Firebase Storage, and writes a replay_sessions Firestore doc. Produces a HistoricalReplayData blob for useReplayPlayer.",
+      "inboundTrigger": "Run manually after a race to ingest GPS replay data.",
+      "downstreamImpact": "Creates a replay_sessions doc and uploads gzip JSON blob to Firebase Storage. Available immediately for /api/pit-wall/replay-sessions.",
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "dependencies": []
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-023",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "REPLAY toggle button in PitWallClient toolbar — Film icon, orange when active; toggles isReplayMode state to enable GPS replay playback.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "PitWallClient"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-03-18T09:48:06.674Z",
+      "lastUpdated": "2026-03-18T09:48:06.674Z"
+    },
+    {
+      "guid": "PIT_WALL_CLIENT-024",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "ReplayControls strip in PitWallClient — rendered below toolbar when isReplayMode; wires all transport controls and playback state from useReplayPlayer.",
+      "dependencies": [
+        "REPLAY_CONTROLS-003"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx",
+        "functionName": "PitWallClient"
+      },
+      "callChain": {
+        "calledBy": [
+          "PIT_WALL_CLIENT-002"
+        ],
+        "calls": [
+          "REPLAY_CONTROLS-003"
+        ]
+      },
+      "created": "2026-03-18T09:48:06.674Z",
+      "lastUpdated": "2026-03-18T09:48:06.674Z"
+    },
+    {
+      "guid": "REPLAY_STORAGE_RULES-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Firebase Storage rule for replay-data/{fileName} — read allowed for authenticated users only; write blocked (Admin SDK only via ingest script).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/storage.rules",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-18T09:48:06.674Z",
+      "lastUpdated": "2026-03-18T09:48:06.674Z"
+    },
+    {
+      "guid": "REPLAY_SESSIONS_RULES-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "Firestore security rule for replay_sessions collection — authenticated users can get/list; writes blocked (Admin SDK only via ingest script).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/firestore.rules",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-18T09:48:06.674Z",
+      "lastUpdated": "2026-03-18T09:48:06.674Z"
     }
   ],
   "firestoreCollections": {
@@ -114818,5 +115205,5 @@
       }
     }
   },
-  "last_updated": "2026-03-13"
+  "last_updated": "2026-03-18T09:48:06.674Z"
 }
