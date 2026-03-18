@@ -555,6 +555,12 @@ export function PitWallTrackMap({
       const poly = trackPolylineRef.current;
 
       // Interpolate positions
+      // GUID: PIT_WALL_TRACK_MAP-044-v01
+      // [Intent] Snap threshold — if prev and next positions are more than 500m apart,
+      //          snap directly to next instead of lerping. Prevents the fly-in bug where
+      //          a car appears at a stale position and visually flies across the track.
+      const SNAP_DISTANCE_SQ = 500 * 500; // 500m squared
+
       const interpolated: InterpolatedPosition[] = currentDrivers
         .filter(d => nextPositionsRef.current.has(d.driverNumber))
         .map(d => {
@@ -562,16 +568,26 @@ export function PitWallTrackMap({
           const next = nextPositionsRef.current.get(d.driverNumber)!;
           let x: number, y: number;
 
-          if (poly && prev) {
-            const prevParam = projectOntoTrack(poly, prev.x, prev.y);
+          // Check if prev→next distance is too large (stale position, seek, or first appearance)
+          const shouldSnap = !prev || (() => {
+            const dx = next.x - prev.x;
+            const dy = next.y - prev.y;
+            return dx * dx + dy * dy > SNAP_DISTANCE_SQ;
+          })();
+
+          if (shouldSnap) {
+            x = next.x;
+            y = next.y;
+          } else if (poly) {
+            const prevParam = projectOntoTrack(poly, prev!.x, prev!.y);
             let nextParam = projectOntoTrack(poly, next.x, next.y);
             if (prevParam - nextParam > poly.totalLength * 0.5) nextParam += poly.totalLength;
             else if (nextParam - prevParam > poly.totalLength * 0.5) nextParam -= poly.totalLength;
             const pt = paramToPoint(poly, lerp(prevParam, nextParam, t));
             x = pt.x; y = pt.y;
           } else {
-            x = prev ? lerp(prev.x, next.x, t) : next.x;
-            y = prev ? lerp(prev.y, next.y, t) : next.y;
+            x = lerp(prev!.x, next.x, t);
+            y = lerp(prev!.y, next.y, t);
           }
 
           return {

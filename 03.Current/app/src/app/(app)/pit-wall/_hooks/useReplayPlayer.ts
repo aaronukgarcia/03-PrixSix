@@ -401,6 +401,11 @@ export function useReplayPlayer(
     }
   }, [updatePlaybackState]);
 
+  // GUID: REPLAY_PLAYER_HOOK-009-v01
+  // [Intent] Change playback speed. Updates speedRef immediately (not waiting for React
+  //          re-render) so the RAF tick loop uses the new speed on the very next frame.
+  //          Without the immediate ref update, the tick loop continues using the old speed
+  //          until React re-renders, causing the "speed doesn't change" bug.
   const setSpeed = useCallback((newSpeed: ReplaySpeed) => {
     if (isPlayingRef.current) {
       // Capture current virtual time then restart at new speed
@@ -408,6 +413,7 @@ export function useReplayPlayer(
       virtualOffsetMsRef.current = virtualOffsetMsRef.current + elapsed * speedRef.current;
       startWallMsRef.current = Date.now();
     }
+    speedRef.current = newSpeed; // Update ref immediately for RAF loop
     setSpeedState(newSpeed);
   }, []);
 
