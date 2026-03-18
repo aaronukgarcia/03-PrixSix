@@ -8,6 +8,7 @@ import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebas
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
+import { getRaceSchedule } from '@/lib/race-schedule-server';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -125,6 +126,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // GUID: API_ADD_SECONDARY_TEAM-011
+    // [Intent] Pit lane lockout — prevents secondary team creation after qualifying has started for the
+    //          current race. A team created after pit lane closes cannot submit picks for that race,
+    //          leading to user confusion and admin remediation burden (BUG-ST-002, 2026-03-17 Bond007 RCA).
+    //          Respects admin pit-lane override: override='open' bypasses the lockout entirely.
+    //          Fails-open on schedule errors — if the race schedule cannot be fetched, creation is allowed.
+    // [Inbound Trigger] After validating the user does not already have a secondary team.
+    // [Downstream Impact] Returns 403 with race name and next-open date so user knows exactly when to try again.
+    //                     Admin can unblock at any time by setting app-settings/pit-lane.override = 'open'.
+    try {
+      const pitLaneDoc = await db.collection('app-settings').doc('pit-lane').get();
+      const pitLaneOverride: string | null = pitLaneDoc.exists ? (pitLaneDoc.data()?.override ?? null) : null;
+
+      if (pitLaneOverride !== 'open') {
+        const schedule = await getRaceSchedule();
+        const now = Date.now();
+        // Find the most recently locked race (qualifying has started)
+        const lockedRace = [...schedule].reverse().find(r => new Date(r.qualifyingTime).getTime() <= now);
+        if (lockedRace) {
+          // Find the next open race (qualifying not yet started)
+          const nextRace = schedule.find(r => new Date(r.qualifyingTime).getTime() > now);
+          const nextRaceMsg = nextRace
+            ? ` Your secondary team will be ready for the ${nextRace.name} (qualifying opens ${new Date(nextRace.qualifyingTime).toUTCString().replace(' GMT', ' UTC')}).`
+            : ' Your secondary team will be ready for the next race.';
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Pit lane is closed for the ${lockedRace.name}. Your secondary team cannot submit picks for this race.${nextRaceMsg}`,
+              errorCode: ERROR_CODES.VALIDATION_INVALID_FORMAT.code,
+              correlationId,
+            },
+            { status: 403 }
+          );
+        }
+      }
+    } catch (pitLaneCheckError: any) {
+      // Fail-open: if we cannot read the schedule, allow creation rather than blocking a legitimate user.
+      console.warn('[AddSecondaryTeam] Pit lane check failed (fail-open):', pitLaneCheckError.message);
+    }
+
     // GUID: API_ADD_SECONDARY_TEAM-006-v03
     // [Intent] Case-insensitive uniqueness check across all existing primary and secondary team names to prevent duplicate team names in the league.
     // [Inbound Trigger] After confirming the user does not already have a secondary team.
@@ -161,9 +202,11 @@ export async function POST(request: NextRequest) {
     // [Downstream Impact] The secondaryTeamName field on the user document is read by scoring (API_CALCULATE_SCORES-009) to build the user-to-team mapping. The global league membership enables the team to appear in standings.
     const secondaryTeamId = `${uid}-secondary`;
 
-    // Update user document with secondary team name
+    // Update user document with secondary team name and creation timestamp (BUG-ST-001)
+    // secondaryTeamCreatedAt is the durable creation record — audit_logs is supplementary.
     await db.collection('users').doc(uid).update({
       secondaryTeamName: normalizedTeamName,
+      secondaryTeamCreatedAt: new Date().toISOString(),
     });
 
     // Add secondary team to global league

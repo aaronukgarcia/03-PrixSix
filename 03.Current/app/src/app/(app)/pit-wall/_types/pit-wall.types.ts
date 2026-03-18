@@ -113,9 +113,11 @@ export interface WeatherSnapshot {
   fetchedAt: number;
 }
 
-// GUID: PIT_WALL_TYPES-006-v02
+// GUID: PIT_WALL_TYPES-006-v03
 // [Intent] Full live data response shape from /api/pit-wall/live-data.
 //          v02: Added cacheHit + cacheAgeMs for server-side cache observability.
+//          v03: Added positionDataAvailable — distinguishes "no live session" from
+//               "live session active but GPS data unavailable from OpenF1".
 export interface PitWallLiveDataResponse {
   sessionKey: number | null;
   sessionName: string | null;
@@ -130,10 +132,20 @@ export interface PitWallLiveDataResponse {
   totalLaps: number | null;
   sessionType: string | null;
   fetchedAt: number;
+  /** True when OpenF1 returned ≥1 position record for the current session. */
+  positionDataAvailable: boolean;
   /** True when the response was served from the server-side shared cache. */
   cacheHit?: boolean;
   /** How many ms old the cached data was when served (0 on a fresh fetch). */
   cacheAgeMs?: number;
+}
+
+// GUID: PIT_WALL_TYPES-009-v01
+// [Intent] A single GPS point in projected metres (not WGS84).
+//          Used to accumulate the circuit path from car position history.
+export interface CircuitPoint {
+  x: number;
+  y: number;
 }
 
 // GUID: PIT_WALL_TYPES-007-v01

@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/firebase';
 import { usePitWallSettings } from './_hooks/usePitWallSettings';
@@ -21,7 +21,7 @@ import { usePitWallData } from './_hooks/usePitWallData';
 import { useRadioState } from './_hooks/useRadioState';
 import { usePreRaceMode } from './_hooks/usePreRaceMode';
 import { useHistoricalReplay } from './_hooks/useHistoricalReplay';
-import type { TrackBounds, DriverRaceState } from './_types/pit-wall.types';
+import type { TrackBounds, DriverRaceState, CircuitPoint } from './_types/pit-wall.types';
 import type { ReplayDriverState } from './_types/showreel.types';
 import { PitWallTrackMap } from './_components/PitWallTrackMap';
 import { FIARaceControlFeed } from './_components/FIARaceControlFeed';
@@ -39,15 +39,17 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RaceSchedule } from '@/lib/data';
 
-// GUID: PIT_WALL_CLIENT-001-v01
-// [Intent] Derive track bounds from current driver GPS positions.
-//          Used by PitWallTrackMap to project projected-metre coords to canvas pixels.
-//          Returns null when no position data is available yet.
+// GUID: PIT_WALL_CLIENT-001-v02
+// [Intent] Derive track bounds from a set of GPS points (projected metres).
+//          Accepts either CircuitPoint[] (accumulated path) or DriverRaceState[].
+//          Returns null when fewer than 2 valid points are available.
+//          v02: Accepts generic point array so bounds can be computed from the full
+//               accumulated circuit path, giving stable layout across all polling cycles.
 function computeTrackBounds(
-  drivers: { x: number | null; y: number | null }[]
+  points: { x: number | null; y: number | null }[]
 ): TrackBounds | null {
-  const xs = drivers.map(d => d.x).filter((v): v is number => v !== null);
-  const ys = drivers.map(d => d.y).filter((v): v is number => v !== null);
+  const xs = points.map(p => p.x).filter((v): v is number => v !== null);
+  const ys = points.map(p => p.y).filter((v): v is number => v !== null);
   if (xs.length < 2 || ys.length < 2) return null;
   return {
     minX: Math.min(...xs),
@@ -55,6 +57,29 @@ function computeTrackBounds(
     minY: Math.min(...ys),
     maxY: Math.max(...ys),
   };
+}
+
+// GUID: PIT_WALL_CLIENT-020-v01
+// [Intent] localStorage helpers for persisting the circuit path across page loads.
+//          Keyed by circuitKey so each circuit has its own cached outline.
+//          Max 8000 points stored (~1 race worth of position history).
+const CIRCUIT_PATH_KEY = 'prix6_pw_circuit_path_v1';
+const MAX_CIRCUIT_POINTS = 8000;
+
+function loadCircuitPath(circuitKey: number): CircuitPoint[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(`${CIRCUIT_PATH_KEY}_${circuitKey}`);
+    if (!raw) return [];
+    return JSON.parse(raw) as CircuitPoint[];
+  } catch { return []; }
+}
+
+function saveCircuitPath(circuitKey: number, path: CircuitPoint[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`${CIRCUIT_PATH_KEY}_${circuitKey}`, JSON.stringify(path));
+  } catch {} // Storage quota exceeded — ignore
 }
 
 // GUID: PIT_WALL_CLIENT-010-v01
@@ -90,7 +115,7 @@ function castReplayToLive(replay: ReplayDriverState[]): DriverRaceState[] {
   return replay as unknown as DriverRaceState[];
 }
 
-// GUID: PIT_WALL_CLIENT-002-v03
+// GUID: PIT_WALL_CLIENT-002-v04
 // [Intent] Main orchestrator component — assembles the full Pit Wall layout.
 //          Layout regions:
 //            Showreel banner (optional, h-12): PreRaceWarmupBanner when in showreel mode
@@ -101,6 +126,9 @@ function castReplayToLive(replay: ReplayDriverState[]): DriverRaceState[] {
 //            Full overlay: ShowreelSplash (between historical races)
 //          v03: Passes drivers + updateIntervalMs directly to PitWallTrackMap;
 //               interpolation handled inside TrackMap's single RAF loop.
+//          v04: Circuit path accumulation + localStorage persistence. Session-adaptive
+//               polling (auto 10s on session start, reset on session end). positionDataAvailable
+//               threaded through for track map diagnostic state.
 // [Inbound Trigger] Rendered by page.tsx.
 // [Downstream Impact] All child components receive data via props — no child
 //                     components fetch independently.
@@ -120,6 +148,7 @@ export default function PitWallClient() {
   const {
     settings,
     setUpdateInterval,
+    resetIntervalToDefault,
     toggleColumn,
     setRadioZoomMode,
     isHighFrequency,
@@ -137,9 +166,11 @@ export default function PitWallClient() {
     sessionName,
     meetingName,
     sessionType,
+    circuitKey,
     circuitLat,
     circuitLon,
     totalLaps,
+    positionDataAvailable,
     isLoading,
     error,
     errorCode,
@@ -150,6 +181,61 @@ export default function PitWallClient() {
 
   // Next race from schedule
   const nextRaceInfo = useMemo(() => findNextRaceFromSchedule(), []);
+
+  // GUID: PIT_WALL_CLIENT-018-v01
+  // [Intent] Accumulated circuit path — GPS points collected from car positions across all polls.
+  //          Seeded from localStorage on circuitKey change so the outline is immediate on load.
+  //          Cleared when the circuit changes (new race weekend). Capped at MAX_CIRCUIT_POINTS.
+  //          Saved to localStorage after each update so it survives page refreshes.
+  const [circuitPath, setCircuitPath] = useState<CircuitPoint[]>([]);
+  const lastCircuitKeyRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!circuitKey) return;
+    // New circuit — load persisted path from localStorage
+    if (circuitKey !== lastCircuitKeyRef.current) {
+      lastCircuitKeyRef.current = circuitKey;
+      const persisted = loadCircuitPath(circuitKey);
+      setCircuitPath(persisted);
+    }
+  }, [circuitKey]);
+
+  useEffect(() => {
+    if (!circuitKey || liveDrivers.length === 0) return;
+    const newPoints = liveDrivers
+      .filter(d => d.x !== null && d.y !== null)
+      .map(d => ({ x: d.x!, y: d.y! }));
+    if (newPoints.length === 0) return;
+    setCircuitPath(prev => {
+      const combined = [...prev, ...newPoints];
+      const capped = combined.length > MAX_CIRCUIT_POINTS
+        ? combined.slice(-MAX_CIRCUIT_POINTS)
+        : combined;
+      saveCircuitPath(circuitKey, capped);
+      return capped;
+    });
+  }, [liveDrivers, circuitKey]);
+
+  // GUID: PIT_WALL_CLIENT-019-v01
+  // [Intent] Session-adaptive polling — automatically lowers interval to 10s when a live
+  //          session is detected, resets to 60s (default) when the session ends.
+  //          Only adjusts if the user has not manually set a custom interval (intervalIsTemporary).
+  //          This is the primary reset path for the polling interval; the 90-min safety-net
+  //          in usePitWallSettings is the fallback.
+  const prevSessionKeyRef = useRef<number | null>(null);
+  useEffect(() => {
+    const prev = prevSessionKeyRef.current;
+    prevSessionKeyRef.current = sessionKey;
+    if (prev === sessionKey) return; // no change
+
+    if (sessionKey !== null && prev === null) {
+      // Session just started — drop to 10s if user hasn't overridden
+      if (!intervalIsTemporary) setUpdateInterval(10);
+    } else if (sessionKey === null && prev !== null) {
+      // Session just ended — revert interval and release the auto-reset timer
+      resetIntervalToDefault();
+    }
+  }, [sessionKey, intervalIsTemporary, setUpdateInterval, resetIntervalToDefault]);
 
   // GUID: PIT_WALL_CLIENT-013-v01
   // [Intent] Pre-race showreel state machine — determines when to play historical replay.
@@ -185,8 +271,12 @@ export default function PitWallClient() {
     return liveDrivers;
   }, [preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
 
-  // Track bounds derived from driver GPS positions
-  const trackBounds = useMemo(() => computeTrackBounds(activeDrivers), [activeDrivers]);
+  // Track bounds — use accumulated circuit path when available (stable full-circuit extent);
+  // fall back to current driver positions only for the very first few polls before path builds up.
+  const trackBounds = useMemo(
+    () => computeTrackBounds(circuitPath.length >= 10 ? circuitPath : activeDrivers),
+    [circuitPath, activeDrivers],
+  );
 
   // Table sort state
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -271,10 +361,15 @@ export default function PitWallClient() {
             drivers={activeDrivers}
             updateIntervalMs={preRaceMode.isShowreel ? 5000 : settings.updateIntervalSeconds * 1000}
             bounds={trackBounds}
+            circuitPath={circuitPath}
             circuitLat={circuitLat}
             circuitLon={circuitLon}
             rainIntensity={weather?.rainIntensity ?? null}
             sessionType={displaySessionType}
+            hasLiveSession={sessionKey !== null}
+            positionDataAvailable={positionDataAvailable}
+            nextRaceName={nextRaceInfo?.name ?? null}
+            lastMeetingName={meetingName}
             className="w-full h-full"
           />
         </div>

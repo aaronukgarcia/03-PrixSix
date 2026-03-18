@@ -11,13 +11,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getDefaultVisibleColumns } from '../_types/columns';
 
-// GUID: PIT_WALL_SETTINGS_HOOK-001-v03
+// GUID: PIT_WALL_SETTINGS_HOOK-001-v04
 const STORAGE_KEY = 'prix6_pitwall_settings_v1';
 const DEFAULT_INTERVAL = 60;
 const MIN_INTERVAL = 2;
 const MAX_INTERVAL = 60;
-/** After this many ms of no slider changes, auto-reset the interval to DEFAULT_INTERVAL. */
-const INTERVAL_RESET_AFTER_MS = 20 * 60 * 1000; // 20 minutes
+/** Safety-net fallback: reset to default if user hasn't interacted for 90 minutes.
+ *  Primary reset path is when the live session ends (PitWallClient calls resetIntervalToDefault). */
+const INTERVAL_RESET_AFTER_MS = 90 * 60 * 1000; // 90 minutes
 
 interface PitWallSettings {
   updateIntervalSeconds: number;
@@ -28,11 +29,13 @@ interface PitWallSettings {
 interface UsePitWallSettingsReturn {
   settings: PitWallSettings;
   setUpdateInterval: (seconds: number) => void;
+  /** Reset interval to 60s default immediately — called by PitWallClient when session ends. */
+  resetIntervalToDefault: () => void;
   setVisibleColumns: (cols: string[]) => void;
   toggleColumn: (key: string) => void;
   setRadioZoomMode: (open: boolean) => void;
   isHighFrequency: boolean; // true when < 5s
-  /** True when a custom (non-default) interval is active and will auto-reset after 20 min. */
+  /** True when a custom (non-default) interval is active and will auto-reset after 90 min. */
   intervalIsTemporary: boolean;
   /** Minutes remaining before the interval auto-resets to default (0 when not temporary). */
   intervalResetMinutes: number;
@@ -144,7 +147,7 @@ export function usePitWallSettings(): UsePitWallSettingsReturn {
       setIntervalChangedAt(null);
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     } else {
-      // Non-default: (re)start the 20-minute auto-reset timer
+      // Non-default: (re)start the 90-minute safety-net auto-reset timer
       setIntervalChangedAt(Date.now());
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
       resetTimerRef.current = setTimeout(() => {
@@ -152,6 +155,16 @@ export function usePitWallSettings(): UsePitWallSettingsReturn {
         setIntervalChangedAt(null);
       }, INTERVAL_RESET_AFTER_MS);
     }
+  }, [updateSettings]);
+
+  // GUID: PIT_WALL_SETTINGS_HOOK-007-v01
+  // [Intent] Immediately reset the polling interval to 60s default and cancel the safety-net timer.
+  //          Called by PitWallClient when a live session ends — the primary reset path.
+  //          The 90-minute timer is a fallback for when the user navigates away mid-session.
+  const resetIntervalToDefault = useCallback(() => {
+    updateSettings({ updateIntervalSeconds: DEFAULT_INTERVAL });
+    setIntervalChangedAt(null);
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
   }, [updateSettings]);
 
   // Clean up timers on unmount
@@ -184,6 +197,7 @@ export function usePitWallSettings(): UsePitWallSettingsReturn {
   return {
     settings,
     setUpdateInterval,
+    resetIntervalToDefault,
     setVisibleColumns,
     toggleColumn,
     setRadioZoomMode,

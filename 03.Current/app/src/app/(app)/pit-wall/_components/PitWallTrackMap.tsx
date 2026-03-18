@@ -9,18 +9,26 @@
 
 import { useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import type { DriverRaceState, InterpolatedPosition, TrackBounds } from '../_types/pit-wall.types';
+import type { DriverRaceState, InterpolatedPosition, TrackBounds, CircuitPoint } from '../_types/pit-wall.types';
 
-// GUID: PIT_WALL_TRACK_MAP-001-v02
+// GUID: PIT_WALL_TRACK_MAP-001-v03
 // [Intent] Props for the PitWallTrackMap component.
+//          v03: Added circuitPath (accumulated GPS outline), hasLiveSession,
+//               positionDataAvailable, nextRaceName, lastMeetingName for richer
+//               no-data and between-races canvas states.
 interface PitWallTrackMapProps {
   drivers: DriverRaceState[];        // replaces positions — interpolation done internally
   updateIntervalMs: number;          // used for lerp timing (matches data polling interval)
   bounds: TrackBounds | null;
+  circuitPath: CircuitPoint[];       // accumulated GPS history — draws the circuit outline
   circuitLat: number | null;
   circuitLon: number | null;
   rainIntensity: number | null;      // 0-255 from WeatherSnapshot
   sessionType: string | null;
+  hasLiveSession: boolean;           // true when sessionKey !== null
+  positionDataAvailable: boolean;    // true when OpenF1 returned ≥1 position record
+  nextRaceName: string | null;       // shown in between-races state
+  lastMeetingName: string | null;    // shown in between-races state
   className?: string;
 }
 
@@ -57,14 +65,21 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * Math.max(0, Math.min(1, t));
 }
 
-// GUID: PIT_WALL_TRACK_MAP-004-v01
+// GUID: PIT_WALL_TRACK_MAP-004-v02
 // [Intent] Draw a single frame onto the canvas using the latest interpolated positions.
+//          v02: Added circuit path outline (step 5a) and richer no-data states:
+//               between-races panel, GPS-unavailable state, and ghost outline.
 function drawFrame(
   ctx: CanvasRenderingContext2D,
   interpolated: InterpolatedPosition[],
   bounds: TrackBounds | null,
+  circuitPath: CircuitPoint[],
   rainIntensity: number | null,
   sessionType: string | null,
+  hasLiveSession: boolean,
+  positionDataAvailable: boolean,
+  nextRaceName: string | null,
+  lastMeetingName: string | null,
   w: number,
   h: number
 ) {
@@ -94,23 +109,77 @@ function drawFrame(
   ctx.font = '9px "SF Mono", "Courier New", monospace';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText(sessionType ?? 'SESSION', 8, 8);
+  ctx.fillText(sessionType ?? (hasLiveSession ? 'SESSION' : 'BETWEEN SESSIONS'), 8, 8);
 
-  // ── 5. No data guard ────────────────────────────────────────────────────────
-  if (interpolated.length === 0 || bounds === null) {
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.font = '11px "SF Mono", "Courier New", monospace';
+  // ── 5a. Circuit outline (accumulated GPS path) ───────────────────────────────
+  // GUID: PIT_WALL_TRACK_MAP-011-v01
+  // Draw whenever we have both path data and valid bounds — including between-races
+  // (ghost outline) and during live sessions before cars render.
+  if (circuitPath.length >= 20 && bounds !== null) {
+    // Thin line for the circuit ribbon
+    ctx.beginPath();
+    let first = true;
+    for (const pt of circuitPath) {
+      const { px, py } = projectToCanvas(pt.x, pt.y, bounds, w, h);
+      if (first) { ctx.moveTo(px, py); first = false; }
+      else ctx.lineTo(px, py);
+    }
+    // Ghost opacity when no cars on track; brighter during live session
+    ctx.strokeStyle = hasLiveSession && interpolated.length > 0
+      ? 'rgba(255,255,255,0.10)'
+      : 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+
+  // ── 5b. No-data states ──────────────────────────────────────────────────────
+  if (interpolated.length === 0) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const msg = interpolated.length === 0 ? 'POSITION DATA UNAVAILABLE' : 'LIVE DATA';
-    ctx.fillText(msg, w / 2, h / 2 - 8);
-    if (interpolated.length === 0) {
+
+    if (!hasLiveSession) {
+      // Between races — circuit outline visible above as ghost; show next race info
+      ctx.fillStyle = 'rgba(255,255,255,0.20)';
+      ctx.font = 'bold 11px "SF Mono", "Courier New", monospace';
+      ctx.fillText('BETWEEN SESSIONS', w / 2, h / 2 - 18);
+
+      if (lastMeetingName) {
+        ctx.font = '9px "SF Mono", "Courier New", monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.fillText(`last: ${lastMeetingName}`, w / 2, h / 2);
+      }
+
+      if (nextRaceName) {
+        ctx.font = '9px "SF Mono", "Courier New", monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.fillText(`next: ${nextRaceName}`, w / 2, h / 2 + 14);
+      }
+    } else if (!positionDataAvailable) {
+      // Live session active but GPS not yet flowing from OpenF1
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.font = '11px "SF Mono", "Courier New", monospace';
+      ctx.fillText('GPS INITIALISING', w / 2, h / 2 - 8);
+      ctx.font = '9px "SF Mono", "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.fillText('timing data active — map loading', w / 2, h / 2 + 8);
+    } else {
+      // Live session + GPS available but no valid positions in this frame
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.font = '11px "SF Mono", "Courier New", monospace';
+      ctx.fillText('POSITION DATA UNAVAILABLE', w / 2, h / 2 - 8);
       ctx.font = '9px "SF Mono", "Courier New", monospace';
       ctx.fillStyle = 'rgba(255,255,255,0.06)';
       ctx.fillText('race table showing live timing', w / 2, h / 2 + 8);
     }
+
+    if (bounds === null) return; // can't render cars without bounds
+    // If bounds exist from circuit path, fall through to car rendering
+    // (shouldn't happen with no interpolated, but be safe)
     return;
   }
+
+  if (bounds === null) return;
 
   // ── 6. Sort by position for Z-ordering (P1 drawn last = on top) ─────────────
   const sorted = [...interpolated].sort((a, b) => b.position - a.position);
@@ -213,16 +282,23 @@ function drawFrame(
   ctx.textBaseline = 'alphabetic';
 }
 
-// GUID: PIT_WALL_TRACK_MAP-005-v02
+// GUID: PIT_WALL_TRACK_MAP-005-v03
 // [Intent] Main PitWallTrackMap component — manages canvas, ResizeObserver, and RAF loop.
 //          v02: Interpolation absorbed internally. Single RAF loop lerps positions AND draws,
 //               eliminating all React state from the rendering hot path.
+//          v03: Accepts circuitPath (accumulated outline), hasLiveSession, positionDataAvailable,
+//               nextRaceName, lastMeetingName for richer canvas states.
 export function PitWallTrackMap({
   drivers,
   updateIntervalMs,
   bounds,
+  circuitPath,
   rainIntensity,
   sessionType,
+  hasLiveSession,
+  positionDataAvailable,
+  nextRaceName,
+  lastMeetingName,
   className,
 }: PitWallTrackMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -233,14 +309,24 @@ export function PitWallTrackMap({
   const driversRef = useRef(drivers);
   const updateIntervalMsRef = useRef(updateIntervalMs);
   const boundsRef = useRef(bounds);
+  const circuitPathRef = useRef(circuitPath);
   const rainRef = useRef(rainIntensity);
   const sessionTypeRef = useRef(sessionType);
+  const hasLiveSessionRef = useRef(hasLiveSession);
+  const positionDataAvailableRef = useRef(positionDataAvailable);
+  const nextRaceNameRef = useRef(nextRaceName);
+  const lastMeetingNameRef = useRef(lastMeetingName);
 
   driversRef.current = drivers;
   updateIntervalMsRef.current = updateIntervalMs;
   boundsRef.current = bounds;
+  circuitPathRef.current = circuitPath;
   rainRef.current = rainIntensity;
   sessionTypeRef.current = sessionType;
+  hasLiveSessionRef.current = hasLiveSession;
+  positionDataAvailableRef.current = positionDataAvailable;
+  nextRaceNameRef.current = nextRaceName;
+  lastMeetingNameRef.current = lastMeetingName;
 
   // Interpolation refs — no React state, pure mutable slots
   const prevPositionsRef = useRef<Map<number, { x: number; y: number }>>(new Map());
@@ -320,8 +406,13 @@ export function PitWallTrackMap({
         ctx,
         interpolated,
         boundsRef.current,
+        circuitPathRef.current,
         rainRef.current,
         sessionTypeRef.current,
+        hasLiveSessionRef.current,
+        positionDataAvailableRef.current,
+        nextRaceNameRef.current,
+        lastMeetingNameRef.current,
         canvas.width,
         canvas.height
       );

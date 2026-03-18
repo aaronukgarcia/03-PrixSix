@@ -229,6 +229,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       sessionKey: null, sessionName: null, meetingName: null, circuitKey: null,
       circuitLat: null, circuitLon: null, drivers: [], raceControl: [],
       radioMessages: [], weather: null, totalLaps: null, sessionType: null,
+      positionDataAvailable: false,
       fetchedAt: Date.now(), cacheHit: false, cacheAgeMs: 0,
     };
     liveDataCache = { sessionKey: null, data: idleResponse, expiresAt: Date.now() + IDLE_CACHE_TTL_MS };
@@ -428,6 +429,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     weather,
     totalLaps,
     sessionType,
+    positionDataAvailable: latestPositions.size > 0,
     fetchedAt: Date.now(),
     cacheHit: false,
     cacheAgeMs: 0,

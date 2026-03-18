@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1771,
+  "total_guids": 1772,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -114090,6 +114090,22 @@
       },
       "created": "2026-03-16T16:56:44.208Z",
       "lastUpdated": "2026-03-16T16:56:44.208Z"
+    },
+    {
+      "guid": "API_ADD_SECONDARY_TEAM-011",
+      "description": "Pit lane lockout check in add-secondary-team route — blocks secondary team creation after qualifying starts for current race. Reads app-settings/pit-lane override and race_schedule. Fails-open on errors. Returns 403 with locked race name and next-open race details (BUG-ST-002 fix).",
+      "file": "app/src/app/api/add-secondary-team/route.ts",
+      "callChain": {
+        "calls": [
+          "LIB_RACE_SCHEDULE_SERVER-003"
+        ],
+        "calledBy": [
+          "API_ADD_SECONDARY_TEAM-002"
+        ]
+      },
+      "dependencies": [
+        "LIB_RACE_SCHEDULE_SERVER-003"
+      ]
     }
   ],
   "firestoreCollections": {

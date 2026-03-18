@@ -77,7 +77,8 @@ export type BookOfWorkPackage =
   | 'security-high'       // HIGH severity security issues
   | 'security-medium'     // MEDIUM severity security issues
   | 'security-low'        // LOW severity security issues
-  | 'vestige-audit';      // Items from Vestige memory
+  | 'vestige-audit'       // Items from Vestige memory
+  | 'incremental-fix';    // Targeted incremental fix batches (e.g. pit-wall, standings)
 
 /**
  * GUID: TYPES_BOOKOFWORK-005

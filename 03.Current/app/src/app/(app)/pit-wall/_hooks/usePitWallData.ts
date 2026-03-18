@@ -15,7 +15,7 @@ import { CLIENT_ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 import type { User } from 'firebase/auth';
 
-// GUID: PIT_WALL_DATA_HOOK-001-v01
+// GUID: PIT_WALL_DATA_HOOK-001-v02
 export interface UsePitWallDataReturn {
   drivers: DriverRaceState[];
   raceControl: RaceControlMessage[];
@@ -25,9 +25,11 @@ export interface UsePitWallDataReturn {
   sessionName: string | null;
   meetingName: string | null;
   sessionType: string | null;
+  circuitKey: number | null;
   circuitLat: number | null;
   circuitLon: number | null;
   totalLaps: number | null;
+  positionDataAvailable: boolean;
   isLoading: boolean;
   error: string | null;
   errorCode: string | null;
@@ -36,7 +38,7 @@ export interface UsePitWallDataReturn {
   forceRefresh: () => void;
 }
 
-// GUID: PIT_WALL_DATA_HOOK-005-v01
+// GUID: PIT_WALL_DATA_HOOK-005-v02
 // [Intent] Internal reducer state — all data fields in one place, updated atomically per fetch.
 interface PitWallDataState {
   drivers: DriverRaceState[];
@@ -47,9 +49,11 @@ interface PitWallDataState {
   sessionName: string | null;
   meetingName: string | null;
   sessionType: string | null;
+  circuitKey: number | null;
   circuitLat: number | null;
   circuitLon: number | null;
   totalLaps: number | null;
+  positionDataAvailable: boolean;
   isLoading: boolean;
   error: string | null;
   errorCode: string | null;
@@ -71,9 +75,11 @@ const initialState: PitWallDataState = {
   sessionName: null,
   meetingName: null,
   sessionType: null,
+  circuitKey: null,
   circuitLat: null,
   circuitLon: null,
   totalLaps: null,
+  positionDataAvailable: false,
   isLoading: true,
   error: null,
   errorCode: null,
@@ -98,9 +104,11 @@ function pitWallDataReducer(state: PitWallDataState, action: PitWallDataAction):
         sessionName: action.payload.sessionName,
         meetingName: action.payload.meetingName,
         sessionType: action.payload.sessionType,
+        circuitKey: action.payload.circuitKey,
         circuitLat: action.payload.circuitLat,
         circuitLon: action.payload.circuitLon,
         totalLaps: action.payload.totalLaps,
+        positionDataAvailable: action.payload.positionDataAvailable,
         isLoading: false,
         error: null,
         errorCode: null,
@@ -256,9 +264,11 @@ export function usePitWallData(
     sessionName: state.sessionName,
     meetingName: state.meetingName,
     sessionType: state.sessionType,
+    circuitKey: state.circuitKey,
     circuitLat: state.circuitLat,
     circuitLon: state.circuitLon,
     totalLaps: state.totalLaps,
+    positionDataAvailable: state.positionDataAvailable,
     isLoading: state.isLoading,
     error: state.error,
     errorCode: state.errorCode,
