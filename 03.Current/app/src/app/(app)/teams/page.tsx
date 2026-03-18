@@ -36,7 +36,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RaceSchedule, getDriverImage, F1Drivers, findNextRace } from "@/lib/data";
 import { generateRaceId } from "@/lib/normalize-race-id";
-import { collection, query, orderBy, limit, startAfter, getDocs, where, DocumentSnapshot, getCountFromServer, Timestamp } from "firebase/firestore";
+import { collection, query, orderBy, limit, startAfter, getDocs, doc, getDoc, where, DocumentSnapshot, getCountFromServer, Timestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { Progress } from "@/components/ui/progress";
@@ -336,12 +336,14 @@ export default function TeamsPage() {
     return teamCreatedAt > raceQualifyingTime;
   }, [selectedRace]);
 
-  // GUID: PAGE_TEAMS-010-v03
+  // GUID: PAGE_TEAMS-010-v04
   // [Intent] Fetches predictions for a single team on-demand when the user expands an accordion item.
-  //   Uses a client-side prediction cache keyed by raceId to avoid redundant Firestore reads.
+  //   v04: Uses direct document get by ID (more reliable than query-by-field). Robust carry-forward:
+  //        if no prediction exists for this race, finds the most recent prediction for this team type
+  //        using doc ID prefix matching (uid_ for primary, uid-secondary_ for secondary).
+  //        Ensures every team that has ever submitted shows 6 drivers — never "P1 ?".
   // [Inbound Trigger] Called from handleAccordionChange when a team's accordion is opened and predictions are null.
   // [Downstream Impact] Updates the teams state array with prediction data and populates predictionCache.
-  //   Distinguishes between primary and secondary team predictions via teamName matching.
   const fetchPredictionForTeam = useCallback(async (teamKey: string, team: TeamWithPrediction) => {
     if (!firestore || !selectedRaceId) return;
 
@@ -375,46 +377,38 @@ export default function TeamsPage() {
     ));
 
     try {
-      // Query using both stored raceId formats:
-      //   - generateRaceId produces "Australian-Grand-Prix-GP" (user submissions)
-      //   - base form "Australian-Grand-Prix" (carry-forward stored format)
-      const raceIdWithSuffix = generateRaceId(selectedRace!, 'gp');
-      const raceIdBase = selectedRace!.replace(/\s+/g, '-');
+      // ── 1. Direct document get by known doc ID ─────────────────────────
+      // Primary: {uid}_{raceId}, Secondary: {uid}-secondary_{raceId}
+      const teamId = team.isSecondary ? `${team.oduserId}-secondary` : team.oduserId;
+      const raceIdGP = generateRaceId(selectedRace!, 'gp');
+      const predDocId = `${teamId}_${raceIdGP}`;
 
-      const predQuery = query(
-        collection(firestore, `users/${team.oduserId}/predictions`),
-        where("raceId", "in", [raceIdWithSuffix, raceIdBase])
-      );
-      const predSnapshot = await getDocs(predQuery);
+      const predRef = doc(firestore, 'users', team.oduserId, 'predictions', predDocId);
+      const predSnap = await getDoc(predRef);
 
-      // Find the right prediction for this team (primary vs secondary)
-      let pred;
-      if (team.isSecondary) {
-        pred = predSnapshot.docs.find(d => d.data().teamName === team.teamName);
-      } else {
-        pred = predSnapshot.docs.find(d =>
-          d.data().teamName === team.teamName || !d.data().teamName
-        );
-      }
+      let predData = predSnap.exists() ? predSnap.data() : null;
 
-      // Carry-forward: no submission for this race → show most recent prediction
-      if (!pred) {
+      // ── 2. Carry-forward: no prediction for this race → find most recent ──
+      if (!predData) {
+        // Fetch recent predictions for this user, ordered by submittedAt desc.
+        // Filter by doc ID prefix to match team type (primary vs secondary).
         const cfQuery = query(
           collection(firestore, `users/${team.oduserId}/predictions`),
           orderBy("submittedAt", "desc"),
-          limit(10)
+          limit(20)
         );
         const cfSnapshot = await getDocs(cfQuery);
-        if (team.isSecondary) {
-          pred = cfSnapshot.docs.find(d => d.data().teamName === team.teamName);
-        } else {
-          pred = cfSnapshot.docs.find(d =>
-            d.data().teamName === team.teamName || !d.data().teamName
-          );
-        }
+
+        const docIdPrefix = team.isSecondary
+          ? `${team.oduserId}-secondary_`
+          : `${team.oduserId}_`;
+
+        // Find the most recent prediction matching this team type
+        const cfDoc = cfSnapshot.docs.find(d => d.id.startsWith(docIdPrefix));
+        predData = cfDoc?.data() ?? null;
       }
 
-      const predictions = formatPrediction(pred?.data());
+      const predictions = formatPrediction(predData);
 
       // Update cache
       setPredictionCache(prev => ({
@@ -433,7 +427,6 @@ export default function TeamsPage() {
       ));
     } catch (error) {
       console.error(`Error fetching prediction for ${team.teamName}:`, error);
-      // Set empty predictions on error
       setTeams(prev => prev.map(t =>
         `${t.teamName}-${t.oduserId}` === teamKey
           ? { ...t, predictions: Array(6).fill(null), joinedAfterRace: false, isLoadingPredictions: false }
