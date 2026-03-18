@@ -1,7 +1,9 @@
-// GUID: PIT_WALL_TRACK_MAP-000-v02
-// [Intent] Canvas-based live track map. Absorbs interpolation logic directly — no useCarInterpolation hook.
+// GUID: PIT_WALL_TRACK_MAP-000-v04
+// [Intent] Canvas-based live track map with ghost/comet trail rendering and follow-mode camera.
 //          Single RAF loop lerps positions AND draws each frame, eliminating all React state from the hot path.
-//          Rain intensity overlay, DRS indicators, position badges, and retired/pit-state dimming.
+//          v03: Dual-canvas ghost/comet trail rendering.
+//          v04: Follow-mode camera — click a driver in the race table to zoom in and track them.
+//               Smooth lerp on zoom/offset for cinematic pan. White tracking ring around followed car.
 // [Inbound Trigger] Rendered in the Pit Wall layout. Receives DriverRaceState[] directly from PitWallClient.
 // [Downstream Impact] Pure canvas rendering — no state writes, no Firestore reads.
 
@@ -10,12 +12,11 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { DriverRaceState, InterpolatedPosition, TrackBounds, CircuitPoint } from '../_types/pit-wall.types';
+import { buildTrackPolyline, projectOntoTrack, paramToPoint, type TrackPolyline } from '../_utils/trackSpline';
 
-// GUID: PIT_WALL_TRACK_MAP-001-v03
+// GUID: PIT_WALL_TRACK_MAP-001-v04
 // [Intent] Props for the PitWallTrackMap component.
-//          v03: Added circuitPath (accumulated GPS outline), hasLiveSession,
-//               positionDataAvailable, nextRaceName, lastMeetingName for richer
-//               no-data and between-races canvas states.
+//          v04: Added followDriver for follow-mode camera zoom/pan.
 interface PitWallTrackMapProps {
   drivers: DriverRaceState[];        // replaces positions — interpolation done internally
   updateIntervalMs: number;          // used for lerp timing (matches data polling interval)
@@ -29,6 +30,7 @@ interface PitWallTrackMapProps {
   positionDataAvailable: boolean;    // true when OpenF1 returned ≥1 position record
   nextRaceName: string | null;       // shown in between-races state
   lastMeetingName: string | null;    // shown in between-races state
+  followDriver: number | null;       // driver number to zoom/pan and track, null = full track view
   className?: string;
 }
 
@@ -65,11 +67,37 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * Math.max(0, Math.min(1, t));
 }
 
-// GUID: PIT_WALL_TRACK_MAP-004-v02
-// [Intent] Draw a single frame onto the canvas using the latest interpolated positions.
-//          v02: Added circuit path outline (step 5a) and richer no-data states:
-//               between-races panel, GPS-unavailable state, and ghost outline.
-function drawFrame(
+// GUID: PIT_WALL_TRACK_MAP-012-v01
+// [Intent] Ghost trail fade alpha — controls comet tail length. Lower = longer trails.
+//          0.15 gives ~6-7 frames of visible trail at 60fps.
+const GHOST_ALPHA = 0.15;
+
+// GUID: PIT_WALL_TRACK_MAP-013-v01
+// [Intent] Max comet tail length in canvas pixels — prevents absurdly long tails
+//          from teleporting cars or large frame-to-frame jumps.
+const MAX_TAIL_LENGTH = 25;
+
+// GUID: PIT_WALL_TRACK_MAP-019-v01
+// [Intent] Follow-mode camera constants — zoom level and lerp speed.
+const FOLLOW_ZOOM = 3.0;       // 3x zoom when following a driver
+const FOLLOW_LERP_SPEED = 0.08; // smooth ease factor per frame (0 = no move, 1 = instant snap)
+
+// GUID: PIT_WALL_TRACK_MAP-014-v01
+// [Intent] Convert hex colour string to {r, g, b} for use in gradient stops.
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.substring(0, 2), 16) || 0,
+    g: parseInt(h.substring(2, 4), 16) || 0,
+    b: parseInt(h.substring(4, 6), 16) || 0,
+  };
+}
+
+// GUID: PIT_WALL_TRACK_MAP-004-v03
+// [Intent] Draw static elements (background, atmosphere, rain, labels, circuit outline,
+//          no-data states) onto the main canvas. Called every frame with a full opaque clear.
+//          Returns true if cars should be drawn (has interpolated positions + bounds).
+function drawStaticLayer(
   ctx: CanvasRenderingContext2D,
   interpolated: InterpolatedPosition[],
   bounds: TrackBounds | null,
@@ -82,7 +110,7 @@ function drawFrame(
   lastMeetingName: string | null,
   w: number,
   h: number
-) {
+): boolean {
   // ── 1. Background fill ──────────────────────────────────────────────────────
   ctx.fillStyle = '#0a0e1a';
   ctx.fillRect(0, 0, w, h);
@@ -113,10 +141,7 @@ function drawFrame(
 
   // ── 5a. Circuit outline (accumulated GPS path) ───────────────────────────────
   // GUID: PIT_WALL_TRACK_MAP-011-v01
-  // Draw whenever we have both path data and valid bounds — including between-races
-  // (ghost outline) and during live sessions before cars render.
   if (circuitPath.length >= 20 && bounds !== null) {
-    // Thin line for the circuit ribbon
     ctx.beginPath();
     let first = true;
     for (const pt of circuitPath) {
@@ -124,7 +149,6 @@ function drawFrame(
       if (first) { ctx.moveTo(px, py); first = false; }
       else ctx.lineTo(px, py);
     }
-    // Ghost opacity when no cars on track; brighter during live session
     ctx.strokeStyle = hasLiveSession && interpolated.length > 0
       ? 'rgba(255,255,255,0.10)'
       : 'rgba(255,255,255,0.05)';
@@ -139,7 +163,6 @@ function drawFrame(
     ctx.textBaseline = 'middle';
 
     if (!hasLiveSession) {
-      // Between races — circuit outline visible above as ghost; show next race info
       ctx.fillStyle = 'rgba(255,255,255,0.20)';
       ctx.font = 'bold 11px "SF Mono", "Courier New", monospace';
       ctx.fillText('BETWEEN SESSIONS', w / 2, h / 2 - 18);
@@ -156,7 +179,6 @@ function drawFrame(
         ctx.fillText(`next: ${nextRaceName}`, w / 2, h / 2 + 14);
       }
     } else if (!positionDataAvailable) {
-      // Live session active but GPS not yet flowing from OpenF1
       ctx.fillStyle = 'rgba(255,255,255,0.18)';
       ctx.font = '11px "SF Mono", "Courier New", monospace';
       ctx.fillText('GPS INITIALISING', w / 2, h / 2 - 8);
@@ -164,7 +186,6 @@ function drawFrame(
       ctx.fillStyle = 'rgba(255,255,255,0.08)';
       ctx.fillText('timing data active — map loading', w / 2, h / 2 + 8);
     } else {
-      // Live session + GPS available but no valid positions in this frame
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
       ctx.font = '11px "SF Mono", "Courier New", monospace';
       ctx.fillText('POSITION DATA UNAVAILABLE', w / 2, h / 2 - 8);
@@ -173,121 +194,172 @@ function drawFrame(
       ctx.fillText('race table showing live timing', w / 2, h / 2 + 8);
     }
 
-    if (bounds === null) return; // can't render cars without bounds
-    // If bounds exist from circuit path, fall through to car rendering
-    // (shouldn't happen with no interpolated, but be safe)
-    return;
+    return false;
   }
 
-  if (bounds === null) return;
+  return bounds !== null;
+}
 
-  // ── 6. Sort by position for Z-ordering (P1 drawn last = on top) ─────────────
+// GUID: PIT_WALL_TRACK_MAP-015-v01
+// [Intent] Draw cars onto the ghost canvas with semi-transparent fade for comet trails.
+//          The ghost canvas is never fully cleared — instead a semi-transparent background
+//          rectangle is drawn each frame, causing older car positions to fade out naturally.
+//          Each car gets a gradient tail line from its current position backwards along its
+//          frame-to-frame heading vector, plus the dot, labels, and badges.
+function drawCarLayer(
+  ghostCtx: CanvasRenderingContext2D,
+  interpolated: InterpolatedPosition[],
+  bounds: TrackBounds,
+  prevFramePositions: Map<number, { px: number; py: number }>,
+  w: number,
+  h: number,
+  skipFade = false,
+) {
+  // Semi-transparent fade — creates the ghosting/comet trail effect
+  // Skipped when caller already applied fade at identity before transform
+  if (!skipFade) {
+    ghostCtx.fillStyle = `rgba(10, 14, 26, ${GHOST_ALPHA})`;
+    ghostCtx.fillRect(0, 0, w, h);
+  }
+
+  // Sort by position for Z-ordering (P1 drawn last = on top)
   const sorted = [...interpolated].sort((a, b) => b.position - a.position);
 
   for (const pos of sorted) {
     const { px, py } = projectToCanvas(pos.x, pos.y, bounds, w, h);
     const colour = pos.teamColour.startsWith('#') ? pos.teamColour : `#${pos.teamColour}`;
+    const rgb = hexToRgb(colour);
 
     const isLeadGroup = pos.position <= 3;
     const dotRadius = isLeadGroup ? 6 : 5;
 
-    // ── 6a. Glow for lead group ────────────────────────────────────────────────
-    if (isLeadGroup) {
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = colour;
-    } else {
-      ctx.shadowBlur = 0;
-    }
-
-    // ── 6b. Alpha based on state ───────────────────────────────────────────────
+    // Alpha based on state
     if (pos.retired) {
-      ctx.globalAlpha = 0.25;
+      ghostCtx.globalAlpha = 0.25;
     } else if (pos.inPit) {
-      ctx.globalAlpha = 0.55;
+      ghostCtx.globalAlpha = 0.55;
     } else {
-      ctx.globalAlpha = 1.0;
+      ghostCtx.globalAlpha = 1.0;
     }
 
-    // ── 6c. Pit dashed circle outline ──────────────────────────────────────────
+    // ── Comet tail — gradient line from head backwards along heading ──────────
+    const prevPos = prevFramePositions.get(pos.driverNumber);
+    if (prevPos && !pos.inPit && !pos.retired) {
+      const dx = px - prevPos.px;
+      const dy = py - prevPos.py;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 1) {
+        // Normalise and compute tail endpoint (behind the car)
+        const tailLen = Math.min(dist * 2, MAX_TAIL_LENGTH);
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const tailX = px - nx * tailLen;
+        const tailY = py - ny * tailLen;
+
+        const tailGrad = ghostCtx.createLinearGradient(tailX, tailY, px, py);
+        tailGrad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+        tailGrad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`);
+
+        ghostCtx.beginPath();
+        ghostCtx.moveTo(tailX, tailY);
+        ghostCtx.lineTo(px, py);
+        ghostCtx.strokeStyle = tailGrad;
+        ghostCtx.lineWidth = isLeadGroup ? 3 : 2;
+        ghostCtx.lineCap = 'round';
+        ghostCtx.stroke();
+      }
+    }
+
+    // ── Glow for lead group ──────────────────────────────────────────────────
+    if (isLeadGroup) {
+      ghostCtx.shadowBlur = 12;
+      ghostCtx.shadowColor = colour;
+    } else {
+      ghostCtx.shadowBlur = 0;
+    }
+
+    // ── Pit dashed circle outline ────────────────────────────────────────────
     if (pos.inPit) {
-      ctx.beginPath();
-      ctx.arc(px, py, dotRadius + 3, 0, Math.PI * 2);
-      ctx.strokeStyle = colour;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([2, 2]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      ghostCtx.beginPath();
+      ghostCtx.arc(px, py, dotRadius + 3, 0, Math.PI * 2);
+      ghostCtx.strokeStyle = colour;
+      ghostCtx.lineWidth = 1;
+      ghostCtx.setLineDash([2, 2]);
+      ghostCtx.stroke();
+      ghostCtx.setLineDash([]);
     }
 
-    // ── 6d. Car dot ────────────────────────────────────────────────────────────
-    ctx.beginPath();
-    ctx.arc(px, py, dotRadius, 0, Math.PI * 2);
-    ctx.fillStyle = colour;
-    ctx.fill();
+    // ── Car dot ──────────────────────────────────────────────────────────────
+    ghostCtx.beginPath();
+    ghostCtx.arc(px, py, dotRadius, 0, Math.PI * 2);
+    ghostCtx.fillStyle = colour;
+    ghostCtx.fill();
 
-    // ── 6e. DRS indicator — small green wing line above car ────────────────────
+    // ── DRS indicator ────────────────────────────────────────────────────────
     if (pos.hasDrs) {
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = '#00ff87';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      // 4px wide horizontal line 6px above car centre
-      ctx.moveTo(px - 4, py - dotRadius - 4);
-      ctx.lineTo(px + 4, py - dotRadius - 4);
-      ctx.stroke();
+      ghostCtx.shadowBlur = 0;
+      ghostCtx.strokeStyle = '#00ff87';
+      ghostCtx.lineWidth = 1.5;
+      ghostCtx.beginPath();
+      ghostCtx.moveTo(px - 4, py - dotRadius - 4);
+      ghostCtx.lineTo(px + 4, py - dotRadius - 4);
+      ghostCtx.stroke();
     }
 
     // Reset shadow/alpha before labels
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = pos.retired ? 0.25 : pos.inPit ? 0.55 : 1.0;
+    ghostCtx.shadowBlur = 0;
+    ghostCtx.globalAlpha = pos.retired ? 0.25 : pos.inPit ? 0.55 : 1.0;
 
-    // ── 6f. Driver code label (all drivers) ────────────────────────────────────
-    ctx.font = 'bold 8px "SF Mono", "Courier New", monospace';
-    ctx.fillStyle = colour;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(pos.driverCode, px + dotRadius + 2, py + 1);
+    // ── Driver code label ────────────────────────────────────────────────────
+    ghostCtx.font = 'bold 8px "SF Mono", "Courier New", monospace';
+    ghostCtx.fillStyle = colour;
+    ghostCtx.textAlign = 'left';
+    ghostCtx.textBaseline = 'middle';
+    ghostCtx.fillText(pos.driverCode, px + dotRadius + 2, py + 1);
 
-    // ── 6g. Position badge for P1-P3 ──────────────────────────────────────────
+    // ── Position badge for P1-P3 ─────────────────────────────────────────────
     if (isLeadGroup) {
       const badgeCx = px - dotRadius - 8;
       const badgeCy = py - dotRadius - 6;
       const badgeR = 7;
 
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1.0;
+      ghostCtx.shadowBlur = 0;
+      ghostCtx.globalAlpha = 1.0;
 
-      // White circle badge background
-      ctx.beginPath();
-      ctx.arc(badgeCx, badgeCy, badgeR, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.90)';
-      ctx.fill();
+      ghostCtx.beginPath();
+      ghostCtx.arc(badgeCx, badgeCy, badgeR, 0, Math.PI * 2);
+      ghostCtx.fillStyle = 'rgba(255,255,255,0.90)';
+      ghostCtx.fill();
 
-      // Position number inside badge
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 7px "SF Mono", monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(pos.position), badgeCx, badgeCy + 0.5);
+      ghostCtx.fillStyle = '#000000';
+      ghostCtx.font = 'bold 7px "SF Mono", monospace';
+      ghostCtx.textAlign = 'center';
+      ghostCtx.textBaseline = 'middle';
+      ghostCtx.fillText(String(pos.position), badgeCx, badgeCy + 0.5);
     }
 
+    // Update prevFramePositions for next frame's heading calculation
+    prevFramePositions.set(pos.driverNumber, { px, py });
+
     // Reset for next driver
-    ctx.globalAlpha = 1.0;
-    ctx.shadowBlur = 0;
-    ctx.setLineDash([]);
+    ghostCtx.globalAlpha = 1.0;
+    ghostCtx.shadowBlur = 0;
+    ghostCtx.setLineDash([]);
   }
 
   // Final state reset
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
+  ghostCtx.textAlign = 'left';
+  ghostCtx.textBaseline = 'alphabetic';
 }
 
-// GUID: PIT_WALL_TRACK_MAP-005-v03
-// [Intent] Main PitWallTrackMap component — manages canvas, ResizeObserver, and RAF loop.
-//          v02: Interpolation absorbed internally. Single RAF loop lerps positions AND draws,
-//               eliminating all React state from the rendering hot path.
-//          v03: Accepts circuitPath (accumulated outline), hasLiveSession, positionDataAvailable,
-//               nextRaceName, lastMeetingName for richer canvas states.
+// GUID: PIT_WALL_TRACK_MAP-005-v04
+// [Intent] Main PitWallTrackMap component — manages dual canvases, ResizeObserver, and RAF loop.
+//          v02: Interpolation absorbed internally.
+//          v03: Circuit outline, no-data states.
+//          v04: Dual-canvas ghost/comet trail rendering. Offscreen ghostCanvas accumulates
+//               semi-transparent car frames; composited onto main canvas after static layer.
+//               prevFramePositionsRef tracks per-car screen-space position for heading calc.
 export function PitWallTrackMap({
   drivers,
   updateIntervalMs,
@@ -299,11 +371,27 @@ export function PitWallTrackMap({
   positionDataAvailable,
   nextRaceName,
   lastMeetingName,
+  followDriver,
   className,
 }: PitWallTrackMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
+
+  // GUID: PIT_WALL_TRACK_MAP-016-v01
+  const ghostCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // GUID: PIT_WALL_TRACK_MAP-017-v01
+  const prevFramePositionsRef = useRef<Map<number, { px: number; py: number }>>(new Map());
+
+  // GUID: PIT_WALL_TRACK_MAP-020-v01
+  // [Intent] Follow-mode camera state — current zoom and offset that lerp toward their
+  //          targets each frame. When followDriver is null, targets are zoom=1, offset={0,0}.
+  //          When following, targets are zoom=FOLLOW_ZOOM with offset centering the driver.
+  const followDriverRef = useRef<number | null>(null);
+  const cameraZoomRef = useRef(1);
+  const cameraOffsetXRef = useRef(0);
+  const cameraOffsetYRef = useRef(0);
 
   // Latest mutable refs so RAF callback always sees current data without re-registering
   const driversRef = useRef(drivers);
@@ -327,6 +415,23 @@ export function PitWallTrackMap({
   positionDataAvailableRef.current = positionDataAvailable;
   nextRaceNameRef.current = nextRaceName;
   lastMeetingNameRef.current = lastMeetingName;
+  followDriverRef.current = followDriver;
+
+  // GUID: PIT_WALL_TRACK_MAP-018-v01
+  // [Intent] Track polyline for snap-to-track interpolation. Rebuilt when circuit path
+  //          grows significantly (> 50 new points since last build). Null until enough
+  //          path data is available. When available, lerp happens in 1D track-space
+  //          instead of 2D GPS-space, preventing corner cutting during interpolation.
+  const trackPolylineRef = useRef<TrackPolyline | null>(null);
+  const lastPolylineLengthRef = useRef<number>(0);
+
+  useEffect(() => {
+    const pathLen = circuitPath.length;
+    if (pathLen < 20) return;
+    if (pathLen - lastPolylineLengthRef.current < 50 && trackPolylineRef.current) return;
+    trackPolylineRef.current = buildTrackPolyline(circuitPath);
+    lastPolylineLengthRef.current = pathLen;
+  }, [circuitPath]);
 
   // Interpolation refs — no React state, pure mutable slots
   const prevPositionsRef = useRef<Map<number, { x: number; y: number }>>(new Map());
@@ -363,17 +468,29 @@ export function PitWallTrackMap({
     snapshotTimestampRef.current = Date.now();
   }, [drivers]);
 
-  // GUID: PIT_WALL_TRACK_MAP-006-v02
+  // GUID: PIT_WALL_TRACK_MAP-006-v03
   // [Intent] Single RAF draw loop — interpolates positions AND draws each frame.
-  //          Reads all data from refs so it never needs to be re-registered.
-  //          v02: lerp logic merged in from useCarInterpolation; no setInterpolated state call.
+  //          v03: Dual-canvas rendering — static layer on main canvas, car layer on ghost
+  //               canvas (comet trails via semi-transparent fade), then composite.
   const startLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Lazily create offscreen ghost canvas
+    if (!ghostCanvasRef.current) {
+      ghostCanvasRef.current = document.createElement('canvas');
+      ghostCanvasRef.current.width = canvas.width;
+      ghostCanvasRef.current.height = canvas.height;
+    }
+
     const loop = () => {
       const ctx = canvas.getContext('2d');
-      if (!ctx) { rafRef.current = requestAnimationFrame(loop); return; }
+      const ghostCanvas = ghostCanvasRef.current;
+      const ghostCtx = ghostCanvas?.getContext('2d');
+      if (!ctx || !ghostCanvas || !ghostCtx) {
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
 
       // ── Interpolate positions inline ─────────────────────────────────────────
       const now = Date.now();
@@ -381,13 +498,40 @@ export function PitWallTrackMap({
       const t = Math.min(1, elapsed / (updateIntervalMsRef.current || 60000));
       const currentDrivers = driversRef.current;
 
+      const poly = trackPolylineRef.current;
+
       const interpolated: InterpolatedPosition[] = currentDrivers
         .filter(d => nextPositionsRef.current.has(d.driverNumber))
         .map(d => {
           const prev = prevPositionsRef.current.get(d.driverNumber);
           const next = nextPositionsRef.current.get(d.driverNumber)!;
-          const x = prev ? lerp(prev.x, next.x, t) : next.x;
-          const y = prev ? lerp(prev.y, next.y, t) : next.y;
+
+          let x: number, y: number;
+
+          if (poly && prev) {
+            // Snap-to-track: project prev and next into 1D track-space,
+            // lerp in 1D, then convert back to 2D via polyline.
+            const prevParam = projectOntoTrack(poly, prev.x, prev.y);
+            let nextParam = projectOntoTrack(poly, next.x, next.y);
+
+            // Handle lap wraparound — if the gap is more than half the track,
+            // the car crossed the start/finish line.
+            if (prevParam - nextParam > poly.totalLength * 0.5) {
+              nextParam += poly.totalLength;
+            } else if (nextParam - prevParam > poly.totalLength * 0.5) {
+              nextParam -= poly.totalLength;
+            }
+
+            const interpParam = lerp(prevParam, nextParam, t);
+            const pt = paramToPoint(poly, interpParam);
+            x = pt.x;
+            y = pt.y;
+          } else {
+            // Fallback: raw 2D lerp when polyline not yet available
+            x = prev ? lerp(prev.x, next.x, t) : next.x;
+            y = prev ? lerp(prev.y, next.y, t) : next.y;
+          }
+
           return {
             driverNumber: d.driverNumber,
             x,
@@ -401,8 +545,41 @@ export function PitWallTrackMap({
           };
         });
 
-      // ── Draw ─────────────────────────────────────────────────────────────────
-      drawFrame(
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // ── Follow-mode camera lerp ────────────────────────────────────────────
+      // GUID: PIT_WALL_TRACK_MAP-021-v01
+      // Compute target zoom/offset, then lerp current camera state toward it.
+      let targetZoom = 1;
+      let targetOffX = 0;
+      let targetOffY = 0;
+
+      const followNum = followDriverRef.current;
+      if (followNum !== null && boundsRef.current) {
+        const followed = interpolated.find(p => p.driverNumber === followNum);
+        if (followed) {
+          const { px, py } = projectToCanvas(followed.x, followed.y, boundsRef.current, w, h);
+          targetZoom = FOLLOW_ZOOM;
+          targetOffX = w / 2 - px * targetZoom;
+          targetOffY = h / 2 - py * targetZoom;
+        }
+      }
+
+      cameraZoomRef.current    += (targetZoom  - cameraZoomRef.current)    * FOLLOW_LERP_SPEED;
+      cameraOffsetXRef.current += (targetOffX  - cameraOffsetXRef.current) * FOLLOW_LERP_SPEED;
+      cameraOffsetYRef.current += (targetOffY  - cameraOffsetYRef.current) * FOLLOW_LERP_SPEED;
+
+      // Snap when very close to avoid perpetual micro-lerp
+      if (Math.abs(cameraZoomRef.current - targetZoom) < 0.005) cameraZoomRef.current = targetZoom;
+
+      const zoom = cameraZoomRef.current;
+      const offX = cameraOffsetXRef.current;
+      const offY = cameraOffsetYRef.current;
+      const hasTransform = zoom !== 1 || offX !== 0 || offY !== 0;
+
+      // ── Draw static layer (main canvas — full clear inside drawStaticLayer) ──
+      const shouldDrawCars = drawStaticLayer(
         ctx,
         interpolated,
         boundsRef.current,
@@ -413,9 +590,63 @@ export function PitWallTrackMap({
         positionDataAvailableRef.current,
         nextRaceNameRef.current,
         lastMeetingNameRef.current,
-        canvas.width,
-        canvas.height
+        w,
+        h
       );
+
+      // ── Draw car layer (ghost canvas — comet trails) then composite ────────
+      if (shouldDrawCars && boundsRef.current) {
+        // Ghost alpha fade must happen at identity (covers full canvas) BEFORE transform
+        if (hasTransform) {
+          ghostCtx.fillStyle = `rgba(10, 14, 26, ${GHOST_ALPHA})`;
+          ghostCtx.fillRect(0, 0, w, h);
+          ghostCtx.save();
+          ghostCtx.setTransform(zoom, 0, 0, zoom, offX, offY);
+        }
+
+        drawCarLayer(
+          ghostCtx,
+          interpolated,
+          boundsRef.current,
+          prevFramePositionsRef.current,
+          w,
+          h,
+          hasTransform, // skip fade when transform is active (already applied at identity)
+        );
+
+        if (hasTransform) ghostCtx.restore();
+
+        // GUID: PIT_WALL_TRACK_MAP-022-v01
+        // [Intent] Draw tracking ring around followed driver on the ghost canvas.
+        if (followNum !== null && boundsRef.current) {
+          const followed = interpolated.find(p => p.driverNumber === followNum);
+          if (followed) {
+            const { px, py } = projectToCanvas(followed.x, followed.y, boundsRef.current, w, h);
+            // Apply transform manually for the ring position
+            const ringX = px * zoom + offX;
+            const ringY = py * zoom + offY;
+            ghostCtx.beginPath();
+            ghostCtx.arc(ringX, ringY, 14 * zoom, 0, Math.PI * 2);
+            ghostCtx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ghostCtx.lineWidth = 1.5;
+            ghostCtx.setLineDash([3, 3]);
+            ghostCtx.stroke();
+            ghostCtx.setLineDash([]);
+          }
+        }
+
+        // Composite ghost canvas onto main with transform
+        if (hasTransform) {
+          ctx.save();
+          ctx.setTransform(zoom, 0, 0, zoom, offX, offY);
+        }
+        ctx.drawImage(ghostCanvas, 0, 0);
+        if (hasTransform) ctx.restore();
+      } else {
+        // No cars — clear ghost canvas so stale trails don't persist
+        ghostCtx.clearRect(0, 0, w, h);
+        prevFramePositionsRef.current.clear();
+      }
 
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -423,20 +654,32 @@ export function PitWallTrackMap({
     rafRef.current = requestAnimationFrame(loop);
   }, []);
 
-  // GUID: PIT_WALL_TRACK_MAP-007-v01
-  // [Intent] ResizeObserver keeps canvas pixel dimensions in sync with its CSS container size.
+  // GUID: PIT_WALL_TRACK_MAP-007-v02
+  // [Intent] ResizeObserver keeps both canvases in sync with CSS container size.
+  //          v02: Also resizes ghost canvas and clears prevFramePositions on resize
+  //               (screen-space positions are invalid after resize).
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
+    const resizeCanvases = (width: number, height: number) => {
+      const w = Math.floor(width);
+      const h = Math.floor(height);
+      canvas.width = w;
+      canvas.height = h;
+      if (ghostCanvasRef.current) {
+        ghostCanvasRef.current.width = w;
+        ghostCanvasRef.current.height = h;
+      }
+      // Screen-space positions are stale after resize
+      prevFramePositionsRef.current.clear();
+    };
+
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        if (width > 0 && height > 0) {
-          canvas.width = Math.floor(width);
-          canvas.height = Math.floor(height);
-        }
+        if (width > 0 && height > 0) resizeCanvases(width, height);
       }
     });
 
@@ -444,10 +687,7 @@ export function PitWallTrackMap({
 
     // Seed initial size
     const { width, height } = container.getBoundingClientRect();
-    if (width > 0 && height > 0) {
-      canvas.width = Math.floor(width);
-      canvas.height = Math.floor(height);
-    }
+    if (width > 0 && height > 0) resizeCanvases(width, height);
 
     return () => observer.disconnect();
   }, []);

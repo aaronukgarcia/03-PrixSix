@@ -58,11 +58,10 @@ function buildReplayDriverState(
   };
 }
 
-// GUID: REPLAY_PLAYER_HOOK-002-v01
-// [Intent] Download replay JSON from a public Storage URL with progress tracking.
-//          Uses fetch ReadableStream to report progress via onProgress callback
-//          when Content-Length is available. Falls back to indeterminate (-1) otherwise.
-async function downloadReplayData(
+// GUID: REPLAY_PLAYER_HOOK-002-v02
+// [Intent] Legacy download: fetch entire JSON replay from a public Storage URL with progress.
+//          Renamed from downloadReplayData — kept for backward compatibility with monolithic JSON files.
+async function downloadReplayDataLegacy(
   downloadUrl: string,
   onProgress: (fraction: number) => void,
 ): Promise<HistoricalReplayData> {
@@ -100,6 +99,141 @@ async function downloadReplayData(
   return JSON.parse(text) as HistoricalReplayData;
 }
 
+// GUID: REPLAY_PLAYER_HOOK-006-v01
+// [Intent] NDJSON streaming download for instant-start playback.
+//          Format: line 1 = metadata { drivers, durationMs, samplingIntervalMs },
+//          lines 2+ = frame objects { virtualTimeMs, positions, radioMessages? }.
+//          Calls onFramesReady after 60 frames so playback can start while streaming continues.
+//          Falls back to legacy JSON path if URL does not end in .ndjson.
+async function streamReplayData(
+  downloadUrl: string,
+  onProgress: (fraction: number) => void,
+  onFramesReady: (data: HistoricalReplayData) => void,
+): Promise<HistoricalReplayData> {
+  // Format detection: only use NDJSON streaming for .ndjson URLs
+  const isNdjson = downloadUrl.split('?')[0].endsWith('.ndjson');
+  if (!isNdjson) {
+    // Legacy JSON — download fully then signal ready
+    const data = await downloadReplayDataLegacy(downloadUrl, onProgress);
+    onFramesReady(data);
+    return data;
+  }
+
+  const res = await fetch(downloadUrl, { cache: 'force-cache' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching NDJSON replay data`);
+
+  if (!res.body) {
+    // No ReadableStream — fall back to text parse
+    const text = await res.text();
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+    if (lines.length < 2) throw new Error('NDJSON replay has no frames');
+    const meta = JSON.parse(lines[0]);
+    const frames = lines.slice(1).map(l => JSON.parse(l));
+    const data: HistoricalReplayData = {
+      sessionKey: meta.sessionKey ?? 0,
+      sessionName: meta.sessionName ?? '',
+      meetingName: meta.meetingName ?? '',
+      drivers: meta.drivers ?? [],
+      frames,
+      durationMs: meta.durationMs ?? 0,
+      totalLaps: meta.totalLaps ?? null,
+    };
+    onFramesReady(data);
+    return data;
+  }
+
+  // Streaming NDJSON via ReadableStream
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let metaParsed = false;
+  let readyFired = false;
+  const READY_THRESHOLD = 60;
+
+  // Mutable data object — frames array grows as lines arrive
+  const data: HistoricalReplayData = {
+    sessionKey: 0,
+    sessionName: '',
+    meetingName: '',
+    drivers: [],
+    frames: [],
+    durationMs: 0,
+    totalLaps: null,
+  };
+
+  // Estimate total frames from metadata (if available) for progress reporting
+  let estimatedTotal = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (value) buffer += decoder.decode(value, { stream: true });
+
+    // Process complete lines
+    let newlineIdx: number;
+    while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newlineIdx).trim();
+      buffer = buffer.slice(newlineIdx + 1);
+      if (line.length === 0) continue;
+
+      if (!metaParsed) {
+        // First line: metadata
+        const meta = JSON.parse(line);
+        data.sessionKey = meta.sessionKey ?? 0;
+        data.sessionName = meta.sessionName ?? '';
+        data.meetingName = meta.meetingName ?? '';
+        data.drivers = meta.drivers ?? [];
+        data.durationMs = meta.durationMs ?? 0;
+        data.totalLaps = meta.totalLaps ?? null;
+        // Estimate frame count from duration and sampling interval
+        const interval = meta.samplingIntervalMs ?? 500;
+        estimatedTotal = interval > 0 ? Math.ceil(data.durationMs / interval) : 1000;
+        metaParsed = true;
+      } else {
+        // Frame line — parse and append (mutate in place)
+        const frame = JSON.parse(line);
+        data.frames.push(frame);
+
+        // Report progress
+        onProgress(estimatedTotal > 0 ? Math.min(0.99, data.frames.length / estimatedTotal) : 0.5);
+
+        // Fire onFramesReady once we have enough frames for instant-start playback
+        if (!readyFired && data.frames.length >= READY_THRESHOLD) {
+          readyFired = true;
+          onFramesReady(data);
+        }
+      }
+    }
+
+    if (done) break;
+  }
+
+  // Process any remaining buffer content (last line without trailing newline)
+  const remaining = buffer.trim();
+  if (remaining.length > 0) {
+    if (!metaParsed) {
+      const meta = JSON.parse(remaining);
+      data.sessionKey = meta.sessionKey ?? 0;
+      data.sessionName = meta.sessionName ?? '';
+      data.meetingName = meta.meetingName ?? '';
+      data.drivers = meta.drivers ?? [];
+      data.durationMs = meta.durationMs ?? 0;
+      data.totalLaps = meta.totalLaps ?? null;
+      metaParsed = true;
+    } else {
+      data.frames.push(JSON.parse(remaining));
+    }
+  }
+
+  onProgress(1);
+
+  // If we never hit the threshold (very short replay), fire now
+  if (!readyFired && data.frames.length > 0) {
+    onFramesReady(data);
+  }
+
+  return data;
+}
+
 // GUID: REPLAY_PLAYER_HOOK-003-v01
 // [Intent] Full-transport RAF-based playback hook. Manages download, virtual time, and controls.
 //          Virtual time is: virtualOffsetMs + (Date.now() - startWallMs) × speed.
@@ -117,6 +251,8 @@ export function useReplayPlayer(
   const [speed,            setSpeedState]        = useState<ReplaySpeed>(1);
   const [error,            setError]             = useState<string | null>(null);
   const [replayDrivers,    setReplayDrivers]     = useState<ReplayDriverState[]>([]);
+  const [framesLoaded,     setFramesLoaded]      = useState(0);
+  const [replayRadioMessages, setReplayRadioMessages] = useState<Array<{ driverNumber: number; message: string; utcTimestamp: string }>>([]);
 
   // Stable refs — never trigger re-renders
   const replayDataRef        = useRef<HistoricalReplayData | null>(null);
@@ -190,6 +326,12 @@ export function useReplayPlayer(
       setReplayDrivers(nextDrivers);
       setElapsedMs(virtualMs);
       setProgress(Math.min(1, virtualMs / data.durationMs));
+
+      // GUID: REPLAY_PLAYER_HOOK-007-v01
+      // [Intent] Emit radio messages from the current frame (if any) by prepending to state.
+      if (frame.radioMessages && frame.radioMessages.length > 0) {
+        setReplayRadioMessages(prev => [...frame.radioMessages!, ...prev]);
+      }
     }
 
     rafHandleRef.current = requestAnimationFrame(tick);
@@ -297,6 +439,8 @@ export function useReplayPlayer(
     setDurationMs(0);
     setError(null);
     setDownloadProgress(0);
+    setFramesLoaded(0);
+    setReplayRadioMessages([]);
 
     if (!session) {
       updatePlaybackState('idle');
@@ -306,17 +450,31 @@ export function useReplayPlayer(
     let cancelled = false;
     updatePlaybackState('loading');
 
-    downloadReplayData(session.downloadUrl, fraction => {
-      if (!cancelled) setDownloadProgress(fraction);
-    })
-      .then(data => {
+    // GUID: REPLAY_PLAYER_HOOK-008-v01
+    // [Intent] Use streamReplayData for instant-start playback.
+    //          onFramesReady fires after 60 NDJSON frames (or immediately for legacy JSON),
+    //          allowing playback to begin while the rest of the file streams in.
+    streamReplayData(
+      session.downloadUrl,
+      fraction => { if (!cancelled) setDownloadProgress(fraction); },
+      data => {
         if (cancelled) return;
+        // Partial or full data ready — set ref and start playback
         replayDataRef.current = data;
         setDurationMs(data.durationMs);
-        setDownloadProgress(1);
+        setFramesLoaded(data.frames.length);
         updatePlaybackState('ready');
         // Auto-play on load
         startRafFrom(0);
+      },
+    )
+      .then(data => {
+        if (cancelled) return;
+        // Streaming complete — ensure ref points to final data and update frame count
+        replayDataRef.current = data;
+        setDurationMs(data.durationMs);
+        setFramesLoaded(data.frames.length);
+        setDownloadProgress(1);
       })
       .catch(err => {
         if (cancelled) return;
@@ -348,7 +506,9 @@ export function useReplayPlayer(
     durationMs,
     speed,
     error,
+    framesLoaded,
     replayDrivers,
+    replayRadioMessages,
     play,
     pause,
     seek,

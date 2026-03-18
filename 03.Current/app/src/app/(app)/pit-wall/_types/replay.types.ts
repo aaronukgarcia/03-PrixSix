@@ -39,8 +39,9 @@ export type ReplayPlaybackState =
 // [Intent] Discrete playback speed multipliers for the speed selector.
 export type ReplaySpeed = 0.5 | 1 | 2 | 4 | 8;
 
-// GUID: REPLAY_TYPES-004-v01
+// GUID: REPLAY_TYPES-004-v02
 // [Intent] Return type for the useReplayPlayer hook.
+//          v02: Added framesLoaded (NDJSON streaming progress) and replayRadioMessages.
 export interface UseReplayPlayerReturn {
   // State
   playbackState:    ReplayPlaybackState;
@@ -50,8 +51,11 @@ export interface UseReplayPlayerReturn {
   durationMs:       number;     // total replay duration in ms
   speed:            ReplaySpeed;
   error:            string | null;
+  framesLoaded:     number;     // number of frames loaded so far (for NDJSON streaming progress)
   // Driver positions emitted each frame (drop-in for DriverRaceState[])
   replayDrivers:    import('./showreel.types').ReplayDriverState[];
+  // Radio messages encountered during replay playback
+  replayRadioMessages: Array<{ driverNumber: number; message: string; utcTimestamp: string }>;
   // Controls
   play:             () => void;
   pause:            () => void;

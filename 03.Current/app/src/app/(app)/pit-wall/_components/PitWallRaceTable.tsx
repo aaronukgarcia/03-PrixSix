@@ -1,14 +1,15 @@
-// GUID: PIT_WALL_RACE_TABLE-000-v02
-// [Intent] Div-grid race data table with Framer Motion row animations.
-//          F1 timing tower style — driver rows reorder with spring physics.
+// GUID: PIT_WALL_RACE_TABLE-000-v03
+// [Intent] Div-grid race data table with CSS position-change flashes.
+//          F1 broadcast style — rows snap instantly, green/red flash on position change.
+//          v03: Replaced Framer Motion spring animations with CSS keyframe flashes.
+//               Removed React.memo — 20 plain div rows are trivial to reconcile.
 // [Inbound Trigger] Rendered by PitWallClient as the primary race data view.
 // [Downstream Impact] Reads DriverRaceState[] and RadioMessage[]; writes nothing.
 //                     onRadioClick bubbles up to open RadioZoomPanel.
 
 'use client';
 
-import { useMemo, memo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { buildGridTemplate, PIT_WALL_COLUMNS } from '../_types/columns';
 import type { DriverRaceState, RadioMessage, SectorStatus } from '../_types/pit-wall.types';
@@ -18,15 +19,16 @@ import { TyreBadge } from './TyreBadge';
 import { DeltaIndicator } from './DeltaIndicator';
 import { RadioIcon } from './RadioIcon';
 
-// GUID: PIT_WALL_RACE_TABLE-001-v01
-// [Intent] The grid container uses CSS grid-template-columns derived from visible columns.
-//          Rows animate in/out and reorder using Framer Motion layoutId on the outer row div.
+// GUID: PIT_WALL_RACE_TABLE-001-v02
+// [Intent] Props for the race table. v02: Added onDriverClick + followDriver for follow-mode camera.
 interface PitWallRaceTableProps {
   drivers: DriverRaceState[];
   radioMessages: RadioMessage[];
   visibleColumns: string[];
   radioState: UseRadioStateReturn;
   onRadioClick: (driverNumber: number) => void;
+  onDriverClick?: (driverNumber: number) => void;
+  followDriver?: number | null;
   sortKey: string | null;
   onSort: (key: string) => void;
   totalLaps: number | null;
@@ -42,12 +44,12 @@ function formatSectorTime(seconds: number | null): string {
   return `${s}.${ms.toString().padStart(3, '0')}`;
 }
 
-// GUID: PIT_WALL_RACE_TABLE-003-v01
-// [Intent] Derive Tailwind text colour class from SectorStatus.
+// GUID: PIT_WALL_RACE_TABLE-003-v02
+// [Intent] Derive Tailwind text colour + glow animation class from SectorStatus.
 function sectorColour(status: SectorStatus): string {
   switch (status) {
-    case 'session_best':  return 'text-green-400';
-    case 'personal_best': return 'text-purple-400';
+    case 'session_best':  return 'text-green-400 animate-sector-green-glow';
+    case 'personal_best': return 'text-purple-400 animate-sector-purple-glow';
     case 'normal':        return 'text-slate-300';
     default:              return 'text-slate-500';
   }
@@ -322,10 +324,15 @@ function CellContent({
   }
 }
 
-// GUID: PIT_WALL_RACE_TABLE-007-v01
+// GUID: PIT_WALL_RACE_TABLE-007-v02
 // [Intent] Row background tint based on driver state (retired, in pit, fastest, leader).
+//          v02: Adds CSS position-change flash — green for gained, red for lost.
+//          Flash is a 1.5s ease-out animation that fires on every React reconciliation
+//          where positionChange !== 0 (browser de-dups identical animation names).
 function rowBgClass(driver: DriverRaceState): string {
   if (driver.retired) return 'opacity-40';
+  if (driver.positionChange > 0) return 'animate-position-gain';
+  if (driver.positionChange < 0) return 'animate-position-loss';
   if (driver.fastestLap) return 'bg-purple-950/30';
   if (driver.inPit) return 'bg-orange-950/20';
   if (driver.position === 1) return 'bg-yellow-950/10';
@@ -339,146 +346,98 @@ function SortIndicator({ colKey, sortKey }: { colKey: string; sortKey: string | 
   return <span className="text-blue-400 ml-0.5">↑</span>;
 }
 
-// GUID: PIT_WALL_RACE_TABLE-010-v01
-// [Intent] Props for DriverRow — all values are primitives or stable references so
-//          React.memo can do a cheap equality check without deep comparison.
-interface DriverRowProps {
+// GUID: PIT_WALL_RACE_TABLE-011-v03
+// [Intent] Plain div row with follow-mode highlight. Click anywhere on the row to
+//          toggle follow-mode camera in the track map. Orange ring when followed.
+function DriverRow({
+  driver,
+  unreadCount,
+  visibleColDefs,
+  gridTemplate,
+  onRadioClick,
+  onDriverClick,
+  isFollowed,
+  totalLaps,
+}: {
   driver: DriverRaceState;
   unreadCount: number;
   visibleColDefs: typeof PIT_WALL_COLUMNS;
-  visibleColumns: string[];
   gridTemplate: string;
   onRadioClick: () => void;
+  onDriverClick?: () => void;
+  isFollowed?: boolean;
   totalLaps: number | null;
-  sortKey: string | null;
+}) {
+  return (
+    <div
+      className={cn(
+        'grid border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors cursor-pointer',
+        rowBgClass(driver),
+        isFollowed && 'ring-1 ring-inset ring-orange-500/50 bg-orange-950/10'
+      )}
+      style={{ gridTemplateColumns: gridTemplate, contain: 'content' }}
+      role="row"
+      aria-label={`${driver.driverCode} position ${driver.position}`}
+      onClick={onDriverClick}
+    >
+      {visibleColDefs.map((col) => (
+        <div
+          key={col.key}
+          className={cn(
+            'px-2 py-1.5 overflow-hidden',
+            col.key === 'position' && 'border-l-2'
+          )}
+          style={
+            col.key === 'position'
+              ? { borderLeftColor: positionBorderColour(driver.position) }
+              : undefined
+          }
+          role="cell"
+        >
+          <CellContent
+            columnKey={col.key}
+            driver={driver}
+            unreadCount={unreadCount}
+            onRadioClick={onRadioClick}
+            totalLaps={totalLaps}
+          />
+        </div>
+      ))}
+    </div>
+  );
 }
 
-// GUID: PIT_WALL_RACE_TABLE-011-v01
-// [Intent] Memoised per-driver row component — skips re-render when all driving data
-//          and display config are unchanged between polls.
-//          Custom comparator checks every field that affects visual output:
-//          positional data, lap times, sectors, tyre, DRS, pit/retired flags,
-//          radio unread count, column layout, and sort key.
-//          onRadioClick must be a stable reference (useCallback in the parent) for
-//          memo to be effective.
-const DriverRow = memo(
-  function DriverRow({
-    driver,
-    unreadCount,
-    visibleColDefs,
-    gridTemplate,
-    onRadioClick,
-    totalLaps,
-  }: DriverRowProps) {
-    return (
-      <motion.div
-        layoutId={`pw-row-${driver.driverNumber}`}
-        layout="position"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ layout: { type: 'spring', stiffness: 500, damping: 40 } }}
-        className={cn(
-          'grid border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors',
-          rowBgClass(driver)
-        )}
-        style={{ gridTemplateColumns: gridTemplate }}
-        role="row"
-        aria-label={`${driver.driverCode} position ${driver.position}`}
-      >
-        {visibleColDefs.map((col) => (
-          <div
-            key={col.key}
-            className={cn(
-              'px-2 py-1.5 overflow-hidden',
-              col.key === 'position' && 'border-l-2'
-            )}
-            style={
-              col.key === 'position'
-                ? { borderLeftColor: positionBorderColour(driver.position) }
-                : undefined
-            }
-            role="cell"
-          >
-            <CellContent
-              columnKey={col.key}
-              driver={driver}
-              unreadCount={unreadCount}
-              onRadioClick={onRadioClick}
-              totalLaps={totalLaps}
-            />
-          </div>
-        ))}
-      </motion.div>
-    );
-  },
-  (prev, next) => {
-    const pd = prev.driver;
-    const nd = next.driver;
-
-    // Driver telemetry and state
-    if (pd.driverNumber       !== nd.driverNumber)       return false;
-    if (pd.position           !== nd.position)           return false;
-    if (pd.positionChange     !== nd.positionChange)     return false;
-    if (pd.lastLapTime        !== nd.lastLapTime)        return false;
-    if (pd.bestLapTime        !== nd.bestLapTime)        return false;
-    if (pd.gapToLeader        !== nd.gapToLeader)        return false;
-    if (pd.intervalToAhead    !== nd.intervalToAhead)    return false;
-    if (pd.sectors.s1         !== nd.sectors.s1)         return false;
-    if (pd.sectors.s2         !== nd.sectors.s2)         return false;
-    if (pd.sectors.s3         !== nd.sectors.s3)         return false;
-    if (pd.sectors.s1Status   !== nd.sectors.s1Status)   return false;
-    if (pd.sectors.s2Status   !== nd.sectors.s2Status)   return false;
-    if (pd.sectors.s3Status   !== nd.sectors.s3Status)   return false;
-    if (pd.tyreCompound       !== nd.tyreCompound)       return false;
-    if (pd.tyreLapAge         !== nd.tyreLapAge)         return false;
-    if (pd.pitStopCount       !== nd.pitStopCount)       return false;
-    if (pd.hasDrs             !== nd.hasDrs)             return false;
-    if (pd.retired            !== nd.retired)            return false;
-    if (pd.inPit              !== nd.inPit)              return false;
-    if (pd.speed              !== nd.speed)              return false;
-    if (pd.throttle           !== nd.throttle)           return false;
-    if (pd.currentLap         !== nd.currentLap)         return false;
-    if (pd.fastestLap         !== nd.fastestLap)         return false;
-    if (pd.teamColour         !== nd.teamColour)         return false;
-    if (pd.driverCode         !== nd.driverCode)         return false;
-    if (pd.hasUnreadRadio     !== nd.hasUnreadRadio)     return false;
-    if (pd.isMuted            !== nd.isMuted)            return false;
-
-    // Radio unread count (computed scalar passed from parent)
-    if (prev.unreadCount      !== next.unreadCount)      return false;
-
-    // Display config — shallow reference equality is sufficient because both are
-    // derived from the same useMemo in the parent and only change when columns change.
-    if (prev.visibleColumns   !== next.visibleColumns)   return false;
-    if (prev.visibleColDefs   !== next.visibleColDefs)   return false;
-    if (prev.gridTemplate     !== next.gridTemplate)     return false;
-    if (prev.sortKey          !== next.sortKey)          return false;
-    if (prev.totalLaps        !== next.totalLaps)        return false;
-
-    // Callback — must be a stable useCallback reference in the parent
-    if (prev.onRadioClick     !== next.onRadioClick)     return false;
-
-    return true; // nothing changed — skip re-render
-  }
-);
-
-// GUID: PIT_WALL_RACE_TABLE-009-v01
-// [Intent] Main PitWallRaceTable component — sticky header + AnimatePresence animated row list.
+// GUID: PIT_WALL_RACE_TABLE-009-v02
+// [Intent] Main PitWallRaceTable component — sticky header + row list.
+//          v02: Holds last valid driver data in a ref so the table never flashes
+//               "Waiting for session data" between poll cycles or replay frames.
+//               Only shows the empty state if we've NEVER received any data.
 export function PitWallRaceTable({
   drivers,
   radioMessages,
   visibleColumns,
   radioState,
   onRadioClick,
+  onDriverClick,
+  followDriver,
   sortKey,
   onSort,
   totalLaps,
   className,
 }: PitWallRaceTableProps) {
+  // GUID: PIT_WALL_RACE_TABLE-012-v01
+  // [Intent] Cache last non-empty driver array so the table keeps rendering stale rows
+  //          while new data is in transit. Prevents "Waiting for session data" flash
+  //          between live polls (every 5-60s) and replay frame updates.
+  const lastDriversRef = useRef<DriverRaceState[]>([]);
+  const displayDrivers = drivers.length > 0 ? drivers : lastDriversRef.current;
+  if (drivers.length > 0) lastDriversRef.current = drivers;
+
+  const isStale = drivers.length === 0 && displayDrivers.length > 0;
+
   const sortedDrivers = useMemo(
-    () => sortDrivers(drivers, sortKey),
-    [drivers, sortKey]
+    () => sortDrivers(displayDrivers, sortKey),
+    [displayDrivers, sortKey]
   );
 
   const gridTemplate = useMemo(
@@ -491,19 +450,17 @@ export function PitWallRaceTable({
     [visibleColumns]
   );
 
-  // Stabilise per-driver radio click callbacks so React.memo comparisons on
-  // onRadioClick reference equality are not invalidated on every parent render.
-  // Each driver number gets its own stable callback; the map is keyed by driverNumber.
+  // Stabilise per-driver radio click callbacks
   const radioClickCallbacks = useMemo(() => {
     const map = new Map<number, () => void>();
-    for (const driver of drivers) {
+    for (const driver of displayDrivers) {
       map.set(driver.driverNumber, () => onRadioClick(driver.driverNumber));
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drivers, onRadioClick]);
+  }, [displayDrivers, onRadioClick]);
 
-  if (drivers.length === 0) {
+  if (displayDrivers.length === 0) {
     return (
       <div className={cn('flex-1 flex items-center justify-center text-slate-600 text-sm', className)}>
         Waiting for session data…
@@ -512,7 +469,14 @@ export function PitWallRaceTable({
   }
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div className={cn('flex flex-col h-full relative', className)}>
+      {/* Stale data indicator — shows when holding cached data between updates */}
+      {isStale && (
+        <div className="absolute top-0 right-0 z-20 px-2 py-0.5 text-[9px] text-slate-600 bg-slate-900/80 rounded-bl">
+          updating…
+        </div>
+      )}
+
       {/* ── Header row ── */}
       <div
         className="grid sticky top-0 z-10 bg-slate-950 border-b border-slate-800 shrink-0"
@@ -544,21 +508,19 @@ export function PitWallRaceTable({
 
       {/* ── Scrollable body ── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden" role="rowgroup">
-        <AnimatePresence initial={false}>
-          {sortedDrivers.map((driver) => (
-            <DriverRow
-              key={driver.driverNumber}
-              driver={driver}
-              unreadCount={radioState.unreadCountFor(driver.driverNumber, radioMessages)}
-              visibleColDefs={visibleColDefs}
-              visibleColumns={visibleColumns}
-              gridTemplate={gridTemplate}
-              onRadioClick={radioClickCallbacks.get(driver.driverNumber) ?? (() => onRadioClick(driver.driverNumber))}
-              totalLaps={totalLaps}
-              sortKey={sortKey}
-            />
-          ))}
-        </AnimatePresence>
+        {sortedDrivers.map((driver) => (
+          <DriverRow
+            key={driver.driverNumber}
+            driver={driver}
+            unreadCount={radioState.unreadCountFor(driver.driverNumber, radioMessages)}
+            visibleColDefs={visibleColDefs}
+            gridTemplate={gridTemplate}
+            onRadioClick={radioClickCallbacks.get(driver.driverNumber) ?? (() => onRadioClick(driver.driverNumber))}
+            onDriverClick={onDriverClick ? () => onDriverClick(driver.driverNumber) : undefined}
+            isFollowed={followDriver === driver.driverNumber}
+            totalLaps={totalLaps}
+          />
+        ))}
       </div>
     </div>
   );

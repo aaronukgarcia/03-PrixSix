@@ -200,3 +200,41 @@ body {
     -webkit-user-select: text !important;
   }
 }
+
+/* ── Pit Wall: position-change row flashes ────────────────────────────────── */
+/* F1 broadcast style — instant snap, brief colour flash on position gain/loss */
+@keyframes position-gain {
+  0% { background: rgba(34, 197, 94, 0.2); }
+  100% { background: transparent; }
+}
+
+@keyframes position-loss {
+  0% { background: rgba(239, 68, 68, 0.15); }
+  100% { background: transparent; }
+}
+
+.animate-position-gain {
+  animation: position-gain 1.5s ease-out;
+}
+
+.animate-position-loss {
+  animation: position-loss 1.5s ease-out;
+}
+
+@keyframes sector-green-glow {
+  0% { box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
+  100% { box-shadow: none; }
+}
+
+@keyframes sector-purple-glow {
+  0% { box-shadow: 0 0 8px rgba(168, 85, 247, 0.4); }
+  100% { box-shadow: none; }
+}
+
+.animate-sector-green-glow {
+  animation: sector-green-glow 1.5s ease-out;
+}
+
+.animate-sector-purple-glow {
+  animation: sector-purple-glow 1.5s ease-out;
+}

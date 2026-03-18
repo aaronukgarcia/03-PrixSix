@@ -57,8 +57,9 @@ export type PreRaceModeState =
   | 'SHOWREEL_BETWEEN'  // Brief Prix Six splash between historical races
   | 'COUNTDOWN';        // < 5 minutes to race start — showreel complete, countdown only
 
-// GUID: SHOWREEL_TYPES-005-v01
+// GUID: SHOWREEL_TYPES-005-v02
 // [Intent] Compressed telemetry frame — one position snapshot per driver at a given virtual time.
+//          v02: Added optional radioMessages array for team radio during replay playback.
 export interface ReplayFrame {
   virtualTimeMs: number; // Virtual time from session start (already real-time equivalent)
   wallTimeMs: number;    // Original wall-clock time from OpenF1 date field
@@ -67,6 +68,11 @@ export interface ReplayFrame {
     x: number;
     y: number;
     position: number;
+  }>;
+  radioMessages?: Array<{
+    driverNumber: number;
+    message: string;
+    utcTimestamp: string;
   }>;
 }
 

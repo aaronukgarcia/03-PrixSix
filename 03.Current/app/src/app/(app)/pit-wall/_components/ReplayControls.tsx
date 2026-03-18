@@ -1,15 +1,17 @@
-// GUID: REPLAY_CONTROLS-000-v01
+// GUID: REPLAY_CONTROLS-000-v02
 // [Intent] Classic media player transport controls for the GPS Replay player.
 //          Provides ⏮⏪⏸/▶⏩⏭ buttons, a scrub bar, elapsed/total time display,
 //          and a discrete speed selector (0.5× 1× 2× 4× 8×).
 //          Matches the dark F1 aesthetic of the Pit Wall toolbar.
+//          v02: Enhanced loading states — spinner icon, two-phase progress (session list
+//               fetch + GPS data download), initialising phase display.
 // [Inbound Trigger] Rendered by PitWallClient when isReplayMode === true.
 // [Downstream Impact] Controls flow into useReplayPlayer — no direct data access.
 
 'use client';
 
 import { useCallback } from 'react';
-import { SkipBack, Rewind, Play, Pause, FastForward, SkipForward } from 'lucide-react';
+import { SkipBack, Rewind, Play, Pause, FastForward, SkipForward, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { UseReplayPlayerReturn, ReplaySpeed } from '../_types/replay.types';
@@ -31,12 +33,14 @@ const SPEEDS: ReplaySpeed[] = [0.5, 1, 2, 4, 8];
 interface ReplayControlsProps {
   player: UseReplayPlayerReturn;
   meetingName: string;
+  sessionsLoading?: boolean;
   className?: string;
 }
 
-// GUID: REPLAY_CONTROLS-002-v01
+// GUID: REPLAY_CONTROLS-002-v02
 // [Intent] Full media player UI — transport buttons, scrub bar, time display, speed selector.
-export function ReplayControls({ player, meetingName, className }: ReplayControlsProps) {
+//          v02: Enhanced loading states with spinner, two-phase progress, initialising display.
+export function ReplayControls({ player, meetingName, sessionsLoading, className }: ReplayControlsProps) {
   const {
     playbackState, downloadProgress, progress,
     elapsedMs, durationMs, speed,
@@ -46,7 +50,7 @@ export function ReplayControls({ player, meetingName, className }: ReplayControl
 
   const isPlaying  = playbackState === 'playing';
   const isLoading  = playbackState === 'loading';
-  const isDisabled = isLoading || playbackState === 'idle' || playbackState === 'error';
+  const isDisabled = isLoading || playbackState === 'idle' || playbackState === 'error' || !!sessionsLoading;
 
   const handleScrubClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!durationMs) return;
@@ -55,30 +59,78 @@ export function ReplayControls({ player, meetingName, className }: ReplayControl
     seek(fraction * durationMs);
   }, [durationMs, seek]);
 
-  // GUID: REPLAY_CONTROLS-003-v01
-  // [Intent] Render a loading bar while replay data is downloading.
-  if (isLoading) {
+  // GUID: REPLAY_CONTROLS-003-v02
+  // [Intent] Render loading/initialising states with spinner and progress bar.
+  //          Phase 1: session list fetch ("Finding replay sessions…")
+  //          Phase 2: GPS data download (progress bar + percentage)
+  //          Phase 3: brief "Initialising…" during ready→playing transition
+  if (sessionsLoading) {
     return (
       <div className={cn(
-        'flex shrink-0 items-center gap-3 px-4 py-2 border-b border-slate-800 bg-slate-950',
+        'flex shrink-0 items-center gap-3 px-4 py-2.5 border-b border-slate-800 bg-slate-950',
         className,
       )}>
-        <span className="text-[10px] text-orange-400 uppercase tracking-wider whitespace-nowrap">
+        <Loader2 className="w-4 h-4 text-orange-400 animate-spin shrink-0" />
+        <span className="text-[10px] text-orange-400 uppercase tracking-wider font-semibold whitespace-nowrap">
           REPLAY
         </span>
-        <span className="text-[10px] text-slate-500 truncate">{meetingName}</span>
+        <span className="text-[10px] text-slate-400 animate-pulse">
+          Finding replay sessions…
+        </span>
+      </div>
+    );
+  }
+
+  if (isLoading || playbackState === 'ready') {
+    const pct = Math.round(downloadProgress * 100);
+    const label = playbackState === 'ready'
+      ? 'Initialising replay…'
+      : pct < 100
+        ? 'Loading GPS data…'
+        : 'Processing…';
+
+    return (
+      <div className={cn(
+        'flex shrink-0 items-center gap-3 px-4 py-2.5 border-b border-slate-800 bg-slate-950',
+        className,
+      )}>
+        <Loader2 className="w-4 h-4 text-orange-400 animate-spin shrink-0" />
+        <span className="text-[10px] text-orange-400 uppercase tracking-wider font-semibold whitespace-nowrap">
+          REPLAY
+        </span>
+        <span className="text-[10px] text-slate-500 truncate max-w-[140px]">{meetingName}</span>
         <div className="flex-1 flex items-center gap-2">
-          <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-orange-500 rounded-full transition-all duration-300"
               style={{ width: `${(downloadProgress * 100).toFixed(1)}%` }}
             />
           </div>
-          <span className="text-[10px] text-slate-500 tabular-nums whitespace-nowrap">
-            {Math.round(downloadProgress * 100)}%
+          <span className="text-[10px] text-orange-300 font-mono tabular-nums whitespace-nowrap font-semibold">
+            {pct}%
           </span>
         </div>
-        <span className="text-[10px] text-slate-600 animate-pulse">Loading GPS data…</span>
+        <span className="text-[10px] text-slate-500 animate-pulse whitespace-nowrap">
+          {label}
+        </span>
+      </div>
+    );
+  }
+
+  // GUID: REPLAY_CONTROLS-004-v01
+  // [Intent] Error state — show error message with selectable text (Golden Rule #1).
+  if (playbackState === 'error' && player.error) {
+    return (
+      <div className={cn(
+        'flex shrink-0 items-center gap-3 px-4 py-2.5 border-b border-red-900/50 bg-red-950/30',
+        className,
+      )}>
+        <span className="text-[10px] text-red-400 uppercase tracking-wider font-semibold whitespace-nowrap">
+          REPLAY ERROR
+        </span>
+        <span className="text-[10px] text-red-300 select-all truncate flex-1">
+          {player.error}
+        </span>
       </div>
     );
   }

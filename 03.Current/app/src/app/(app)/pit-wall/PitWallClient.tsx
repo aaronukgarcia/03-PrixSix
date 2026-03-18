@@ -1,4 +1,4 @@
-// GUID: PIT_WALL_CLIENT-000-v04
+// GUID: PIT_WALL_CLIENT-000-v05
 // [Intent] Client-side orchestrator for the Pit Wall live race data module.
 //          Wires all hooks, manages layout (track map + FIA feed header, toolbar,
 //          race table, radio zoom panel), and enforces the dark F1 aesthetic.
@@ -9,6 +9,8 @@
 //          v04: GPS Replay mode — REPLAY button downloads pre-ingested race data from
 //               Firebase Storage and plays it back with full transport controls
 //               (⏮⏪⏸/▶⏩⏭ + speed selector). Replay overrides live data source.
+//          v05: Debounced localStorage circuit path saves (30s interval + visibilitychange
+//               + beforeunload). Session-adaptive polling lowered from 10s to 5s.
 // [Inbound Trigger] Rendered by page.tsx (server component) on every /pit-wall request.
 // [Downstream Impact] All Pit Wall state and data flow originates here.
 //                     Sub-components receive only the props they need — no prop drilling
@@ -206,6 +208,11 @@ export default function PitWallClient() {
     }
   }, [circuitKey]);
 
+  // GUID: PIT_WALL_CLIENT-025-v01
+  // [Intent] Ref tracking the latest circuit path for debounced saves — avoids stale
+  //          closures in interval/event listeners without triggering re-registrations.
+  const circuitPathRef = useRef<CircuitPoint[]>([]);
+
   useEffect(() => {
     if (!circuitKey || liveDrivers.length === 0) return;
     const newPoints = liveDrivers
@@ -217,10 +224,43 @@ export default function PitWallClient() {
       const capped = combined.length > MAX_CIRCUIT_POINTS
         ? combined.slice(-MAX_CIRCUIT_POINTS)
         : combined;
-      saveCircuitPath(circuitKey, capped);
+      circuitPathRef.current = capped;
       return capped;
     });
   }, [liveDrivers, circuitKey]);
+
+  // GUID: PIT_WALL_CLIENT-026-v01
+  // [Intent] Debounced localStorage save for circuit path — replaces synchronous save on
+  //          every poll. Saves every 30s if path length changed, on tab hide, and on
+  //          page close. Prevents main-thread blocking from 8000-point JSON serialisation.
+  useEffect(() => {
+    if (!circuitKey) return;
+    let lastSavedLength = 0;
+
+    const doSave = () => {
+      const path = circuitPathRef.current;
+      if (path.length === lastSavedLength) return;
+      saveCircuitPath(circuitKey, path);
+      lastSavedLength = path.length;
+    };
+
+    const intervalId = setInterval(doSave, 30_000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') doSave();
+    };
+    const handleUnload = () => doSave();
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('beforeunload', handleUnload);
+      doSave(); // save on unmount
+    };
+  }, [circuitKey]);
 
   // GUID: PIT_WALL_CLIENT-019-v01
   // [Intent] Session-adaptive polling — automatically lowers interval to 10s when a live
@@ -235,8 +275,9 @@ export default function PitWallClient() {
     if (prev === sessionKey) return; // no change
 
     if (sessionKey !== null && prev === null) {
-      // Session just started — drop to 10s if user hasn't overridden
-      if (!intervalIsTemporary) setUpdateInterval(10);
+      // Session just started — drop to 5s if user hasn't overridden
+      // (server-side 2s cache means ~60% of polls hit cache; effective latency 3-5s)
+      if (!intervalIsTemporary) setUpdateInterval(5);
     } else if (sessionKey === null && prev !== null) {
       // Session just ended — revert interval and release the auto-reset timer
       resetIntervalToDefault();
@@ -312,17 +353,31 @@ export default function PitWallClient() {
   // Radio state (read/unread, mute — localStorage)
   const radioState = useRadioState(sessionKey);
 
-  // GUID: PIT_WALL_CLIENT-015-v02
-  // [Intent] Select data source — priority: GPS replay > showreel > live.
-  //          GPS replay: user-initiated, uses pre-ingested Firebase Storage data.
-  //          Showreel: automated pre-race playback of 2025 historical sessions.
-  //          Live: normal polling from OpenF1 via /api/pit-wall/live-data.
-  const activeDrivers: DriverRaceState[] = useMemo(() => {
-    if (isReplayMode && replayPlayer.replayDrivers.length > 0) {
-      return castReplayToLive(replayPlayer.replayDrivers);
+  // GUID: PIT_WALL_CLIENT-027-v01
+  // [Intent] Select radio messages source — in replay mode, use replay radio messages
+  //          cast to RadioMessage shape; otherwise use live radio messages.
+  const activeRadioMessages = useMemo(() => {
+    if (isReplayMode && replayPlayer.replayRadioMessages?.length > 0) {
+      return replayPlayer.replayRadioMessages as unknown as typeof radioMessages;
     }
-    if (preRaceMode.isShowreel && historicalReplay.replayDrivers.length > 0) {
-      return castReplayToLive(historicalReplay.replayDrivers);
+    return radioMessages;
+  }, [isReplayMode, replayPlayer.replayRadioMessages, radioMessages]);
+
+  // GUID: PIT_WALL_CLIENT-015-v03
+  // [Intent] Select data source — priority: GPS replay > showreel > live.
+  //          v03: When in replay/showreel mode, never fall through to liveDrivers.
+  //          Return empty array instead so the table doesn't flash stale live data
+  //          or "Waiting for session data" between replay frames.
+  const activeDrivers: DriverRaceState[] = useMemo(() => {
+    if (isReplayMode) {
+      return replayPlayer.replayDrivers.length > 0
+        ? castReplayToLive(replayPlayer.replayDrivers)
+        : [];
+    }
+    if (preRaceMode.isShowreel) {
+      return historicalReplay.replayDrivers.length > 0
+        ? castReplayToLive(historicalReplay.replayDrivers)
+        : [];
     }
     return liveDrivers;
   }, [isReplayMode, replayPlayer.replayDrivers, preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
@@ -336,6 +391,14 @@ export default function PitWallClient() {
 
   // Table sort state
   const [sortKey, setSortKey] = useState<string | null>(null);
+
+  // GUID: PIT_WALL_CLIENT-028-v01
+  // [Intent] Follow-mode camera — click a driver in the race table to zoom the track map
+  //          in and track them. Click again to return to full-track overview.
+  const [followDriver, setFollowDriver] = useState<number | null>(null);
+  const handleDriverFollow = useCallback((driverNumber: number) => {
+    setFollowDriver(prev => prev === driverNumber ? null : driverNumber);
+  }, []);
 
   // GUID: PIT_WALL_CLIENT-003-v01
   // [Intent] Radio zoom panel state — selected driver and open/close.
@@ -426,11 +489,12 @@ export default function PitWallClient() {
             circuitLat={circuitLat}
             circuitLon={circuitLon}
             rainIntensity={weather?.rainIntensity ?? null}
-            sessionType={displaySessionType}
-            hasLiveSession={sessionKey !== null}
-            positionDataAvailable={positionDataAvailable}
+            sessionType={isReplayMode ? 'GPS REPLAY' : displaySessionType}
+            hasLiveSession={sessionKey !== null || (isReplayMode && replayPlayer.playbackState !== 'idle')}
+            positionDataAvailable={positionDataAvailable || (isReplayMode && replayPlayer.replayDrivers.length > 0)}
             nextRaceName={nextRaceInfo?.name ?? null}
             lastMeetingName={meetingName}
+            followDriver={followDriver}
             className="w-full h-full"
           />
         </div>
@@ -558,6 +622,7 @@ export default function PitWallClient() {
         <ReplayControls
           player={replayPlayer}
           meetingName={selectedReplaySession?.meetingName ?? (replaySessionsLoading ? 'Loading…' : 'Select a session')}
+          sessionsLoading={replaySessionsLoading}
         />
       </div>
 
@@ -581,10 +646,12 @@ export default function PitWallClient() {
       <div className="flex-1 min-h-0 overflow-hidden">
         <PitWallRaceTable
           drivers={activeDrivers}
-          radioMessages={radioMessages}
+          radioMessages={activeRadioMessages}
           visibleColumns={settings.visibleColumns}
           radioState={radioState}
           onRadioClick={handleRadioClick}
+          onDriverClick={handleDriverFollow}
+          followDriver={followDriver}
           sortKey={sortKey}
           onSort={handleSort}
           totalLaps={totalLaps}
@@ -598,7 +665,7 @@ export default function PitWallClient() {
         isOpen={radioZoomOpen}
         onClose={handleRadioClose}
         drivers={activeDrivers}
-        radioMessages={radioMessages}
+        radioMessages={activeRadioMessages}
         radioState={radioState}
         selectedDriver={selectedRadioDriver}
         onSelectDriver={setSelectedRadioDriver}
