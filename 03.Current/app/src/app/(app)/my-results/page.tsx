@@ -652,7 +652,7 @@ export default function MyResultsPage() {
                 <p className="text-accent">{data.points} pts</p>
                 <p className="text-muted-foreground">Avg: {data.average}</p>
                 {data.leaderPoints !== undefined && (
-                    <p className="text-destructive">{leaderData?.teamName}: {data.leaderPoints} pts</p>
+                    <p className="text-destructive">Leader ({leaderData?.teamName}): {data.leaderPoints} pts</p>
                 )}
             </div>
         );
@@ -815,7 +815,7 @@ export default function MyResultsPage() {
                                             stroke="hsl(var(--destructive))"
                                             dot={false}
                                             strokeWidth={2}
-                                            name={leaderData?.teamName || "Leader"}
+                                            name={leaderData ? `Leader (${leaderData.teamName})` : "Leader"}
                                             connectNulls
                                         />
                                     )}
