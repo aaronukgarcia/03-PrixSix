@@ -3,6 +3,17 @@ service firebase.storage {
   match /b/{bucket}/o {
     // Profile photos - users can only write to their own folder
     // SECURITY FIX (GEMINI-007): Restrict read access to authenticated users only
+    // GUID: REPLAY_STORAGE_RULES-001-v01
+    // [Intent] Pre-ingested GPS replay data files — all authenticated users can download.
+    //          Files are made public by the ingest script (makePublic()) so no auth is
+    //          technically required to download, but this rule documents the intent and
+    //          provides a security boundary if public access is later revoked.
+    //          No client writes — ingest script uses Admin SDK.
+    match /replay-data/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if false; // Admin SDK only via ingest script
+    }
+
     match /profile-photos/{userId}/{fileName} {
       // Only authenticated users can read profile photos (prevents public enumeration)
       allow read: if request.auth != null;

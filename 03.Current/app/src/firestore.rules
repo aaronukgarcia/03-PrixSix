@@ -380,6 +380,15 @@ service cloud.firestore {
     // [Downstream Impact] All legitimate team_names operations go through Admin SDK (bypasses rules).
     //                     Without this rule, clients could pre-create sentinels to block others
     //                     from registering specific team names (DoS on registration).
+    // GUID: REPLAY_SESSIONS_RULES-001-v01
+    // [Intent] GPS replay session catalogue — all signed-in users can list/read.
+    //          Write is ingest-script only (Admin SDK bypasses rules).
+    //          Data is pre-race GPS telemetry — not sensitive.
+    match /replay_sessions/{sessionId} {
+      allow get, list: if isSignedIn();
+      allow write: if false; // Admin SDK only via ingest-*-replay.js scripts
+    }
+
     match /team_names/{nameId} {
       allow read, write: if false; // Server-side only via Admin SDK
     }

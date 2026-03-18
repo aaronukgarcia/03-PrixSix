@@ -1,4 +1,4 @@
-// GUID: PIT_WALL_CLIENT-000-v03
+// GUID: PIT_WALL_CLIENT-000-v04
 // [Intent] Client-side orchestrator for the Pit Wall live race data module.
 //          Wires all hooks, manages layout (track map + FIA feed header, toolbar,
 //          race table, radio zoom panel), and enforces the dark F1 aesthetic.
@@ -6,6 +6,9 @@
 //               before live sessions via usePreRaceMode + useHistoricalReplay.
 //          v03: Removed useCarInterpolation — interpolation now done inside PitWallTrackMap
 //               in its single RAF loop. No React state on the hot path.
+//          v04: GPS Replay mode — REPLAY button downloads pre-ingested race data from
+//               Firebase Storage and plays it back with full transport controls
+//               (⏮⏪⏸/▶⏩⏭ + speed selector). Replay overrides live data source.
 // [Inbound Trigger] Rendered by page.tsx (server component) on every /pit-wall request.
 // [Downstream Impact] All Pit Wall state and data flow originates here.
 //                     Sub-components receive only the props they need — no prop drilling
@@ -21,8 +24,10 @@ import { usePitWallData } from './_hooks/usePitWallData';
 import { useRadioState } from './_hooks/useRadioState';
 import { usePreRaceMode } from './_hooks/usePreRaceMode';
 import { useHistoricalReplay } from './_hooks/useHistoricalReplay';
+import { useReplayPlayer } from './_hooks/useReplayPlayer';
 import type { TrackBounds, DriverRaceState, CircuitPoint } from './_types/pit-wall.types';
 import type { ReplayDriverState } from './_types/showreel.types';
+import type { ReplaySessionMetadata } from './_types/replay.types';
 import { PitWallTrackMap } from './_components/PitWallTrackMap';
 import { FIARaceControlFeed } from './_components/FIARaceControlFeed';
 import { PitWallRaceTable } from './_components/PitWallRaceTable';
@@ -34,7 +39,8 @@ import { PreRaceWarmupBanner } from './_components/PreRaceWarmupBanner';
 import { ShowreelSplash } from './_components/ShowreelSplash';
 import { RaceSelector } from './_components/RaceSelector';
 import { PitWallLoadingScreen } from './_components/PitWallLoadingScreen';
-import { AlertCircle, RefreshCw, TowerControl } from 'lucide-react';
+import { ReplayControls } from './_components/ReplayControls';
+import { AlertCircle, RefreshCw, TowerControl, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RaceSchedule } from '@/lib/data';
@@ -259,17 +265,67 @@ export default function PitWallClient() {
     },
   );
 
+  // GUID: PIT_WALL_CLIENT-021-v01
+  // [Intent] GPS Replay mode state — user enters replay by clicking the REPLAY button.
+  //          Replay overrides the live data source; live polling continues in the background
+  //          so the user can exit replay and see current state immediately.
+  //          selectedReplaySession: null until sessions are fetched and user picks one.
+  const [isReplayMode,         setIsReplayMode]         = useState(false);
+  const [replaySessions,       setReplaySessions]        = useState<ReplaySessionMetadata[]>([]);
+  const [selectedReplaySession, setSelectedReplaySession] = useState<ReplaySessionMetadata | null>(null);
+  const [replaySessionsLoading, setReplaySessionsLoading] = useState(false);
+
+  // GUID: PIT_WALL_CLIENT-022-v01
+  // [Intent] Fetch available replay sessions from Firestore when entering replay mode.
+  //          Only fetched once per mount — sessions don't change during a session.
+  useEffect(() => {
+    if (!isReplayMode || replaySessions.length > 0 || !firebaseUser) return;
+    let cancelled = false;
+    setReplaySessionsLoading(true);
+    firebaseUser.getIdToken()
+      .then(token =>
+        fetch('/api/pit-wall/replay-sessions', { headers: { Authorization: `Bearer ${token}` } })
+      )
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        const sessions: ReplaySessionMetadata[] = data.sessions ?? [];
+        setReplaySessions(sessions);
+        // Auto-select the first (most recent) session
+        if (sessions.length > 0 && !selectedReplaySession) {
+          setSelectedReplaySession(sessions[0]);
+        }
+        setReplaySessionsLoading(false);
+      })
+      .catch(() => { if (!cancelled) setReplaySessionsLoading(false); });
+    return () => { cancelled = true; };
+  }, [isReplayMode, replaySessions.length, firebaseUser, selectedReplaySession]);
+
+  const replayPlayer = useReplayPlayer(isReplayMode ? selectedReplaySession : null);
+
+  const handleEnterReplay = useCallback(() => setIsReplayMode(true),  []);
+  const handleExitReplay  = useCallback(() => {
+    setIsReplayMode(false);
+    setSelectedReplaySession(null);
+  }, []);
+
   // Radio state (read/unread, mute — localStorage)
   const radioState = useRadioState(sessionKey);
 
-  // GUID: PIT_WALL_CLIENT-015-v01
-  // [Intent] Select data source: live data when session is active, replay data when showreel.
+  // GUID: PIT_WALL_CLIENT-015-v02
+  // [Intent] Select data source — priority: GPS replay > showreel > live.
+  //          GPS replay: user-initiated, uses pre-ingested Firebase Storage data.
+  //          Showreel: automated pre-race playback of 2025 historical sessions.
+  //          Live: normal polling from OpenF1 via /api/pit-wall/live-data.
   const activeDrivers: DriverRaceState[] = useMemo(() => {
+    if (isReplayMode && replayPlayer.replayDrivers.length > 0) {
+      return castReplayToLive(replayPlayer.replayDrivers);
+    }
     if (preRaceMode.isShowreel && historicalReplay.replayDrivers.length > 0) {
       return castReplayToLive(historicalReplay.replayDrivers);
     }
     return liveDrivers;
-  }, [preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
+  }, [isReplayMode, replayPlayer.replayDrivers, preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
 
   // Track bounds — use accumulated circuit path when available (stable full-circuit extent);
   // fall back to current driver positions only for the very first few polls before path builds up.
@@ -359,7 +415,12 @@ export default function PitWallClient() {
         <div className="flex-[2] min-w-0 border-r border-slate-800">
           <PitWallTrackMap
             drivers={activeDrivers}
-            updateIntervalMs={preRaceMode.isShowreel ? 5000 : settings.updateIntervalSeconds * 1000}
+            updateIntervalMs={
+              isReplayMode
+                ? (selectedReplaySession?.samplingIntervalMs ?? 500)
+                : preRaceMode.isShowreel ? 5000
+                : settings.updateIntervalSeconds * 1000
+            }
             bounds={trackBounds}
             circuitPath={circuitPath}
             circuitLat={circuitLat}
@@ -431,7 +492,7 @@ export default function PitWallClient() {
 
         {/* Controls */}
         <div className="flex items-center gap-3 ml-auto shrink-0">
-          {!preRaceMode.isShowreel && (
+          {!preRaceMode.isShowreel && !isReplayMode && (
             <div className="flex items-center gap-1.5">
               <UpdateSpeedSlider
                 value={settings.updateIntervalSeconds}
@@ -451,7 +512,24 @@ export default function PitWallClient() {
             visibleColumns={settings.visibleColumns}
             onToggle={toggleColumn}
           />
-          {!preRaceMode.isShowreel && (
+          {/* REPLAY toggle button */}
+          {/* GUID: PIT_WALL_CLIENT-023-v01 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              'h-7 gap-1.5 text-[10px] font-semibold uppercase tracking-wider',
+              isReplayMode
+                ? 'text-orange-400 border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20'
+                : 'text-slate-500 hover:text-slate-200',
+            )}
+            onClick={isReplayMode ? handleExitReplay : handleEnterReplay}
+            title={isReplayMode ? 'Exit replay mode' : 'Replay last race GPS'}
+          >
+            <Film className="w-3 h-3" />
+            {isReplayMode ? 'Exit' : 'Replay'}
+          </Button>
+          {!preRaceMode.isShowreel && !isReplayMode && (
             <Button
               variant="ghost"
               size="icon"
@@ -462,13 +540,23 @@ export default function PitWallClient() {
               <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
             </Button>
           )}
-          {lastUpdatedLabel && !preRaceMode.isShowreel && (
+          {lastUpdatedLabel && !preRaceMode.isShowreel && !isReplayMode && (
             <span className="text-[9px] text-slate-600 font-mono tabular-nums whitespace-nowrap">
               {lastUpdatedLabel}
             </span>
           )}
         </div>
       </div>
+
+      {/* ── REPLAY CONTROLS STRIP ── */}
+      {/* GUID: PIT_WALL_CLIENT-024-v01 */}
+      {/* Shown below the toolbar only in replay mode — classic media transport controls */}
+      {isReplayMode && (
+        <ReplayControls
+          player={replayPlayer}
+          meetingName={selectedReplaySession?.meetingName ?? (replaySessionsLoading ? 'Loading…' : 'Select a session')}
+        />
+      )}
 
       {/* ── ERROR BANNER ── */}
       {/* GUID: PIT_WALL_CLIENT-007-v01 */}

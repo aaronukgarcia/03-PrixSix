@@ -72,6 +72,8 @@ export const CLIENT_ERRORS: Record<string, ClientErrorDefinition> = {
   PIT_WALL_SHOWREEL_NO_SESSIONS:  { key: 'PIT_WALL_SHOWREEL_NO_SESSIONS',  code: 'PX-3308', message: 'No 2025 historical sessions found for this circuit',                    severity: 'info'     },
   PIT_WALL_OPENF1_RESTRICTED:     { key: 'PIT_WALL_OPENF1_RESTRICTED',     code: 'PX-3309', message: 'OpenF1 historical data restricted during live session',                 severity: 'info'     },
   PIT_WALL_SHOWREEL_SCHEDULE_FAILED: { key: 'PIT_WALL_SHOWREEL_SCHEDULE_FAILED', code: 'PX-3310', message: 'Could not build showreel schedule',                               severity: 'warning'  },
+  PIT_WALL_REPLAY_LOAD_FAILED:       { key: 'PIT_WALL_REPLAY_LOAD_FAILED',       code: 'PX-3311', message: 'GPS replay data could not be loaded',                                severity: 'error'    },
+  PIT_WALL_REPLAY_SESSIONS_FAILED:   { key: 'PIT_WALL_REPLAY_SESSIONS_FAILED',   code: 'PX-3312', message: 'Could not load available replay sessions',                           severity: 'error'    },
   FIRESTORE_READ_FAILED:          { key: 'FIRESTORE_READ_FAILED',          code: 'PX-4001', message: 'Failed to read from database',                                             severity: 'error'    },
   FIRESTORE_WRITE_FAILED:         { key: 'FIRESTORE_WRITE_FAILED',         code: 'PX-4002', message: 'Failed to write to database',                                              severity: 'error'    },
   FIRESTORE_BATCH_FAILED:         { key: 'FIRESTORE_BATCH_FAILED',         code: 'PX-4003', message: 'Batch operation failed',                                                   severity: 'error'    },

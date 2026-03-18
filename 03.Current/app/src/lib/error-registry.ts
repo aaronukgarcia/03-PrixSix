@@ -594,6 +594,26 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     suggestedAction: 'Non-critical — countdown mode shown instead.',
     modulePath: 'app/src/app/(app)/pit-wall/_hooks/usePreRaceMode.ts',
   },
+  // GUID: PIT_WALL_ERRORS-011-v01
+  PIT_WALL_REPLAY_LOAD_FAILED: {
+    key: 'PIT_WALL_REPLAY_LOAD_FAILED',
+    code: 'PX-3311',
+    message: 'GPS replay data could not be loaded',
+    severity: 'error' as const,
+    description: 'Download from Firebase Storage failed or the replay JSON is malformed.',
+    suggestedAction: 'Check network connection and try again.',
+    modulePath: 'app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-012-v01
+  PIT_WALL_REPLAY_SESSIONS_FAILED: {
+    key: 'PIT_WALL_REPLAY_SESSIONS_FAILED',
+    code: 'PX-3312',
+    message: 'Could not load available replay sessions',
+    severity: 'error' as const,
+    description: 'Firestore replay_sessions collection query failed.',
+    suggestedAction: 'Check Firestore rules and connectivity.',
+    modulePath: 'app/src/app/api/pit-wall/replay-sessions/route.ts',
+  },
   FIRESTORE_READ_FAILED: {
     key: 'FIRESTORE_READ_FAILED',
     code: 'PX-4001',
