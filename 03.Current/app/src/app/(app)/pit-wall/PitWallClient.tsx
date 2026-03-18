@@ -27,10 +27,12 @@ import { useRadioState } from './_hooks/useRadioState';
 import { usePreRaceMode } from './_hooks/usePreRaceMode';
 import { useHistoricalReplay } from './_hooks/useHistoricalReplay';
 import { useReplayPlayer } from './_hooks/useReplayPlayer';
+import { useLivePredictionScore } from './_hooks/useLivePredictionScore';
 import type { TrackBounds, DriverRaceState, CircuitPoint } from './_types/pit-wall.types';
 import type { ReplayDriverState } from './_types/showreel.types';
 import type { ReplaySessionMetadata } from './_types/replay.types';
 import { PitWallTrackMap } from './_components/PitWallTrackMap';
+import { LiveScoreBanner } from './_components/LiveScoreBanner';
 import { FIARaceControlFeed } from './_components/FIARaceControlFeed';
 import { PitWallRaceTable } from './_components/PitWallRaceTable';
 import { RadioZoomPanel } from './_components/RadioZoomPanel';
@@ -455,6 +457,19 @@ export default function PitWallClient() {
     ? (preRaceMode.currentItem?.session.sessionType ?? preRaceMode.onDemandSession?.sessionType ?? sessionType)
     : sessionType;
 
+  // GUID: PIT_WALL_CLIENT-030-v01
+  // [Intent] Live prediction score — computes the logged-in user's score based on current
+  //          driver positions. Uses the meeting name to find the right prediction document.
+  //          Skipped during 2025 showreel replays (no matching 2026 predictions).
+  const scoreMeetingName = isReplayMode
+    ? selectedReplaySession?.meetingName ?? null
+    : preRaceMode.isShowreel ? null   // hide during 2025 showreel
+    : meetingName;
+  const scoreSessionType = isReplayMode
+    ? (selectedReplaySession?.sessionName ?? null)
+    : sessionType;
+  const liveScore = useLivePredictionScore(activeDrivers, scoreMeetingName, scoreSessionType);
+
   return (
     <div className="relative flex flex-col h-full w-full overflow-hidden bg-slate-950">
 
@@ -661,6 +676,10 @@ export default function PitWallClient() {
           )}
         </div>
       )}
+
+      {/* ── LIVE PREDICTION SCORE BANNER ── */}
+      {/* GUID: PIT_WALL_CLIENT-031-v01 */}
+      <LiveScoreBanner score={liveScore} />
 
       {/* ── RACE TABLE (fills remaining height) ── */}
       {/* GUID: PIT_WALL_CLIENT-008-v01 */}
