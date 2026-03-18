@@ -14,44 +14,62 @@ import type { HistoricalReplayData, HistoricalDriver, ReplayDriverState } from '
 import { CLIENT_ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 
-// GUID: REPLAY_PLAYER_HOOK-001-v01
+// GUID: REPLAY_PLAYER_HOOK-001-v02
 // [Intent] Build a ReplayDriverState from driver metadata + position entry.
-//          Identical to the same helper in useHistoricalReplay — kept local to avoid coupling.
+//          v02: Reads optional telemetry fields from enriched replay data so the race
+//               table populates during replay (speed, gap, interval, lap, sectors, tyre, DRS).
 function buildReplayDriverState(
   driver: HistoricalDriver,
-  position: number,
-  x: number,
-  y: number,
+  pos: { driverNumber: number; x: number; y: number; position: number;
+    speed?: number | null; throttle?: number | null; brake?: number | null;
+    gear?: number | null; drs?: number | null;
+    gapToLeader?: string | null; intervalToAhead?: string | null;
+    lastLapTime?: number | null; bestLapTime?: number | null;
+    currentLap?: number | null;
+    s1?: number | null; s2?: number | null; s3?: number | null;
+    tyreCompound?: string | null; tyreLapAge?: number | null;
+    pitStopCount?: number | null; inPit?: boolean;
+  },
 ): ReplayDriverState {
+  // Parse gap/interval strings like "+12.345" or "1 LAP" to number | null
+  const parseGap = (v: string | null | undefined): number | null => {
+    if (!v) return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
+
+  // DRS: OpenF1 values 10-14 mean DRS open
+  const hasDrs = pos.drs != null && pos.drs >= 10 && pos.drs <= 14;
+
   return {
     driverNumber: driver.driverNumber,
     driverCode:   driver.driverCode,
     fullName:     driver.fullName,
     teamName:     driver.teamName,
     teamColour:   driver.teamColour,
-    position,
-    x,
-    y,
+    position:     pos.position,
+    x:            pos.x,
+    y:            pos.y,
     z:              null,
     positionChange: 0,
-    gapToLeader:    null,
-    intervalToAhead:null,
-    currentLap:     0,
-    lastLapTime:    null,
-    bestLapTime:    null,
+    gapToLeader:    parseGap(pos.gapToLeader),
+    intervalToAhead:parseGap(pos.intervalToAhead),
+    currentLap:     pos.currentLap ?? 0,
+    lastLapTime:    pos.lastLapTime ?? null,
+    bestLapTime:    pos.bestLapTime ?? null,
     fastestLap:     false,
-    sectors: { s1: null, s2: null, s3: null, s1Status: null, s2Status: null, s3Status: null },
-    tyreCompound:   'UNKNOWN',
-    tyreLapAge:     0,
-    pitStopCount:   0,
+    sectors: { s1: pos.s1 ?? null, s2: pos.s2 ?? null, s3: pos.s3 ?? null, s1Status: null, s2Status: null, s3Status: null },
+    tyreCompound:   pos.tyreCompound ?? 'UNKNOWN',
+    tyreLapAge:     pos.tyreLapAge ?? 0,
+    pitStopCount:   pos.pitStopCount ?? 0,
     onNewTyres:     false,
-    inPit:          false,
+    inPit:          pos.inPit ?? false,
     retired:        false,
-    hasDrs:         false,
-    speed:          null,
-    throttle:       null,
-    brake:          null,
-    gear:           null,
+    hasDrs,
+    speed:          pos.speed ?? null,
+    throttle:       pos.throttle ?? null,
+    brake:          pos.brake ?? null,
+    gear:           pos.gear ?? null,
     hasUnreadRadio: false,
     isMuted:        false,
     lastUpdated:    Date.now(),
@@ -319,7 +337,7 @@ export function useReplayPlayer(
         .map(pos => {
           const driver = driverMap.get(pos.driverNumber);
           if (!driver) return null;
-          return buildReplayDriverState(driver, pos.position, pos.x, pos.y);
+          return buildReplayDriverState(driver, pos);
         })
         .filter((d): d is ReplayDriverState => d !== null);
 

@@ -57,9 +57,11 @@ export type PreRaceModeState =
   | 'SHOWREEL_BETWEEN'  // Brief Prix Six splash between historical races
   | 'COUNTDOWN';        // < 5 minutes to race start — showreel complete, countdown only
 
-// GUID: SHOWREEL_TYPES-005-v02
+// GUID: SHOWREEL_TYPES-005-v03
 // [Intent] Compressed telemetry frame — one position snapshot per driver at a given virtual time.
 //          v02: Added optional radioMessages array for team radio during replay playback.
+//          v03: Added optional telemetry fields (speed, gap, interval, lap, sectors, tyre, DRS, pit)
+//               so the race table populates during replay instead of showing all dashes.
 export interface ReplayFrame {
   virtualTimeMs: number; // Virtual time from session start (already real-time equivalent)
   wallTimeMs: number;    // Original wall-clock time from OpenF1 date field
@@ -68,6 +70,24 @@ export interface ReplayFrame {
     x: number;
     y: number;
     position: number;
+    // Optional telemetry — present when replay is enriched
+    speed?: number | null;
+    throttle?: number | null;
+    brake?: number | null;
+    gear?: number | null;
+    drs?: number | null;           // DRS status: 10-14 = open, else closed
+    gapToLeader?: string | null;   // e.g. "+12.345" or "LAP" — from /intervals
+    intervalToAhead?: string | null;
+    lastLapTime?: number | null;   // seconds
+    bestLapTime?: number | null;   // seconds
+    currentLap?: number | null;
+    s1?: number | null;            // sector time in seconds
+    s2?: number | null;
+    s3?: number | null;
+    tyreCompound?: string | null;  // SOFT, MEDIUM, HARD, INTERMEDIATE, WET
+    tyreLapAge?: number | null;
+    pitStopCount?: number | null;
+    inPit?: boolean;
   }>;
   radioMessages?: Array<{
     driverNumber: number;
@@ -117,9 +137,10 @@ export interface UseHistoricalReplayReturn {
   error: string | null;
 }
 
-// GUID: SHOWREEL_TYPES-009-v01
-// [Intent] Minimal driver state emitted by replay — only what the track map and table need.
-//          Uses the same field names as DriverRaceState for drop-in compatibility.
+// GUID: SHOWREEL_TYPES-009-v02
+// [Intent] Driver state emitted by replay — same field names as DriverRaceState for drop-in compatibility.
+//          v02: Widened types from literal nulls to number|null so enriched replay data can populate
+//               speed, throttle, brake, gear, sectors, tyre compound etc.
 export interface ReplayDriverState {
   driverNumber: number;
   driverCode: string;
@@ -130,26 +151,25 @@ export interface ReplayDriverState {
   x: number | null;
   y: number | null;
   z: number | null;
-  // Stub fields to satisfy DriverRaceState shape (null/defaults for replay)
   positionChange: number;
-  gapToLeader: string | null;
-  intervalToAhead: string | null;
+  gapToLeader: number | null;
+  intervalToAhead: number | null;
   currentLap: number;
   lastLapTime: number | null;
   bestLapTime: number | null;
   fastestLap: boolean;
-  sectors: { s1: null; s2: null; s3: null; s1Status: null; s2Status: null; s3Status: null };
-  tyreCompound: 'UNKNOWN';
+  sectors: { s1: number | null; s2: number | null; s3: number | null; s1Status: null; s2Status: null; s3Status: null };
+  tyreCompound: string;
   tyreLapAge: number;
   pitStopCount: number;
   onNewTyres: boolean;
   inPit: boolean;
   retired: boolean;
   hasDrs: boolean;
-  speed: null;
-  throttle: null;
-  brake: null;
-  gear: null;
+  speed: number | null;
+  throttle: number | null;
+  brake: number | null;
+  gear: number | null;
   hasUnreadRadio: boolean;
   isMuted: boolean;
   lastUpdated: number;

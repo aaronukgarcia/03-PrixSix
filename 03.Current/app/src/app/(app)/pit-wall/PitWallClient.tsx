@@ -382,6 +382,27 @@ export default function PitWallClient() {
     return liveDrivers;
   }, [isReplayMode, replayPlayer.replayDrivers, preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
 
+  // GUID: PIT_WALL_CLIENT-029-v01
+  // [Intent] Accumulate circuit path from replay/showreel drivers when no live session
+  //          is providing GPS data. Without this, replay mode shows cars floating in
+  //          blackness with no circuit outline.
+  useEffect(() => {
+    if (circuitKey) return; // live session is providing circuit path
+    if (activeDrivers.length === 0) return;
+    const newPoints = activeDrivers
+      .filter(d => d.x !== null && d.y !== null)
+      .map(d => ({ x: d.x!, y: d.y! }));
+    if (newPoints.length === 0) return;
+    setCircuitPath(prev => {
+      const combined = [...prev, ...newPoints];
+      const capped = combined.length > MAX_CIRCUIT_POINTS
+        ? combined.slice(-MAX_CIRCUIT_POINTS)
+        : combined;
+      circuitPathRef.current = capped;
+      return capped;
+    });
+  }, [activeDrivers, circuitKey]);
+
   // Track bounds — use accumulated circuit path when available (stable full-circuit extent);
   // fall back to current driver positions only for the very first few polls before path builds up.
   const trackBounds = useMemo(
