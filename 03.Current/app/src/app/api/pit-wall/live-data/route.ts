@@ -13,7 +13,8 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { getSecret } from '@/lib/secrets-manager';
 import type {
   DriverRaceState, RadioMessage, RaceControlMessage,
-  WeatherSnapshot, PitWallLiveDataResponse, TyreCompound, SectorStatus
+  WeatherSnapshot, PitWallLiveDataResponse, TyreCompound, SectorStatus,
+  DriverDetail, PitWallDetailResponse,
 } from '@/app/(app)/pit-wall/_types/pit-wall.types';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,17 @@ let cachedToken: { token: string; expiresAt: number } | null = null;
 let liveDataCache: {
   sessionKey: number | null;
   data: PitWallLiveDataResponse;
+  expiresAt: number;
+} | null = null;
+
+// GUID: API_PIT_WALL_LIVE_DATA-014-v01
+// [Intent] Separate cache for the detail tier (laps, car_data, team_radio).
+//          These endpoints are slow and return large payloads — 10s TTL
+//          amortises the cost across concurrent users while keeping data fresh enough.
+const DETAIL_CACHE_TTL_MS = 10_000;
+let detailCache: {
+  sessionKey: number | null;
+  data: PitWallDetailResponse;
   expiresAt: number;
 } | null = null;
 
@@ -165,10 +177,148 @@ function latestPerDriver<T extends { driver_number: number; date?: string }>(arr
   return map;
 }
 
-// GUID: API_PIT_WALL_LIVE_DATA-010-v02
-// [Intent] v02: Added /location fan-out for GPS x/y/z car positions.
-//          /position returns race order (1st, 2nd …) — kept for grid position.
-//          /location returns projected-metre GPS coordinates — used for track map.
+// GUID: API_PIT_WALL_LIVE_DATA-015-v01
+// [Intent] Detail tier handler — fetches only the slow/heavy OpenF1 endpoints
+//          (laps, car_data, team_radio). Called simultaneously with the core tier
+//          by usePitWallData; responds independently so slow data doesn't block
+//          the race table from appearing. Returns PitWallDetailResponse.
+async function handleDetailRequest(
+  token: string | null,
+  correlationId: string,
+): Promise<NextResponse> {
+  const now = Date.now();
+  if (detailCache && detailCache.expiresAt > now) {
+    return NextResponse.json({ ...detailCache.data, cacheHit: true } satisfies PitWallDetailResponse);
+  }
+
+  const [lapsRaw, carDataRaw, teamRadioRaw, sessionsRaw, driversRaw] = await Promise.all([
+    openF1Fetch<any[]>('/laps?session_key=latest', token),
+    openF1Fetch<any[]>('/car_data?session_key=latest', token),
+    openF1Fetch<any[]>('/team_radio?session_key=latest', token),
+    // Need session + driver info for radio messages and sessionKey for cache invalidation
+    openF1Fetch<any[]>('/sessions?session_key=latest', token),
+    openF1Fetch<any[]>('/drivers?session_key=latest', token),
+  ]);
+
+  const sessionKey: number | null = sessionsRaw?.[0]?.session_key ?? null;
+  const driverMap = new Map<number, any>();
+  (driversRaw ?? []).forEach((d: any) => driverMap.set(d.driver_number, d));
+
+  // Lap aggregations per driver
+  const bestLaps = new Map<number, number>();
+  const lastLaps = new Map<number, any>();
+  const lapCounts = new Map<number, number>();
+  (lapsRaw ?? []).forEach((lap: any) => {
+    const dn = lap.driver_number;
+    const dur = lap.lap_duration;
+    if (dur && dur > 0 && !lap.is_pit_out_lap) {
+      if (!bestLaps.has(dn) || dur < bestLaps.get(dn)!) bestLaps.set(dn, dur);
+    }
+    const lapNum = lap.lap_number ?? 0;
+    if (!lapCounts.has(dn) || lapNum > lapCounts.get(dn)!) {
+      lapCounts.set(dn, lapNum);
+      lastLaps.set(dn, lap);
+    }
+  });
+
+  // Session best per sector
+  let bestS1 = Infinity, bestS2 = Infinity, bestS3 = Infinity;
+  const driverBestS1 = new Map<number, number>();
+  const driverBestS2 = new Map<number, number>();
+  const driverBestS3 = new Map<number, number>();
+  (lapsRaw ?? []).forEach((lap: any) => {
+    const dn = lap.driver_number;
+    if (lap.duration_sector_1 && lap.duration_sector_1 < bestS1) bestS1 = lap.duration_sector_1;
+    if (lap.duration_sector_2 && lap.duration_sector_2 < bestS2) bestS2 = lap.duration_sector_2;
+    if (lap.duration_sector_3 && lap.duration_sector_3 < bestS3) bestS3 = lap.duration_sector_3;
+    if (lap.duration_sector_1 && (!driverBestS1.has(dn) || lap.duration_sector_1 < driverBestS1.get(dn)!)) driverBestS1.set(dn, lap.duration_sector_1);
+    if (lap.duration_sector_2 && (!driverBestS2.has(dn) || lap.duration_sector_2 < driverBestS2.get(dn)!)) driverBestS2.set(dn, lap.duration_sector_2);
+    if (lap.duration_sector_3 && (!driverBestS3.has(dn) || lap.duration_sector_3 < driverBestS3.get(dn)!)) driverBestS3.set(dn, lap.duration_sector_3);
+  });
+
+  let fastestLapTime = Infinity, fastestLapDriver = -1;
+  bestLaps.forEach((time, dn) => { if (time < fastestLapTime) { fastestLapTime = time; fastestLapDriver = dn; } });
+
+  // Latest car data per driver
+  const latestCarData = latestPerDriver(carDataRaw ?? []);
+
+  // Stints — needed for tyre age with lap count
+  const latestStints = new Map<number, any>();
+  // (We don't fetch stints here — they're in core. TyreLapAge will be refined on next core poll.)
+
+  const sectorStatus = (actual: number | null | undefined, driverBest: number | undefined, sessionBest: number): SectorStatus => {
+    if (!actual) return null;
+    if (actual <= sessionBest + 0.001) return 'session_best';
+    if (driverBest && actual <= driverBest + 0.001) return 'personal_best';
+    return 'normal';
+  };
+
+  // Build DriverDetail[] for all drivers with lap data
+  const allDriverNumbers = new Set<number>([...lapCounts.keys(), ...latestCarData.keys()]);
+  const driverDetail: DriverDetail[] = [];
+  allDriverNumbers.forEach(dn => {
+    const lastLap = lastLaps.get(dn);
+    const lapNum = lapCounts.get(dn) ?? 0;
+    const car = latestCarData.get(dn);
+    const s1 = lastLap?.duration_sector_1 ?? null;
+    const s2 = lastLap?.duration_sector_2 ?? null;
+    const s3 = lastLap?.duration_sector_3 ?? null;
+    driverDetail.push({
+      driverNumber: dn,
+      currentLap: lapNum,
+      lastLapTime: formatLapTime(lastLap?.lap_duration),
+      bestLapTime: formatLapTime(bestLaps.get(dn)),
+      fastestLap: dn === fastestLapDriver,
+      sectors: {
+        s1, s2, s3,
+        s1Status: sectorStatus(s1, driverBestS1.get(dn), bestS1),
+        s2Status: sectorStatus(s2, driverBestS2.get(dn), bestS2),
+        s3Status: sectorStatus(s3, driverBestS3.get(dn), bestS3),
+      },
+      tyreCompound: 'UNKNOWN', // refined by core (stints endpoint)
+      tyreLapAge: 0,           // refined by core
+      pitStopCount: 0,         // refined by core
+      onNewTyres: false,       // refined by core
+      speed: car?.speed ?? null,
+      throttle: car?.throttle ?? null,
+      brake: car?.brake != null ? car.brake > 0 : null,
+      gear: car?.n_gear ?? null,
+    });
+  });
+
+  // Radio messages
+  const radioMessages: RadioMessage[] = (teamRadioRaw ?? []).map((r: any): RadioMessage => {
+    const driverInfo = driverMap.get(r.driver_number) ?? {};
+    return {
+      id: String(`${sessionKey}_${r.driver_number}_${r.date}`),
+      driverNumber: Number(r.driver_number),
+      driverCode: String(driverInfo.name_acronym ?? `D${r.driver_number}`),
+      teamName: String(driverInfo.team_name ?? ''),
+      teamColour: String(driverInfo.team_colour ?? '444444'),
+      recordingUrl: r.recording_url ?? null,
+      date: String(r.date ?? ''),
+      isRead: false,
+      sessionKey: sessionKey ?? 0,
+    };
+  });
+
+  const detailResponse: PitWallDetailResponse = {
+    sessionKey,
+    driverDetail,
+    radioMessages,
+    fetchedAt: Date.now(),
+    cacheHit: false,
+  };
+
+  detailCache = { sessionKey, data: detailResponse, expiresAt: Date.now() + DETAIL_CACHE_TTL_MS };
+  return NextResponse.json(detailResponse);
+}
+
+// GUID: API_PIT_WALL_LIVE_DATA-010-v03
+// [Intent] v03: Tiered fetch — accepts ?tier=core (default) or ?tier=detail.
+//          Core: 8 fast endpoints (sessions/drivers/position/location/intervals/stints/weather/race_control).
+//          Detail: 3 slow endpoints (laps/car_data/team_radio) — separate cache, higher TTL.
+//          Client fires both simultaneously; core renders the table first, detail enriches it.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
 
@@ -181,6 +331,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { error: ERRORS.SESSION_INVALID.message, code: ERRORS.SESSION_INVALID.code, correlationId },
       { status: 401 },
     );
+  }
+
+  const tier = new URL(req.url).searchParams.get('tier') ?? 'core';
+  const token = await getOpenF1Token();
+
+  if (tier === 'detail') {
+    return handleDetailRequest(token, correlationId);
   }
 
   // GUID: API_PIT_WALL_LIVE_DATA-012-v01
@@ -198,25 +355,25 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     } satisfies PitWallLiveDataResponse);
   }
 
-  const token = await getOpenF1Token();
-
-  // Fan out all OpenF1 endpoints in parallel
+  // Core tier: 8 fast endpoints — no laps/car_data/team_radio
   const [
     sessionsRaw, driversRaw, raceOrderRaw, locationsRaw, intervalsRaw,
-    lapsRaw, stintsRaw, carDataRaw, raceControlRaw, weatherRaw, teamRadioRaw,
+    stintsRaw, weatherRaw, raceControlRaw,
   ] = await Promise.all([
     openF1Fetch<any[]>('/sessions?session_key=latest', token),
     openF1Fetch<any[]>('/drivers?session_key=latest', token),
     openF1Fetch<any[]>('/position?session_key=latest', token),   // race order (1st/2nd/…)
     openF1Fetch<any[]>('/location?session_key=latest', token),   // GPS x/y/z for track map
     openF1Fetch<any[]>('/intervals?session_key=latest', token),
-    openF1Fetch<any[]>('/laps?session_key=latest', token),
     openF1Fetch<any[]>('/stints?session_key=latest', token),
-    openF1Fetch<any[]>('/car_data?session_key=latest', token),
-    openF1Fetch<any[]>('/race_control?session_key=latest', token),
     openF1Fetch<any[]>('/weather?session_key=latest', token),
-    openF1Fetch<any[]>('/team_radio?session_key=latest', token),
+    openF1Fetch<any[]>('/race_control?session_key=latest', token),
   ]);
+
+  // Slow endpoints moved to detail tier — stub as empty so driver builder compiles cleanly
+  const lapsRaw: any[] = [];
+  const carDataRaw: any[] = [];
+  const teamRadioRaw: any[] = [];
 
   // Session metadata
   const session = sessionsRaw?.[0] ?? null;

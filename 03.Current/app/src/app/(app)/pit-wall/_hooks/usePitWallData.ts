@@ -10,7 +10,7 @@
 'use client';
 
 import { useReducer, useEffect, useRef, useCallback } from 'react';
-import type { DriverRaceState, RaceControlMessage, RadioMessage, WeatherSnapshot, PitWallLiveDataResponse } from '../_types/pit-wall.types';
+import type { DriverRaceState, RaceControlMessage, RadioMessage, WeatherSnapshot, PitWallLiveDataResponse, PitWallDetailResponse } from '../_types/pit-wall.types';
 import { CLIENT_ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 import type { User } from 'firebase/auth';
@@ -63,6 +63,7 @@ interface PitWallDataState {
 
 type PitWallDataAction =
   | { type: 'FETCH_SUCCESS'; payload: PitWallLiveDataResponse }
+  | { type: 'MERGE_DETAIL'; payload: PitWallDetailResponse }
   | { type: 'FETCH_ERROR'; error: string; errorCode: string; correlationId: string }
   | { type: 'SET_LOADING' };
 
@@ -87,8 +88,11 @@ const initialState: PitWallDataState = {
   lastUpdated: null,
 };
 
-// GUID: PIT_WALL_DATA_HOOK-004-v01
+// GUID: PIT_WALL_DATA_HOOK-004-v02
 // [Intent] Reducer that applies fetch outcomes atomically — no partial state updates.
+//          v02: Added MERGE_DETAIL — enriches existing drivers[] with lap times,
+//               car telemetry, and radio from the slow detail tier without
+//               replacing core fields. Ignored if sessionKey doesn't match.
 function pitWallDataReducer(state: PitWallDataState, action: PitWallDataAction): PitWallDataState {
   switch (action.type) {
     case 'SET_LOADING':
@@ -115,6 +119,33 @@ function pitWallDataReducer(state: PitWallDataState, action: PitWallDataAction):
         correlationId: null,
         lastUpdated: new Date(),
       };
+    case 'MERGE_DETAIL': {
+      // Drop stale detail responses (different session)
+      if (action.payload.sessionKey !== null && action.payload.sessionKey !== state.sessionKey) return state;
+      const detailMap = new Map(action.payload.driverDetail.map(d => [d.driverNumber, d]));
+      return {
+        ...state,
+        radioMessages: action.payload.radioMessages.length > 0
+          ? action.payload.radioMessages
+          : state.radioMessages,
+        drivers: state.drivers.map(d => {
+          const detail = detailMap.get(d.driverNumber);
+          if (!detail) return d;
+          return {
+            ...d,
+            currentLap:   detail.currentLap   || d.currentLap,
+            lastLapTime:  detail.lastLapTime  ?? d.lastLapTime,
+            bestLapTime:  detail.bestLapTime  ?? d.bestLapTime,
+            fastestLap:   detail.fastestLap,
+            sectors:      detail.sectors,
+            speed:        detail.speed        ?? d.speed,
+            throttle:     detail.throttle     ?? d.throttle,
+            brake:        detail.brake        ?? d.brake,
+            gear:         detail.gear         ?? d.gear,
+          };
+        }),
+      };
+    }
     case 'FETCH_ERROR':
       return {
         ...state,
@@ -128,21 +159,39 @@ function pitWallDataReducer(state: PitWallDataState, action: PitWallDataAction):
   }
 }
 
-// GUID: PIT_WALL_DATA_HOOK-002-v01
-// [Intent] Fetch raw response text from the pit-wall API route with Firebase auth token.
-//          Returns text so the caller can hand it to the Web Worker for parsing.
-async function fetchLiveDataText(firebaseUser: User): Promise<string> {
+// GUID: PIT_WALL_DATA_HOOK-002-v02
+// [Intent] Fetch raw response text from the pit-wall API core tier.
+//          Core tier: sessions, drivers, positions, locations, intervals, stints, weather, race_control.
+//          Returns text for Web Worker JSON parsing.
+async function fetchCoreDataText(firebaseUser: User): Promise<string> {
   const token = await firebaseUser.getIdToken();
-  const res = await fetch('/api/pit-wall/live-data', {
+  const res = await fetch('/api/pit-wall/live-data?tier=core', {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   });
   if (!res.ok) {
-    // Error bodies are small — safe to parse inline
     const body = await res.json().catch(() => ({}));
     throw new Error(body?.error || `HTTP ${res.status}`);
   }
   return res.text();
+}
+
+// GUID: PIT_WALL_DATA_HOOK-006-v01
+// [Intent] Fetch detail tier — laps, car_data, team_radio. Runs concurrently with core
+//          so slow endpoints don't block the table from appearing. Returns null on any error
+//          (detail is supplemental; core failure is the only hard error).
+async function fetchDetailData(firebaseUser: User): Promise<PitWallDetailResponse | null> {
+  try {
+    const token = await firebaseUser.getIdToken();
+    const res = await fetch('/api/pit-wall/live-data?tier=detail', {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return await res.json() as PitWallDetailResponse;
+  } catch {
+    return null;
+  }
 }
 
 // GUID: PIT_WALL_DATA_HOOK-003-v02
@@ -204,19 +253,23 @@ export function usePitWallData(
 
   const fetchData = useCallback(async () => {
     if (!firebaseUser) return;
-    try {
-      const rawText = await fetchLiveDataText(firebaseUser);
-      const data = await parseJson(rawText);
-      dispatch({ type: 'FETCH_SUCCESS', payload: data });
-    } catch (err: any) {
-      const cid = generateClientCorrelationId();
-      dispatch({
-        type: 'FETCH_ERROR',
-        error: err?.message || CLIENT_ERRORS.NETWORK_ERROR.message,
-        errorCode: CLIENT_ERRORS.NETWORK_ERROR.code,
-        correlationId: cid,
+    // Fire core and detail simultaneously — core dispatches first (fast), detail merges in later (slow)
+    const corePromise = fetchCoreDataText(firebaseUser)
+      .then(rawText => parseJson(rawText))
+      .then(data => dispatch({ type: 'FETCH_SUCCESS', payload: data }))
+      .catch((err: any) => {
+        const cid = generateClientCorrelationId();
+        dispatch({
+          type: 'FETCH_ERROR',
+          error: err?.message || CLIENT_ERRORS.NETWORK_ERROR.message,
+          errorCode: CLIENT_ERRORS.NETWORK_ERROR.code,
+          correlationId: cid,
+        });
       });
-    }
+    const detailPromise = fetchDetailData(firebaseUser)
+      .then(detail => { if (detail) dispatch({ type: 'MERGE_DETAIL', payload: detail }); });
+    // Await both so the interval doesn't fire a new fetch before they complete
+    await Promise.allSettled([corePromise, detailPromise]);
   }, [firebaseUser, parseJson]);
 
   const forceRefresh = useCallback(() => {

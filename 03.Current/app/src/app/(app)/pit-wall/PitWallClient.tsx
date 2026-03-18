@@ -550,13 +550,16 @@ export default function PitWallClient() {
 
       {/* ── REPLAY CONTROLS STRIP ── */}
       {/* GUID: PIT_WALL_CLIENT-024-v01 */}
-      {/* Shown below the toolbar only in replay mode — classic media transport controls */}
-      {isReplayMode && (
+      {/* Always mounted when isReplayMode — fade/slide in to avoid layout snap */}
+      <div
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{ maxHeight: isReplayMode ? '60px' : '0px', opacity: isReplayMode ? 1 : 0 }}
+      >
         <ReplayControls
           player={replayPlayer}
           meetingName={selectedReplaySession?.meetingName ?? (replaySessionsLoading ? 'Loading…' : 'Select a session')}
         />
-      )}
+      </div>
 
       {/* ── ERROR BANNER ── */}
       {/* GUID: PIT_WALL_CLIENT-007-v01 */}

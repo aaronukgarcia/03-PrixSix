@@ -140,6 +140,42 @@ export interface PitWallLiveDataResponse {
   cacheAgeMs?: number;
 }
 
+// GUID: PIT_WALL_TYPES-010-v01
+// [Intent] Per-driver enrichment returned by /api/pit-wall/live-data?tier=detail.
+//          Contains the slow-to-compute fields (lap times, sectors, car telemetry, tyres)
+//          that are merged into existing DriverRaceState[] after core data loads.
+export interface DriverDetail {
+  driverNumber: number;
+  currentLap: number;
+  lastLapTime: number | null;
+  bestLapTime: number | null;
+  fastestLap: boolean;
+  sectors: {
+    s1: number | null; s2: number | null; s3: number | null;
+    s1Status: SectorStatus; s2Status: SectorStatus; s3Status: SectorStatus;
+  };
+  tyreCompound: TyreCompound;
+  tyreLapAge: number;
+  pitStopCount: number;
+  onNewTyres: boolean;
+  speed: number | null;
+  throttle: number | null;
+  brake: boolean | null;
+  gear: number | null;
+}
+
+// GUID: PIT_WALL_TYPES-011-v01
+// [Intent] Response shape for /api/pit-wall/live-data?tier=detail.
+//          Carries the slow endpoints (laps, car_data, team_radio) separately
+//          so they can be merged into the already-visible core data.
+export interface PitWallDetailResponse {
+  sessionKey: number | null;
+  driverDetail: DriverDetail[];
+  radioMessages: RadioMessage[];
+  fetchedAt: number;
+  cacheHit?: boolean;
+}
+
 // GUID: PIT_WALL_TYPES-009-v01
 // [Intent] A single GPS point in projected metres (not WGS84).
 //          Used to accumulate the circuit path from car position history.
