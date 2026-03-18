@@ -165,7 +165,10 @@ function latestPerDriver<T extends { driver_number: number; date?: string }>(arr
   return map;
 }
 
-// GUID: API_PIT_WALL_LIVE_DATA-010-v01
+// GUID: API_PIT_WALL_LIVE_DATA-010-v02
+// [Intent] v02: Added /location fan-out for GPS x/y/z car positions.
+//          /position returns race order (1st, 2nd …) — kept for grid position.
+//          /location returns projected-metre GPS coordinates — used for track map.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
 
@@ -199,12 +202,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Fan out all OpenF1 endpoints in parallel
   const [
-    sessionsRaw, driversRaw, positionsRaw, intervalsRaw,
+    sessionsRaw, driversRaw, raceOrderRaw, locationsRaw, intervalsRaw,
     lapsRaw, stintsRaw, carDataRaw, raceControlRaw, weatherRaw, teamRadioRaw,
   ] = await Promise.all([
     openF1Fetch<any[]>('/sessions?session_key=latest', token),
     openF1Fetch<any[]>('/drivers?session_key=latest', token),
-    openF1Fetch<any[]>('/position?session_key=latest', token),
+    openF1Fetch<any[]>('/position?session_key=latest', token),   // race order (1st/2nd/…)
+    openF1Fetch<any[]>('/location?session_key=latest', token),   // GPS x/y/z for track map
     openF1Fetch<any[]>('/intervals?session_key=latest', token),
     openF1Fetch<any[]>('/laps?session_key=latest', token),
     openF1Fetch<any[]>('/stints?session_key=latest', token),
@@ -240,9 +244,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const driverMap = new Map<number, any>();
   (driversRaw ?? []).forEach((d: any) => driverMap.set(d.driver_number, d));
 
-  const latestPositions = latestPerDriver(positionsRaw ?? []);
-  if (latestPositions.size === 0 && driversRaw && driversRaw.length > 0) {
-    console.warn(`[pit-wall/live-data] Position data empty for session ${sessionKey} — track map will show no cars`);
+  // Race order (grid position 1st/2nd/…) — from /position
+  const latestPositions = latestPerDriver(raceOrderRaw ?? []);
+  // GPS coordinates (x/y/z projected metres) — from /location
+  const latestLocations = latestPerDriver(locationsRaw ?? []);
+  if (latestLocations.size === 0 && driversRaw && driversRaw.length > 0) {
+    console.warn(`[pit-wall/live-data] Location data empty for session ${sessionKey} — track map will show no cars`);
   }
   const latestIntervals = latestPerDriver(intervalsRaw ?? []);
   const latestCarData = latestPerDriver(carDataRaw ?? []);
@@ -305,13 +312,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const allDriverNumbers = new Set<number>([
     ...driverMap.keys(),
     ...latestPositions.keys(),
+    ...latestLocations.keys(),
   ]);
 
   const drivers: DriverRaceState[] = [];
 
   allDriverNumbers.forEach(dn => {
     const driverInfo = driverMap.get(dn) ?? {};
-    const pos = latestPositions.get(dn);
+    const pos = latestPositions.get(dn);   // race order
+    const loc = latestLocations.get(dn);   // GPS x/y/z
     const interval = latestIntervals.get(dn);
     const car = latestCarData.get(dn);
     const stint = latestStints.get(dn);
@@ -361,9 +370,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       throttle: car?.throttle ?? null,
       brake: car?.brake != null ? car.brake > 0 : null,
       gear: car?.n_gear ?? null,
-      x: pos?.x ?? null,
-      y: pos?.y ?? null,
-      z: pos?.z ?? null,
+      x: loc?.x ?? null,
+      y: loc?.y ?? null,
+      z: loc?.z ?? null,
       hasUnreadRadio: false, // set client-side
       isMuted: false,        // set client-side
       lastUpdated: Date.now(),
@@ -429,7 +438,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     weather,
     totalLaps,
     sessionType,
-    positionDataAvailable: latestPositions.size > 0,
+    positionDataAvailable: latestLocations.size > 0,
     fetchedAt: Date.now(),
     cacheHit: false,
     cacheAgeMs: 0,
