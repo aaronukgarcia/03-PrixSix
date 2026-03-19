@@ -1,8 +1,11 @@
-// GUID: PIXI_INTERP_SYSTEM-000-v01
+// GUID: PIXI_INTERP_SYSTEM-000-v02
 // [Intent] Extracted interpolation logic for smooth car position animation on the track map.
 //          Manages prev/next position snapshots and produces per-frame interpolated positions.
-//          Same Catmull-Rom / polyline snap logic as the original PitWallTrackMap RAF loop,
-//          now encapsulated as a standalone system for use with the PixiJS renderer.
+//          v02: Added snap-to-track validation — if the polyline projection drifts more than
+//               MAX_SNAP_DRIFT from the raw GPS position, falls back to raw lerp. This prevents
+//               cars from spawning at wrong track positions (e.g. S/F) when the polyline is
+//               inaccurate or stale. Also tracks which drivers just appeared (first 2 updates)
+//               to ensure they render at their actual GPS position without fly-in animation.
 // [Inbound Trigger] Called by the PixiJS track map component on each animation frame.
 // [Downstream Impact] Returns InterpolatedPosition[] consumed by car dot rendering.
 
@@ -15,10 +18,24 @@ import { type TrackPolyline, projectOntoTrack, paramToPoint } from '../../_utils
 //          the entire circuit. 500m is roughly 10% of a typical F1 circuit length.
 const SNAP_DISTANCE_SQ = 500 * 500;
 
+// GUID: PIXI_INTERP_SYSTEM-006-v01
+// [Intent] Maximum allowed drift between the snap-to-track result and the raw lerp result.
+//          If the polyline-projected position is more than 100m from where raw lerp says the
+//          car should be, the polyline is wrong for this car — fall back to raw lerp.
+//          100m is generous enough to allow normal track-width snapping but catches bad
+//          polyline projections that would send cars to the wrong part of the track.
+const MAX_SNAP_DRIFT_SQ = 100 * 100;
+
 export class InterpolationSystem {
   private prevPositions = new Map<number, { x: number; y: number }>();
   private nextPositions = new Map<number, { x: number; y: number }>();
   private snapshotTimestamp = Date.now();
+
+  // GUID: PIXI_INTERP_SYSTEM-007-v01
+  // [Intent] Track how many data updates each driver has had. Drivers with fewer than 2
+  //          updates always use raw GPS positioning (no snap-to-track, no lerp) to prevent
+  //          spawn fly-in artifacts. After 2 updates, smooth interpolation is safe.
+  private updateCount = new Map<number, number>();
 
   // GUID: PIXI_INTERP_SYSTEM-005-v01
   // [Intent] Set of driver numbers that snapped (teleported) this frame rather than
@@ -26,10 +43,11 @@ export class InterpolationSystem {
   //          — prevents diagonal fly-in lines across the map.
   readonly snappedThisFrame = new Set<number>();
 
-  // GUID: PIXI_INTERP_SYSTEM-002-v01
+  // GUID: PIXI_INTERP_SYSTEM-002-v02
   // [Intent] Called when new driver data arrives from the server (React prop change).
-  //          Promotes current next→prev, stores incoming positions as new next,
-  //          and resets the snapshot timestamp for lerp calculation.
+  //          Promotes current next->prev, stores incoming positions as new next,
+  //          resets the snapshot timestamp for lerp calculation, and increments per-driver
+  //          update counters for spawn protection.
   onDriversUpdate(drivers: DriverRaceState[]): void {
     // Promote next → prev
     this.prevPositions = new Map(this.nextPositions);
@@ -39,18 +57,24 @@ export class InterpolationSystem {
     for (const d of drivers) {
       if (d.x != null && d.y != null && !d.retired) {
         this.nextPositions.set(d.driverNumber, { x: d.x, y: d.y });
+
+        // Track update count for spawn protection
+        const count = this.updateCount.get(d.driverNumber) ?? 0;
+        this.updateCount.set(d.driverNumber, count + 1);
       }
     }
 
     this.snapshotTimestamp = Date.now();
   }
 
-  // GUID: PIXI_INTERP_SYSTEM-003-v01
+  // GUID: PIXI_INTERP_SYSTEM-003-v02
   // [Intent] Called every animation frame. Returns interpolated positions for all drivers
   //          by lerping between prev and next snapshots. If a TrackPolyline is available,
   //          positions are snapped to the track centreline via 1D parameter interpolation
   //          (project both endpoints onto the polyline, lerp the 1D parameter, convert back
   //          to 2D). Falls back to raw linear lerp when no polyline is present.
+  //          v02: Drivers with < 2 updates always use raw GPS (no fly-in from wrong position).
+  //               Snap-to-track validated against raw lerp — if drift > 100m, raw lerp wins.
   interpolate(
     drivers: DriverRaceState[],
     now: number,
@@ -71,12 +95,15 @@ export class InterpolationSystem {
       if (!next) continue;
 
       const prev = this.prevPositions.get(d.driverNumber);
+      const driverUpdates = this.updateCount.get(d.driverNumber) ?? 0;
 
       let ix: number;
       let iy: number;
 
-      if (!prev) {
-        // No previous position — snap to next
+      if (!prev || driverUpdates < 2) {
+        // No previous position OR driver just appeared — snap directly to current GPS.
+        // Using raw GPS for the first 2 updates prevents the fly-in artifact where a car
+        // spawns at the wrong position (e.g. S/F) and animates to its actual location.
         ix = next.x;
         iy = next.y;
         this.snappedThisFrame.add(d.driverNumber);
@@ -105,8 +132,23 @@ export class InterpolationSystem {
 
           const paramInterp = paramPrev + delta * t;
           const pt = paramToPoint(poly, paramInterp);
-          ix = pt.x;
-          iy = pt.y;
+
+          // Validate: if snap-to-track drifted too far from raw lerp, the polyline
+          // is wrong for this position — fall back to raw lerp to prevent S/F spawning.
+          const rawX = prev.x + (next.x - prev.x) * t;
+          const rawY = prev.y + (next.y - prev.y) * t;
+          const driftX = pt.x - rawX;
+          const driftY = pt.y - rawY;
+          const driftSq = driftX * driftX + driftY * driftY;
+
+          if (driftSq > MAX_SNAP_DRIFT_SQ) {
+            // Polyline projection is unreliable — use raw lerp
+            ix = rawX;
+            iy = rawY;
+          } else {
+            ix = pt.x;
+            iy = pt.y;
+          }
         } else {
           // Raw linear lerp — no track data available
           ix = prev.x + (next.x - prev.x) * t;
@@ -130,11 +172,14 @@ export class InterpolationSystem {
     return results;
   }
 
-  // GUID: PIXI_INTERP_SYSTEM-004-v01
-  // [Intent] Clear all stored positions. Call when session changes or component unmounts.
+  // GUID: PIXI_INTERP_SYSTEM-004-v02
+  // [Intent] Clear all stored positions and update counters. Call when session changes
+  //          or component unmounts. Resets spawn protection so new drivers get 2 clean
+  //          updates before interpolation starts.
   reset(): void {
     this.prevPositions.clear();
     this.nextPositions.clear();
+    this.updateCount.clear();
     this.snapshotTimestamp = Date.now();
   }
 }

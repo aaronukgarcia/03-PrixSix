@@ -69,11 +69,13 @@ function computeTrackBounds(
   };
 }
 
-// GUID: PIT_WALL_CLIENT-020-v01
+// GUID: PIT_WALL_CLIENT-020-v02
 // [Intent] localStorage helpers for persisting the circuit path across page loads.
 //          Keyed by circuitKey so each circuit has its own cached outline.
 //          Max 8000 points stored (~1 race worth of position history).
-const CIRCUIT_PATH_KEY = 'prix6_pw_circuit_path_v1';
+//          v02: Key bumped to v2 to invalidate stale multi-car point cloud data from v1.
+//               v2 stores single-driver sequential path data which produces clean outlines.
+const CIRCUIT_PATH_KEY = 'prix6_pw_circuit_path_v2';
 const MAX_CIRCUIT_POINTS = 8000;
 
 function loadCircuitPath(circuitKey: number): CircuitPoint[] {
