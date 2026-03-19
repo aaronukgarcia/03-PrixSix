@@ -10,8 +10,11 @@ import type { CircuitOutline } from '../../_utils/trackSpline';
 import type { TrackBounds } from '../../_types/pit-wall.types';
 import { projectToCanvas } from '../utils/pixi-helpers';
 
-const TRACK_WIDTH = 3;
-const TRACK_GLOW_WIDTH = 8;
+// GUID: PIXI_TRACK_LAYER-006-v01
+// [Intent] Track width 3x car dot diameter (3.5px radius × 2 × 3 = 21px) so side-by-side
+//          cars during overtakes are visually contained within the track ribbon.
+const TRACK_WIDTH = 21;
+const TRACK_GLOW_WIDTH = 32;
 
 // GUID: PIXI_TRACK_LAYER-001-v01
 // [Intent] Sector stroke colours — dark muted tones that sit just above the background.

@@ -1,30 +1,33 @@
-// GUID: PIXI_INTERP_SYSTEM-000-v02
+// GUID: PIXI_INTERP_SYSTEM-000-v03
 // [Intent] Extracted interpolation logic for smooth car position animation on the track map.
-//          Manages prev/next position snapshots and produces per-frame interpolated positions.
-//          v02: Added snap-to-track validation — if the polyline projection drifts more than
-//               MAX_SNAP_DRIFT from the raw GPS position, falls back to raw lerp. This prevents
-//               cars from spawning at wrong track positions (e.g. S/F) when the polyline is
-//               inaccurate or stale. Also tracks which drivers just appeared (first 2 updates)
-//               to ensure they render at their actual GPS position without fly-in animation.
+//          v02: Snap-to-track validation, spawn protection (< 2 updates → raw GPS).
+//          v03: Speed-based GPS spike filtering in onDriversUpdate — if implied speed between
+//               consecutive positions exceeds 400 km/h, the new position is rejected as a GPS
+//               spike and the previous position is kept. This prevents impossible-travel artifacts
+//               (cars jumping to wrong positions and back) at all polling intervals.
 // [Inbound Trigger] Called by the PixiJS track map component on each animation frame.
 // [Downstream Impact] Returns InterpolatedPosition[] consumed by car dot rendering.
 
 import type { DriverRaceState, InterpolatedPosition } from '../../_types/pit-wall.types';
 import { type TrackPolyline, projectOntoTrack, paramToPoint } from '../../_utils/trackSpline';
 
-// GUID: PIXI_INTERP_SYSTEM-001-v01
-// [Intent] Snap threshold squared — if a driver jumps more than 500m between updates
-//          (e.g. pit exit, lap reset, data gap), snap directly instead of lerping through
-//          the entire circuit. 500m is roughly 10% of a typical F1 circuit length.
+// GUID: PIXI_INTERP_SYSTEM-001-v02
+// [Intent] Snap threshold squared — if a driver jumps more than 500m between updates,
+//          snap directly instead of lerping. Backup for any spikes the speed filter misses.
 const SNAP_DISTANCE_SQ = 500 * 500;
 
 // GUID: PIXI_INTERP_SYSTEM-006-v01
-// [Intent] Maximum allowed drift between the snap-to-track result and the raw lerp result.
-//          If the polyline-projected position is more than 100m from where raw lerp says the
-//          car should be, the polyline is wrong for this car — fall back to raw lerp.
-//          100m is generous enough to allow normal track-width snapping but catches bad
-//          polyline projections that would send cars to the wrong part of the track.
+// [Intent] Maximum allowed drift between snap-to-track and raw lerp results.
 const MAX_SNAP_DRIFT_SQ = 100 * 100;
+
+// GUID: PIXI_INTERP_SYSTEM-008-v01
+// [Intent] Maximum plausible speed in m/s. F1 top speed is ~370 km/h = ~103 m/s.
+//          400 km/h = 111 m/s gives headroom for GPS jitter without letting spikes through.
+const MAX_PLAUSIBLE_SPEED_MPS = 111;
+
+// [Intent] GPS jitter margin in metres. Two consecutive readings can each be ±10m off,
+//          so the distance between them has up to 20m of jitter even if the car hasn't moved.
+const GPS_JITTER_MARGIN_M = 20;
 
 export class InterpolationSystem {
   private prevPositions = new Map<number, { x: number; y: number }>();
@@ -32,30 +35,47 @@ export class InterpolationSystem {
   private snapshotTimestamp = Date.now();
 
   // GUID: PIXI_INTERP_SYSTEM-007-v01
-  // [Intent] Track how many data updates each driver has had. Drivers with fewer than 2
-  //          updates always use raw GPS positioning (no snap-to-track, no lerp) to prevent
-  //          spawn fly-in artifacts. After 2 updates, smooth interpolation is safe.
+  // [Intent] Per-driver update counter for spawn protection.
   private updateCount = new Map<number, number>();
 
   // GUID: PIXI_INTERP_SYSTEM-005-v01
-  // [Intent] Set of driver numbers that snapped (teleported) this frame rather than
-  //          smoothly interpolating. Used by PixiTrackApp to skip trail points on snap
-  //          — prevents diagonal fly-in lines across the map.
   readonly snappedThisFrame = new Set<number>();
 
-  // GUID: PIXI_INTERP_SYSTEM-002-v02
-  // [Intent] Called when new driver data arrives from the server (React prop change).
-  //          Promotes current next->prev, stores incoming positions as new next,
-  //          resets the snapshot timestamp for lerp calculation, and increments per-driver
-  //          update counters for spawn protection.
+  // GUID: PIXI_INTERP_SYSTEM-002-v03
+  // [Intent] Called when new driver data arrives. Validates each position against the
+  //          previous position using speed-based plausibility. Positions implying travel
+  //          faster than MAX_PLAUSIBLE_SPEED_MPS are rejected as GPS spikes — the previous
+  //          position is kept, preventing impossible-travel fly-in/fly-back artifacts.
   onDriversUpdate(drivers: DriverRaceState[]): void {
+    const now = Date.now();
+    const timeDeltaS = Math.max(0.1, (now - this.snapshotTimestamp) / 1000);
+
+    // Maximum distance a car could plausibly travel in this time delta
+    const maxDist = MAX_PLAUSIBLE_SPEED_MPS * timeDeltaS + GPS_JITTER_MARGIN_M;
+    const maxDistSq = maxDist * maxDist;
+
     // Promote next → prev
     this.prevPositions = new Map(this.nextPositions);
 
-    // Store new next positions
+    // Store new next positions (with speed validation)
     this.nextPositions.clear();
     for (const d of drivers) {
       if (d.x != null && d.y != null && !d.retired) {
+        const prev = this.prevPositions.get(d.driverNumber);
+
+        if (prev) {
+          const dx = d.x - prev.x;
+          const dy = d.y - prev.y;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq > maxDistSq) {
+            // GPS spike — impossible travel speed. Keep the previous position
+            // so the car stays put rather than flying to a wrong location.
+            this.nextPositions.set(d.driverNumber, { x: prev.x, y: prev.y });
+            continue;
+          }
+        }
+
         this.nextPositions.set(d.driverNumber, { x: d.x, y: d.y });
 
         // Track update count for spawn protection
@@ -64,17 +84,10 @@ export class InterpolationSystem {
       }
     }
 
-    this.snapshotTimestamp = Date.now();
+    this.snapshotTimestamp = now;
   }
 
   // GUID: PIXI_INTERP_SYSTEM-003-v02
-  // [Intent] Called every animation frame. Returns interpolated positions for all drivers
-  //          by lerping between prev and next snapshots. If a TrackPolyline is available,
-  //          positions are snapped to the track centreline via 1D parameter interpolation
-  //          (project both endpoints onto the polyline, lerp the 1D parameter, convert back
-  //          to 2D). Falls back to raw linear lerp when no polyline is present.
-  //          v02: Drivers with < 2 updates always use raw GPS (no fly-in from wrong position).
-  //               Snap-to-track validated against raw lerp — if drift > 100m, raw lerp wins.
   interpolate(
     drivers: DriverRaceState[],
     now: number,
@@ -101,30 +114,23 @@ export class InterpolationSystem {
       let iy: number;
 
       if (!prev || driverUpdates < 2) {
-        // No previous position OR driver just appeared — snap directly to current GPS.
-        // Using raw GPS for the first 2 updates prevents the fly-in artifact where a car
-        // spawns at the wrong position (e.g. S/F) and animates to its actual location.
+        // No previous position OR driver just appeared — snap to raw GPS
         ix = next.x;
         iy = next.y;
         this.snappedThisFrame.add(d.driverNumber);
       } else {
-        // Check snap threshold — large jumps bypass lerp
         const dx = next.x - prev.x;
         const dy = next.y - prev.y;
         const distSq = dx * dx + dy * dy;
 
         if (distSq > SNAP_DISTANCE_SQ) {
-          // Teleport — don't lerp across the entire circuit
           ix = next.x;
           iy = next.y;
           this.snappedThisFrame.add(d.driverNumber);
         } else if (poly) {
-          // Snap-to-track interpolation via 1D parameter
           const paramPrev = projectOntoTrack(poly, prev.x, prev.y);
           const paramNext = projectOntoTrack(poly, next.x, next.y);
 
-          // Handle wraparound — if the shorter path crosses the start/finish line,
-          // adjust paramNext so the lerp goes the short way around
           let delta = paramNext - paramPrev;
           const halfLength = poly.totalLength / 2;
           if (delta > halfLength) delta -= poly.totalLength;
@@ -133,16 +139,13 @@ export class InterpolationSystem {
           const paramInterp = paramPrev + delta * t;
           const pt = paramToPoint(poly, paramInterp);
 
-          // Validate: if snap-to-track drifted too far from raw lerp, the polyline
-          // is wrong for this position — fall back to raw lerp to prevent S/F spawning.
+          // Validate snap-to-track against raw lerp
           const rawX = prev.x + (next.x - prev.x) * t;
           const rawY = prev.y + (next.y - prev.y) * t;
           const driftX = pt.x - rawX;
           const driftY = pt.y - rawY;
-          const driftSq = driftX * driftX + driftY * driftY;
 
-          if (driftSq > MAX_SNAP_DRIFT_SQ) {
-            // Polyline projection is unreliable — use raw lerp
+          if (driftX * driftX + driftY * driftY > MAX_SNAP_DRIFT_SQ) {
             ix = rawX;
             iy = rawY;
           } else {
@@ -150,7 +153,6 @@ export class InterpolationSystem {
             iy = pt.y;
           }
         } else {
-          // Raw linear lerp — no track data available
           ix = prev.x + (next.x - prev.x) * t;
           iy = prev.y + (next.y - prev.y) * t;
         }
@@ -173,9 +175,6 @@ export class InterpolationSystem {
   }
 
   // GUID: PIXI_INTERP_SYSTEM-004-v02
-  // [Intent] Clear all stored positions and update counters. Call when session changes
-  //          or component unmounts. Resets spawn protection so new drivers get 2 clean
-  //          updates before interpolation starts.
   reset(): void {
     this.prevPositions.clear();
     this.nextPositions.clear();

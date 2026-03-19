@@ -5,7 +5,7 @@
 // [Inbound Trigger] update() called every frame with interpolated driver positions.
 // [Downstream Impact] Pure rendering — no React state, no Firestore, no DOM.
 
-import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Container, Graphics, Text, TextStyle, Circle } from 'pixi.js';
 import type { InterpolatedPosition, TrackBounds } from '../../_types/pit-wall.types';
 import { projectToCanvas, hexToPixi } from '../utils/pixi-helpers';
 
@@ -58,6 +58,10 @@ export class CarLayer {
   /** Labels and badges — intended to sit above bloom effects */
   readonly labelContainer = new Container();
   private pool: CarSprite[] = [];
+  // GUID: PIXI_CAR_LAYER-006-v01
+  // [Intent] Track which pool slot the pointer is hovering over for label reveal.
+  //          -1 = no hover. Updated by pointerover/pointerout on each car container.
+  private hoveredSlot = -1;
 
   constructor() {
     // GUID: PIXI_CAR_LAYER-003-v01
@@ -65,6 +69,16 @@ export class CarLayer {
     for (let i = 0; i < POOL_SIZE; i++) {
       const container = new Container();
       container.visible = false;
+
+      // GUID: PIXI_CAR_LAYER-007-v01
+      // [Intent] Make car dots interactive for hover-to-reveal driver code labels.
+      //          Hit area is slightly larger than the dot for easier targeting.
+      container.eventMode = 'static';
+      container.cursor = 'pointer';
+      container.hitArea = new Circle(0, 0, DOT_RADIUS + 4);
+      const slotIndex = i;
+      container.on('pointerover', () => { this.hoveredSlot = slotIndex; });
+      container.on('pointerout', () => { if (this.hoveredSlot === slotIndex) this.hoveredSlot = -1; });
 
       // Glow dot — wider, faint halo behind the car dot
       const glowDot = new Graphics();
@@ -195,15 +209,16 @@ export class CarLayer {
       //          Only the followed driver shows its code tag. Keeps the display clean and
       //          uncluttered like an air traffic control radar scope.
       const isFollowed = followDriver === driver.driverNumber;
+      const isHovered = this.hoveredSlot === i;
 
-      // Driver code label — only visible for followed driver
-      sprite.label.visible = isFollowed;
+      // Driver code label — visible on hover or follow
+      sprite.label.visible = isFollowed || isHovered;
       sprite.label.text = driver.driverCode;
       sprite.label.position.set(px + DOT_RADIUS + 3, py);
       sprite.label.alpha = driver.retired ? 0.25 : 0.8;
 
-      // Position badge — only for followed driver or P1
-      if (isFollowed || driver.position === 1) {
+      // Position badge — visible on hover, follow, or P1
+      if (isFollowed || isHovered || driver.position === 1) {
         sprite.badge.visible = true;
         sprite.badge.position.set(px - DOT_RADIUS - BADGE_RADIUS - 2, py);
         sprite.badgeText.text = `P${driver.position}`;

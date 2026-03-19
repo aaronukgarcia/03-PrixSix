@@ -74,6 +74,14 @@ export class PixiTrackApp {
   private trailEnabled = true;
   private trailTtlMs = DEFAULT_TRAIL_TTL_MS;
 
+  // GUID: PIXI_TRACK_APP-011-v01
+  // [Intent] Per-driver trail direction tracking — prevents backwards trail artifacts.
+  //          Stores the last trail GPS position and normalised direction vector per driver.
+  //          If a new trail point implies the car reversed direction (negative dot product
+  //          with the previous direction), the trail point is skipped.
+  private lastTrailGps = new Map<number, { x: number; y: number }>();
+  private lastTrailDir = new Map<number, { dx: number; dy: number }>();
+
   // Track data
   private polyline: TrackPolyline | null = null;
   private outline: CircuitOutline | null = null;
@@ -271,8 +279,7 @@ export class PixiTrackApp {
       const ROGUE_DIST_SQ = 2000 * 2000;
 
       // 4. Update trails — push GPS-space points with telemetry colour data.
-      //    Skip drivers that snapped this frame (prevents diagonal fly-in lines)
-      //    and rogue GPS spikes (> 2000m from track centroid).
+      //    Skip: snapped drivers, rogue GPS (>2000m from centroid), direction reversals.
       for (const pos of interpolated) {
         // Rogue GPS filter
         const rdx = pos.x - centroidX;
@@ -280,7 +287,41 @@ export class PixiTrackApp {
         if (rdx * rdx + rdy * rdy > ROGUE_DIST_SQ) continue;
 
         // Skip trail point if driver snapped (teleported) this frame
-        if (this.interpolation.snappedThisFrame.has(pos.driverNumber)) continue;
+        if (this.interpolation.snappedThisFrame.has(pos.driverNumber)) {
+          // Reset direction tracking so the next valid point doesn't compare against stale dir
+          this.lastTrailGps.delete(pos.driverNumber);
+          this.lastTrailDir.delete(pos.driverNumber);
+          continue;
+        }
+
+        // Direction validation — skip trail points that imply the car reversed direction.
+        // This catches residual GPS jitter and interpolation artifacts that would draw
+        // the trail going backwards around the track.
+        const lastGps = this.lastTrailGps.get(pos.driverNumber);
+        if (lastGps) {
+          const tdx = pos.x - lastGps.x;
+          const tdy = pos.y - lastGps.y;
+          const tDistSq = tdx * tdx + tdy * tdy;
+
+          if (tDistSq > 1) { // ignore sub-metre jitter
+            const tDist = Math.sqrt(tDistSq);
+            const normDx = tdx / tDist;
+            const normDy = tdy / tDist;
+
+            const prevDir = this.lastTrailDir.get(pos.driverNumber);
+            if (prevDir) {
+              // Dot product: > 0 = same direction, < 0 = reversed
+              const dot = normDx * prevDir.dx + normDy * prevDir.dy;
+              if (dot < -0.3) {
+                // Direction reversed — skip trail point, don't update tracking
+                continue;
+              }
+            }
+
+            this.lastTrailDir.set(pos.driverNumber, { dx: normDx, dy: normDy });
+          }
+        }
+        this.lastTrailGps.set(pos.driverNumber, { x: pos.x, y: pos.y });
 
         const trail = this.trailSystem.getOrCreate(pos.driverNumber, hexToPixi(pos.teamColour));
 
