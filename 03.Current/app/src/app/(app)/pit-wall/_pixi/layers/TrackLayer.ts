@@ -75,11 +75,20 @@ export class TrackLayer {
     this.container.addChild(this.sfLabel);
   }
 
-  // GUID: PIXI_TRACK_LAYER-004-v01
+  // GUID: PIXI_TRACK_LAYER-004-v02
   // [Intent] Rebuild all track graphics from a new circuit outline. Projects GPS points
   //          to canvas space, divides into 3 equal-arc-length sectors, draws glow + stroke
-  //          per sector, perpendicular marks at sector boundaries, and S/F line at point 0.
-  rebuild(outline: CircuitOutline, bounds: TrackBounds, w: number, h: number): void {
+  //          per sector, perpendicular marks at sector boundaries.
+  //          v02: S/F line positioned from API-provided GPS coordinate (correlated from
+  //               /laps date_start + /location data) instead of circuit outline point[0]
+  //               (which is wherever tracking started, often the pit lane — not S/F).
+  rebuild(
+    outline: CircuitOutline,
+    bounds: TrackBounds,
+    w: number,
+    h: number,
+    sfLineGps?: { x: number; y: number } | null,
+  ): void {
     this.clear();
 
     const pts = outline.points;
@@ -205,24 +214,46 @@ export class TrackLayer {
       }
     }
 
-    // S/F line — bright white perpendicular at point 0
+    // S/F line — bright white perpendicular mark at the actual start/finish line position.
+    // Uses API-provided GPS coordinate (from /laps date_start correlated with /location).
+    // Falls back to circuit outline midpoint if no API S/F data available.
     this.sfLine.clear();
-    if (projected.length >= 2) {
-      const p0 = projected[0];
-      const p1 = projected[1];
-      const dx = p1.px - p0.px;
-      const dy = p1.py - p0.py;
+    if (sfLineGps && projected.length >= 2) {
+      // Project the API-provided S/F GPS coordinate to canvas space
+      const sfCanvas = projectToCanvas(sfLineGps.x, sfLineGps.y, bounds, w, h);
+
+      // Find the nearest outline point to compute the track direction at S/F
+      let nearestIdx = 0;
+      let nearestDistSq = Infinity;
+      for (let i = 0; i < projected.length; i++) {
+        const ddx = projected[i].px - sfCanvas.px;
+        const ddy = projected[i].py - sfCanvas.py;
+        const dSq = ddx * ddx + ddy * ddy;
+        if (dSq < nearestDistSq) {
+          nearestDistSq = dSq;
+          nearestIdx = i;
+        }
+      }
+
+      // Compute direction from neighbouring points for the perpendicular
+      const prevIdx = nearestIdx > 0 ? nearestIdx - 1 : projected.length - 1;
+      const nextIdx = nearestIdx < projected.length - 1 ? nearestIdx + 1 : 0;
+      const dx = projected[nextIdx].px - projected[prevIdx].px;
+      const dy = projected[nextIdx].py - projected[prevIdx].py;
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
       const nx = -dy / len;
       const ny = dx / len;
-      const sfLen = 12;
+      const sfLen = 16;
 
       this.sfLine.setStrokeStyle({ width: 2.5, color: SF_COLOUR, alpha: 0.7 });
-      this.sfLine.moveTo(p0.px - nx * sfLen, p0.py - ny * sfLen);
-      this.sfLine.lineTo(p0.px + nx * sfLen, p0.py + ny * sfLen);
+      this.sfLine.moveTo(sfCanvas.px - nx * sfLen, sfCanvas.py - ny * sfLen);
+      this.sfLine.lineTo(sfCanvas.px + nx * sfLen, sfCanvas.py + ny * sfLen);
       this.sfLine.stroke();
 
-      this.sfLabel.position.set(p0.px + nx * (sfLen + 10), p0.py + ny * (sfLen + 10));
+      this.sfLabel.position.set(sfCanvas.px + nx * (sfLen + 10), sfCanvas.py + ny * (sfLen + 10));
+    } else if (projected.length >= 2) {
+      // No API S/F data — hide S/F marker rather than show it at a wrong position
+      this.sfLabel.visible = false;
     }
   }
 

@@ -134,6 +134,11 @@ export interface PitWallLiveDataResponse {
   fetchedAt: number;
   /** True when OpenF1 returned ≥1 position record for the current session. */
   positionDataAvailable: boolean;
+  /** GPS X coordinate of the start/finish line (projected metres), derived from
+   *  correlating /laps date_start with /location GPS data. Null if unavailable. */
+  sfLineX: number | null;
+  /** GPS Y coordinate of the start/finish line (projected metres). */
+  sfLineY: number | null;
   /** True when the response was served from the server-side shared cache. */
   cacheHit?: boolean;
   /** How many ms old the cached data was when served (0 on a fresh fetch). */

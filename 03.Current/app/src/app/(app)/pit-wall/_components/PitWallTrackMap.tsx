@@ -25,6 +25,8 @@ interface PitWallTrackMapProps {
   circuitPath: CircuitPoint[];
   circuitLat: number | null;
   circuitLon: number | null;
+  sfLineX: number | null;
+  sfLineY: number | null;
   rainIntensity: number | null;
   sessionType: string | null;
   hasLiveSession: boolean;
@@ -56,6 +58,8 @@ type PixiTrackAppInstance = {
     lastMeetingName: string | null;
     trailEnabled?: boolean;
     trailTtlMs?: number;
+    sfLineX?: number | null;
+    sfLineY?: number | null;
   }) => void;
   destroy: () => void;
 };
@@ -73,6 +77,8 @@ export function PitWallTrackMap({
   circuitLat,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   circuitLon,
+  sfLineX,
+  sfLineY,
   rainIntensity,
   sessionType,
   hasLiveSession,
@@ -133,11 +139,13 @@ export function PitWallTrackMap({
       lastMeetingName,
       trailEnabled,
       trailTtlMs,
+      sfLineX,
+      sfLineY,
     });
   }, [
     drivers, bounds, circuitPath, updateIntervalMs, followDriver,
     rainIntensity, sessionType, hasLiveSession, positionDataAvailable,
-    nextRaceName, lastMeetingName, trailEnabled, trailTtlMs,
+    nextRaceName, lastMeetingName, trailEnabled, trailTtlMs, sfLineX, sfLineY,
   ]);
 
   return (

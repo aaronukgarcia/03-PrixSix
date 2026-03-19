@@ -30,6 +30,8 @@ export interface UsePitWallDataReturn {
   circuitLon: number | null;
   totalLaps: number | null;
   positionDataAvailable: boolean;
+  sfLineX: number | null;
+  sfLineY: number | null;
   isLoading: boolean;
   error: string | null;
   errorCode: string | null;
@@ -54,6 +56,8 @@ interface PitWallDataState {
   circuitLon: number | null;
   totalLaps: number | null;
   positionDataAvailable: boolean;
+  sfLineX: number | null;
+  sfLineY: number | null;
   isLoading: boolean;
   error: string | null;
   errorCode: string | null;
@@ -81,6 +85,8 @@ const initialState: PitWallDataState = {
   circuitLon: null,
   totalLaps: null,
   positionDataAvailable: false,
+  sfLineX: null,
+  sfLineY: null,
   isLoading: true,
   error: null,
   errorCode: null,
@@ -113,6 +119,8 @@ function pitWallDataReducer(state: PitWallDataState, action: PitWallDataAction):
         circuitLon: action.payload.circuitLon,
         totalLaps: action.payload.totalLaps,
         positionDataAvailable: action.payload.positionDataAvailable,
+        sfLineX: action.payload.sfLineX ?? null,
+        sfLineY: action.payload.sfLineY ?? null,
         isLoading: false,
         error: null,
         errorCode: null,
@@ -322,6 +330,8 @@ export function usePitWallData(
     circuitLon: state.circuitLon,
     totalLaps: state.totalLaps,
     positionDataAvailable: state.positionDataAvailable,
+    sfLineX: state.sfLineX,
+    sfLineY: state.sfLineY,
     isLoading: state.isLoading,
     error: state.error,
     errorCode: state.errorCode,

@@ -82,6 +82,11 @@ export class PixiTrackApp {
   private lastTrailGps = new Map<number, { x: number; y: number }>();
   private lastTrailDir = new Map<number, { dx: number; dy: number }>();
 
+  // GUID: PIXI_TRACK_APP-012-v01
+  // [Intent] S/F line GPS position from API (lap date_start correlated with location data).
+  //          Passed to TrackLayer.rebuild() for accurate S/F marker placement.
+  private sfLineGps: { x: number; y: number } | null = null;
+
   // Track data
   private polyline: TrackPolyline | null = null;
   private outline: CircuitOutline | null = null;
@@ -179,6 +184,8 @@ export class PixiTrackApp {
     lastMeetingName: string | null;
     trailEnabled?: boolean;
     trailTtlMs?: number;
+    sfLineX?: number | null;
+    sfLineY?: number | null;
   }): void {
     // If drivers changed, notify interpolation system
     if (opts.drivers !== this.drivers) {
@@ -199,6 +206,11 @@ export class PixiTrackApp {
     // Trail settings (optional — preserve existing if not provided)
     if (opts.trailEnabled !== undefined) this.trailEnabled = opts.trailEnabled;
     if (opts.trailTtlMs !== undefined) this.trailTtlMs = opts.trailTtlMs;
+
+    // S/F line GPS position (from API lap/location correlation)
+    if (opts.sfLineX != null && opts.sfLineY != null) {
+      this.sfLineGps = { x: opts.sfLineX, y: opts.sfLineY };
+    }
 
     // Rebuild track polyline/outline if circuit path grew significantly
     const pathLen = opts.circuitPath.length;
@@ -253,7 +265,7 @@ export class PixiTrackApp {
 
     // 2. Track (rebuild only when outline changes or canvas resized)
     if (this.outline && this.bounds && !this.trackBuilt) {
-      this.trackLayer.rebuild(this.outline, this.bounds, w, h);
+      this.trackLayer.rebuild(this.outline, this.bounds, w, h, this.sfLineGps);
       this.trackBuilt = true;
     }
 

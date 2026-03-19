@@ -72,6 +72,9 @@ export class InterpolationSystem {
             // GPS spike — impossible travel speed. Keep the previous position
             // so the car stays put rather than flying to a wrong location.
             this.nextPositions.set(d.driverNumber, { x: prev.x, y: prev.y });
+            // Still increment update count — the driver exists, just had bad GPS this frame
+            const count = this.updateCount.get(d.driverNumber) ?? 0;
+            this.updateCount.set(d.driverNumber, count + 1);
             continue;
           }
         }

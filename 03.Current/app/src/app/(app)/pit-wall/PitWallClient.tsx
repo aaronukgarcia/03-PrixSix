@@ -183,6 +183,8 @@ export default function PitWallClient() {
     circuitLon,
     totalLaps,
     positionDataAvailable,
+    sfLineX,
+    sfLineY,
     isLoading,
     error,
     errorCode,
@@ -599,6 +601,8 @@ export default function PitWallClient() {
             circuitPath={circuitPath}
             circuitLat={circuitLat}
             circuitLon={circuitLon}
+            sfLineX={sfLineX ?? null}
+            sfLineY={sfLineY ?? null}
             rainIntensity={weather?.rainIntensity ?? null}
             sessionType={isReplayMode ? 'GPS REPLAY' : displaySessionType}
             hasLiveSession={sessionKey !== null || (isReplayMode && replayPlayer.playbackState !== 'idle')}

@@ -391,6 +391,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       circuitLat: null, circuitLon: null, drivers: [], raceControl: [],
       radioMessages: [], weather: null, totalLaps: null, sessionType: null,
       positionDataAvailable: false,
+      sfLineX: null, sfLineY: null,
       fetchedAt: Date.now(), cacheHit: false, cacheAgeMs: 0,
     };
     liveDataCache = { sessionKey: null, data: idleResponse, expiresAt: Date.now() + IDLE_CACHE_TTL_MS };
@@ -432,6 +433,42 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       lastLaps.set(dn, lap);
     }
   });
+
+  // GUID: API_PIT_WALL_LIVE_DATA-020-v01
+  // [Intent] Compute the approximate S/F line GPS position by correlating the /laps
+  //          date_start timestamp (when a driver crosses S/F) with the nearest /location
+  //          GPS reading for the same driver. Uses the most recent completed non-pit-out lap.
+  //          date_start is approximate (~±0.5s), and /location samples at ~3.7 Hz, so
+  //          the closest GPS point is within ~135ms of the actual S/F crossing.
+  let sfLineX: number | null = null;
+  let sfLineY: number | null = null;
+  if (lapsRaw && lapsRaw.length > 0 && locationsRaw && locationsRaw.length > 0) {
+    const validLaps = (lapsRaw as any[])
+      .filter((l: any) => l.date_start && !l.is_pit_out_lap && l.lap_duration && l.lap_duration > 0)
+      .sort((a: any, b: any) => (b.date_start ?? '').localeCompare(a.date_start ?? ''));
+
+    if (validLaps.length > 0) {
+      const refLap = validLaps[0];
+      const refDriver = refLap.driver_number;
+      const refTime = new Date(refLap.date_start).getTime();
+
+      let closestLoc: any = null;
+      let closestDelta = Infinity;
+      for (const loc of (locationsRaw as any[])) {
+        if (loc.driver_number !== refDriver || loc.x == null || loc.y == null) continue;
+        const delta = Math.abs(new Date(loc.date).getTime() - refTime);
+        if (delta < closestDelta) {
+          closestDelta = delta;
+          closestLoc = loc;
+        }
+      }
+
+      if (closestLoc && closestDelta < 2000) {
+        sfLineX = closestLoc.x;
+        sfLineY = closestLoc.y;
+      }
+    }
+  }
 
   // Session best per sector
   let bestS1 = Infinity, bestS2 = Infinity, bestS3 = Infinity;
@@ -596,6 +633,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     totalLaps,
     sessionType,
     positionDataAvailable: latestLocations.size > 0,
+    sfLineX,
+    sfLineY,
     fetchedAt: Date.now(),
     cacheHit: false,
     cacheAgeMs: 0,
