@@ -192,21 +192,33 @@ export default function PitWallClient() {
   // Next race from schedule
   const nextRaceInfo = useMemo(() => findNextRaceFromSchedule(), []);
 
-  // GUID: PIT_WALL_CLIENT-018-v01
-  // [Intent] Accumulated circuit path — GPS points collected from car positions across all polls.
+  // GUID: PIT_WALL_CLIENT-018-v02
+  // [Intent] Accumulated circuit path — GPS points from a SINGLE driver's sequential positions.
+  //          v02: Tracks only one driver (prefer P1) to produce a clean single-lap outline
+  //               instead of mixing 20 drivers' positions into a jumbled point cloud.
+  //               Loop closure detection freezes the outline once a full lap is traced.
   //          Seeded from localStorage on circuitKey change so the outline is immediate on load.
-  //          Cleared when the circuit changes (new race weekend). Capped at MAX_CIRCUIT_POINTS.
-  //          Saved to localStorage after each update so it survives page refreshes.
   const [circuitPath, setCircuitPath] = useState<CircuitPoint[]>([]);
   const lastCircuitKeyRef = useRef<number | null>(null);
 
+  // GUID: PIT_WALL_CLIENT-031-v01
+  // [Intent] Single-driver path tracker state. Tracks which driver we're following for
+  //          the circuit outline and whether the loop has been closed (frozen).
+  //          Stored as ref since it doesn't need to trigger React re-renders.
+  const pathTrackerRef = useRef<{
+    trackedDriver: number | null;
+    frozen: boolean;
+  }>({ trackedDriver: null, frozen: false });
+
   useEffect(() => {
     if (!circuitKey) return;
-    // New circuit — load persisted path from localStorage
+    // New circuit — load persisted path from localStorage + reset tracker
     if (circuitKey !== lastCircuitKeyRef.current) {
       lastCircuitKeyRef.current = circuitKey;
       const persisted = loadCircuitPath(circuitKey);
       setCircuitPath(persisted);
+      // If persisted path has enough points, consider it frozen (already have a good outline)
+      pathTrackerRef.current = { trackedDriver: null, frozen: persisted.length > 100 };
     }
   }, [circuitKey]);
 
@@ -215,14 +227,44 @@ export default function PitWallClient() {
   //          closures in interval/event listeners without triggering re-registrations.
   const circuitPathRef = useRef<CircuitPoint[]>([]);
 
+  // GUID: PIT_WALL_CLIENT-032-v01
+  // [Intent] Single-driver circuit path accumulation — picks ONE driver (P1 preferred,
+  //          fallback to first with GPS data) and tracks only their sequential positions.
+  //          This produces a clean single racing line that traces the circuit outline.
+  //          When the path loops back to within 50m of the start (after 100+ points),
+  //          the outline is frozen and no more points are added.
   useEffect(() => {
     if (!circuitKey || liveDrivers.length === 0) return;
-    const newPoints = liveDrivers
-      .filter(d => d.x !== null && d.y !== null)
-      .map(d => ({ x: d.x!, y: d.y! }));
-    if (newPoints.length === 0) return;
+    const tracker = pathTrackerRef.current;
+    if (tracker.frozen) return;
+
+    // Pick driver to track: prefer P1, fallback to first with valid GPS
+    if (tracker.trackedDriver === null) {
+      const p1 = liveDrivers.find(d => d.position === 1 && d.x != null && d.y != null);
+      const candidate = p1 ?? liveDrivers.find(d => d.x != null && d.y != null);
+      if (!candidate) return;
+      tracker.trackedDriver = candidate.driverNumber;
+    }
+
+    // Find our tracked driver in the current data
+    const driver = liveDrivers.find(d => d.driverNumber === tracker.trackedDriver);
+    if (!driver || driver.x == null || driver.y == null) return;
+
+    const newPoint: CircuitPoint = { x: driver.x, y: driver.y };
+
     setCircuitPath(prev => {
-      const combined = [...prev, ...newPoints];
+      const combined = [...prev, newPoint];
+
+      // Check loop closure: 100+ points and current position within 50m of first point
+      if (combined.length > 100) {
+        const first = combined[0];
+        const dx = newPoint.x - first.x;
+        const dy = newPoint.y - first.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 50) {
+          tracker.frozen = true;
+        }
+      }
+
       const capped = combined.length > MAX_CIRCUIT_POINTS
         ? combined.slice(-MAX_CIRCUIT_POINTS)
         : combined;
@@ -384,19 +426,42 @@ export default function PitWallClient() {
     return liveDrivers;
   }, [isReplayMode, replayPlayer.replayDrivers, preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
 
-  // GUID: PIT_WALL_CLIENT-029-v01
+  // GUID: PIT_WALL_CLIENT-029-v02
   // [Intent] Accumulate circuit path from replay/showreel drivers when no live session
-  //          is providing GPS data. Without this, replay mode shows cars floating in
-  //          blackness with no circuit outline.
+  //          is providing GPS data. Uses single-driver tracking (same as live mode) to
+  //          produce a clean circuit outline instead of a multi-car jumble.
+  //          v02: Single-driver tracking with loop closure detection.
   useEffect(() => {
     if (circuitKey) return; // live session is providing circuit path
     if (activeDrivers.length === 0) return;
-    const newPoints = activeDrivers
-      .filter(d => d.x !== null && d.y !== null)
-      .map(d => ({ x: d.x!, y: d.y! }));
-    if (newPoints.length === 0) return;
+    const tracker = pathTrackerRef.current;
+    if (tracker.frozen) return;
+
+    // Pick driver to track: prefer P1, fallback to first with valid GPS
+    if (tracker.trackedDriver === null) {
+      const p1 = activeDrivers.find(d => d.position === 1 && d.x != null && d.y != null);
+      const candidate = p1 ?? activeDrivers.find(d => d.x != null && d.y != null);
+      if (!candidate) return;
+      tracker.trackedDriver = candidate.driverNumber;
+    }
+
+    const driver = activeDrivers.find(d => d.driverNumber === tracker.trackedDriver);
+    if (!driver || driver.x == null || driver.y == null) return;
+
+    const newPoint: CircuitPoint = { x: driver.x, y: driver.y };
+
     setCircuitPath(prev => {
-      const combined = [...prev, ...newPoints];
+      const combined = [...prev, newPoint];
+
+      if (combined.length > 100) {
+        const first = combined[0];
+        const dx = newPoint.x - first.x;
+        const dy = newPoint.y - first.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 50) {
+          tracker.frozen = true;
+        }
+      }
+
       const capped = combined.length > MAX_CIRCUIT_POINTS
         ? combined.slice(-MAX_CIRCUIT_POINTS)
         : combined;
@@ -422,6 +487,14 @@ export default function PitWallClient() {
   const handleDriverFollow = useCallback((driverNumber: number) => {
     setFollowDriver(prev => prev === driverNumber ? null : driverNumber);
   }, []);
+
+  // GUID: PIT_WALL_CLIENT-033-v01
+  // [Intent] Trail display settings — configurable from the toolbar.
+  //          trailEnabled: master toggle for trail rendering (default: on).
+  //          trailTtlMs: trail lifetime in milliseconds (default: 750ms).
+  //          Options: 250, 500, 750, 1000, 1500ms.
+  const [trailEnabled, setTrailEnabled] = useState(true);
+  const [trailTtlMs, setTrailTtlMs] = useState(750);
 
   // GUID: PIT_WALL_CLIENT-003-v01
   // [Intent] Radio zoom panel state — selected driver and open/close.
@@ -531,6 +604,8 @@ export default function PitWallClient() {
             nextRaceName={nextRaceInfo?.name ?? null}
             lastMeetingName={meetingName}
             followDriver={followDriver}
+            trailEnabled={trailEnabled}
+            trailTtlMs={trailTtlMs}
             className="w-full h-full"
           />
         </div>
@@ -589,6 +664,35 @@ export default function PitWallClient() {
             onSelectSession={preRaceMode.onRaceSelect}
           />
         )}
+
+        {/* GUID: PIT_WALL_CLIENT-034-v01 */}
+        {/* [Intent] Trail controls — toggle on/off and TTL selector. Minimal inline UI. */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setTrailEnabled(prev => !prev)}
+            className={cn(
+              'text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider transition-colors',
+              trailEnabled
+                ? 'bg-cyan-900/40 text-cyan-400 border border-cyan-500/30'
+                : 'bg-slate-800 text-slate-600 border border-slate-700',
+            )}
+          >
+            Trails
+          </button>
+          {trailEnabled && (
+            <select
+              value={trailTtlMs}
+              onChange={e => setTrailTtlMs(Number(e.target.value))}
+              className="text-[9px] bg-slate-800 text-slate-400 border border-slate-700 rounded px-1 py-0.5 outline-none"
+            >
+              <option value={250}>0.25s</option>
+              <option value={500}>0.5s</option>
+              <option value={750}>0.75s</option>
+              <option value={1000}>1s</option>
+              <option value={1500}>1.5s</option>
+            </select>
+          )}
+        </div>
 
         {/* Controls */}
         <div className="flex items-center gap-3 ml-auto shrink-0">

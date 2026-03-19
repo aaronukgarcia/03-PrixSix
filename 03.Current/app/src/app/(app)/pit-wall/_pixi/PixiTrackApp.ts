@@ -16,7 +16,8 @@ import { TrailLayer } from './layers/TrailLayer';
 import { InterpolationSystem } from './systems/InterpolationSystem';
 import { TrailSystem } from './systems/TrailSystem';
 import { CameraSystem } from './systems/CameraSystem';
-import { hexToPixi, projectToCanvas } from './utils/pixi-helpers';
+import { hexToPixi } from './utils/pixi-helpers';
+import { DEFAULT_TRAIL_TTL_MS } from './systems/TrailSystem';
 import type { DriverRaceState, TrackBounds, CircuitPoint } from '../_types/pit-wall.types';
 import type { CircuitOutline } from '../_utils/trackSpline';
 import { buildTrackPolyline, buildCircuitOutline, type TrackPolyline } from '../_utils/trackSpline';
@@ -65,6 +66,13 @@ export class PixiTrackApp {
   private positionDataAvailable = false;
   private nextRaceName: string | null = null;
   private lastMeetingName: string | null = null;
+
+  // GUID: PIXI_TRACK_APP-008-v01
+  // [Intent] Trail display settings — configurable from React via setData().
+  //          trailEnabled: master toggle for trail rendering.
+  //          trailTtlMs: trail lifetime in milliseconds (250-1500ms).
+  private trailEnabled = true;
+  private trailTtlMs = DEFAULT_TRAIL_TTL_MS;
 
   // Track data
   private polyline: TrackPolyline | null = null;
@@ -120,13 +128,16 @@ export class PixiTrackApp {
     this.bloomContainer.addChild(this.carLayer.dotContainer);
     this.worldContainer.addChild(this.carLayer.labelContainer);
 
-    // Apply bloom filter to bloomContainer
+    // GUID: PIXI_TRACK_APP-009-v01
+    // [Intent] Subtle bloom — threshold raised so only bright elements (car dots) glow.
+    //          Scale and blur reduced to avoid amplifying trail noise. Cars glow softly,
+    //          trails get a faint halo, track outline does NOT glow.
     try {
       this.bloomContainer.filters = [new AdvancedBloomFilter({
-        threshold: 0.3,
-        bloomScale: 0.8,
-        brightness: 1.2,
-        blur: 4,
+        threshold: 0.5,
+        bloomScale: 0.4,
+        brightness: 1.1,
+        blur: 2,
         quality: 4,
       })];
     } catch {
@@ -158,6 +169,8 @@ export class PixiTrackApp {
     positionDataAvailable: boolean;
     nextRaceName: string | null;
     lastMeetingName: string | null;
+    trailEnabled?: boolean;
+    trailTtlMs?: number;
   }): void {
     // If drivers changed, notify interpolation system
     if (opts.drivers !== this.drivers) {
@@ -174,6 +187,10 @@ export class PixiTrackApp {
     this.positionDataAvailable = opts.positionDataAvailable;
     this.nextRaceName = opts.nextRaceName;
     this.lastMeetingName = opts.lastMeetingName;
+
+    // Trail settings (optional — preserve existing if not provided)
+    if (opts.trailEnabled !== undefined) this.trailEnabled = opts.trailEnabled;
+    if (opts.trailTtlMs !== undefined) this.trailTtlMs = opts.trailTtlMs;
 
     // Rebuild track polyline/outline if circuit path grew significantly
     const pathLen = opts.circuitPath.length;
@@ -246,9 +263,25 @@ export class PixiTrackApp {
         driverLookup.set(d.driverNumber, d);
       }
 
-      // 4. Update trails — push new points with telemetry colour data
+      // GUID: PIXI_TRACK_APP-010-v01
+      // [Intent] GPS rogue filtering — compute track centroid from bounds and discard
+      //          positions > 2000m away (rogue spikes from OpenF1 GPS data).
+      const centroidX = (this.bounds.minX + this.bounds.maxX) / 2;
+      const centroidY = (this.bounds.minY + this.bounds.maxY) / 2;
+      const ROGUE_DIST_SQ = 2000 * 2000;
+
+      // 4. Update trails — push GPS-space points with telemetry colour data.
+      //    Skip drivers that snapped this frame (prevents diagonal fly-in lines)
+      //    and rogue GPS spikes (> 2000m from track centroid).
       for (const pos of interpolated) {
-        const { px, py } = projectToCanvas(pos.x, pos.y, this.bounds, w, h);
+        // Rogue GPS filter
+        const rdx = pos.x - centroidX;
+        const rdy = pos.y - centroidY;
+        if (rdx * rdx + rdy * rdy > ROGUE_DIST_SQ) continue;
+
+        // Skip trail point if driver snapped (teleported) this frame
+        if (this.interpolation.snappedThisFrame.has(pos.driverNumber)) continue;
+
         const trail = this.trailSystem.getOrCreate(pos.driverNumber, hexToPixi(pos.teamColour));
 
         // Look up telemetry from original driver data
@@ -257,11 +290,14 @@ export class PixiTrackApp {
         const throttle = src?.throttle ?? 0;
         const brake = src?.brake ?? false;
 
-        trail.push(px, py, now, speed, throttle, brake);
+        // Push GPS-space coordinates (projected metres, NOT canvas pixels)
+        trail.push(pos.x, pos.y, now, speed, throttle, brake);
       }
 
-      // 5. Update trail layer rendering
-      this.trailLayer.update(this.trailSystem, now);
+      // 5. Update trail layer rendering (projects GPS->canvas at draw time)
+      this.trailLayer.update(
+        this.trailSystem, now, this.bounds, w, h, this.trailTtlMs, this.trailEnabled,
+      );
 
       // 6. Update cars
       this.carLayer.update(interpolated, this.bounds, w, h, this.followDriver);

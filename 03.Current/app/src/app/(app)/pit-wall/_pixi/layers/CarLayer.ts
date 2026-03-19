@@ -27,12 +27,15 @@ const BADGE_TEXT_STYLE = new TextStyle({
   fill: 0x000000,
 });
 
-const DOT_RADIUS = 5;
-const GLOW_RADIUS = 8;
-const BADGE_RADIUS = 6;
-const DRS_LINE_LENGTH = 10;
-const PIT_RING_RADIUS = 9;
-const FOLLOW_RING_RADIUS = 12;
+// GUID: PIXI_CAR_LAYER-001b-v01
+// [Intent] ATC-style minimal dots — smaller than v1 for a clean radar display look.
+//          3.5px dots with 5px glow halos, subtle presence without clutter.
+const DOT_RADIUS = 3.5;
+const GLOW_RADIUS = 5;
+const BADGE_RADIUS = 5;
+const DRS_LINE_LENGTH = 8;
+const PIT_RING_RADIUS = 7;
+const FOLLOW_RING_RADIUS = 9;
 
 // GUID: PIXI_CAR_LAYER-002-v01
 // [Intent] Internal pooled sprite structure — each slot holds all display objects for one car.
@@ -187,14 +190,20 @@ export class CarLayer {
         sprite.container.alpha = 1;
       }
 
-      // Driver code label — offset right
-      sprite.label.visible = true;
-      sprite.label.text = driver.driverCode;
-      sprite.label.position.set(px + DOT_RADIUS + 4, py);
-      sprite.label.alpha = driver.retired ? 0.25 : 0.7;
+      // GUID: PIXI_CAR_LAYER-004b-v01
+      // [Intent] ATC-style minimal display — labels, badges, and DRS hidden by default.
+      //          Only the followed driver shows its code tag. Keeps the display clean and
+      //          uncluttered like an air traffic control radar scope.
+      const isFollowed = followDriver === driver.driverNumber;
 
-      // Position badge for P1-P3
-      if (driver.position >= 1 && driver.position <= 3) {
+      // Driver code label — only visible for followed driver
+      sprite.label.visible = isFollowed;
+      sprite.label.text = driver.driverCode;
+      sprite.label.position.set(px + DOT_RADIUS + 3, py);
+      sprite.label.alpha = driver.retired ? 0.25 : 0.8;
+
+      // Position badge — only for followed driver or P1
+      if (isFollowed || driver.position === 1) {
         sprite.badge.visible = true;
         sprite.badge.position.set(px - DOT_RADIUS - BADGE_RADIUS - 2, py);
         sprite.badgeText.text = `P${driver.position}`;
@@ -202,10 +211,10 @@ export class CarLayer {
         sprite.badge.visible = false;
       }
 
-      // DRS indicator
-      sprite.drsLine.visible = driver.hasDrs;
+      // DRS indicator — only for followed driver
+      sprite.drsLine.visible = isFollowed && driver.hasDrs;
 
-      // Pit ring
+      // Pit ring — always show (important race context)
       sprite.pitRing.visible = driver.inPit;
 
       // Follow-mode ring

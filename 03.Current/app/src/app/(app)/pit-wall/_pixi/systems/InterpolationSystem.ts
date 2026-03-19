@@ -20,6 +20,12 @@ export class InterpolationSystem {
   private nextPositions = new Map<number, { x: number; y: number }>();
   private snapshotTimestamp = Date.now();
 
+  // GUID: PIXI_INTERP_SYSTEM-005-v01
+  // [Intent] Set of driver numbers that snapped (teleported) this frame rather than
+  //          smoothly interpolating. Used by PixiTrackApp to skip trail points on snap
+  //          — prevents diagonal fly-in lines across the map.
+  readonly snappedThisFrame = new Set<number>();
+
   // GUID: PIXI_INTERP_SYSTEM-002-v01
   // [Intent] Called when new driver data arrives from the server (React prop change).
   //          Promotes current next→prev, stores incoming positions as new next,
@@ -51,6 +57,8 @@ export class InterpolationSystem {
     updateIntervalMs: number,
     poly: TrackPolyline | null,
   ): InterpolatedPosition[] {
+    this.snappedThisFrame.clear();
+
     const elapsed = now - this.snapshotTimestamp;
     const t = Math.min(1, updateIntervalMs > 0 ? elapsed / updateIntervalMs : 1);
 
@@ -71,6 +79,7 @@ export class InterpolationSystem {
         // No previous position — snap to next
         ix = next.x;
         iy = next.y;
+        this.snappedThisFrame.add(d.driverNumber);
       } else {
         // Check snap threshold — large jumps bypass lerp
         const dx = next.x - prev.x;
@@ -81,6 +90,7 @@ export class InterpolationSystem {
           // Teleport — don't lerp across the entire circuit
           ix = next.x;
           iy = next.y;
+          this.snappedThisFrame.add(d.driverNumber);
         } else if (poly) {
           // Snap-to-track interpolation via 1D parameter
           const paramPrev = projectOntoTrack(poly, prev.x, prev.y);

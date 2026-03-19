@@ -32,6 +32,8 @@ interface PitWallTrackMapProps {
   nextRaceName: string | null;
   lastMeetingName: string | null;
   followDriver: number | null;
+  trailEnabled?: boolean;
+  trailTtlMs?: number;
   className?: string;
 }
 
@@ -52,6 +54,8 @@ type PixiTrackAppInstance = {
     positionDataAvailable: boolean;
     nextRaceName: string | null;
     lastMeetingName: string | null;
+    trailEnabled?: boolean;
+    trailTtlMs?: number;
   }) => void;
   destroy: () => void;
 };
@@ -76,6 +80,8 @@ export function PitWallTrackMap({
   nextRaceName,
   lastMeetingName,
   followDriver,
+  trailEnabled,
+  trailTtlMs,
   className,
 }: PitWallTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -125,11 +131,13 @@ export function PitWallTrackMap({
       positionDataAvailable,
       nextRaceName,
       lastMeetingName,
+      trailEnabled,
+      trailTtlMs,
     });
   }, [
     drivers, bounds, circuitPath, updateIntervalMs, followDriver,
     rainIntensity, sessionType, hasLiveSession, positionDataAvailable,
-    nextRaceName, lastMeetingName,
+    nextRaceName, lastMeetingName, trailEnabled, trailTtlMs,
   ]);
 
   return (
