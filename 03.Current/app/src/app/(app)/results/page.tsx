@@ -349,9 +349,18 @@ function ResultsContent() {
                     ))
                     : null;
 
-                // Sprint carry-forward: query GP predictions in both stored formats
-                // e.g. "Chinese-Grand-Prix-GP" (user-submitted) and "Chinese-Grand-Prix" (normalised)
-                let sprintCarryForwardMap: Map<string, any> | null = null;
+                // GUID: PAGE_RESULTS-025C-v01
+                // [Intent] Full carry-forward resolution for the results page — mirrors the
+                //          3-tier logic used by the standings page:
+                //          1. Race-specific prediction (primary query above)
+                //          2. For Sprint: same-weekend GP prediction (both "Name-GP" and "Name" formats)
+                //          3. Latest prediction from any prior race (fallback for teams with no
+                //             prediction this weekend at all)
+                //          This ensures every team that appears in standings also appears on the
+                //          results page when the user clicks their score.
+
+                // Tier 2: Sprint carry-forward from same-weekend GP prediction
+                let sprintGpMap: Map<string, any> | null = null;
                 if (isSprintRace && currentEvent) {
                     const gpBaseName = currentEvent.baseName;
                     const gpEventId = gpBaseName.replace(/\s+/g, '-') + '-GP';  // "Chinese-Grand-Prix-GP"
@@ -370,54 +379,75 @@ function ResultsContent() {
                             : null,
                     ]);
 
-                    sprintCarryForwardMap = new Map<string, any>();
+                    sprintGpMap = new Map<string, any>();
                     gpEventDocs.forEach(doc => {
                         const data = doc.data();
-                        sprintCarryForwardMap!.set(data.teamId || data.userId || doc.ref.parent.parent?.id, data);
+                        sprintGpMap!.set(data.teamId || data.userId || doc.ref.parent.parent?.id, data);
                     });
                     if (gpBaseDocs) {
                         gpBaseDocs.forEach(doc => {
                             const data = doc.data();
                             const key = data.teamId || data.userId || doc.ref.parent.parent?.id;
-                            if (!sprintCarryForwardMap!.has(key)) {
-                                sprintCarryForwardMap!.set(key, data);
+                            if (!sprintGpMap!.has(key)) {
+                                sprintGpMap!.set(key, data);
                             }
                         });
                     }
                 }
 
+                // Tier 3: Latest prediction from any prior race — catches teams that submitted
+                // nothing for this weekend. Fetches ALL predictions via collectionGroup and
+                // keeps only the most recent per teamId by timestamp.
+                const allPredsDocs = await getDocs(collectionGroup(firestore, "predictions"));
+                const latestByTeam = new Map<string, { data: any; timestamp: Date }>();
+                allPredsDocs.forEach(doc => {
+                    const data = doc.data();
+                    if (!Array.isArray(data.predictions) || data.predictions.length !== 6) return;
+                    const teamId = data.teamId || data.userId || doc.ref.parent.parent?.id;
+                    if (!teamId) return;
+                    const ts = data.submittedAt?.toDate?.() || data.createdAt?.toDate?.() || new Date(0);
+                    const existing = latestByTeam.get(teamId);
+                    if (!existing || ts > existing.timestamp) {
+                        latestByTeam.set(teamId, { data, timestamp: ts });
+                    }
+                });
+
                 if (cancelled) return;
 
-                // Merge by doc path — same team cannot have both user-submitted and carry-forward for same race
+                // Merge all tiers — race-specific wins over GP carry-forward wins over prior-race fallback
                 const mergedMap = new Map<string, any>();
+
+                // Tier 1: race-specific predictions (Sprint or GP direct match)
                 primaryDocs.forEach(doc => mergedMap.set(doc.ref.path, doc.data()));
                 if (carryForwardDocs) {
                     carryForwardDocs.forEach(doc => mergedMap.set(doc.ref.path, doc.data()));
                 }
 
-                // Sprint carry-forward: add GP predictions for teams without Sprint predictions.
-                // Deduplicate by teamId — Sprint-specific predictions take priority.
-                if (sprintCarryForwardMap && sprintCarryForwardMap.size > 0) {
-                    const sprintTeamIds = new Set<string>();
-                    mergedMap.forEach((data) => {
-                        sprintTeamIds.add(data.teamId || data.userId);
-                    });
+                // Build set of teamIds already covered by Tier 1
+                const coveredTeamIds = new Set<string>();
+                mergedMap.forEach((data) => {
+                    coveredTeamIds.add(data.teamId || data.userId);
+                });
 
-                    sprintCarryForwardMap.forEach((data, teamId) => {
-                        if (!sprintTeamIds.has(teamId)) {
-                            mergedMap.set(`sprint-carry-forward-${teamId}`, data);
+                // Tier 2: same-weekend GP carry-forward (Sprint only)
+                if (sprintGpMap) {
+                    sprintGpMap.forEach((data, teamId) => {
+                        if (!coveredTeamIds.has(teamId)) {
+                            mergedMap.set(`carry-forward-gp-${teamId}`, data);
+                            coveredTeamIds.add(teamId);
                         }
                     });
                 }
 
-                const totalCount = primaryCount.data().count
-                    + (carryForwardDocs?.size ?? 0)
-                    + (sprintCarryForwardMap ? [...sprintCarryForwardMap.keys()].filter(k => {
-                        const sprintTeamIds = new Set<string>();
-                        primaryDocs.forEach(doc => { const d = doc.data(); sprintTeamIds.add(d.teamId || d.userId); });
-                        return !sprintTeamIds.has(k);
-                    }).length : 0);
-                setTotalCount(totalCount);
+                // Tier 3: latest prior prediction (any race)
+                latestByTeam.forEach(({ data }, teamId) => {
+                    if (!coveredTeamIds.has(teamId)) {
+                        mergedMap.set(`carry-forward-prior-${teamId}`, data);
+                        coveredTeamIds.add(teamId);
+                    }
+                });
+
+                setTotalCount(mergedMap.size);
 
                 if (mergedMap.size === 0) {
                     setHasMore(false);

@@ -344,16 +344,27 @@ export default function MyResultsPage() {
             const raceResult = raceResultsMap.get(resultId);
             if (!raceResult) continue;
 
-            // Try full event ID first (user-submitted format: "Australian-Grand-Prix-GP"),
-            // fall back to getBaseRaceId (carry-forward format: "Australian-Grand-Prix").
-            // For Sprint races: also fall back to GP prediction (both "Name-GP" and "Name" formats)
-            // matching the carry-forward logic used by the standings page.
+            // Full carry-forward resolution — mirrors the 3-tier standings logic:
+            // 1. Race-specific prediction (exact raceId match)
+            // 2. For Sprint: same-weekend GP prediction (both "Name-GP" and "Name" formats)
+            // 3. Latest prediction from any prior race (by timestamp)
             const baseRaceId = getBaseRaceId(event.id);
             let predData = predictionsMap.get(event.id) ?? predictionsMap.get(baseRaceId);
             if (!predData && event.isSprint) {
                 const gpEventId = event.baseName.replace(/\s+/g, '-') + '-GP';
                 const gpBaseId = event.baseName.replace(/\s+/g, '-');
                 predData = predictionsMap.get(gpEventId) ?? predictionsMap.get(gpBaseId);
+            }
+            // Tier 3: latest prediction from any prior race (catch-all carry-forward)
+            if (!predData) {
+                let latestTs = new Date(0);
+                predictionsMap.forEach((data) => {
+                    const ts = data.submittedAt?.toDate?.() || data.createdAt?.toDate?.() || new Date(0);
+                    if (ts > latestTs) {
+                        latestTs = ts;
+                        predData = data;
+                    }
+                });
             }
             if (!predData) continue;
 
