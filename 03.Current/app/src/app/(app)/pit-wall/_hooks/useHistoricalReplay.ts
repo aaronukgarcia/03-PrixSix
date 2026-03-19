@@ -31,7 +31,7 @@ async function fetchReplayData(
   idToken: string,
 ): Promise<HistoricalReplayData> {
   const res = await fetch(
-    `/api/pit-wall/historical-replay?session_key=${sessionKey}`,
+    `/api/pit-wall/historical-replay?session_key=${sessionKey}&mode=showreel`,
     {
       headers: { Authorization: `Bearer ${idToken}` },
       cache: 'no-store',

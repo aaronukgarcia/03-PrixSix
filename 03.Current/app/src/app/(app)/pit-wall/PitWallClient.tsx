@@ -390,7 +390,17 @@ export default function PitWallClient() {
     return () => { cancelled = true; };
   }, [isReplayMode, replaySessions.length, firebaseUser, selectedReplaySession]);
 
-  const replayPlayer = useReplayPlayer(isReplayMode ? selectedReplaySession : null);
+  // GUID: PIT_WALL_CLIENT-050-v01
+  // [Intent] Stable auth token getter for Firestore chunk-loading in useReplayPlayer.
+  const getReplayAuthToken = useCallback(async () => {
+    if (!firebaseUser) throw new Error('Not authenticated');
+    return firebaseUser.getIdToken();
+  }, [firebaseUser]);
+
+  const replayPlayer = useReplayPlayer(
+    isReplayMode ? selectedReplaySession : null,
+    firebaseUser ? getReplayAuthToken : undefined,
+  );
 
   const handleEnterReplay = useCallback(() => setIsReplayMode(true),  []);
   const handleExitReplay  = useCallback(() => {

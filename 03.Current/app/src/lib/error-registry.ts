@@ -614,6 +614,56 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     suggestedAction: 'Check Firestore rules and connectivity.',
     modulePath: 'app/src/app/api/pit-wall/replay-sessions/route.ts',
   },
+  // GUID: PIT_WALL_ERRORS-013-v01
+  PIT_WALL_REPLAY_INGEST_FAILED: {
+    key: 'PIT_WALL_REPLAY_INGEST_FAILED',
+    code: 'PX-3313',
+    message: 'Replay ingest from OpenF1 failed',
+    severity: 'error' as const,
+    description: 'Full-fidelity ingest pipeline failed while fetching OpenF1 data or writing to Firestore.',
+    suggestedAction: 'Check OpenF1 API availability. Retry or purge and re-ingest.',
+    modulePath: 'app/src/lib/replay-ingest.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-014-v01
+  PIT_WALL_REPLAY_INGEST_IN_PROGRESS: {
+    key: 'PIT_WALL_REPLAY_INGEST_IN_PROGRESS',
+    code: 'PX-3314',
+    message: 'Replay ingest already in progress for this session',
+    severity: 'info' as const,
+    description: 'Another request is already ingesting this session. Wait for completion.',
+    suggestedAction: 'Wait and retry in 30 seconds.',
+    modulePath: 'app/src/app/api/pit-wall/historical-replay/route.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-015-v01
+  PIT_WALL_REPLAY_CHUNKS_FAILED: {
+    key: 'PIT_WALL_REPLAY_CHUNKS_FAILED',
+    code: 'PX-3315',
+    message: 'Could not load replay chunks from Firestore',
+    severity: 'error' as const,
+    description: 'Firestore replay_chunks collection read failed during progressive chunk loading.',
+    suggestedAction: 'Check Firestore rules and connectivity. Try purging and re-ingesting.',
+    modulePath: 'app/src/app/api/pit-wall/replay-chunks/route.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-016-v01
+  PIT_WALL_REPLAY_PURGE_FAILED: {
+    key: 'PIT_WALL_REPLAY_PURGE_FAILED',
+    code: 'PX-3316',
+    message: 'Failed to purge replay data',
+    severity: 'error' as const,
+    description: 'Admin purge of replay chunks/meta from Firestore failed.',
+    suggestedAction: 'Check admin auth and Firestore connectivity.',
+    modulePath: 'app/src/app/api/admin/purge-replay/route.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-017-v01
+  PIT_WALL_REPLAY_META_NOT_FOUND: {
+    key: 'PIT_WALL_REPLAY_META_NOT_FOUND',
+    code: 'PX-3317',
+    message: 'Replay metadata not found in Firestore',
+    severity: 'warning' as const,
+    description: 'replay_meta document missing despite firestoreStatus=complete. Data may be corrupted.',
+    suggestedAction: 'Purge and re-ingest the session.',
+    modulePath: 'app/src/app/api/pit-wall/replay-chunks/route.ts',
+  },
   FIRESTORE_READ_FAILED: {
     key: 'FIRESTORE_READ_FAILED',
     code: 'PX-4001',

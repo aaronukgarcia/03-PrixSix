@@ -1,8 +1,11 @@
-// GUID: REPLAY_PLAYER_HOOK-000-v01
-// [Intent] Full-transport RAF playback hook for pre-ingested GPS replay sessions.
-//          Downloads HistoricalReplayData JSON from Firebase Storage (public URL),
-//          exposes play/pause/seek/speed/step controls, and emits ReplayDriverState[]
-//          on each frame change — drop-in replacement for live DriverRaceState[].
+// GUID: REPLAY_PLAYER_HOOK-000-v02
+// [Intent] Full-transport RAF playback hook for GPS replay sessions.
+//          v02: Supports two loading paths:
+//            1. Firestore mode (firestoreStatus === 'complete') — progressive chunk loading via
+//               /api/pit-wall/replay-chunks. Fast start, survives deployments.
+//            2. Ingest mode (first-time) — NDJSON stream from /api/pit-wall/historical-replay.
+//               Streams frames while simultaneously writing to Firestore for next time.
+//            3. Legacy mode — Firebase Storage download URL (backward compat for showreel).
 // [Inbound Trigger] Called by PitWallClient when isReplayMode === true.
 // [Downstream Impact] replayDrivers[] flows into activeDrivers → track map + race table.
 
@@ -15,9 +18,6 @@ import { CLIENT_ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 
 // GUID: REPLAY_PLAYER_HOOK-001-v02
-// [Intent] Build a ReplayDriverState from driver metadata + position entry.
-//          v02: Reads optional telemetry fields from enriched replay data so the race
-//               table populates during replay (speed, gap, interval, lap, sectors, tyre, DRS).
 function buildReplayDriverState(
   driver: HistoricalDriver,
   pos: { driverNumber: number; x: number; y: number; position: number;
@@ -31,14 +31,11 @@ function buildReplayDriverState(
     pitStopCount?: number | null; inPit?: boolean;
   },
 ): ReplayDriverState {
-  // Parse gap/interval strings like "+12.345" or "1 LAP" to number | null
   const parseGap = (v: string | null | undefined): number | null => {
     if (!v) return null;
     const n = parseFloat(v);
     return isNaN(n) ? null : n;
   };
-
-  // DRS: OpenF1 values 10-14 mean DRS open
   const hasDrs = pos.drs != null && pos.drs >= 10 && pos.drs <= 14;
 
   return {
@@ -77,8 +74,6 @@ function buildReplayDriverState(
 }
 
 // GUID: REPLAY_PLAYER_HOOK-002-v02
-// [Intent] Legacy download: fetch entire JSON replay from a public Storage URL with progress.
-//          Renamed from downloadReplayData — kept for backward compatibility with monolithic JSON files.
 async function downloadReplayDataLegacy(
   downloadUrl: string,
   onProgress: (fraction: number) => void,
@@ -90,14 +85,12 @@ async function downloadReplayDataLegacy(
   const total = contentLength ? parseInt(contentLength, 10) : null;
 
   if (!res.body || !total) {
-    // No streaming progress — just parse directly
     onProgress(0.5);
     const json = await res.json() as HistoricalReplayData;
     onProgress(1);
     return json;
   }
 
-  // Stream with progress
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let received = 0;
@@ -118,20 +111,13 @@ async function downloadReplayDataLegacy(
 }
 
 // GUID: REPLAY_PLAYER_HOOK-006-v01
-// [Intent] NDJSON streaming download for instant-start playback.
-//          Format: line 1 = metadata { drivers, durationMs, samplingIntervalMs },
-//          lines 2+ = frame objects { virtualTimeMs, positions, radioMessages? }.
-//          Calls onFramesReady after 60 frames so playback can start while streaming continues.
-//          Falls back to legacy JSON path if URL does not end in .ndjson.
 async function streamReplayData(
   downloadUrl: string,
   onProgress: (fraction: number) => void,
   onFramesReady: (data: HistoricalReplayData) => void,
 ): Promise<HistoricalReplayData> {
-  // Format detection: only use NDJSON streaming for .ndjson URLs
   const isNdjson = downloadUrl.split('?')[0].endsWith('.ndjson');
   if (!isNdjson) {
-    // Legacy JSON — download fully then signal ready
     const data = await downloadReplayDataLegacy(downloadUrl, onProgress);
     onFramesReady(data);
     return data;
@@ -141,7 +127,6 @@ async function streamReplayData(
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching NDJSON replay data`);
 
   if (!res.body) {
-    // No ReadableStream — fall back to text parse
     const text = await res.text();
     const lines = text.split('\n').filter(l => l.trim().length > 0);
     if (lines.length < 2) throw new Error('NDJSON replay has no frames');
@@ -160,7 +145,6 @@ async function streamReplayData(
     return data;
   }
 
-  // Streaming NDJSON via ReadableStream
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -168,25 +152,15 @@ async function streamReplayData(
   let readyFired = false;
   const READY_THRESHOLD = 60;
 
-  // Mutable data object — frames array grows as lines arrive
   const data: HistoricalReplayData = {
-    sessionKey: 0,
-    sessionName: '',
-    meetingName: '',
-    drivers: [],
-    frames: [],
-    durationMs: 0,
-    totalLaps: null,
+    sessionKey: 0, sessionName: '', meetingName: '', drivers: [], frames: [], durationMs: 0, totalLaps: null,
   };
-
-  // Estimate total frames from metadata (if available) for progress reporting
   let estimatedTotal = 0;
 
   for (;;) {
     const { done, value } = await reader.read();
     if (value) buffer += decoder.decode(value, { stream: true });
 
-    // Process complete lines
     let newlineIdx: number;
     while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
       const line = buffer.slice(0, newlineIdx).trim();
@@ -194,7 +168,6 @@ async function streamReplayData(
       if (line.length === 0) continue;
 
       if (!metaParsed) {
-        // First line: metadata
         const meta = JSON.parse(line);
         data.sessionKey = meta.sessionKey ?? 0;
         data.sessionName = meta.sessionName ?? '';
@@ -202,19 +175,15 @@ async function streamReplayData(
         data.drivers = meta.drivers ?? [];
         data.durationMs = meta.durationMs ?? 0;
         data.totalLaps = meta.totalLaps ?? null;
-        // Estimate frame count from duration and sampling interval
         const interval = meta.samplingIntervalMs ?? 500;
         estimatedTotal = interval > 0 ? Math.ceil(data.durationMs / interval) : 1000;
         metaParsed = true;
       } else {
-        // Frame line — parse and append (mutate in place)
         const frame = JSON.parse(line);
+        // Skip completion markers and error markers
+        if (frame._complete || frame._error) continue;
         data.frames.push(frame);
-
-        // Report progress
         onProgress(estimatedTotal > 0 ? Math.min(0.99, data.frames.length / estimatedTotal) : 0.5);
-
-        // Fire onFramesReady once we have enough frames for instant-start playback
         if (!readyFired && data.frames.length >= READY_THRESHOLD) {
           readyFired = true;
           onFramesReady(data);
@@ -225,7 +194,6 @@ async function streamReplayData(
     if (done) break;
   }
 
-  // Process any remaining buffer content (last line without trailing newline)
   const remaining = buffer.trim();
   if (remaining.length > 0) {
     if (!metaParsed) {
@@ -238,7 +206,85 @@ async function streamReplayData(
       data.totalLaps = meta.totalLaps ?? null;
       metaParsed = true;
     } else {
-      data.frames.push(JSON.parse(remaining));
+      const parsed = JSON.parse(remaining);
+      if (!parsed._complete && !parsed._error) {
+        data.frames.push(parsed);
+      }
+    }
+  }
+
+  onProgress(1);
+  if (!readyFired && data.frames.length > 0) {
+    onFramesReady(data);
+  }
+
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// GUID: REPLAY_PLAYER_HOOK-010-v01
+// [Intent] Progressive chunk loading from Firestore via /api/pit-wall/replay-chunks.
+//          Fetches chunks in groups of 3, appends frames to mutable data object,
+//          fires onFramesReady after first batch for instant-start playback.
+//          Then continues loading remaining chunks in background.
+// ---------------------------------------------------------------------------
+async function loadChunksProgressively(
+  sessionKey: number,
+  totalChunks: number,
+  getAuthToken: () => Promise<string>,
+  onProgress: (fraction: number) => void,
+  onFramesReady: (data: HistoricalReplayData) => void,
+): Promise<HistoricalReplayData> {
+  const BATCH_SIZE = 3;
+  let readyFired = false;
+  const READY_THRESHOLD = 60;
+
+  const data: HistoricalReplayData = {
+    sessionKey, sessionName: '', meetingName: '', drivers: [], frames: [], durationMs: 0, totalLaps: null,
+  };
+
+  for (let from = 0; from < totalChunks; from += BATCH_SIZE) {
+    const count = Math.min(BATCH_SIZE, totalChunks - from);
+    const token = await getAuthToken();
+
+    const res = await fetch(
+      `/api/pit-wall/replay-chunks?session_key=${sessionKey}&from=${from}&count=${count}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
+    );
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} loading replay chunks from=${from}`);
+    }
+
+    const text = await res.text();
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+
+    for (const line of lines) {
+      const parsed = JSON.parse(line);
+
+      // First line of first batch: metadata
+      if (from === 0 && parsed.drivers && !parsed.virtualTimeMs) {
+        data.sessionKey = parsed.sessionKey ?? sessionKey;
+        data.sessionName = parsed.sessionName ?? '';
+        data.meetingName = parsed.meetingName ?? '';
+        data.drivers = parsed.drivers ?? [];
+        data.durationMs = parsed.durationMs ?? 0;
+        data.totalLaps = parsed.totalLaps ?? null;
+        continue;
+      }
+
+      // Frame line
+      data.frames.push(parsed);
+    }
+
+    // Report progress
+    const loaded = Math.min(from + count, totalChunks);
+    onProgress(loaded / totalChunks);
+
+    // Fire onFramesReady once we have enough frames
+    if (!readyFired && data.frames.length >= READY_THRESHOLD) {
+      readyFired = true;
+      onFramesReady(data);
     }
   }
 
@@ -252,14 +298,152 @@ async function streamReplayData(
   return data;
 }
 
-// GUID: REPLAY_PLAYER_HOOK-003-v01
+// ---------------------------------------------------------------------------
+// GUID: REPLAY_PLAYER_HOOK-011-v01
+// [Intent] First-time ingest path: call /api/pit-wall/historical-replay which streams
+//          NDJSON while simultaneously writing to Firestore. Uses the same NDJSON parsing
+//          as streamReplayData but with auth headers and API URL.
+// ---------------------------------------------------------------------------
+async function streamIngestReplayData(
+  sessionKey: number,
+  getAuthToken: () => Promise<string>,
+  onProgress: (fraction: number) => void,
+  onFramesReady: (data: HistoricalReplayData) => void,
+): Promise<HistoricalReplayData> {
+  const token = await getAuthToken();
+  const res = await fetch(
+    `/api/pit-wall/historical-replay?session_key=${sessionKey}`,
+    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
+  );
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `HTTP ${res.status} from historical-replay`);
+  }
+
+  // Check if this is a Firestore redirect (JSON response, not NDJSON stream)
+  const contentType = res.headers.get('Content-Type') ?? '';
+  if (contentType.includes('application/json')) {
+    const json = await res.json();
+    if (json.source === 'firestore') {
+      // Redirect to chunk loading — this shouldn't normally happen here
+      // because the caller checks firestoreStatus first, but handle it gracefully
+      return loadChunksProgressively(sessionKey, json.totalChunks, getAuthToken, onProgress, onFramesReady);
+    }
+    throw new Error(json.error ?? 'Unexpected JSON response from historical-replay');
+  }
+
+  // NDJSON streaming (same pattern as streamReplayData but from API response)
+  if (!res.body) {
+    const text = await res.text();
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+    const data: HistoricalReplayData = {
+      sessionKey, sessionName: '', meetingName: '', drivers: [], frames: [], durationMs: 0, totalLaps: null,
+    };
+    for (const line of lines) {
+      const parsed = JSON.parse(line);
+      if (parsed._complete || parsed._error) continue;
+      if (parsed.drivers && !parsed.virtualTimeMs) {
+        data.sessionKey = parsed.sessionKey ?? sessionKey;
+        data.sessionName = parsed.sessionName ?? '';
+        data.meetingName = parsed.meetingName ?? '';
+        data.drivers = parsed.drivers ?? [];
+        data.durationMs = parsed.durationMs ?? 0;
+        data.totalLaps = parsed.totalLaps ?? null;
+      } else {
+        data.frames.push(parsed);
+      }
+    }
+    onProgress(1);
+    if (data.frames.length > 0) onFramesReady(data);
+    return data;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let metaParsed = false;
+  let readyFired = false;
+  const READY_THRESHOLD = 60;
+
+  const data: HistoricalReplayData = {
+    sessionKey, sessionName: '', meetingName: '', drivers: [], frames: [], durationMs: 0, totalLaps: null,
+  };
+  let estimatedTotal = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (value) buffer += decoder.decode(value, { stream: true });
+
+    let newlineIdx: number;
+    while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newlineIdx).trim();
+      buffer = buffer.slice(newlineIdx + 1);
+      if (line.length === 0) continue;
+
+      const parsed = JSON.parse(line);
+
+      // Skip completion/error markers
+      if (parsed._complete || parsed._error) continue;
+
+      if (!metaParsed && parsed.drivers && !parsed.virtualTimeMs) {
+        data.sessionKey = parsed.sessionKey ?? sessionKey;
+        data.sessionName = parsed.sessionName ?? '';
+        data.meetingName = parsed.meetingName ?? '';
+        data.drivers = parsed.drivers ?? [];
+        data.durationMs = parsed.durationMs ?? 0;
+        data.totalLaps = parsed.totalLaps ?? null;
+        const interval = parsed.samplingIntervalMs ?? 500;
+        estimatedTotal = interval > 0 ? Math.ceil(data.durationMs / interval) : 1000;
+        metaParsed = true;
+      } else {
+        data.frames.push(parsed);
+        onProgress(estimatedTotal > 0 ? Math.min(0.99, data.frames.length / estimatedTotal) : 0.5);
+        if (!readyFired && data.frames.length >= READY_THRESHOLD) {
+          readyFired = true;
+          onFramesReady(data);
+        }
+      }
+    }
+
+    if (done) break;
+  }
+
+  const remaining = buffer.trim();
+  if (remaining.length > 0) {
+    const parsed = JSON.parse(remaining);
+    if (!parsed._complete && !parsed._error) {
+      if (!metaParsed && parsed.drivers) {
+        data.sessionKey = parsed.sessionKey ?? sessionKey;
+        data.sessionName = parsed.sessionName ?? '';
+        data.meetingName = parsed.meetingName ?? '';
+        data.drivers = parsed.drivers ?? [];
+        data.durationMs = parsed.durationMs ?? 0;
+        data.totalLaps = parsed.totalLaps ?? null;
+      } else {
+        data.frames.push(parsed);
+      }
+    }
+  }
+
+  onProgress(1);
+  if (!readyFired && data.frames.length > 0) {
+    onFramesReady(data);
+  }
+
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// GUID: REPLAY_PLAYER_HOOK-003-v02
 // [Intent] Full-transport RAF-based playback hook. Manages download, virtual time, and controls.
-//          Virtual time is: virtualOffsetMs + (Date.now() - startWallMs) × speed.
-//          Seek: sets virtualOffsetMs = target, resets startWallMs.
-//          Pause: captures current virtualTimeMs into virtualOffsetMs, stops RAF.
-//          Speed change: captures current virtualTimeMs, updates speed ref, restarts from there.
+//          v02: Accepts optional getAuthToken callback for Firestore chunk-loading mode.
+//          When session.firestoreStatus === 'complete', loads chunks progressively from Firestore.
+//          Otherwise, streams from historical-replay API (triggers ingest + Firestore write).
+//          Falls back to legacy download URL for showreel mode.
 export function useReplayPlayer(
   session: ReplaySessionMetadata | null,
+  getAuthToken?: () => Promise<string>,
 ): UseReplayPlayerReturn {
   const [playbackState,    setPlaybackState]    = useState<ReplayPlaybackState>('idle');
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -272,7 +456,6 @@ export function useReplayPlayer(
   const [framesLoaded,     setFramesLoaded]      = useState(0);
   const [replayRadioMessages, setReplayRadioMessages] = useState<Array<{ driverNumber: number; message: string; utcTimestamp: string }>>([]);
 
-  // Stable refs — never trigger re-renders
   const replayDataRef        = useRef<HistoricalReplayData | null>(null);
   const rafHandleRef         = useRef<number | null>(null);
   const startWallMsRef       = useRef<number>(0);
@@ -282,7 +465,6 @@ export function useReplayPlayer(
   const isPlayingRef         = useRef(false);
   const playbackStateRef     = useRef<ReplayPlaybackState>('idle');
 
-  // Keep speed ref in sync
   speedRef.current = speed;
 
   const updatePlaybackState = useCallback((s: ReplayPlaybackState) => {
@@ -308,7 +490,6 @@ export function useReplayPlayer(
     const virtualMs     = virtualOffsetMsRef.current + elapsedWallMs * speedRef.current;
 
     if (virtualMs >= data.durationMs) {
-      // Reached end
       cancelRaf();
       isPlayingRef.current = false;
       virtualOffsetMsRef.current = data.durationMs;
@@ -318,8 +499,12 @@ export function useReplayPlayer(
       return;
     }
 
-    // Binary search for current frame
     const frames = data.frames;
+    if (frames.length === 0) {
+      rafHandleRef.current = requestAnimationFrame(tick);
+      return;
+    }
+
     let lo = 0, hi = frames.length - 1;
     while (lo < hi) {
       const mid = (lo + hi + 1) >> 1;
@@ -346,7 +531,6 @@ export function useReplayPlayer(
       setProgress(Math.min(1, virtualMs / data.durationMs));
 
       // GUID: REPLAY_PLAYER_HOOK-007-v01
-      // [Intent] Emit radio messages from the current frame (if any) by prepending to state.
       if (frame.radioMessages && frame.radioMessages.length > 0) {
         setReplayRadioMessages(prev => [...frame.radioMessages!, ...prev]);
       }
@@ -378,7 +562,6 @@ export function useReplayPlayer(
 
   const pause = useCallback(() => {
     if (!isPlayingRef.current) return;
-    // Capture current virtual time before stopping
     const elapsed = Date.now() - startWallMsRef.current;
     virtualOffsetMsRef.current = virtualOffsetMsRef.current + elapsed * speedRef.current;
     cancelRaf();
@@ -394,7 +577,6 @@ export function useReplayPlayer(
     setProgress(clamped / replayDataRef.current.durationMs);
     lastFrameIndexRef.current = -1;
     if (isPlayingRef.current) {
-      // Seamlessly continue playing from new position
       startWallMsRef.current = Date.now();
     } else if (playbackStateRef.current !== 'idle' && playbackStateRef.current !== 'loading') {
       updatePlaybackState('paused');
@@ -402,18 +584,13 @@ export function useReplayPlayer(
   }, [updatePlaybackState]);
 
   // GUID: REPLAY_PLAYER_HOOK-009-v01
-  // [Intent] Change playback speed. Updates speedRef immediately (not waiting for React
-  //          re-render) so the RAF tick loop uses the new speed on the very next frame.
-  //          Without the immediate ref update, the tick loop continues using the old speed
-  //          until React re-renders, causing the "speed doesn't change" bug.
   const setSpeed = useCallback((newSpeed: ReplaySpeed) => {
     if (isPlayingRef.current) {
-      // Capture current virtual time then restart at new speed
       const elapsed = Date.now() - startWallMsRef.current;
       virtualOffsetMsRef.current = virtualOffsetMsRef.current + elapsed * speedRef.current;
       startWallMsRef.current = Date.now();
     }
-    speedRef.current = newSpeed; // Update ref immediately for RAF loop
+    speedRef.current = newSpeed;
     setSpeedState(newSpeed);
   }, []);
 
@@ -448,7 +625,7 @@ export function useReplayPlayer(
   }, [cancelRaf, tick]);
 
   // ---------------------------------------------------------------------------
-  // Session change — download and reset
+  // Session change — download/load and reset
   // ---------------------------------------------------------------------------
   useEffect(() => {
     cancelRaf();
@@ -474,48 +651,81 @@ export function useReplayPlayer(
     let cancelled = false;
     updatePlaybackState('loading');
 
-    // GUID: REPLAY_PLAYER_HOOK-008-v01
-    // [Intent] Use streamReplayData for instant-start playback.
-    //          onFramesReady fires after 60 NDJSON frames (or immediately for legacy JSON),
-    //          allowing playback to begin while the rest of the file streams in.
-    streamReplayData(
-      session.downloadUrl,
-      fraction => { if (!cancelled) setDownloadProgress(fraction); },
-      data => {
-        if (cancelled) return;
-        // Partial or full data ready — set ref and start playback
-        replayDataRef.current = data;
-        setDurationMs(data.durationMs);
-        setFramesLoaded(data.frames.length);
-        updatePlaybackState('ready');
-        // Auto-play on load
-        startRafFrom(0);
-      },
-    )
-      .then(data => {
-        if (cancelled) return;
-        // Streaming complete — ensure ref points to final data and update frame count
-        replayDataRef.current = data;
-        setDurationMs(data.durationMs);
-        setFramesLoaded(data.frames.length);
-        setDownloadProgress(1);
-      })
-      .catch(err => {
-        if (cancelled) return;
-        const cid = generateClientCorrelationId();
-        const msg = err instanceof Error ? err.message : 'Unknown error';
-        console.error(
-          `[useReplayPlayer] ${CLIENT_ERRORS.PIT_WALL_REPLAY_LOAD_FAILED.code} — ${msg} | cid=${cid}`,
+    const onDataReady = (data: HistoricalReplayData) => {
+      if (cancelled) return;
+      replayDataRef.current = data;
+      setDurationMs(data.durationMs);
+      setFramesLoaded(data.frames.length);
+      updatePlaybackState('ready');
+      startRafFrom(0);
+    };
+
+    const onStreamComplete = (data: HistoricalReplayData) => {
+      if (cancelled) return;
+      replayDataRef.current = data;
+      setDurationMs(data.durationMs);
+      setFramesLoaded(data.frames.length);
+      setDownloadProgress(1);
+    };
+
+    const onStreamError = (err: unknown) => {
+      if (cancelled) return;
+      const cid = generateClientCorrelationId();
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error(
+        `[useReplayPlayer] ${CLIENT_ERRORS.PIT_WALL_REPLAY_LOAD_FAILED.code} — ${msg} | cid=${cid}`,
+      );
+      setError(`${CLIENT_ERRORS.PIT_WALL_REPLAY_LOAD_FAILED.message} (${cid})`);
+      updatePlaybackState('error');
+    };
+
+    // GUID: REPLAY_PLAYER_HOOK-012-v02
+    // [Intent] Choose loading path based on session metadata:
+    //   1. firestoreStatus === 'complete' → chunk-load from Firestore (fast, durable)
+    //   2. downloadUrl exists → legacy Firebase Storage download (existing sessions)
+    //   3. No download URL + getAuthToken → ingest via API (first-time, streams + writes Firestore)
+    //   4. Fallback → error (no data source available)
+    //   v02: Fixed path priority — prefer existing downloadUrl over ingest.
+    //        Ingest only triggers when no existing data source is available.
+    const loadData = async () => {
+      if (session.firestoreStatus === 'complete' && session.totalChunks && session.totalChunks > 0 && getAuthToken) {
+        // Path 1: Firestore chunk loading (fast, survives deployments)
+        return loadChunksProgressively(
+          session.sessionKey,
+          session.totalChunks,
+          getAuthToken,
+          fraction => { if (!cancelled) setDownloadProgress(fraction); },
+          onDataReady,
         );
-        setError(`${CLIENT_ERRORS.PIT_WALL_REPLAY_LOAD_FAILED.message} (${cid})`);
-        updatePlaybackState('error');
-      });
+      } else if (session.downloadUrl) {
+        // Path 2: Legacy Firebase Storage download (existing pre-ingested sessions)
+        return streamReplayData(
+          session.downloadUrl,
+          fraction => { if (!cancelled) setDownloadProgress(fraction); },
+          onDataReady,
+        );
+      } else if (getAuthToken) {
+        // Path 3: First-time ingest via API (no existing data — streams + writes to Firestore)
+        return streamIngestReplayData(
+          session.sessionKey,
+          getAuthToken,
+          fraction => { if (!cancelled) setDownloadProgress(fraction); },
+          onDataReady,
+        );
+      } else {
+        throw new Error('No replay data source available');
+      }
+    };
+
+    loadData()
+      .then(onStreamComplete)
+      .catch(onStreamError);
 
     return () => {
       cancelled = true;
       cancelRaf();
     };
-  }, [session, cancelRaf, startRafFrom, updatePlaybackState]);
+  }, [session, getAuthToken, cancelRaf, startRafFrom, updatePlaybackState]);
 
   // ---------------------------------------------------------------------------
   // Cleanup on unmount

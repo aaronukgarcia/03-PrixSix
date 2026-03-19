@@ -380,13 +380,34 @@ service cloud.firestore {
     // [Downstream Impact] All legitimate team_names operations go through Admin SDK (bypasses rules).
     //                     Without this rule, clients could pre-create sentinels to block others
     //                     from registering specific team names (DoS on registration).
-    // GUID: REPLAY_SESSIONS_RULES-001-v01
+    // GUID: REPLAY_SESSIONS_RULES-001-v02
     // [Intent] GPS replay session catalogue — all signed-in users can list/read.
     //          Write is ingest-script only (Admin SDK bypasses rules).
     //          Data is pre-race GPS telemetry — not sensitive.
+    //          v02: firestoreStatus, firestoreChunkCount, firestoreTotalFrames added for
+    //               durable Firestore telemetry storage (replay-ingest.ts writes via Admin SDK).
     match /replay_sessions/{sessionId} {
       allow get, list: if isSignedIn();
       allow write: if false; // Admin SDK only via ingest-*-replay.js scripts
+    }
+
+    // GUID: REPLAY_CHUNKS_RULES-001-v01
+    // [Intent] GPS replay chunk documents — 800 frames per doc, loaded progressively by client.
+    //          Written by replay-ingest.ts via Admin SDK during first-time ingest.
+    //          Clients load chunks via /api/pit-wall/replay-chunks (server-side reads).
+    //          Direct client reads also permitted for any signed-in user (data is not sensitive).
+    match /replay_chunks/{chunkId} {
+      allow get, list: if isSignedIn();
+      allow write: if false; // Admin SDK only via replay-ingest.ts
+    }
+
+    // GUID: REPLAY_META_RULES-001-v01
+    // [Intent] GPS replay session metadata — drivers, radio messages, chunk counts.
+    //          One doc per session, written by replay-ingest.ts via Admin SDK.
+    //          Client reads via /api/pit-wall/replay-chunks (server-side reads).
+    match /replay_meta/{sessionId} {
+      allow get: if isSignedIn();
+      allow write: if false; // Admin SDK only via replay-ingest.ts
     }
 
     match /team_names/{nameId} {

@@ -22,6 +22,9 @@ export interface ReplaySessionMetadata {
   fileSizeBytesGzip:  number;
   fileSizeBytesRaw:   number;
   samplingIntervalMs: number;   // e.g. 500 = 2Hz
+  // v02: Durable Firestore telemetry storage fields
+  firestoreStatus?:   'none' | 'ingesting' | 'complete' | 'failed';
+  totalChunks?:       number;   // number of replay_chunks docs for this session
 }
 
 // GUID: REPLAY_TYPES-002-v01

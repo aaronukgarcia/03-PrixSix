@@ -50,6 +50,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         fileSizeBytesGzip:  d.fileSizeBytesGzip,
         fileSizeBytesRaw:   d.fileSizeBytesRaw,
         samplingIntervalMs: d.samplingIntervalMs,
+        // v02: Durable Firestore telemetry storage fields
+        firestoreStatus:    d.firestoreStatus ?? 'none',
+        totalChunks:        d.firestoreChunkCount ?? 0,
       };
     });
 

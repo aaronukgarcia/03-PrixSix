@@ -1,13 +1,18 @@
-// GUID: API_PIT_WALL_HISTORICAL_REPLAY-000-v01
-// [Intent] Fetch and downsample historical position telemetry from OpenF1 for showreel replay.
-//          Returns one position frame per 5 real-time seconds per driver.
-// [Inbound Trigger] Called by useHistoricalReplay when a showreel item starts playing.
-// [Downstream Impact] Returns HistoricalReplayData — the replay hook uses frames[] for RAF playback.
+// GUID: API_PIT_WALL_HISTORICAL_REPLAY-000-v02
+// [Intent] Firestore-first replay route with full-fidelity ingest on cache miss.
+//          v02: Checks Firestore for pre-ingested chunks. If 'complete', returns redirect
+//               to replay-chunks API. If 'none', triggers full ingest pipeline that
+//               simultaneously streams NDJSON to client AND writes chunks to Firestore.
+//               If 'ingesting', returns 202 (another request is already ingesting).
+//               Keeps backward compat: showreel still uses the old downsampled path.
+// [Inbound Trigger] Called by useReplayPlayer (GPS Replay) and useHistoricalReplay (showreel).
+// [Downstream Impact] Writes to replay_chunks, replay_meta, replay_sessions on first ingest.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
 import { getSecret } from '@/lib/secrets-manager';
+import { getSessionFirestoreStatus, ingestReplaySession } from '@/lib/replay-ingest';
 import type { HistoricalReplayData, HistoricalDriver, ReplayFrame } from '@/app/(app)/pit-wall/_types/showreel.types';
 
 export const dynamic = 'force-dynamic';
@@ -27,11 +32,10 @@ const replayCache = new Map<number, { data: HistoricalReplayData; expiresAt: num
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers (kept for showreel backward compat path)
 // ---------------------------------------------------------------------------
 
 // GUID: API_PIT_WALL_HISTORICAL_REPLAY-004-v01
-// [Intent] Fetch with AbortController timeout.
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -46,9 +50,6 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 }
 
 // GUID: API_PIT_WALL_HISTORICAL_REPLAY-005-v01
-// [Intent] Obtain an OpenF1 bearer token using stored credentials, with in-memory caching.
-//          Returns null if credentials are unavailable; unauthenticated requests still work
-//          for most OpenF1 historical endpoints.
 async function getOpenF1Token(): Promise<string | null> {
   if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.token;
   let username: string, password: string;
@@ -74,8 +75,6 @@ async function getOpenF1Token(): Promise<string | null> {
 }
 
 // GUID: API_PIT_WALL_HISTORICAL_REPLAY-006-v01
-// [Intent] Fetch a single OpenF1 path with optional auth bearer token.
-//          Returns parsed JSON, the raw text (for restricted detection), or null on failure.
 async function openF1FetchRaw(path: string, token: string | null): Promise<{ ok: boolean; text: string }> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -85,7 +84,6 @@ async function openF1FetchRaw(path: string, token: string | null): Promise<{ ok:
 }
 
 // GUID: API_PIT_WALL_HISTORICAL_REPLAY-007-v01
-// [Intent] Detect whether an OpenF1 response body is a "restricted" error.
 function isRestrictedResponse(text: string): boolean {
   try {
     const parsed = JSON.parse(text);
@@ -101,7 +99,7 @@ function isRestrictedResponse(text: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Core algorithms
+// Showreel path (downsampled, backward compat)
 // ---------------------------------------------------------------------------
 
 interface RawPosition {
@@ -114,12 +112,7 @@ interface RawPosition {
 }
 
 // GUID: API_PIT_WALL_HISTORICAL_REPLAY-002-v01
-// [Intent] Downsample raw OpenF1 position data to one record per driver per 5 seconds.
-//          A 2-hour race produces ~360,000 raw records; this reduces it to ~2,400.
-//          Algorithm: per-driver sort by date ascending, then slide a 5-second window
-//          and keep the first entry in each window.
 function downsamplePositions(raw: RawPosition[]): RawPosition[] {
-  // Group by driver
   const byDriver = new Map<number, RawPosition[]>();
   for (const p of raw) {
     const list = byDriver.get(p.driver_number) ?? [];
@@ -128,11 +121,8 @@ function downsamplePositions(raw: RawPosition[]): RawPosition[] {
   }
 
   const result: RawPosition[] = [];
-
   for (const [, positions] of byDriver) {
-    // Sort ascending by timestamp
     positions.sort((a, b) => a.date.localeCompare(b.date));
-
     let windowStart = -Infinity;
     for (const pos of positions) {
       const ts = new Date(pos.date).getTime();
@@ -142,35 +132,25 @@ function downsamplePositions(raw: RawPosition[]): RawPosition[] {
       }
     }
   }
-
   return result;
 }
 
 // GUID: API_PIT_WALL_HISTORICAL_REPLAY-003-v01
-// [Intent] Convert the downsampled positions into ReplayFrame[].
-//          Positions are sorted globally by wall-clock time, then grouped into frames
-//          where all entries within FRAME_GROUPING_MS of the frame anchor are merged.
-//          virtualTimeMs is measured from the session start timestamp.
 function buildReplayFrames(positions: RawPosition[], sessionStartMs: number): ReplayFrame[] {
   if (positions.length === 0) return [];
-
-  // Sort all downsampled positions by wall clock time
   const sorted = [...positions].sort((a, b) => a.date.localeCompare(b.date));
-
   const frames: ReplayFrame[] = [];
   let i = 0;
 
   while (i < sorted.length) {
     const anchor = sorted[i];
     const anchorMs = new Date(anchor.date).getTime();
-
     const frame: ReplayFrame = {
       virtualTimeMs: anchorMs - sessionStartMs,
       wallTimeMs: anchorMs,
       positions: [],
     };
 
-    // Collect all positions within the grouping window
     while (i < sorted.length) {
       const posMs = new Date(sorted[i].date).getTime();
       if (posMs - anchorMs > FRAME_GROUPING_MS) break;
@@ -183,22 +163,117 @@ function buildReplayFrames(positions: RawPosition[], sessionStartMs: number): Re
       i++;
     }
 
-    if (frame.positions.length > 0) {
-      frames.push(frame);
-    }
+    if (frame.positions.length > 0) frames.push(frame);
+  }
+  return frames;
+}
+
+// GUID: API_PIT_WALL_HISTORICAL_REPLAY-008-v01
+// [Intent] Showreel (downsampled) path — kept for backward compat with useHistoricalReplay.
+//          Fetches drivers + positions + session from OpenF1, downsamples to 5s intervals,
+//          returns JSON (not NDJSON). Used when mode=showreel query param is set.
+async function handleShowreelPath(
+  sessionKey: number,
+  correlationId: string,
+): Promise<NextResponse> {
+  const cached = replayCache.get(sessionKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return NextResponse.json(cached.data);
   }
 
-  return frames;
+  let token: string | null = null;
+  try { token = await getOpenF1Token(); } catch { /* proceed without */ }
+
+  let driversText: string, positionsText: string, sessionText: string;
+  let driversOk: boolean, positionsOk: boolean, sessionOk: boolean;
+
+  try {
+    const [driversResult, positionsResult, sessionResult] = await Promise.all([
+      openF1FetchRaw(`/drivers?session_key=${sessionKey}`, token),
+      openF1FetchRaw(`/position?session_key=${sessionKey}`, token),
+      openF1FetchRaw(`/sessions?session_key=${sessionKey}`, token),
+    ]);
+    ({ ok: driversOk, text: driversText } = driversResult);
+    ({ ok: positionsOk, text: positionsText } = positionsResult);
+    ({ ok: sessionOk, text: sessionText } = sessionResult);
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'OpenF1 request timed out', code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code, correlationId },
+        { status: 504 },
+      );
+    }
+    return NextResponse.json(
+      { error: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.message, code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code, correlationId },
+      { status: 500 },
+    );
+  }
+
+  if (isRestrictedResponse(driversText) || isRestrictedResponse(positionsText) || isRestrictedResponse(sessionText)) {
+    return NextResponse.json(
+      { error: ERRORS.PIT_WALL_OPENF1_RESTRICTED.message, code: ERRORS.PIT_WALL_OPENF1_RESTRICTED.code, correlationId },
+      { status: 503 },
+    );
+  }
+
+  let rawDrivers: any[], rawPositions: RawPosition[], rawSessions: any[];
+  try {
+    rawDrivers = JSON.parse(driversText);
+    rawPositions = JSON.parse(positionsText);
+    rawSessions = JSON.parse(sessionText);
+  } catch {
+    return NextResponse.json(
+      { error: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.message, code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code, correlationId },
+      { status: 502 },
+    );
+  }
+
+  if (!driversOk || !positionsOk || !sessionOk) {
+    return NextResponse.json(
+      { error: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.message, code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code, correlationId },
+      { status: 502 },
+    );
+  }
+
+  const sessionMeta = Array.isArray(rawSessions) && rawSessions.length > 0 ? rawSessions[0] : null;
+  const sessionStartMs = sessionMeta?.date_start ? new Date(sessionMeta.date_start).getTime() : 0;
+  const downsampled = downsamplePositions(rawPositions);
+  const frames = buildReplayFrames(downsampled, sessionStartMs);
+  const drivers: HistoricalDriver[] = (Array.isArray(rawDrivers) ? rawDrivers : []).map((d: any) => ({
+    driverNumber: d.driver_number,
+    driverCode: d.name_acronym ?? '',
+    fullName: d.full_name ?? '',
+    teamName: d.team_name ?? '',
+    teamColour: d.team_colour ? `#${d.team_colour}` : '#888888',
+  }));
+  const durationMs = frames.length > 0 ? frames[frames.length - 1].virtualTimeMs : 0;
+  const replayData: HistoricalReplayData = {
+    sessionKey,
+    sessionName: sessionMeta?.session_name ?? '',
+    meetingName: sessionMeta?.meeting_name ?? '',
+    drivers,
+    frames,
+    durationMs,
+    totalLaps: sessionMeta?.total_laps ?? null,
+  };
+  replayCache.set(sessionKey, { data: replayData, expiresAt: Date.now() + CACHE_TTL_MS });
+  return NextResponse.json(replayData);
 }
 
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
-// GUID: API_PIT_WALL_HISTORICAL_REPLAY-001-v01
-export async function GET(req: NextRequest): Promise<NextResponse> {
+// GUID: API_PIT_WALL_HISTORICAL_REPLAY-001-v02
+// [Intent] v02: Firestore-first check for GPS Replay mode.
+//          mode=showreel → downsampled path (backward compat).
+//          Default (GPS Replay) → check Firestore status:
+//            - 'complete' → return { source: 'firestore', totalChunks } so client uses replay-chunks API
+//            - 'ingesting' → return 202
+//            - 'none'/'failed' → ingest from OpenF1, stream NDJSON + write Firestore simultaneously
+export async function GET(req: NextRequest): Promise<NextResponse | Response> {
   const correlationId = generateCorrelationId();
-  getFirebaseAdmin(); // ensure Admin SDK is initialised
+  getFirebaseAdmin();
 
   const authHeader = req.headers.get('Authorization');
   const authResult = await verifyAuthToken(authHeader);
@@ -211,6 +286,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { searchParams } = new URL(req.url);
   const sessionKeyRaw = searchParams.get('session_key');
+  const mode = searchParams.get('mode'); // 'showreel' for backward compat
 
   if (!sessionKeyRaw) {
     return NextResponse.json(
@@ -227,128 +303,99 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Return cached replay if still fresh
-  const cached = replayCache.get(sessionKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return NextResponse.json(cached.data);
+  // Showreel mode: use the old downsampled path (fast, small payload)
+  if (mode === 'showreel') {
+    return handleShowreelPath(sessionKey, correlationId);
   }
 
-  let token: string | null = null;
-  try {
-    token = await getOpenF1Token();
-  } catch {
-    // proceed without token
-  }
+  // ---------------------------------------------------------------------------
+  // GPS Replay mode: Firestore-first
+  // ---------------------------------------------------------------------------
 
-  // Fetch drivers, positions, and session metadata in parallel
-  let driversText: string, positionsText: string, sessionText: string;
-  let driversOk: boolean, positionsOk: boolean, sessionOk: boolean;
-
+  // GUID: API_PIT_WALL_HISTORICAL_REPLAY-009-v01
+  // [Intent] Check Firestore for pre-ingested full-fidelity chunks.
   try {
-    const [driversResult, positionsResult, sessionResult] = await Promise.all([
-      openF1FetchRaw(`/drivers?session_key=${sessionKey}`, token),
-      openF1FetchRaw(`/position?session_key=${sessionKey}`, token),
-      openF1FetchRaw(`/sessions?session_key=${sessionKey}`, token),
-    ]);
-    ({ ok: driversOk, text: driversText } = driversResult);
-    ({ ok: positionsOk, text: positionsText } = positionsResult);
-    ({ ok: sessionOk, text: sessionText } = sessionResult);
-  } catch (err: any) {
-    if (err?.name === 'AbortError') {
+    const fsStatus = await getSessionFirestoreStatus(sessionKey);
+
+    if (fsStatus.status === 'complete') {
+      // Chunks exist in Firestore — tell client to use the replay-chunks API
+      return NextResponse.json({
+        source: 'firestore',
+        sessionKey,
+        totalChunks: fsStatus.totalChunks,
+        totalFrames: fsStatus.totalFrames,
+      });
+    }
+
+    if (fsStatus.status === 'ingesting') {
+      // Another request is already ingesting — return 202
       return NextResponse.json(
         {
-          error: 'OpenF1 request timed out',
-          code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code,
+          error: ERRORS.PIT_WALL_REPLAY_INGEST_IN_PROGRESS.message,
+          code: ERRORS.PIT_WALL_REPLAY_INGEST_IN_PROGRESS.code,
           correlationId,
+          status: 'ingesting',
         },
-        { status: 504 },
+        { status: 202 },
       );
     }
+
+    // Status is 'none' or 'failed' — trigger full ingest with NDJSON streaming
+    // GUID: API_PIT_WALL_HISTORICAL_REPLAY-010-v01
+    // [Intent] Stream NDJSON to client while simultaneously writing chunks to Firestore.
+    //          Line 1: metadata (drivers, durationMs, etc.)
+    //          Lines 2+: individual ReplayFrame objects
+    //          Client starts playback after 60 frames arrive.
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          await ingestReplaySession(sessionKey, {
+            onMeta: (meta) => {
+              controller.enqueue(encoder.encode(JSON.stringify(meta) + '\n'));
+            },
+            onFrame: (frame) => {
+              controller.enqueue(encoder.encode(JSON.stringify(frame) + '\n'));
+            },
+            onComplete: (stats) => {
+              // Final line: completion marker (optional, client handles stream end)
+              controller.enqueue(encoder.encode(JSON.stringify({ _complete: true, ...stats }) + '\n'));
+              controller.close();
+            },
+            onError: (errorMsg) => {
+              controller.enqueue(encoder.encode(JSON.stringify({ _error: errorMsg }) + '\n'));
+              controller.close();
+            },
+          });
+        } catch (err: any) {
+          try {
+            const msg = err instanceof Error ? err.message : 'Unknown ingest error';
+            controller.enqueue(encoder.encode(JSON.stringify({ _error: msg }) + '\n'));
+            controller.close();
+          } catch {
+            // Stream may already be closed
+          }
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'application/x-ndjson',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+        'X-Correlation-Id': correlationId,
+      },
+    });
+
+  } catch (err: any) {
     return NextResponse.json(
       {
-        error: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.message,
-        code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code,
+        error: ERRORS.PIT_WALL_REPLAY_INGEST_FAILED.message,
+        code: ERRORS.PIT_WALL_REPLAY_INGEST_FAILED.code,
         correlationId,
       },
       { status: 500 },
     );
   }
-
-  // Check for restricted responses across any of the three fetches
-  if (
-    isRestrictedResponse(driversText) ||
-    isRestrictedResponse(positionsText) ||
-    isRestrictedResponse(sessionText)
-  ) {
-    return NextResponse.json(
-      {
-        error: ERRORS.PIT_WALL_OPENF1_RESTRICTED.message,
-        code: ERRORS.PIT_WALL_OPENF1_RESTRICTED.code,
-        correlationId,
-      },
-      { status: 503 },
-    );
-  }
-
-  // Parse all three payloads
-  let rawDrivers: any[], rawPositions: RawPosition[], rawSessions: any[];
-  try {
-    rawDrivers = JSON.parse(driversText);
-    rawPositions = JSON.parse(positionsText);
-    rawSessions = JSON.parse(sessionText);
-  } catch {
-    return NextResponse.json(
-      {
-        error: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.message,
-        code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code,
-        correlationId,
-      },
-      { status: 502 },
-    );
-  }
-
-  if (!driversOk || !positionsOk || !sessionOk) {
-    return NextResponse.json(
-      {
-        error: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.message,
-        code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code,
-        correlationId,
-      },
-      { status: 502 },
-    );
-  }
-
-  const sessionMeta = Array.isArray(rawSessions) && rawSessions.length > 0 ? rawSessions[0] : null;
-  const sessionStartMs = sessionMeta?.date_start ? new Date(sessionMeta.date_start).getTime() : 0;
-
-  // Downsample positions
-  const downsampled = downsamplePositions(rawPositions);
-
-  // Build replay frames
-  const frames = buildReplayFrames(downsampled, sessionStartMs);
-
-  // Map drivers
-  const drivers: HistoricalDriver[] = (Array.isArray(rawDrivers) ? rawDrivers : []).map((d: any) => ({
-    driverNumber: d.driver_number,
-    driverCode: d.name_acronym ?? '',
-    fullName: d.full_name ?? '',
-    teamName: d.team_name ?? '',
-    teamColour: d.team_colour ? `#${d.team_colour}` : '#888888',
-  }));
-
-  const durationMs = frames.length > 0 ? frames[frames.length - 1].virtualTimeMs : 0;
-
-  const replayData: HistoricalReplayData = {
-    sessionKey,
-    sessionName: sessionMeta?.session_name ?? '',
-    meetingName: sessionMeta?.meeting_name ?? '',
-    drivers,
-    frames,
-    durationMs,
-    totalLaps: sessionMeta?.total_laps ?? null,
-  };
-
-  replayCache.set(sessionKey, { data: replayData, expiresAt: Date.now() + CACHE_TTL_MS });
-
-  return NextResponse.json(replayData);
 }
