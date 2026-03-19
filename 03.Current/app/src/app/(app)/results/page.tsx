@@ -290,15 +290,17 @@ function ResultsContent() {
         return () => unsubscribe();
     }, [firestore, selectedRaceId]);
 
-    // GUID: PAGE_RESULTS-025B-v06
+    // GUID: PAGE_RESULTS-025B-v07
     // @BUG_FIX: GEMINI-AUDIT-128 — GP predictions were never shown on results page.
     //   Root cause: user-submitted predictions store raceId as "Australian-Grand-Prix-GP" (via generateRaceId)
     //   but getBaseRaceId() returned "Australian-Grand-Prix" (strips -GP) → 0 user-submitted GP predictions found.
     //   Carry-forward predictions are stored without -GP suffix (via normalizeRaceId in calculate-scores).
     //   Fix: dual-query — primary uses selectedRaceId (user-submitted format), secondary uses getBaseRaceId()
     //   (carry-forward format). Only needed when formats differ (GP races); Sprint uses same format for both.
-    //   All carry-forward predictions are fetched without limit in the initial load; subsequent loadMore pages
-    //   only paginate user-submitted predictions (the dominant set).
+    // @BUG_FIX(v07): Sprint carry-forward — teams with GP predictions but no Sprint prediction were
+    //   invisible on the Sprint results page. Standings applied GP→Sprint carry-forward but results did not.
+    //   Fix: for Sprint races, also query for GP predictions (both "Name-GP" and "Name" formats) and
+    //   merge them as carry-forward for teams that have no Sprint-specific prediction.
     // [Intent] Fetch predictions and count for the selected race (one-time fetch with pagination).
     //          Separated from scores listener to keep pagination working while scores update in real-time.
     // [Inbound Trigger] Runs when firestore or selectedRaceId changes.
@@ -317,7 +319,12 @@ function ResultsContent() {
             const baseRaceId = getBaseRaceId(selectedRaceId);
             // GP races: formats differ ("Australian-Grand-Prix" vs "Australian-Grand-Prix-GP")
             // Sprint races: formats are identical ("Chinese-Grand-Prix-Sprint") → single query suffices
-            const needsDualQuery = baseRaceId !== selectedRaceId;
+            const needsGpDualQuery = baseRaceId !== selectedRaceId;
+
+            // Sprint carry-forward: also query for GP predictions (teams that submitted GP picks
+            // but not Sprint-specific picks — same carry-forward logic as standings page)
+            const currentEvent = allRaceEvents.find(e => e.id === selectedRaceId);
+            const isSprintRace = currentEvent?.isSprint ?? selectedRaceId.toLowerCase().endsWith('-sprint');
 
             try {
                 // Primary: user-submitted predictions (paginated)
@@ -334,13 +341,50 @@ function ResultsContent() {
                     ))
                 ]);
 
-                // Secondary: carry-forward predictions (fetch all — rare, small set)
-                const carryForwardDocs = needsDualQuery
+                // Secondary: carry-forward predictions for GP races (fetch all — rare, small set)
+                const carryForwardDocs = needsGpDualQuery
                     ? await getDocs(query(
                         collectionGroup(firestore, "predictions"),
                         where("raceId", "==", baseRaceId)
                     ))
                     : null;
+
+                // Sprint carry-forward: query GP predictions in both stored formats
+                // e.g. "Chinese-Grand-Prix-GP" (user-submitted) and "Chinese-Grand-Prix" (normalised)
+                let sprintCarryForwardMap: Map<string, any> | null = null;
+                if (isSprintRace && currentEvent) {
+                    const gpBaseName = currentEvent.baseName;
+                    const gpEventId = gpBaseName.replace(/\s+/g, '-') + '-GP';  // "Chinese-Grand-Prix-GP"
+                    const gpBaseId = gpBaseName.replace(/\s+/g, '-');           // "Chinese-Grand-Prix"
+
+                    const [gpEventDocs, gpBaseDocs] = await Promise.all([
+                        getDocs(query(
+                            collectionGroup(firestore, "predictions"),
+                            where("raceId", "==", gpEventId)
+                        )),
+                        gpBaseId !== gpEventId
+                            ? getDocs(query(
+                                collectionGroup(firestore, "predictions"),
+                                where("raceId", "==", gpBaseId)
+                            ))
+                            : null,
+                    ]);
+
+                    sprintCarryForwardMap = new Map<string, any>();
+                    gpEventDocs.forEach(doc => {
+                        const data = doc.data();
+                        sprintCarryForwardMap!.set(data.teamId || data.userId || doc.ref.parent.parent?.id, data);
+                    });
+                    if (gpBaseDocs) {
+                        gpBaseDocs.forEach(doc => {
+                            const data = doc.data();
+                            const key = data.teamId || data.userId || doc.ref.parent.parent?.id;
+                            if (!sprintCarryForwardMap!.has(key)) {
+                                sprintCarryForwardMap!.set(key, data);
+                            }
+                        });
+                    }
+                }
 
                 if (cancelled) return;
 
@@ -351,7 +395,28 @@ function ResultsContent() {
                     carryForwardDocs.forEach(doc => mergedMap.set(doc.ref.path, doc.data()));
                 }
 
-                const totalCount = primaryCount.data().count + (carryForwardDocs?.size ?? 0);
+                // Sprint carry-forward: add GP predictions for teams without Sprint predictions.
+                // Deduplicate by teamId — Sprint-specific predictions take priority.
+                if (sprintCarryForwardMap && sprintCarryForwardMap.size > 0) {
+                    const sprintTeamIds = new Set<string>();
+                    mergedMap.forEach((data) => {
+                        sprintTeamIds.add(data.teamId || data.userId);
+                    });
+
+                    sprintCarryForwardMap.forEach((data, teamId) => {
+                        if (!sprintTeamIds.has(teamId)) {
+                            mergedMap.set(`sprint-carry-forward-${teamId}`, data);
+                        }
+                    });
+                }
+
+                const totalCount = primaryCount.data().count
+                    + (carryForwardDocs?.size ?? 0)
+                    + (sprintCarryForwardMap ? [...sprintCarryForwardMap.keys()].filter(k => {
+                        const sprintTeamIds = new Set<string>();
+                        primaryDocs.forEach(doc => { const d = doc.data(); sprintTeamIds.add(d.teamId || d.userId); });
+                        return !sprintTeamIds.has(k);
+                    }).length : 0);
                 setTotalCount(totalCount);
 
                 if (mergedMap.size === 0) {

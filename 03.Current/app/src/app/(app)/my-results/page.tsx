@@ -345,9 +345,16 @@ export default function MyResultsPage() {
             if (!raceResult) continue;
 
             // Try full event ID first (user-submitted format: "Australian-Grand-Prix-GP"),
-            // fall back to getBaseRaceId (carry-forward format: "Australian-Grand-Prix")
+            // fall back to getBaseRaceId (carry-forward format: "Australian-Grand-Prix").
+            // For Sprint races: also fall back to GP prediction (both "Name-GP" and "Name" formats)
+            // matching the carry-forward logic used by the standings page.
             const baseRaceId = getBaseRaceId(event.id);
-            const predData = predictionsMap.get(event.id) ?? predictionsMap.get(baseRaceId);
+            let predData = predictionsMap.get(event.id) ?? predictionsMap.get(baseRaceId);
+            if (!predData && event.isSprint) {
+                const gpEventId = event.baseName.replace(/\s+/g, '-') + '-GP';
+                const gpBaseId = event.baseName.replace(/\s+/g, '-');
+                predData = predictionsMap.get(gpEventId) ?? predictionsMap.get(gpBaseId);
+            }
             if (!predData) continue;
 
             const officialTop6 = [
