@@ -48,6 +48,7 @@ import { AlertCircle, RefreshCw, TowerControl, Film, ZoomIn, ChevronUp, ChevronD
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RaceSchedule } from '@/lib/data';
+import staticCircuits from '@/data/circuits.json';
 
 // GUID: PIT_WALL_CLIENT-001-v02
 // [Intent] Derive track bounds from a set of GPS points (projected metres).
@@ -214,15 +215,22 @@ export default function PitWallClient() {
     frozen: boolean;
   }>({ trackedDriver: null, frozen: false });
 
+  // GUID: PIT_WALL_CLIENT-052-v01
+  // [Intent] Load circuit path on circuitKey change. Priority: localStorage > static circuits.json.
+  //          Static data provides instant circuit outlines for known circuits (e.g. Chinese GP)
+  //          even on first visit or mid-race join. localStorage persisted paths override because
+  //          they may have more points from a full live session.
   useEffect(() => {
     if (!circuitKey) return;
-    // New circuit — load persisted path from localStorage + reset tracker
+    // New circuit — load persisted path from localStorage, fallback to static data
     if (circuitKey !== lastCircuitKeyRef.current) {
       lastCircuitKeyRef.current = circuitKey;
       const persisted = loadCircuitPath(circuitKey);
-      setCircuitPath(persisted);
-      // If persisted path has enough points, consider it frozen (already have a good outline)
-      pathTrackerRef.current = { trackedDriver: null, frozen: persisted.length > 100 };
+      const staticPath = (staticCircuits as Record<string, CircuitPoint[]>)[String(circuitKey)];
+      const path = persisted.length > 0 ? persisted : (staticPath ?? []);
+      setCircuitPath(path);
+      // If we have enough points (from either source), freeze — don't re-discover
+      pathTrackerRef.current = { trackedDriver: null, frozen: path.length > 100 };
     }
   }, [circuitKey]);
 
@@ -439,6 +447,25 @@ export default function PitWallClient() {
     }
     return liveDrivers;
   }, [isReplayMode, replayPlayer.replayDrivers, preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
+
+  // GUID: PIT_WALL_CLIENT-053-v01
+  // [Intent] Seed static circuit path for replay mode — when no live circuitKey is available,
+  //          use the replay session's circuitKey to load from static circuits.json.
+  //          This gives instant circuit outlines in replay without waiting for a full lap.
+  useEffect(() => {
+    if (circuitKey) return; // live session handles its own circuit loading
+    if (!isReplayMode || !selectedReplaySession?.circuitKey) return;
+    const tracker = pathTrackerRef.current;
+    if (tracker.frozen) return;
+
+    const replayCircuitKey = selectedReplaySession.circuitKey;
+    const staticPath = (staticCircuits as Record<string, CircuitPoint[]>)[String(replayCircuitKey)];
+    if (staticPath && staticPath.length > 50) {
+      setCircuitPath(staticPath);
+      circuitPathRef.current = staticPath;
+      tracker.frozen = true;
+    }
+  }, [circuitKey, isReplayMode, selectedReplaySession]);
 
   // GUID: PIT_WALL_CLIENT-029-v02
   // [Intent] Accumulate circuit path from replay/showreel drivers when no live session
