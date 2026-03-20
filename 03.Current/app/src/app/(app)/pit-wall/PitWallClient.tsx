@@ -44,7 +44,7 @@ import { ShowreelSplash } from './_components/ShowreelSplash';
 import { RaceSelector } from './_components/RaceSelector';
 import { PitWallLoadingScreen } from './_components/PitWallLoadingScreen';
 import { ReplayControls } from './_components/ReplayControls';
-import { AlertCircle, RefreshCw, TowerControl, Film } from 'lucide-react';
+import { AlertCircle, RefreshCw, TowerControl, Film, ZoomIn, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RaceSchedule } from '@/lib/data';
@@ -510,6 +510,31 @@ export default function PitWallClient() {
   const [trailEnabled, setTrailEnabled] = useState(true);
   const [trailTtlMs, setTrailTtlMs] = useState(750);
 
+  // GUID: PIT_WALL_CLIENT-035-v01
+  // [Intent] 3-tier zoom state machine for the track map.
+  //          Zoom 0: default layout (280px header, FIA feed + race table visible).
+  //          Zoom 1: fullscreen track map (FIA feed, race table, radio panel hidden).
+  //          Zoom 2: hyper-focus — camera locks on focusPosition (~100m radius, 8x zoom).
+  //          focusPosition: race position to track in Zoom 2 (1-based, default P1).
+  const [zoomLevel, setZoomLevel] = useState<0 | 1 | 2>(0);
+  const [focusPosition, setFocusPosition] = useState(1);
+
+  const handleZoomCycle = useCallback(() => {
+    setZoomLevel(prev => {
+      if (prev === 0) return 1;
+      if (prev === 1) return 2;
+      return 0;
+    });
+  }, []);
+
+  const handleFocusUp = useCallback(() => {
+    setFocusPosition(prev => (prev <= 1 ? 20 : prev - 1));
+  }, []);
+
+  const handleFocusDown = useCallback(() => {
+    setFocusPosition(prev => (prev >= 20 ? 1 : prev + 1));
+  }, []);
+
   // GUID: PIT_WALL_CLIENT-003-v01
   // [Intent] Radio zoom panel state — selected driver and open/close.
   const [radioZoomOpen, setRadioZoomOpen] = useState(false);
@@ -595,10 +620,22 @@ export default function PitWallClient() {
       )}
 
       {/* ── HEADER: Track Map (2/3) + FIA Feed (1/3) ── */}
-      {/* GUID: PIT_WALL_CLIENT-005-v01 */}
-      <div className="flex shrink-0 h-[280px] border-b border-slate-800">
+      {/* GUID: PIT_WALL_CLIENT-005-v02 */}
+      {/* v02: When zoomLevel >= 1, track map goes fullscreen (absolute inset-0 z-50). */}
+      {/*      FIA feed hidden. Zoom/focus controls overlay the map. */}
+      <div className={cn(
+        'border-b border-slate-800',
+        zoomLevel >= 1
+          ? 'absolute inset-0 z-50'
+          : 'flex shrink-0 h-[280px]',
+      )}>
         {/* Track map */}
-        <div className="flex-[2] min-w-0 border-r border-slate-800">
+        <div className={cn(
+          'min-w-0',
+          zoomLevel >= 1
+            ? 'w-full h-full'
+            : 'flex-[2] border-r border-slate-800',
+        )}>
           <PitWallTrackMap
             drivers={activeDrivers}
             updateIntervalMs={
@@ -619,21 +656,81 @@ export default function PitWallClient() {
             positionDataAvailable={positionDataAvailable || (isReplayMode && replayPlayer.replayDrivers.length > 0)}
             nextRaceName={nextRaceInfo?.name ?? null}
             lastMeetingName={meetingName}
-            followDriver={followDriver}
+            followDriver={zoomLevel === 2 ? null : followDriver}
             trailEnabled={trailEnabled}
             trailTtlMs={trailTtlMs}
+            zoomLevel={zoomLevel}
+            focusPosition={focusPosition}
             className="w-full h-full"
           />
+
+          {/* GUID: PIT_WALL_CLIENT-036-v01 */}
+          {/* [Intent] Floating zoom controls — always visible when fullscreen (zoom >= 1). */}
+          {/*          Top-right: zoom cycle button. Bottom-centre: focus position selector (zoom 2 only). */}
+          {/*          Replay controls overlay bottom when in replay mode. */}
+          {zoomLevel >= 1 && (
+            <>
+              {/* Zoom cycle button — top right */}
+              <button
+                onClick={handleZoomCycle}
+                className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-slate-900/80 backdrop-blur border border-slate-700/50 text-[9px] font-semibold uppercase tracking-wider text-cyan-400 hover:bg-slate-800/80 transition-colors"
+              >
+                <ZoomIn className="w-3 h-3" />
+                {zoomLevel === 1 ? 'Zoom 2' : 'Exit'}
+              </button>
+
+              {/* Focus position selector — bottom centre (zoom 2 only) */}
+              {zoomLevel === 2 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur border border-slate-700/50">
+                  <button
+                    onClick={handleFocusUp}
+                    className="text-slate-400 hover:text-white transition-colors"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-bold text-cyan-400 tabular-nums min-w-[60px] text-center">
+                    P{focusPosition}{' '}
+                    <span className="text-[10px] font-normal text-slate-400">
+                      {activeDrivers.find(d => d.position === focusPosition)?.driverCode ?? '---'}
+                    </span>
+                  </span>
+                  <button
+                    onClick={handleFocusDown}
+                    className="text-slate-400 hover:text-white transition-colors"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Replay controls overlay — bottom of fullscreen map */}
+              {isReplayMode && (
+                <div className="absolute bottom-0 left-0 right-0 z-10 bg-slate-950/80 backdrop-blur border-t border-slate-800">
+                  <ReplayControls
+                    player={replayPlayer}
+                    meetingName={selectedReplaySession?.meetingName ?? (replaySessionsLoading ? 'Loading…' : 'Select a session')}
+                    sessionsLoading={replaySessionsLoading}
+                  />
+                </div>
+              )}
+            </>
+          )}
         </div>
-        {/* FIA race control feed */}
-        <div className="flex-[1] min-w-0 min-h-0">
-          <FIARaceControlFeed messages={raceControl} className="h-full" />
-        </div>
+        {/* FIA race control feed — hidden when zoomed */}
+        {zoomLevel === 0 && (
+          <div className="flex-[1] min-w-0 min-h-0">
+            <FIARaceControlFeed messages={raceControl} className="h-full" />
+          </div>
+        )}
       </div>
 
       {/* ── TOOLBAR ── */}
-      {/* GUID: PIT_WALL_CLIENT-006-v01 */}
-      <div className="flex shrink-0 items-center gap-4 px-4 py-2 border-b border-slate-800 bg-slate-950">
+      {/* GUID: PIT_WALL_CLIENT-006-v02 */}
+      {/* v02: Hidden when zoomLevel >= 1 (fullscreen track map). */}
+      <div className={cn(
+        'flex shrink-0 items-center gap-4 px-4 py-2 border-b border-slate-800 bg-slate-950',
+        zoomLevel >= 1 && 'hidden',
+      )}>
         {/* Session identity */}
         <div className="flex items-center gap-2 mr-2">
           <TowerControl className="w-4 h-4 text-slate-500" />
@@ -710,6 +807,8 @@ export default function PitWallClient() {
           )}
         </div>
 
+        {/* Zoom button moved to controls div (right side) for better visibility */}
+
         {/* Controls */}
         <div className="flex items-center gap-3 ml-auto shrink-0">
           {!preRaceMode.isShowreel && !isReplayMode && (
@@ -732,6 +831,23 @@ export default function PitWallClient() {
             visibleColumns={settings.visibleColumns}
             onToggle={toggleColumn}
           />
+          {/* GUID: PIT_WALL_CLIENT-037-v01 */}
+          {/* [Intent] Zoom toggle button — cycles through 0 → 1 → 2 → 0. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              'h-7 gap-1.5 text-[10px] font-semibold uppercase tracking-wider',
+              zoomLevel > 0
+                ? 'text-cyan-400 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20'
+                : 'text-slate-500 hover:text-slate-200',
+            )}
+            onClick={handleZoomCycle}
+            title="Cycle zoom: Overview → Fullscreen → Hyper-focus"
+          >
+            <ZoomIn className="w-3 h-3" />
+            {zoomLevel === 0 ? 'Zoom' : zoomLevel === 1 ? 'Zoom 1' : 'Zoom 2'}
+          </Button>
           {/* REPLAY toggle button */}
           {/* GUID: PIT_WALL_CLIENT-023-v01 */}
           <Button
@@ -769,10 +885,14 @@ export default function PitWallClient() {
       </div>
 
       {/* ── REPLAY CONTROLS STRIP ── */}
-      {/* GUID: PIT_WALL_CLIENT-024-v01 */}
+      {/* GUID: PIT_WALL_CLIENT-024-v02 */}
       {/* Always mounted when isReplayMode — fade/slide in to avoid layout snap */}
+      {/* v02: Hidden when zoomed (replay controls appear as overlay on fullscreen map) */}
       <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
+        className={cn(
+          'overflow-hidden transition-all duration-300 ease-in-out',
+          zoomLevel >= 1 && 'hidden',
+        )}
         style={{ maxHeight: isReplayMode ? '60px' : '0px', opacity: isReplayMode ? 1 : 0 }}
       >
         <ReplayControls
@@ -784,7 +904,7 @@ export default function PitWallClient() {
 
       {/* ── ERROR BANNER ── */}
       {/* GUID: PIT_WALL_CLIENT-007-v01 */}
-      {error && !preRaceMode.isShowreel && (
+      {error && !preRaceMode.isShowreel && zoomLevel === 0 && (
         <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-red-950/50 border-b border-red-900/50 text-red-400 text-xs">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span className="flex-1">{error}</span>
@@ -799,37 +919,42 @@ export default function PitWallClient() {
 
       {/* ── LIVE PREDICTION SCORE BANNER ── */}
       {/* GUID: PIT_WALL_CLIENT-031-v01 */}
-      <LiveScoreBanner score={liveScore} />
+      {zoomLevel === 0 && <LiveScoreBanner score={liveScore} />}
 
       {/* ── RACE TABLE (fills remaining height) ── */}
-      {/* GUID: PIT_WALL_CLIENT-008-v01 */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <PitWallRaceTable
-          drivers={activeDrivers}
-          radioMessages={activeRadioMessages}
-          visibleColumns={settings.visibleColumns}
-          radioState={radioState}
-          onRadioClick={handleRadioClick}
-          onDriverClick={handleDriverFollow}
-          followDriver={followDriver}
-          sortKey={sortKey}
-          onSort={handleSort}
-          totalLaps={totalLaps}
-          className="h-full"
-        />
-      </div>
+      {/* GUID: PIT_WALL_CLIENT-008-v02 */}
+      {/* v02: Hidden when zoomed (fullscreen track map takes over). */}
+      {zoomLevel === 0 && (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <PitWallRaceTable
+            drivers={activeDrivers}
+            radioMessages={activeRadioMessages}
+            visibleColumns={settings.visibleColumns}
+            radioState={radioState}
+            onRadioClick={handleRadioClick}
+            onDriverClick={handleDriverFollow}
+            followDriver={followDriver}
+            sortKey={sortKey}
+            onSort={handleSort}
+            totalLaps={totalLaps}
+            className="h-full"
+          />
+        </div>
+      )}
 
       {/* ── RADIO ZOOM PANEL (slides up from bottom) ── */}
       {/* GUID: PIT_WALL_CLIENT-009-v01 */}
-      <RadioZoomPanel
-        isOpen={radioZoomOpen}
-        onClose={handleRadioClose}
-        drivers={activeDrivers}
-        radioMessages={activeRadioMessages}
-        radioState={radioState}
-        selectedDriver={selectedRadioDriver}
-        onSelectDriver={setSelectedRadioDriver}
-      />
+      {zoomLevel === 0 && (
+        <RadioZoomPanel
+          isOpen={radioZoomOpen}
+          onClose={handleRadioClose}
+          drivers={activeDrivers}
+          radioMessages={activeRadioMessages}
+          radioState={radioState}
+          selectedDriver={selectedRadioDriver}
+          onSelectDriver={setSelectedRadioDriver}
+        />
+      )}
     </div>
   );
 }

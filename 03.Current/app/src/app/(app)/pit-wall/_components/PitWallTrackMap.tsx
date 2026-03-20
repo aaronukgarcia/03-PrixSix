@@ -14,10 +14,10 @@ import { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import type { DriverRaceState, TrackBounds, CircuitPoint } from '../_types/pit-wall.types';
 
-// GUID: PIT_WALL_TRACK_MAP-001-v07
-// [Intent] Props interface — MUST remain identical to the v06 interface so PitWallClient
-//          imports don't break. circuitLat and circuitLon are kept for compatibility even
-//          though the PixiJS renderer does not use them (bounds + circuitPath are sufficient).
+// GUID: PIT_WALL_TRACK_MAP-001-v08
+// [Intent] Props interface — extends v07 with zoomLevel + focusPosition for the 3-tier
+//          zoom system. circuitLat and circuitLon kept for compatibility.
+//          v08: Added zoomLevel (0|1|2) and focusPosition for Zoom 2 hyper-focus mode.
 interface PitWallTrackMapProps {
   drivers: DriverRaceState[];
   updateIntervalMs: number;
@@ -36,6 +36,8 @@ interface PitWallTrackMapProps {
   followDriver: number | null;
   trailEnabled?: boolean;
   trailTtlMs?: number;
+  zoomLevel?: 0 | 1 | 2;
+  focusPosition?: number;
   className?: string;
 }
 
@@ -60,6 +62,8 @@ type PixiTrackAppInstance = {
     trailTtlMs?: number;
     sfLineX?: number | null;
     sfLineY?: number | null;
+    zoomLevel?: 0 | 1 | 2;
+    focusPosition?: number;
   }) => void;
   destroy: () => void;
 };
@@ -88,6 +92,8 @@ export function PitWallTrackMap({
   followDriver,
   trailEnabled,
   trailTtlMs,
+  zoomLevel,
+  focusPosition,
   className,
 }: PitWallTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -141,11 +147,14 @@ export function PitWallTrackMap({
       trailTtlMs,
       sfLineX,
       sfLineY,
+      zoomLevel,
+      focusPosition,
     });
   }, [
     drivers, bounds, circuitPath, updateIntervalMs, followDriver,
     rainIntensity, sessionType, hasLiveSession, positionDataAvailable,
     nextRaceName, lastMeetingName, trailEnabled, trailTtlMs, sfLineX, sfLineY,
+    zoomLevel, focusPosition,
   ]);
 
   return (

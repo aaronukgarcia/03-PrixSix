@@ -67,6 +67,13 @@ export class PixiTrackApp {
   private nextRaceName: string | null = null;
   private lastMeetingName: string | null = null;
 
+  // GUID: PIXI_TRACK_APP-013-v01
+  // [Intent] Zoom level state for the 3-tier zoom system.
+  //          0 = default overview, 1 = fullscreen overview, 2 = hyper-focus (~100m radius).
+  //          focusPosition = race position to track in Zoom 2 (default P1).
+  private zoomLevel: 0 | 1 | 2 = 0;
+  private focusPosition = 1;
+
   // GUID: PIXI_TRACK_APP-008-v01
   // [Intent] Trail display settings — configurable from React via setData().
   //          trailEnabled: master toggle for trail rendering.
@@ -165,11 +172,12 @@ export class PixiTrackApp {
     this.app.ticker.add(this.onTick, this);
   }
 
-  // GUID: PIXI_TRACK_APP-004-v01
+  // GUID: PIXI_TRACK_APP-004-v02
   // [Intent] Data ingress from React. Called on every prop change via the React useEffect
   //          in PitWallTrackMap. Pushes new driver data to the interpolation system and
   //          rebuilds track polyline/outline when the circuit path grows significantly.
   //          No rendering happens here — rendering is driven by the ticker.
+  //          v02: Added zoomLevel + focusPosition for 3-tier zoom system.
   setData(opts: {
     drivers: DriverRaceState[];
     bounds: TrackBounds | null;
@@ -186,6 +194,8 @@ export class PixiTrackApp {
     trailTtlMs?: number;
     sfLineX?: number | null;
     sfLineY?: number | null;
+    zoomLevel?: 0 | 1 | 2;
+    focusPosition?: number;
   }): void {
     // If drivers changed, notify interpolation system
     if (opts.drivers !== this.drivers) {
@@ -206,6 +216,10 @@ export class PixiTrackApp {
     // Trail settings (optional — preserve existing if not provided)
     if (opts.trailEnabled !== undefined) this.trailEnabled = opts.trailEnabled;
     if (opts.trailTtlMs !== undefined) this.trailTtlMs = opts.trailTtlMs;
+
+    // Zoom settings (optional — preserve existing if not provided)
+    if (opts.zoomLevel !== undefined) this.zoomLevel = opts.zoomLevel;
+    if (opts.focusPosition !== undefined) this.focusPosition = opts.focusPosition;
 
     // S/F line GPS position (from API lap/location correlation)
     if (opts.sfLineX != null && opts.sfLineY != null) {
@@ -352,14 +366,26 @@ export class PixiTrackApp {
         this.trailSystem, now, this.bounds, w, h, this.trailTtlMs, this.trailEnabled,
       );
 
-      // 6. Update cars
-      this.carLayer.update(interpolated, this.bounds, w, h, this.followDriver);
+      // GUID: PIXI_TRACK_APP-014-v01
+      // [Intent] Zoom 2 hyper-focus — resolve which driver holds the focusPosition and
+      //          pass their driverNumber to CarLayer for differentiated rendering.
+      //          Position-based: if P1 is overtaken, focus auto-jumps to new P1.
+      let focusDriverNumber: number | null = null;
+      if (this.zoomLevel === 2) {
+        const focusDriver = interpolated.find(d => d.position === this.focusPosition);
+        focusDriverNumber = focusDriver?.driverNumber ?? null;
+      }
 
-      // 7. Camera
-      const followPos = this.followDriver
-        ? this.carLayer.getDriverPosition(this.followDriver, interpolated, this.bounds, w, h)
-        : null;
-      this.camera.update(followPos, w, h);
+      // 6. Update cars
+      this.carLayer.update(interpolated, this.bounds, w, h, this.followDriver, focusDriverNumber);
+
+      // 7. Camera — in Zoom 2, follow the focus position driver; in Zoom 0/1, follow if set
+      const cameraTarget = this.zoomLevel === 2 && focusDriverNumber
+        ? this.carLayer.getDriverPosition(focusDriverNumber, interpolated, this.bounds!, w, h)
+        : this.followDriver
+          ? this.carLayer.getDriverPosition(this.followDriver, interpolated, this.bounds!, w, h)
+          : null;
+      this.camera.update(cameraTarget, w, h, this.zoomLevel);
       this.camera.applyTo(this.worldContainer, w, h);
 
       // Show world

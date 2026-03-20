@@ -7,11 +7,14 @@
 
 import { Container } from 'pixi.js';
 
-// GUID: PIXI_CAMERA_SYSTEM-001-v01
+// GUID: PIXI_CAMERA_SYSTEM-001-v02
 // [Intent] Constants for camera behaviour. FOLLOW_ZOOM = magnification when tracking a
-//          driver. LERP_SPEED = 0-1 blend factor per frame (lower = smoother/slower).
+//          driver. HYPER_ZOOM = magnification for Zoom 2 hyper-focus mode (~100m radius).
+//          LERP_SPEED = 0-1 blend factor per frame (lower = smoother/slower).
 //          SNAP_THRESHOLD = distance below which we snap to target to stop micro-jitter.
+//          v02: Added HYPER_ZOOM for Zoom 2 hyper-focus camera mode.
 const FOLLOW_ZOOM = 3.0;
+const HYPER_ZOOM = 8.0;
 const LERP_SPEED = 0.08;
 const SNAP_THRESHOLD = 0.5;
 
@@ -23,20 +26,22 @@ export class CameraSystem {
   private currentY = 0;
   private currentZoom = 1;
 
-  // GUID: PIXI_CAMERA_SYSTEM-002-v01
-  // [Intent] Update camera target based on whether a driver is being followed.
-  //          If followedPos is non-null, target that driver's canvas-space position at
-  //          FOLLOW_ZOOM. If null, target the canvas centre at zoom 1 (full overview).
-  //          Lerps current values toward targets each frame for smooth transitions.
+  // GUID: PIXI_CAMERA_SYSTEM-002-v02
+  // [Intent] Update camera target based on zoom level and followed position.
+  //          zoomLevel 0/1 with no followedPos: overview (zoom 1).
+  //          zoomLevel 0/1 with followedPos: follow-mode (FOLLOW_ZOOM = 3x).
+  //          zoomLevel 2 with followedPos: hyper-focus (HYPER_ZOOM = 8x, ~100m radius).
+  //          v02: Added zoomLevel parameter to support 3-tier zoom state machine.
   update(
     followedPos: { px: number; py: number } | null,
     canvasW: number,
     canvasH: number,
+    zoomLevel: 0 | 1 | 2 = 0,
   ): void {
     if (followedPos) {
       this.targetX = followedPos.px;
       this.targetY = followedPos.py;
-      this.targetZoom = FOLLOW_ZOOM;
+      this.targetZoom = zoomLevel === 2 ? HYPER_ZOOM : FOLLOW_ZOOM;
     } else {
       this.targetX = canvasW / 2;
       this.targetY = canvasH / 2;

@@ -153,15 +153,19 @@ export class CarLayer {
     }
   }
 
-  // GUID: PIXI_CAR_LAYER-004-v01
+  // GUID: PIXI_CAR_LAYER-004-v02
   // [Intent] Per-frame update — assigns interpolated positions to pool slots, updates
   //          colours, labels, badges, DRS/pit/follow indicators, and alpha for retired cars.
+  //          v02: Added focusDriverNumber for Zoom 2 hyper-focus mode — focus car gets
+  //               larger dot (5px), bright colour, always-visible label+badge. Other cars
+  //               dimmed (alpha 0.7), labels on hover only.
   update(
     interpolated: InterpolatedPosition[],
     bounds: TrackBounds,
     w: number,
     h: number,
     followDriver: number | null,
+    focusDriverNumber: number | null = null,
   ): void {
     // Sort by position descending so P1 renders on top
     const sorted = [...interpolated].sort((a, b) => b.position - a.position);
@@ -185,55 +189,65 @@ export class CarLayer {
       sprite.container.visible = true;
       sprite.container.position.set(px, py);
 
+      // GUID: PIXI_CAR_LAYER-008-v01
+      // [Intent] Zoom 2 hyper-focus rendering — focus car gets a larger dot (5px radius),
+      //          bright colour, always-visible label+badge. Other cars dimmed (alpha 0.7).
+      const isFocusCar = focusDriverNumber !== null && focusDriverNumber === driver.driverNumber;
+      const dotRadius = isFocusCar ? 5 : DOT_RADIUS;
+      const glowRadius = isFocusCar ? 7 : GLOW_RADIUS;
+
       // Redraw dot with team colour
       sprite.dot.clear();
-      sprite.dot.circle(0, 0, DOT_RADIUS);
+      sprite.dot.circle(0, 0, dotRadius);
       sprite.dot.fill({ color: colour });
 
       // Redraw glow with team colour
       sprite.glowDot.clear();
-      sprite.glowDot.circle(0, 0, GLOW_RADIUS);
-      sprite.glowDot.fill({ color: colour, alpha: 0.3 });
+      sprite.glowDot.circle(0, 0, glowRadius);
+      sprite.glowDot.fill({ color: colour, alpha: isFocusCar ? 0.5 : 0.3 });
 
-      // Alpha for retired / in-pit cars
+      // Alpha for retired / in-pit / non-focus cars
       if (driver.retired) {
         sprite.container.alpha = 0.25;
       } else if (driver.inPit) {
         sprite.container.alpha = 0.55;
+      } else if (focusDriverNumber !== null && !isFocusCar) {
+        sprite.container.alpha = 0.7;
       } else {
         sprite.container.alpha = 1;
       }
 
-      // GUID: PIXI_CAR_LAYER-004b-v01
+      // GUID: PIXI_CAR_LAYER-004b-v02
       // [Intent] ATC-style minimal display — labels, badges, and DRS hidden by default.
-      //          Only the followed driver shows its code tag. Keeps the display clean and
-      //          uncluttered like an air traffic control radar scope.
+      //          Only the followed driver shows its code tag. In Zoom 2 hyper-focus mode,
+      //          the focus car always shows label+badge; other cars show on hover only.
+      //          v02: Added isFocusCar visibility logic for Zoom 2.
       const isFollowed = followDriver === driver.driverNumber;
       const isHovered = this.hoveredSlot === i;
 
-      // Driver code label — visible on hover or follow
-      sprite.label.visible = isFollowed || isHovered;
+      // Driver code label — visible on hover, follow, or focus car
+      sprite.label.visible = isFollowed || isHovered || isFocusCar;
       sprite.label.text = driver.driverCode;
-      sprite.label.position.set(px + DOT_RADIUS + 3, py);
-      sprite.label.alpha = driver.retired ? 0.25 : 0.8;
+      sprite.label.position.set(px + dotRadius + 3, py);
+      sprite.label.alpha = driver.retired ? 0.25 : (isFocusCar ? 1 : 0.8);
 
-      // Position badge — visible on hover, follow, or P1
-      if (isFollowed || isHovered || driver.position === 1) {
+      // Position badge — visible on hover, follow, focus car, or P1
+      if (isFollowed || isHovered || isFocusCar || driver.position === 1) {
         sprite.badge.visible = true;
-        sprite.badge.position.set(px - DOT_RADIUS - BADGE_RADIUS - 2, py);
+        sprite.badge.position.set(px - dotRadius - BADGE_RADIUS - 2, py);
         sprite.badgeText.text = `P${driver.position}`;
       } else {
         sprite.badge.visible = false;
       }
 
-      // DRS indicator — only for followed driver
-      sprite.drsLine.visible = isFollowed && driver.hasDrs;
+      // DRS indicator — only for followed or focus driver
+      sprite.drsLine.visible = (isFollowed || isFocusCar) && driver.hasDrs;
 
       // Pit ring — always show (important race context)
       sprite.pitRing.visible = driver.inPit;
 
-      // Follow-mode ring
-      sprite.followRing.visible = followDriver === driver.driverNumber;
+      // Follow-mode ring — show on followed driver or focus car
+      sprite.followRing.visible = isFollowed || isFocusCar;
     }
   }
 
