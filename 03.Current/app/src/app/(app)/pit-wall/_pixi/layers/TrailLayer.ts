@@ -20,10 +20,12 @@ export class TrailLayer {
   readonly container = new Container();
   private trailGraphics = new Map<number, Graphics>();
 
-  // GUID: PIXI_TRAIL_LAYER-003-v02
+  // GUID: PIXI_TRAIL_LAYER-003-v03
   // [Intent] Per-frame draw of all active trails. Projects GPS->canvas at draw time so
   //          trails are stable across canvas resizes. Thinner lines with exponential alpha
   //          decay create a fine ATC vapour-trail effect.
+  //          v03: Velocity-scaled TTL — trails stretch at high speed and compress in slow
+  //               corners. Speed data already stored on each trail point by TrailSystem.
   update(
     trailSystem: TrailSystem,
     _now: number,
@@ -76,9 +78,12 @@ export class TrailLayer {
         // Fine taper: hair-thin at tail, slightly thicker at head
         const lineWidth = TIP_LINE_WIDTH + (BASE_LINE_WIDTH - TIP_LINE_WIDTH) * progress;
 
-        // Alpha: exponential decay already computed in p1.alpha, further modulate
-        // by position so the tail fades smoothly to nothing
-        const segAlpha = p1.alpha * (0.3 + 0.7 * progress);
+        // Velocity-scaled alpha — trails stretch at high speed, compress in slow corners.
+        // speedScale: 0.3 (stopped/slow) to 2.5 (350+ km/h flat out).
+        // Applied to the exponential decay alpha so fast segments linger longer.
+        const speedScale = Math.max(0.3, Math.min(2.5, p1.speed / 200));
+        const velocityAlpha = Math.exp(-3 * (1 - progress) / speedScale);
+        const segAlpha = p1.alpha * velocityAlpha * (0.3 + 0.7 * progress);
 
         if (segAlpha < 0.02) continue; // skip invisible segments
 

@@ -38,24 +38,38 @@ export class InterpolationSystem {
   // [Intent] Per-driver update counter for spawn protection.
   private updateCount = new Map<number, number>();
 
+  // GUID: PIXI_INTERP_SYSTEM-009-v01
+  // [Intent] Stores the last interpolated (drawn) position per driver. Used as the
+  //          new prev position when fresh data arrives, so the car continues smoothly
+  //          from where it was visually instead of snapping back to the old target.
+  private lastDrawnPositions = new Map<number, { x: number; y: number }>();
+
   // GUID: PIXI_INTERP_SYSTEM-005-v01
   readonly snappedThisFrame = new Set<number>();
 
-  // GUID: PIXI_INTERP_SYSTEM-002-v03
+  // GUID: PIXI_INTERP_SYSTEM-002-v04
   // [Intent] Called when new driver data arrives. Validates each position against the
   //          previous position using speed-based plausibility. Positions implying travel
   //          faster than MAX_PLAUSIBLE_SPEED_MPS are rejected as GPS spikes — the previous
   //          position is kept, preventing impossible-travel fly-in/fly-back artifacts.
-  onDriversUpdate(drivers: DriverRaceState[]): void {
+  //          v04: Accepts optional virtualTimeDeltaMs for replay mode — in replay at 4-8x
+  //               speed, wall time between frames is tiny but virtual time gap is large.
+  //               Without this, the spike filter rejects every position as impossible travel.
+  //               Uses lastDrawnPositions for prev (Fix 2: smooth snap handoff).
+  onDriversUpdate(drivers: DriverRaceState[], virtualTimeDeltaMs?: number): void {
     const now = Date.now();
-    const timeDeltaS = Math.max(0.1, (now - this.snapshotTimestamp) / 1000);
+    const timeDeltaS = virtualTimeDeltaMs != null
+      ? Math.max(0.1, virtualTimeDeltaMs / 1000)
+      : Math.max(0.1, (now - this.snapshotTimestamp) / 1000);
 
     // Maximum distance a car could plausibly travel in this time delta
     const maxDist = MAX_PLAUSIBLE_SPEED_MPS * timeDeltaS + GPS_JITTER_MARGIN_M;
     const maxDistSq = maxDist * maxDist;
 
-    // Promote next → prev
-    this.prevPositions = new Map(this.nextPositions);
+    // Promote last drawn positions → prev (smooth handoff from interpolated position)
+    this.prevPositions = new Map(this.lastDrawnPositions.size > 0
+      ? this.lastDrawnPositions
+      : this.nextPositions);
 
     // Store new next positions (with speed validation)
     this.nextPositions.clear();
@@ -161,6 +175,9 @@ export class InterpolationSystem {
         }
       }
 
+      // Store drawn position for smooth snap handoff (Fix 2)
+      this.lastDrawnPositions.set(d.driverNumber, { x: ix, y: iy });
+
       results.push({
         driverNumber: d.driverNumber,
         x: ix,
@@ -177,10 +194,11 @@ export class InterpolationSystem {
     return results;
   }
 
-  // GUID: PIXI_INTERP_SYSTEM-004-v02
+  // GUID: PIXI_INTERP_SYSTEM-004-v03
   reset(): void {
     this.prevPositions.clear();
     this.nextPositions.clear();
+    this.lastDrawnPositions.clear();
     this.updateCount.clear();
     this.snapshotTimestamp = Date.now();
   }

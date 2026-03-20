@@ -32,6 +32,10 @@ export class BackgroundLayer {
   readonly container = new Container();
   private bg = new Graphics();
   private atmosphere = new Graphics();
+  // GUID: PIXI_BG_LAYER-005-v01
+  // [Intent] Subtle grid pattern — thin lines every 50px at ~3% opacity.
+  //          Adds a premium telemetry-screen texture without distracting from the data.
+  private grid = new Graphics();
   private rainOverlay = new Graphics();
   private statusText: Text;
   private subText: Text;
@@ -48,6 +52,7 @@ export class BackgroundLayer {
     this.rainOverlay.alpha = 0;
 
     this.container.addChild(this.bg);
+    this.container.addChild(this.grid);
     this.container.addChild(this.atmosphere);
     this.container.addChild(this.rainOverlay);
     this.container.addChild(this.statusText);
@@ -61,6 +66,20 @@ export class BackgroundLayer {
     this.bg.clear();
     this.bg.rect(0, 0, w, h);
     this.bg.fill({ color: BG_COLOUR });
+
+    // Grid — subtle lines every 50px for premium telemetry texture
+    this.grid.clear();
+    const GRID_SPACING = 50;
+    this.grid.setStrokeStyle({ width: 0.5, color: 0x1a1a24, alpha: 0.5 });
+    for (let x = 0; x <= w; x += GRID_SPACING) {
+      this.grid.moveTo(x, 0);
+      this.grid.lineTo(x, h);
+    }
+    for (let y = 0; y <= h; y += GRID_SPACING) {
+      this.grid.moveTo(0, y);
+      this.grid.lineTo(w, y);
+    }
+    this.grid.stroke();
 
     // Atmosphere — subtle radial glow in center (concentric circles, decreasing alpha)
     this.atmosphere.clear();

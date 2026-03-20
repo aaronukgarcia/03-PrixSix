@@ -75,19 +75,22 @@ export class TrackLayer {
     this.container.addChild(this.sfLabel);
   }
 
-  // GUID: PIXI_TRACK_LAYER-004-v02
+  // GUID: PIXI_TRACK_LAYER-004-v03
   // [Intent] Rebuild all track graphics from a new circuit outline. Projects GPS points
   //          to canvas space, divides into 3 equal-arc-length sectors, draws glow + stroke
   //          per sector, perpendicular marks at sector boundaries.
   //          v02: S/F line positioned from API-provided GPS coordinate (correlated from
   //               /laps date_start + /location data) instead of circuit outline point[0]
   //               (which is wherever tracking started, often the pit lane — not S/F).
+  //          v03: Zoom-aware stroke scaling — at high zoom levels, track and glow widths
+  //               scale inversely so the track doesn't appear absurdly thick.
   rebuild(
     outline: CircuitOutline,
     bounds: TrackBounds,
     w: number,
     h: number,
     sfLineGps?: { x: number; y: number } | null,
+    zoomLevel?: 0 | 1 | 2,
   ): void {
     this.clear();
 
@@ -95,6 +98,11 @@ export class TrackLayer {
     const dist = outline.distances;
     const total = outline.totalLength;
     if (pts.length < 2 || total === 0) return;
+
+    // Zoom-aware stroke scaling — at zoom 2 (8x), divide by 4 to keep track proportional
+    const zoomScale = zoomLevel === 2 ? 4 : zoomLevel === 1 ? 1.5 : 1;
+    const scaledTrackWidth = Math.max(3, TRACK_WIDTH / zoomScale);
+    const scaledGlowWidth = Math.max(4, TRACK_GLOW_WIDTH / zoomScale);
 
     // Project all points to canvas space
     const projected = pts.map(p => projectToCanvas(p.x, p.y, bounds, w, h));
@@ -120,7 +128,7 @@ export class TrackLayer {
 
       // Glow — wider, very faint
       glow.setStrokeStyle({
-        width: TRACK_GLOW_WIDTH,
+        width: scaledGlowWidth,
         color: SECTOR_GLOW_COLOURS[s],
         alpha: 0.15,
         cap: 'round',
@@ -143,7 +151,7 @@ export class TrackLayer {
 
       // Stroke — thinner, slightly brighter
       stroke.setStrokeStyle({
-        width: TRACK_WIDTH,
+        width: scaledTrackWidth,
         color: SECTOR_STROKE_COLOURS[s],
         alpha: 0.5,
         cap: 'round',

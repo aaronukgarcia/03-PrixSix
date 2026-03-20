@@ -14,10 +14,12 @@ import { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import type { DriverRaceState, TrackBounds, CircuitPoint } from '../_types/pit-wall.types';
 
-// GUID: PIT_WALL_TRACK_MAP-001-v08
+// GUID: PIT_WALL_TRACK_MAP-001-v09
 // [Intent] Props interface — extends v07 with zoomLevel + focusPosition for the 3-tier
 //          zoom system. circuitLat and circuitLon kept for compatibility.
 //          v08: Added zoomLevel (0|1|2) and focusPosition for Zoom 2 hyper-focus mode.
+//          v09: Added virtualTimeDeltaMs for replay mode — passed through to PixiTrackApp
+//               so the impossible-travel filter uses virtual time instead of wall time.
 interface PitWallTrackMapProps {
   drivers: DriverRaceState[];
   updateIntervalMs: number;
@@ -38,6 +40,7 @@ interface PitWallTrackMapProps {
   trailTtlMs?: number;
   zoomLevel?: 0 | 1 | 2;
   focusPosition?: number;
+  virtualTimeDeltaMs?: number;
   className?: string;
 }
 
@@ -64,6 +67,7 @@ type PixiTrackAppInstance = {
     sfLineY?: number | null;
     zoomLevel?: 0 | 1 | 2;
     focusPosition?: number;
+    virtualTimeDeltaMs?: number;
   }) => void;
   destroy: () => void;
 };
@@ -94,6 +98,7 @@ export function PitWallTrackMap({
   trailTtlMs,
   zoomLevel,
   focusPosition,
+  virtualTimeDeltaMs,
   className,
 }: PitWallTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -149,12 +154,13 @@ export function PitWallTrackMap({
       sfLineY,
       zoomLevel,
       focusPosition,
+      virtualTimeDeltaMs,
     });
   }, [
     drivers, bounds, circuitPath, updateIntervalMs, followDriver,
     rainIntensity, sessionType, hasLiveSession, positionDataAvailable,
     nextRaceName, lastMeetingName, trailEnabled, trailTtlMs, sfLineX, sfLineY,
-    zoomLevel, focusPosition,
+    zoomLevel, focusPosition, virtualTimeDeltaMs,
   ]);
 
   return (

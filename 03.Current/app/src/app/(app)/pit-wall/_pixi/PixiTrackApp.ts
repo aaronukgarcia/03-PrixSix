@@ -172,12 +172,14 @@ export class PixiTrackApp {
     this.app.ticker.add(this.onTick, this);
   }
 
-  // GUID: PIXI_TRACK_APP-004-v02
+  // GUID: PIXI_TRACK_APP-004-v03
   // [Intent] Data ingress from React. Called on every prop change via the React useEffect
   //          in PitWallTrackMap. Pushes new driver data to the interpolation system and
   //          rebuilds track polyline/outline when the circuit path grows significantly.
   //          No rendering happens here — rendering is driven by the ticker.
   //          v02: Added zoomLevel + focusPosition for 3-tier zoom system.
+  //          v03: Added virtualTimeDeltaMs for replay mode — passed to InterpolationSystem
+  //               so the impossible-travel filter uses virtual time instead of wall time.
   setData(opts: {
     drivers: DriverRaceState[];
     bounds: TrackBounds | null;
@@ -196,10 +198,11 @@ export class PixiTrackApp {
     sfLineY?: number | null;
     zoomLevel?: 0 | 1 | 2;
     focusPosition?: number;
+    virtualTimeDeltaMs?: number;
   }): void {
     // If drivers changed, notify interpolation system
     if (opts.drivers !== this.drivers) {
-      this.interpolation.onDriversUpdate(opts.drivers);
+      this.interpolation.onDriversUpdate(opts.drivers, opts.virtualTimeDeltaMs);
     }
 
     this.drivers = opts.drivers;
@@ -218,7 +221,11 @@ export class PixiTrackApp {
     if (opts.trailTtlMs !== undefined) this.trailTtlMs = opts.trailTtlMs;
 
     // Zoom settings (optional — preserve existing if not provided)
-    if (opts.zoomLevel !== undefined) this.zoomLevel = opts.zoomLevel;
+    // Force track rebuild when zoom changes so stroke width scales inversely
+    if (opts.zoomLevel !== undefined && opts.zoomLevel !== this.zoomLevel) {
+      this.zoomLevel = opts.zoomLevel;
+      this.trackBuilt = false;
+    }
     if (opts.focusPosition !== undefined) this.focusPosition = opts.focusPosition;
 
     // S/F line GPS position (from API lap/location correlation)
@@ -277,9 +284,9 @@ export class PixiTrackApp {
       lastMeetingName: this.lastMeetingName,
     });
 
-    // 2. Track (rebuild only when outline changes or canvas resized)
+    // 2. Track (rebuild only when outline changes or canvas resized or zoom changed)
     if (this.outline && this.bounds && !this.trackBuilt) {
-      this.trackLayer.rebuild(this.outline, this.bounds, w, h, this.sfLineGps);
+      this.trackLayer.rebuild(this.outline, this.bounds, w, h, this.sfLineGps, this.zoomLevel);
       this.trackBuilt = true;
     }
 

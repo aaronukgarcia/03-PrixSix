@@ -502,6 +502,25 @@ export default function PitWallClient() {
     setFollowDriver(prev => prev === driverNumber ? null : driverNumber);
   }, []);
 
+  // GUID: PIT_WALL_CLIENT-051-v01
+  // [Intent] Compute virtual time delta for replay mode — the elapsed virtual time since
+  //          the last driver data push. In replay at 4-8x speed, wall time between frames
+  //          is tiny (~60ms) but virtual time gap is large. Without this, the interpolation
+  //          system's impossible-travel filter rejects every position update as a GPS spike.
+  //          In live/showreel mode, undefined lets the interpolation system use wall time.
+  const prevReplayElapsedMsRef = useRef<number>(0);
+  const virtualTimeDeltaMs = useMemo(() => {
+    if (!isReplayMode) {
+      prevReplayElapsedMsRef.current = 0;
+      return undefined;
+    }
+    const currentElapsed = replayPlayer.elapsedMs ?? 0;
+    const delta = currentElapsed - prevReplayElapsedMsRef.current;
+    prevReplayElapsedMsRef.current = currentElapsed;
+    // Clamp to a reasonable range — 0 means paused, don't return negative
+    return delta > 0 ? delta : undefined;
+  }, [isReplayMode, replayPlayer.elapsedMs]);
+
   // GUID: PIT_WALL_CLIENT-033-v01
   // [Intent] Trail display settings — configurable from the toolbar.
   //          trailEnabled: master toggle for trail rendering (default: on).
@@ -661,6 +680,7 @@ export default function PitWallClient() {
             trailTtlMs={trailTtlMs}
             zoomLevel={zoomLevel}
             focusPosition={focusPosition}
+            virtualTimeDeltaMs={virtualTimeDeltaMs}
             className="w-full h-full"
           />
 
