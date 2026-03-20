@@ -13,8 +13,6 @@
 import {
     Tabs,
     TabsContent,
-    TabsList,
-    TabsTrigger,
   } from "@/components/ui/tabs";
 import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText, Activity, Lock, Radio } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
@@ -349,12 +347,79 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
         );
     }
 
-    // GUID: PAGE_ADMIN-007-v03
-    // [Intent] Main admin panel render — AttackMonitor at top, then 16-tab interface covering
-    //          all league management functions. Each tab mounts its manager component on activation.
+    // GUID: PAGE_ADMIN-007-v04
+    // [Intent] Main admin panel render — AttackMonitor at top, then grouped tab navigation
+    //          covering all 20 management panels in 5 semantic groups. Controlled tabs with
+    //          custom grouped button UI for cleaner UX at scale.
     // [Inbound Trigger] User is confirmed admin and auth loading is complete.
     // [Downstream Impact] Each tab renders its respective manager component. Several tabs receive
     //                     allUsers and isUserLoading props for user-related operations.
+    const [activeTab, setActiveTab] = useState('functions');
+
+    // GUID: PAGE_ADMIN-008-v01
+    // [Intent] Tab group definitions — organises 20 tabs into 5 semantic groups with
+    //          consistent colour theming. Each group has a label, accent colour, and ordered items.
+    const tabGroups = [
+      { label: 'Race Ops', accent: 'amber', items: [
+        { value: 'results', icon: Trophy, label: 'Results' },
+        { value: 'scoring', icon: SlidersHorizontal, label: 'Scoring' },
+        { value: 'pitlane', icon: Lock, label: 'Pit Lane' },
+        { value: 'teams', icon: Users, label: 'Teams' },
+        { value: 'leagues', icon: UsersRound, label: 'Leagues' },
+      ]},
+      { label: 'Live', accent: 'cyan', items: [
+        { value: 'pubchat', icon: Beer, label: 'PubChat' },
+        { value: 'pitwall', icon: Radio, label: 'Pit Wall' },
+        { value: 'online', icon: Wifi, label: 'Online' },
+        { value: 'news', icon: Newspaper, label: 'Hot News' },
+      ]},
+      { label: 'Comms', accent: 'violet', items: [
+        { value: 'whatsapp', icon: MessageSquare, label: 'WhatsApp' },
+        { value: 'emails', icon: Mail, label: 'Email' },
+        { value: 'feedback', icon: Bug, label: 'Feedback' },
+      ]},
+      { label: 'Quality', accent: 'rose', items: [
+        { value: 'errors', icon: AlertTriangle, label: 'Errors' },
+        { value: 'consistency', icon: ClipboardCheck, label: 'CC' },
+        { value: 'audit', icon: BookUser, label: 'Audit' },
+        { value: 'bookofwork', icon: FileText, label: 'BOW' },
+      ]},
+      { label: 'Infra', accent: 'slate', items: [
+        { value: 'functions', icon: ShieldCheck, label: 'Functions' },
+        { value: 'standing', icon: Database, label: 'Standing' },
+        { value: 'backups', icon: HardDrive, label: 'Backups' },
+        { value: 'health', icon: Activity, label: 'Health' },
+      ]},
+    ];
+
+    // Accent colour mapping for active state
+    const accentMap: Record<string, string> = {
+      amber:  'bg-amber-500 text-white shadow-amber-500/25',
+      cyan:   'bg-cyan-600 text-white shadow-cyan-600/25',
+      violet: 'bg-violet-600 text-white shadow-violet-600/25',
+      rose:   'bg-rose-500 text-white shadow-rose-500/25',
+      slate:  'bg-slate-600 text-white shadow-slate-600/25',
+    };
+
+    const borderMap: Record<string, string> = {
+      amber:  'border-l-amber-500',
+      cyan:   'border-l-cyan-600',
+      violet: 'border-l-violet-600',
+      rose:   'border-l-rose-500',
+      slate:  'border-l-slate-600',
+    };
+
+    const labelMap: Record<string, string> = {
+      amber:  'text-amber-500',
+      cyan:   'text-cyan-500',
+      violet: 'text-violet-500',
+      rose:   'text-rose-500',
+      slate:  'text-slate-400',
+    };
+
+    // Find which group the active tab belongs to (for the accent colour)
+    const activeGroup = tabGroups.find(g => g.items.some(i => i.value === activeTab));
+
     return (
         <div className="space-y-6">
             <div className="space-y-1">
@@ -362,63 +427,45 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                 <p className="text-muted-foreground">Manage the Prix Six league.</p>
             </div>
             <AttackMonitor />
-            <Tabs defaultValue="functions" className="space-y-4">
-                <TabsList className="flex flex-wrap gap-1 w-full">
-                    <TabsTrigger value="functions" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
-                    <TabsTrigger value="teams" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
-                    <TabsTrigger value="results" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
-                    <TabsTrigger value="scoring" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"><SlidersHorizontal className="w-4 h-4 mr-2"/>Scoring</TabsTrigger>
-                    <TabsTrigger value="news" className="data-[state=active]:bg-pink-500 data-[state=active]:text-white"><Newspaper className="w-4 h-4 mr-2"/>Hot News</TabsTrigger>
-                    <TabsTrigger value="online" className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white"><Wifi className="w-4 h-4 mr-2"/>Online</TabsTrigger>
-                    <TabsTrigger value="emails" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"><Mail className="w-4 h-4 mr-2"/>Email Logs</TabsTrigger>
-                    <TabsTrigger value="audit" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white"><BookUser className="w-4 h-4 mr-2"/>Audit</TabsTrigger>
-                    <TabsTrigger value="whatsapp" className="data-[state=active]:bg-green-600 data-[state=active]:text-white"><MessageSquare className="w-4 h-4 mr-2"/>WhatsApp</TabsTrigger>
-                    <TabsTrigger value="standing" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white"><Database className="w-4 h-4 mr-2"/>Standing</TabsTrigger>
-                    <TabsTrigger value="feedback" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white"><Bug className="w-4 h-4 mr-2"/>Feedback</TabsTrigger>
-                    <TabsTrigger value="consistency" className="data-[state=active]:bg-teal-500 data-[state=active]:text-white"><ClipboardCheck className="w-4 h-4 mr-2"/>CC</TabsTrigger>
-                    <TabsTrigger value="errors" className="data-[state=active]:bg-red-600 data-[state=active]:text-white"><AlertTriangle className="w-4 h-4 mr-2"/>Errors</TabsTrigger>
-                    {/* GUID: BACKUP_ADMIN_TAB-002-v03
-                        [Intent] 14th tab trigger for the Backup Health dashboard. Sky-600 colour
-                                 distinguishes it from other admin tabs. HardDrive icon signals storage/backup.
-                        [Inbound Trigger] User clicks the "Backups" tab in the admin TabsList.
-                        [Downstream Impact] Activates TabsContent value="backups" which mounts
-                                            BackupHealthDashboard (BACKUP_DASHBOARD-010). */}
-                    <TabsTrigger value="backups" className="data-[state=active]:bg-sky-600 data-[state=active]:text-white"><HardDrive className="w-4 h-4 mr-2"/>Backups</TabsTrigger>
-                    {/* GUID: PUBCHAT_ADMIN_TAB-002-v01
-                        [Intent] 15th tab trigger for the PubChat panel. Amber-500 colour
-                                 matches pub/social theme. Beer icon signals social gathering.
-                        [Inbound Trigger] User clicks the "PubChat" tab in the admin TabsList.
-                        [Downstream Impact] Activates TabsContent value="pubchat" which mounts
-                                            PubChatPanel (PUBCHAT_PANEL-001). */}
-                    <TabsTrigger value="pubchat" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Beer className="w-4 h-4 mr-2"/>PubChat</TabsTrigger>
-                    <TabsTrigger value="leagues" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white"><UsersRound className="w-4 h-4 mr-2"/>Leagues</TabsTrigger>
-                    {/* GUID: PAGE_ADMIN-BOOKOFWORK-002-v01
-                        [Intent] 17th tab trigger for the Book of Work centralized issue tracker. Amber-600 colour
-                                 distinguishes it as a work management tool. FileText icon signals documentation/tracking.
-                        [Inbound Trigger] User clicks the "Book of Work" tab in the admin TabsList.
-                        [Downstream Impact] Activates TabsContent value="bookofwork" which mounts
-                                            BookOfWorkManager (ADMIN_BOOKOFWORK-000). */}
-                    <TabsTrigger value="bookofwork" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white"><FileText className="w-4 h-4 mr-2"/>Book of Work</TabsTrigger>
-                    {/* GUID: PAGE_ADMIN-HEALTH-002-v01
-                        [Intent] 18th tab trigger for Interface Health monitoring. Green-600 colour
-                                 signals health/status checking. Activity icon indicates real-time monitoring.
-                        [Inbound Trigger] User clicks the "Health" tab in the admin TabsList.
-                        [Downstream Impact] Activates TabsContent value="health" which mounts
-                                            InterfaceHealthMonitor (ADMIN_INTERFACE_HEALTH-001). */}
-                    <TabsTrigger value="health" className="data-[state=active]:bg-green-600 data-[state=active]:text-white"><Activity className="w-4 h-4 mr-2"/>Health</TabsTrigger>
-                    {/* GUID: PAGE_ADMIN-PITLANE-002-v01
-                        [Intent] 19th tab trigger for Pit Lane override control. Red colour signals
-                                 it controls a locked/unlocked state. Lock icon signals pit lane access.
-                        [Inbound Trigger] User clicks "Pit Lane" tab.
-                        [Downstream Impact] Mounts PitLaneAdmin — live countdowns and override controls. */}
-                    <TabsTrigger value="pitlane" className="data-[state=active]:bg-red-600 data-[state=active]:text-white"><Lock className="w-4 h-4 mr-2"/>Pit Lane</TabsTrigger>
-                    {/* GUID: PAGE_ADMIN-PITWALL-002-v01
-                        [Intent] 20th tab trigger for Pit Wall operations dashboard. Cyan colour
-                                 signals telemetry/data monitoring. Radio icon matches F1 comms theme.
-                        [Inbound Trigger] User clicks "Pit Wall" tab.
-                        [Downstream Impact] Mounts PitWallManager — health, replay data, circuit maps, cache. */}
-                    <TabsTrigger value="pitwall" className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white"><Radio className="w-4 h-4 mr-2"/>Pit Wall</TabsTrigger>
-                </TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                {/* GUID: PAGE_ADMIN-009-v01
+                    [Intent] Grouped tab navigation — 5 semantic rows with colour-coded left borders
+                             and group labels. Replaces the flat 20-tab flex-wrap. */}
+                <div className="space-y-1.5">
+                  {tabGroups.map((group) => (
+                    <div
+                      key={group.label}
+                      className={`flex items-center gap-1.5 pl-2.5 border-l-2 ${borderMap[group.accent]}`}
+                    >
+                      <span className={`text-[10px] font-semibold uppercase tracking-wider w-10 shrink-0 ${labelMap[group.accent]}`}>
+                        {group.label}
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = activeTab === item.value;
+                          return (
+                            <button
+                              key={item.value}
+                              onClick={() => setActiveTab(item.value)}
+                              className={`
+                                inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium
+                                transition-all duration-150
+                                ${isActive
+                                  ? `${accentMap[group.accent]} shadow-sm`
+                                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
+                                }
+                              `}
+                            >
+                              <Icon className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
                 </TabsContent>
