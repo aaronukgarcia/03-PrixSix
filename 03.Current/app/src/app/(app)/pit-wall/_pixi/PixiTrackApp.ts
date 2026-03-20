@@ -403,25 +403,31 @@ export class PixiTrackApp {
         this.trailSystem, now, this.bounds, w, h, this.trailTtlMs, this.trailEnabled,
       );
 
-      // GUID: PIXI_TRACK_APP-014-v01
+      // GUID: PIXI_TRACK_APP-014-v02
       // [Intent] Zoom 2 hyper-focus — resolve which driver holds the focusPosition and
       //          pass their driverNumber to CarLayer for differentiated rendering.
       //          Position-based: if P1 is overtaken, focus auto-jumps to new P1.
+      //          v02: Falls back to first driver in array if no exact position match,
+      //               preventing the camera from zooming to empty canvas centre.
       let focusDriverNumber: number | null = null;
-      if (this.zoomLevel === 2) {
+      if (this.zoomLevel === 2 && interpolated.length > 0) {
         const focusDriver = interpolated.find(d => d.position === this.focusPosition);
-        focusDriverNumber = focusDriver?.driverNumber ?? null;
+        focusDriverNumber = focusDriver?.driverNumber
+          ?? interpolated[0]?.driverNumber
+          ?? null;
       }
 
       // 6. Update cars
       this.carLayer.update(interpolated, this.bounds, w, h, this.followDriver, focusDriverNumber);
 
-      // 7. Camera — in Zoom 2, follow the focus position driver; in Zoom 0/1, follow if set
-      const cameraTarget = this.zoomLevel === 2 && focusDriverNumber
-        ? this.carLayer.getDriverPosition(focusDriverNumber, interpolated, this.bounds!, w, h)
-        : this.followDriver
-          ? this.carLayer.getDriverPosition(this.followDriver, interpolated, this.bounds!, w, h)
-          : null;
+      // 7. Camera — in Zoom 2, always follow the focus driver (mandatory for chase-cam).
+      //    In Zoom 0/1, follow if user selected a driver, else overview.
+      let cameraTarget: { px: number; py: number } | null = null;
+      if (this.zoomLevel === 2 && focusDriverNumber) {
+        cameraTarget = this.carLayer.getDriverPosition(focusDriverNumber, interpolated, this.bounds!, w, h);
+      } else if (this.followDriver) {
+        cameraTarget = this.carLayer.getDriverPosition(this.followDriver, interpolated, this.bounds!, w, h);
+      }
       this.camera.update(cameraTarget, w, h, this.zoomLevel);
       this.camera.applyTo(this.worldContainer, w, h);
 
