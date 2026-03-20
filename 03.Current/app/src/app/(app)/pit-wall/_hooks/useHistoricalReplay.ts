@@ -231,13 +231,17 @@ export function useHistoricalReplay(
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
+        // Freeze virtual time at current position BEFORE pausing RAF.
+        // Without this, the hidden duration is included in the resume calculation,
+        // causing the replay to skip forward by the time the tab was backgrounded.
+        startVirtualTimeRef.current +=
+          (Date.now() - startWallTimeRef.current) * compressionRef.current;
+        startWallTimeRef.current = Date.now();
         cancelRaf();
       } else {
-        // Resume: adjust start refs so virtual time continues from where we left off
+        // Resume: startVirtualTime was frozen on hide, startWallTime was reset.
+        // The elapsed-since-hide is near zero, so virtual time continues correctly.
         if (replayDataRef.current && !isCompleteRef.current) {
-          startVirtualTimeRef.current =
-            startVirtualTimeRef.current +
-            (Date.now() - startWallTimeRef.current) * compressionRef.current;
           startWallTimeRef.current = Date.now();
           rafHandleRef.current = requestAnimationFrame(tick);
         }

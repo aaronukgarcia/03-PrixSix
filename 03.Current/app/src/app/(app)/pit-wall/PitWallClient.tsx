@@ -640,8 +640,8 @@ export default function PitWallClient() {
             drivers={activeDrivers}
             updateIntervalMs={
               isReplayMode
-                ? (selectedReplaySession?.samplingIntervalMs ?? 500)
-                : preRaceMode.isShowreel ? 5000
+                ? (selectedReplaySession?.samplingIntervalMs ?? 500) / replayPlayer.speed
+                : preRaceMode.isShowreel ? 500
                 : settings.updateIntervalSeconds * 1000
             }
             bounds={trackBounds}

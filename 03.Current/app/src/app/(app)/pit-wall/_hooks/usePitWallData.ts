@@ -242,6 +242,8 @@ export function usePitWallData(
     return () => {
       workerRef.current?.terminate();
       workerRef.current = null;
+      // Clear pending promise callbacks to prevent memory leak (PW.md Bug 8)
+      pendingRef.current.clear();
     };
   }, []);
 
