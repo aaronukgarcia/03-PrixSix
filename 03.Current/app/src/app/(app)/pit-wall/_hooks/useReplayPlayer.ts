@@ -31,10 +31,11 @@ function buildReplayDriverState(
     pitStopCount?: number | null; inPit?: boolean;
   },
 ): ReplayDriverState {
-  const parseGap = (v: string | null | undefined): number | null => {
-    if (!v) return null;
-    const n = parseFloat(v);
-    return isNaN(n) ? null : n;
+  // Keep gap values as strings — downstream DeltaIndicator expects string | null.
+  // parseFloat was converting to number, which crashed .toUpperCase() (PX-9001).
+  const parseGap = (v: string | number | null | undefined): string | null => {
+    if (v == null || v === '') return null;
+    return String(v);
   };
   const hasDrs = pos.drs != null && pos.drs >= 10 && pos.drs <= 14;
 

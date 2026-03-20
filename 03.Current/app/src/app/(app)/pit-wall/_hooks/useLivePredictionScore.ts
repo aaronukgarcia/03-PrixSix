@@ -52,7 +52,7 @@ function buildCodeToPositionMap(drivers: DriverRaceState[]): Map<string, number>
   const map = new Map<string, number>();
   for (const d of drivers) {
     if (d.driverCode && d.position > 0) {
-      map.set(d.driverCode.toUpperCase(), d.position);
+      map.set(String(d.driverCode).toUpperCase(), d.position);
     }
   }
   return map;

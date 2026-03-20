@@ -152,8 +152,8 @@ export interface ReplayDriverState {
   y: number | null;
   z: number | null;
   positionChange: number;
-  gapToLeader: number | null;
-  intervalToAhead: number | null;
+  gapToLeader: string | null;
+  intervalToAhead: string | null;
   currentLap: number;
   lastLapTime: number | null;
   bestLapTime: number | null;

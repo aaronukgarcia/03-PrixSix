@@ -22,7 +22,8 @@ interface DeltaIndicatorProps {
 function getColourClass(value: string | null): string {
   if (value === null || value === '--') return 'text-slate-500';
 
-  const upper = value.toUpperCase();
+  // Defensive: OpenF1 replay data may pass a number through unsafe cast (PX-9001)
+  const upper = String(value).toUpperCase();
 
   if (upper === 'RETIRED' || upper === 'OUT') return 'text-red-400';
   if (upper === 'PIT' || upper.includes('LAP')) return 'text-orange-400';
@@ -42,7 +43,7 @@ function getColourClass(value: string | null): string {
 // [Intent] Format display value — strip leading '+', show '--' for null.
 function formatValue(value: string | null): string {
   if (value === null) return '--';
-  return value.replace(/^\+/, '');
+  return String(value).replace(/^\+/, '');
 }
 
 // GUID: DELTA_INDICATOR-004-v01
