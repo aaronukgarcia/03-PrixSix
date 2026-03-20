@@ -664,6 +664,26 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     suggestedAction: 'Purge and re-ingest the session.',
     modulePath: 'app/src/app/api/pit-wall/replay-chunks/route.ts',
   },
+  // GUID: PIT_WALL_ERRORS-018-v01
+  PIT_WALL_HEALTH_CHECK_FAILED: {
+    key: 'PIT_WALL_HEALTH_CHECK_FAILED',
+    code: 'PX-3318',
+    message: 'Pit Wall health check failed',
+    severity: 'error' as const,
+    description: 'Admin health check endpoint failed — OpenF1 connectivity or cache introspection error.',
+    suggestedAction: 'Check server logs for the correlationId. Verify OpenF1 is reachable.',
+    modulePath: 'app/src/app/api/admin/pit-wall-health/route.ts',
+  },
+  // GUID: PIT_WALL_ERRORS-019-v01
+  PIT_WALL_CACHE_PURGE_FAILED: {
+    key: 'PIT_WALL_CACHE_PURGE_FAILED',
+    code: 'PX-3319',
+    message: 'Failed to purge Pit Wall cache',
+    severity: 'error' as const,
+    description: 'Admin cache purge endpoint failed.',
+    suggestedAction: 'Check server logs. Cache will expire naturally within TTL if purge fails.',
+    modulePath: 'app/src/app/api/admin/pit-wall-cache-purge/route.ts',
+  },
   FIRESTORE_READ_FAILED: {
     key: 'FIRESTORE_READ_FAILED',
     code: 'PX-4001',

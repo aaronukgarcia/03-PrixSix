@@ -16,7 +16,7 @@ import {
     TabsList,
     TabsTrigger,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText, Activity, Lock } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText, Activity, Lock, Radio } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -61,6 +61,11 @@ import { InterfaceHealthMonitor } from "./_components/InterfaceHealthMonitor";
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders pit lane status, dual-timezone countdowns, and override controls.
 import { PitLaneAdmin } from "./_components/PitLaneAdmin";
+// GUID: PAGE_ADMIN-PITWALL-001-v01
+// [Intent] Import PitWallManager for the 20th admin tab (Pit Wall ops dashboard).
+// [Inbound Trigger] Admin page load.
+// [Downstream Impact] Renders Pit Wall health, replay data, circuit maps, and cache control.
+import { PitWallManager } from "./_components/PitWallManager";
 // GUID: PAGE_ADMIN-002-v03
 // [Intent] Import AttackMonitor component for security monitoring displayed above the tabs.
 // [Inbound Trigger] Admin page load.
@@ -358,7 +363,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
             </div>
             <AttackMonitor />
             <Tabs defaultValue="functions" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 lg:grid-cols-16">
+                <TabsList className="flex flex-wrap gap-1 w-full">
                     <TabsTrigger value="functions" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"><ShieldCheck className="w-4 h-4 mr-2"/>Functions</TabsTrigger>
                     <TabsTrigger value="teams" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white"><Users className="w-4 h-4 mr-2"/>Teams</TabsTrigger>
                     <TabsTrigger value="results" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Trophy className="w-4 h-4 mr-2"/>Enter Results</TabsTrigger>
@@ -407,6 +412,12 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                         [Inbound Trigger] User clicks "Pit Lane" tab.
                         [Downstream Impact] Mounts PitLaneAdmin — live countdowns and override controls. */}
                     <TabsTrigger value="pitlane" className="data-[state=active]:bg-red-600 data-[state=active]:text-white"><Lock className="w-4 h-4 mr-2"/>Pit Lane</TabsTrigger>
+                    {/* GUID: PAGE_ADMIN-PITWALL-002-v01
+                        [Intent] 20th tab trigger for Pit Wall operations dashboard. Cyan colour
+                                 signals telemetry/data monitoring. Radio icon matches F1 comms theme.
+                        [Inbound Trigger] User clicks "Pit Wall" tab.
+                        [Downstream Impact] Mounts PitWallManager — health, replay data, circuit maps, cache. */}
+                    <TabsTrigger value="pitwall" className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white"><Radio className="w-4 h-4 mr-2"/>Pit Wall</TabsTrigger>
                 </TabsList>
                 <TabsContent value="functions">
                     <SiteFunctionsManager />
@@ -492,6 +503,14 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                                         race_results, renders status + dual-timezone countdowns. */}
                 <TabsContent value="pitlane">
                     <PitLaneAdmin />
+                </TabsContent>
+                {/* GUID: PAGE_ADMIN-PITWALL-003-v01
+                    [Intent] Mount PitWallManager when Pit Wall tab is active.
+                    [Inbound Trigger] TabsTrigger value="pitwall" selected.
+                    [Downstream Impact] PitWallManager subscribes to replay_sessions via onSnapshot,
+                                        polls health endpoint, reads localStorage circuit paths. */}
+                <TabsContent value="pitwall">
+                    <PitWallManager />
                 </TabsContent>
             </Tabs>
       </div>

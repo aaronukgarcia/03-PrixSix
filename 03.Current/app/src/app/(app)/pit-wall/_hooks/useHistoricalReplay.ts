@@ -228,19 +228,27 @@ export function useHistoricalReplay(
   // Visibility change — pause when tab hidden, resume when visible
   // ---------------------------------------------------------------------------
 
+  // GUID: HISTORICAL_REPLAY_HOOK-004-v01
+  // [Intent] Pause RAF when tab hidden, resume when visible. Guarded with isHiddenRef
+  //          to prevent rapid hide→show→hide within <100ms from double-advancing virtual
+  //          time (both hide events would increment startVirtualTimeRef but startWallTimeRef
+  //          was reset by the intervening show).
+  const isHiddenRef = useRef(false);
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
+        if (isHiddenRef.current) return; // already hidden — skip duplicate
+        isHiddenRef.current = true;
         // Freeze virtual time at current position BEFORE pausing RAF.
-        // Without this, the hidden duration is included in the resume calculation,
-        // causing the replay to skip forward by the time the tab was backgrounded.
         startVirtualTimeRef.current +=
           (Date.now() - startWallTimeRef.current) * compressionRef.current;
         startWallTimeRef.current = Date.now();
         cancelRaf();
       } else {
+        if (!isHiddenRef.current) return; // already visible — skip duplicate
+        isHiddenRef.current = false;
         // Resume: startVirtualTime was frozen on hide, startWallTime was reset.
-        // The elapsed-since-hide is near zero, so virtual time continues correctly.
         if (replayDataRef.current && !isCompleteRef.current) {
           startWallTimeRef.current = Date.now();
           rafHandleRef.current = requestAnimationFrame(tick);

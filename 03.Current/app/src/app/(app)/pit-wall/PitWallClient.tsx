@@ -708,6 +708,11 @@ export default function PitWallClient() {
             zoomLevel={zoomLevel}
             focusPosition={focusPosition}
             virtualTimeDeltaMs={virtualTimeDeltaMs}
+            sessionKey={
+              isReplayMode
+                ? `replay-${selectedReplaySession?.sessionKey ?? 'none'}`
+                : `live-${sessionKey ?? 'none'}`
+            }
             className="w-full h-full"
           />
 

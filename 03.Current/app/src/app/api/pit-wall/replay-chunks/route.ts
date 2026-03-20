@@ -99,7 +99,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     return new Response(encoder.encode(body), {
       headers: {
         'Content-Type': 'application/x-ndjson',
-        'Cache-Control': 'public, max-age=86400', // chunks are immutable once written
+        'Cache-Control': 'private, max-age=86400', // chunks are immutable but behind auth
         'X-Correlation-Id': correlationId,
         'X-Chunks-Returned': String(chunks.length),
       },

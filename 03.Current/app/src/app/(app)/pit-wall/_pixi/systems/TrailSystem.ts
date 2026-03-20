@@ -156,6 +156,11 @@ export class TrailSystem {
     return result;
   }
 
+  /** Remove a single driver's trail (e.g. on retirement). */
+  delete(driverNumber: number): void {
+    this.trails.delete(driverNumber);
+  }
+
   clear(): void {
     this.trails.clear();
   }

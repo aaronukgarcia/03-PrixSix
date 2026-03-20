@@ -38,7 +38,7 @@ export class CameraSystem {
     canvasH: number,
     zoomLevel: 0 | 1 | 2 = 0,
   ): void {
-    if (followedPos) {
+    if (followedPos && isFinite(followedPos.px) && isFinite(followedPos.py)) {
       this.targetX = followedPos.px;
       this.targetY = followedPos.py;
       this.targetZoom = zoomLevel === 2 ? HYPER_ZOOM : FOLLOW_ZOOM;

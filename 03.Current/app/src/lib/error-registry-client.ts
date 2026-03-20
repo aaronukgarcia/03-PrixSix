@@ -79,6 +79,8 @@ export const CLIENT_ERRORS: Record<string, ClientErrorDefinition> = {
   PIT_WALL_REPLAY_CHUNKS_FAILED:     { key: 'PIT_WALL_REPLAY_CHUNKS_FAILED',     code: 'PX-3315', message: 'Could not load replay chunks from Firestore',                             severity: 'error'    },
   PIT_WALL_REPLAY_PURGE_FAILED:      { key: 'PIT_WALL_REPLAY_PURGE_FAILED',      code: 'PX-3316', message: 'Failed to purge replay data',                                             severity: 'error'    },
   PIT_WALL_REPLAY_META_NOT_FOUND:    { key: 'PIT_WALL_REPLAY_META_NOT_FOUND',    code: 'PX-3317', message: 'Replay metadata not found in Firestore',                                  severity: 'warning'  },
+  PIT_WALL_HEALTH_CHECK_FAILED:     { key: 'PIT_WALL_HEALTH_CHECK_FAILED',     code: 'PX-3318', message: 'Pit Wall health check failed',                                              severity: 'error'    },
+  PIT_WALL_CACHE_PURGE_FAILED:      { key: 'PIT_WALL_CACHE_PURGE_FAILED',      code: 'PX-3319', message: 'Failed to purge Pit Wall cache',                                            severity: 'error'    },
   FIRESTORE_READ_FAILED:          { key: 'FIRESTORE_READ_FAILED',          code: 'PX-4001', message: 'Failed to read from database',                                             severity: 'error'    },
   FIRESTORE_WRITE_FAILED:         { key: 'FIRESTORE_WRITE_FAILED',         code: 'PX-4002', message: 'Failed to write to database',                                              severity: 'error'    },
   FIRESTORE_BATCH_FAILED:         { key: 'FIRESTORE_BATCH_FAILED',         code: 'PX-4003', message: 'Batch operation failed',                                                   severity: 'error'    },

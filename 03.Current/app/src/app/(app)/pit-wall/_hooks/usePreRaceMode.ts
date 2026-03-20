@@ -91,9 +91,19 @@ export function usePreRaceMode(
   // Schedule fetching
   // ---------------------------------------------------------------------------
 
+  // GUID: PRE_RACE_MODE_HOOK-002-v01
+  // [Intent] AbortController ref — aborts in-flight schedule fetch when circuitShortName
+  //          changes or component unmounts, preventing stale responses from winning.
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
   const fetchSchedule = useCallback(async () => {
     if (isFetchingRef.current || !idToken || !nextRaceStart) return;
     isFetchingRef.current = true;
+
+    // Abort any previous in-flight fetch
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
 
     try {
       const params = new URLSearchParams();
@@ -103,6 +113,7 @@ export function usePreRaceMode(
       const res = await fetch(`/api/pit-wall/historical-sessions?${params.toString()}`, {
         headers: { Authorization: `Bearer ${idToken}` },
         cache: 'no-store',
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -129,6 +140,7 @@ export function usePreRaceMode(
         setMode(getMinutesToRaceStart() <= COUNTDOWN_WINDOW_MINUTES ? 'COUNTDOWN' : 'IDLE');
       }
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return; // intentional abort
       const cid = generateClientCorrelationId();
       const msg = err instanceof Error ? err.message : 'Unknown error';
       console.error(
@@ -263,6 +275,7 @@ export function usePreRaceMode(
     return () => {
       if (tickerRef.current) clearInterval(tickerRef.current);
       if (betweenTimerRef.current) clearTimeout(betweenTimerRef.current);
+      fetchAbortRef.current?.abort();
     };
   }, [runTick]);
 

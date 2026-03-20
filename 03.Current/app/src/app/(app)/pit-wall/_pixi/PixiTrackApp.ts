@@ -94,6 +94,12 @@ export class PixiTrackApp {
   //          Passed to TrackLayer.rebuild() for accurate S/F marker placement.
   private sfLineGps: { x: number; y: number } | null = null;
 
+  // GUID: PIXI_TRACK_APP-015-v01
+  // [Intent] Session key tracking — when session changes (live→replay, replay→different session),
+  //          all interpolation, trail, and direction state must be flushed so stale data from
+  //          the previous session doesn't leak into the new one.
+  private currentSessionKey: string | null = null;
+
   // Track data
   private polyline: TrackPolyline | null = null;
   private outline: CircuitOutline | null = null;
@@ -199,7 +205,21 @@ export class PixiTrackApp {
     zoomLevel?: 0 | 1 | 2;
     focusPosition?: number;
     virtualTimeDeltaMs?: number;
+    sessionKey?: string | null;
   }): void {
+    // GUID: PIXI_TRACK_APP-016-v01
+    // [Intent] Detect session change and flush all interpolation/trail/direction state.
+    //          Without this, stale updateCount/prevPositions/lastDrawnPositions persist
+    //          across session switches and drivers that reappear skip spawn protection.
+    if (opts.sessionKey !== undefined && opts.sessionKey !== this.currentSessionKey) {
+      this.currentSessionKey = opts.sessionKey;
+      this.interpolation.reset();
+      this.trailSystem.clear();
+      this.trailLayer.clear();
+      this.lastTrailGps.clear();
+      this.lastTrailDir.clear();
+    }
+
     // If drivers changed, notify interpolation system
     if (opts.drivers !== this.drivers) {
       this.interpolation.onDriversUpdate(opts.drivers, opts.virtualTimeDeltaMs);
@@ -366,6 +386,16 @@ export class PixiTrackApp {
 
         // Push GPS-space coordinates (projected metres, NOT canvas pixels)
         trail.push(pos.x, pos.y, now, speed, throttle, brake);
+      }
+
+      // 4b. Clean up trails for retired drivers — prevents stale ring buffer entries
+      //     and direction tracking maps from accumulating for DNF'd cars.
+      for (const d of this.drivers) {
+        if (d.retired) {
+          this.trailSystem.delete(d.driverNumber);
+          this.lastTrailGps.delete(d.driverNumber);
+          this.lastTrailDir.delete(d.driverNumber);
+        }
       }
 
       // 5. Update trail layer rendering (projects GPS->canvas at draw time)

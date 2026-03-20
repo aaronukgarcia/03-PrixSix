@@ -11,6 +11,11 @@ import { getFirebaseAdmin, generateCorrelationId, verifyAuthToken } from '@/lib/
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { getSecret } from '@/lib/secrets-manager';
+import {
+  getLiveDataCache, setLiveDataCache,
+  getDetailCache, setDetailCache,
+  getCachedToken, setCachedToken,
+} from '@/lib/pit-wall-cache';
 import type {
   DriverRaceState, RadioMessage, RaceControlMessage,
   WeatherSnapshot, PitWallLiveDataResponse, TyreCompound, SectorStatus,
@@ -35,29 +40,11 @@ const FETCH_TIMEOUT_MS = 10_000;
 const LIVE_DATA_CACHE_TTL_MS = 2_000;   // active session cache — matches minimum poll interval
 const IDLE_CACHE_TTL_MS       = 60_000; // no-session / between-races cache
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-// GUID: API_PIT_WALL_LIVE_DATA-011-v01
-// [Intent] Shared in-memory response cache — keyed by session_key so that
-//          a session change (e.g. quali → race) immediately invalidates the
-//          stale entry.  Module-level: one instance = one cache; multiple
-//          App Hosting instances each maintain their own copy (acceptable).
-let liveDataCache: {
-  sessionKey: number | null;
-  data: PitWallLiveDataResponse;
-  expiresAt: number;
-} | null = null;
-
-// GUID: API_PIT_WALL_LIVE_DATA-014-v01
-// [Intent] Separate cache for the detail tier (laps, car_data, team_radio).
-//          These endpoints are slow and return large payloads — 10s TTL
-//          amortises the cost across concurrent users while keeping data fresh enough.
+// GUID: API_PIT_WALL_LIVE_DATA-011-v02
+// [Intent] Cache variables migrated to shared module (pit-wall-cache.ts) so admin
+//          health/purge endpoints can introspect and clear them. Access via get/set helpers.
+//          See LIB_PITWALL_CACHE-000 for architectural notes on module-level state.
 const DETAIL_CACHE_TTL_MS = 10_000;
-let detailCache: {
-  sessionKey: number | null;
-  data: PitWallDetailResponse;
-  expiresAt: number;
-} | null = null;
 
 // GUID: API_PIT_WALL_LIVE_DATA-002-v01
 // [Intent] Hard-coded circuit lat/lon lookup by OpenF1 circuit_key.
@@ -112,6 +99,7 @@ async function safeParseJson<T>(response: Response, context: string): Promise<T>
 
 // GUID: API_PIT_WALL_LIVE_DATA-005-v01
 async function getOpenF1Token(): Promise<string | null> {
+  const cachedToken = getCachedToken();
   if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.token;
   let username: string, password: string;
   try {
@@ -128,8 +116,9 @@ async function getOpenF1Token(): Promise<string | null> {
     }, 8_000);
     if (!res.ok) return null;
     const data = await safeParseJson<{ access_token: string; expires_in: number }>(res, 'getOpenF1Token');
-    cachedToken = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
-    return cachedToken.token;
+    const newToken = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
+    setCachedToken(newToken);
+    return newToken.token;
   } catch {
     return null;
   }
@@ -187,8 +176,9 @@ async function handleDetailRequest(
   correlationId: string,
 ): Promise<NextResponse> {
   const now = Date.now();
-  if (detailCache && detailCache.expiresAt > now) {
-    return NextResponse.json({ ...detailCache.data, cacheHit: true } satisfies PitWallDetailResponse);
+  const currentDetailCache = getDetailCache();
+  if (currentDetailCache && currentDetailCache.expiresAt > now) {
+    return NextResponse.json({ ...currentDetailCache.data, cacheHit: true } satisfies PitWallDetailResponse);
   }
 
   const [lapsRaw, carDataRaw, teamRadioRaw, sessionsRaw, driversRaw] = await Promise.all([
@@ -310,7 +300,7 @@ async function handleDetailRequest(
     cacheHit: false,
   };
 
-  detailCache = { sessionKey, data: detailResponse, expiresAt: Date.now() + DETAIL_CACHE_TTL_MS };
+  setDetailCache({ sessionKey, data: detailResponse, expiresAt: Date.now() + DETAIL_CACHE_TTL_MS });
   return NextResponse.json(detailResponse);
 }
 
@@ -346,10 +336,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   //          The cache is shared: user 2…N get the same full dataset as
   //          user 1 with zero additional OpenF1 calls during the TTL window.
   const now = Date.now();
-  if (liveDataCache && liveDataCache.expiresAt > now) {
-    const cacheAgeMs = now - liveDataCache.data.fetchedAt;
+  const currentLiveCache = getLiveDataCache();
+  if (currentLiveCache && currentLiveCache.expiresAt > now) {
+    const cacheAgeMs = now - currentLiveCache.data.fetchedAt;
     return NextResponse.json({
-      ...liveDataCache.data,
+      ...currentLiveCache.data,
       cacheHit: true,
       cacheAgeMs,
     } satisfies PitWallLiveDataResponse);
@@ -394,7 +385,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       sfLineX: null, sfLineY: null,
       fetchedAt: Date.now(), cacheHit: false, cacheAgeMs: 0,
     };
-    liveDataCache = { sessionKey: null, data: idleResponse, expiresAt: Date.now() + IDLE_CACHE_TTL_MS };
+    setLiveDataCache({ sessionKey: null, data: idleResponse, expiresAt: Date.now() + IDLE_CACHE_TTL_MS });
     return NextResponse.json(idleResponse);
   }
 
@@ -646,11 +637,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   //          without triggering a new OpenF1 fan-out.
   //          Cache is keyed by sessionKey — if the session changes between
   //          polls the new session always gets a fresh fan-out.
-  liveDataCache = {
+  setLiveDataCache({
     sessionKey,
     data: response,
     expiresAt: Date.now() + LIVE_DATA_CACHE_TTL_MS,
-  };
+  });
 
   return NextResponse.json(response);
 }

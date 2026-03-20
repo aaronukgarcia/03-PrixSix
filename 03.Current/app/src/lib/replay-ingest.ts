@@ -474,11 +474,29 @@ export async function ingestReplaySession(
   const sessionDocRef = db.collection('replay_sessions').doc(String(sessionKey));
 
   try {
-    // Mark as ingesting
-    await sessionDocRef.set({
-      firestoreStatus: 'ingesting' as FirestoreStatus,
-      firestoreError: null,
-    }, { merge: true });
+    // GUID: REPLAY_INGEST-020-v01
+    // [Intent] Atomically claim the ingest slot using a Firestore transaction.
+    //          Only one request can transition firestoreStatus from 'none' (or 'failed')
+    //          to 'ingesting'. Concurrent requests see the status has already changed and
+    //          bail out, preventing duplicate chunk writes.
+    const claimedIngest = await db.runTransaction(async (txn) => {
+      const snap = await txn.get(sessionDocRef);
+      const currentStatus = snap.exists ? (snap.data()?.firestoreStatus as FirestoreStatus) ?? 'none' : 'none';
+      if (currentStatus !== 'none' && currentStatus !== 'failed') {
+        return false; // another request is already ingesting or complete
+      }
+      txn.set(sessionDocRef, {
+        firestoreStatus: 'ingesting' as FirestoreStatus,
+        firestoreError: null,
+      }, { merge: true });
+      return true;
+    });
+
+    if (!claimedIngest) {
+      // Another request is handling ingest — exit gracefully
+      callbacks.onError('Ingest already in progress or complete');
+      return;
+    }
 
     // 1. Fetch session metadata
     const sessionData = await fetchOpenF1('sessions', sessionKey);

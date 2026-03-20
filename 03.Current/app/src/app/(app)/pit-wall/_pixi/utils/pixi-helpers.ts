@@ -48,6 +48,9 @@ export function projectToCanvas(
   h: number,
   padding = 32,
 ): { px: number; py: number } {
+  // Guard: bounds may be null during initial load frames before GPS data arrives
+  if (!bounds) return { px: 0, py: 0 };
+
   const rangeX = bounds.maxX - bounds.minX || 1;
   const rangeY = bounds.maxY - bounds.minY || 1;
 

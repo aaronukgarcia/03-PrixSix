@@ -247,13 +247,26 @@ export function usePitWallData(
     };
   }, []);
 
-  // Parse JSON via worker if available, else fall back to inline JSON.parse
+  // GUID: PIT_WALL_DATA_HOOK-007-v01
+  // [Intent] Parse JSON via worker if available, else fall back to inline JSON.parse.
+  //          Each pending request has a 5-second timeout — if the worker crashes or a
+  //          message is lost, the promise rejects and the pending entry is cleaned up.
+  //          Prevents unbounded growth of pendingRef map over long polling sessions.
   const parseJson = useCallback((rawText: string): Promise<PitWallLiveDataResponse> => {
     const worker = workerRef.current;
     if (worker) {
       return new Promise<PitWallLiveDataResponse>((resolve, reject) => {
         const requestId = ++requestIdRef.current;
-        pendingRef.current.set(requestId, { resolve, reject });
+        const timeoutHandle = setTimeout(() => {
+          if (pendingRef.current.has(requestId)) {
+            pendingRef.current.delete(requestId);
+            reject(new Error('Worker parse timeout after 5s'));
+          }
+        }, 5_000);
+        pendingRef.current.set(requestId, {
+          resolve: (v) => { clearTimeout(timeoutHandle); resolve(v); },
+          reject: (e) => { clearTimeout(timeoutHandle); reject(e); },
+        });
         worker.postMessage({ type: 'PROCESS_JSON', rawText, requestId });
       });
     }

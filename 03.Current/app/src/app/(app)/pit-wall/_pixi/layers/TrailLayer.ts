@@ -67,6 +67,7 @@ export class TrailLayer {
       for (let i = 0; i < count - 1; i++) {
         const p0 = points[i];
         const p1 = points[i + 1];
+        if (!p0 || !p1) continue;
 
         // Project GPS->canvas at draw time
         const c0 = projectToCanvas(p0.gpsX, p0.gpsY, bounds, w, h);

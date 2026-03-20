@@ -41,6 +41,7 @@ interface PitWallTrackMapProps {
   zoomLevel?: 0 | 1 | 2;
   focusPosition?: number;
   virtualTimeDeltaMs?: number;
+  sessionKey?: string | null;
   className?: string;
 }
 
@@ -68,6 +69,7 @@ type PixiTrackAppInstance = {
     zoomLevel?: 0 | 1 | 2;
     focusPosition?: number;
     virtualTimeDeltaMs?: number;
+    sessionKey?: string | null;
   }) => void;
   destroy: () => void;
 };
@@ -99,6 +101,7 @@ export function PitWallTrackMap({
   zoomLevel,
   focusPosition,
   virtualTimeDeltaMs,
+  sessionKey,
   className,
 }: PitWallTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -155,12 +158,13 @@ export function PitWallTrackMap({
       zoomLevel,
       focusPosition,
       virtualTimeDeltaMs,
+      sessionKey,
     });
   }, [
     drivers, bounds, circuitPath, updateIntervalMs, followDriver,
     rainIntensity, sessionType, hasLiveSession, positionDataAvailable,
     nextRaceName, lastMeetingName, trailEnabled, trailTtlMs, sfLineX, sfLineY,
-    zoomLevel, focusPosition, virtualTimeDeltaMs,
+    zoomLevel, focusPosition, virtualTimeDeltaMs, sessionKey,
   ]);
 
   return (
