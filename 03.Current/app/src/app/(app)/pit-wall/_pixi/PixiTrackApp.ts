@@ -22,16 +22,19 @@ import type { DriverRaceState, TrackBounds, CircuitPoint } from '../_types/pit-w
 import type { CircuitOutline } from '../_utils/trackSpline';
 import { buildTrackPolyline, buildCircuitOutline, type TrackPolyline } from '../_utils/trackSpline';
 
-// GUID: PIXI_TRACK_APP-001-v01
+// GUID: PIXI_TRACK_APP-001-v02
 // [Intent] Scene graph structure:
 //   stage
 //     +-- backgroundLayer.container  (no zoom — stays fixed behind everything)
 //     +-- worldContainer             (camera zoom/pan applied here)
 //           +-- trackLayer.container     (circuit outline with sector colours)
-//           +-- bloomContainer           (AdvancedBloomFilter applied to this group)
+//           +-- bloomContainer           (AdvancedBloomFilter — trails only)
 //           |     +-- trailLayer.container  (comet trail contrails)
-//           |     +-- carLayer.dotContainer (car dots with glow)
+//           +-- carLayer.dotContainer      (car dots — OUTSIDE bloom for reliability)
 //           +-- carLayer.labelContainer    (driver codes + badges — no bloom)
+//   v02: Moved carLayer.dotContainer out of bloomContainer. The bloom filter on some
+//        GPUs/browsers can produce blank output, making all children invisible.
+//        Trails get the bloom glow effect; car dots render unconditionally.
 
 export class PixiTrackApp {
   private app: Application;
@@ -145,13 +148,14 @@ export class PixiTrackApp {
     if (this.destroyed) return;
     container.appendChild(this.app.canvas);
 
-    // Build scene graph (see PIXI_TRACK_APP-001 for structure)
+    // Build scene graph (see PIXI_TRACK_APP-001-v02 for structure)
     this.app.stage.addChild(this.backgroundLayer.container);
     this.app.stage.addChild(this.worldContainer);
     this.worldContainer.addChild(this.trackLayer.container);
     this.worldContainer.addChild(this.bloomContainer);
     this.bloomContainer.addChild(this.trailLayer.container);
-    this.bloomContainer.addChild(this.carLayer.dotContainer);
+    // Car dots OUTSIDE bloom — bloom filter can eat output on some GPUs
+    this.worldContainer.addChild(this.carLayer.dotContainer);
     this.worldContainer.addChild(this.carLayer.labelContainer);
 
     // GUID: PIXI_TRACK_APP-009-v01
