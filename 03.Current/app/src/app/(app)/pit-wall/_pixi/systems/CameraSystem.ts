@@ -17,8 +17,9 @@ import { Container } from 'pixi.js';
 //          v03: Added OVERVIEW_ZOOM — Zoom 1 now applies 1.8x centred zoom instead of 1x.
 const OVERVIEW_ZOOM = 1.8;
 const FOLLOW_ZOOM = 3.0;
-const HYPER_ZOOM = 8.0;
+const HYPER_ZOOM = 5.0;
 const LERP_SPEED = 0.08;
+const HYPER_LERP_SPEED = 0.18;
 const SNAP_THRESHOLD = 0.5;
 
 export class CameraSystem {
@@ -53,10 +54,11 @@ export class CameraSystem {
       this.targetZoom = zoomLevel >= 1 ? OVERVIEW_ZOOM : 1;
     }
 
-    // Lerp current toward target
-    this.currentX += (this.targetX - this.currentX) * LERP_SPEED;
-    this.currentY += (this.targetY - this.currentY) * LERP_SPEED;
-    this.currentZoom += (this.targetZoom - this.currentZoom) * LERP_SPEED;
+    // Lerp current toward target — faster at Zoom 2 so camera keeps up with focus car
+    const lerpSpeed = zoomLevel === 2 ? HYPER_LERP_SPEED : LERP_SPEED;
+    this.currentX += (this.targetX - this.currentX) * lerpSpeed;
+    this.currentY += (this.targetY - this.currentY) * lerpSpeed;
+    this.currentZoom += (this.targetZoom - this.currentZoom) * lerpSpeed;
 
     // Snap if very close to avoid perpetual micro-lerp
     if (Math.abs(this.currentX - this.targetX) < SNAP_THRESHOLD) {
