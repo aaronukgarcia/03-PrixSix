@@ -53,7 +53,7 @@ export class CameraSystem {
     } else {
       this.targetX = canvasW / 2;
       this.targetY = canvasH / 2;
-      this.targetZoom = zoomLevel >= 1 ? OVERVIEW_ZOOM : 1;
+      this.targetZoom = 1;
     }
 
     // Snap immediately when entering Zoom 2 — no lerp lag on initial focus
