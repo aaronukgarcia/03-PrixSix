@@ -448,24 +448,20 @@ export default function PitWallClient() {
     return liveDrivers;
   }, [isReplayMode, replayPlayer.replayDrivers, preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
 
-  // GUID: PIT_WALL_CLIENT-053-v01
-  // [Intent] Seed static circuit path for replay mode — when no live circuitKey is available,
-  //          use the replay session's circuitKey to load from static circuits.json.
-  //          This gives instant circuit outlines in replay without waiting for a full lap.
+  // GUID: PIT_WALL_CLIENT-053-v02
+  // [Intent] When entering replay mode, reset the circuit path and path tracker so the
+  //          dynamic path builder (PIT_WALL_CLIENT-029) can reconstruct the outline from
+  //          replay GPS data. Static circuits.json uses projected-metre coordinates from a
+  //          specific OpenF1 session — replay data uses its own session's coordinates.
+  //          Without this reset, a frozen static circuit from live mode persists and causes
+  //          coordinate mismatch (track outline and car dots in different ranges).
   useEffect(() => {
-    if (circuitKey) return; // live session handles its own circuit loading
-    if (!isReplayMode || !selectedReplaySession?.circuitKey) return;
-    const tracker = pathTrackerRef.current;
-    if (tracker.frozen) return;
-
-    const replayCircuitKey = selectedReplaySession.circuitKey;
-    const staticPath = (staticCircuits as Record<string, CircuitPoint[]>)[String(replayCircuitKey)];
-    if (staticPath && staticPath.length > 50) {
-      setCircuitPath(staticPath);
-      circuitPathRef.current = staticPath;
-      tracker.frozen = true;
+    if (isReplayMode) {
+      setCircuitPath([]);
+      circuitPathRef.current = [];
+      pathTrackerRef.current = { trackedDriver: null, frozen: false };
     }
-  }, [circuitKey, isReplayMode, selectedReplaySession]);
+  }, [isReplayMode]);
 
   // GUID: PIT_WALL_CLIENT-029-v02
   // [Intent] Accumulate circuit path from replay/showreel drivers when no live session
@@ -511,18 +507,12 @@ export default function PitWallClient() {
     });
   }, [activeDrivers, circuitKey]);
 
-  // GUID: PIT_WALL_CLIENT-054-v01
-  // [Intent] Track bounds — merge circuit path AND active driver positions so bounds
-  //          encompass both the track outline and the actual car GPS coordinates.
-  //          Static circuits.json may use coordinates from a different OpenF1 session
-  //          than the replay data — without merging, cars project off-screen.
-  const trackBounds = useMemo(() => {
-    const points: { x: number | null; y: number | null }[] = [];
-    if (circuitPath.length >= 10) points.push(...circuitPath);
-    if (activeDrivers.length > 0) points.push(...activeDrivers);
-    if (points.length < 2) return null;
-    return computeTrackBounds(points);
-  }, [circuitPath, activeDrivers]);
+  // Track bounds — use accumulated circuit path when available (stable full-circuit extent);
+  // fall back to current driver positions only for the very first few polls before path builds up.
+  const trackBounds = useMemo(
+    () => computeTrackBounds(circuitPath.length >= 10 ? circuitPath : activeDrivers),
+    [circuitPath, activeDrivers],
+  );
 
   // Table sort state
   const [sortKey, setSortKey] = useState<string | null>(null);
