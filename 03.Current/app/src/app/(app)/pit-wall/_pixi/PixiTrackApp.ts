@@ -352,6 +352,19 @@ export class PixiTrackApp {
       this.drivers, now, this.updateIntervalMs, this.polyline,
     );
 
+    // DIAG: log interpolation output every 3s
+    if (now % 3000 < 17 && this.drivers.length > 0) {
+      console.warn('[PW-TICK]', {
+        drv: this.drivers.length,
+        gps: this.drivers.filter(d => d.x != null && d.y != null).length,
+        interp: interpolated.length,
+        bnd: this.bounds ? `${Math.round(this.bounds.minX)}..${Math.round(this.bounds.maxX)}` : 'null',
+        ready: this.ready,
+        w, h,
+        sample: interpolated[0] ? `dn${interpolated[0].driverNumber} x=${Math.round(interpolated[0].x)} y=${Math.round(interpolated[0].y)}` : 'none',
+      });
+    }
+
     if (interpolated.length > 0 && this.bounds) {
       // Build a quick lookup map for telemetry data from the original drivers array.
       // InterpolatedPosition doesn't carry speed/throttle/brake, so we fetch them
