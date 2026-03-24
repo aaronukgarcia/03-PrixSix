@@ -319,23 +319,6 @@ export class PixiTrackApp {
       this.drivers, now, this.updateIntervalMs, this.polyline,
     );
 
-    // TEMPORARY DIAGNOSTIC — remove after debugging
-    if (now % 5000 < 17) {
-      const driversWithGps = this.drivers.filter(d => d.x != null && d.y != null).length;
-      const sample = this.drivers[0];
-      console.log('[PixiTrackApp] diag', {
-        driversTotal: this.drivers.length,
-        driversWithGps,
-        interpolatedLen: interpolated.length,
-        boundsNull: this.bounds === null,
-        bounds: this.bounds,
-        sampleXY: sample ? { x: sample.x, y: sample.y, pos: sample.position } : null,
-        circuitPathLen: this.polyline ? 'has polyline' : 'no polyline',
-        outlineLen: this.outline ? 'has outline' : 'no outline',
-        w, h,
-      });
-    }
-
     if (interpolated.length > 0 && this.bounds) {
       // Build a quick lookup map for telemetry data from the original drivers array.
       // InterpolatedPosition doesn't carry speed/throttle/brake, so we fetch them

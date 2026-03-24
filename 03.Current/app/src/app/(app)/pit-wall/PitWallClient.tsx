@@ -448,20 +448,25 @@ export default function PitWallClient() {
     return liveDrivers;
   }, [isReplayMode, replayPlayer.replayDrivers, preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
 
-  // GUID: PIT_WALL_CLIENT-053-v02
-  // [Intent] When entering replay mode, reset the circuit path and path tracker so the
-  //          dynamic path builder (PIT_WALL_CLIENT-029) can reconstruct the outline from
-  //          replay GPS data. Static circuits.json uses projected-metre coordinates from a
-  //          specific OpenF1 session — replay data uses its own session's coordinates.
-  //          Without this reset, a frozen static circuit from live mode persists and causes
-  //          coordinate mismatch (track outline and car dots in different ranges).
+  // GUID: PIT_WALL_CLIENT-053-v01
+  // [Intent] Seed static circuit path for replay mode — when no live circuitKey is available,
+  //          use the replay session's circuitKey to load from static circuits.json.
+  //          This gives instant circuit outlines in replay without waiting for a full lap.
+  //          Coordinates match: circuits.json is extracted from the same Firestore replay data.
   useEffect(() => {
-    if (isReplayMode) {
-      setCircuitPath([]);
-      circuitPathRef.current = [];
-      pathTrackerRef.current = { trackedDriver: null, frozen: false };
+    if (circuitKey) return; // live session handles its own circuit loading
+    if (!isReplayMode || !selectedReplaySession?.circuitKey) return;
+    const tracker = pathTrackerRef.current;
+    if (tracker.frozen) return;
+
+    const replayCircuitKey = selectedReplaySession.circuitKey;
+    const staticPath = (staticCircuits as Record<string, CircuitPoint[]>)[String(replayCircuitKey)];
+    if (staticPath && staticPath.length > 50) {
+      setCircuitPath(staticPath);
+      circuitPathRef.current = staticPath;
+      tracker.frozen = true;
     }
-  }, [isReplayMode]);
+  }, [circuitKey, isReplayMode, selectedReplaySession]);
 
   // GUID: PIT_WALL_CLIENT-029-v02
   // [Intent] Accumulate circuit path from replay/showreel drivers when no live session
@@ -531,18 +536,26 @@ export default function PitWallClient() {
   //          is tiny (~60ms) but virtual time gap is large. Without this, the interpolation
   //          system's impossible-travel filter rejects every position update as a GPS spike.
   //          In live/showreel mode, undefined lets the interpolation system use wall time.
+  // GUID: PIT_WALL_CLIENT-051-v02
+  // [Intent] Compute virtual time delta for replay mode. The previous elapsed value is
+  //          stored via useEffect (post-commit) — NOT inside useMemo. React 18 Strict Mode
+  //          and Concurrent Mode can invoke useMemo twice before committing. Mutating a ref
+  //          inside useMemo causes the second invocation to see the already-mutated value,
+  //          computing delta=0 → virtualTimeDeltaMs=undefined → spike filter uses wall time
+  //          → rejects all position updates as impossible travel → cars frozen.
+  //          v02: Moved ref mutation to useEffect to survive React double-render.
   const prevReplayElapsedMsRef = useRef<number>(0);
+  const currentReplayElapsedMs = isReplayMode ? (replayPlayer.elapsedMs ?? 0) : 0;
   const virtualTimeDeltaMs = useMemo(() => {
-    if (!isReplayMode) {
-      prevReplayElapsedMsRef.current = 0;
-      return undefined;
-    }
-    const currentElapsed = replayPlayer.elapsedMs ?? 0;
-    const delta = currentElapsed - prevReplayElapsedMsRef.current;
-    prevReplayElapsedMsRef.current = currentElapsed;
-    // Clamp to a reasonable range — 0 means paused, don't return negative
+    if (!isReplayMode) return undefined;
+    const delta = currentReplayElapsedMs - prevReplayElapsedMsRef.current;
     return delta > 0 ? delta : undefined;
-  }, [isReplayMode, replayPlayer.elapsedMs]);
+  }, [isReplayMode, currentReplayElapsedMs]);
+
+  // Store previous elapsed AFTER render commits — safe from React double-invoke
+  useEffect(() => {
+    prevReplayElapsedMsRef.current = currentReplayElapsedMs;
+  }, [currentReplayElapsedMs]);
 
   // GUID: PIT_WALL_CLIENT-033-v01
   // [Intent] Trail display settings — configurable from the toolbar.
