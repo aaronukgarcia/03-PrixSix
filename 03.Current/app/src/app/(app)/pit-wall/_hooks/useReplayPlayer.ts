@@ -566,12 +566,13 @@ export function useReplayPlayer(
     // Use setTimeout instead of RAF — diagnostic to determine if RAF is being
     // throttled/blocked by the browser while setTimeout works fine.
     const runTick = () => {
+      console.warn(`[REPLAY-RUN] runTick called. tick=${typeof tick} isPlaying=${isPlayingRef.current} data=${!!replayDataRef.current}`);
       tick();
       if (isPlayingRef.current) {
-        rafHandleRef.current = window.setTimeout(runTick, 16) as unknown as number;
+        rafHandleRef.current = window.setTimeout(runTick, 500) as unknown as number;
       }
     };
-    rafHandleRef.current = window.setTimeout(runTick, 16) as unknown as number;
+    rafHandleRef.current = window.setTimeout(runTick, 100) as unknown as number;
     console.warn(`[REPLAY] startRafFrom(${virtualMs}) using setTimeout rafHandle=${rafHandleRef.current} isPlaying=${isPlayingRef.current}`);
   }, [cancelRaf, tick, updatePlaybackState]);
 
