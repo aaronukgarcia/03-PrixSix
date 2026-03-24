@@ -352,17 +352,18 @@ export class PixiTrackApp {
       this.drivers, now, this.updateIntervalMs, this.polyline,
     );
 
-    // DIAG: log interpolation output every 3s
+    // DIAG: log interpolation output every 3s — all values as one string for Puppeteer
     if (now % 3000 < 17 && this.drivers.length > 0) {
-      console.warn('[PW-TICK]', {
-        drv: this.drivers.length,
-        gps: this.drivers.filter(d => d.x != null && d.y != null).length,
-        interp: interpolated.length,
-        bnd: this.bounds ? `${Math.round(this.bounds.minX)}..${Math.round(this.bounds.maxX)}` : 'null',
-        ready: this.ready,
-        w, h,
-        sample: interpolated[0] ? `dn${interpolated[0].driverNumber} x=${Math.round(interpolated[0].x)} y=${Math.round(interpolated[0].y)}` : 'none',
-      });
+      const gps = this.drivers.filter(d => d.x != null && d.y != null).length;
+      const s = interpolated[0];
+      const worldVis = this.worldContainer.visible;
+      const dotVis = this.carLayer.dotContainer.visible;
+      console.warn(
+        `[PW-TICK] drv=${this.drivers.length} gps=${gps} interp=${interpolated.length} ` +
+        `bnd=${this.bounds ? Math.round(this.bounds.minX) + '..' + Math.round(this.bounds.maxX) : 'null'} ` +
+        `${w}x${h} worldVis=${worldVis} dotVis=${dotVis} ` +
+        `sample=${s ? 'dn' + s.driverNumber + ' x=' + Math.round(s.x) + ' y=' + Math.round(s.y) : 'none'}`
+      );
     }
 
     if (interpolated.length > 0 && this.bounds) {
