@@ -222,6 +222,9 @@ export class PixiTrackApp {
     if (opts.sessionKey !== undefined && opts.sessionKey !== this.currentSessionKey) {
       this.currentSessionKey = opts.sessionKey;
       this.interpolation.reset();
+      // Disable spike filter for replay mode — pre-recorded GPS data doesn't have spikes,
+      // and the filter causes a death spiral (grid→track jump rejected → permanent freeze).
+      this.interpolation.disableSpikeFilter = !!opts.sessionKey?.startsWith('replay-');
       this.trailSystem.clear();
       this.trailLayer.clear();
       this.lastTrailGps.clear();

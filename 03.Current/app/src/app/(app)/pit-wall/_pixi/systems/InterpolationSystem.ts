@@ -65,6 +65,13 @@ export class InterpolationSystem {
   //               speed, wall time between frames is tiny but virtual time gap is large.
   //               Without this, the spike filter rejects every position as impossible travel.
   //               Uses lastDrawnPositions for prev (Fix 2: smooth snap handoff).
+  // GUID: PIXI_INTERP_SYSTEM-011-v01
+  // [Intent] When true, the spike filter is disabled entirely. Used for replay mode
+  //          where GPS data is pre-recorded and doesn't have live GPS spikes. The spike
+  //          filter causes a death spiral in replay: grid→track position jump is rejected,
+  //          then the gap grows every frame, permanently freezing all cars.
+  disableSpikeFilter = false;
+
   onDriversUpdate(drivers: DriverRaceState[], virtualTimeDeltaMs?: number): void {
     const now = Date.now();
     this.updatesSinceReset++;
@@ -74,12 +81,11 @@ export class InterpolationSystem {
       : Math.max(0.1, (now - this.snapshotTimestamp) / 1000);
 
     // Maximum distance a car could plausibly travel in this time delta.
-    // During grace period (first 3 updates after reset), use Infinity to bypass
-    // the spike filter entirely — prevents death spiral from grid→track transition.
-    const spikeFilterActive = this.updatesSinceReset > 3;
-    const maxDist = spikeFilterActive
-      ? MAX_PLAUSIBLE_SPEED_MPS * timeDeltaS + GPS_JITTER_MARGIN_M
-      : Infinity;
+    // Disabled entirely in replay mode (disableSpikeFilter) — pre-recorded data
+    // doesn't have GPS spikes, and the filter causes a death spiral.
+    const maxDist = this.disableSpikeFilter
+      ? Infinity
+      : MAX_PLAUSIBLE_SPEED_MPS * timeDeltaS + GPS_JITTER_MARGIN_M;
     const maxDistSq = maxDist * maxDist;
 
     // Promote last drawn positions → prev (smooth handoff from interpolated position)
