@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { DriverRaceState, TrackBounds, CircuitPoint } from '../_types/pit-wall.types';
 
@@ -109,13 +109,19 @@ export function PitWallTrackMap({
 }: PitWallTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pixiAppRef = useRef<PixiTrackAppInstance | null>(null);
+  // GUID: PIT_WALL_TRACK_MAP-006-v01
+  // [Intent] Ready signal — increments when the dynamic import resolves and PixiTrackApp
+  //          is created. Added to the data-push useEffect dep array so that setData() is
+  //          guaranteed to fire with current props after the app is ready. Without this,
+  //          setData calls during the async import window are lost (null?.setData() = no-op)
+  //          and the PixiTrackApp starts with empty drivers → no car dots.
+  const [pixiReady, setPixiReady] = useState(0);
 
-  // GUID: PIT_WALL_TRACK_MAP-004-v07
+  // GUID: PIT_WALL_TRACK_MAP-004-v08
   // [Intent] Create PixiTrackApp on mount, destroy on unmount.
-  //          Dynamic import() prevents PixiJS from loading during SSR (Next.js server render)
-  //          since PixiJS requires a browser environment (WebGL context, DOM, window).
-  //          The `cancelled` flag guards against the import resolving after the component
-  //          has already unmounted (React strict mode double-mount in dev).
+  //          Dynamic import() prevents PixiJS from loading during SSR (Next.js server render).
+  //          v08: Sets pixiReady state after import resolves, triggering the data-push
+  //               useEffect to re-run with current props.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -126,6 +132,7 @@ export function PitWallTrackMap({
       if (cancelled) return;
       app = new PixiTrackApp(el);
       pixiAppRef.current = app;
+      setPixiReady(c => c + 1); // trigger data-push useEffect
     });
 
     return () => {
@@ -164,7 +171,9 @@ export function PitWallTrackMap({
       sessionKey,
       bloomEnabled,
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    pixiReady, // <-- forces re-run after dynamic import resolves
     drivers, bounds, circuitPath, updateIntervalMs, followDriver,
     rainIntensity, sessionType, hasLiveSession, positionDataAvailable,
     nextRaceName, lastMeetingName, trailEnabled, trailTtlMs, sfLineX, sfLineY,
