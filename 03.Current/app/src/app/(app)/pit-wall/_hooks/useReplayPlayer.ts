@@ -483,9 +483,16 @@ export function useReplayPlayer(
     }
   }, []);
 
+  const tickCountRef = useRef(0);
   const tick = useCallback(() => {
     const data = replayDataRef.current;
     if (!data || !isPlayingRef.current) return;
+    tickCountRef.current++;
+    if (tickCountRef.current % 180 === 1) { // ~every 3s at 60fps
+      const wallMs = Date.now() - startWallMsRef.current;
+      const vMs = virtualOffsetMsRef.current + wallMs * speedRef.current;
+      console.warn(`[REPLAY-TICK] #${tickCountRef.current} wall=${Math.round(wallMs)}ms virtual=${Math.round(vMs)}ms speed=${speedRef.current} frames=${data.frames.length} lastFrame=${lastFrameIndexRef.current}`);
+    }
 
     const elapsedWallMs = Date.now() - startWallMsRef.current;
     const virtualMs     = virtualOffsetMsRef.current + elapsedWallMs * speedRef.current;
