@@ -38,6 +38,15 @@ export class InterpolationSystem {
   // [Intent] Per-driver update counter for spawn protection.
   private updateCount = new Map<number, number>();
 
+  // GUID: PIXI_INTERP_SYSTEM-010-v01
+  // [Intent] Grace period after reset — skip the spike filter for the first few updates.
+  //          After reset (e.g. session change, replay start), the first data may be at the
+  //          grid position. The second data has real race positions. If virtualTimeDeltaMs is
+  //          undefined or tiny on the early frames, the spike filter computes a small maxDist
+  //          and rejects the jump from grid to track — permanently freezing all cars (death spiral).
+  //          Allowing 3 grace updates lets positions establish without spike filtering.
+  private updatesSinceReset = 0;
+
   // GUID: PIXI_INTERP_SYSTEM-009-v01
   // [Intent] Stores the last interpolated (drawn) position per driver. Used as the
   //          new prev position when fresh data arrives, so the car continues smoothly
@@ -58,12 +67,19 @@ export class InterpolationSystem {
   //               Uses lastDrawnPositions for prev (Fix 2: smooth snap handoff).
   onDriversUpdate(drivers: DriverRaceState[], virtualTimeDeltaMs?: number): void {
     const now = Date.now();
+    this.updatesSinceReset++;
+
     const timeDeltaS = virtualTimeDeltaMs != null
       ? Math.max(0.1, virtualTimeDeltaMs / 1000)
       : Math.max(0.1, (now - this.snapshotTimestamp) / 1000);
 
-    // Maximum distance a car could plausibly travel in this time delta
-    const maxDist = MAX_PLAUSIBLE_SPEED_MPS * timeDeltaS + GPS_JITTER_MARGIN_M;
+    // Maximum distance a car could plausibly travel in this time delta.
+    // During grace period (first 3 updates after reset), use Infinity to bypass
+    // the spike filter entirely — prevents death spiral from grid→track transition.
+    const spikeFilterActive = this.updatesSinceReset > 3;
+    const maxDist = spikeFilterActive
+      ? MAX_PLAUSIBLE_SPEED_MPS * timeDeltaS + GPS_JITTER_MARGIN_M
+      : Infinity;
     const maxDistSq = maxDist * maxDist;
 
     // Promote last drawn positions → prev (smooth handoff from interpolated position)
@@ -200,6 +216,7 @@ export class InterpolationSystem {
     this.nextPositions.clear();
     this.lastDrawnPositions.clear();
     this.updateCount.clear();
+    this.updatesSinceReset = 0;
     this.snapshotTimestamp = Date.now();
   }
 }
