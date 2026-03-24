@@ -230,6 +230,12 @@ export class PixiTrackApp {
 
     // If drivers changed, notify interpolation system
     if (opts.drivers !== this.drivers) {
+      if (this.drivers.length === 0 && opts.drivers.length > 0) {
+        console.warn('[PixiTrackApp] first drivers received:', opts.drivers.length,
+          'gps:', opts.drivers.filter(d => d.x != null).length,
+          'bounds:', opts.bounds ? 'yes' : 'null',
+          'vtdMs:', opts.virtualTimeDeltaMs);
+      }
       this.interpolation.onDriversUpdate(opts.drivers, opts.virtualTimeDeltaMs);
     }
 
