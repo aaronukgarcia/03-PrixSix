@@ -284,10 +284,14 @@ export class PixiTrackApp {
     }
 
     // Zoom settings (optional — preserve existing if not provided)
-    // Force track rebuild when zoom changes so stroke width scales inversely
+    // Force track rebuild when zoom changes so stroke width scales inversely.
+    // Also force PixiJS to re-measure the container — the parent layout changes
+    // between h-[280px] (Zoom 0) and absolute inset-0 (Zoom 1/2), but PixiJS
+    // ResizeObserver may not fire before the next tick uses stale dimensions.
     if (opts.zoomLevel !== undefined && opts.zoomLevel !== this.zoomLevel) {
       this.zoomLevel = opts.zoomLevel;
       this.trackBuilt = false;
+      if (this.ready) this.app.resize();
     }
     if (opts.focusPosition !== undefined) this.focusPosition = opts.focusPosition;
 
