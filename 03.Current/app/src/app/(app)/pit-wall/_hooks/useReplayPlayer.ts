@@ -488,20 +488,13 @@ export function useReplayPlayer(
   // ---------------------------------------------------------------------------
   const cancelRaf = useCallback(() => {
     if (rafHandleRef.current !== null) {
-      console.warn(`[REPLAY] cancelRaf — killing handle ${rafHandleRef.current}`, new Error().stack?.split('\n').slice(1,4).join(' | '));
       cancelAnimationFrame(rafHandleRef.current);
-      clearTimeout(rafHandleRef.current);
       rafHandleRef.current = null;
     }
   }, []);
 
-  const tickCountRef = useRef(0);
   const tick = useCallback(() => {
     const data = replayDataRef.current;
-    tickCountRef.current++;
-    if (tickCountRef.current % 180 === 1) {
-      console.warn(`[REPLAY-TICK] #${tickCountRef.current} data=${!!data} playing=${isPlayingRef.current} rafH=${rafHandleRef.current}`);
-    }
     if (!data || !isPlayingRef.current) return;
 
     const elapsedWallMs = Date.now() - startWallMsRef.current;
@@ -564,17 +557,7 @@ export function useReplayPlayer(
     lastFrameIndexRef.current  = -1;
     isPlayingRef.current       = true;
     updatePlaybackState('playing');
-    // Use setTimeout instead of RAF — diagnostic to determine if RAF is being
-    // throttled/blocked by the browser while setTimeout works fine.
-    const runTick = () => {
-      console.warn(`[REPLAY-RUN] runTick called. tick=${typeof tick} isPlaying=${isPlayingRef.current} data=${!!replayDataRef.current}`);
-      tick();
-      if (isPlayingRef.current) {
-        rafHandleRef.current = window.setTimeout(runTick, 500) as unknown as number;
-      }
-    };
-    rafHandleRef.current = window.setTimeout(runTick, 100) as unknown as number;
-    console.warn(`[REPLAY] startRafFrom(${virtualMs}) using setTimeout rafHandle=${rafHandleRef.current} isPlaying=${isPlayingRef.current}`);
+    rafHandleRef.current       = requestAnimationFrame(tick);
   }, [cancelRaf, tick, updatePlaybackState]);
 
   // ---------------------------------------------------------------------------
@@ -680,7 +663,6 @@ export function useReplayPlayer(
     updatePlaybackState('loading');
 
     const onDataReady = (data: HistoricalReplayData) => {
-      console.warn(`[REPLAY] onDataReady cancelled=${cancelled} frames=${data.frames.length}`);
       if (cancelled) return;
       replayDataRef.current = data;
       setDurationMs(data.durationMs);
@@ -751,7 +733,6 @@ export function useReplayPlayer(
       .catch(onStreamError);
 
     return () => {
-      console.warn(`[REPLAY] cleanup — cancelling. rafHandle=${rafHandleRef.current} isPlaying=${isPlayingRef.current}`);
       cancelled = true;
       cancelRaf();
     };
