@@ -468,6 +468,16 @@ export function useReplayPlayer(
 
   speedRef.current = speed;
 
+  // GUID: REPLAY_PLAYER_HOOK-013-v01
+  // [Intent] Stabilise getAuthToken reference — prevent auth state changes from
+  //          re-triggering the load effect. getAuthToken depends on firebaseUser which
+  //          can change reference multiple times during auth resolution. Each change
+  //          would cancel the RAF via effect cleanup, killing the playback loop before
+  //          a single tick fires. Using a ref ensures the latest function is always
+  //          available without appearing in any dependency arrays.
+  const getAuthTokenRef = useRef(getAuthToken);
+  getAuthTokenRef.current = getAuthToken;
+
   const updatePlaybackState = useCallback((s: ReplayPlaybackState) => {
     playbackStateRef.current = s;
     setPlaybackState(s);
@@ -479,6 +489,7 @@ export function useReplayPlayer(
   const cancelRaf = useCallback(() => {
     if (rafHandleRef.current !== null) {
       cancelAnimationFrame(rafHandleRef.current);
+      clearTimeout(rafHandleRef.current);
       rafHandleRef.current = null;
     }
   }, []);
@@ -552,8 +563,16 @@ export function useReplayPlayer(
     lastFrameIndexRef.current  = -1;
     isPlayingRef.current       = true;
     updatePlaybackState('playing');
-    rafHandleRef.current       = requestAnimationFrame(tick);
-    console.warn(`[REPLAY] startRafFrom(${virtualMs}) rafHandle=${rafHandleRef.current} isPlaying=${isPlayingRef.current}`);
+    // Use setTimeout instead of RAF — diagnostic to determine if RAF is being
+    // throttled/blocked by the browser while setTimeout works fine.
+    const runTick = () => {
+      tick();
+      if (isPlayingRef.current) {
+        rafHandleRef.current = window.setTimeout(runTick, 16) as unknown as number;
+      }
+    };
+    rafHandleRef.current = window.setTimeout(runTick, 16) as unknown as number;
+    console.warn(`[REPLAY] startRafFrom(${virtualMs}) using setTimeout rafHandle=${rafHandleRef.current} isPlaying=${isPlayingRef.current}`);
   }, [cancelRaf, tick, updatePlaybackState]);
 
   // ---------------------------------------------------------------------------
@@ -696,12 +715,12 @@ export function useReplayPlayer(
     //   v02: Fixed path priority — prefer existing downloadUrl over ingest.
     //        Ingest only triggers when no existing data source is available.
     const loadData = async () => {
-      if (session.firestoreStatus === 'complete' && session.totalChunks && session.totalChunks > 0 && getAuthToken) {
+      if (session.firestoreStatus === 'complete' && session.totalChunks && session.totalChunks > 0 && getAuthTokenRef.current) {
         // Path 1: Firestore chunk loading (fast, survives deployments)
         return loadChunksProgressively(
           session.sessionKey,
           session.totalChunks,
-          getAuthToken,
+          getAuthTokenRef.current,
           fraction => { if (!cancelled) setDownloadProgress(fraction); },
           onDataReady,
         );
@@ -712,11 +731,11 @@ export function useReplayPlayer(
           fraction => { if (!cancelled) setDownloadProgress(fraction); },
           onDataReady,
         );
-      } else if (getAuthToken) {
+      } else if (getAuthTokenRef.current) {
         // Path 3: First-time ingest via API (no existing data — streams + writes to Firestore)
         return streamIngestReplayData(
           session.sessionKey,
-          getAuthToken,
+          getAuthTokenRef.current,
           fraction => { if (!cancelled) setDownloadProgress(fraction); },
           onDataReady,
         );
@@ -734,7 +753,8 @@ export function useReplayPlayer(
       cancelled = true;
       cancelRaf();
     };
-  }, [session, getAuthToken, cancelRaf, startRafFrom, updatePlaybackState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, cancelRaf, startRafFrom, updatePlaybackState]);
 
   // ---------------------------------------------------------------------------
   // Cleanup on unmount
