@@ -486,9 +486,14 @@ export function useReplayPlayer(
   // ---------------------------------------------------------------------------
   // RAF loop
   // ---------------------------------------------------------------------------
+  // GUID: REPLAY_PLAYER_HOOK-014-v01
+  // [Intent] Cancel the replay tick timer. Uses clearTimeout because the replay loop
+  //          runs on setTimeout (not RAF). RAF was unreliable — callbacks silently failed
+  //          to fire in some browser contexts, causing the replay to never advance past
+  //          frame 0. setTimeout at 16ms gives equivalent ~60fps timing with reliable delivery.
   const cancelRaf = useCallback(() => {
     if (rafHandleRef.current !== null) {
-      cancelAnimationFrame(rafHandleRef.current);
+      clearTimeout(rafHandleRef.current);
       rafHandleRef.current = null;
     }
   }, []);
@@ -512,7 +517,7 @@ export function useReplayPlayer(
 
     const frames = data.frames;
     if (frames.length === 0) {
-      rafHandleRef.current = requestAnimationFrame(tick);
+      rafHandleRef.current = window.setTimeout(tick, 16) as unknown as number;
       return;
     }
 
@@ -547,7 +552,7 @@ export function useReplayPlayer(
       }
     }
 
-    rafHandleRef.current = requestAnimationFrame(tick);
+    rafHandleRef.current = window.setTimeout(tick, 16) as unknown as number;
   }, [cancelRaf, updatePlaybackState]);
 
   const startRafFrom = useCallback((virtualMs: number) => {
@@ -557,7 +562,7 @@ export function useReplayPlayer(
     lastFrameIndexRef.current  = -1;
     isPlayingRef.current       = true;
     updatePlaybackState('playing');
-    rafHandleRef.current       = requestAnimationFrame(tick);
+    rafHandleRef.current       = window.setTimeout(tick, 16) as unknown as number;
   }, [cancelRaf, tick, updatePlaybackState]);
 
   // ---------------------------------------------------------------------------
@@ -627,7 +632,7 @@ export function useReplayPlayer(
       } else {
         if (isPlayingRef.current) {
           startWallMsRef.current = Date.now();
-          rafHandleRef.current   = requestAnimationFrame(tick);
+          rafHandleRef.current   = window.setTimeout(tick, 16) as unknown as number;
         }
       }
     };
