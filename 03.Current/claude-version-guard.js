@@ -54,7 +54,34 @@ process.stdin.on('end', () => {
     const hasVersionTs = staged.includes('version.ts');
 
     if (hasPackageJson && hasVersionTs) {
-      // Both version files staged — allow
+      // Both files staged — now verify the version ACTUALLY changed (not just re-staged)
+      let versionDiff = '';
+      try {
+        versionDiff = execSync('git -C "E:\\GoogleDrive\\Papers\\03-PrixSix" diff --cached -- "03.Current/app/package.json" "03.Current/app/src/lib/version.ts"', {
+          encoding: 'utf8',
+          timeout: 5000,
+        });
+      } catch {
+        // If diff fails, allow — don't block on tooling errors
+        process.exit(0);
+      }
+
+      if (versionDiff.includes('+') && (versionDiff.includes('"version"') || versionDiff.includes('APP_VERSION'))) {
+        // Version string actually changed — allow
+        process.exit(0);
+      }
+
+      // Files staged but version didn't change — block
+      const reason = `🛑 GOLDEN RULE #2: Version files are staged but the version number hasn't changed.\n` +
+        `Run /bump to increment the version before committing.`;
+      const output = JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: reason,
+        },
+      });
+      process.stdout.write(output);
       process.exit(0);
     }
 
