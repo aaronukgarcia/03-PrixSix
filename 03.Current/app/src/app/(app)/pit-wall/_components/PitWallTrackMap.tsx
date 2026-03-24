@@ -42,6 +42,7 @@ interface PitWallTrackMapProps {
   focusPosition?: number;
   virtualTimeDeltaMs?: number;
   sessionKey?: string | null;
+  bloomEnabled?: boolean;
   className?: string;
 }
 
@@ -70,6 +71,7 @@ type PixiTrackAppInstance = {
     focusPosition?: number;
     virtualTimeDeltaMs?: number;
     sessionKey?: string | null;
+    bloomEnabled?: boolean;
   }) => void;
   destroy: () => void;
 };
@@ -102,6 +104,7 @@ export function PitWallTrackMap({
   focusPosition,
   virtualTimeDeltaMs,
   sessionKey,
+  bloomEnabled,
   className,
 }: PitWallTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -159,12 +162,13 @@ export function PitWallTrackMap({
       focusPosition,
       virtualTimeDeltaMs,
       sessionKey,
+      bloomEnabled,
     });
   }, [
     drivers, bounds, circuitPath, updateIntervalMs, followDriver,
     rainIntensity, sessionType, hasLiveSession, positionDataAvailable,
     nextRaceName, lastMeetingName, trailEnabled, trailTtlMs, sfLineX, sfLineY,
-    zoomLevel, focusPosition, virtualTimeDeltaMs, sessionKey,
+    zoomLevel, focusPosition, virtualTimeDeltaMs, sessionKey, bloomEnabled,
   ]);
 
   return (

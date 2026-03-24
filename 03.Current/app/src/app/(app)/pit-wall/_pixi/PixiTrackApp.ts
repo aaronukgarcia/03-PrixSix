@@ -77,12 +77,16 @@ export class PixiTrackApp {
   private zoomLevel: 0 | 1 | 2 = 0;
   private focusPosition = 1;
 
-  // GUID: PIXI_TRACK_APP-008-v01
-  // [Intent] Trail display settings — configurable from React via setData().
+  // GUID: PIXI_TRACK_APP-008-v02
+  // [Intent] Trail + bloom display settings — configurable from React via setData().
   //          trailEnabled: master toggle for trail rendering.
   //          trailTtlMs: trail lifetime in milliseconds (250-1500ms).
+  //          bloomEnabled: when true, car dots render inside the bloom container for a glow
+  //          effect. When false (default), dots render outside bloom for GPU reliability.
   private trailEnabled = true;
   private trailTtlMs = DEFAULT_TRAIL_TTL_MS;
+  private bloomEnabled = false;
+  private bloomFilter: InstanceType<typeof AdvancedBloomFilter> | null = null;
 
   // GUID: PIXI_TRACK_APP-011-v01
   // [Intent] Per-driver trail direction tracking — prevents backwards trail artifacts.
@@ -158,22 +162,21 @@ export class PixiTrackApp {
     this.worldContainer.addChild(this.carLayer.dotContainer);
     this.worldContainer.addChild(this.carLayer.labelContainer);
 
-    // GUID: PIXI_TRACK_APP-009-v01
-    // [Intent] Subtle bloom — threshold raised so only bright elements (car dots) glow.
-    //          Scale and blur reduced to avoid amplifying trail noise. Cars glow softly,
-    //          trails get a faint halo, track outline does NOT glow.
+    // GUID: PIXI_TRACK_APP-009-v02
+    // [Intent] Create the bloom filter but don't apply it yet — bloom is opt-in via the
+    //          GUI toggle. When enabled, car dots move into bloomContainer for a glow effect.
+    //          When disabled (default), dots render outside bloom for GPU reliability.
     try {
-      this.bloomContainer.filters = [new AdvancedBloomFilter({
+      this.bloomFilter = new AdvancedBloomFilter({
         threshold: 0.5,
         bloomScale: 0.4,
         brightness: 1.1,
         blur: 2,
         quality: 4,
-      })];
+      });
     } catch {
-      // Bloom filter not available — continue without. This can happen on low-end
-      // GPUs or if the pixi-filters package has a version mismatch.
-      console.warn('[PixiTrackApp] AdvancedBloomFilter failed to init — running without bloom');
+      console.warn('[PixiTrackApp] AdvancedBloomFilter failed to init — bloom toggle will be disabled');
+      this.bloomFilter = null;
     }
 
     this.ready = true;
@@ -210,6 +213,7 @@ export class PixiTrackApp {
     focusPosition?: number;
     virtualTimeDeltaMs?: number;
     sessionKey?: string | null;
+    bloomEnabled?: boolean;
   }): void {
     // GUID: PIXI_TRACK_APP-016-v01
     // [Intent] Detect session change and flush all interpolation/trail/direction state.
@@ -243,6 +247,29 @@ export class PixiTrackApp {
     // Trail settings (optional — preserve existing if not provided)
     if (opts.trailEnabled !== undefined) this.trailEnabled = opts.trailEnabled;
     if (opts.trailTtlMs !== undefined) this.trailTtlMs = opts.trailTtlMs;
+
+    // GUID: PIXI_TRACK_APP-017-v01
+    // [Intent] Bloom toggle — move car dots into/out of bloomContainer at runtime.
+    //          When bloom is ON: dots inside bloomContainer get a glow halo.
+    //          When bloom is OFF (default): dots in worldContainer, reliable on all GPUs.
+    //          Bloom filter is only applied to bloomContainer when enabled.
+    if (opts.bloomEnabled !== undefined && opts.bloomEnabled !== this.bloomEnabled) {
+      this.bloomEnabled = opts.bloomEnabled;
+      if (this.ready && this.bloomFilter) {
+        if (opts.bloomEnabled) {
+          // Move dots into bloom container (before labels)
+          this.worldContainer.removeChild(this.carLayer.dotContainer);
+          this.bloomContainer.addChild(this.carLayer.dotContainer);
+          this.bloomContainer.filters = [this.bloomFilter];
+        } else {
+          // Move dots out of bloom container (back to world, before labels)
+          this.bloomContainer.removeChild(this.carLayer.dotContainer);
+          const labelIdx = this.worldContainer.getChildIndex(this.carLayer.labelContainer);
+          this.worldContainer.addChildAt(this.carLayer.dotContainer, labelIdx);
+          this.bloomContainer.filters = [];
+        }
+      }
+    }
 
     // Zoom settings (optional — preserve existing if not provided)
     // Force track rebuild when zoom changes so stroke width scales inversely

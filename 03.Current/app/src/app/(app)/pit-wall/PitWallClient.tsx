@@ -564,6 +564,11 @@ export default function PitWallClient() {
   //          Options: 250, 500, 750, 1000, 1500ms.
   const [trailEnabled, setTrailEnabled] = useState(true);
   const [trailTtlMs, setTrailTtlMs] = useState(750);
+  // GUID: PIT_WALL_CLIENT-055-v01
+  // [Intent] Bloom toggle — opt-in glow effect on car dots and trails.
+  //          Off by default for GPU reliability. When on, car dots move into the
+  //          AdvancedBloomFilter container for a subtle halo glow.
+  const [bloomEnabled, setBloomEnabled] = useState(false);
 
   // GUID: PIT_WALL_CLIENT-035-v01
   // [Intent] 3-tier zoom state machine for the track map.
@@ -714,6 +719,7 @@ export default function PitWallClient() {
             followDriver={zoomLevel === 2 ? null : followDriver}
             trailEnabled={trailEnabled}
             trailTtlMs={trailTtlMs}
+            bloomEnabled={bloomEnabled}
             zoomLevel={zoomLevel}
             focusPosition={focusPosition}
             virtualTimeDeltaMs={virtualTimeDeltaMs}
@@ -839,8 +845,9 @@ export default function PitWallClient() {
           />
         )}
 
-        {/* GUID: PIT_WALL_CLIENT-034-v01 */}
-        {/* [Intent] Trail controls — toggle on/off and TTL selector. Minimal inline UI. */}
+        {/* GUID: PIT_WALL_CLIENT-034-v02 */}
+        {/* [Intent] Trail + bloom controls — toggles and TTL selector. Minimal inline UI. */}
+        {/*          v02: Added bloom toggle (off by default, opt-in glow). */}
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setTrailEnabled(prev => !prev)}
@@ -852,6 +859,17 @@ export default function PitWallClient() {
             )}
           >
             Trails
+          </button>
+          <button
+            onClick={() => setBloomEnabled(prev => !prev)}
+            className={cn(
+              'text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider transition-colors',
+              bloomEnabled
+                ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30'
+                : 'bg-slate-800 text-slate-600 border border-slate-700',
+            )}
+          >
+            Bloom
           </button>
           {trailEnabled && (
             <select
