@@ -355,16 +355,15 @@ export class PixiTrackApp {
       this.drivers, now, this.updateIntervalMs, this.polyline,
     );
 
-    // DIAG: log interpolation output every 3s — all values as one string for Puppeteer
+    // DIAG: log interpolation output every 3s — sample a MOVING driver (not frozen NOR #1)
     if (now % 3000 < 17 && this.drivers.length > 0) {
       const gps = this.drivers.filter(d => d.x != null && d.y != null).length;
-      const s = interpolated[0];
-      const worldVis = this.worldContainer.visible;
-      const dotVis = this.carLayer.dotContainer.visible;
+      // Sample driver 44 (HAM) who has real GPS movement, not driver 1 (NOR) who is frozen
+      const s = interpolated.find(d => d.driverNumber === 44) ?? interpolated.find(d => d.driverNumber === 12) ?? interpolated[0];
       console.warn(
         `[PW-TICK] drv=${this.drivers.length} gps=${gps} interp=${interpolated.length} ` +
         `bnd=${this.bounds ? Math.round(this.bounds.minX) + '..' + Math.round(this.bounds.maxX) : 'null'} ` +
-        `${w}x${h} worldVis=${worldVis} dotVis=${dotVis} ` +
+        `${w}x${h} ` +
         `sample=${s ? 'dn' + s.driverNumber + ' x=' + Math.round(s.x) + ' y=' + Math.round(s.y) : 'none'}`
       );
     }
