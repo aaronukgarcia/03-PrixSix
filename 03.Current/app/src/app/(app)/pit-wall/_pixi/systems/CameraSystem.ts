@@ -17,9 +17,9 @@ import { Container } from 'pixi.js';
 //          v03: Added OVERVIEW_ZOOM — Zoom 1 now applies 1.8x centred zoom instead of 1x.
 const OVERVIEW_ZOOM = 1.8;
 const FOLLOW_ZOOM = 3.0;
-const HYPER_ZOOM = 5.0;
+const HYPER_ZOOM = 4.0;
 const LERP_SPEED = 0.08;
-const HYPER_LERP_SPEED = 0.18;
+const HYPER_LERP_SPEED = 0.35;
 const SNAP_THRESHOLD = 0.5;
 
 export class CameraSystem {
@@ -44,6 +44,8 @@ export class CameraSystem {
     canvasH: number,
     zoomLevel: 0 | 1 | 2 = 0,
   ): void {
+    const prevZoom = this.targetZoom;
+
     if (followedPos && isFinite(followedPos.px) && isFinite(followedPos.py)) {
       this.targetX = followedPos.px;
       this.targetY = followedPos.py;
@@ -52,6 +54,15 @@ export class CameraSystem {
       this.targetX = canvasW / 2;
       this.targetY = canvasH / 2;
       this.targetZoom = zoomLevel >= 1 ? OVERVIEW_ZOOM : 1;
+    }
+
+    // Snap immediately when entering Zoom 2 — no lerp lag on initial focus
+    const justEnteredZoom2 = zoomLevel === 2 && prevZoom !== HYPER_ZOOM;
+    if (justEnteredZoom2) {
+      this.currentX = this.targetX;
+      this.currentY = this.targetY;
+      this.currentZoom = this.targetZoom;
+      return;
     }
 
     // Lerp current toward target — faster at Zoom 2 so camera keeps up with focus car
