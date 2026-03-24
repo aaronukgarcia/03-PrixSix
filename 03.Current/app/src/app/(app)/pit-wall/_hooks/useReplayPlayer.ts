@@ -553,6 +553,7 @@ export function useReplayPlayer(
     isPlayingRef.current       = true;
     updatePlaybackState('playing');
     rafHandleRef.current       = requestAnimationFrame(tick);
+    console.warn(`[REPLAY] startRafFrom(${virtualMs}) rafHandle=${rafHandleRef.current} isPlaying=${isPlayingRef.current}`);
   }, [cancelRaf, tick, updatePlaybackState]);
 
   // ---------------------------------------------------------------------------
@@ -658,6 +659,7 @@ export function useReplayPlayer(
     updatePlaybackState('loading');
 
     const onDataReady = (data: HistoricalReplayData) => {
+      console.warn(`[REPLAY] onDataReady cancelled=${cancelled} frames=${data.frames.length}`);
       if (cancelled) return;
       replayDataRef.current = data;
       setDurationMs(data.durationMs);
@@ -728,6 +730,7 @@ export function useReplayPlayer(
       .catch(onStreamError);
 
     return () => {
+      console.warn(`[REPLAY] cleanup — cancelling. rafHandle=${rafHandleRef.current} isPlaying=${isPlayingRef.current}`);
       cancelled = true;
       cancelRaf();
     };
