@@ -511,12 +511,18 @@ export default function PitWallClient() {
     });
   }, [activeDrivers, circuitKey]);
 
-  // Track bounds — use accumulated circuit path when available (stable full-circuit extent);
-  // fall back to current driver positions only for the very first few polls before path builds up.
-  const trackBounds = useMemo(
-    () => computeTrackBounds(circuitPath.length >= 10 ? circuitPath : activeDrivers),
-    [circuitPath, activeDrivers],
-  );
+  // GUID: PIT_WALL_CLIENT-054-v01
+  // [Intent] Track bounds — merge circuit path AND active driver positions so bounds
+  //          encompass both the track outline and the actual car GPS coordinates.
+  //          Static circuits.json may use coordinates from a different OpenF1 session
+  //          than the replay data — without merging, cars project off-screen.
+  const trackBounds = useMemo(() => {
+    const points: { x: number | null; y: number | null }[] = [];
+    if (circuitPath.length >= 10) points.push(...circuitPath);
+    if (activeDrivers.length > 0) points.push(...activeDrivers);
+    if (points.length < 2) return null;
+    return computeTrackBounds(points);
+  }, [circuitPath, activeDrivers]);
 
   // Table sort state
   const [sortKey, setSortKey] = useState<string | null>(null);
