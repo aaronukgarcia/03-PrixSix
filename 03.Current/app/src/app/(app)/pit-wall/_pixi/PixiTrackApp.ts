@@ -447,7 +447,7 @@ export class PixiTrackApp {
 
       // 5. Update trail layer rendering (projects GPS->canvas at draw time)
       this.trailLayer.update(
-        this.trailSystem, now, this.bounds, w, h, this.trailTtlMs, this.trailEnabled,
+        this.trailSystem, now, this.bounds, w, h, this.trailTtlMs, this.trailEnabled, this.zoomLevel,
       );
 
       // GUID: PIXI_TRACK_APP-014-v02

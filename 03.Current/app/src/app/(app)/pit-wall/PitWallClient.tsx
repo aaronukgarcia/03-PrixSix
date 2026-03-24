@@ -32,6 +32,8 @@ import type { TrackBounds, DriverRaceState, CircuitPoint } from './_types/pit-wa
 import type { ReplayDriverState } from './_types/showreel.types';
 import type { ReplaySessionMetadata } from './_types/replay.types';
 import { PitWallTrackMap } from './_components/PitWallTrackMap';
+import { ZoomRaceOrder } from './_components/ZoomRaceOrder';
+import { FpsCounter } from './_components/FpsCounter';
 import { LiveScoreBanner } from './_components/LiveScoreBanner';
 import { FIARaceControlFeed } from './_components/FIARaceControlFeed';
 import { PitWallRaceTable } from './_components/PitWallRaceTable';
@@ -738,37 +740,25 @@ export default function PitWallClient() {
           {/*          Replay controls overlay bottom when in replay mode. */}
           {zoomLevel >= 1 && (
             <>
-              {/* Zoom cycle button — top right */}
-              <button
-                onClick={handleZoomCycle}
-                className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-slate-900/80 backdrop-blur border border-slate-700/50 text-[9px] font-semibold uppercase tracking-wider text-cyan-400 hover:bg-slate-800/80 transition-colors"
-              >
-                <ZoomIn className="w-3 h-3" />
-                {zoomLevel === 1 ? 'Zoom 2' : 'Exit'}
-              </button>
+              {/* Top-right controls: FPS + zoom cycle */}
+              <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                <FpsCounter />
+                <button
+                  onClick={handleZoomCycle}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-slate-900/80 backdrop-blur border border-slate-700/50 text-[9px] font-semibold uppercase tracking-wider text-cyan-400 hover:bg-slate-800/80 transition-colors"
+                >
+                  <ZoomIn className="w-3 h-3" />
+                  {zoomLevel === 1 ? 'Zoom 2' : 'Exit'}
+                </button>
+              </div>
 
-              {/* Focus position selector — bottom centre (zoom 2 only) */}
+              {/* Race order panel — left side (zoom 2 only) */}
               {zoomLevel === 2 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur border border-slate-700/50">
-                  <button
-                    onClick={handleFocusUp}
-                    className="text-slate-400 hover:text-white transition-colors"
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs font-bold text-cyan-400 tabular-nums min-w-[60px] text-center">
-                    P{focusPosition}{' '}
-                    <span className="text-[10px] font-normal text-slate-400">
-                      {activeDrivers.find(d => d.position === focusPosition)?.driverCode ?? '---'}
-                    </span>
-                  </span>
-                  <button
-                    onClick={handleFocusDown}
-                    className="text-slate-400 hover:text-white transition-colors"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                </div>
+                <ZoomRaceOrder
+                  drivers={activeDrivers}
+                  focusPosition={focusPosition}
+                  onSelectPosition={setFocusPosition}
+                />
               )}
 
               {/* Replay controls overlay — bottom of fullscreen map */}

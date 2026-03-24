@@ -226,9 +226,9 @@ export class CarLayer {
       const isFollowed = followDriver === driver.driverNumber;
       const isHovered = this.hoveredSlot === i;
 
-      // Driver code label — at Zoom 2, show all; otherwise follow/hover only
+      // Driver code label — at Zoom 2, show position + code; otherwise code only
       sprite.label.visible = isZoom2 || isFollowed || isHovered;
-      sprite.label.text = driver.driverCode;
+      sprite.label.text = isZoom2 ? `P${driver.position} ${driver.driverCode}` : driver.driverCode;
       sprite.label.position.set(px + DOT_RADIUS + 3, py);
       sprite.label.alpha = driver.retired ? 0.25 : (isFocusCar ? 1 : 0.8);
 

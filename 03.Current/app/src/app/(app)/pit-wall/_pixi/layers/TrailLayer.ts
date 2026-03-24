@@ -34,6 +34,7 @@ export class TrailLayer {
     h: number,
     trailTtlMs: number,
     trailEnabled: boolean,
+    zoomLevel: 0 | 1 | 2 = 0,
   ): void {
     if (!trailEnabled) {
       for (const [, g] of this.trailGraphics) g.clear();
@@ -76,8 +77,10 @@ export class TrailLayer {
         // Progress 0 (oldest) to 1 (newest)
         const progress = count > 2 ? i / (count - 2) : 1;
 
-        // Fine taper: hair-thin at tail, slightly thicker at head
-        const lineWidth = TIP_LINE_WIDTH + (BASE_LINE_WIDTH - TIP_LINE_WIDTH) * progress;
+        // Fine taper: hair-thin at tail, slightly thicker at head.
+        // Scale inversely with zoom — at Zoom 2 (4x camera), lines would be 4x wider visually.
+        const zoomScale = zoomLevel === 2 ? 0.25 : zoomLevel === 1 ? 0.6 : 1;
+        const lineWidth = (TIP_LINE_WIDTH + (BASE_LINE_WIDTH - TIP_LINE_WIDTH) * progress) * zoomScale;
 
         // Velocity-scaled alpha — trails stretch at high speed, compress in slow corners.
         // speedScale: 0.3 (stopped/slow) to 2.5 (350+ km/h flat out).
