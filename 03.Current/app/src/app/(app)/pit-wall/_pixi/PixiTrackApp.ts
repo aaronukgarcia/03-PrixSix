@@ -346,6 +346,21 @@ export class PixiTrackApp {
       this.drivers, now, this.updateIntervalMs, this.polyline,
     );
 
+    // TEMPORARY DIAG — remove after fix confirmed
+    if (now % 3000 < 17) {
+      const withGps = this.drivers.filter(d => d.x != null && d.y != null).length;
+      const sample = this.drivers[0];
+      console.log('[PW-DIAG]', {
+        drivers: this.drivers.length,
+        withGps,
+        interpolated: interpolated.length,
+        bounds: this.bounds ? `${this.bounds.minX}..${this.bounds.maxX}` : 'null',
+        canvas: `${w}x${h}`,
+        sampleXY: sample ? [sample.x, sample.y] : null,
+        interpXY: interpolated[0] ? [interpolated[0].x, interpolated[0].y] : null,
+      });
+    }
+
     if (interpolated.length > 0 && this.bounds) {
       // Build a quick lookup map for telemetry data from the original drivers array.
       // InterpolatedPosition doesn't carry speed/throttle/brake, so we fetch them
