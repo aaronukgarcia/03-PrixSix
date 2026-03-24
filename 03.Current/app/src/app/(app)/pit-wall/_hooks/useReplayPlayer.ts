@@ -488,6 +488,7 @@ export function useReplayPlayer(
   // ---------------------------------------------------------------------------
   const cancelRaf = useCallback(() => {
     if (rafHandleRef.current !== null) {
+      console.warn(`[REPLAY] cancelRaf — killing handle ${rafHandleRef.current}`, new Error().stack?.split('\n').slice(1,4).join(' | '));
       cancelAnimationFrame(rafHandleRef.current);
       clearTimeout(rafHandleRef.current);
       rafHandleRef.current = null;
