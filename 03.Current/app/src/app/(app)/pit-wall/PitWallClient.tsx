@@ -405,6 +405,13 @@ export default function PitWallClient() {
     return firebaseUser.getIdToken();
   }, [firebaseUser]);
 
+  // DIAG: detect getAuthToken instability
+  const prevAuthTokenRef = useRef(getReplayAuthToken);
+  if (prevAuthTokenRef.current !== getReplayAuthToken) {
+    console.warn('[PW-AUTH] getReplayAuthToken reference changed — firebaseUser changed');
+    prevAuthTokenRef.current = getReplayAuthToken;
+  }
+
   const replayPlayer = useReplayPlayer(
     isReplayMode ? selectedReplaySession : null,
     firebaseUser ? getReplayAuthToken : undefined,
