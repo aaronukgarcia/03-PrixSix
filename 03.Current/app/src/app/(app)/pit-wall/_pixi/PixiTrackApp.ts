@@ -230,11 +230,14 @@ export class PixiTrackApp {
 
     // If drivers changed, notify interpolation system
     if (opts.drivers !== this.drivers) {
+      // GUID: PIXI_TRACK_APP-018-v01
+      // [Intent] When drivers transition from empty→populated (first replay data arrives),
+      //          reset the interpolation system. Without this, the second setData call sees
+      //          prev positions from the first call (grid positions at frame 0) and rejects
+      //          the actual race positions as impossible-travel spikes because the
+      //          virtualTimeDeltaMs is tiny (~1ms) on early renders.
       if (this.drivers.length === 0 && opts.drivers.length > 0) {
-        console.warn('[PixiTrackApp] first drivers received:', opts.drivers.length,
-          'gps:', opts.drivers.filter(d => d.x != null).length,
-          'bounds:', opts.bounds ? 'yes' : 'null',
-          'vtdMs:', opts.virtualTimeDeltaMs);
+        this.interpolation.reset();
       }
       this.interpolation.onDriversUpdate(opts.drivers, opts.virtualTimeDeltaMs);
     }
