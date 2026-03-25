@@ -27,6 +27,15 @@ export interface CacheEntry<T> {
 let liveDataCache: CacheEntry<PitWallLiveDataResponse> | null = null;
 let detailCache: CacheEntry<PitWallDetailResponse> | null = null;
 
+// GUID: LIB_PITWALL_CACHE-010-v01
+// [Intent] Pre-stringified JSON caches — avoid 200× JSON.stringify() on coalesced responses.
+//          When getOrFetchCoreData resolves for N concurrent requests, each would call
+//          NextResponse.json() which re-stringifies the same object. By caching the JSON
+//          string at write time, coalesced/cached responses return a raw Response with
+//          zero stringify cost. Cleared alongside the data caches.
+let liveDataJsonCache: string | null = null;
+let detailJsonCache: string | null = null;
+
 // GUID: LIB_PITWALL_CACHE-002-v01
 // [Intent] OpenF1 token cache — stored here so health endpoint can report token status.
 let cachedToken: { token: string; expiresAt: number } | null = null;
@@ -87,14 +96,27 @@ export function getCachedToken(): { token: string; expiresAt: number } | null {
   return cachedToken;
 }
 
+// GUID: LIB_PITWALL_CACHE-011-v01
+// [Intent] Return pre-stringified JSON for zero-cost coalesced/cached responses.
+//          Callers construct a raw Response(jsonStr) instead of NextResponse.json().
+export function getLiveDataJsonCache(): string | null {
+  return liveDataJsonCache;
+}
+
+export function getDetailJsonCache(): string | null {
+  return detailJsonCache;
+}
+
 // ---------- Setters ----------
 
 export function setLiveDataCache(entry: CacheEntry<PitWallLiveDataResponse> | null): void {
   liveDataCache = entry;
+  liveDataJsonCache = entry ? JSON.stringify(entry.data) : null;
 }
 
 export function setDetailCache(entry: CacheEntry<PitWallDetailResponse> | null): void {
   detailCache = entry;
+  detailJsonCache = entry ? JSON.stringify(entry.data) : null;
 }
 
 export function setCachedToken(entry: { token: string; expiresAt: number } | null): void {
@@ -225,6 +247,8 @@ export function purgeAllCaches(): { purgedLiveData: boolean; purgedDetail: boole
   liveDataCache = null;
   detailCache = null;
   cachedToken = null;
+  liveDataJsonCache = null;
+  detailJsonCache = null;
   inFlightCorePromise = null;
   inFlightDetailPromise = null;
   return { purgedLiveData, purgedDetail, purgedToken };

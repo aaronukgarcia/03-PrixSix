@@ -1,8 +1,10 @@
-// GUID: PIT_WALL_RACE_TABLE-000-v03
+// GUID: PIT_WALL_RACE_TABLE-000-v04
 // [Intent] Div-grid race data table with CSS position-change flashes.
 //          F1 broadcast style — rows snap instantly, green/red flash on position change.
 //          v03: Replaced Framer Motion spring animations with CSS keyframe flashes.
 //               Removed React.memo — 20 plain div rows are trivial to reconcile.
+//          v04: FEAT-PW-009 — fixed sector colour mapping to F1 convention
+//               (session_best = purple, personal_best = green). Pulse duration 0.8s.
 // [Inbound Trigger] Rendered by PitWallClient as the primary race data view.
 // [Downstream Impact] Reads DriverRaceState[] and RadioMessage[]; writes nothing.
 //                     onRadioClick bubbles up to open RadioZoomPanel.
@@ -44,12 +46,14 @@ function formatSectorTime(seconds: number | null): string {
   return `${s}.${ms.toString().padStart(3, '0')}`;
 }
 
-// GUID: PIT_WALL_RACE_TABLE-003-v02
+// GUID: PIT_WALL_RACE_TABLE-003-v03
 // [Intent] Derive Tailwind text colour + glow animation class from SectorStatus.
+//          v03: Fixed colour mapping to match F1 convention — session best = purple,
+//               personal best = green (was swapped in v02).
 function sectorColour(status: SectorStatus): string {
   switch (status) {
-    case 'session_best':  return 'text-green-400 animate-sector-green-glow';
-    case 'personal_best': return 'text-purple-400 animate-sector-purple-glow';
+    case 'session_best':  return 'text-purple-400 animate-sector-purple-glow';
+    case 'personal_best': return 'text-green-400 animate-sector-green-glow';
     case 'normal':        return 'text-slate-300';
     default:              return 'text-slate-500';
   }

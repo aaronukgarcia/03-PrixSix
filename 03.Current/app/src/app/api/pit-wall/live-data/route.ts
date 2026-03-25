@@ -16,6 +16,7 @@ import {
   setDetailCache,
   getCachedToken, setCachedToken,
   getOrFetchCoreData, getOrFetchDetailData,
+  getLiveDataJsonCache, getDetailJsonCache,
   trackRequest, untrackRequest,
   type CacheSource,
 } from '@/lib/pit-wall-cache';
@@ -158,13 +159,17 @@ function formatLapTime(seconds: number | null | undefined): number | null {
   return seconds;
 }
 
-// GUID: API_PIT_WALL_LIVE_DATA-009-v01
-// [Intent] Get latest entry per driver from an array ordered by date desc.
+// GUID: API_PIT_WALL_LIVE_DATA-009-v02
+// [Intent] Get latest entry per driver via single-pass O(N) scan — no sort, no array copy.
+//          v02: Replaced O(N log N) [...arr].sort() with O(N) scan. At lap 30, /location
+//          returns ~189K objects — the sort blocked the event loop for 500ms-2s.
 function latestPerDriver<T extends { driver_number: number; date?: string }>(arr: T[]): Map<number, T> {
   const map = new Map<number, T>();
-  const sorted = [...arr].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-  for (const item of sorted) {
-    if (!map.has(item.driver_number)) map.set(item.driver_number, item);
+  for (const item of arr) {
+    const existing = map.get(item.driver_number);
+    if (!existing || (item.date ?? '') > (existing.date ?? '')) {
+      map.set(item.driver_number, item);
+    }
   }
   return map;
 }
@@ -182,7 +187,23 @@ async function handleDetailRequest(
   correlationId: string,
 ): Promise<NextResponse> {
   const { data, source } = await getOrFetchDetailData(() => fetchDetailFromOpenF1(token));
-  const res = NextResponse.json({ ...data, cacheHit: source === 'cache', coalesced: source === 'coalesced' });
+
+  // GUID: API_PIT_WALL_LIVE_DATA-024-v01
+  // [Intent] Use pre-stringified JSON for cache/coalesced responses to avoid N×JSON.stringify().
+  //          slice(0, -1) removes the closing "}" so we can append cache metadata fields
+  //          before re-closing. This avoids parsing and re-stringifying the entire payload.
+  if (source === 'cache' || source === 'coalesced') {
+    const jsonStr = getDetailJsonCache();
+    if (jsonStr) {
+      const augmented = jsonStr.slice(0, -1) + `,"cacheHit":${source === 'cache'},"coalesced":${source === 'coalesced'}}`;
+      return new NextResponse(augmented, {
+        headers: { 'Content-Type': 'application/json', 'X-PW-Cache': source },
+      });
+    }
+  }
+
+  // Fallback: fresh fetch — use NextResponse.json as before
+  const res = NextResponse.json({ ...data, cacheHit: false, coalesced: false });
   res.headers.set('X-PW-Cache', source);
   return res;
 }
@@ -192,9 +213,16 @@ async function handleDetailRequest(
 //          Fetches laps, car_data, team_radio + session/driver metadata,
 //          builds PitWallDetailResponse, and populates the detail cache.
 async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetailResponse> {
+  // GUID: API_PIT_WALL_LIVE_DATA-025-v01
+  // [Intent] 30-second time window for /laps and /car_data (same rationale as core tier).
+  //          /car_data is the heaviest endpoint in the detail tier — ~4500 records/s across 20 drivers.
+  //          /team_radio is left unbounded (small, needed in full for message history display).
+  const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
+  const detailDateSuffix = `&date>${encodeURIComponent(thirtySecondsAgo)}`;
+
   const [lapsRaw, carDataRaw, teamRadioRaw, sessionsRaw, driversRaw] = await Promise.all([
-    openF1Fetch<any[]>('/laps?session_key=latest', token),
-    openF1Fetch<any[]>('/car_data?session_key=latest', token),
+    openF1Fetch<any[]>('/laps?session_key=latest', token),  // unbounded — cumulative stats (best lap, sectors, lap count) need full history; ~1400 records max (20 drivers × 70 laps)
+    openF1Fetch<any[]>(`/car_data?session_key=latest${detailDateSuffix}`, token),
     openF1Fetch<any[]>('/team_radio?session_key=latest', token),
     // Need session + driver info for radio messages and sessionKey for cache invalidation
     openF1Fetch<any[]>('/sessions?session_key=latest', token),
@@ -369,12 +397,29 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     //          3. Cache miss → start a new fetch, store promise for others to share
     //          v02: Replaced raw cache check with getOrFetchCoreData.
     const { data, source } = await getOrFetchCoreData(() => fetchCoreFromOpenF1(token));
-    const cacheAgeMs = source === 'cache' ? Date.now() - data.fetchedAt : 0;
+
+    // GUID: API_PIT_WALL_LIVE_DATA-025-v01
+    // [Intent] Use pre-stringified JSON for cache/coalesced responses to avoid N×JSON.stringify().
+    //          When 200 coalesced requests resolve simultaneously, each would call
+    //          NextResponse.json() which runs JSON.stringify() on the same large object.
+    //          Pre-stringified cache eliminates this CPU spike entirely.
+    if (source === 'cache' || source === 'coalesced') {
+      const jsonStr = getLiveDataJsonCache();
+      if (jsonStr) {
+        const cacheAgeMs = Date.now() - data.fetchedAt;
+        const augmented = jsonStr.slice(0, -1) + `,"cacheHit":${source === 'cache'},"coalesced":${source === 'coalesced'},"cacheAgeMs":${cacheAgeMs}}`;
+        return new NextResponse(augmented, {
+          headers: { 'Content-Type': 'application/json', 'X-PW-Cache': source },
+        });
+      }
+    }
+
+    // Fallback: fresh fetch — use NextResponse.json as before
     const res = NextResponse.json({
       ...data,
-      cacheHit: source === 'cache',
-      coalesced: source === 'coalesced',
-      cacheAgeMs,
+      cacheHit: false,
+      coalesced: false,
+      cacheAgeMs: 0,
     });
     res.headers.set('X-PW-Cache', source);
     return res;
@@ -389,6 +434,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 //          and populates the live data cache. Called only by getOrFetchCoreData
 //          when both the cache and in-flight promise are empty.
 async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDataResponse> {
+  // GUID: API_PIT_WALL_LIVE_DATA-024-v01
+  // [Intent] 30-second time window for high-volume endpoints (/location, /position, /intervals).
+  //          Without this, /location returns the ENTIRE session history (~189K objects / ~30MB by lap 30).
+  //          A 30s window caps data at ~2100 records (30s × 70 samples/s) — a ~90× reduction.
+  //          Small endpoints (sessions, drivers, stints, weather, race_control) are left unbounded
+  //          as they don't grow significantly during a session.
+  const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
+  const dateSuffix = `&date>${encodeURIComponent(thirtySecondsAgo)}`;
+
   // Core tier: 8 fast endpoints — no laps/car_data/team_radio
   const [
     sessionsRaw, driversRaw, raceOrderRaw, locationsRaw, intervalsRaw,
@@ -396,9 +450,9 @@ async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDat
   ] = await Promise.all([
     openF1Fetch<any[]>('/sessions?session_key=latest', token),
     openF1Fetch<any[]>('/drivers?session_key=latest', token),
-    openF1Fetch<any[]>('/position?session_key=latest', token),   // race order (1st/2nd/…)
-    openF1Fetch<any[]>('/location?session_key=latest', token),   // GPS x/y/z for track map
-    openF1Fetch<any[]>('/intervals?session_key=latest', token),
+    openF1Fetch<any[]>(`/position?session_key=latest${dateSuffix}`, token),   // race order (1st/2nd/…)
+    openF1Fetch<any[]>(`/location?session_key=latest${dateSuffix}`, token),   // GPS x/y/z for track map
+    openF1Fetch<any[]>(`/intervals?session_key=latest${dateSuffix}`, token),
     openF1Fetch<any[]>('/stints?session_key=latest', token),
     openF1Fetch<any[]>('/weather?session_key=latest', token),
     openF1Fetch<any[]>('/race_control?session_key=latest', token),

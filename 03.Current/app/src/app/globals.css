@@ -232,9 +232,9 @@ body {
 }
 
 .animate-sector-green-glow {
-  animation: sector-green-glow 1.5s ease-out;
+  animation: sector-green-glow 0.8s ease-out;
 }
 
 .animate-sector-purple-glow {
-  animation: sector-purple-glow 1.5s ease-out;
+  animation: sector-purple-glow 0.8s ease-out;
 }

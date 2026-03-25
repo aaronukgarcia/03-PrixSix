@@ -1,4 +1,4 @@
-// GUID: REPLAY_CONTROLS-000-v03
+// GUID: REPLAY_CONTROLS-000-v04
 // [Intent] Classic media player transport controls for the GPS Replay player.
 //          Provides ⏮⏪⏸/▶⏩⏭ buttons, a scrub bar, elapsed/total time display,
 //          and a discrete speed selector (0.5× 1× 2× 4× 8×).
@@ -7,6 +7,7 @@
 //               fetch + GPS data download), initialising phase display.
 //          v03: FEAT-PW-004 — session dropdown shows all prior races (including not-yet-ingested
 //               sessions as disabled options). Wider max-w for longer labels.
+//          v04: FEAT-PW-019 — show download % and frame count in GPS loading message.
 // [Inbound Trigger] Rendered by PitWallClient when isReplayMode === true.
 // [Downstream Impact] Controls flow into useReplayPlayer — no direct data access.
 
@@ -58,6 +59,7 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
     elapsedMs, durationMs, speed,
     play, pause, seek, setSpeed,
     skipToStart, skipToEnd, stepBack, stepForward,
+    framesLoaded,
   } = player;
 
   const isPlaying  = playbackState === 'playing';
@@ -98,7 +100,7 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
     const label = playbackState === 'ready'
       ? 'Initialising replay…'
       : pct < 100
-        ? 'Loading GPS data…'
+        ? `Loading GPS data… ${pct}%${framesLoaded > 0 ? ` (${framesLoaded.toLocaleString()} frames)` : ''}`
         : 'Processing…';
 
     return (

@@ -1,9 +1,12 @@
-// GUID: PIT_WALL_DATA_HOOK-000-v02
+// GUID: PIT_WALL_DATA_HOOK-000-v03
 // [Intent] Master polling hook for all Pit Wall live data. Fetches from
 //          /api/pit-wall/live-data on a configurable interval and exposes
 //          the merged DriverRaceState[], race control messages, and weather.
 //          Internal state is managed via useReducer (single dispatch per fetch).
 //          JSON parsing is offloaded to a Web Worker where available.
+//          v03: BUG-PW-005 — replaced setInterval with recursive setTimeout
+//               so the next poll only schedules AFTER the current fetch completes,
+//               preventing request stacking when the backend is slow.
 // [Inbound Trigger] Called once by PitWallClient with the current settings.
 // [Downstream Impact] All live data in the Pit Wall flows from this hook.
 
@@ -211,7 +214,7 @@ export function usePitWallData(
 ): UsePitWallDataReturn {
   const [state, dispatch] = useReducer(pitWallDataReducer, initialState);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshCountRef = useRef(0);
 
   // Web Worker — created once, persists for the hook lifetime
@@ -300,31 +303,55 @@ export function usePitWallData(
     fetchData();
   }, [fetchData]);
 
-  // Reset and restart polling when interval or user changes
+  // Reset and restart polling when interval or user changes.
+  // BUG-PW-005: Recursive setTimeout — next poll schedules only after current fetch completes.
   useEffect(() => {
     if (!firebaseUser) return;
     // Only show loading spinner on first fetch (no drivers yet)
     if (state.drivers.length === 0) {
       dispatch({ type: 'SET_LOADING' });
     }
+    // Immediate first fetch on mount / dependency change
     fetchData();
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(fetchData, updateIntervalSeconds * 1000);
+    const scheduleNext = () => {
+      intervalRef.current = setTimeout(async () => {
+        try {
+          await fetchData();
+        } finally {
+          if (intervalRef.current !== null) {
+            scheduleNext();
+          }
+        }
+      }, updateIntervalSeconds * 1000);
+    };
+    scheduleNext();
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) clearTimeout(intervalRef.current);
+      intervalRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateIntervalSeconds, firebaseUser, fetchData]);
 
-  // Pause polling when tab is hidden
+  // Pause polling when tab is hidden; resume with recursive setTimeout on return
   useEffect(() => {
+    const scheduleNext = () => {
+      intervalRef.current = setTimeout(async () => {
+        try {
+          await fetchData();
+        } finally {
+          if (intervalRef.current !== null) {
+            scheduleNext();
+          }
+        }
+      }, updateIntervalSeconds * 1000);
+    };
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (intervalRef.current) clearTimeout(intervalRef.current);
+        intervalRef.current = null;
       } else {
         fetchData();
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        intervalRef.current = setInterval(fetchData, updateIntervalSeconds * 1000);
+        scheduleNext();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
