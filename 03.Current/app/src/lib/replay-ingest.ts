@@ -17,7 +17,10 @@ import type { ReplayFrame } from '@/app/(app)/pit-wall/_types/showreel.types';
 const OPENF1_BASE = 'https://api.openf1.org/v1';
 const FETCH_TIMEOUT_MS = 90_000;
 const CHUNK_MINUTES = 10;
-const FRAMES_PER_CHUNK = 800;
+// Full-fidelity frames are ~6.8KB each (with all telemetry fields).
+// Firestore doc limit is 1MB. 800 frames = 5.4MB → exceeds limit.
+// 100 frames × 6.8KB = ~680KB — safely under 1MB.
+const FRAMES_PER_CHUNK = 100;
 const FRAME_GROUPING_MS = 250;
 const CAR_DATA_MATCH_WINDOW_MS = 500;
 const REPLAY_CACHE_VERSION = 2; // v1 = legacy showreel, v2 = full-fidelity with telemetry
