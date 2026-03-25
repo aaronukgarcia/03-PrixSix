@@ -60,6 +60,22 @@ export class InterpolationSystem {
   // GUID: PIXI_INTERP_SYSTEM-005-v01
   readonly snappedThisFrame = new Set<number>();
 
+  // GUID: PIXI_INTERP_SYSTEM-013-v01
+  // [Intent] Multi-circuit sentinel detection + frozen driver hiding.
+  //          OpenF1 returns a fixed placeholder coordinate per circuit for drivers whose
+  //          GPS transponder is offline, retired, or never started. E.g. Shanghai = (-8325, -7058).
+  //          Detection: group all speed=0 drivers by exact (x,y). Any coordinate shared by
+  //          3+ zero-speed drivers is flagged as the sentinel. Once detected, it persists for
+  //          the session. Additionally, any driver whose position hasn't changed for 10+
+  //          consecutive updates AND has speed=0 is hidden (catches individual retirements
+  //          that don't land at the sentinel). Grid formation is safe because grid drivers
+  //          are at DIFFERENT positions even though they all have speed=0.
+  private sentinelPos: { x: number; y: number } | null = null;
+  private frozenCount = new Map<number, number>();  // driverNumber → consecutive frozen updates
+  private lastKnownPos = new Map<number, string>(); // driverNumber → "x,y" string for change detection
+  private static readonly SENTINEL_THRESHOLD = 3;   // min drivers at same coord to flag sentinel
+  private static readonly FROZEN_THRESHOLD = 10;     // consecutive frozen updates before hiding
+
   // GUID: PIXI_INTERP_SYSTEM-002-v04
   // [Intent] Called when new driver data arrives. Validates each position against the
   //          previous position using speed-based plausibility. Positions implying travel
@@ -156,6 +172,64 @@ export class InterpolationSystem {
           this.nextPositions.delete(dn); // Remove outlier — won't be rendered
         }
       }
+    }
+
+    // GUID: PIXI_INTERP_SYSTEM-014-v01
+    // [Intent] Sentinel detection — find the circuit's "null position" by grouping speed=0
+    //          drivers by exact (x,y). If 3+ drivers share the same coordinate with speed=0,
+    //          that's the sentinel. Once found, it never changes for this session.
+    //          Grid formation is safe: grid slots are at DIFFERENT coordinates.
+    if (!this.sentinelPos) {
+      const coordCounts = new Map<string, { x: number; y: number; count: number }>();
+      for (const d of drivers) {
+        if (d.x != null && d.y != null && (d.speed === 0 || d.speed == null)) {
+          const key = `${d.x},${d.y}`;
+          const entry = coordCounts.get(key);
+          if (entry) {
+            entry.count++;
+          } else {
+            coordCounts.set(key, { x: d.x, y: d.y, count: 1 });
+          }
+        }
+      }
+      for (const entry of coordCounts.values()) {
+        if (entry.count >= InterpolationSystem.SENTINEL_THRESHOLD) {
+          this.sentinelPos = { x: entry.x, y: entry.y };
+          break;
+        }
+      }
+    }
+
+    // Remove any driver sitting at the detected sentinel coordinate
+    if (this.sentinelPos) {
+      for (const [dn, pos] of this.nextPositions) {
+        if (pos.x === this.sentinelPos.x && pos.y === this.sentinelPos.y) {
+          this.nextPositions.delete(dn);
+        }
+      }
+    }
+
+    // GUID: PIXI_INTERP_SYSTEM-015-v01
+    // [Intent] Frozen driver detection — hide drivers whose position hasn't changed for
+    //          10+ consecutive updates AND have speed=0. Catches individual retirements
+    //          that don't land at the sentinel (e.g. car parked in gravel trap with unique coords).
+    for (const d of drivers) {
+      if (d.x == null || d.y == null) continue;
+      const posKey = `${d.x},${d.y}`;
+      const prevKey = this.lastKnownPos.get(d.driverNumber);
+      const isZeroSpeed = d.speed === 0 || d.speed == null;
+
+      if (prevKey === posKey && isZeroSpeed) {
+        const count = (this.frozenCount.get(d.driverNumber) ?? 0) + 1;
+        this.frozenCount.set(d.driverNumber, count);
+        if (count >= InterpolationSystem.FROZEN_THRESHOLD) {
+          this.nextPositions.delete(d.driverNumber);
+        }
+      } else {
+        // Position changed or has speed — reset frozen counter
+        this.frozenCount.set(d.driverNumber, 0);
+      }
+      this.lastKnownPos.set(d.driverNumber, posKey);
     }
 
     this.snapshotTimestamp = now;
@@ -259,5 +333,8 @@ export class InterpolationSystem {
     this.updateCount.clear();
     this.updatesSinceReset = 0;
     this.snapshotTimestamp = Date.now();
+    this.sentinelPos = null;
+    this.frozenCount.clear();
+    this.lastKnownPos.clear();
   }
 }
