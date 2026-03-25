@@ -70,33 +70,7 @@ interface TeamWithPrediction extends TeamBasic {
 
 const PAGE_SIZE = 25;
 
-// GUID: PAGE_TEAMS-003-v04
-// [Intent] Determines the next race after the most recent scored results, used to set the default race selection.
-// [Inbound Trigger] Called during initial useEffect to auto-select the next upcoming race for prediction viewing.
-// [Downstream Impact] Drives the default value of selectedRace state; if logic changes, the default race shown on page load changes.
-// Helper to find the next race after the most recent race that has results
-function findNextRaceAfterResults(raceResults: { raceId: string }[]): string | null {
-  if (!raceResults || raceResults.length === 0) return null;
-
-  // Get unique raceIds that have results
-  const racesWithResults = new Set(raceResults.map(r => r.raceId));
-
-  // Find the most recent race in the schedule that has results
-  // Go through schedule in reverse order (most recent first)
-  for (let i = RaceSchedule.length - 1; i >= 0; i--) {
-    const race = RaceSchedule[i];
-    const raceId = race.name.replace(/\s+/g, '-');
-    if (racesWithResults.has(raceId)) {
-      // Found the most recent race with results — return the NEXT race
-      if (i + 1 < RaceSchedule.length) {
-        return RaceSchedule[i + 1].name;
-      }
-      // Last race in schedule already has results — stay on it
-      return race.name;
-    }
-  }
-  return null;
-}
+// PAGE_TEAMS-003 removed — default race selection now uses findNextRace() directly
 
 // GUID: PAGE_TEAMS-004-v03
 // [Intent] Main page component that orchestrates team listing, race selection, on-demand prediction loading,
@@ -110,8 +84,8 @@ export default function TeamsPage() {
   const { startLoading, stopLoading } = useSmartLoader();
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
-  const [selectedRace, setSelectedRace] = useState<string | null>(null); // Will be set after loading results
-  const [defaultRaceLoaded, setDefaultRaceLoaded] = useState(false);
+  const [selectedRace, setSelectedRace] = useState<string>(nextRace.name);
+  const [defaultRaceLoaded, setDefaultRaceLoaded] = useState(true);
   const selectedRaceId = selectedRace?.replace(/\s+/g, '-') || '';
 
   // Pagination state
@@ -130,35 +104,7 @@ export default function TeamsPage() {
   // Cache for predictions by race
   const [predictionCache, setPredictionCache] = useState<Record<string, Record<string, (typeof F1Drivers[number] | null)[]>>>({});
 
-  // GUID: PAGE_TEAMS-005-v03
-  // [Intent] Fetches race_results on mount to determine which race to show by default (most recent with results).
-  // [Inbound Trigger] Runs once when firestore is available and defaultRaceLoaded is false.
-  // [Downstream Impact] Sets selectedRace and defaultRaceLoaded state, which gates the initial team fetch (PAGE_TEAMS-012).
-  useEffect(() => {
-    if (!firestore || defaultRaceLoaded) return;
-
-    const fetchDefaultRace = async () => {
-      try {
-        const resultsQuery = query(collection(firestore, "race_results"), orderBy("submittedAt", "desc"));
-        const resultsSnapshot = await getDocs(resultsQuery);
-        const raceResults = resultsSnapshot.docs.map(doc => ({ raceId: doc.data().raceId }));
-
-        const nextAfterResults = findNextRaceAfterResults(raceResults);
-        if (nextAfterResults) {
-          setSelectedRace(nextAfterResults);
-        } else {
-          // No results yet, default to first race in the schedule
-          setSelectedRace(RaceSchedule[0]?.name || nextRace.name);
-        }
-      } catch (error) {
-        console.error("Error fetching race results:", error);
-        setSelectedRace(nextRace.name);
-      } finally {
-        setDefaultRaceLoaded(true);
-      }
-    };
-    fetchDefaultRace();
-  }, [firestore, defaultRaceLoaded, nextRace.name]);
+  // PAGE_TEAMS-005 removed — default race now set directly from findNextRace() (no Firestore query needed)
 
   // GUID: PAGE_TEAMS-006-v03
   // [Intent] Fetches the total user count using Firestore server-side aggregation (no document downloads).
