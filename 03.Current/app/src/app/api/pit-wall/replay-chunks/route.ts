@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
 import { loadChunks, loadReplayMeta } from '@/lib/replay-ingest';
+import { trackReplayAccess } from '@/lib/pit-wall-metrics';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,11 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   try {
+    // Track replay access on first chunk request
+    if (from === 0) {
+      trackReplayAccess(authResult.uid);
+    }
+
     const encoder = new TextEncoder();
     const lines: string[] = [];
 

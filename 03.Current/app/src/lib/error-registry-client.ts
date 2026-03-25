@@ -81,6 +81,7 @@ export const CLIENT_ERRORS: Record<string, ClientErrorDefinition> = {
   PIT_WALL_REPLAY_META_NOT_FOUND:    { key: 'PIT_WALL_REPLAY_META_NOT_FOUND',    code: 'PX-3317', message: 'Replay metadata not found in Firestore',                                  severity: 'warning'  },
   PIT_WALL_HEALTH_CHECK_FAILED:     { key: 'PIT_WALL_HEALTH_CHECK_FAILED',     code: 'PX-3318', message: 'Pit Wall health check failed',                                              severity: 'error'    },
   PIT_WALL_CACHE_PURGE_FAILED:      { key: 'PIT_WALL_CACHE_PURGE_FAILED',      code: 'PX-3319', message: 'Failed to purge Pit Wall cache',                                            severity: 'error'    },
+  PIT_WALL_METRICS_FAILED:          { key: 'PIT_WALL_METRICS_FAILED',          code: 'PX-3320', message: 'Failed to collect Pit Wall process metrics',                                    severity: 'warning'  },
   FIRESTORE_READ_FAILED:          { key: 'FIRESTORE_READ_FAILED',          code: 'PX-4001', message: 'Failed to read from database',                                             severity: 'error'    },
   FIRESTORE_WRITE_FAILED:         { key: 'FIRESTORE_WRITE_FAILED',         code: 'PX-4002', message: 'Failed to write to database',                                              severity: 'error'    },
   FIRESTORE_BATCH_FAILED:         { key: 'FIRESTORE_BATCH_FAILED',         code: 'PX-4003', message: 'Batch operation failed',                                                   severity: 'error'    },

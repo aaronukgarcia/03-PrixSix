@@ -684,6 +684,16 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     suggestedAction: 'Check server logs. Cache will expire naturally within TTL if purge fails.',
     modulePath: 'app/src/app/api/admin/pit-wall-cache-purge/route.ts',
   },
+  // GUID: PIT_WALL_ERRORS-020-v01
+  PIT_WALL_METRICS_FAILED: {
+    key: 'PIT_WALL_METRICS_FAILED',
+    code: 'PX-3320',
+    message: 'Failed to collect Pit Wall process metrics',
+    severity: 'warning' as const,
+    description: 'Process metrics collection failed in the health endpoint.',
+    suggestedAction: 'Check server logs. Metrics are non-critical — health endpoint still returns other data.',
+    modulePath: 'app/src/app/api/admin/pit-wall-health/route.ts',
+  },
   FIRESTORE_READ_FAILED: {
     key: 'FIRESTORE_READ_FAILED',
     code: 'PX-4001',

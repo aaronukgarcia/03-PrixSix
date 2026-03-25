@@ -12,9 +12,12 @@ import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { getSecret } from '@/lib/secrets-manager';
 import {
-  getLiveDataCache, setLiveDataCache,
-  getDetailCache, setDetailCache,
+  setLiveDataCache,
+  setDetailCache,
   getCachedToken, setCachedToken,
+  getOrFetchCoreData, getOrFetchDetailData,
+  trackRequest, untrackRequest,
+  type CacheSource,
 } from '@/lib/pit-wall-cache';
 import type {
   DriverRaceState, RadioMessage, RaceControlMessage,
@@ -166,21 +169,29 @@ function latestPerDriver<T extends { driver_number: number; date?: string }>(arr
   return map;
 }
 
-// GUID: API_PIT_WALL_LIVE_DATA-015-v01
+// GUID: API_PIT_WALL_LIVE_DATA-015-v02
 // [Intent] Detail tier handler — fetches only the slow/heavy OpenF1 endpoints
 //          (laps, car_data, team_radio). Called simultaneously with the core tier
 //          by usePitWallData; responds independently so slow data doesn't block
 //          the race table from appearing. Returns PitWallDetailResponse.
+//          v02: Uses getOrFetchDetailData for promise coalescing — concurrent
+//               requests share a single in-flight fetch instead of each triggering
+//               their own OpenF1 fan-out.
 async function handleDetailRequest(
   token: string | null,
   correlationId: string,
 ): Promise<NextResponse> {
-  const now = Date.now();
-  const currentDetailCache = getDetailCache();
-  if (currentDetailCache && currentDetailCache.expiresAt > now) {
-    return NextResponse.json({ ...currentDetailCache.data, cacheHit: true } satisfies PitWallDetailResponse);
-  }
+  const { data, source } = await getOrFetchDetailData(() => fetchDetailFromOpenF1(token));
+  const res = NextResponse.json({ ...data, cacheHit: source === 'cache', coalesced: source === 'coalesced' });
+  res.headers.set('X-PW-Cache', source);
+  return res;
+}
 
+// GUID: API_PIT_WALL_LIVE_DATA-022-v01
+// [Intent] Extracted detail-tier OpenF1 fetch logic for promise coalescing.
+//          Fetches laps, car_data, team_radio + session/driver metadata,
+//          builds PitWallDetailResponse, and populates the detail cache.
+async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetailResponse> {
   const [lapsRaw, carDataRaw, teamRadioRaw, sessionsRaw, driversRaw] = await Promise.all([
     openF1Fetch<any[]>('/laps?session_key=latest', token),
     openF1Fetch<any[]>('/car_data?session_key=latest', token),
@@ -301,14 +312,16 @@ async function handleDetailRequest(
   };
 
   setDetailCache({ sessionKey, data: detailResponse, expiresAt: Date.now() + DETAIL_CACHE_TTL_MS });
-  return NextResponse.json(detailResponse);
+  return detailResponse;
 }
 
-// GUID: API_PIT_WALL_LIVE_DATA-010-v03
-// [Intent] v03: Tiered fetch — accepts ?tier=core (default) or ?tier=detail.
+// GUID: API_PIT_WALL_LIVE_DATA-010-v04
+// [Intent] v04: Tiered fetch with promise coalescing.
 //          Core: 8 fast endpoints (sessions/drivers/position/location/intervals/stints/weather/race_control).
 //          Detail: 3 slow endpoints (laps/car_data/team_radio) — separate cache, higher TTL.
 //          Client fires both simultaneously; core renders the table first, detail enriches it.
+//          Promise coalescing via getOrFetchCoreData/getOrFetchDetailData ensures only one
+//          in-flight OpenF1 fan-out per tier — concurrent requests share the same promise.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
 
@@ -326,26 +339,43 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const tier = new URL(req.url).searchParams.get('tier') ?? 'core';
   const token = await getOpenF1Token();
 
-  if (tier === 'detail') {
-    return handleDetailRequest(token, correlationId);
-  }
+  // GUID: API_PIT_WALL_LIVE_DATA-023-v01
+  // [Intent] Track active request concurrency for admin metrics.
+  //          trackRequest/untrackRequest maintain a counter + high-water mark
+  //          in pit-wall-cache.ts. Always untrack in finally{} to prevent leaks.
+  trackRequest();
+  try {
+    if (tier === 'detail') {
+      return await handleDetailRequest(token, correlationId);
+    }
 
-  // GUID: API_PIT_WALL_LIVE_DATA-012-v01
-  // [Intent] Serve from cache if the stored entry is still fresh.
-  //          Auth has already passed — every caller is authenticated.
-  //          The cache is shared: user 2…N get the same full dataset as
-  //          user 1 with zero additional OpenF1 calls during the TTL window.
-  const now = Date.now();
-  const currentLiveCache = getLiveDataCache();
-  if (currentLiveCache && currentLiveCache.expiresAt > now) {
-    const cacheAgeMs = now - currentLiveCache.data.fetchedAt;
-    return NextResponse.json({
-      ...currentLiveCache.data,
-      cacheHit: true,
+    // GUID: API_PIT_WALL_LIVE_DATA-012-v02
+    // [Intent] Core tier with promise coalescing — getOrFetchCoreData checks:
+    //          1. Cache hit → return immediately (no OpenF1 calls)
+    //          2. In-flight promise → coalesce (await the existing fetch)
+    //          3. Cache miss → start a new fetch, store promise for others to share
+    //          v02: Replaced raw cache check with getOrFetchCoreData.
+    const { data, source } = await getOrFetchCoreData(() => fetchCoreFromOpenF1(token));
+    const cacheAgeMs = source === 'cache' ? Date.now() - data.fetchedAt : 0;
+    const res = NextResponse.json({
+      ...data,
+      cacheHit: source === 'cache',
+      coalesced: source === 'coalesced',
       cacheAgeMs,
-    } satisfies PitWallLiveDataResponse);
+    });
+    res.headers.set('X-PW-Cache', source);
+    return res;
+  } finally {
+    untrackRequest();
   }
+}
 
+// GUID: API_PIT_WALL_LIVE_DATA-021-v01
+// [Intent] Extracted core-tier OpenF1 fetch logic for promise coalescing.
+//          Fans out to 8 fast endpoints, builds PitWallLiveDataResponse,
+//          and populates the live data cache. Called only by getOrFetchCoreData
+//          when both the cache and in-flight promise are empty.
+async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDataResponse> {
   // Core tier: 8 fast endpoints — no laps/car_data/team_radio
   const [
     sessionsRaw, driversRaw, raceOrderRaw, locationsRaw, intervalsRaw,
@@ -386,7 +416,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       fetchedAt: Date.now(), cacheHit: false, cacheAgeMs: 0,
     };
     setLiveDataCache({ sessionKey: null, data: idleResponse, expiresAt: Date.now() + IDLE_CACHE_TTL_MS });
-    return NextResponse.json(idleResponse);
+    return idleResponse;
   }
 
   // Build lookup maps
@@ -643,5 +673,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     expiresAt: Date.now() + LIVE_DATA_CACHE_TTL_MS,
   });
 
-  return NextResponse.json(response);
+  return response;
 }

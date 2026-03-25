@@ -14,6 +14,7 @@ import { ERRORS } from '@/lib/error-registry';
 import { getSecret } from '@/lib/secrets-manager';
 import { getSessionFirestoreStatus, ingestReplaySession } from '@/lib/replay-ingest';
 import type { HistoricalReplayData, HistoricalDriver, ReplayFrame } from '@/app/(app)/pit-wall/_types/showreel.types';
+import { trackReplayAccess } from '@/lib/pit-wall-metrics';
 
 export const dynamic = 'force-dynamic';
 
@@ -307,6 +308,9 @@ export async function GET(req: NextRequest): Promise<NextResponse | Response> {
   if (mode === 'showreel') {
     return handleShowreelPath(sessionKey, correlationId);
   }
+
+  // Track replay access for admin metrics
+  trackReplayAccess(authResult.uid);
 
   // ---------------------------------------------------------------------------
   // GPS Replay mode: Firestore-first

@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1797,
+  "total_guids": 1819,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -114493,6 +114493,380 @@
       },
       "created": "2026-03-18T09:48:06.674Z",
       "lastUpdated": "2026-03-18T09:48:06.674Z"
+    },
+    {
+      "guid": "LIB_PITWALL_METRICS-000",
+      "version": 1,
+      "logic_category": "MODULE",
+      "description": "Process health metrics module — heap, RSS, event loop lag, high-water marks, replay tracking.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-metrics.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_METRICS-001",
+      "version": 1,
+      "logic_category": "TYPES",
+      "description": "ProcessSnapshot interface — heap, RSS, uptime, event loop lag.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-metrics.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_METRICS-002",
+      "version": 1,
+      "logic_category": "TYPES",
+      "description": "HighWaterMarks interface — peak values since process start.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-metrics.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_METRICS-003",
+      "version": 1,
+      "logic_category": "TYPES",
+      "description": "ReplayAccessEntry/ReplayStats interfaces — per-user replay tracking.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-metrics.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_METRICS-004",
+      "version": 1,
+      "logic_category": "LOGIC",
+      "description": "Event loop lag sampler — setTimeout(0) every 5s, measures actual delay.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-metrics.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_METRICS-005",
+      "version": 1,
+      "logic_category": "LOGIC",
+      "description": "trackReplayAccess — records per-user replay access, LRU eviction at 100 entries.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-metrics.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_CACHE-000",
+      "version": 2,
+      "logic_category": "MODULE",
+      "description": "Shared module-level cache — v02: added promise coalescing and cache metrics.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-cache.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_CACHE-003",
+      "version": 2,
+      "logic_category": "LOGIC",
+      "description": "purgeAllCaches — v02: also clears in-flight promises.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-cache.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_CACHE-005",
+      "version": 1,
+      "logic_category": "STATE",
+      "description": "Promise coalescing variables — inFlightCorePromise, inFlightDetailPromise.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-cache.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_CACHE-006",
+      "version": 1,
+      "logic_category": "LOGIC",
+      "description": "getOrFetchCoreData — cache check → in-flight coalesce → fetch, with metrics tracking.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-cache.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_CACHE-007",
+      "version": 1,
+      "logic_category": "LOGIC",
+      "description": "getOrFetchDetailData — same coalescing pattern for detail tier.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-cache.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_CACHE-008",
+      "version": 1,
+      "logic_category": "STATE",
+      "description": "CacheMetrics counters — hits/misses/coalesced per tier, active requests, peak.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-cache.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_PITWALL_CACHE-009",
+      "version": 1,
+      "logic_category": "LOGIC",
+      "description": "trackRequest/untrackRequest — concurrency counter with high-water mark.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/pit-wall-cache.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-010",
+      "version": 4,
+      "logic_category": "ROUTE",
+      "description": "GET handler — v04: tiered fetch with promise coalescing via getOrFetchCoreData/getOrFetchDetailData.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-012",
+      "version": 2,
+      "logic_category": "LOGIC",
+      "description": "Core tier cache check — v02: replaced raw cache check with getOrFetchCoreData.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-015",
+      "version": 2,
+      "logic_category": "LOGIC",
+      "description": "Detail tier handler — v02: uses getOrFetchDetailData for promise coalescing.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-021",
+      "version": 1,
+      "logic_category": "LOGIC",
+      "description": "fetchCoreFromOpenF1 — extracted core-tier OpenF1 fan-out for coalescing.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-022",
+      "version": 1,
+      "logic_category": "LOGIC",
+      "description": "fetchDetailFromOpenF1 — extracted detail-tier OpenF1 fetch for coalescing.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "API_PIT_WALL_LIVE_DATA-023",
+      "version": 1,
+      "logic_category": "LOGIC",
+      "description": "Request tracking — trackRequest/untrackRequest wrapping the GET handler.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/pit-wall/live-data/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "API_ADMIN_PITWALL_HEALTH-000",
+      "version": 2,
+      "logic_category": "ROUTE",
+      "description": "Pit Wall health endpoint — v02: added process metrics, cache counters, replay usage stats.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/pit-wall-health/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "ADMIN_PITWALL-009",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Performance Metrics card — cache hit rates, heap bar, event loop lag, replay usage table.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "PIT_WALL_ERRORS-020",
+      "version": 1,
+      "logic_category": "ERROR",
+      "description": "PX-3320 PIT_WALL_METRICS_FAILED — process metrics collection failed.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/error-registry.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-03-25T11:14:28.508Z",
+      "lastUpdated": "2026-03-25T11:14:28.508Z"
     }
   ],
   "firestoreCollections": {
@@ -115205,5 +115579,5 @@
       }
     }
   },
-  "last_updated": "2026-03-18T09:48:06.674Z"
+  "last_updated": "2026-03-25T11:14:28.508Z"
 }

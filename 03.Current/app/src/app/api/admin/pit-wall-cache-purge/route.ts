@@ -8,7 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
-import { purgeAllCaches } from '@/lib/pit-wall-cache';
+import { purgeAllCaches, resetCacheMetrics } from '@/lib/pit-wall-cache';
+import { resetMetrics as resetProcessMetrics } from '@/lib/pit-wall-metrics';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const result = purgeAllCaches();
 
+    // Reset metrics if requested via query param
+    const url = new URL(req.url);
+    const shouldResetMetrics = url.searchParams.get('resetMetrics') === 'true';
+    if (shouldResetMetrics) {
+      resetCacheMetrics();
+      resetProcessMetrics();
+    }
+
     // Audit log
     const adminEmail = userDoc.data()?.email || verifiedUser.uid;
     await db.collection('audit_logs').add({
@@ -58,6 +67,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       success: true,
       ...result,
+      metricsReset: shouldResetMetrics,
       correlationId,
     });
   } catch (err: any) {

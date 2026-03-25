@@ -1,13 +1,16 @@
-// GUID: API_ADMIN_PITWALL_HEALTH-000-v01
+// GUID: API_ADMIN_PITWALL_HEALTH-000-v02
 // [Intent] Admin-only health check endpoint for the Pit Wall module.
-//          Returns OpenF1 connectivity, token status, and cache introspection.
+//          v02: Added process metrics, cache hit/miss counters, and replay usage stats.
+//          Returns OpenF1 connectivity, token status, cache introspection, and Node.js
+//          process health (heap, RSS, event loop lag, high-water marks).
 // [Inbound Trigger] PitWallManager admin component polls this on mount and refresh.
-// [Downstream Impact] Read-only — no side effects. Reports cache and OpenF1 state.
+// [Downstream Impact] Read-only — no side effects. Reports cache, OpenF1, and process state.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
-import { getCacheStatus } from '@/lib/pit-wall-cache';
+import { getCacheStatus, getCacheMetrics } from '@/lib/pit-wall-cache';
+import { getFullMetrics } from '@/lib/pit-wall-metrics';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +76,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const replayChunksSnap = await db.collection('replay_chunks').count().get();
     const replayMetaSnap = await db.collection('replay_meta').count().get();
 
+    // Process metrics + cache counters
+    const fullMetrics = getFullMetrics();
+    const cacheMetrics = getCacheMetrics();
+    const metricsAgeMs = Date.now() - cacheMetrics.lastResetAt;
+
     return NextResponse.json({
       openf1: {
         reachable: openf1Reachable,
@@ -85,6 +93,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         replay_sessions: replaySessionsSnap.data().count,
         replay_chunks: replayChunksSnap.data().count,
         replay_meta: replayMetaSnap.data().count,
+      },
+      metrics: {
+        process: fullMetrics.process,
+        highWaterMarks: {
+          ...fullMetrics.highWaterMarks,
+          peakActiveRequests: cacheMetrics.peakActiveRequests,
+        },
+        cache: {
+          coreHits: cacheMetrics.coreHits,
+          coreMisses: cacheMetrics.coreMisses,
+          coreCoalesced: cacheMetrics.coreCoalesced,
+          detailHits: cacheMetrics.detailHits,
+          detailMisses: cacheMetrics.detailMisses,
+          detailCoalesced: cacheMetrics.detailCoalesced,
+          activeRequests: cacheMetrics.activeRequests,
+          metricsAgeMs,
+        },
+        replay: fullMetrics.replay,
       },
       correlationId,
     });

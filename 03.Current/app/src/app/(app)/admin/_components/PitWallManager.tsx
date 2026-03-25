@@ -44,6 +44,39 @@ interface HealthData {
     replay_chunks: number;
     replay_meta: number;
   };
+  metrics?: {
+    process: {
+      heapUsedMB: number;
+      heapTotalMB: number;
+      heapUsedPct: number;
+      rssMB: number;
+      externalMB: number;
+      arrayBuffersMB: number;
+      uptimeSeconds: number;
+      eventLoopLagMs: number;
+    };
+    highWaterMarks: {
+      peakHeapUsedMB: number;
+      peakRssMB: number;
+      peakEventLoopLagMs: number;
+      peakActiveRequests: number;
+    };
+    cache: {
+      coreHits: number;
+      coreMisses: number;
+      coreCoalesced: number;
+      detailHits: number;
+      detailMisses: number;
+      detailCoalesced: number;
+      activeRequests: number;
+      metricsAgeMs: number;
+    };
+    replay: {
+      totalAccesses: number;
+      uniqueUsers: number;
+      byUser: Array<{ userId: string; count: number; lastAccessedAt: number }>;
+    };
+  };
   correlationId: string;
 }
 
@@ -611,6 +644,164 @@ export function PitWallManager() {
               Purge Cache
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* GUID: ADMIN_PITWALL-009-v01 */}
+      {/* [Intent] Performance Metrics card — cache hit/coalesce rates, process health, replay usage. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="w-4 h-4" />
+            Performance Metrics
+          </CardTitle>
+          <CardDescription>
+            Cache efficiency, process health, and replay usage since last reset.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {health?.metrics ? (
+            <>
+              {/* Cache Performance */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cache Performance</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  {(() => {
+                    const m = health.metrics.cache;
+                    const coreTotal = m.coreHits + m.coreMisses + m.coreCoalesced;
+                    const coreHitRate = coreTotal > 0 ? Math.round((m.coreHits / coreTotal) * 100) : 0;
+                    const coreCoalesceRate = coreTotal > 0 ? Math.round((m.coreCoalesced / coreTotal) * 100) : 0;
+                    const detailTotal = m.detailHits + m.detailMisses + m.detailCoalesced;
+                    const detailHitRate = detailTotal > 0 ? Math.round((m.detailHits / detailTotal) * 100) : 0;
+                    return (
+                      <>
+                        <p>
+                          <span className="text-muted-foreground">Core hit rate:</span>{' '}
+                          <Badge variant="outline" className={coreHitRate > 80 ? 'border-green-500 text-green-600' : coreHitRate > 50 ? 'border-amber-500 text-amber-600' : 'border-red-500 text-red-600'}>
+                            {coreHitRate}%
+                          </Badge>
+                          <span className="text-xs text-muted-foreground ml-1">({m.coreHits}/{coreTotal})</span>
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">Detail hit rate:</span>{' '}
+                          <Badge variant="outline" className={detailHitRate > 80 ? 'border-green-500 text-green-600' : 'border-amber-500 text-amber-600'}>
+                            {detailHitRate}%
+                          </Badge>
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">Core coalesced:</span>{' '}
+                          <span className="font-mono">{m.coreCoalesced}</span>
+                          {coreCoalesceRate > 0 && <span className="text-xs text-cyan-500 ml-1">({coreCoalesceRate}% saved)</span>}
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">Active / Peak:</span>{' '}
+                          <span className="font-mono">{m.activeRequests}</span>
+                          {' / '}
+                          <span className="font-mono">{health.metrics!.highWaterMarks.peakActiveRequests}</span>
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Process Health */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Process Health</p>
+                <div className="space-y-1.5">
+                  {/* Heap bar */}
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
+                      <span>Heap</span>
+                      <span>{health.metrics.process.heapUsedMB} / {health.metrics.process.heapTotalMB} MB ({health.metrics.process.heapUsedPct}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${health.metrics.process.heapUsedPct > 85 ? 'bg-red-500' : health.metrics.process.heapUsedPct > 70 ? 'bg-amber-500' : 'bg-green-500'}`}
+                        style={{ width: `${Math.min(100, health.metrics.process.heapUsedPct)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 text-sm">
+                    <p>
+                      <span className="text-muted-foreground">RSS:</span>{' '}
+                      <span className="font-mono">{health.metrics.process.rssMB} MB</span>
+                      <span className="text-xs text-muted-foreground ml-1">(peak {health.metrics.highWaterMarks.peakRssMB})</span>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Event loop:</span>{' '}
+                      <span className={`font-mono ${health.metrics.process.eventLoopLagMs > 50 ? 'text-red-400' : health.metrics.process.eventLoopLagMs > 10 ? 'text-amber-400' : 'text-green-400'}`}>
+                        {health.metrics.process.eventLoopLagMs}ms
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1">(peak {health.metrics.highWaterMarks.peakEventLoopLagMs}ms)</span>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Uptime:</span>{' '}
+                      <span className="font-mono">{Math.round(health.metrics.process.uptimeSeconds / 60)}m</span>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Metrics age:</span>{' '}
+                      <span className="font-mono">{Math.round(health.metrics.cache.metricsAgeMs / 60000)}m</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Replay Usage */}
+              {health.metrics.replay.totalAccesses > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Replay Usage ({health.metrics.replay.totalAccesses} total, {health.metrics.replay.uniqueUsers} users)
+                  </p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">User</TableHead>
+                        <TableHead className="text-xs text-right">Count</TableHead>
+                        <TableHead className="text-xs text-right">Last Access</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {health.metrics.replay.byUser.slice(0, 10).map(u => (
+                        <TableRow key={u.userId}>
+                          <TableCell className="text-xs font-mono">{u.userId.slice(0, 12)}…</TableCell>
+                          <TableCell className="text-xs text-right">{u.count}</TableCell>
+                          <TableCell className="text-xs text-right">{new Date(u.lastAccessedAt).toLocaleTimeString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Reset button */}
+              <div className="flex justify-end pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      if (!firebaseUser) return;
+                      const idToken = await firebaseUser.getIdToken();
+                      await fetch('/api/admin/pit-wall-cache-purge?resetMetrics=true', {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${idToken}` },
+                      });
+                      toast({ title: 'Metrics reset', description: 'Counters and high-water marks cleared.' });
+                      fetchHealth();
+                    } catch {
+                      toast({ title: 'Failed to reset metrics', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Reset Metrics
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Metrics unavailable — refresh health check.</p>
+          )}
         </CardContent>
       </Card>
     </div>
