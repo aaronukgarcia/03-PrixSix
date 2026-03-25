@@ -20,6 +20,7 @@ const CHUNK_MINUTES = 10;
 const FRAMES_PER_CHUNK = 800;
 const FRAME_GROUPING_MS = 250;
 const CAR_DATA_MATCH_WINDOW_MS = 500;
+const REPLAY_CACHE_VERSION = 2; // v1 = legacy showreel, v2 = full-fidelity with telemetry
 
 // ---------------------------------------------------------------------------
 // Types
@@ -299,6 +300,29 @@ function buildRadioMessages(radioRecords: any[]): Array<{ ts: number; driverNumb
     .sort((a, b) => a.ts - b.ts);
 }
 
+// GUID: REPLAY_INGEST-021-v01
+// [Intent] Build sorted race control messages array for frame matching.
+//          Maps OpenF1 /race_control records into a timestamped array for
+//          assignment to replay frames using the same 250ms window technique as radio.
+function buildRaceControlMessages(raceControlRecords: any[]): Array<{
+  ts: number; date: string; lapNumber: number | null; category: string;
+  flag: string | null; message: string; scope: string | null; sector: number | null;
+}> {
+  return raceControlRecords
+    .filter((r: any) => r.date != null && r.message != null)
+    .map((r: any) => ({
+      ts: new Date(r.date).getTime(),
+      date: r.date as string,
+      lapNumber: (r.lap_number ?? null) as number | null,
+      category: (r.category ?? 'Other') as string,
+      flag: (r.flag ?? null) as string | null,
+      message: r.message as string,
+      scope: (r.scope ?? null) as string | null,
+      sector: (r.sector ?? null) as number | null,
+    }))
+    .sort((a, b) => a.ts - b.ts);
+}
+
 // ---------------------------------------------------------------------------
 // Frame building — full fidelity, no downsampling
 // ---------------------------------------------------------------------------
@@ -318,6 +342,7 @@ function buildFullFidelityFrames(
   getPitCount: (dn: number, ms: number) => number,
   getStint: (dn: number, lap: number) => { compound: string; tyreLapAge: number },
   radioMessages: Array<{ ts: number; driverNumber: number; message: string; utcTimestamp: string }>,
+  raceControlMessages: Array<{ ts: number; date: string; lapNumber: number | null; category: string; flag: string | null; message: string; scope: string | null; sector: number | null }>,
 ): ReplayFrame[] {
   // Filter invalid records and sort by date
   const valid = locationRaw
@@ -330,6 +355,7 @@ function buildFullFidelityFrames(
   const frames: ReplayFrame[] = [];
   let i = 0;
   let radioIdx = 0;
+  let rcIdx = 0;
 
   while (i < valid.length) {
     const anchor = valid[i];
@@ -410,6 +436,19 @@ function buildFullFidelityFrames(
     }
     if (frameRadio.length > 0) {
       frame.radioMessages = frameRadio;
+    }
+
+    // Match race control messages to this frame (within 250ms window)
+    const frameRaceControl: Array<{ date: string; lapNumber: number | null; category: string; flag: string | null; message: string; scope: string | null; sector: number | null }> = [];
+    while (rcIdx < raceControlMessages.length && raceControlMessages[rcIdx].ts <= anchorMs + 125) {
+      const rc = raceControlMessages[rcIdx];
+      if (rc.ts >= anchorMs - 125) {
+        frameRaceControl.push({ date: rc.date, lapNumber: rc.lapNumber, category: rc.category, flag: rc.flag, message: rc.message, scope: rc.scope, sector: rc.sector });
+      }
+      rcIdx++;
+    }
+    if (frameRaceControl.length > 0) {
+      frame.raceControlMessages = frameRaceControl;
     }
 
     frames.push(frame);
@@ -541,6 +580,9 @@ export async function ingestReplaySession(
     await new Promise(r => setTimeout(r, 2000));
 
     const rawRadio = await fetchOpenF1('team_radio', sessionKey);
+    await new Promise(r => setTimeout(r, 2000));
+
+    const rawRaceControl = await fetchOpenF1('race_control', sessionKey);
 
     // 4. Build lookups
     const getCarData = buildTimeLookup(rawCarData, 'driver_number', 'date', (r: any) => ({
@@ -568,6 +610,7 @@ export async function ingestReplaySession(
     const getPitCount = buildPitCountLookup(rawPits);
     const getStint = buildStintLookup(rawStints);
     const radioMessages = buildRadioMessages(rawRadio);
+    const raceControlMessages = buildRaceControlMessages(rawRaceControl);
 
     // 5. Build full-fidelity frames
     const frames = buildFullFidelityFrames(
@@ -580,6 +623,7 @@ export async function ingestReplaySession(
       getPitCount,
       getStint,
       radioMessages,
+      raceControlMessages,
     );
 
     const durationMs = frames.length > 0 ? frames[frames.length - 1].virtualTimeMs : 0;
@@ -650,6 +694,7 @@ export async function ingestReplaySession(
       firestoreTotalFrames: frames.length,
       firestoreIngestedAt: FieldValue.serverTimestamp(),
       firestoreError: null,
+      cacheVersion: REPLAY_CACHE_VERSION,
     }, { merge: true });
 
     callbacks.onComplete({ totalFrames: frames.length, totalChunks });

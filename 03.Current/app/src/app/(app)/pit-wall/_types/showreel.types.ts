@@ -94,6 +94,15 @@ export interface ReplayFrame {
     message: string;
     utcTimestamp: string;
   }>;
+  raceControlMessages?: Array<{
+    date: string;
+    lapNumber: number | null;
+    category: string;
+    flag: string | null;
+    message: string;
+    scope: string | null;
+    sector: number | null;
+  }>;
 }
 
 // GUID: SHOWREEL_TYPES-006-v01

@@ -456,6 +456,7 @@ export function useReplayPlayer(
   const [replayDrivers,    setReplayDrivers]     = useState<ReplayDriverState[]>([]);
   const [framesLoaded,     setFramesLoaded]      = useState(0);
   const [replayRadioMessages, setReplayRadioMessages] = useState<Array<{ driverNumber: number; message: string; utcTimestamp: string }>>([]);
+  const [replayRaceControl, setReplayRaceControl] = useState<Array<{ date: string; lapNumber: number | null; category: string; flag: string | null; message: string; scope: string | null; sector: number | null }>>([]);
 
   const replayDataRef        = useRef<HistoricalReplayData | null>(null);
   const rafHandleRef         = useRef<number | null>(null);
@@ -547,7 +548,7 @@ export function useReplayPlayer(
           const driver = driverMap.get(pos.driverNumber);
           if (!driver) return null;
           const state = buildReplayDriverState(driver, pos);
-          if (isBeyondFormation && (pos.speed === 0 || pos.speed === null) && (pos.currentLap === 0 || pos.currentLap === null)) {
+          if (isBeyondFormation && (pos.speed === 0 || pos.speed == null) && (pos.currentLap === 0 || pos.currentLap == null)) {
             state.retired = true;
           }
           return state;
@@ -561,6 +562,12 @@ export function useReplayPlayer(
       // GUID: REPLAY_PLAYER_HOOK-007-v01
       if (frame.radioMessages && frame.radioMessages.length > 0) {
         setReplayRadioMessages(prev => [...frame.radioMessages!, ...prev]);
+      }
+
+      // GUID: REPLAY_PLAYER_HOOK-016-v01
+      // [Intent] Accumulate race control messages from replay frames for the FIA feed panel.
+      if (frame.raceControlMessages && frame.raceControlMessages.length > 0) {
+        setReplayRaceControl(prev => [...frame.raceControlMessages!, ...prev]);
       }
     }
 
@@ -670,6 +677,7 @@ export function useReplayPlayer(
     setDownloadProgress(0);
     setFramesLoaded(0);
     setReplayRadioMessages([]);
+    setReplayRaceControl([]);
 
     if (!session) {
       updatePlaybackState('idle');
@@ -725,8 +733,9 @@ export function useReplayPlayer(
           fraction => { if (!cancelled) setDownloadProgress(fraction); },
           onDataReady,
         );
-      } else if (session.downloadUrl) {
+      } else if (session.downloadUrl && !(session.cacheVersion != null && session.cacheVersion >= 2)) {
         // Path 2: Legacy Firebase Storage download (existing pre-ingested sessions)
+        // Skip this path if cacheVersion >= 2 — re-ingested sessions should use Firestore chunks
         return streamReplayData(
           session.downloadUrl,
           fraction => { if (!cancelled) setDownloadProgress(fraction); },
@@ -772,6 +781,7 @@ export function useReplayPlayer(
     framesLoaded,
     replayDrivers,
     replayRadioMessages,
+    replayRaceControl,
     play,
     pause,
     seek,

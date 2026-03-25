@@ -25,6 +25,7 @@ export interface ReplaySessionMetadata {
   // v02: Durable Firestore telemetry storage fields
   firestoreStatus?:   'none' | 'ingesting' | 'complete' | 'failed';
   totalChunks?:       number;   // number of replay_chunks docs for this session
+  cacheVersion?:      number;   // v1 = legacy showreel, v2+ = full-fidelity with telemetry
 }
 
 // GUID: REPLAY_TYPES-002-v01
@@ -59,6 +60,8 @@ export interface UseReplayPlayerReturn {
   replayDrivers:    import('./showreel.types').ReplayDriverState[];
   // Radio messages encountered during replay playback
   replayRadioMessages: Array<{ driverNumber: number; message: string; utcTimestamp: string }>;
+  // Race control messages encountered during replay playback
+  replayRaceControl: Array<{ date: string; lapNumber: number | null; category: string; flag: string | null; message: string; scope: string | null; sector: number | null }>;
   // Controls
   play:             () => void;
   pause:            () => void;

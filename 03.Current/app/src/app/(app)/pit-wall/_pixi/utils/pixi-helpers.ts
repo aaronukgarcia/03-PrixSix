@@ -36,13 +36,15 @@ export function lerpColor(a: number, b: number, t: number): number {
   return (r << 16) | (g << 8) | bl;
 }
 
-// GUID: PIXI_HELPERS-003-v01
+// GUID: PIXI_HELPERS-003-v02
 // [Intent] Project GPS metres (x, y) to canvas pixel coordinates using the track bounding
 //          box. Y axis is inverted (OpenF1 Y increases upward, canvas Y increases downward).
 //          Padding shrinks the usable area to keep cars away from canvas edges.
+//          v02: Added null guard for replay frames with missing GPS coordinates. Null/undefined
+//               coordinates return {px: 0, py: 0} to prevent NaN sprite positioning.
 export function projectToCanvas(
-  x: number,
-  y: number,
+  x: number | null | undefined,
+  y: number | null | undefined,
   bounds: TrackBounds,
   w: number,
   h: number,
@@ -50,6 +52,11 @@ export function projectToCanvas(
 ): { px: number; py: number } {
   // Guard: bounds may be null during initial load frames before GPS data arrives
   if (!bounds) return { px: 0, py: 0 };
+
+  // Guard: x/y may be null from replay frames with missing GPS data
+  if (x === null || x === undefined || y === null || y === undefined) {
+    return { px: 0, py: 0 };
+  }
 
   const rangeX = bounds.maxX - bounds.minX || 1;
   const rangeY = bounds.maxY - bounds.minY || 1;

@@ -28,7 +28,7 @@ import { usePreRaceMode } from './_hooks/usePreRaceMode';
 import { useHistoricalReplay } from './_hooks/useHistoricalReplay';
 import { useReplayPlayer } from './_hooks/useReplayPlayer';
 import { useLivePredictionScore } from './_hooks/useLivePredictionScore';
-import type { TrackBounds, DriverRaceState, CircuitPoint } from './_types/pit-wall.types';
+import type { TrackBounds, DriverRaceState, CircuitPoint, RaceControlMessage } from './_types/pit-wall.types';
 import type { ReplayDriverState } from './_types/showreel.types';
 import type { ReplaySessionMetadata } from './_types/replay.types';
 import { PitWallTrackMap } from './_components/PitWallTrackMap';
@@ -437,6 +437,25 @@ export default function PitWallClient() {
     return radioMessages;
   }, [isReplayMode, replayPlayer.replayRadioMessages, radioMessages]);
 
+  // GUID: PIT_WALL_CLIENT-055-v01
+  // [Intent] Select race control source — in replay mode, map accumulated replay race control
+  //          messages to RaceControlMessage[] (adding synthetic id); otherwise use live raceControl.
+  const activeRaceControl = useMemo(() => {
+    if (isReplayMode && replayPlayer.replayRaceControl?.length > 0) {
+      return replayPlayer.replayRaceControl.map((rc, i): RaceControlMessage => ({
+        id: `replay-rc-${i}`,
+        date: rc.date,
+        lapNumber: rc.lapNumber,
+        category: rc.category,
+        flag: rc.flag as RaceControlMessage['flag'],
+        message: rc.message,
+        scope: rc.scope,
+        sector: rc.sector,
+      }));
+    }
+    return raceControl;
+  }, [isReplayMode, replayPlayer.replayRaceControl, raceControl]);
+
   // GUID: PIT_WALL_CLIENT-015-v03
   // [Intent] Select data source — priority: GPS replay > showreel > live.
   //          v03: When in replay/showreel mode, never fall through to liveDrivers.
@@ -768,7 +787,7 @@ export default function PitWallClient() {
             <PanelResizeHandle className="w-[3px] bg-slate-800 hover:bg-cyan-600 transition-colors cursor-col-resize" />
             <Panel defaultSize={33} minSize={15}>
               <div className="w-full h-full min-w-0 min-h-0">
-                <FIARaceControlFeed messages={raceControl} className="h-full" />
+                <FIARaceControlFeed messages={activeRaceControl} className="h-full" />
               </div>
             </Panel>
           </PanelGroup>
