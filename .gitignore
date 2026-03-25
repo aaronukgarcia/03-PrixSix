@@ -14,6 +14,7 @@
 !03.Current/PHASE3-SETUP-GUIDE.md
 !03.Current/claude-sync.js
 !03.Current/claude-version-guard.js
+!03.Current/claude-reflection.js
 !03.Current/firebase.json
 !03.Current/provision_recovery_env.sh
 !03.Current/scripts/
