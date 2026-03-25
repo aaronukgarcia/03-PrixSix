@@ -97,10 +97,13 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
 
   if (isLoading || playbackState === 'ready') {
     const pct = Math.round(downloadProgress * 100);
+    const isFromSource = player.loadingSource === 'source';
     const label = playbackState === 'ready'
       ? 'Initialising replay…'
       : pct < 100
-        ? `Loading GPS data… ${pct}%${framesLoaded > 0 ? ` (${framesLoaded.toLocaleString()} frames)` : ''}`
+        ? isFromSource
+          ? `Downloading from OpenF1… ${pct}%${framesLoaded > 0 ? ` (${framesLoaded.toLocaleString()} frames)` : ''} — first load takes 2-3 min`
+          : `Loading replay data… ${pct}%${framesLoaded > 0 ? ` (${framesLoaded.toLocaleString()} frames)` : ''}`
         : 'Processing…';
 
     return (
@@ -131,18 +134,29 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
     );
   }
 
-  // GUID: REPLAY_CONTROLS-004-v01
-  // [Intent] Error state — show error message with selectable text (Golden Rule #1).
+  // GUID: REPLAY_CONTROLS-004-v02
+  // [Intent] Error state — distinguish expected download states from real errors.
+  //          v02: "downloading from source" messages shown in amber (expected), not red (error).
   if (playbackState === 'error' && player.error) {
+    const isDownloading = player.error.includes('being downloaded') || player.error.includes('from OpenF1');
     return (
       <div className={cn(
-        'flex shrink-0 items-center gap-3 px-4 py-2.5 border-b border-red-900/50 bg-red-950/30',
+        'flex shrink-0 items-center gap-3 px-4 py-2.5 border-b',
+        isDownloading
+          ? 'border-amber-900/50 bg-amber-950/30'
+          : 'border-red-900/50 bg-red-950/30',
         className,
       )}>
-        <span className="text-[10px] text-red-400 uppercase tracking-wider font-semibold whitespace-nowrap">
-          REPLAY ERROR
+        <span className={cn(
+          'text-[10px] uppercase tracking-wider font-semibold whitespace-nowrap',
+          isDownloading ? 'text-amber-400' : 'text-red-400',
+        )}>
+          {isDownloading ? 'DOWNLOADING' : 'REPLAY ERROR'}
         </span>
-        <span className="text-[10px] text-red-300 select-all truncate flex-1">
+        <span className={cn(
+          'text-[10px] select-all truncate flex-1',
+          isDownloading ? 'text-amber-300' : 'text-red-300',
+        )}>
           {player.error}
         </span>
       </div>

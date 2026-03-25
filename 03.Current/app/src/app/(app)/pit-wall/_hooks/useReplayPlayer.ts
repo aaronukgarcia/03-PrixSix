@@ -317,12 +317,12 @@ async function streamIngestReplayData(
     { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
   );
 
-  if (!res.ok) {
+  if (!res.ok && res.status !== 202) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `HTTP ${res.status} from historical-replay`);
   }
 
-  // Check if this is a Firestore redirect (JSON response, not NDJSON stream)
+  // Check if this is a Firestore redirect or ingesting status (JSON response, not NDJSON stream)
   const contentType = res.headers.get('Content-Type') ?? '';
   if (contentType.includes('application/json')) {
     const json = await res.json();
@@ -330,6 +330,13 @@ async function streamIngestReplayData(
       // Redirect to chunk loading — this shouldn't normally happen here
       // because the caller checks firestoreStatus first, but handle it gracefully
       return loadChunksProgressively(sessionKey, json.totalChunks, getAuthToken, onProgress, onFramesReady);
+    }
+    // GUID: REPLAY_PLAYER_HOOK-017-v01
+    // [Intent] Handle 202 "ingesting" status gracefully — another request is already
+    //          downloading from OpenF1. Instead of showing an error, tell the user
+    //          and retry after a delay. The ingest takes 2-3 minutes for a full race.
+    if (res.status === 202 || json.status === 'ingesting') {
+      throw new Error('Race data is being downloaded from OpenF1 — this takes 2-3 minutes for a full race. Please try again shortly.');
     }
     throw new Error(json.error ?? 'Unexpected JSON response from historical-replay');
   }
@@ -447,6 +454,7 @@ export function useReplayPlayer(
   getAuthToken?: () => Promise<string>,
 ): UseReplayPlayerReturn {
   const [playbackState,    setPlaybackState]    = useState<ReplayPlaybackState>('idle');
+  const [loadingSource,    setLoadingSource]    = useState<'cache' | 'source' | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [progress,         setProgress]         = useState(0);
   const [elapsedMs,        setElapsedMs]         = useState(0);
@@ -678,6 +686,7 @@ export function useReplayPlayer(
     setFramesLoaded(0);
     setReplayRadioMessages([]);
     setReplayRaceControl([]);
+    setLoadingSource(null);
 
     if (!session) {
       updatePlaybackState('idle');
@@ -726,6 +735,7 @@ export function useReplayPlayer(
     const loadData = async () => {
       if (session.firestoreStatus === 'complete' && session.totalChunks && session.totalChunks > 0 && getAuthTokenRef.current) {
         // Path 1: Firestore chunk loading (fast, survives deployments)
+        if (!cancelled) setLoadingSource('cache');
         return loadChunksProgressively(
           session.sessionKey,
           session.totalChunks,
@@ -736,6 +746,7 @@ export function useReplayPlayer(
       } else if (session.downloadUrl && !(session.cacheVersion != null && session.cacheVersion >= 2)) {
         // Path 2: Legacy Firebase Storage download (existing pre-ingested sessions)
         // Skip this path if cacheVersion >= 2 — re-ingested sessions should use Firestore chunks
+        if (!cancelled) setLoadingSource('cache');
         return streamReplayData(
           session.downloadUrl,
           fraction => { if (!cancelled) setDownloadProgress(fraction); },
@@ -743,6 +754,7 @@ export function useReplayPlayer(
         );
       } else if (getAuthTokenRef.current) {
         // Path 3: First-time ingest via API (no existing data — streams + writes to Firestore)
+        if (!cancelled) setLoadingSource('source');
         return streamIngestReplayData(
           session.sessionKey,
           getAuthTokenRef.current,
@@ -782,6 +794,7 @@ export function useReplayPlayer(
     replayDrivers,
     replayRadioMessages,
     replayRaceControl,
+    loadingSource,
     play,
     pause,
     seek,

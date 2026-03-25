@@ -59,6 +59,7 @@ export interface UseReplayPlayerReturn {
   durationMs:       number;     // total replay duration in ms
   speed:            ReplaySpeed;
   error:            string | null;
+  loadingSource:    'cache' | 'source' | null; // 'cache' = Firestore/Storage, 'source' = downloading from OpenF1
   framesLoaded:     number;     // number of frames loaded so far (for NDJSON streaming progress)
   // Driver positions emitted each frame (drop-in for DriverRaceState[])
   replayDrivers:    import('./showreel.types').ReplayDriverState[];
