@@ -1,9 +1,14 @@
-// GUID: API_REPLAY_SESSIONS-000-v02
+// GUID: API_REPLAY_SESSIONS-000-v03
 // [Intent] Returns the list of GPS replay sessions — merges Firestore replay_sessions
-//          (pre-ingested, ready to play) with OpenF1 completed Race + Sprint sessions
-//          (may not be ingested yet). Authenticated users only (any signed-in user).
+//          (pre-ingested, ready to play) with completed Race + Sprint sessions derived
+//          from the static RaceSchedule. Authenticated users only (any signed-in user).
 //          v02: FEAT-PW-004 — query OpenF1 for all completed 2026 Race/Sprint sessions
 //               and merge with Firestore docs. Non-ingested sessions have available=false.
+//          v03: FIX — replaced unreliable OpenF1 session query with static RaceSchedule.
+//               OpenF1 session_type=Sprint returns 404 and the Race query is fragile from
+//               server-side (timeouts, auth issues). The static schedule is authoritative,
+//               always available, and already contains sprint flags. Sessions are keyed by
+//               a synthetic sessionKey (hash of name+type) when no Firestore doc exists.
 //               Sorted by dateStart descending (most recent first).
 // [Inbound Trigger] Called by PitWallClient on entering replay mode to populate session picker.
 // [Downstream Impact] Returns ReplaySessionMetadata[] for useReplayPlayer.
@@ -11,94 +16,71 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
-import { getSecret } from '@/lib/secrets-manager';
+import { RaceSchedule } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 
-const OPENF1_BASE = 'https://api.openf1.org/v1';
-const OPENF1_TOKEN_URL = 'https://api.openf1.org/token';
-const FETCH_TIMEOUT_MS = 10_000;
+// GUID: API_REPLAY_SESSIONS-005-v01
+// [Intent] Build a list of completed Race and Sprint sessions from the static RaceSchedule.
+//          A session is "completed" if its dateStart (raceTime or sprintTime) is in the past.
+//          Returns objects shaped for merge with Firestore replay_sessions.
+//          Uses a deterministic synthetic sessionKey derived from race name + session type
+//          so that Firestore docs (which use the real OpenF1 session_key) take priority
+//          during the merge step.
+function getCompletedScheduleSessions(): Array<{
+  syntheticKey: number;
+  sessionName: string;
+  meetingName: string;
+  dateStart: string;
+}> {
+  const now = new Date();
+  const results: Array<{
+    syntheticKey: number;
+    sessionName: string;
+    meetingName: string;
+    dateStart: string;
+  }> = [];
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
+  for (const race of RaceSchedule) {
+    // Main race
+    if (new Date(race.raceTime) < now) {
+      results.push({
+        syntheticKey: hashStringToNumber(`${race.name}::Race`),
+        sessionName: 'Race',
+        meetingName: race.name,
+        dateStart: race.raceTime,
+      });
+    }
 
-// GUID: API_REPLAY_SESSIONS-002-v01
-// [Intent] Fetch with AbortController timeout — reuses pattern from historical-sessions route.
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(id);
-    return res;
-  } catch (err) {
-    clearTimeout(id);
-    throw err;
-  }
-}
-
-// GUID: API_REPLAY_SESSIONS-003-v01
-// [Intent] Obtain an OpenF1 bearer token using stored credentials, with in-memory caching.
-//          Returns null if credentials are unavailable (unauthenticated requests still work).
-async function getOpenF1Token(): Promise<string | null> {
-  if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.token;
-  let username: string, password: string;
-  try {
-    username = await getSecret('openf1-username', { envVarName: 'OPENF1_USERNAME' });
-    password = await getSecret('openf1-password', { envVarName: 'OPENF1_PASSWORD' });
-  } catch {
-    return null;
-  }
-  try {
-    const res = await fetchWithTimeout(OPENF1_TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ username, password, grant_type: 'password' }).toString(),
-    }, 8_000);
-    if (!res.ok) return null;
-    const data = await res.json() as { access_token: string; expires_in: number };
-    cachedToken = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
-    return cachedToken.token;
-  } catch {
-    return null;
-  }
-}
-
-// GUID: API_REPLAY_SESSIONS-004-v01
-// [Intent] Query OpenF1 for all completed 2026 Race and Sprint sessions.
-//          Returns raw session objects or empty array on failure (non-fatal — Firestore
-//          sessions are still returned even if OpenF1 is down).
-async function fetchOpenF1Sessions(): Promise<any[]> {
-  let token: string | null = null;
-  try { token = await getOpenF1Token(); } catch { /* proceed without */ }
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const results: any[] = [];
-  for (const sessionType of ['Race', 'Sprint']) {
-    try {
-      const url = `${OPENF1_BASE}/sessions?year=2026&session_type=${sessionType}`;
-      const res = await fetchWithTimeout(url, { headers, next: { revalidate: 0 } });
-      if (!res.ok) continue;
-      const text = await res.text();
-      let parsed: any;
-      try { parsed = JSON.parse(text); } catch { continue; }
-      if (Array.isArray(parsed)) {
-        // Only include sessions that have already started (dateStart is in the past)
-        const now = new Date();
-        for (const s of parsed) {
-          if (s.date_start && new Date(s.date_start) < now) {
-            results.push(s);
-          }
-        }
-      }
-    } catch {
-      // Non-fatal — continue with other session type or Firestore-only results
+    // Sprint (only for sprint weekends)
+    if (race.hasSprint && race.sprintTime && new Date(race.sprintTime) < now) {
+      results.push({
+        syntheticKey: hashStringToNumber(`${race.name}::Sprint`),
+        sessionName: 'Sprint',
+        meetingName: race.name,
+        dateStart: race.sprintTime,
+      });
     }
   }
+
   return results;
 }
 
-// GUID: API_REPLAY_SESSIONS-001-v02
+// GUID: API_REPLAY_SESSIONS-006-v01
+// [Intent] Deterministic hash of a string to a positive integer, used as a synthetic
+//          sessionKey for schedule-derived sessions that don't have a Firestore doc.
+//          Negative range avoided (sessionKey is typed as number in the client).
+function hashStringToNumber(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash |= 0; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
+// GUID: API_REPLAY_SESSIONS-001-v03
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
   getFirebaseAdmin();
@@ -115,21 +97,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const { getFirestore } = await import('firebase-admin/firestore');
     const db = getFirestore();
 
-    // Fetch Firestore replay_sessions and OpenF1 completed sessions in parallel
-    const [snapshot, openF1Sessions] = await Promise.all([
-      db.collection('replay_sessions')
-        .where('status', '==', 'available')
-        .orderBy('dateStart', 'desc')
-        .limit(50)
-        .get(),
-      fetchOpenF1Sessions(),
-    ]);
+    // Fetch Firestore replay_sessions (ingested, ready to play)
+    const snapshot = await db.collection('replay_sessions')
+      .where('status', '==', 'available')
+      .orderBy('dateStart', 'desc')
+      .limit(50)
+      .get();
 
     // Build a map of Firestore sessions keyed by sessionKey for fast lookup
-    const firestoreMap = new Map<number, any>();
+    const sessionMap = new Map<number, any>();
+    // Also build a set of meetingName+sessionName for dedup against schedule entries
+    const firestoreNameSet = new Set<string>();
+
     for (const doc of snapshot.docs) {
       const d = doc.data();
-      firestoreMap.set(d.sessionKey, {
+      sessionMap.set(d.sessionKey, {
         sessionKey:         d.sessionKey,
         sessionName:        d.sessionName,
         meetingName:        d.meetingName,
@@ -147,19 +129,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         totalChunks:        d.firestoreChunkCount ?? 0,
         available:          true,
       });
+      // Normalise for matching: lowercase meetingName + sessionName
+      firestoreNameSet.add(`${(d.meetingName ?? '').toLowerCase()}::${(d.sessionName ?? '').toLowerCase()}`);
     }
 
-    // Merge OpenF1 sessions — add any that aren't already in Firestore
-    for (const s of openF1Sessions) {
-      const key = s.session_key;
-      if (!firestoreMap.has(key)) {
-        firestoreMap.set(key, {
-          sessionKey:         key,
-          sessionName:        s.session_name ?? s.session_type ?? 'Race',
-          meetingName:        s.meeting_name ?? 'Unknown',
-          circuitKey:         s.circuit_key ?? 0,
-          year:               s.year ?? 2026,
-          dateStart:          s.date_start ?? '',
+    // Merge completed schedule sessions — add any that don't already exist in Firestore.
+    // Firestore docs use real OpenF1 session_keys so we can't match by key alone.
+    // Instead, match by normalised meetingName + sessionName to avoid duplicates.
+    const scheduleSessions = getCompletedScheduleSessions();
+    for (const s of scheduleSessions) {
+      const nameKey = `${s.meetingName.toLowerCase()}::${s.sessionName.toLowerCase()}`;
+      if (!firestoreNameSet.has(nameKey)) {
+        sessionMap.set(s.syntheticKey, {
+          sessionKey:         s.syntheticKey,
+          sessionName:        s.sessionName,
+          meetingName:        s.meetingName,
+          circuitKey:         0,
+          year:               2026,
+          dateStart:          s.dateStart,
           durationMs:         0,
           totalDrivers:       0,
           totalFrames:        0,
@@ -175,7 +162,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     // Sort by dateStart descending (most recent first)
-    const sessions = Array.from(firestoreMap.values()).sort((a, b) => {
+    const sessions = Array.from(sessionMap.values()).sort((a, b) => {
       const dateA = a.dateStart ? new Date(a.dateStart).getTime() : 0;
       const dateB = b.dateStart ? new Date(b.dateStart).getTime() : 0;
       return dateB - dateA;

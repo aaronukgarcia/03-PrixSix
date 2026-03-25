@@ -310,6 +310,7 @@ async function streamIngestReplayData(
   getAuthToken: () => Promise<string>,
   onProgress: (fraction: number) => void,
   onFramesReady: (data: HistoricalReplayData) => void,
+  onIngestStatus: (status: string) => void,
 ): Promise<HistoricalReplayData> {
   const token = await getAuthToken();
   const res = await fetch(
@@ -396,7 +397,7 @@ async function streamIngestReplayData(
       if (parsed._status) {
         const label = parsed.endpoint ?? '';
         const count = parsed.recordCount;
-        setIngestStatus(count ? `${label} (${Number(count).toLocaleString()} records)` : label);
+        onIngestStatus(count ? `${label} (${Number(count).toLocaleString()} records)` : label);
         continue;
       }
 
@@ -768,6 +769,7 @@ export function useReplayPlayer(
           getAuthTokenRef.current,
           fraction => { if (!cancelled) setDownloadProgress(fraction); },
           onDataReady,
+          status => { if (!cancelled) setIngestStatus(status); },
         );
       } else {
         throw new Error('No replay data source available');

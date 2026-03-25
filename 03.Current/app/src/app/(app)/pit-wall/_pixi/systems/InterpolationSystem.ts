@@ -1,10 +1,14 @@
-// GUID: PIXI_INTERP_SYSTEM-000-v03
+// GUID: PIXI_INTERP_SYSTEM-000-v04
 // [Intent] Extracted interpolation logic for smooth car position animation on the track map.
 //          v02: Snap-to-track validation, spawn protection (< 2 updates → raw GPS).
 //          v03: Speed-based GPS spike filtering in onDriversUpdate — if implied speed between
 //               consecutive positions exceeds 400 km/h, the new position is rejected as a GPS
 //               spike and the previous position is kept. This prevents impossible-travel artifacts
 //               (cars jumping to wrong positions and back) at all polling intervals.
+//          v04: Bounds-based outlier rejection — after collecting all valid positions, compute
+//               10th–90th percentile bounding box and reject drivers whose GPS is >2x track
+//               size outside bounds. Catches pit building coords, marshalling area GPS, and
+//               extreme glitches that the speed filter cannot catch (e.g. first frame of replay).
 // [Inbound Trigger] Called by the PixiJS track map component on each animation frame.
 // [Downstream Impact] Returns InterpolatedPosition[] consumed by car dot rendering.
 
@@ -120,6 +124,37 @@ export class InterpolationSystem {
         // Track update count for spawn protection
         const count = this.updateCount.get(d.driverNumber) ?? 0;
         this.updateCount.set(d.driverNumber, count + 1);
+      }
+    }
+
+    // GUID: PIXI_INTERP_SYSTEM-012-v01
+    // [Intent] Bounds-based outlier rejection. Compute the 10th–90th percentile bounding box
+    //          from all current positions (the "track envelope"), then reject any driver whose
+    //          position falls more than 2x the track width/height outside that envelope.
+    //          This catches pit building GPS coordinates, marshalling area positions, and extreme
+    //          GPS glitches that the speed filter cannot catch (e.g. a driver's first frame in
+    //          replay mode where spike filtering is disabled). Requires ≥5 drivers to compute
+    //          a meaningful bounding box — with fewer, outlier detection is unreliable.
+    if (this.nextPositions.size >= 5) {
+      const xs = [...this.nextPositions.values()].map(p => p.x);
+      const ys = [...this.nextPositions.values()].map(p => p.y);
+      xs.sort((a, b) => a - b);
+      ys.sort((a, b) => a - b);
+      // Use 10th-90th percentile as "track bounds" to exclude outliers
+      const p10 = Math.floor(xs.length * 0.1);
+      const p90 = Math.floor(xs.length * 0.9);
+      const trackW = xs[p90] - xs[p10];
+      const trackH = ys[p90] - ys[p10];
+      const margin = Math.max(trackW, trackH) * 2;
+      const minX = xs[p10] - margin;
+      const maxX = xs[p90] + margin;
+      const minY = ys[p10] - margin;
+      const maxY = ys[p90] + margin;
+
+      for (const [dn, pos] of this.nextPositions) {
+        if (pos.x < minX || pos.x > maxX || pos.y < minY || pos.y > maxY) {
+          this.nextPositions.delete(dn); // Remove outlier — won't be rendered
+        }
       }
     }
 
