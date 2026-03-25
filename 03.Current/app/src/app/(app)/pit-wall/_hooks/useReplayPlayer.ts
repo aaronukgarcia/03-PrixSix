@@ -182,7 +182,7 @@ async function streamReplayData(
       } else {
         const frame = JSON.parse(line);
         // Skip completion markers and error markers
-        if (frame._complete || frame._error) continue;
+        if (frame._complete || frame._error || frame._status) continue;
         data.frames.push(frame);
         onProgress(estimatedTotal > 0 ? Math.min(0.99, data.frames.length / estimatedTotal) : 0.5);
         if (!readyFired && data.frames.length >= READY_THRESHOLD) {
@@ -208,7 +208,7 @@ async function streamReplayData(
       metaParsed = true;
     } else {
       const parsed = JSON.parse(remaining);
-      if (!parsed._complete && !parsed._error) {
+      if (!parsed._complete && !parsed._error && !parsed._status) {
         data.frames.push(parsed);
       }
     }
@@ -350,7 +350,7 @@ async function streamIngestReplayData(
     };
     for (const line of lines) {
       const parsed = JSON.parse(line);
-      if (parsed._complete || parsed._error) continue;
+      if (parsed._complete || parsed._error || parsed._status) continue;
       if (parsed.drivers && !parsed.virtualTimeMs) {
         data.sessionKey = parsed.sessionKey ?? sessionKey;
         data.sessionName = parsed.sessionName ?? '';
@@ -392,7 +392,7 @@ async function streamIngestReplayData(
       const parsed = JSON.parse(line);
 
       // Skip completion/error markers
-      if (parsed._complete || parsed._error) continue;
+      if (parsed._complete || parsed._error || parsed._status) continue;
 
       if (!metaParsed && parsed.drivers && !parsed.virtualTimeMs) {
         data.sessionKey = parsed.sessionKey ?? sessionKey;

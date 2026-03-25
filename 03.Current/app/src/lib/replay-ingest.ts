@@ -67,6 +67,7 @@ export type FirestoreStatus = 'none' | 'ingesting' | 'complete' | 'failed';
 // GUID: REPLAY_INGEST-003-v01
 // [Intent] Progress callback for streaming frames to client during ingest.
 export interface IngestCallbacks {
+  onProgress?: (status: { endpoint: string; recordCount?: number }) => void;
   onFrame: (frame: ReplayFrame) => void;
   onMeta: (meta: {
     sessionKey: number;
@@ -527,6 +528,7 @@ export async function ingestReplaySession(
       txn.set(sessionDocRef, {
         firestoreStatus: 'ingesting' as FirestoreStatus,
         firestoreError: null,
+        firestoreIngestStartedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
       return true;
     });
@@ -557,32 +559,57 @@ export async function ingestReplaySession(
       teamColour: d.team_colour ? `#${d.team_colour}` : '#888888',
     }));
 
+    // GUID: REPLAY_INGEST-022-v01
+    // [Intent] Fetch all data endpoints with keep-alive progress callbacks.
+    //          Each callback.onProgress() sends a ping to the HTTP stream, preventing
+    //          the load balancer from killing the idle connection (60s timeout).
+    //          Without these pings, the stream sits silent for 2-3 min and gets 504'd.
+    const ping = (endpoint: string, count?: number) => callbacks.onProgress?.({ endpoint, recordCount: count });
+
     // 3. Fetch all data endpoints in sequence (with rate limit delays)
+    ping('location');
     const rawLocation = await fetchLocationChunked(sessionKey, dateStart, dateEnd);
+    ping('location', rawLocation.length);
     await new Promise(r => setTimeout(r, 2000));
 
+    ping('position');
     const rawPosition = await fetchOpenF1('position', sessionKey);
+    ping('position', rawPosition.length);
     await new Promise(r => setTimeout(r, 2000));
 
+    ping('car_data');
     const rawCarData = await fetchCarDataChunked(sessionKey, dateStart, dateEnd);
+    ping('car_data', rawCarData.length);
     await new Promise(r => setTimeout(r, 2000));
 
+    ping('intervals');
     const rawIntervals = await fetchOpenF1('intervals', sessionKey);
+    ping('intervals', rawIntervals.length);
     await new Promise(r => setTimeout(r, 2000));
 
+    ping('laps');
     const rawLaps = await fetchOpenF1('laps', sessionKey);
+    ping('laps', rawLaps.length);
     await new Promise(r => setTimeout(r, 2000));
 
+    ping('stints');
     const rawStints = await fetchOpenF1('stints', sessionKey);
+    ping('stints', rawStints.length);
     await new Promise(r => setTimeout(r, 2000));
 
+    ping('pit');
     const rawPits = await fetchOpenF1('pit', sessionKey);
+    ping('pit', rawPits.length);
     await new Promise(r => setTimeout(r, 2000));
 
+    ping('team_radio');
     const rawRadio = await fetchOpenF1('team_radio', sessionKey);
+    ping('team_radio', rawRadio.length);
     await new Promise(r => setTimeout(r, 2000));
 
+    ping('race_control');
     const rawRaceControl = await fetchOpenF1('race_control', sessionKey);
+    ping('race_control', rawRaceControl.length);
 
     // 4. Build lookups
     const getCarData = buildTimeLookup(rawCarData, 'driver_number', 'date', (r: any) => ({
@@ -713,17 +740,46 @@ export async function ingestReplaySession(
 
 // GUID: REPLAY_INGEST-015-v01
 // [Intent] Check Firestore status for a session — used by historical-replay route to decide path.
+// GUID: REPLAY_INGEST-015-v02
+// [Intent] Check Firestore status for a session — used by historical-replay route to decide path.
+//          v02: Added stale lock recovery. If firestoreStatus === 'ingesting' but the lock
+//               was set more than 5 minutes ago, the ingest worker likely died (SIGKILL from
+//               load balancer timeout). Auto-reset to 'none' so a new ingest can start.
+//               Without this, a failed ingest permanently blocks all future replay attempts.
+const STALE_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function getSessionFirestoreStatus(
   sessionKey: number,
 ): Promise<{ status: FirestoreStatus; totalChunks: number; totalFrames: number }> {
   const db = getFirestore();
-  const doc = await db.collection('replay_sessions').doc(String(sessionKey)).get();
+  const docRef = db.collection('replay_sessions').doc(String(sessionKey));
+  const doc = await docRef.get();
   if (!doc.exists) {
     return { status: 'none', totalChunks: 0, totalFrames: 0 };
   }
   const data = doc.data()!;
+  let status = (data.firestoreStatus as FirestoreStatus) ?? 'none';
+
+  // Stale lock recovery: if 'ingesting' for more than 5 minutes, the worker died
+  if (status === 'ingesting') {
+    const lockTime = data.firestoreIngestStartedAt?._seconds
+      ? data.firestoreIngestStartedAt._seconds * 1000
+      : data.firestoreIngestedAt?._seconds
+        ? data.firestoreIngestedAt._seconds * 1000
+        : 0;
+    const age = lockTime > 0 ? Date.now() - lockTime : Infinity;
+    if (age > STALE_LOCK_TIMEOUT_MS) {
+      // Auto-recover: reset to 'none' so next request can retry
+      await docRef.set({
+        firestoreStatus: 'none' as FirestoreStatus,
+        firestoreError: 'Stale lock recovered — previous ingest timed out',
+      }, { merge: true }).catch(() => {});
+      status = 'none';
+    }
+  }
+
   return {
-    status: (data.firestoreStatus as FirestoreStatus) ?? 'none',
+    status,
     totalChunks: data.firestoreChunkCount ?? 0,
     totalFrames: data.firestoreTotalFrames ?? 0,
   };

@@ -355,6 +355,15 @@ export async function GET(req: NextRequest): Promise<NextResponse | Response> {
       async start(controller) {
         try {
           await ingestReplaySession(sessionKey, {
+            // GUID: API_PIT_WALL_HISTORICAL_REPLAY-011-v01
+            // [Intent] Keep-alive progress pings — sent to the NDJSON stream while
+            //          fetching from OpenF1. Prevents the load balancer from killing
+            //          the idle HTTP connection (60s timeout). Client ignores _status lines.
+            onProgress: (status) => {
+              try {
+                controller.enqueue(encoder.encode(JSON.stringify({ _status: 'fetching', ...status }) + '\n'));
+              } catch { /* stream may be closed */ }
+            },
             onMeta: (meta) => {
               controller.enqueue(encoder.encode(JSON.stringify(meta) + '\n'));
             },
