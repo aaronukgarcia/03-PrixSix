@@ -254,6 +254,18 @@ async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetai
     return 'normal';
   };
 
+  // Find the most recent lap WITH sector data for each driver.
+  // The highest-numbered lap may have no sectors yet (driver just crossed S/F line),
+  // so fall back to the previous lap's sectors until new ones arrive.
+  const lastSectorLaps = new Map<number, any>();
+  const sortedLapsDesc = [...(lapsRaw ?? [])].sort((a: any, b: any) => (b.lap_number ?? 0) - (a.lap_number ?? 0));
+  for (const lap of sortedLapsDesc) {
+    const dn = lap.driver_number;
+    if (!lastSectorLaps.has(dn) && (lap.duration_sector_1 || lap.duration_sector_2 || lap.duration_sector_3)) {
+      lastSectorLaps.set(dn, lap);
+    }
+  }
+
   // Build DriverDetail[] for all drivers with lap data
   const allDriverNumbers = new Set<number>([...lapCounts.keys(), ...latestCarData.keys()]);
   const driverDetail: DriverDetail[] = [];
@@ -261,9 +273,10 @@ async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetai
     const lastLap = lastLaps.get(dn);
     const lapNum = lapCounts.get(dn) ?? 0;
     const car = latestCarData.get(dn);
-    const s1 = lastLap?.duration_sector_1 ?? null;
-    const s2 = lastLap?.duration_sector_2 ?? null;
-    const s3 = lastLap?.duration_sector_3 ?? null;
+    const sectorLap = lastSectorLaps.get(dn) ?? lastLap;
+    const s1 = sectorLap?.duration_sector_1 ?? null;
+    const s2 = sectorLap?.duration_sector_2 ?? null;
+    const s3 = sectorLap?.duration_sector_3 ?? null;
     driverDetail.push({
       driverNumber: dn,
       currentLap: lapNum,
@@ -530,6 +543,18 @@ async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDat
     ...latestLocations.keys(),
   ]);
 
+  // Find the most recent lap WITH sector data for each driver (core tier).
+  // lapsRaw is stubbed empty in core tier (moved to detail), but this keeps
+  // the logic consistent if laps data is ever re-added to core.
+  const lastSectorLaps = new Map<number, any>();
+  const sortedLapsDesc = [...(lapsRaw ?? [])].sort((a: any, b: any) => (b.lap_number ?? 0) - (a.lap_number ?? 0));
+  for (const lap of sortedLapsDesc) {
+    const dn = lap.driver_number;
+    if (!lastSectorLaps.has(dn) && (lap.duration_sector_1 || lap.duration_sector_2 || lap.duration_sector_3)) {
+      lastSectorLaps.set(dn, lap);
+    }
+  }
+
   const drivers: DriverRaceState[] = [];
 
   allDriverNumbers.forEach(dn => {
@@ -550,9 +575,10 @@ async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDat
       return 'normal';
     };
 
-    const s1 = lastLap?.duration_sector_1 ?? null;
-    const s2 = lastLap?.duration_sector_2 ?? null;
-    const s3 = lastLap?.duration_sector_3 ?? null;
+    const sectorLap = lastSectorLaps.get(dn) ?? lastLap;
+    const s1 = sectorLap?.duration_sector_1 ?? null;
+    const s2 = sectorLap?.duration_sector_2 ?? null;
+    const s3 = sectorLap?.duration_sector_3 ?? null;
 
     drivers.push({
       driverNumber: dn,

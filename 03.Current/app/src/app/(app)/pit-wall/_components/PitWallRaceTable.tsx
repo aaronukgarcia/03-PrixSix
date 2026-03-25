@@ -254,21 +254,23 @@ function CellContent({
     }
 
     case 'drs': {
+      // 2026: DRS replaced by Overtake Mode (OT) button — extra electrical power boost
+      // Still uses hasDrs field (maps to OpenF1 drs field) but displayed as "OT"
       return (
         <div className="flex items-center justify-center w-full h-full">
           {driver.hasDrs ? (
             <span
-              className="text-[9px] font-bold font-mono px-1 py-0.5 rounded bg-green-900/60 text-green-400 ring-1 ring-green-500/30 leading-tight"
-              aria-label="DRS open"
+              className="text-[9px] font-bold font-mono px-1 py-0.5 rounded bg-amber-900/60 text-amber-400 ring-1 ring-amber-500/30 leading-tight"
+              aria-label="Overtake active"
             >
-              DRS
+              OT
             </span>
           ) : (
             <span
               className="text-[9px] font-bold font-mono px-1 py-0.5 rounded bg-slate-800 text-slate-600 leading-tight"
-              aria-label="DRS closed"
+              aria-label="Overtake inactive"
             >
-              DRS
+              OT
             </span>
           )}
         </div>

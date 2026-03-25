@@ -375,9 +375,11 @@ export default function PitWallClient() {
   const [selectedReplaySession, setSelectedReplaySession] = useState<ReplaySessionMetadata | null>(null);
   const [replaySessionsLoading, setReplaySessionsLoading] = useState(false);
 
-  // GUID: PIT_WALL_CLIENT-022-v01
-  // [Intent] Fetch available replay sessions from Firestore when entering replay mode.
+  // GUID: PIT_WALL_CLIENT-022-v02
+  // [Intent] Fetch replay sessions (Firestore + OpenF1 merged) when entering replay mode.
   //          Only fetched once per mount — sessions don't change during a session.
+  //          v02: FEAT-PW-004 — auto-selects the most recent AVAILABLE session (not just first).
+  //               Sessions with available=false are shown in the picker but cannot be played.
   useEffect(() => {
     if (!isReplayMode || replaySessions.length > 0 || !firebaseUser) return;
     let cancelled = false;
@@ -391,9 +393,12 @@ export default function PitWallClient() {
         if (cancelled) return;
         const sessions: ReplaySessionMetadata[] = data.sessions ?? [];
         setReplaySessions(sessions);
-        // Auto-select the first (most recent) session
+        // Auto-select the most recent AVAILABLE session (available=true means ingested)
         if (sessions.length > 0 && !selectedReplaySession) {
-          setSelectedReplaySession(sessions[0]);
+          const firstAvailable = sessions.find(s => s.available !== false);
+          if (firstAvailable) {
+            setSelectedReplaySession(firstAvailable);
+          }
         }
         setReplaySessionsLoading(false);
       })
@@ -417,7 +422,8 @@ export default function PitWallClient() {
   const handleEnterReplay = useCallback(() => setIsReplayMode(true),  []);
   const handleReplaySessionChange = useCallback((sessionKey: number) => {
     const session = replaySessions.find(s => s.sessionKey === sessionKey);
-    if (session) setSelectedReplaySession(session);
+    // Only allow selecting sessions that have been ingested (available !== false)
+    if (session && session.available !== false) setSelectedReplaySession(session);
   }, [replaySessions]);
   const handleExitReplay  = useCallback(() => {
     setIsReplayMode(false);

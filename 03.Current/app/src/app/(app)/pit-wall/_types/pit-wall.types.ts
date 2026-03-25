@@ -55,7 +55,7 @@ export interface DriverRaceState {
   // Live car state
   inPit: boolean;
   retired: boolean;
-  hasDrs: boolean;
+  hasDrs: boolean; // 2026: maps to Overtake Mode button (formerly DRS)
   speed: number | null; // km/h
   throttle: number | null; // 0-100
   brake: boolean | null;
@@ -207,7 +207,7 @@ export interface InterpolatedPosition {
   teamColour: string;
   driverCode: string;
   position: number;
-  hasDrs: boolean;
+  hasDrs: boolean; // 2026: maps to Overtake Mode button (formerly DRS)
   retired: boolean;
   inPit: boolean;
 }

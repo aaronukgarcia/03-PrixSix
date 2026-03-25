@@ -75,7 +75,7 @@ export interface ReplayFrame {
     throttle?: number | null;
     brake?: number | null;
     gear?: number | null;
-    drs?: number | null;           // DRS status: 10-14 = open, else closed
+    drs?: number | null;           // 2026: Overtake Mode status (formerly DRS); 10-14 = active, else inactive
     gapToLeader?: string | null;   // e.g. "+12.345" or "LAP" — from /intervals
     intervalToAhead?: string | null;
     lastLapTime?: number | null;   // seconds
@@ -174,7 +174,7 @@ export interface ReplayDriverState {
   onNewTyres: boolean;
   inPit: boolean;
   retired: boolean;
-  hasDrs: boolean;
+  hasDrs: boolean; // 2026: maps to Overtake Mode button (formerly DRS)
   speed: number | null;
   throttle: number | null;
   brake: number | null;

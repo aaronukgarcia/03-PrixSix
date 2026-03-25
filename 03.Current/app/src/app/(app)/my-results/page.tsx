@@ -564,7 +564,8 @@ export default function MyResultsPage() {
 
             // Merge leader's score for this race event
             if (showLeaderLine && leaderData) {
-                const leaderPts = leaderData.perRacePoints.get(r.eventId.toLowerCase());
+                const normalizedEventId = r.eventId.toLowerCase().replace(/-gp$/i, '');
+                const leaderPts = leaderData.perRacePoints.get(normalizedEventId);
                 if (leaderPts !== undefined) {
                     entry.leaderPoints = leaderPts;
                 }
@@ -797,7 +798,7 @@ export default function MyResultsPage() {
                     <CardHeader className="pb-3">
                         <CardTitle className="flex items-center gap-2 text-lg">
                             <BarChart3 className="w-5 h-5 text-accent" />
-                            Points Per Race
+                            Points Per Race — {displayTeamName}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>

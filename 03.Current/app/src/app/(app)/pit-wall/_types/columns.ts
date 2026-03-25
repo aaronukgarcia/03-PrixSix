@@ -31,7 +31,7 @@ export const PIT_WALL_COLUMNS: ColumnDef[] = [
   { key: 'tyre',      label: 'CMP',    defaultVisible: true,  width: 48,  align: 'center', sortable: false, description: 'Current tyre compound' },
   { key: 'tyreAge',   label: 'AGE',    defaultVisible: true,  width: 44,  align: 'right',  sortable: true,  description: 'Laps on current tyre set' },
   { key: 'lap',       label: 'LAP',    defaultVisible: true,  width: 44,  align: 'center', sortable: false, description: 'Current lap number' },
-  { key: 'drs',       label: 'DRS',    defaultVisible: false, width: 40,  align: 'center', sortable: false, description: 'DRS open/closed' },
+  { key: 'drs',       label: 'OT',     defaultVisible: false, width: 40,  align: 'center', sortable: false, description: 'Overtake Mode active/inactive (2026: replaces DRS)' },
   { key: 'speed',     label: 'SPD',    defaultVisible: false, width: 54,  align: 'right',  sortable: false, description: 'Current speed (km/h)' },
   { key: 'throttle',  label: 'THR',    defaultVisible: false, width: 52,  align: 'right',  sortable: false, description: 'Throttle application (%)' },
   { key: 'pitstops',  label: 'PIT',    defaultVisible: false, width: 40,  align: 'center', sortable: true,  description: 'Number of pit stops made' },

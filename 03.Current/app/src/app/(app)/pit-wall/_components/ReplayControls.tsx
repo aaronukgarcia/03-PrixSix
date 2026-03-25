@@ -1,10 +1,12 @@
-// GUID: REPLAY_CONTROLS-000-v02
+// GUID: REPLAY_CONTROLS-000-v03
 // [Intent] Classic media player transport controls for the GPS Replay player.
 //          Provides ⏮⏪⏸/▶⏩⏭ buttons, a scrub bar, elapsed/total time display,
 //          and a discrete speed selector (0.5× 1× 2× 4× 8×).
 //          Matches the dark F1 aesthetic of the Pit Wall toolbar.
 //          v02: Enhanced loading states — spinner icon, two-phase progress (session list
 //               fetch + GPS data download), initialising phase display.
+//          v03: FEAT-PW-004 — session dropdown shows all prior races (including not-yet-ingested
+//               sessions as disabled options). Wider max-w for longer labels.
 // [Inbound Trigger] Rendered by PitWallClient when isReplayMode === true.
 // [Downstream Impact] Controls flow into useReplayPlayer — no direct data access.
 
@@ -34,6 +36,7 @@ interface ReplaySession {
   sessionKey: number;
   meetingName: string;
   sessionName: string;
+  available?: boolean;
 }
 
 interface ReplayControlsProps {
@@ -155,15 +158,23 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
       </span>
 
       {/* Session selector / label */}
+      {/* GUID: REPLAY_CONTROLS-005-v01 */}
+      {/* [Intent] FEAT-PW-004 — dropdown lists all prior Race/Sprint sessions. */}
+      {/*          Unavailable (not yet ingested) sessions are disabled and greyed out. */}
       {sessions && sessions.length > 1 && onSessionChange ? (
         <select
           value={selectedSessionKey ?? ''}
           onChange={e => onSessionChange(Number(e.target.value))}
-          className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 rounded px-1.5 py-0.5 outline-none max-w-[140px] shrink-0 hidden sm:block"
+          className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 rounded px-1.5 py-0.5 outline-none max-w-[180px] shrink-0 hidden sm:block"
         >
           {sessions.map(s => (
-            <option key={s.sessionKey} value={s.sessionKey}>
-              {s.meetingName} — {s.sessionName}
+            <option
+              key={s.sessionKey}
+              value={s.sessionKey}
+              disabled={s.available === false}
+              className={s.available === false ? 'text-slate-600' : undefined}
+            >
+              {s.meetingName} — {s.sessionName}{s.available === false ? ' (not ingested)' : ''}
             </option>
           ))}
         </select>

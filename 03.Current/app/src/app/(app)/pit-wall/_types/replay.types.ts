@@ -5,9 +5,11 @@
 // [Inbound Trigger] Imported by useReplayPlayer, ReplayControls, replay-sessions API route.
 // [Downstream Impact] Changes here ripple to all replay hooks and components.
 
-// GUID: REPLAY_TYPES-001-v01
-// [Intent] Metadata for one available replay session — returned by /api/pit-wall/replay-sessions.
-//          Stored in Firestore replay_sessions/{sessionKey}.
+// GUID: REPLAY_TYPES-001-v02
+// [Intent] Metadata for one replay session — returned by /api/pit-wall/replay-sessions.
+//          Stored in Firestore replay_sessions/{sessionKey} for ingested sessions.
+//          v02: FEAT-PW-004 — added `available` flag. Sessions sourced from OpenF1 that
+//               have not been ingested yet have available=false (no downloadUrl/chunks).
 export interface ReplaySessionMetadata {
   sessionKey:         number;
   sessionName:        string;   // e.g. "Race"
@@ -26,6 +28,8 @@ export interface ReplaySessionMetadata {
   firestoreStatus?:   'none' | 'ingesting' | 'complete' | 'failed';
   totalChunks?:       number;   // number of replay_chunks docs for this session
   cacheVersion?:      number;   // v1 = legacy showreel, v2+ = full-fidelity with telemetry
+  // v02: FEAT-PW-004 — true if replay data is ingested and ready to play
+  available?:         boolean;
 }
 
 // GUID: REPLAY_TYPES-002-v01
