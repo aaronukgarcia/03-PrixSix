@@ -534,11 +534,23 @@ export function useReplayPlayer(
       const frame    = frames[frameIndex];
       const driverMap = new Map(data.drivers.map(d => [d.driverNumber, d]));
 
+      // GUID: REPLAY_PLAYER_HOOK-015-v01
+      // [Intent] Build driver states and detect frozen/broken GPS data.
+      //          Some drivers in the replay have permanently frozen GPS (stuck at grid
+      //          position with speed=0 in every frame — broken ingest data). After the
+      //          first 30 seconds, mark them as retired so the track map hides them and
+      //          the table shows them dimmed. They'd otherwise appear as static dots
+      //          far from the track at the start line.
+      const isBeyondFormation = virtualMs > 30_000;
       const nextDrivers = frame.positions
         .map(pos => {
           const driver = driverMap.get(pos.driverNumber);
           if (!driver) return null;
-          return buildReplayDriverState(driver, pos);
+          const state = buildReplayDriverState(driver, pos);
+          if (isBeyondFormation && (pos.speed === 0 || pos.speed === null) && (pos.currentLap === 0 || pos.currentLap === null)) {
+            state.retired = true;
+          }
+          return state;
         })
         .filter((d): d is ReplayDriverState => d !== null);
 

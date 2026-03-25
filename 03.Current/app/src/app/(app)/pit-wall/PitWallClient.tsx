@@ -34,6 +34,7 @@ import type { ReplaySessionMetadata } from './_types/replay.types';
 import { PitWallTrackMap } from './_components/PitWallTrackMap';
 import { ZoomRaceOrder } from './_components/ZoomRaceOrder';
 import { FpsCounter } from './_components/FpsCounter';
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { LiveScoreBanner } from './_components/LiveScoreBanner';
 import { FIARaceControlFeed } from './_components/FIARaceControlFeed';
 import { PitWallRaceTable } from './_components/PitWallRaceTable';
@@ -682,23 +683,21 @@ export default function PitWallClient() {
         />
       )}
 
-      {/* ── HEADER: Track Map (2/3) + FIA Feed (1/3) ── */}
-      {/* GUID: PIT_WALL_CLIENT-005-v02 */}
-      {/* v02: When zoomLevel >= 1, track map goes fullscreen (absolute inset-0 z-50). */}
-      {/*      FIA feed hidden. Zoom/focus controls overlay the map. */}
+      {/* ── HEADER: Track Map + FIA Feed ── */}
+      {/* GUID: PIT_WALL_CLIENT-005-v03 */}
+      {/* v03: Resizable panels at Zoom 0 — drag handle between map and FIA feed. */}
+      {/*      When zoomLevel >= 1, track map goes fullscreen (absolute inset-0 z-50). */}
       <div className={cn(
         'border-b border-slate-800',
         zoomLevel >= 1
           ? 'absolute inset-0 z-50'
-          : 'flex shrink-0 h-[280px]',
+          : 'shrink-0',
       )}>
-        {/* Track map */}
-        <div className={cn(
-          'min-w-0',
-          zoomLevel >= 1
-            ? 'w-full h-full'
-            : 'flex-[2] border-r border-slate-800',
-        )}>
+        {/* Zoom 0: resizable horizontal split. Zoom 1/2: fullscreen track map */}
+        {zoomLevel === 0 ? (
+          <PanelGroup direction="horizontal" className="h-[280px]">
+            <Panel defaultSize={67} minSize={40}>
+              <div className="w-full h-full">
           <PitWallTrackMap
             drivers={activeDrivers}
             updateIntervalMs={
@@ -734,51 +733,87 @@ export default function PitWallClient() {
             className="w-full h-full"
           />
 
-          {/* GUID: PIT_WALL_CLIENT-036-v01 */}
-          {/* [Intent] Floating zoom controls — always visible when fullscreen (zoom >= 1). */}
-          {/*          Top-right: zoom cycle button. Bottom-centre: focus position selector (zoom 2 only). */}
-          {/*          Replay controls overlay bottom when in replay mode. */}
-          {zoomLevel >= 1 && (
-            <>
-              {/* Top-right controls: FPS + zoom cycle */}
-              <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-                <FpsCounter />
-                <button
-                  onClick={handleZoomCycle}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-slate-900/80 backdrop-blur border border-slate-700/50 text-[9px] font-semibold uppercase tracking-wider text-cyan-400 hover:bg-slate-800/80 transition-colors"
-                >
-                  <ZoomIn className="w-3 h-3" />
-                  {zoomLevel === 1 ? 'Zoom 2' : 'Exit'}
-                </button>
               </div>
-
-              {/* Race order panel — left side (zoom 2 only) */}
-              {zoomLevel === 2 && (
-                <ZoomRaceOrder
-                  drivers={activeDrivers}
-                  focusPosition={focusPosition}
-                  onSelectPosition={setFocusPosition}
-                />
-              )}
-
-              {/* Replay controls overlay — bottom of fullscreen map */}
-              {isReplayMode && (
-                <div className="absolute bottom-0 left-0 right-0 z-10 bg-slate-950/80 backdrop-blur border-t border-slate-800">
-                  <ReplayControls
-                    player={replayPlayer}
-                    meetingName={selectedReplaySession?.meetingName ?? (replaySessionsLoading ? 'Loading…' : 'Select a session')}
-                    sessionsLoading={replaySessionsLoading}
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-        {/* FIA race control feed — hidden when zoomed */}
-        {zoomLevel === 0 && (
-          <div className="flex-[1] min-w-0 min-h-0">
-            <FIARaceControlFeed messages={raceControl} className="h-full" />
+            </Panel>
+            <PanelResizeHandle className="w-[3px] bg-slate-800 hover:bg-cyan-600 transition-colors cursor-col-resize" />
+            <Panel defaultSize={33} minSize={15}>
+              <div className="w-full h-full min-w-0 min-h-0">
+                <FIARaceControlFeed messages={raceControl} className="h-full" />
+              </div>
+            </Panel>
+          </PanelGroup>
+        ) : (
+          /* Zoom 1/2: fullscreen track map */
+          <div className="w-full h-full">
+            <PitWallTrackMap
+              drivers={activeDrivers}
+              updateIntervalMs={
+                isReplayMode
+                  ? (selectedReplaySession?.samplingIntervalMs ?? 500) / replayPlayer.speed
+                  : preRaceMode.isShowreel ? 500
+                  : settings.updateIntervalSeconds * 1000
+              }
+              bounds={trackBounds}
+              circuitPath={circuitPath}
+              circuitLat={circuitLat}
+              circuitLon={circuitLon}
+              sfLineX={sfLineX ?? null}
+              sfLineY={sfLineY ?? null}
+              rainIntensity={weather?.rainIntensity ?? null}
+              sessionType={isReplayMode ? 'GPS REPLAY' : displaySessionType}
+              hasLiveSession={sessionKey !== null || (isReplayMode && replayPlayer.playbackState !== 'idle')}
+              positionDataAvailable={positionDataAvailable || (isReplayMode && replayPlayer.replayDrivers.length > 0)}
+              nextRaceName={nextRaceInfo?.name ?? null}
+              lastMeetingName={meetingName}
+              followDriver={null}
+              trailEnabled={trailEnabled}
+              trailTtlMs={trailTtlMs}
+              bloomEnabled={bloomEnabled}
+              zoomLevel={zoomLevel}
+              focusPosition={focusPosition}
+              virtualTimeDeltaMs={virtualTimeDeltaMs}
+              sessionKey={
+                isReplayMode
+                  ? `replay-${selectedReplaySession?.sessionKey ?? 'none'}`
+                  : `live-${sessionKey ?? 'none'}`
+              }
+              className="w-full h-full"
+            />
           </div>
+        )}
+
+        {/* Fullscreen zoom overlays */}
+        {zoomLevel >= 1 && (
+          <>
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              <FpsCounter />
+              <button
+                onClick={handleZoomCycle}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-slate-900/80 backdrop-blur border border-slate-700/50 text-[9px] font-semibold uppercase tracking-wider text-cyan-400 hover:bg-slate-800/80 transition-colors"
+              >
+                <ZoomIn className="w-3 h-3" />
+                {zoomLevel === 1 ? 'Zoom 2' : 'Exit'}
+              </button>
+            </div>
+
+            {zoomLevel === 2 && (
+              <ZoomRaceOrder
+                drivers={activeDrivers}
+                focusPosition={focusPosition}
+                onSelectPosition={setFocusPosition}
+              />
+            )}
+
+            {isReplayMode && (
+              <div className="absolute bottom-0 left-0 right-0 z-10 bg-slate-950/80 backdrop-blur border-t border-slate-800">
+                <ReplayControls
+                  player={replayPlayer}
+                  meetingName={selectedReplaySession?.meetingName ?? (replaySessionsLoading ? 'Loading…' : 'Select a session')}
+                  sessionsLoading={replaySessionsLoading}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 

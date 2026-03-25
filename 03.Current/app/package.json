@@ -1,6 +1,6 @@
 {
   "name": "nextn",
-  "version": "2.5.12",
+  "version": "2.6.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
@@ -67,6 +67,7 @@
     "react-dom": "^19.2.1",
     "react-hook-form": "^7.71.2",
     "react-qr-code": "^2.0.18",
+    "react-resizable-panels": "^4.7.5",
     "recharts": "^3.8.0",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
