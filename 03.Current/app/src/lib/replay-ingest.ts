@@ -132,12 +132,16 @@ async function fetchOpenF1(
   return data;
 }
 
-// GUID: REPLAY_INGEST-006-v01
+// GUID: REPLAY_INGEST-006-v02
 // [Intent] Fetch location data in time-windowed chunks to avoid OpenF1's "too much data" error.
+//          v02: Accepts optional onChunkProgress callback to send keep-alive pings during
+//          the long chunked fetch (12 iterations × 1.5s = ~90s). Without pings inside
+//          this loop, the HTTP stream sits silent and the load balancer kills it at 60s.
 async function fetchLocationChunked(
   sessionKey: number,
   dateStart: string,
   dateEnd: string,
+  onChunkProgress?: (recordsSoFar: number) => void,
 ): Promise<any[]> {
   const start = new Date(dateStart);
   const end = new Date(dateEnd);
@@ -154,6 +158,7 @@ async function fetchLocationChunked(
       `&date%3E=${encodeURIComponent(from)}&date%3C=${encodeURIComponent(to)}`,
     );
     all.push(...chunk);
+    onChunkProgress?.(all.length);
     cursor = next;
     // Rate limit: polite 1.5s delay between chunks
     await new Promise(r => setTimeout(r, 1500));
@@ -161,12 +166,14 @@ async function fetchLocationChunked(
   return all;
 }
 
-// GUID: REPLAY_INGEST-007-v01
+// GUID: REPLAY_INGEST-007-v02
 // [Intent] Fetch car_data in time-windowed chunks (largest dataset, ~530K records).
+//          v02: Added onChunkProgress callback for keep-alive pings.
 async function fetchCarDataChunked(
   sessionKey: number,
   dateStart: string,
   dateEnd: string,
+  onChunkProgress?: (recordsSoFar: number) => void,
 ): Promise<any[]> {
   // Try full request first
   const full = await fetchOpenF1('car_data', sessionKey);
@@ -188,6 +195,7 @@ async function fetchCarDataChunked(
       `&date%3E=${encodeURIComponent(from)}&date%3C=${encodeURIComponent(to)}`,
     );
     all.push(...chunk);
+    onChunkProgress?.(all.length);
     cursor = next;
     await new Promise(r => setTimeout(r, 1500));
   }
@@ -585,7 +593,7 @@ export async function ingestReplaySession(
 
     // 3. Fetch all data endpoints in sequence (with rate limit delays)
     ping('location');
-    const rawLocation = await fetchLocationChunked(sessionKey, dateStart, dateEnd);
+    const rawLocation = await fetchLocationChunked(sessionKey, dateStart, dateEnd, (n) => ping('location', n));
     ping('location', rawLocation.length);
     await new Promise(r => setTimeout(r, 2000));
 
@@ -595,7 +603,7 @@ export async function ingestReplaySession(
     await new Promise(r => setTimeout(r, 2000));
 
     ping('car_data');
-    const rawCarData = await fetchCarDataChunked(sessionKey, dateStart, dateEnd);
+    const rawCarData = await fetchCarDataChunked(sessionKey, dateStart, dateEnd, (n) => ping('car_data', n));
     ping('car_data', rawCarData.length);
     await new Promise(r => setTimeout(r, 2000));
 
