@@ -1,6 +1,606 @@
 {
-  "lastUpdated": "2026-03-13",
+  "lastUpdated": "2026-03-25",
   "commits": [
+    {
+      "id": "250df90",
+      "date": "2026-03-25",
+      "version": "2.8.1",
+      "author": "aaron garcia",
+      "message": "fix: replay loading UX — distinguish source download from errors (v2.8.1)",
+      "major": false
+    },
+    {
+      "id": "ae500fa",
+      "date": "2026-03-25",
+      "version": "2.8.0",
+      "author": "aaron garcia",
+      "message": "feat: live race scalability + broadcast polish (v2.8.0)",
+      "major": true
+    },
+    {
+      "id": "3cca9b6",
+      "date": "2026-03-25",
+      "version": "2.7.2",
+      "author": "aaron garcia",
+      "message": "fix+feat: sector times, OT column, race selector, My Results (v2.7.2)",
+      "major": false
+    },
+    {
+      "id": "b1eeb4a",
+      "date": "2026-03-25",
+      "version": "2.7.1",
+      "author": "aaron garcia",
+      "message": "fix: replay telemetry, stuck cars, race control in replay (v2.7.1)",
+      "major": false
+    },
+    {
+      "id": "16eb66c",
+      "date": "2026-03-25",
+      "version": "2.7.0",
+      "author": "aaron garcia",
+      "message": "feat: promise coalescing + admin metrics dashboard (v2.7.0)",
+      "major": true
+    },
+    {
+      "id": "bbf07ab",
+      "date": "2026-03-25",
+      "version": "2.6.3",
+      "author": "aaron garcia",
+      "message": "feat: teams page defaults to next upcoming race (v2.6.3)",
+      "major": true
+    },
+    {
+      "id": "c058e5b",
+      "date": "2026-03-25",
+      "version": "2.6.2",
+      "author": "aaron garcia",
+      "message": "feat: post-commit reflection hook — forced learning checkpoint (v2.6.2)",
+      "major": true
+    },
+    {
+      "id": "5c998fd",
+      "date": "2026-03-25",
+      "version": "",
+      "author": "aaron garcia",
+      "message": "chore: bump version to 2.6.1",
+      "major": false
+    },
+    {
+      "id": "029b241",
+      "date": "2026-03-25",
+      "version": "2.6.0",
+      "author": "aaron garcia",
+      "message": "feat: vertical resize, replay session selector, FIA feed text (v2.6.0)",
+      "major": true
+    },
+    {
+      "id": "c62fed8",
+      "date": "2026-03-25",
+      "version": "2.6.0",
+      "author": "aaron garcia",
+      "message": "feat: resizable panels, frozen driver detection, RAF→setTimeout (v2.6.0)",
+      "major": true
+    },
+    {
+      "id": "1f15dce",
+      "date": "2026-03-24",
+      "version": "2.5.12",
+      "author": "aaron garcia",
+      "message": "fix: replay tick RAF→setTimeout — RAF silently fails to fire (v2.5.12)",
+      "major": false
+    },
+    {
+      "id": "a4b4536",
+      "date": "2026-03-24",
+      "version": "2.5.11",
+      "author": "aaron garcia",
+      "message": "feat: Zoom 2 race order panel, FPS counter, trail scaling, position labels (v2.5.11)",
+      "major": true
+    },
+    {
+      "id": "9616f86",
+      "date": "2026-03-24",
+      "version": "2.5.10",
+      "author": "aaron garcia",
+      "message": "fix: Zoom 2 not centred — force PixiJS resize on zoom change (v2.5.10)",
+      "major": false
+    },
+    {
+      "id": "385b68f",
+      "date": "2026-03-24",
+      "version": "2.5.9",
+      "author": "aaron garcia",
+      "message": "fix: Zoom 1 remove overview zoom — track fills fullscreen naturally (v2.5.9)",
+      "major": false
+    },
+    {
+      "id": "417d4c2",
+      "date": "2026-03-24",
+      "version": "2.5.9",
+      "author": "aaron garcia",
+      "message": "fix: version guard now checks actual diff, not just file presence (v2.5.9)",
+      "major": false
+    },
+    {
+      "id": "e9abb08",
+      "date": "2026-03-24",
+      "version": "",
+      "author": "aaron garcia",
+      "message": "chore: bump version to 2.5.9",
+      "major": false
+    },
+    {
+      "id": "8c9d410",
+      "date": "2026-03-24",
+      "version": "2.5.8",
+      "author": "aaron garcia",
+      "message": "fix: Zoom 2 camera not centred — snap on entry + faster lerp (v2.5.8)",
+      "major": false
+    },
+    {
+      "id": "fd98ee2",
+      "date": "2026-03-24",
+      "version": "2.5.8",
+      "author": "aaron garcia",
+      "message": "fix: replay cars now animate — spike filter disabled for replay + cleanup (v2.5.8)",
+      "major": false
+    },
+    {
+      "id": "02a4347",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "fix: disable spike filter entirely in replay mode — death spiral (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "01fe257",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "fix: spike filter death spiral — 3-frame grace period after reset (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "d75e5a8",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: add stack trace to cancelRaf — who is killing the handle? (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "5a885bb",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: log inside runTick wrapper — verify tick function is callable (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "48512da",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "fix: replace RAF with setTimeout in replay player — RAF not firing (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "db10d03",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: detect getAuthToken instability + sample HAM not NOR (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "387878e",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: sample moving driver (HAM #44) not frozen driver (NOR #1) (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "82355d4",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: trace replay RAF lifecycle — onDataReady, startRafFrom, cleanup (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "72b5646",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: move replay tick log before early return — check if tick fires at all (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "ea8d97b",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: add replay player tick logging + interpolation reset on first data (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "ecbe019",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "fix: replay cars frozen — reset interpolation on first driver arrival (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "34cf40a",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: fix tick log serialization — string instead of object for Puppeteer (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "57704a9",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: add tick-level logging — interpolation output every 3s (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "0874dd2",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: one-shot console.warn when PixiTrackApp first receives drivers (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "2770667",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "fix: replay no cars — async import race loses initial setData call (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "0221ce9",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "diag: add console logging to PixiTrackApp tick — trace replay car rendering (v2.5.7)",
+      "major": false
+    },
+    {
+      "id": "01f596f",
+      "date": "2026-03-24",
+      "version": "2.5.7",
+      "author": "aaron garcia",
+      "message": "feat: version guard hook — blocks commits without version bump (v2.5.7)",
+      "major": true
+    },
+    {
+      "id": "1f37ddf",
+      "date": "2026-03-24",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "feat: bloom glow toggle in Pit Wall toolbar (v2.5.6)",
+      "major": true
+    },
+    {
+      "id": "bfeb693",
+      "date": "2026-03-24",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "fix: replay frozen cars — useRef mutated inside useMemo (React double-render) (v2.5.6)",
+      "major": false
+    },
+    {
+      "id": "4ccd8fc",
+      "date": "2026-03-24",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "diag: add temporary console logging to PixiTrackApp tick + reset path on replay (v2.5.6)",
+      "major": false
+    },
+    {
+      "id": "68bc95c",
+      "date": "2026-03-24",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "fix: replay cars off-screen — bounds must include driver GPS coordinates (v2.5.6)",
+      "major": false
+    },
+    {
+      "id": "81a3535",
+      "date": "2026-03-20",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "fix: car dots invisible — move out of bloom filter container (v2.5.6)",
+      "major": false
+    },
+    {
+      "id": "6c5affb",
+      "date": "2026-03-20",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "fix: Zoom 2 no cars — focus driver fallback + camera target fix (v2.5.6)",
+      "major": false
+    },
+    {
+      "id": "12b61c4",
+      "date": "2026-03-20",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "fix: Zoom 1 overview zoom + Zoom 2 chase camera rework (v2.5.6)",
+      "major": false
+    },
+    {
+      "id": "c3ff923",
+      "date": "2026-03-20",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "fix: Zoom 1 camera — apply 1.8x centred zoom instead of 1x (v2.5.6)",
+      "major": false
+    },
+    {
+      "id": "bf0cf9a",
+      "date": "2026-03-20",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "refactor: admin tabs — grouped navigation with colour-coded semantic rows (v2.5.6)",
+      "major": false
+    },
+    {
+      "id": "cf6c815",
+      "date": "2026-03-20",
+      "version": "2.5.6",
+      "author": "aaron garcia",
+      "message": "feat: admin Pit Wall dashboard — health, replay data, circuit maps, cache control (v2.5.6)",
+      "major": true
+    },
+    {
+      "id": "9bdb1b2",
+      "date": "2026-03-20",
+      "version": "2.5.5",
+      "author": "aaron garcia",
+      "message": "feat: static circuit outlines — instant track map for known circuits (v2.5.5)",
+      "major": true
+    },
+    {
+      "id": "6f474d2",
+      "date": "2026-03-20",
+      "version": "2.5.4",
+      "author": "aaron garcia",
+      "message": "fix: PX-9001 toUpperCase crash — replay gap values were number not string (v2.5.4)",
+      "major": false
+    },
+    {
+      "id": "515947d",
+      "date": "2026-03-20",
+      "version": "2.5.3",
+      "author": "aaron garcia",
+      "message": "fix: PW replay frozen cars, snap handoff, zoom-aware track, velocity trails, grid (v2.5.3)",
+      "major": false
+    },
+    {
+      "id": "503be25",
+      "date": "2026-03-20",
+      "version": "2.5.2",
+      "author": "aaron garcia",
+      "message": "fix: PW.md bugs — showreel tab-skip, interpolation freeze, worker leak (v2.5.2)",
+      "major": false
+    },
+    {
+      "id": "6e542f4",
+      "date": "2026-03-20",
+      "version": "2.5.1",
+      "author": "aaron garcia",
+      "message": "feat: Pit Wall 3-tier zoom — fullscreen track map + hyper-focus camera (v2.5.1)",
+      "major": true
+    },
+    {
+      "id": "cdf0eca",
+      "date": "2026-03-19",
+      "version": "2.5.0",
+      "author": "aaron garcia",
+      "message": "feat: durable Firestore telemetry storage for Pit Wall replay (v2.5.0)",
+      "major": true
+    },
+    {
+      "id": "e5fb011",
+      "date": "2026-03-19",
+      "version": "2.4.6",
+      "author": "aaron garcia",
+      "message": "fix: S/F line from API lap/location correlation + spawn protection fix (v2.4.6)",
+      "major": false
+    },
+    {
+      "id": "3ecceff",
+      "date": "2026-03-19",
+      "version": "2.4.5",
+      "author": "aaron garcia",
+      "message": "fix: impossible travel filter, wider track, hover labels, no-reverse trails (v2.4.5)",
+      "major": false
+    },
+    {
+      "id": "5a0bc11",
+      "date": "2026-03-19",
+      "version": "2.4.4",
+      "author": "aaron garcia",
+      "message": "fix: car spawn at correct GPS position — no S/F fly-in artifact (v2.4.4)",
+      "major": false
+    },
+    {
+      "id": "341d40f",
+      "date": "2026-03-19",
+      "version": "2.4.3",
+      "author": "aaron garcia",
+      "message": "fix: full 3-tier carry-forward on results + my-results pages (v2.4.3)",
+      "major": false
+    },
+    {
+      "id": "e94957c",
+      "date": "2026-03-19",
+      "version": "2.4.2",
+      "author": "aaron garcia",
+      "message": "fix: Sprint results page shows GP carry-forward predictions (v2.4.2)",
+      "major": false
+    },
+    {
+      "id": "690f915",
+      "date": "2026-03-19",
+      "version": "2.4.1",
+      "author": "aaron garcia",
+      "message": "fix: ATC-style track map — single-driver circuit path, GPS-space trails, minimal dots (v2.4.1)",
+      "major": false
+    },
+    {
+      "id": "c0a537b",
+      "date": "2026-03-18",
+      "version": "2.4.0",
+      "author": "aaron garcia",
+      "message": "feat: WebGL track map — PixiJS v8, bloom contrails, 60fps interpolation, luxury F1 aesthetic (v2.4.0)",
+      "major": true
+    },
+    {
+      "id": "c1b17b6",
+      "date": "2026-03-18",
+      "version": "2.3.6",
+      "author": "aaron garcia",
+      "message": "fix: replay speed control now updates immediately + car fly-in snap threshold (v2.3.6)",
+      "major": false
+    },
+    {
+      "id": "58d06d6",
+      "date": "2026-03-18",
+      "version": "2.3.5",
+      "author": "aaron garcia",
+      "message": "fix: Teams page — direct doc lookup + robust carry-forward eliminates empty P1-P6 slots (v2.3.5)",
+      "major": false
+    },
+    {
+      "id": "abc5d93",
+      "date": "2026-03-18",
+      "version": "2.3.4",
+      "author": "aaron garcia",
+      "message": "fix: circuit outline rewrite — deduplicated point cloud, nearest-neighbor sort, pastel sector colours (v2.3.4)",
+      "major": false
+    },
+    {
+      "id": "a8cc0e6",
+      "date": "2026-03-18",
+      "version": "2.3.3",
+      "author": "aaron garcia",
+      "message": "feat: live prediction score banner on Pit Wall — real-time scoring as positions change (v2.3.3)",
+      "major": true
+    },
+    {
+      "id": "e39ea21",
+      "date": "2026-03-18",
+      "version": "2.3.2",
+      "author": "aaron garcia",
+      "message": "fix: Pit Wall track map rewrite — proper circuit with width, sectors, no ghost artefacts (v2.3.2)",
+      "major": false
+    },
+    {
+      "id": "db8970b",
+      "date": "2026-03-18",
+      "version": "2.3.1",
+      "author": "aaron garcia",
+      "message": "fix: replay circuit outline + enriched telemetry — full race table in replay mode (v2.3.1)",
+      "major": false
+    },
+    {
+      "id": "2086834",
+      "date": "2026-03-18",
+      "version": "2.3.0",
+      "author": "aaron garcia",
+      "message": "feat: Pit Wall visual overhaul — comet trails, spline interpolation, follow-mode camera, replay UX (v2.3.0)",
+      "major": true
+    },
+    {
+      "id": "5b32231",
+      "date": "2026-03-18",
+      "version": "2.2.0",
+      "author": "aaron garcia",
+      "message": "fix: two-tier live data fetch — core shows table in 3-8s, detail enriches async (v2.2.0)",
+      "major": false
+    },
+    {
+      "id": "9a79e66",
+      "date": "2026-03-18",
+      "version": "",
+      "author": "aaron garcia",
+      "message": "fix: add composite index for replay_sessions (status + dateStart) — fixes play button disabled bug",
+      "major": false
+    },
+    {
+      "id": "5ecefc5",
+      "date": "2026-03-18",
+      "version": "",
+      "author": "aaron garcia",
+      "message": "chore: register GPS replay GUIDs in code.json (Golden Rule #6)",
+      "major": false
+    },
+    {
+      "id": "aa06610",
+      "date": "2026-03-18",
+      "version": "2.1.9",
+      "author": "aaron garcia",
+      "message": "feat: GPS Replay player — Chinese GP full race download, Firebase Storage, media controls (v2.1.9)",
+      "major": true
+    },
+    {
+      "id": "636b72d",
+      "date": "2026-03-18",
+      "version": "2.1.9",
+      "author": "aaron garcia",
+      "message": "fix: My Results chart labels season leader as \\\"Leader (Name)\\\" not just team name (v2.1.9)",
+      "major": false
+    },
+    {
+      "id": "f931c65",
+      "date": "2026-03-18",
+      "version": "2.1.8",
+      "author": "aaron garcia",
+      "message": "fix: Pit Wall track map — use /location for GPS x/y/z not /position (v2.1.8)",
+      "major": false
+    },
+    {
+      "id": "2ae4b03",
+      "date": "2026-03-18",
+      "version": "2.1.8",
+      "author": "aaron garcia",
+      "message": "feat: Pit Wall incremental fix — circuit outline, session-adaptive polling, positionDataAvailable (v2.1.8)",
+      "major": true
+    },
+    {
+      "id": "1a21bd5",
+      "date": "2026-03-16",
+      "version": "2.1.7",
+      "author": "aaron garcia",
+      "message": "fix: results email Season Standings now shows cumulative totals not single-race points (v2.1.7)",
+      "major": false
+    },
+    {
+      "id": "c5591bf",
+      "date": "2026-03-16",
+      "version": "2.1.6",
+      "author": "aaron garcia",
+      "message": "feat: FIA classification PDF link in admin results entry and public results page (v2.1.6)",
+      "major": true
+    },
+    {
+      "id": "93bca0e",
+      "date": "2026-03-16",
+      "version": "2.1.5",
+      "author": "aaron garcia",
+      "message": "feat: type-to-confirm race name in admin results submission dialog (v2.1.5)",
+      "major": true
+    },
     {
       "id": "80447f6",
       "date": "2026-03-13",

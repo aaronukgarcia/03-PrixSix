@@ -6,11 +6,12 @@
 
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, Code2, Terminal } from 'lucide-react';
+import { ArrowLeft, Code2, Terminal, FileCode2, GitBranch, Database, Cpu, Shield, Layers, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { VersionHistory } from './_components/VersionHistory';
 import { APP_VERSION } from '@/lib/version';
+import commitHistory from '@/lib/commit-history.json';
 
 // GUID: PAGE_DEV-001-v03
 // [Intent] Next.js page metadata for SEO — sets title and description for the dev info page.
@@ -59,7 +60,7 @@ export default function DevPage() {
               <CardTitle className="text-lg font-medium text-zinc-100">Current Build</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent className="pt-4 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Version</p>
@@ -75,7 +76,54 @@ export default function DevPage() {
               </div>
               <div>
                 <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">AI</p>
-                <p className="font-mono text-lg text-zinc-100">Vertex AI</p>
+                <p className="font-mono text-lg text-zinc-100">Claude Code</p>
+              </div>
+            </div>
+
+            <div className="border-t border-zinc-800 pt-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Lines of Code</p>
+                  <p className="font-mono text-lg text-zinc-100">~78K</p>
+                  <p className="text-[10px] text-zinc-600">TypeScript + Cloud Functions</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Source Files</p>
+                  <p className="font-mono text-lg text-zinc-100">290+</p>
+                  <p className="text-[10px] text-zinc-600">.ts / .tsx</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Commits</p>
+                  <p className="font-mono text-lg text-zinc-100">{commitHistory.commits.length}</p>
+                  <p className="text-[10px] text-zinc-600">since v1.0.0</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">GUID Registry</p>
+                  <p className="font-mono text-lg text-zinc-100">1,819</p>
+                  <p className="text-[10px] text-zinc-600">tracked code blocks</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-zinc-800 pt-4">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Architecture</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { icon: Layers, label: 'React + Next.js 15', detail: 'App Router, Server Components' },
+                  { icon: Database, label: 'Firestore', detail: '16 collections, real-time sync' },
+                  { icon: Shield, label: 'Firebase Auth', detail: 'PIN-based login, admin roles' },
+                  { icon: Cpu, label: 'PixiJS v8 WebGL', detail: 'Pit Wall track map @ 60fps' },
+                  { icon: Radio, label: 'OpenF1 Integration', detail: 'Live telemetry + replay ingest' },
+                  { icon: GitBranch, label: 'Cloud Functions', detail: 'Email queue, hot news, sync' },
+                ].map(({ icon: Icon, label, detail }) => (
+                  <div key={label} className="flex items-start gap-2 p-2 rounded bg-zinc-800/30">
+                    <Icon className="h-3.5 w-3.5 text-zinc-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-zinc-300 font-medium">{label}</p>
+                      <p className="text-[10px] text-zinc-600">{detail}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </CardContent>
