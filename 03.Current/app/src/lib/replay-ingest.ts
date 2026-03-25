@@ -68,6 +68,7 @@ export type FirestoreStatus = 'none' | 'ingesting' | 'complete' | 'failed';
 // [Intent] Progress callback for streaming frames to client during ingest.
 export interface IngestCallbacks {
   onProgress?: (status: { endpoint: string; recordCount?: number }) => void;
+  onFirestoreProgress?: boolean; // when true, write progress to the session doc for admin panel visibility
   onFrame: (frame: ReplayFrame) => void;
   onMeta: (meta: {
     sessionKey: number;
@@ -559,12 +560,28 @@ export async function ingestReplaySession(
       teamColour: d.team_colour ? `#${d.team_colour}` : '#888888',
     }));
 
-    // GUID: REPLAY_INGEST-022-v01
+    // GUID: REPLAY_INGEST-022-v02
     // [Intent] Fetch all data endpoints with keep-alive progress callbacks.
-    //          Each callback.onProgress() sends a ping to the HTTP stream, preventing
-    //          the load balancer from killing the idle connection (60s timeout).
-    //          Without these pings, the stream sits silent for 2-3 min and gets 504'd.
-    const ping = (endpoint: string, count?: number) => callbacks.onProgress?.({ endpoint, recordCount: count });
+    //          v02: Also writes progress to Firestore session doc when onFirestoreProgress
+    //          is true (admin-triggered ingests). The admin panel's onSnapshot listener
+    //          picks up changes in real time, showing which endpoint is being fetched.
+    const endpointLabels: Record<string, string> = {
+      location: 'GPS locations', position: 'Race positions', car_data: 'Throttle/brake/speed',
+      intervals: 'Gap/interval data', laps: 'Lap times & sectors', stints: 'Tyre stints',
+      pit: 'Pit stop data', team_radio: 'Team radio messages', race_control: 'FIA race control',
+      building: 'Building frames', writing: 'Writing to Firestore',
+    };
+    const ping = (endpoint: string, count?: number) => {
+      callbacks.onProgress?.({ endpoint, recordCount: count });
+      if (callbacks.onFirestoreProgress) {
+        sessionDocRef.set({
+          firestoreIngestCurrentEndpoint: endpoint,
+          firestoreIngestCurrentLabel: endpointLabels[endpoint] ?? endpoint,
+          firestoreIngestRecordCount: count ?? null,
+          firestoreIngestUpdatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+      }
+    };
 
     // 3. Fetch all data endpoints in sequence (with rate limit delays)
     ping('location');
@@ -640,6 +657,7 @@ export async function ingestReplaySession(
     const raceControlMessages = buildRaceControlMessages(rawRaceControl);
 
     // 5. Build full-fidelity frames
+    ping('building');
     const frames = buildFullFidelityFrames(
       rawLocation,
       sessionStartMs,
@@ -666,7 +684,10 @@ export async function ingestReplaySession(
       samplingIntervalMs: 500, // ~2Hz full fidelity
     });
 
+    ping('building', frames.length);
+
     // 6. Stream frames to client AND write chunks to Firestore simultaneously
+    ping('writing');
     let chunkIndex = 0;
     let chunkFrames: ReplayFrame[] = [];
 

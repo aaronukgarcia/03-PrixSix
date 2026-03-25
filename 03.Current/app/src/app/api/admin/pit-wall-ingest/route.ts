@@ -84,6 +84,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // [Intent] Detached promise — ingest runs asynchronously. No-op callbacks because
     //          data streams to Firestore, not to a client response stream.
     ingestReplaySession(sessionKey, {
+      onFirestoreProgress: true, // write progress to session doc for admin panel real-time visibility
       onProgress: () => {},
       onMeta: () => {},
       onFrame: () => {},

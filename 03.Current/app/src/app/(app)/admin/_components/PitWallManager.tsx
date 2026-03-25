@@ -95,6 +95,9 @@ interface ReplaySession {
   firestoreError?: string | null;
   firestoreIngestStartedAt?: { _seconds: number; _nanoseconds: number };
   firestoreIngestedAt?: { _seconds: number; _nanoseconds: number };
+  firestoreIngestCurrentEndpoint?: string;
+  firestoreIngestCurrentLabel?: string;
+  firestoreIngestRecordCount?: number | null;
   fileSizeBytesRaw?: number;
   fileSizeBytesGzip?: number;
   status?: string;
@@ -552,13 +555,25 @@ export function PitWallManager() {
                         <StatusBadge status={
                           ingestingSession === session.sessionKey ? 'ingesting' : (session.firestoreStatus ?? session.status ?? 'none')
                         } />
-                        {/* Ingest detail: start time + elapsed for ingesting sessions */}
-                        {(session.firestoreStatus === 'ingesting' || ingestingSession === session.sessionKey) && session.firestoreIngestStartedAt && (
-                          <p className="text-[10px] text-blue-400 mt-0.5 animate-pulse">
-                            Started {new Date(session.firestoreIngestStartedAt._seconds * 1000).toLocaleTimeString()}
-                            {' — '}
-                            {Math.round((Date.now() - session.firestoreIngestStartedAt._seconds * 1000) / 1000)}s ago
-                          </p>
+                        {/* Ingest detail: current endpoint + elapsed for ingesting sessions */}
+                        {(session.firestoreStatus === 'ingesting' || ingestingSession === session.sessionKey) && (
+                          <div className="text-[10px] mt-0.5 space-y-0.5">
+                            {session.firestoreIngestCurrentLabel && (
+                              <p className="text-cyan-400 animate-pulse">
+                                Fetching: {session.firestoreIngestCurrentLabel}
+                                {session.firestoreIngestRecordCount != null && session.firestoreIngestRecordCount > 0 && (
+                                  <span className="text-cyan-600 ml-1">({session.firestoreIngestRecordCount.toLocaleString()} records)</span>
+                                )}
+                              </p>
+                            )}
+                            {session.firestoreIngestStartedAt && (
+                              <p className="text-blue-400">
+                                Started {new Date(session.firestoreIngestStartedAt._seconds * 1000).toLocaleTimeString()}
+                                {' — '}
+                                {Math.round((Date.now() - session.firestoreIngestStartedAt._seconds * 1000) / 1000)}s elapsed
+                              </p>
+                            )}
+                          </div>
                         )}
                         {/* Completed detail: ingest time + size */}
                         {session.firestoreStatus === 'complete' && (
