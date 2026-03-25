@@ -79,7 +79,8 @@ function computeTrackBounds(
 //          Max 8000 points stored (~1 race worth of position history).
 //          v02: Key bumped to v2 to invalidate stale multi-car point cloud data from v1.
 //               v2 stores single-driver sequential path data which produces clean outlines.
-const CIRCUIT_PATH_KEY = 'prix6_pw_circuit_path_v2';
+// v3: bumped to invalidate sentinel-contaminated caches from v2
+const CIRCUIT_PATH_KEY = 'prix6_pw_circuit_path_v3';
 const MAX_CIRCUIT_POINTS = 8000;
 
 function loadCircuitPath(circuitKey: number): CircuitPoint[] {
@@ -106,18 +107,30 @@ function saveCircuitPath(circuitKey: number, path: CircuitPoint[]): void {
 //          bounding radius of all other points is considered a sentinel and removed.
 function filterSentinelPoints(path: CircuitPoint[]): CircuitPoint[] {
   if (path.length < 10) return path;
-  // Compute centroid of all points
-  let sumX = 0, sumY = 0;
-  for (const p of path) { sumX += p.x; sumY += p.y; }
-  const cx = sumX / path.length;
-  const cy = sumY / path.length;
-  // Compute distances from centroid
+  // Two-pass iterative outlier removal. Pass 1 computes centroid from the
+  // 10th-90th percentile of points (excluding extreme outliers from the centroid
+  // calculation itself — prevents sentinel points from skewing the centroid).
+  // Pass 2 rejects anything >2.5× the 90th-percentile radius.
+  const xs = path.map(p => p.x).sort((a, b) => a - b);
+  const ys = path.map(p => p.y).sort((a, b) => a - b);
+  const p10 = Math.floor(path.length * 0.1);
+  const p90 = Math.floor(path.length * 0.9);
+  // Robust centroid from inner 80% of points
+  let sumX = 0, sumY = 0, count = 0;
+  for (const p of path) {
+    if (p.x >= xs[p10] && p.x <= xs[p90] && p.y >= ys[p10] && p.y <= ys[p90]) {
+      sumX += p.x; sumY += p.y; count++;
+    }
+  }
+  if (count < 5) return path; // not enough inner points
+  const cx = sumX / count;
+  const cy = sumY / count;
+  // Compute distances from robust centroid
   const dists = path.map(p => Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2));
-  // Median distance (sort a copy to find it)
-  const sorted = [...dists].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)];
-  // Reject points more than 3× the median distance from centroid
-  const threshold = median * 3;
+  const sortedDists = [...dists].sort((a, b) => a - b);
+  const p90Dist = sortedDists[Math.floor(sortedDists.length * 0.9)];
+  // Reject points more than 2.5× the 90th percentile distance
+  const threshold = p90Dist * 2.5;
   return path.filter((_, i) => dists[i] <= threshold);
 }
 
@@ -448,8 +461,9 @@ export default function PitWallClient() {
   const handleEnterReplay = useCallback(() => setIsReplayMode(true),  []);
   const handleReplaySessionChange = useCallback((sessionKey: number) => {
     const session = replaySessions.find(s => s.sessionKey === sessionKey);
-    // Only allow selecting sessions that have been ingested (available !== false)
-    if (session && session.available !== false) setSelectedReplaySession(session);
+    // Allow selecting any session — unavailable sessions will trigger first-time
+    // ingest via Path 3 in useReplayPlayer (streams from OpenF1 + writes to Firestore).
+    if (session) setSelectedReplaySession(session);
   }, [replaySessions]);
   const handleExitReplay  = useCallback(() => {
     setIsReplayMode(false);

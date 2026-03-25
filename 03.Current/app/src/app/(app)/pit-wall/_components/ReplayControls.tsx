@@ -190,10 +190,9 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
             <option
               key={s.sessionKey}
               value={s.sessionKey}
-              disabled={s.available === false}
               className={s.available === false ? 'text-slate-600' : undefined}
             >
-              {s.meetingName} — {s.sessionName}{s.available === false ? ' (not ingested)' : ''}
+              {s.meetingName} — {s.sessionName}{s.available === false ? ' (will download)' : ''}
             </option>
           ))}
         </select>
