@@ -283,11 +283,10 @@ function CellContent({
 
     case 'speed': {
       return (
-        <div className="flex items-center justify-end gap-0.5 w-full h-full">
-          <span className="font-mono text-xs text-slate-300 tabular-nums">
-            {driver.speed !== null ? driver.speed : '--'}
+        <div className="flex items-center justify-end w-full h-full">
+          <span className="font-mono text-xs text-slate-300 tabular-nums min-w-[2.5rem] text-right">
+            {driver.speed !== null ? Math.round(driver.speed) : '--'}
           </span>
-          <span className="text-[9px] text-slate-600">km/h</span>
         </div>
       );
     }

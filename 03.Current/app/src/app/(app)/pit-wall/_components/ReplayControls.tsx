@@ -180,7 +180,7 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
       {/* GUID: REPLAY_CONTROLS-005-v01 */}
       {/* [Intent] FEAT-PW-004 — dropdown lists all prior Race/Sprint sessions. */}
       {/*          Unavailable (not yet ingested) sessions are disabled and greyed out. */}
-      {sessions && sessions.length > 1 && onSessionChange ? (
+      {sessions && sessions.length >= 1 && onSessionChange ? (
         <select
           value={selectedSessionKey ?? ''}
           onChange={e => onSessionChange(Number(e.target.value))}

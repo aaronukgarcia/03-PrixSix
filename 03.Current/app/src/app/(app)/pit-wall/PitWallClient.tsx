@@ -98,6 +98,29 @@ function saveCircuitPath(circuitKey: number, path: CircuitPoint[]): void {
   } catch {} // Storage quota exceeded — ignore
 }
 
+// GUID: PIT_WALL_CLIENT-056-v01
+// [Intent] Filter sentinel coordinates from a circuit path. OpenF1 uses a well-known
+//          sentinel position (e.g. -8325,-7058 for Shanghai) for cars not on track.
+//          These outliers distort the track outline and bounds calculation.
+//          Detection: any point whose distance from the path centroid exceeds 2× the
+//          bounding radius of all other points is considered a sentinel and removed.
+function filterSentinelPoints(path: CircuitPoint[]): CircuitPoint[] {
+  if (path.length < 10) return path;
+  // Compute centroid of all points
+  let sumX = 0, sumY = 0;
+  for (const p of path) { sumX += p.x; sumY += p.y; }
+  const cx = sumX / path.length;
+  const cy = sumY / path.length;
+  // Compute distances from centroid
+  const dists = path.map(p => Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2));
+  // Median distance (sort a copy to find it)
+  const sorted = [...dists].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  // Reject points more than 3× the median distance from centroid
+  const threshold = median * 3;
+  return path.filter((_, i) => dists[i] <= threshold);
+}
+
 // GUID: PIT_WALL_CLIENT-010-v01
 // [Intent] Find the next upcoming race from the schedule that has not yet started.
 //          Returns null if all races are in the past.
@@ -230,7 +253,8 @@ export default function PitWallClient() {
       lastCircuitKeyRef.current = circuitKey;
       const persisted = loadCircuitPath(circuitKey);
       const staticPath = (staticCircuits as Record<string, CircuitPoint[]>)[String(circuitKey)];
-      const path = persisted.length > 0 ? persisted : (staticPath ?? []);
+      const rawPath = persisted.length > 0 ? persisted : (staticPath ?? []);
+      const path = filterSentinelPoints(rawPath);
       setCircuitPath(path);
       // If we have enough points (from either source), freeze — don't re-discover
       pathTrackerRef.current = { trackedDriver: null, frozen: path.length > 100 };
@@ -264,6 +288,8 @@ export default function PitWallClient() {
     // Find our tracked driver in the current data
     const driver = liveDrivers.find(d => d.driverNumber === tracker.trackedDriver);
     if (!driver || driver.x == null || driver.y == null) return;
+    // Skip stationary drivers — speed=0 cars are at pit/grid/sentinel and don't trace track outline
+    if ('speed' in driver && (driver as any).speed === 0) return;
 
     const newPoint: CircuitPoint = { x: driver.x, y: driver.y };
 
@@ -493,7 +519,8 @@ export default function PitWallClient() {
     if (tracker.frozen) return;
 
     const replayCircuitKey = selectedReplaySession.circuitKey;
-    const staticPath = (staticCircuits as Record<string, CircuitPoint[]>)[String(replayCircuitKey)];
+    const rawStaticPath = (staticCircuits as Record<string, CircuitPoint[]>)[String(replayCircuitKey)];
+    const staticPath = rawStaticPath ? filterSentinelPoints(rawStaticPath) : undefined;
     if (staticPath && staticPath.length > 50) {
       setCircuitPath(staticPath);
       circuitPathRef.current = staticPath;
@@ -522,6 +549,8 @@ export default function PitWallClient() {
 
     const driver = activeDrivers.find(d => d.driverNumber === tracker.trackedDriver);
     if (!driver || driver.x == null || driver.y == null) return;
+    // Skip stationary drivers — speed=0 cars are at pit/grid/sentinel and don't trace track outline
+    if ('speed' in driver && (driver as any).speed === 0) return;
 
     const newPoint: CircuitPoint = { x: driver.x, y: driver.y };
 
@@ -1070,6 +1099,9 @@ export default function PitWallClient() {
           player={replayPlayer}
           meetingName={selectedReplaySession?.meetingName ?? (replaySessionsLoading ? 'Loading…' : 'Select a session')}
           sessionsLoading={replaySessionsLoading}
+          sessions={replaySessions}
+          selectedSessionKey={selectedReplaySession?.sessionKey}
+          onSessionChange={handleReplaySessionChange}
         />
       </div>
 

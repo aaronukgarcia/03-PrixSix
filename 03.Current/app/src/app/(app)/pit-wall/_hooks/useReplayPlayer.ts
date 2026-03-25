@@ -580,11 +580,11 @@ export function useReplayPlayer(
         setReplayRadioMessages(prev => [...frame.radioMessages!, ...prev]);
       }
 
-      // GUID: REPLAY_PLAYER_HOOK-016-v01
-      // [Intent] Accumulate race control messages from replay frames for the FIA feed panel.
-      if (frame.raceControlMessages && frame.raceControlMessages.length > 0) {
-        setReplayRaceControl(prev => [...frame.raceControlMessages!, ...prev]);
-      }
+      // GUID: REPLAY_PLAYER_HOOK-016-v02
+      // [Intent] Race control messages are now pre-populated from all frames at load time
+      //          (onDataReady + onStreamComplete) rather than accumulated per-tick.
+      //          Per-tick accumulation was unreliable — seeks/skips could miss frames,
+      //          and the full scan in onStreamComplete is authoritative.
     }
 
     rafHandleRef.current = window.setTimeout(tick, 16) as unknown as number;
@@ -710,6 +710,19 @@ export function useReplayPlayer(
       replayDataRef.current = data;
       setDurationMs(data.durationMs);
       setFramesLoaded(data.frames.length);
+
+      // Pre-populate race control from frames loaded so far (more will arrive in onStreamComplete)
+      const earlyRaceControl: Array<{ date: string; lapNumber: number | null; category: string; flag: string | null; message: string; scope: string | null; sector: number | null }> = [];
+      for (const frame of data.frames) {
+        if (frame.raceControlMessages && frame.raceControlMessages.length > 0) {
+          earlyRaceControl.push(...frame.raceControlMessages);
+        }
+      }
+      if (earlyRaceControl.length > 0) {
+        earlyRaceControl.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setReplayRaceControl(earlyRaceControl);
+      }
+
       updatePlaybackState('ready');
       startRafFrom(0);
     };
@@ -720,6 +733,23 @@ export function useReplayPlayer(
       setDurationMs(data.durationMs);
       setFramesLoaded(data.frames.length);
       setDownloadProgress(1);
+
+      // GUID: REPLAY_PLAYER_HOOK-017-v01
+      // [Intent] Pre-populate ALL race control messages from loaded frames.
+      //          The per-tick accumulation only captures messages for frames that the playhead
+      //          passes through. If the user seeks or the tick skips frames, messages are missed.
+      //          Scanning all frames once at load-complete ensures the FIA feed is always populated.
+      const allRaceControl: Array<{ date: string; lapNumber: number | null; category: string; flag: string | null; message: string; scope: string | null; sector: number | null }> = [];
+      for (const frame of data.frames) {
+        if (frame.raceControlMessages && frame.raceControlMessages.length > 0) {
+          allRaceControl.push(...frame.raceControlMessages);
+        }
+      }
+      if (allRaceControl.length > 0) {
+        // Sort newest-first (by date descending) to match the FIA feed display order
+        allRaceControl.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setReplayRaceControl(allRaceControl);
+      }
     };
 
     const onStreamError = (err: unknown) => {
