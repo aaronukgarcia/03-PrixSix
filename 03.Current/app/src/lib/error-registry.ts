@@ -694,6 +694,16 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     suggestedAction: 'Check server logs. Metrics are non-critical — health endpoint still returns other data.',
     modulePath: 'app/src/app/api/admin/pit-wall-health/route.ts',
   },
+  // GUID: PIT_WALL_ERRORS-021-v01
+  PIT_WALL_INGEST_TRIGGER_FAILED: {
+    key: 'PIT_WALL_INGEST_TRIGGER_FAILED',
+    code: 'PX-3321',
+    message: 'Failed to trigger replay ingest',
+    severity: 'error' as const,
+    description: 'Admin-triggered replay ingest could not be started. May be a missing sessionKey or server error.',
+    suggestedAction: 'Check the sessionKey is valid. Retry from the admin panel. Check server logs for details.',
+    modulePath: 'app/src/app/api/admin/pit-wall-ingest/route.ts',
+  },
   FIRESTORE_READ_FAILED: {
     key: 'FIRESTORE_READ_FAILED',
     code: 'PX-4001',

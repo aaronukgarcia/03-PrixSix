@@ -19,7 +19,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Activity, Database, HardDrive, Map, RefreshCw, Trash2, Loader2,
+  Activity, Database, Download, HardDrive, Map, RefreshCw, Trash2, Loader2,
   CheckCircle2, XCircle, Clock, Zap, Radio, AlertTriangle, Server,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -92,6 +92,11 @@ interface ReplaySession {
   firestoreStatus?: 'none' | 'ingesting' | 'complete' | 'failed';
   firestoreChunkCount?: number;
   firestoreTotalFrames?: number;
+  firestoreError?: string | null;
+  firestoreIngestStartedAt?: { _seconds: number; _nanoseconds: number };
+  firestoreIngestedAt?: { _seconds: number; _nanoseconds: number };
+  fileSizeBytesRaw?: number;
+  fileSizeBytesGzip?: number;
   status?: string;
 }
 
@@ -134,6 +139,7 @@ export function PitWallManager() {
   const [purgingAll, setPurgingAll] = useState(false);
   const [purgingCache, setPurgingCache] = useState(false);
   const [confirmPurgeAll, setConfirmPurgeAll] = useState('');
+  const [ingestingSession, setIngestingSession] = useState<number | null>(null);
 
   const firestore = useFirestore();
 
@@ -262,6 +268,66 @@ export function PitWallManager() {
       toast({ title: 'Cache purge failed', description: err.message, variant: 'destructive' });
     } finally {
       setPurgingCache(false);
+    }
+  }, [firebaseUser, toast, fetchHealth]);
+
+  // GUID: ADMIN_PITWALL-010-v01
+  // [Intent] Trigger replay ingest for a session via admin endpoint. Fire-and-forget on server.
+  const handleIngestSession = useCallback(async (sessionKey: number) => {
+    if (!firebaseUser) return;
+    setIngestingSession(sessionKey);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch('/api/admin/pit-wall-ingest', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionKey }),
+      });
+      const data = await res.json();
+      if (!res.ok && res.status !== 202) throw new Error(data.error || 'Ingest trigger failed');
+      if (data.status === 'already_ingesting') {
+        toast({ title: 'Already ingesting', description: `Session ${sessionKey} is already being ingested.` });
+      } else if (data.status === 'already_complete') {
+        toast({ title: 'Already complete', description: `Session ${sessionKey} already has ${data.totalChunks} chunks.` });
+      } else {
+        toast({ title: 'Ingest started', description: `Session ${sessionKey} ingest triggered. Watch status for progress.` });
+      }
+      fetchHealth();
+    } catch (err: any) {
+      toast({ title: 'Ingest failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIngestingSession(null);
+    }
+  }, [firebaseUser, toast, fetchHealth]);
+
+  // GUID: ADMIN_PITWALL-011-v01
+  // [Intent] Re-ingest a completed session: purge first, then trigger ingest.
+  const handleReingestSession = useCallback(async (sessionKey: number) => {
+    if (!firebaseUser) return;
+    setIngestingSession(sessionKey);
+    try {
+      const token = await firebaseUser.getIdToken();
+      // Step 1: Purge existing data
+      const purgeRes = await fetch(`/api/admin/purge-replay?session_key=${sessionKey}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const purgeData = await purgeRes.json();
+      if (!purgeRes.ok) throw new Error(purgeData.error || 'Purge step failed');
+      // Step 2: Trigger ingest
+      const ingestRes = await fetch('/api/admin/pit-wall-ingest', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionKey }),
+      });
+      const ingestData = await ingestRes.json();
+      if (!ingestRes.ok && ingestRes.status !== 202) throw new Error(ingestData.error || 'Ingest trigger failed');
+      toast({ title: 'Re-ingest started', description: `Purged ${purgeData.deletedChunks} chunks, ingest triggered for session ${sessionKey}.` });
+      fetchHealth();
+    } catch (err: any) {
+      toast({ title: 'Re-ingest failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIngestingSession(null);
     }
   }, [firebaseUser, toast, fetchHealth]);
 
@@ -482,7 +548,40 @@ export function PitWallManager() {
                     </TableCell>
                     <TableCell className="text-sm">{session.meetingName ?? '—'}</TableCell>
                     <TableCell>
-                      <StatusBadge status={session.firestoreStatus ?? session.status ?? 'none'} />
+                      <div>
+                        <StatusBadge status={
+                          ingestingSession === session.sessionKey ? 'ingesting' : (session.firestoreStatus ?? session.status ?? 'none')
+                        } />
+                        {/* Ingest detail: start time + elapsed for ingesting sessions */}
+                        {(session.firestoreStatus === 'ingesting' || ingestingSession === session.sessionKey) && session.firestoreIngestStartedAt && (
+                          <p className="text-[10px] text-blue-400 mt-0.5 animate-pulse">
+                            Started {new Date(session.firestoreIngestStartedAt._seconds * 1000).toLocaleTimeString()}
+                            {' — '}
+                            {Math.round((Date.now() - session.firestoreIngestStartedAt._seconds * 1000) / 1000)}s ago
+                          </p>
+                        )}
+                        {/* Completed detail: ingest time + size */}
+                        {session.firestoreStatus === 'complete' && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5 space-y-0">
+                            {session.firestoreIngestedAt && session.firestoreIngestStartedAt && (
+                              <p>
+                                Ingested in {Math.round((session.firestoreIngestedAt._seconds - session.firestoreIngestStartedAt._seconds))}s
+                              </p>
+                            )}
+                            {(session.fileSizeBytesRaw || session.fileSizeBytesGzip) && (
+                              <p>
+                                {session.fileSizeBytesRaw ? `${(session.fileSizeBytesRaw / 1024 / 1024).toFixed(1)} MB` : ''}
+                                {session.fileSizeBytesGzip ? ` (${(session.fileSizeBytesGzip / 1024 / 1024).toFixed(1)} MB gz)` : ''}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {session.firestoreError && session.firestoreStatus === 'failed' && (
+                          <p className="text-xs text-red-400 mt-1 max-w-[200px] truncate" title={session.firestoreError}>
+                            {session.firestoreError}
+                          </p>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {session.firestoreChunkCount ?? '—'}
@@ -496,20 +595,56 @@ export function PitWallManager() {
                         : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      {(session.firestoreStatus === 'complete' || session.firestoreStatus === 'failed') && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => session.sessionKey && handlePurgeSession(session.sessionKey)}
-                          disabled={purgingSession === session.sessionKey}
-                        >
-                          {purgingSession === session.sessionKey ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          )}
-                        </Button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Ingest button — shown for sessions with no data or failed */}
+                        {(!session.firestoreStatus || session.firestoreStatus === 'none' || session.firestoreStatus === 'failed') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Ingest replay data from OpenF1"
+                            onClick={() => session.sessionKey && handleIngestSession(session.sessionKey)}
+                            disabled={ingestingSession === session.sessionKey}
+                          >
+                            {ingestingSession === session.sessionKey ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4 text-green-500" />
+                            )}
+                          </Button>
+                        )}
+                        {/* Re-ingest button — shown for completed sessions */}
+                        {session.firestoreStatus === 'complete' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Purge and re-ingest replay data"
+                            onClick={() => session.sessionKey && handleReingestSession(session.sessionKey)}
+                            disabled={ingestingSession === session.sessionKey}
+                          >
+                            {ingestingSession === session.sessionKey ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-4 h-4 text-blue-500" />
+                            )}
+                          </Button>
+                        )}
+                        {/* Purge button — shown for complete or failed */}
+                        {(session.firestoreStatus === 'complete' || session.firestoreStatus === 'failed') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Purge replay data"
+                            onClick={() => session.sessionKey && handlePurgeSession(session.sessionKey)}
+                            disabled={purgingSession === session.sessionKey}
+                          >
+                            {purgingSession === session.sessionKey ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
