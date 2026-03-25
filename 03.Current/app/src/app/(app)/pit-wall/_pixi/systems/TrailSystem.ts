@@ -15,7 +15,7 @@ import { lerpColor } from '../utils/pixi-helpers';
 // GUID: PIXI_TRAIL_SYSTEM-001-v02
 // [Intent] Default trail lifetime in milliseconds. Configurable via TrailSystem.getActiveTrails().
 //          750ms at ~80m/s = ~60m trail = fine, short vapour trail.
-export const DEFAULT_TRAIL_TTL_MS = 750;
+export const DEFAULT_TRAIL_TTL_MS = 1200;
 
 // GUID: PIXI_TRAIL_SYSTEM-002-v01
 // [Intent] Maximum trail points per driver. Ring buffer wraps at this limit.

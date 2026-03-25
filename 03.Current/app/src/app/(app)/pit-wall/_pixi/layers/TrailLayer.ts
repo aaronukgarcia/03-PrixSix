@@ -13,8 +13,8 @@ import type { TrackBounds } from '../../_types/pit-wall.types';
 import { projectToCanvas } from '../utils/pixi-helpers';
 
 const MIN_TRAIL_POINTS = 2;
-const BASE_LINE_WIDTH = 1.5;  // head width — fine but visible
-const TIP_LINE_WIDTH = 0.5;   // tail width — hair-thin fade-out
+const BASE_LINE_WIDTH = 3.5;  // head width — thick and visible at zoom 0
+const TIP_LINE_WIDTH = 1.5;   // tail width — still visible fade-out
 
 export class TrailLayer {
   readonly container = new Container();
@@ -77,17 +77,19 @@ export class TrailLayer {
         // Progress 0 (oldest) to 1 (newest)
         const progress = count > 2 ? i / (count - 2) : 1;
 
-        // Fine taper: hair-thin at tail, slightly thicker at head.
+        // Taper: thinner at tail, thicker at head.
         // Scale inversely with zoom — at Zoom 2 (4x camera), lines would be 4x wider visually.
-        const zoomScale = zoomLevel === 2 ? 0.25 : zoomLevel === 1 ? 0.6 : 1;
+        const zoomScale = zoomLevel === 2 ? 0.35 : zoomLevel === 1 ? 0.7 : 1;
         const lineWidth = (TIP_LINE_WIDTH + (BASE_LINE_WIDTH - TIP_LINE_WIDTH) * progress) * zoomScale;
 
         // Velocity-scaled alpha — trails stretch at high speed, compress in slow corners.
         // speedScale: 0.3 (stopped/slow) to 2.5 (350+ km/h flat out).
         // Applied to the exponential decay alpha so fast segments linger longer.
-        const speedScale = Math.max(0.3, Math.min(2.5, p1.speed / 200));
-        const velocityAlpha = Math.exp(-3 * (1 - progress) / speedScale);
-        const segAlpha = p1.alpha * velocityAlpha * (0.3 + 0.7 * progress);
+        // Velocity-scaled alpha — gentler decay so trails are visible at all zoom levels.
+        // speedScale: 0.5 (slow) to 2.5 (350+ km/h). Higher = longer visible trail.
+        const speedScale = Math.max(0.5, Math.min(2.5, p1.speed / 150));
+        const velocityAlpha = Math.exp(-2 * (1 - progress) / speedScale);
+        const segAlpha = p1.alpha * velocityAlpha * (0.4 + 0.6 * progress);
 
         if (segAlpha < 0.02) continue; // skip invisible segments
 

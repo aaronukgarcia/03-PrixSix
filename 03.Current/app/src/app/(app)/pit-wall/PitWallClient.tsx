@@ -596,7 +596,7 @@ export default function PitWallClient() {
   //          trailTtlMs: trail lifetime in milliseconds (default: 750ms).
   //          Options: 250, 500, 750, 1000, 1500ms.
   const [trailEnabled, setTrailEnabled] = useState(true);
-  const [trailTtlMs, setTrailTtlMs] = useState(750);
+  const [trailTtlMs, setTrailTtlMs] = useState(1200);
   // GUID: PIT_WALL_CLIENT-055-v01
   // [Intent] Bloom toggle — opt-in glow effect on car dots and trails.
   //          Off by default for GPU reliability. When on, car dots move into the
