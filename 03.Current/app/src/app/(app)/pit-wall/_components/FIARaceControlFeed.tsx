@@ -184,7 +184,7 @@ export function FIARaceControlFeed({ messages, className }: FIARaceControlFeedPr
       {/* Messages list */}
       {sorted.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-xs text-slate-600 font-mono">No messages</span>
+          <span className="text-xs text-slate-600 font-mono">Waiting for race start…</span>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-0 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">

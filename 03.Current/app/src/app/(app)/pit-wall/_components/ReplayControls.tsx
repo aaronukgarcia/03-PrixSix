@@ -30,17 +30,26 @@ function formatMs(ms: number): string {
 
 const SPEEDS: ReplaySpeed[] = [0.5, 1, 2, 4, 8];
 
+interface ReplaySession {
+  sessionKey: number;
+  meetingName: string;
+  sessionName: string;
+}
+
 interface ReplayControlsProps {
   player: UseReplayPlayerReturn;
   meetingName: string;
   sessionsLoading?: boolean;
+  sessions?: ReplaySession[];
+  selectedSessionKey?: number | null;
+  onSessionChange?: (sessionKey: number) => void;
   className?: string;
 }
 
 // GUID: REPLAY_CONTROLS-002-v02
 // [Intent] Full media player UI — transport buttons, scrub bar, time display, speed selector.
 //          v02: Enhanced loading states with spinner, two-phase progress, initialising display.
-export function ReplayControls({ player, meetingName, sessionsLoading, className }: ReplayControlsProps) {
+export function ReplayControls({ player, meetingName, sessionsLoading, sessions, selectedSessionKey, onSessionChange, className }: ReplayControlsProps) {
   const {
     playbackState, downloadProgress, progress,
     elapsedMs, durationMs, speed,
@@ -145,10 +154,24 @@ export function ReplayControls({ player, meetingName, sessionsLoading, className
         REPLAY
       </span>
 
-      {/* Session label */}
-      <span className="text-[10px] text-slate-500 truncate max-w-[120px] hidden sm:block shrink-0">
-        {meetingName}
-      </span>
+      {/* Session selector / label */}
+      {sessions && sessions.length > 1 && onSessionChange ? (
+        <select
+          value={selectedSessionKey ?? ''}
+          onChange={e => onSessionChange(Number(e.target.value))}
+          className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 rounded px-1.5 py-0.5 outline-none max-w-[140px] shrink-0 hidden sm:block"
+        >
+          {sessions.map(s => (
+            <option key={s.sessionKey} value={s.sessionKey}>
+              {s.meetingName} — {s.sessionName}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className="text-[10px] text-slate-500 truncate max-w-[120px] hidden sm:block shrink-0">
+          {meetingName}
+        </span>
+      )}
 
       {/* Transport buttons: ⏮ ⏪ ⏸/▶ ⏩ ⏭ */}
       <div className="flex items-center gap-0.5 shrink-0">

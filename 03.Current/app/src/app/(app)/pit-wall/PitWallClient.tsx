@@ -415,6 +415,10 @@ export default function PitWallClient() {
   );
 
   const handleEnterReplay = useCallback(() => setIsReplayMode(true),  []);
+  const handleReplaySessionChange = useCallback((sessionKey: number) => {
+    const session = replaySessions.find(s => s.sessionKey === sessionKey);
+    if (session) setSelectedReplaySession(session);
+  }, [replaySessions]);
   const handleExitReplay  = useCallback(() => {
     setIsReplayMode(false);
     setSelectedReplaySession(null);
@@ -574,6 +578,32 @@ export default function PitWallClient() {
   //          AdvancedBloomFilter container for a subtle halo glow.
   const [bloomEnabled, setBloomEnabled] = useState(false);
 
+  // GUID: PIT_WALL_CLIENT-056-v01
+  // [Intent] Resizable header height — drag the bottom edge of the map header to resize.
+  //          Default 280px, min 150px, max 600px. Stored as state, not persisted.
+  const [headerHeight, setHeaderHeight] = useState(280);
+  const isDraggingRef = useRef(false);
+
+  const handleVerticalDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    const startY = e.clientY;
+    const startHeight = headerHeight;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const delta = ev.clientY - startY;
+      setHeaderHeight(Math.max(150, Math.min(600, startHeight + delta)));
+    };
+    const onUp = () => {
+      isDraggingRef.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [headerHeight]);
+
   // GUID: PIT_WALL_CLIENT-035-v01
   // [Intent] 3-tier zoom state machine for the track map.
   //          Zoom 0: default layout (280px header, FIA feed + race table visible).
@@ -695,7 +725,7 @@ export default function PitWallClient() {
       )}>
         {/* Zoom 0: resizable horizontal split. Zoom 1/2: fullscreen track map */}
         {zoomLevel === 0 ? (
-          <PanelGroup direction="horizontal" className="h-[280px]">
+          <PanelGroup direction="horizontal" style={{ height: headerHeight }}>
             <Panel defaultSize={67} minSize={40}>
               <div className="w-full h-full">
           <PitWallTrackMap
@@ -810,12 +840,23 @@ export default function PitWallClient() {
                   player={replayPlayer}
                   meetingName={selectedReplaySession?.meetingName ?? (replaySessionsLoading ? 'Loading…' : 'Select a session')}
                   sessionsLoading={replaySessionsLoading}
+                  sessions={replaySessions}
+                  selectedSessionKey={selectedReplaySession?.sessionKey}
+                  onSessionChange={handleReplaySessionChange}
                 />
               </div>
             )}
           </>
         )}
       </div>
+
+      {/* Vertical resize handle — drag to adjust map height (Zoom 0 only) */}
+      {zoomLevel === 0 && (
+        <div
+          onMouseDown={handleVerticalDragStart}
+          className="h-[3px] bg-slate-800 hover:bg-cyan-600 transition-colors cursor-row-resize shrink-0"
+        />
+      )}
 
       {/* ── TOOLBAR ── */}
       {/* GUID: PIT_WALL_CLIENT-006-v02 */}
