@@ -391,8 +391,14 @@ async function streamIngestReplayData(
 
       const parsed = JSON.parse(line);
 
-      // Skip completion/error markers
-      if (parsed._complete || parsed._error || parsed._status) continue;
+      // Skip completion/error markers — but capture _status for UI progress
+      if (parsed._complete || parsed._error) continue;
+      if (parsed._status) {
+        const label = parsed.endpoint ?? '';
+        const count = parsed.recordCount;
+        setIngestStatus(count ? `${label} (${Number(count).toLocaleString()} records)` : label);
+        continue;
+      }
 
       if (!metaParsed && parsed.drivers && !parsed.virtualTimeMs) {
         data.sessionKey = parsed.sessionKey ?? sessionKey;
@@ -455,6 +461,7 @@ export function useReplayPlayer(
 ): UseReplayPlayerReturn {
   const [playbackState,    setPlaybackState]    = useState<ReplayPlaybackState>('idle');
   const [loadingSource,    setLoadingSource]    = useState<'cache' | 'source' | null>(null);
+  const [ingestStatus,     setIngestStatus]     = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [progress,         setProgress]         = useState(0);
   const [elapsedMs,        setElapsedMs]         = useState(0);
@@ -687,6 +694,7 @@ export function useReplayPlayer(
     setReplayRadioMessages([]);
     setReplayRaceControl([]);
     setLoadingSource(null);
+    setIngestStatus(null);
 
     if (!session) {
       updatePlaybackState('idle');
@@ -795,6 +803,7 @@ export function useReplayPlayer(
     replayRadioMessages,
     replayRaceControl,
     loadingSource,
+    ingestStatus,
     play,
     pause,
     seek,

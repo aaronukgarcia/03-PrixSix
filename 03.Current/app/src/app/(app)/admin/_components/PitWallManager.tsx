@@ -93,8 +93,8 @@ interface ReplaySession {
   firestoreChunkCount?: number;
   firestoreTotalFrames?: number;
   firestoreError?: string | null;
-  firestoreIngestStartedAt?: { _seconds: number; _nanoseconds: number };
-  firestoreIngestedAt?: { _seconds: number; _nanoseconds: number };
+  firestoreIngestStartedAt?: { _seconds?: number; seconds?: number; _nanoseconds?: number; nanoseconds?: number };
+  firestoreIngestedAt?: { _seconds?: number; seconds?: number; _nanoseconds?: number; nanoseconds?: number };
   firestoreIngestCurrentEndpoint?: string;
   firestoreIngestCurrentLabel?: string;
   firestoreIngestRecordCount?: number | null;
@@ -566,23 +566,30 @@ export function PitWallManager() {
                                 )}
                               </p>
                             )}
-                            {session.firestoreIngestStartedAt && (
-                              <p className="text-blue-400">
-                                Started {new Date(session.firestoreIngestStartedAt._seconds * 1000).toLocaleTimeString()}
-                                {' — '}
-                                {Math.round((Date.now() - session.firestoreIngestStartedAt._seconds * 1000) / 1000)}s elapsed
-                              </p>
-                            )}
+                            {(() => {
+                              const ts = session.firestoreIngestStartedAt;
+                              const secs = ts?.seconds ?? ts?._seconds;
+                              if (!secs) return null;
+                              const startMs = secs * 1000;
+                              return (
+                                <p className="text-blue-400">
+                                  Started {new Date(startMs).toLocaleTimeString()}
+                                  {' — '}
+                                  {Math.round((Date.now() - startMs) / 1000)}s elapsed
+                                </p>
+                              );
+                            })()}
                           </div>
                         )}
                         {/* Completed detail: ingest time + size */}
                         {session.firestoreStatus === 'complete' && (
                           <div className="text-[10px] text-muted-foreground mt-0.5 space-y-0">
-                            {session.firestoreIngestedAt && session.firestoreIngestStartedAt && (
-                              <p>
-                                Ingested in {Math.round((session.firestoreIngestedAt._seconds - session.firestoreIngestStartedAt._seconds))}s
-                              </p>
-                            )}
+                            {(() => {
+                              const endSecs = session.firestoreIngestedAt?.seconds ?? session.firestoreIngestedAt?._seconds;
+                              const startSecs = session.firestoreIngestStartedAt?.seconds ?? session.firestoreIngestStartedAt?._seconds;
+                              if (!endSecs || !startSecs) return null;
+                              return <p>Ingested in {Math.round(endSecs - startSecs)}s</p>;
+                            })()}
                             {(session.fileSizeBytesRaw || session.fileSizeBytesGzip) && (
                               <p>
                                 {session.fileSizeBytesRaw ? `${(session.fileSizeBytesRaw / 1024 / 1024).toFixed(1)} MB` : ''}

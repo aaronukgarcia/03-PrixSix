@@ -98,13 +98,16 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
   if (isLoading || playbackState === 'ready') {
     const pct = Math.round(downloadProgress * 100);
     const isFromSource = player.loadingSource === 'source';
+    const ingestDetail = player.ingestStatus;
     const label = playbackState === 'ready'
       ? 'Initialising replay…'
-      : pct < 100
-        ? isFromSource
-          ? `Downloading from OpenF1… ${pct}%${framesLoaded > 0 ? ` (${framesLoaded.toLocaleString()} frames)` : ''} — first load takes 2-3 min`
-          : `Loading replay data… ${pct}%${framesLoaded > 0 ? ` (${framesLoaded.toLocaleString()} frames)` : ''}`
-        : 'Processing…';
+      : isFromSource && ingestDetail
+        ? `Fetching: ${ingestDetail}`
+        : pct < 100
+          ? isFromSource
+            ? `Downloading from OpenF1… ${pct}%${framesLoaded > 0 ? ` (${framesLoaded.toLocaleString()} frames)` : ''}`
+            : `Loading replay data… ${pct}%${framesLoaded > 0 ? ` (${framesLoaded.toLocaleString()} frames)` : ''}`
+          : 'Processing…';
 
     return (
       <div className={cn(
