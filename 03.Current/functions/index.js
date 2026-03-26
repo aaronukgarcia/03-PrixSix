@@ -2120,7 +2120,7 @@ exports.ingestReplaySession = onCall(
         ingestedAt: Timestamp.now(),
       });
 
-      // 8. Update session doc — mark complete
+      // 8. Update session doc — mark complete + set circuit/meeting metadata
       await sessionDocRef.set({
         firestoreStatus: 'complete',
         firestoreChunkCount: chunkIndex,
@@ -2128,6 +2128,11 @@ exports.ingestReplaySession = onCall(
         firestoreIngestedAt: Timestamp.now(),
         firestoreError: null,
         cacheVersion: REPLAY_CACHE_VERSION,
+        circuitKey: sessionMeta.circuit_key ?? null,
+        meetingName: sessionMeta.meeting_name ?? null,
+        sessionName: sessionMeta.session_name ?? null,
+        dateStart: sessionMeta.date_start ?? null,
+        dateEnd: sessionMeta.date_end ?? null,
       }, { merge: true });
 
       console.log(JSON.stringify({
