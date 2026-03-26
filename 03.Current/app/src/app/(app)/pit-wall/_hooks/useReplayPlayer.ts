@@ -1,11 +1,12 @@
-// GUID: REPLAY_PLAYER_HOOK-000-v02
+// GUID: REPLAY_PLAYER_HOOK-000-v03
 // [Intent] Full-transport RAF playback hook for GPS replay sessions.
-//          v02: Supports two loading paths:
+//          v03: Three loading paths:
 //            1. Firestore mode (firestoreStatus === 'complete') — progressive chunk loading via
 //               /api/pit-wall/replay-chunks. Fast start, survives deployments.
-//            2. Ingest mode (first-time) — NDJSON stream from /api/pit-wall/historical-replay.
-//               Streams frames while simultaneously writing to Firestore for next time.
-//            3. Legacy mode — Firebase Storage download URL (backward compat for showreel).
+//            2. Legacy mode — Firebase Storage download URL (backward compat for showreel).
+//            3. Cloud Function ingest (first-time) — triggers ingestReplaySession Cloud Function
+//               fire-and-forget, watches replay_sessions doc via onSnapshot for progress,
+//               auto-loads via Path 1 when complete.
 // [Inbound Trigger] Called by PitWallClient when isReplayMode === true.
 // [Downstream Impact] replayDrivers[] flows into activeDrivers → track map + race table.
 
@@ -14,6 +15,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ReplaySessionMetadata, ReplayPlaybackState, ReplaySpeed, UseReplayPlayerReturn } from '../_types/replay.types';
 import type { HistoricalReplayData, HistoricalDriver, ReplayDriverState } from '../_types/showreel.types';
+import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { CLIENT_ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 
@@ -299,155 +302,8 @@ async function loadChunksProgressively(
   return data;
 }
 
-// ---------------------------------------------------------------------------
-// GUID: REPLAY_PLAYER_HOOK-011-v01
-// [Intent] First-time ingest path: call /api/pit-wall/historical-replay which streams
-//          NDJSON while simultaneously writing to Firestore. Uses the same NDJSON parsing
-//          as streamReplayData but with auth headers and API URL.
-// ---------------------------------------------------------------------------
-async function streamIngestReplayData(
-  sessionKey: number,
-  getAuthToken: () => Promise<string>,
-  onProgress: (fraction: number) => void,
-  onFramesReady: (data: HistoricalReplayData) => void,
-  onIngestStatus: (status: string) => void,
-): Promise<HistoricalReplayData> {
-  const token = await getAuthToken();
-  const res = await fetch(
-    `/api/pit-wall/historical-replay?session_key=${sessionKey}`,
-    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
-  );
-
-  if (!res.ok && res.status !== 202) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `HTTP ${res.status} from historical-replay`);
-  }
-
-  // Check if this is a Firestore redirect or ingesting status (JSON response, not NDJSON stream)
-  const contentType = res.headers.get('Content-Type') ?? '';
-  if (contentType.includes('application/json')) {
-    const json = await res.json();
-    if (json.source === 'firestore') {
-      // Redirect to chunk loading — this shouldn't normally happen here
-      // because the caller checks firestoreStatus first, but handle it gracefully
-      return loadChunksProgressively(sessionKey, json.totalChunks, getAuthToken, onProgress, onFramesReady);
-    }
-    // GUID: REPLAY_PLAYER_HOOK-017-v01
-    // [Intent] Handle 202 "ingesting" status gracefully — another request is already
-    //          downloading from OpenF1. Instead of showing an error, tell the user
-    //          and retry after a delay. The ingest takes 2-3 minutes for a full race.
-    if (res.status === 202 || json.status === 'ingesting') {
-      throw new Error('Race data is being downloaded from OpenF1 — this takes 2-3 minutes for a full race. Please try again shortly.');
-    }
-    throw new Error(json.error ?? 'Unexpected JSON response from historical-replay');
-  }
-
-  // NDJSON streaming (same pattern as streamReplayData but from API response)
-  if (!res.body) {
-    const text = await res.text();
-    const lines = text.split('\n').filter(l => l.trim().length > 0);
-    const data: HistoricalReplayData = {
-      sessionKey, sessionName: '', meetingName: '', drivers: [], frames: [], durationMs: 0, totalLaps: null,
-    };
-    for (const line of lines) {
-      const parsed = JSON.parse(line);
-      if (parsed._complete || parsed._error || parsed._status) continue;
-      if (parsed.drivers && !parsed.virtualTimeMs) {
-        data.sessionKey = parsed.sessionKey ?? sessionKey;
-        data.sessionName = parsed.sessionName ?? '';
-        data.meetingName = parsed.meetingName ?? '';
-        data.drivers = parsed.drivers ?? [];
-        data.durationMs = parsed.durationMs ?? 0;
-        data.totalLaps = parsed.totalLaps ?? null;
-      } else {
-        data.frames.push(parsed);
-      }
-    }
-    onProgress(1);
-    if (data.frames.length > 0) onFramesReady(data);
-    return data;
-  }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let metaParsed = false;
-  let readyFired = false;
-  const READY_THRESHOLD = 60;
-
-  const data: HistoricalReplayData = {
-    sessionKey, sessionName: '', meetingName: '', drivers: [], frames: [], durationMs: 0, totalLaps: null,
-  };
-  let estimatedTotal = 0;
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (value) buffer += decoder.decode(value, { stream: true });
-
-    let newlineIdx: number;
-    while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, newlineIdx).trim();
-      buffer = buffer.slice(newlineIdx + 1);
-      if (line.length === 0) continue;
-
-      const parsed = JSON.parse(line);
-
-      // Skip completion/error markers — but capture _status for UI progress
-      if (parsed._complete || parsed._error) continue;
-      if (parsed._status) {
-        const label = parsed.endpoint ?? '';
-        const count = parsed.recordCount;
-        onIngestStatus(count ? `${label} (${Number(count).toLocaleString()} records)` : label);
-        continue;
-      }
-
-      if (!metaParsed && parsed.drivers && !parsed.virtualTimeMs) {
-        data.sessionKey = parsed.sessionKey ?? sessionKey;
-        data.sessionName = parsed.sessionName ?? '';
-        data.meetingName = parsed.meetingName ?? '';
-        data.drivers = parsed.drivers ?? [];
-        data.durationMs = parsed.durationMs ?? 0;
-        data.totalLaps = parsed.totalLaps ?? null;
-        const interval = parsed.samplingIntervalMs ?? 500;
-        estimatedTotal = interval > 0 ? Math.ceil(data.durationMs / interval) : 1000;
-        metaParsed = true;
-      } else {
-        data.frames.push(parsed);
-        onProgress(estimatedTotal > 0 ? Math.min(0.99, data.frames.length / estimatedTotal) : 0.5);
-        if (!readyFired && data.frames.length >= READY_THRESHOLD) {
-          readyFired = true;
-          onFramesReady(data);
-        }
-      }
-    }
-
-    if (done) break;
-  }
-
-  const remaining = buffer.trim();
-  if (remaining.length > 0) {
-    const parsed = JSON.parse(remaining);
-    if (!parsed._complete && !parsed._error) {
-      if (!metaParsed && parsed.drivers) {
-        data.sessionKey = parsed.sessionKey ?? sessionKey;
-        data.sessionName = parsed.sessionName ?? '';
-        data.meetingName = parsed.meetingName ?? '';
-        data.drivers = parsed.drivers ?? [];
-        data.durationMs = parsed.durationMs ?? 0;
-        data.totalLaps = parsed.totalLaps ?? null;
-      } else {
-        data.frames.push(parsed);
-      }
-    }
-  }
-
-  onProgress(1);
-  if (!readyFired && data.frames.length > 0) {
-    onFramesReady(data);
-  }
-
-  return data;
-}
+// GUID: REPLAY_PLAYER_HOOK-011-v01 — REMOVED (v03)
+// streamIngestReplayData removed — replaced by Cloud Function ingest + onSnapshot in Path 3.
 
 // ---------------------------------------------------------------------------
 // GUID: REPLAY_PLAYER_HOOK-003-v02
@@ -763,14 +619,14 @@ export function useReplayPlayer(
       updatePlaybackState('error');
     };
 
-    // GUID: REPLAY_PLAYER_HOOK-012-v02
+    // GUID: REPLAY_PLAYER_HOOK-012-v03
     // [Intent] Choose loading path based on session metadata:
     //   1. firestoreStatus === 'complete' → chunk-load from Firestore (fast, durable)
     //   2. downloadUrl exists → legacy Firebase Storage download (existing sessions)
-    //   3. No download URL + getAuthToken → ingest via API (first-time, streams + writes Firestore)
+    //   3. No download URL + getAuthToken → trigger Cloud Function ingest (fire-and-forget),
+    //      watch replay_sessions doc via onSnapshot, auto-load via Path 1 on completion.
     //   4. Fallback → error (no data source available)
-    //   v02: Fixed path priority — prefer existing downloadUrl over ingest.
-    //        Ingest only triggers when no existing data source is available.
+    //   v03: Path 3 changed from server-side NDJSON streaming to Cloud Function + onSnapshot.
     const loadData = async () => {
       if (session.firestoreStatus === 'complete' && session.totalChunks && session.totalChunks > 0 && getAuthTokenRef.current) {
         // Path 1: Firestore chunk loading (fast, survives deployments)
@@ -792,15 +648,52 @@ export function useReplayPlayer(
           onDataReady,
         );
       } else if (getAuthTokenRef.current) {
-        // Path 3: First-time ingest via API (no existing data — streams + writes to Firestore)
+        // Path 3: Trigger Cloud Function ingest + watch for completion via onSnapshot
         if (!cancelled) setLoadingSource('source');
-        return streamIngestReplayData(
-          session.sessionKey,
-          getAuthTokenRef.current,
-          fraction => { if (!cancelled) setDownloadProgress(fraction); },
-          onDataReady,
-          status => { if (!cancelled) setIngestStatus(status); },
-        );
+        if (!cancelled) setIngestStatus('Triggering ingest...');
+
+        const functions = getFunctions(undefined, 'europe-west2');
+        const ingestFn = httpsCallable(functions, 'ingestReplaySession', { timeout: 600000 });
+
+        // Fire-and-forget — don't await
+        ingestFn({ sessionKey: session.sessionKey }).catch(() => {});
+
+        // Watch session doc for completion
+        return new Promise<HistoricalReplayData>((resolve, reject) => {
+          const unsub = onSnapshot(
+            doc(getFirestore(), 'replay_sessions', String(session.sessionKey)),
+            (snap) => {
+              if (cancelled) { unsub(); reject(new Error('Cancelled')); return; }
+              const data = snap.data();
+              if (!data) return;
+
+              // Update progress display
+              if (data.firestoreIngestCurrentLabel) {
+                setIngestStatus(
+                  data.firestoreIngestRecordCount
+                    ? `${data.firestoreIngestCurrentLabel} (${data.firestoreIngestRecordCount.toLocaleString()} records)`
+                    : data.firestoreIngestCurrentLabel,
+                );
+              }
+
+              if (data.firestoreStatus === 'complete' && data.firestoreChunkCount > 0) {
+                unsub();
+                // Now load via chunks (Path 1)
+                loadChunksProgressively(
+                  session.sessionKey,
+                  data.firestoreChunkCount,
+                  getAuthTokenRef.current!,
+                  fraction => { if (!cancelled) setDownloadProgress(fraction); },
+                  onDataReady,
+                ).then(resolve).catch(reject);
+              } else if (data.firestoreStatus === 'failed') {
+                unsub();
+                reject(new Error(data.firestoreError || 'Ingest failed'));
+              }
+            },
+            (err) => { unsub(); reject(err); },
+          );
+        });
       } else {
         throw new Error('No replay data source available');
       }

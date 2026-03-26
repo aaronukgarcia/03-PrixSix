@@ -9,8 +9,9 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useFirestore, useAuth, useCollection } from '@/firebase';
+import { useFirestore, useAuth, useCollection, useFunctions } from '@/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -145,6 +146,7 @@ export function PitWallManager() {
   const [ingestingSession, setIngestingSession] = useState<number | null>(null);
 
   const firestore = useFirestore();
+  const functions = useFunctions();
 
   // GUID: ADMIN_PITWALL-003-v01
   // [Intent] Fetch health data from admin endpoint.
@@ -274,37 +276,29 @@ export function PitWallManager() {
     }
   }, [firebaseUser, toast, fetchHealth]);
 
-  // GUID: ADMIN_PITWALL-010-v01
-  // [Intent] Trigger replay ingest for a session via admin endpoint. Fire-and-forget on server.
+  // GUID: ADMIN_PITWALL-010-v02
+  // [Intent] Trigger replay ingest for a session via Cloud Function. Fire-and-forget —
+  //          the onSnapshot listener on replay_sessions picks up progress automatically.
   const handleIngestSession = useCallback(async (sessionKey: number) => {
     if (!firebaseUser) return;
     setIngestingSession(sessionKey);
     try {
-      const token = await firebaseUser.getIdToken();
-      const res = await fetch('/api/admin/pit-wall-ingest', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionKey }),
+      const ingestFn = httpsCallable(functions, 'ingestReplaySession', { timeout: 600000 });
+      // Fire-and-forget — don't await. The onSnapshot listener on replay_sessions
+      // will pick up progress automatically.
+      ingestFn({ sessionKey }).catch((err) => {
+        console.error('[admin-ingest] Cloud Function error:', err);
       });
-      const data = await res.json();
-      if (!res.ok && res.status !== 202) throw new Error(data.error || 'Ingest trigger failed');
-      if (data.status === 'already_ingesting') {
-        toast({ title: 'Already ingesting', description: `Session ${sessionKey} is already being ingested.` });
-      } else if (data.status === 'already_complete') {
-        toast({ title: 'Already complete', description: `Session ${sessionKey} already has ${data.totalChunks} chunks.` });
-      } else {
-        toast({ title: 'Ingest started', description: `Session ${sessionKey} ingest triggered. Watch status for progress.` });
-      }
-      fetchHealth();
+      toast({ title: 'Ingest started', description: 'Cloud Function triggered. Watch progress below.' });
     } catch (err: any) {
       toast({ title: 'Ingest failed', description: err.message, variant: 'destructive' });
     } finally {
       setIngestingSession(null);
     }
-  }, [firebaseUser, toast, fetchHealth]);
+  }, [firebaseUser, functions, toast]);
 
-  // GUID: ADMIN_PITWALL-011-v01
-  // [Intent] Re-ingest a completed session: purge first, then trigger ingest.
+  // GUID: ADMIN_PITWALL-011-v02
+  // [Intent] Re-ingest a completed session: purge first, then trigger Cloud Function ingest.
   const handleReingestSession = useCallback(async (sessionKey: number) => {
     if (!firebaseUser) return;
     setIngestingSession(sessionKey);
@@ -317,22 +311,19 @@ export function PitWallManager() {
       });
       const purgeData = await purgeRes.json();
       if (!purgeRes.ok) throw new Error(purgeData.error || 'Purge step failed');
-      // Step 2: Trigger ingest
-      const ingestRes = await fetch('/api/admin/pit-wall-ingest', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionKey }),
+      // Step 2: Trigger ingest via Cloud Function (fire-and-forget)
+      const ingestFn = httpsCallable(functions, 'ingestReplaySession', { timeout: 600000 });
+      ingestFn({ sessionKey }).catch((err) => {
+        console.error('[admin-reingest] Cloud Function error:', err);
       });
-      const ingestData = await ingestRes.json();
-      if (!ingestRes.ok && ingestRes.status !== 202) throw new Error(ingestData.error || 'Ingest trigger failed');
-      toast({ title: 'Re-ingest started', description: `Purged ${purgeData.deletedChunks} chunks, ingest triggered for session ${sessionKey}.` });
+      toast({ title: 'Re-ingest started', description: `Purged ${purgeData.deletedChunks} chunks, Cloud Function ingest triggered.` });
       fetchHealth();
     } catch (err: any) {
       toast({ title: 'Re-ingest failed', description: err.message, variant: 'destructive' });
     } finally {
       setIngestingSession(null);
     }
-  }, [firebaseUser, toast, fetchHealth]);
+  }, [firebaseUser, functions, toast, fetchHealth]);
 
   // ---------- Derived ----------
 
