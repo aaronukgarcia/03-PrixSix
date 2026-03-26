@@ -61,6 +61,7 @@ export interface UseReplayPlayerReturn {
   error:            string | null;
   loadingSource:    'cache' | 'source' | null; // 'cache' = Firestore/Storage, 'source' = downloading from OpenF1
   ingestStatus:     string | null; // current endpoint being fetched during ingest, e.g. "location (12,600 records)"
+  stabilising:      boolean;       // true for ~3s after a seek — interpolation building up smooth data
   framesLoaded:     number;     // number of frames loaded so far (for NDJSON streaming progress)
   // Driver positions emitted each frame (drop-in for DriverRaceState[])
   replayDrivers:    import('./showreel.types').ReplayDriverState[];

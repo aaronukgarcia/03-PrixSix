@@ -319,6 +319,7 @@ export function useReplayPlayer(
   const [playbackState,    setPlaybackState]    = useState<ReplayPlaybackState>('idle');
   const [loadingSource,    setLoadingSource]    = useState<'cache' | 'source' | null>(null);
   const [ingestStatus,     setIngestStatus]     = useState<string | null>(null);
+  const [stabilising,      setStabilising]      = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [progress,         setProgress]         = useState(0);
   const [elapsedMs,        setElapsedMs]         = useState(0);
@@ -476,6 +477,12 @@ export function useReplayPlayer(
     updatePlaybackState('paused');
   }, [cancelRaf, updatePlaybackState]);
 
+  // GUID: REPLAY_PLAYER_HOOK-018-v01
+  // [Intent] Stabilising indicator — after a seek, the interpolation system needs
+  //          several frames to build up prev/next positions for smooth movement.
+  //          Show "Stabilising..." for 3 seconds so users know the jerkiness is normal.
+  const stabilisingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const seek = useCallback((targetMs: number) => {
     if (!replayDataRef.current) return;
     const clamped = Math.max(0, Math.min(replayDataRef.current.durationMs, targetMs));
@@ -483,6 +490,10 @@ export function useReplayPlayer(
     setElapsedMs(clamped);
     setProgress(clamped / replayDataRef.current.durationMs);
     lastFrameIndexRef.current = -1;
+    // Show stabilising indicator
+    setStabilising(true);
+    if (stabilisingTimerRef.current) clearTimeout(stabilisingTimerRef.current);
+    stabilisingTimerRef.current = setTimeout(() => setStabilising(false), 3000);
     if (isPlayingRef.current) {
       startWallMsRef.current = Date.now();
     } else if (playbackStateRef.current !== 'idle' && playbackStateRef.current !== 'loading') {
@@ -729,6 +740,7 @@ export function useReplayPlayer(
     replayRaceControl,
     loadingSource,
     ingestStatus,
+    stabilising,
     play,
     pause,
     seek,

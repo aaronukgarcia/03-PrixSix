@@ -303,10 +303,15 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
         </div>
       </div>
 
-      {/* Time display */}
+      {/* Time display + stabilising indicator */}
       <span className="text-[10px] text-slate-400 font-mono tabular-nums whitespace-nowrap shrink-0">
         {formatMs(elapsedMs)} / {formatMs(durationMs)}
       </span>
+      {player.stabilising && (
+        <span className="text-[9px] text-amber-400 animate-pulse whitespace-nowrap shrink-0">
+          Stabilising…
+        </span>
+      )}
 
       {/* Speed selector */}
       <div className="flex items-center gap-0.5 shrink-0">
