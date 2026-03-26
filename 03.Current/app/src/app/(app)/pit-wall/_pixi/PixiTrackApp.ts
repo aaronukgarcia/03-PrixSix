@@ -229,6 +229,14 @@ export class PixiTrackApp {
       this.trailLayer.clear();
       this.lastTrailGps.clear();
       this.lastTrailDir.clear();
+      // Clear track outline on session change — prevents old circuit persisting
+      // when switching between replays (e.g. Shanghai → Melbourne)
+      this.outline = null;
+      this.polyline = null;
+      this.lastPathLength = 0;
+      this.trackLayer.clear();
+      this.trackBuilt = false;
+      this.bounds = null;
     }
 
     // If drivers changed, notify interpolation system
@@ -301,8 +309,16 @@ export class PixiTrackApp {
     }
 
     // Rebuild track polyline/outline if circuit path grew significantly
+    // If path was cleared (session switch), clear the track too
     const pathLen = opts.circuitPath.length;
-    if (pathLen >= 30 && pathLen - this.lastPathLength >= 80) {
+    if (pathLen === 0 && this.lastPathLength > 0) {
+      // Circuit path cleared — remove old track outline
+      this.polyline = null;
+      this.outline = null;
+      this.lastPathLength = 0;
+      this.trackLayer.clear();
+      this.trackBuilt = false;
+    } else if (pathLen >= 30 && pathLen - this.lastPathLength >= 80) {
       this.polyline = buildTrackPolyline(opts.circuitPath);
       this.outline = buildCircuitOutline(opts.circuitPath);
       this.lastPathLength = pathLen;
