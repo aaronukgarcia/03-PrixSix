@@ -27,6 +27,38 @@ export const dynamic = 'force-dynamic';
 //          Uses a deterministic synthetic sessionKey derived from race name + session type
 //          so that Firestore docs (which use the real OpenF1 session_key) take priority
 //          during the merge step.
+// GUID: API_REPLAY_SESSIONS-007-v01
+// [Intent] Fetch real OpenF1 session keys for all 2026 Race+Sprint sessions.
+//          Used to resolve schedule-derived sessions to actual sessionKeys that
+//          the ingest pipeline can use to fetch data from OpenF1.
+//          Matched by date_start (ISO string comparison, truncated to minutes).
+//          Returns a Map<dateStartPrefix, sessionKey> for fast lookup.
+async function fetchOpenF1SessionKeys(): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('https://api.openf1.org/v1/sessions?year=2026', {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return map;
+    const data = await res.json();
+    if (!Array.isArray(data)) return map;
+    for (const s of data) {
+      if (s.session_key && s.date_start) {
+        // Key by date_start truncated to minute (strips timezone offset differences)
+        const prefix = s.date_start.slice(0, 16); // "2026-03-08T04:00"
+        map.set(prefix, s.session_key);
+      }
+    }
+  } catch {
+    // OpenF1 unreachable — return empty, schedule sessions will use synthetic keys
+  }
+  return map;
+}
+
 function getCompletedScheduleSessions(): Array<{
   syntheticKey: number;
   sessionName: string;
@@ -134,14 +166,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     // Merge completed schedule sessions — add any that don't already exist in Firestore.
-    // Firestore docs use real OpenF1 session_keys so we can't match by key alone.
-    // Instead, match by normalised meetingName + sessionName to avoid duplicates.
+    // Resolve synthetic keys to real OpenF1 session keys by matching date_start.
+    // Without real keys, the ingest pipeline can't fetch data from OpenF1.
     const scheduleSessions = getCompletedScheduleSessions();
+    const openF1Keys = await fetchOpenF1SessionKeys();
+
     for (const s of scheduleSessions) {
       const nameKey = `${s.meetingName.toLowerCase()}::${s.sessionName.toLowerCase()}`;
       if (!firestoreNameSet.has(nameKey)) {
-        sessionMap.set(s.syntheticKey, {
-          sessionKey:         s.syntheticKey,
+        // Resolve to real OpenF1 session key by matching date_start
+        const datePrefix = s.dateStart.slice(0, 16); // "2026-03-08T04:00"
+        const realKey = openF1Keys.get(datePrefix) ?? s.syntheticKey;
+
+        sessionMap.set(realKey, {
+          sessionKey:         realKey,
           sessionName:        s.sessionName,
           meetingName:        s.meetingName,
           circuitKey:         0,
