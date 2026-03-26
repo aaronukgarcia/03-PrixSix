@@ -1821,6 +1821,7 @@ exports.ingestReplaySession = onCall(
         if (status === 'complete') return { locked: true, reason: 'Session already ingested.' };
       }
       tx.set(sessionDocRef, {
+        sessionKey,
         firestoreStatus: 'ingesting',
         firestoreError: null,
         firestoreIngestStartedAt: Timestamp.now(),

@@ -100,7 +100,7 @@ async function run() {
   const sessionDocRef = db.collection('replay_sessions').doc(String(sessionKey));
 
   // Claim lock
-  await sessionDocRef.set({ firestoreStatus: 'ingesting', firestoreError: null, firestoreIngestStartedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await sessionDocRef.set({ sessionKey, firestoreStatus: 'ingesting', firestoreError: null, firestoreIngestStartedAt: FieldValue.serverTimestamp() }, { merge: true });
   console.log(`\nIngesting session ${sessionKey}...\n`);
 
   try {
