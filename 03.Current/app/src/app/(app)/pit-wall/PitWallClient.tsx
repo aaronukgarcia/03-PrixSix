@@ -547,8 +547,11 @@ export default function PitWallClient() {
   useEffect(() => {
     if (circuitKey) return; // live session handles its own circuit loading
     if (!isReplayMode || !selectedReplaySession?.circuitKey) return;
+
+    // Reset tracker when session changes — allows new circuit to load
     const tracker = pathTrackerRef.current;
-    if (tracker.frozen) return;
+    tracker.frozen = false;
+    tracker.trackedDriver = null;
 
     const replayCircuitKey = selectedReplaySession.circuitKey;
     const rawStaticPath = (staticCircuits as Record<string, CircuitPoint[]>)[String(replayCircuitKey)];
@@ -557,6 +560,10 @@ export default function PitWallClient() {
       setCircuitPath(staticPath);
       circuitPathRef.current = staticPath;
       tracker.frozen = true;
+    } else {
+      // No static path for this circuit — clear old path, let dynamic accumulation build it
+      setCircuitPath([]);
+      circuitPathRef.current = [];
     }
   }, [circuitKey, isReplayMode, selectedReplaySession]);
 

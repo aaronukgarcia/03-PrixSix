@@ -2123,6 +2123,7 @@ exports.ingestReplaySession = onCall(
       // 8. Update session doc — mark complete + set circuit/meeting metadata
       await sessionDocRef.set({
         firestoreStatus: 'complete',
+        status: 'available',
         firestoreChunkCount: chunkIndex,
         firestoreTotalFrames: frames.length,
         firestoreIngestedAt: Timestamp.now(),

@@ -214,7 +214,7 @@ async function run() {
     await db.collection('replay_meta').doc(String(sessionKey)).set({ sessionKey, sessionName: meta.session_name ?? '', meetingName: meta.meeting_name ?? '', durationMs, totalLaps: meta.total_laps ?? null, totalFrames: frames.length, totalChunks: chunkIndex, drivers, radioMessages: radioSorted.map(r => ({ driverNumber: r.driverNumber, message: r.message, utcTimestamp: r.utcTimestamp })), ingestedAt: FieldValue.serverTimestamp() });
 
     // 8. Update session doc
-    await sessionDocRef.set({ firestoreStatus: 'complete', firestoreChunkCount: chunkIndex, firestoreTotalFrames: frames.length, firestoreIngestedAt: FieldValue.serverTimestamp(), firestoreError: null, cacheVersion: REPLAY_CACHE_VERSION, circuitKey: meta.circuit_key ?? null, meetingName: meta.meeting_name ?? null, sessionName: meta.session_name ?? null, dateStart: meta.date_start ?? null, dateEnd: meta.date_end ?? null }, { merge: true });
+    await sessionDocRef.set({ firestoreStatus: 'complete', status: 'available', firestoreChunkCount: chunkIndex, firestoreTotalFrames: frames.length, firestoreIngestedAt: FieldValue.serverTimestamp(), firestoreError: null, cacheVersion: REPLAY_CACHE_VERSION, circuitKey: meta.circuit_key ?? null, meetingName: meta.meeting_name ?? null, sessionName: meta.session_name ?? null, dateStart: meta.date_start ?? null, dateEnd: meta.date_end ?? null }, { merge: true });
 
     console.log(`\nDone! ${frames.length} frames in ${chunkIndex} chunks. Session marked as complete.`);
   } catch (err) {
