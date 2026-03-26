@@ -502,6 +502,24 @@ export default function PitWallClient() {
     return raceControl;
   }, [isReplayMode, replayPlayer.replayRaceControl, raceControl]);
 
+  // GUID: PIT_WALL_CLIENT-057-v01
+  // [Intent] Build timeline event markers from replay race control messages for the scrub bar.
+  //          Each event is positioned by virtualTimeMs (relative to session start) and
+  //          colour-coded by flag type. Only computed in replay mode when data is available.
+  const timelineEvents = useMemo(() => {
+    if (!isReplayMode || !replayPlayer.replayRaceControl?.length) return undefined;
+    const sessionStartMs = selectedReplaySession?.dateStart
+      ? new Date(selectedReplaySession.dateStart).getTime()
+      : 0;
+    if (!sessionStartMs) return undefined;
+    return replayPlayer.replayRaceControl.map(rc => ({
+      virtualTimeMs: new Date(rc.date).getTime() - sessionStartMs,
+      flag: rc.flag,
+      message: rc.message,
+      lapNumber: rc.lapNumber,
+    }));
+  }, [isReplayMode, replayPlayer.replayRaceControl, selectedReplaySession?.dateStart]);
+
   // GUID: PIT_WALL_CLIENT-015-v03
   // [Intent] Select data source — priority: GPS replay > showreel > live.
   //          v03: When in replay/showreel mode, never fall through to liveDrivers.
@@ -911,6 +929,7 @@ export default function PitWallClient() {
                   sessions={replaySessions}
                   selectedSessionKey={selectedReplaySession?.sessionKey}
                   onSessionChange={handleReplaySessionChange}
+                  timelineEvents={timelineEvents}
                 />
               </div>
             )}
@@ -1116,6 +1135,7 @@ export default function PitWallClient() {
           sessions={replaySessions}
           selectedSessionKey={selectedReplaySession?.sessionKey}
           onSessionChange={handleReplaySessionChange}
+          timelineEvents={timelineEvents}
         />
       </div>
 

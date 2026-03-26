@@ -40,6 +40,16 @@ interface ReplaySession {
   available?: boolean;
 }
 
+// GUID: REPLAY_CONTROLS-006-v01
+// [Intent] Race control event marker on the timeline — positioned by virtual time,
+//          colour-coded by flag type, with tooltip showing the message.
+interface TimelineEvent {
+  virtualTimeMs: number;
+  flag: string | null;
+  message: string;
+  lapNumber: number | null;
+}
+
 interface ReplayControlsProps {
   player: UseReplayPlayerReturn;
   meetingName: string;
@@ -47,13 +57,14 @@ interface ReplayControlsProps {
   sessions?: ReplaySession[];
   selectedSessionKey?: number | null;
   onSessionChange?: (sessionKey: number) => void;
+  timelineEvents?: TimelineEvent[];
   className?: string;
 }
 
 // GUID: REPLAY_CONTROLS-002-v02
 // [Intent] Full media player UI — transport buttons, scrub bar, time display, speed selector.
 //          v02: Enhanced loading states with spinner, two-phase progress, initialising display.
-export function ReplayControls({ player, meetingName, sessionsLoading, sessions, selectedSessionKey, onSessionChange, className }: ReplayControlsProps) {
+export function ReplayControls({ player, meetingName, sessionsLoading, sessions, selectedSessionKey, onSessionChange, timelineEvents, className }: ReplayControlsProps) {
   const {
     playbackState, downloadProgress, progress,
     elapsedMs, durationMs, speed,
@@ -254,17 +265,41 @@ export function ReplayControls({ player, meetingName, sessionsLoading, sessions,
         </Button>
       </div>
 
-      {/* Scrub bar */}
+      {/* GUID: REPLAY_CONTROLS-007-v01 */}
+      {/* [Intent] Scrub bar with FIA event markers overlaid. Each race control message */}
+      {/*          is shown as a coloured tick mark on the timeline, positioned by virtualTimeMs. */}
+      {/*          Colour: yellow=YELLOW/SC/VSC, red=RED, green=GREEN, blue=BLUE, white=other. */}
+      {/*          Hover shows message tooltip. Click on bar seeks to that time. */}
       <div
         className="flex-1 min-w-0 flex items-center gap-2 cursor-pointer group"
         onClick={handleScrubClick}
         title="Click to seek"
       >
-        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden group-hover:h-2 transition-all">
+        <div className="relative flex-1 h-1.5 bg-slate-800 rounded-full overflow-visible group-hover:h-2.5 transition-all">
+          {/* Progress fill */}
           <div
-            className="h-full bg-orange-500 rounded-full"
+            className="absolute inset-y-0 left-0 bg-orange-500 rounded-full z-10"
             style={{ width: `${(progress * 100).toFixed(2)}%` }}
           />
+          {/* FIA event markers */}
+          {timelineEvents && durationMs > 0 && timelineEvents.map((evt, i) => {
+            const pct = (evt.virtualTimeMs / durationMs) * 100;
+            if (pct < 0 || pct > 100) return null;
+            const color = evt.flag === 'RED' ? 'bg-red-500'
+              : evt.flag === 'YELLOW' || evt.flag === 'SC' || evt.flag === 'VSC' ? 'bg-yellow-400'
+              : evt.flag === 'GREEN' ? 'bg-green-500'
+              : evt.flag === 'BLUE' ? 'bg-blue-400'
+              : evt.flag === 'CHEQUERED' ? 'bg-white'
+              : 'bg-slate-400';
+            return (
+              <div
+                key={i}
+                className={`absolute top-[-2px] bottom-[-2px] w-[2px] ${color} opacity-70 group-hover:opacity-100 z-20 rounded-full`}
+                style={{ left: `${pct}%` }}
+                title={`${evt.lapNumber ? `Lap ${evt.lapNumber}: ` : ''}${evt.message} (${formatMs(evt.virtualTimeMs)})`}
+              />
+            );
+          })}
         </div>
       </div>
 
