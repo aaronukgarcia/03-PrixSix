@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, verifyAuthToken } from '@/lib/firebase-admin';
+import { RaceSchedule } from '@/lib/data';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { getSecret } from '@/lib/secrets-manager';
@@ -473,9 +474,26 @@ async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDat
   const circuitCoords = circuitKey ? (CIRCUIT_COORDS[circuitKey] ?? null) : null;
   const totalLaps: number | null = session?.total_laps ?? null;
 
-  if (!sessionKey) {
+  // Stale session detection — if OpenF1 returns a session >48h old, it's stale.
+  // Return idle response with correct upcoming race info from RaceSchedule.
+  const STALE_THRESHOLD_MS = 48 * 60 * 60 * 1000;
+  const sessionDateStart = session?.date_start ? new Date(session.date_start).getTime() : 0;
+  const isStaleSession = sessionKey && sessionDateStart > 0 &&
+    (Date.now() - sessionDateStart) > STALE_THRESHOLD_MS;
+
+  if (!sessionKey || isStaleSession) {
+    // Find the next expected race from the schedule
+    const now = new Date();
+    const nextRace = RaceSchedule.find(r => new Date(r.raceTime) > now)
+      ?? RaceSchedule[RaceSchedule.length - 1];
+    // Find circuitKey for this race by matching location against CIRCUIT_COORDS names
+    // (we don't have a direct mapping, so use meetingName from the response if not stale,
+    //  or leave circuitKey null for the between-races state)
+    const awaitingMeetingName = isStaleSession ? nextRace.name : null;
     const idleResponse: PitWallLiveDataResponse = {
-      sessionKey: null, sessionName: null, meetingName: null, circuitKey: null,
+      sessionKey: null, sessionName: null,
+      meetingName: awaitingMeetingName,
+      circuitKey: null,
       circuitLat: null, circuitLon: null, drivers: [], raceControl: [],
       radioMessages: [], weather: null, totalLaps: null, sessionType: null,
       positionDataAvailable: false,

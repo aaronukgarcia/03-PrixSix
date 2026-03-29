@@ -486,19 +486,28 @@ export default function PitWallClient() {
   //          messages to RaceControlMessage[] (adding synthetic id); otherwise use live raceControl.
   const activeRaceControl = useMemo(() => {
     if (isReplayMode && replayPlayer.replayRaceControl?.length > 0) {
-      return replayPlayer.replayRaceControl.map((rc, i): RaceControlMessage => ({
-        id: `replay-rc-${i}`,
-        date: rc.date,
-        lapNumber: rc.lapNumber,
-        category: rc.category,
-        flag: rc.flag as RaceControlMessage['flag'],
-        message: rc.message,
-        scope: rc.scope,
-        sector: rc.sector,
-      }));
+      // Filter race control messages to only show those up to current playback time
+      const sessionStartMs = selectedReplaySession?.dateStart
+        ? new Date(selectedReplaySession.dateStart).getTime()
+        : 0;
+      const currentTimeMs = sessionStartMs + (replayPlayer.elapsedMs ?? 0);
+
+      return replayPlayer.replayRaceControl
+        .filter(rc => !sessionStartMs || new Date(rc.date).getTime() <= currentTimeMs)
+        .map((rc, i): RaceControlMessage => ({
+          id: `replay-rc-${i}`,
+          date: rc.date,
+          lapNumber: rc.lapNumber,
+          category: rc.category,
+          flag: rc.flag as RaceControlMessage['flag'],
+          message: rc.message,
+          scope: rc.scope,
+          sector: rc.sector,
+        }));
     }
     return raceControl;
-  }, [isReplayMode, replayPlayer.replayRaceControl, raceControl]);
+  }, [isReplayMode, replayPlayer.replayRaceControl, replayPlayer.elapsedMs,
+      raceControl, selectedReplaySession?.dateStart]);
 
   // GUID: PIT_WALL_CLIENT-057-v01
   // [Intent] Build timeline event markers from replay race control messages for the scrub bar.
