@@ -19,14 +19,14 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser \
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Install all dependencies (including devDeps for TypeScript build)
+RUN npm ci
 
 # Copy source code
 COPY --chown=appuser:appuser . .
 
-# Build TypeScript
-RUN npm run build
+# Build TypeScript then prune dev dependencies
+RUN npm run build && npm prune --omit=dev
 
 # Switch to non-root user
 USER appuser
