@@ -96,16 +96,32 @@ if (-not $envExists -or $CreateEnvironment) {
 
 Write-Host "`n=== Phase 4: Deploy Container App ===" -ForegroundColor Cyan
 
-# 7. Generate or reuse API key
-$API_KEY_FILE = ".api-key.txt"
-if (Test-Path $API_KEY_FILE) {
-    $API_KEY = Get-Content $API_KEY_FILE
-    Write-Host "Using existing API Key from $API_KEY_FILE" -ForegroundColor Green
+# 7. Generate or reuse HMAC secret (WHATSAPP_APP_SECRET)
+$SECRET_FILE = ".whatsapp-app-secret.txt"
+# Migrate from old .api-key.txt if it exists
+if ((Test-Path ".api-key.txt") -and -not (Test-Path $SECRET_FILE)) {
+    Copy-Item ".api-key.txt" $SECRET_FILE
+    Write-Host "Migrated .api-key.txt to $SECRET_FILE" -ForegroundColor Yellow
+}
+if (Test-Path $SECRET_FILE) {
+    $WHATSAPP_SECRET = Get-Content $SECRET_FILE
+    Write-Host "Using existing WHATSAPP_APP_SECRET from $SECRET_FILE" -ForegroundColor Green
 } else {
-    $API_KEY = [System.Guid]::NewGuid().ToString()
-    $API_KEY | Out-File -FilePath $API_KEY_FILE -NoNewline
-    Write-Host "Generated new API Key: $API_KEY" -ForegroundColor Magenta
-    Write-Host "Saved to $API_KEY_FILE" -ForegroundColor Magenta
+    $WHATSAPP_SECRET = [System.Guid]::NewGuid().ToString()
+    $WHATSAPP_SECRET | Out-File -FilePath $SECRET_FILE -NoNewline
+    Write-Host "Generated new WHATSAPP_APP_SECRET: $WHATSAPP_SECRET" -ForegroundColor Magenta
+    Write-Host "Saved to $SECRET_FILE" -ForegroundColor Magenta
+}
+
+# 7b. Load Firebase service account JSON
+$SA_FILE = "..\service-account.json"
+if (Test-Path $SA_FILE) {
+    $FIREBASE_SA = Get-Content $SA_FILE -Raw
+    Write-Host "Loaded Firebase service account from $SA_FILE" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: service-account.json not found at $SA_FILE" -ForegroundColor Red
+    Write-Host "Firebase operations will fail without it" -ForegroundColor Red
+    $FIREBASE_SA = ""
 }
 
 # 8. Check if container app exists
@@ -125,7 +141,10 @@ if ($appExists) {
             WHATSAPP_GROUP_NAME="Prix Six" `
             AZURE_STORAGE_CONNECTION_STRING="$STORAGE_CONNECTION" `
             AZURE_STORAGE_CONTAINER="$BLOB_CONTAINER" `
-            WORKER_API_KEY="$API_KEY"
+            WHATSAPP_APP_SECRET="$WHATSAPP_SECRET" `
+            FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SA" `
+            FIREBASE_STORAGE_BUCKET="studio-6033436327-281b1.appspot.com" `
+            RESTART_TRIGGER="$(Get-Date -UFormat %s)"
 } else {
     Write-Host "Creating new container app..." -ForegroundColor Yellow
     az containerapp create `
@@ -147,7 +166,9 @@ if ($appExists) {
             WHATSAPP_GROUP_NAME="Prix Six" `
             AZURE_STORAGE_CONNECTION_STRING="$STORAGE_CONNECTION" `
             AZURE_STORAGE_CONTAINER="$BLOB_CONTAINER" `
-            WORKER_API_KEY="$API_KEY" `
+            WHATSAPP_APP_SECRET="$WHATSAPP_SECRET" `
+            FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SA" `
+            FIREBASE_STORAGE_BUCKET="studio-6033436327-281b1.appspot.com" `
         --scale-rule-name http-rule `
         --scale-rule-type http `
         --scale-rule-http-concurrency 10
@@ -165,8 +186,8 @@ Write-Host "FQDN: https://$FQDN" -ForegroundColor Green
 Write-Host "Health check: https://$FQDN/health" -ForegroundColor Green
 Write-Host "Status: https://$FQDN/status" -ForegroundColor Green
 Write-Host "Process queue: https://$FQDN/process-queue" -ForegroundColor Green
-Write-Host "`nAPI Key: $API_KEY" -ForegroundColor Magenta
-Write-Host "(Saved in $API_KEY_FILE)" -ForegroundColor Magenta
+Write-Host "`nWHATSAPP_APP_SECRET: $WHATSAPP_SECRET" -ForegroundColor Magenta
+Write-Host "(Saved in $SECRET_FILE)" -ForegroundColor Magenta
 
 Write-Host "`n=== Cost Optimization ===" -ForegroundColor Cyan
 Write-Host "- Scales to ZERO when idle (no cost)" -ForegroundColor Green
@@ -177,7 +198,7 @@ Write-Host "- Estimated monthly: `$4-10 (vs `$32 with always-on ACI)" -Foregroun
 Write-Host "`n=== Next Steps ===" -ForegroundColor Cyan
 Write-Host "1. Update Next.js .env.local with:" -ForegroundColor Yellow
 Write-Host "   WHATSAPP_WORKER_URL=https://$FQDN" -ForegroundColor White
-Write-Host "   WHATSAPP_APP_SECRET=$API_KEY" -ForegroundColor White
+Write-Host "   WHATSAPP_APP_SECRET=$WHATSAPP_SECRET" -ForegroundColor White
 Write-Host "`n2. Test by calling: curl -X POST https://$FQDN/process-queue -H 'X-API-Key: $API_KEY'" -ForegroundColor Yellow
 Write-Host "`n3. First run: Check logs for QR code if needed" -ForegroundColor Yellow
 Write-Host "   az containerapp logs show --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --follow" -ForegroundColor White

@@ -237,21 +237,34 @@ async function main() {
   // Start WhatsApp client
   await whatsappClient.initialize();
 
-  // Wait for WhatsApp to be ready before processing queue
+  // Wait for WhatsApp to be ready before processing queue (2-minute timeout)
+  const READY_TIMEOUT_MS = 120_000;
   const waitForReady = (): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        clearInterval(checkReady);
+        reject(new Error('WhatsApp client did not become ready within 2 minutes — may need QR scan or session restore failed'));
+      }, READY_TIMEOUT_MS);
       const checkReady = setInterval(() => {
         const status = whatsappClient.getStatus();
         if (status.ready) {
           clearInterval(checkReady);
+          clearTimeout(timeout);
           resolve();
         }
       }, 1000);
     });
   };
 
-  console.log('⏳ Waiting for WhatsApp to be ready...');
-  await waitForReady();
+  console.log('⏳ Waiting for WhatsApp to be ready (timeout: 2 min)...');
+  try {
+    await waitForReady();
+  } catch (err: any) {
+    console.warn(`⚠️ ${err.message}`);
+    console.warn('⚠️ Server will keep running — QR code is available at /qr endpoint');
+    // Don't exit — the Express server is already listening and can serve QR codes
+    // Queue processing will start once the client eventually becomes ready
+  }
 
   // Start queue listener
   queueProcessor.startListening();

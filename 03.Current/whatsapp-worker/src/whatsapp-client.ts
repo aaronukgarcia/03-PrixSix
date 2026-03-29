@@ -1,402 +1,249 @@
-// GUID: WHATSAPP_CLIENT-000-v03
-import { Client, LocalAuth, RemoteAuth, Message } from 'whatsapp-web.js';
-import * as qrcode from 'qrcode-terminal';
-import { AzureBlobStore } from './azure-store';
+// GUID: WHATSAPP_CLIENT-000-v04
+// [Intent] WhatsApp client wrapper using Baileys (WebSocket protocol, no Puppeteer/Chromium).
+//          Drop-in replacement for the whatsapp-web.js based client — same public interface.
+// [Inbound Trigger] Instantiated by index.ts at server startup.
+// [Downstream Impact] Provides sendMessage, sendToGroup, getStatus, getGroups for queue-processor
+//                     and Express endpoints. Logs status changes to Firestore.
+
+import makeWASocket, {
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+  WASocket,
+  ConnectionState,
+} from '@whiskeysockets/baileys';
+import pino from 'pino';
+import { AzureBlobAuthStore } from './azure-store';
 import { getFirestore } from './firebase-config';
 import * as path from 'path';
-
-// Detect if running on Windows (local dev) vs Linux (Azure container)
-const isWindows = process.platform === 'win32';
 
 // Use Azure Blob Storage in production (when connection string is set)
 const useAzureStorage = !!process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-// Keep-alive interval (ping every 3 minutes)
+// Keep-alive interval for Firestore status monitoring (Baileys handles WS keep-alive internally)
 const KEEP_ALIVE_INTERVAL_MS = 3 * 60 * 1000;
 
 // Reconnect delay after disconnect
 const RECONNECT_DELAY_MS = 10000;
 
-// Puppeteer args - fewer restrictions needed on Windows
-const PUPPETEER_ARGS_DOCKER = [
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-  '--disable-dev-shm-usage',
-  '--disable-accelerated-2d-canvas',
-  '--no-first-run',
-  '--no-zygote',
-  '--single-process',
-  '--disable-gpu',
-  '--disable-extensions',
-  '--disable-software-rasterizer',
-];
+// Auth folder paths
+const AUTH_DIR_DOCKER = '/app/auth_info';
+const AUTH_DIR_WINDOWS = path.join(process.cwd(), 'auth_info');
+const isWindows = process.platform === 'win32';
 
-const PUPPETEER_ARGS_WINDOWS = [
-  '--disable-gpu',
-  '--disable-extensions',
-  '--no-first-run',
-];
-
-// Status types for logging
+// Status types for logging (same as v03 for Firestore compatibility)
 type WhatsAppStatus = 'initializing' | 'qr_received' | 'authenticated' | 'ready' | 'disconnected' | 'auth_failure' | 'keep_alive_ping' | 'keep_alive_fail' | 'reconnecting';
 
 export class WhatsAppClient {
-  private client: Client;
+  private sock: WASocket | null = null;
   private isReady: boolean = false;
-  private azureStore: AzureBlobStore | null = null;
+  private azureStore: AzureBlobAuthStore | null = null;
   private qrCodeData: string | null = null;
   private keepAliveInterval: NodeJS.Timeout | null = null;
   private lastStatus: WhatsAppStatus = 'initializing';
   private consecutiveFailures: number = 0;
   private lastSuccessfulPing: Date | null = null;
+  private authDir: string;
+  private shouldReconnect: boolean = true;
 
   constructor() {
-    // Configure based on platform
-    const authDataPath = isWindows
-      ? path.join(process.cwd(), '.wwebjs_auth')
-      : '/tmp/.wwebjs_auth';
+    this.authDir = isWindows ? AUTH_DIR_WINDOWS : AUTH_DIR_DOCKER;
+  }
 
-    // Set env var for azure store to find the zip files
-    process.env.REMOTE_AUTH_DATA_PATH = authDataPath;
+  /**
+   * Initialize the Baileys WhatsApp client.
+   * Restores session from Azure Blob if available, otherwise starts fresh (QR scan needed).
+   */
+  async initialize(): Promise<void> {
+    console.log('\n' + '='.repeat(50));
+    console.log('🚀 Initialising WhatsApp client (Baileys)...');
+    console.log(`📂 Auth dir: ${this.authDir}`);
+    console.log(`☁️ Storage: ${useAzureStorage ? 'Azure Blob' : 'Local filesystem'}`);
+    console.log('='.repeat(50) + '\n');
 
-    const puppeteerConfig: any = {
-      headless: true,
-      args: isWindows ? PUPPETEER_ARGS_WINDOWS : PUPPETEER_ARGS_DOCKER,
-    };
+    await this.logStatusChange('initializing');
 
-    // Only set executablePath on Linux/Docker - let Puppeteer find Chrome on Windows
-    if (!isWindows && process.env.PUPPETEER_EXECUTABLE_PATH) {
-      puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-    } else if (!isWindows) {
-      puppeteerConfig.executablePath = '/usr/bin/chromium';
-    }
-
-    console.log(`🖥️ Platform: ${process.platform}`);
-    console.log(`💾 Storage: ${useAzureStorage ? 'Azure Blob Storage' : 'Local filesystem'}`);
-    console.log(`📁 Auth path: ${authDataPath}`);
-
-    // Choose auth strategy based on environment
-    let authStrategy;
-
+    // Set up Azure session persistence if configured
     if (useAzureStorage) {
-      // Production: Use RemoteAuth with Azure Blob Storage
-      this.azureStore = new AzureBlobStore('prixsix-whatsapp');
-      authStrategy = new RemoteAuth({
-        clientId: 'prixsix-whatsapp',
-        dataPath: authDataPath,
-        store: this.azureStore,
-        backupSyncIntervalMs: 300000, // Sync every 5 minutes
-      });
-      console.log('🔐 Using RemoteAuth with Azure Blob Storage');
-    } else {
-      // Local development: Use LocalAuth
-      authStrategy = new LocalAuth({
-        clientId: 'prixsix-whatsapp',
-        dataPath: authDataPath,
-      });
-      console.log('🔐 Using LocalAuth (local development)');
+      const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!;
+      const containerName = process.env.AZURE_STORAGE_CONTAINER || 'whatsapp-session';
+      this.azureStore = new AzureBlobAuthStore(connectionString, this.authDir, containerName);
+      await this.azureStore.ensureContainer();
+      await this.azureStore.restoreFromBlob();
     }
 
-    this.client = new Client({
-      authStrategy,
-      puppeteer: puppeteerConfig,
-    });
-
-    this.setupEventHandlers();
+    await this.connectSocket();
   }
 
   /**
-   * Log status changes to Firestore for monitoring
+   * Create and connect the Baileys WebSocket
    */
-  private async logStatusChange(
-    status: WhatsAppStatus,
-    details?: Record<string, any>
-  ): Promise<void> {
-    // Only log if status actually changed (except for keep_alive which we always log)
-    if (status === this.lastStatus && status !== 'keep_alive_ping' && status !== 'keep_alive_fail') {
-      return;
-    }
+  private async connectSocket(): Promise<void> {
+    const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
+    const { version } = await fetchLatestBaileysVersion();
 
-    this.lastStatus = status;
-    const timestamp = new Date();
+    const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
 
-    const logEntry = {
-      status,
-      timestamp,
-      details: details || {},
-      platform: process.platform,
-      storage: useAzureStorage ? 'azure' : 'local',
-      consecutiveFailures: this.consecutiveFailures,
-      lastSuccessfulPing: this.lastSuccessfulPing,
-    };
-
-    console.log(`📊 Status change: ${status}`, details || '');
-
-    try {
-      const db = getFirestore();
-
-      // Log to status_log collection (historical)
-      await db.collection('whatsapp_status_log').add({
-        ...logEntry,
-        timestamp: timestamp,
-      });
-
-      // Update current status document
-      await db.collection('whatsapp_status').doc('current').set({
-        ...logEntry,
-        updatedAt: timestamp,
-      }, { merge: true });
-
-    } catch (error) {
-      console.error('Failed to log status to Firestore:', error);
-    }
-  }
-
-  private setupEventHandlers(): void {
-    // QR Code event - display in terminal/logs for initial setup
-    this.client.on('qr', (qr: string) => {
-      this.qrCodeData = qr;
-      this.logStatusChange('qr_received', { qrLength: qr.length });
-
-      console.log('\n' + '='.repeat(50));
-      console.log('📱 SCAN THIS QR CODE WITH WHATSAPP:');
-      console.log('='.repeat(50) + '\n');
-      qrcode.generate(qr, { small: true });
-      console.log('\n' + '='.repeat(50));
-      console.log('QR Data (for debugging):', qr.substring(0, 50) + '...');
-      console.log('='.repeat(50) + '\n');
+    this.sock = makeWASocket({
+      version,
+      auth: state,
+      logger,
+      printQRInTerminal: true,
+      // Don't mark messages as read automatically
+      markOnlineOnConnect: false,
     });
 
-    // Ready event
-    this.client.on('ready', async () => {
-      this.isReady = true;
-      this.qrCodeData = null;
-      this.consecutiveFailures = 0;
-      this.lastSuccessfulPing = new Date();
+    // Credential updates — save locally and sync to Azure
+    this.sock.ev.on('creds.update', async () => {
+      await saveCreds();
+      // Fire-and-forget Azure sync on every creds update
+      if (this.azureStore) {
+        this.azureStore.syncToBlob().catch(err =>
+          console.error('☁️ Creds sync failed:', err.message)
+        );
+      }
+    });
 
-      let clientInfo = {};
-      try {
-        clientInfo = {
-          pushname: this.client.info?.pushname,
-          platform: this.client.info?.platform,
-          phone: this.client.info?.wid?.user,
+    // Connection state changes — maps to our status events
+    this.sock.ev.on('connection.update', async (update: Partial<ConnectionState>) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      // QR code available
+      if (qr) {
+        this.qrCodeData = qr;
+        await this.logStatusChange('qr_received', { qrLength: qr.length });
+        console.log('\n' + '='.repeat(50));
+        console.log('📱 SCAN THIS QR CODE WITH WHATSAPP:');
+        console.log('='.repeat(50));
+        console.log('QR Data (first 50 chars):', qr.substring(0, 50) + '...');
+        console.log('='.repeat(50) + '\n');
+      }
+
+      // Connected successfully
+      if (connection === 'open') {
+        this.isReady = true;
+        this.qrCodeData = null;
+        this.consecutiveFailures = 0;
+        this.lastSuccessfulPing = new Date();
+        this.shouldReconnect = true;
+
+        const clientInfo = {
+          pushname: this.sock?.user?.name || 'unknown',
+          platform: 'baileys',
+          phone: this.sock?.user?.id?.split(':')[0] || 'unknown',
         };
-      } catch (error) {
-        console.error('Error getting client info:', error);
+
+        await this.logStatusChange('authenticated');
+        await this.logStatusChange('ready', clientInfo);
+        console.log('✅ WhatsApp client is ready!');
+        console.log('📱 Connected as:', clientInfo.pushname);
+
+        // Start keep-alive monitoring and Azure periodic sync
+        this.startKeepAlive();
+        if (this.azureStore) {
+          this.azureStore.startPeriodicSync();
+        }
       }
 
-      await this.logStatusChange('ready', clientInfo);
-      console.log('✅ WhatsApp client is ready!');
-      console.log('📱 Connected as:', this.client.info?.pushname);
-
-      // Start keep-alive mechanism
-      this.startKeepAlive();
-    });
-
-    // Authentication events
-    this.client.on('authenticated', () => {
-      this.logStatusChange('authenticated');
-      console.log('✅ WhatsApp authenticated');
-    });
-
-    this.client.on('auth_failure', (message: string) => {
-      this.logStatusChange('auth_failure', { message });
-      console.error('❌ Authentication failed:', message);
-      this.isReady = false;
-      this.stopKeepAlive();
-    });
-
-    // Remote session saved (Azure backup)
-    this.client.on('remote_session_saved', () => {
-      console.log('☁️ Session backed up to Azure Blob Storage');
-    });
-
-    // Disconnection handling
-    this.client.on('disconnected', async (reason: string) => {
-      await this.logStatusChange('disconnected', { reason });
-      console.log('⚠️ WhatsApp disconnected:', reason);
-      this.isReady = false;
-      this.stopKeepAlive();
-
-      // Auto-reconnect after delay
-      setTimeout(async () => {
-        await this.logStatusChange('reconnecting', { afterReason: reason });
-        console.log('🔄 Attempting to reconnect...');
-        this.initialize();
-      }, RECONNECT_DELAY_MS);
-    });
-
-    // State change event (if available)
-    this.client.on('change_state', (state: any) => {
-      console.log('📊 State changed:', state);
-    });
-
-    // Message received (for debugging)
-    this.client.on('message', (message: Message) => {
-      console.log(`📨 Message from ${message.from}: ${message.body.substring(0, 50)}...`);
-    });
-  }
-
-  /**
-   * Start keep-alive mechanism - periodically ping WhatsApp to prevent disconnection
-   */
-  private startKeepAlive(): void {
-    if (this.keepAliveInterval) {
-      clearInterval(this.keepAliveInterval);
-    }
-
-    console.log(`⏰ Starting keep-alive (every ${KEEP_ALIVE_INTERVAL_MS / 1000}s)`);
-
-    this.keepAliveInterval = setInterval(async () => {
-      await this.performKeepAlivePing();
-    }, KEEP_ALIVE_INTERVAL_MS);
-  }
-
-  /**
-   * Stop keep-alive mechanism
-   */
-  private stopKeepAlive(): void {
-    if (this.keepAliveInterval) {
-      clearInterval(this.keepAliveInterval);
-      this.keepAliveInterval = null;
-      console.log('⏰ Keep-alive stopped');
-    }
-  }
-
-  /**
-   * Perform a keep-alive ping by interacting with WhatsApp
-   * This helps prevent the session from going stale
-   */
-  private async performKeepAlivePing(): Promise<void> {
-    if (!this.isReady) {
-      console.log('⏭️ Skipping keep-alive ping (not ready)');
-      return;
-    }
-
-    try {
-      // Method 1: Get connection state
-      const state = await this.client.getState();
-
-      // Method 2: Get chats (forces interaction with WhatsApp servers)
-      const chats = await this.client.getChats();
-
-      this.consecutiveFailures = 0;
-      this.lastSuccessfulPing = new Date();
-
-      // Log success (but not every time to avoid spam - only log every 10 pings or on state issues)
-      const logDetails = {
-        state,
-        chatCount: chats.length,
-        timestamp: new Date().toISOString(),
-      };
-
-      // Only log to Firestore occasionally (every ~30 mins = every 10 pings)
-      if (Math.random() < 0.1) {
-        await this.logStatusChange('keep_alive_ping', logDetails);
-      }
-
-      console.log(`💓 Keep-alive ping OK - State: ${state}, Chats: ${chats.length}`);
-
-      // If state isn't CONNECTED, there might be an issue
-      if (state !== 'CONNECTED') {
-        console.warn(`⚠️ WhatsApp state is ${state}, not CONNECTED`);
-        await this.logStatusChange('keep_alive_ping', { ...logDetails, warning: 'Not CONNECTED state' });
-      }
-
-    } catch (error: any) {
-      this.consecutiveFailures++;
-
-      await this.logStatusChange('keep_alive_fail', {
-        error: error.message,
-        consecutiveFailures: this.consecutiveFailures,
-      });
-
-      console.error(`❌ Keep-alive ping failed (attempt ${this.consecutiveFailures}):`, error.message);
-
-      // If we've failed multiple times, try to reinitialize
-      if (this.consecutiveFailures >= 3) {
-        console.error('🔄 Too many keep-alive failures, attempting reconnection...');
+      // Disconnected
+      if (connection === 'close') {
         this.isReady = false;
         this.stopKeepAlive();
 
-        setTimeout(() => {
-          this.initialize();
-        }, RECONNECT_DELAY_MS);
+        const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
+        const reason = DisconnectReason[statusCode] || `code ${statusCode}`;
+
+        await this.logStatusChange('disconnected', { reason, statusCode });
+        console.log('⚠️ WhatsApp disconnected:', reason);
+
+        // If logged out, clear session and stop
+        if (statusCode === DisconnectReason.loggedOut) {
+          await this.logStatusChange('auth_failure', { message: 'Logged out by WhatsApp' });
+          console.error('❌ Logged out — session cleared. QR scan required on next restart.');
+          this.shouldReconnect = false;
+          if (this.azureStore) {
+            await this.azureStore.clearBlob();
+          }
+          return;
+        }
+
+        // Auto-reconnect for all other disconnect reasons
+        if (this.shouldReconnect) {
+          await this.logStatusChange('reconnecting', { afterReason: reason });
+          console.log(`🔄 Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`);
+          setTimeout(() => this.connectSocket(), RECONNECT_DELAY_MS);
+        }
       }
-    }
+    });
+
+    // Incoming messages (for debugging)
+    this.sock.ev.on('messages.upsert', ({ messages }) => {
+      for (const msg of messages) {
+        if (!msg.key.fromMe && msg.message) {
+          const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+          if (text) {
+            console.log(`📨 Message from ${msg.key.remoteJid}: ${text.substring(0, 50)}...`);
+          }
+        }
+      }
+    });
   }
 
-  async initialize(): Promise<void> {
-    await this.logStatusChange('initializing');
-    console.log('🚀 Initializing WhatsApp client...');
-
-    // Ensure Azure container exists if using Azure storage
-    if (this.azureStore) {
-      try {
-        await this.azureStore.ensureContainer();
-      } catch (error) {
-        console.error('⚠️ Failed to ensure Azure container (continuing anyway):', error);
-      }
-    }
-
-    try {
-      await this.client.initialize();
-    } catch (error) {
-      console.error('❌ Failed to initialize WhatsApp client:', error);
-      throw error;
-    }
-  }
-
+  /**
+   * Send a message to a specific chat ID (JID)
+   */
   async sendMessage(chatId: string, message: string): Promise<boolean> {
-    if (!this.isReady) {
-      console.error('❌ WhatsApp client not ready');
+    if (!this.isReady || !this.sock) {
+      console.error('❌ Cannot send message — WhatsApp not ready');
       return false;
     }
 
     try {
-      await this.client.sendMessage(chatId, message);
+      await this.sock.sendMessage(chatId, { text: message });
       console.log(`✅ Message sent to ${chatId}`);
       return true;
-    } catch (error) {
-      console.error(`❌ Failed to send message to ${chatId}:`, error);
+    } catch (error: any) {
+      console.error(`❌ Failed to send message to ${chatId}:`, error.message);
       return false;
     }
   }
 
   /**
-   * Send message to a group by name (searches for the group)
+   * Send a message to a WhatsApp group by name (case-insensitive substring match)
    */
   async sendToGroup(groupName: string, message: string): Promise<boolean> {
-    if (!this.isReady) {
-      console.error('❌ WhatsApp client not ready');
+    if (!this.isReady || !this.sock) {
+      console.error('❌ Cannot send to group — WhatsApp not ready');
       return false;
     }
 
     try {
-      const chats = await this.client.getChats();
-      const group = chats.find(
-        (chat) => chat.isGroup && chat.name.toLowerCase().includes(groupName.toLowerCase())
+      const groups = await this.sock.groupFetchAllParticipating();
+      const searchName = groupName.toLowerCase();
+
+      const match = Object.entries(groups).find(([, data]) =>
+        data.subject.toLowerCase().includes(searchName)
       );
 
-      if (!group) {
-        console.error(`❌ Group "${groupName}" not found`);
-        // List available groups for debugging
-        const groups = chats.filter(c => c.isGroup).map(c => c.name);
-        console.log(`📋 Available groups: ${groups.join(', ')}`);
+      if (!match) {
+        const available = Object.values(groups).map(g => g.subject);
+        console.error(`❌ Group "${groupName}" not found. Available groups:`, available);
         return false;
       }
 
-      // Use client.sendMessage with chat ID and disable sendSeen to avoid markedUnread error
-      const chatId = group.id._serialized;
-      await this.client.sendMessage(chatId, message, { sendSeen: false });
-      console.log(`✅ Message sent to group "${group.name}" (${chatId})`);
+      const [groupJid, groupData] = match;
+      await this.sock.sendMessage(groupJid, { text: message });
+      console.log(`✅ Message sent to group "${groupData.subject}"`);
       return true;
-    } catch (error) {
-      console.error(`❌ Failed to send message to group "${groupName}":`, error);
+    } catch (error: any) {
+      console.error(`❌ Failed to send to group "${groupName}":`, error.message);
       return false;
     }
   }
 
+  /**
+   * Get current client status (same shape as v03 for admin UI compatibility)
+   */
   getStatus(): {
     ready: boolean;
     qrCode: string | null;
@@ -413,27 +260,137 @@ export class WhatsAppClient {
     };
   }
 
+  /**
+   * Get all groups as array of {id, name}
+   */
   async getGroups(): Promise<Array<{ id: string; name: string }>> {
-    if (!this.isReady) return [];
+    if (!this.isReady || !this.sock) return [];
 
-    const chats = await this.client.getChats();
-    return chats
-      .filter((chat) => chat.isGroup)
-      .map((chat) => ({ id: chat.id._serialized, name: chat.name }));
+    try {
+      const groups = await this.sock.groupFetchAllParticipating();
+      return Object.entries(groups).map(([jid, data]) => ({
+        id: jid,
+        name: data.subject,
+      }));
+    } catch (error: any) {
+      console.error('Failed to fetch groups:', error.message);
+      return [];
+    }
   }
 
   /**
-   * Force a manual keep-alive ping (for testing/debugging)
+   * Manual keep-alive ping for testing/debugging
    */
   async forceKeepAlivePing(): Promise<{ success: boolean; state?: string; error?: string }> {
+    if (!this.isReady || !this.sock) {
+      return { success: false, error: 'WhatsApp not ready' };
+    }
+
     try {
-      const state = await this.client.getState();
-      const chats = await this.client.getChats();
+      const groups = await this.sock.groupFetchAllParticipating();
+      const state = this.sock.user ? 'CONNECTED' : 'DISCONNECTED';
       this.lastSuccessfulPing = new Date();
       this.consecutiveFailures = 0;
       return { success: true, state };
     } catch (error: any) {
+      this.consecutiveFailures++;
       return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Start keep-alive monitoring — periodically pings WhatsApp and logs to Firestore
+   */
+  private startKeepAlive(): void {
+    if (this.keepAliveInterval) clearInterval(this.keepAliveInterval);
+
+    console.log(`⏰ Starting keep-alive monitoring (every ${KEEP_ALIVE_INTERVAL_MS / 1000}s)`);
+    this.keepAliveInterval = setInterval(() => this.performKeepAlivePing(), KEEP_ALIVE_INTERVAL_MS);
+  }
+
+  private stopKeepAlive(): void {
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+      this.keepAliveInterval = null;
+      console.log('⏰ Keep-alive stopped');
+    }
+  }
+
+  private async performKeepAlivePing(): Promise<void> {
+    if (!this.isReady || !this.sock) return;
+
+    try {
+      const groups = await this.sock.groupFetchAllParticipating();
+      const state = this.sock.user ? 'CONNECTED' : 'DISCONNECTED';
+
+      this.lastSuccessfulPing = new Date();
+      this.consecutiveFailures = 0;
+
+      // Log to Firestore ~10% of the time to reduce spam
+      if (Math.random() < 0.1) {
+        await this.logStatusChange('keep_alive_ping', {
+          state,
+          groupCount: Object.keys(groups).length,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (state !== 'CONNECTED') {
+        console.warn(`⚠️ Keep-alive: state is ${state}, not CONNECTED`);
+      }
+    } catch (error: any) {
+      this.consecutiveFailures++;
+      console.error(`❌ Keep-alive failed (${this.consecutiveFailures}):`, error.message);
+
+      await this.logStatusChange('keep_alive_fail', {
+        error: error.message,
+        consecutiveFailures: this.consecutiveFailures,
+      });
+
+      // After 3 consecutive failures, attempt reconnect
+      if (this.consecutiveFailures >= 3) {
+        console.warn('⚠️ 3+ consecutive keep-alive failures — reconnecting...');
+        this.isReady = false;
+        this.stopKeepAlive();
+        await this.logStatusChange('reconnecting', { afterReason: '3+ keep-alive failures' });
+        setTimeout(() => this.connectSocket(), RECONNECT_DELAY_MS);
+      }
+    }
+  }
+
+  /**
+   * Log status changes to Firestore (whatsapp_status_log and whatsapp_status/current)
+   */
+  private async logStatusChange(status: WhatsAppStatus, details: Record<string, any> = {}): Promise<void> {
+    this.lastStatus = status;
+
+    try {
+      const db = getFirestore();
+      const timestamp = new Date();
+
+      const logEntry = {
+        status,
+        details,
+        platform: 'baileys',
+        storage: useAzureStorage ? 'azure' : 'local',
+        consecutiveFailures: this.consecutiveFailures,
+        lastSuccessfulPing: this.lastSuccessfulPing,
+      };
+
+      // Add to historical log
+      await db.collection('whatsapp_status_log').add({
+        ...logEntry,
+        timestamp,
+      });
+
+      // Update current status document
+      await db.collection('whatsapp_status').doc('current').set({
+        ...logEntry,
+        updatedAt: timestamp,
+      }, { merge: true });
+
+    } catch (error) {
+      console.error('Failed to log status to Firestore:', error);
     }
   }
 }

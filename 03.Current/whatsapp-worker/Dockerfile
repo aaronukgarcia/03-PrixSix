@@ -1,67 +1,35 @@
-# Use Node.js with Debian for better Chromium compatibility
+# Baileys-based WhatsApp worker — no Chromium needed (WebSocket protocol)
 FROM node:20-bookworm-slim
 
 # Set working directory
 WORKDIR /app
 
-# Install Chromium dependencies (CRITICAL for whatsapp-web.js)
-# These are the exact dependencies Puppeteer/Chromium needs
+# Minimal system deps (ca-certificates for HTTPS, wget for health check)
 RUN apt-get update && apt-get install -y \
-    chromium \
-    fonts-liberation \
-    fonts-noto-color-emoji \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgbm1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libx11-6 \
-    libxcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libxrandr2 \
-    libxshmfence1 \
-    xdg-utils \
-    wget \
     ca-certificates \
+    wget \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Puppeteer to use installed Chromium instead of downloading
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
 # Create non-root user for security
-RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
-    && mkdir -p /home/pptruser/Downloads \
-    && chown -R pptruser:pptruser /home/pptruser \
-    && chown -R pptruser:pptruser /app
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && mkdir -p /home/appuser /app/auth_info \
+    && chown -R appuser:appuser /home/appuser /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy source code
-COPY --chown=pptruser:pptruser . .
+COPY --chown=appuser:appuser . .
 
 # Build TypeScript
 RUN npm run build
 
 # Switch to non-root user
-USER pptruser
+USER appuser
 
 # Expose health check port
 EXPOSE 3000

@@ -149,8 +149,8 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const endpoint = searchParams.get('endpoint') || 'ping';
 
-    // Whitelist of allowed POST endpoints
-    const allowedEndpoints = ['ping', 'trigger-test'];
+    // Whitelist of allowed POST endpoints (process-queue needed for scale-from-zero wake-up)
+    const allowedEndpoints = ['ping', 'trigger-test', 'process-queue'];
     if (!allowedEndpoints.includes(endpoint)) {
       return NextResponse.json({ error: 'Invalid endpoint' }, { status: 400 });
     }
