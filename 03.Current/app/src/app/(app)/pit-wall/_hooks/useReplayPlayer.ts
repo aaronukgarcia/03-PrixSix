@@ -680,6 +680,7 @@ export function useReplayPlayer(
         }
         if (!cancelled) setLoadingSource('source');
         if (!cancelled) setIngestStatus('Triggering ingest...');
+        if (!cancelled) setDownloadProgress(0.01); // Start at 1%
 
         const functions = getFunctions(undefined, 'europe-west2');
         const ingestFn = httpsCallable(functions, 'ingestReplaySession', { timeout: 600000 });
@@ -696,7 +697,19 @@ export function useReplayPlayer(
               const data = snap.data();
               if (!data) return;
 
-              // Update progress display
+              // Update progress bar — map ingest endpoint to 1%–70% of the bar.
+              // Chunk-loading (after ingest completes) fills 70%–100%.
+              // Endpoints are processed sequentially; location is the heaviest (~40% of total time).
+              const INGEST_PROGRESS: Record<string, number> = {
+                location: 0.05, position: 0.20, car_data: 0.32,
+                intervals: 0.40, laps: 0.45, stints: 0.48,
+                pit: 0.50, team_radio: 0.53, race_control: 0.55,
+                building: 0.60, writing: 0.68,
+              };
+              if (data.firestoreIngestCurrentEndpoint) {
+                const ingestPct = INGEST_PROGRESS[data.firestoreIngestCurrentEndpoint] ?? 0.01;
+                if (!cancelled) setDownloadProgress(Math.max(0.01, ingestPct));
+              }
               if (data.firestoreIngestCurrentLabel) {
                 setIngestStatus(
                   data.firestoreIngestRecordCount
@@ -707,12 +720,15 @@ export function useReplayPlayer(
 
               if (data.firestoreStatus === 'complete' && data.firestoreChunkCount > 0) {
                 unsub();
-                // Now load via chunks (Path 1)
+                // Now load via chunks (Path 1) — scale progress to 70%–100%
+                // (ingest phase used 1%–70%)
+                if (!cancelled) setIngestStatus(null);
+                if (!cancelled) setLoadingSource('cache');
                 loadChunksProgressively(
                   session.sessionKey,
                   data.firestoreChunkCount,
                   getAuthTokenRef.current!,
-                  fraction => { if (!cancelled) setDownloadProgress(fraction); },
+                  fraction => { if (!cancelled) setDownloadProgress(0.70 + fraction * 0.30); },
                   onDataReady,
                 ).then(resolve).catch(reject);
               } else if (data.firestoreStatus === 'failed') {
