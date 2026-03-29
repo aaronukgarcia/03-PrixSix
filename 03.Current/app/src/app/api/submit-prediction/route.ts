@@ -341,6 +341,39 @@ export async function POST(request: NextRequest) {
       })();
     }
 
+    // GUID: API_SUBMIT_PREDICTION-009
+    // [Intent] Fire-and-forget WhatsApp group notification when a prediction is submitted.
+    //          Sends team name and picked six drivers to the Prix6.Win group via whatsapp_queue.
+    //          Never blocks the user's response — all errors are non-fatal.
+    // [Inbound Trigger] After batch.commit() — every successful prediction submission.
+    // [Downstream Impact] Writes a PENDING doc to whatsapp_queue. The WhatsApp worker picks it up
+    //                     and sends it to the group. Cloned predictions (isCloned) are excluded.
+    (async () => {
+      try {
+        const driverNames: Record<string, string> = {
+          verstappen: 'Verstappen', hadjar: 'Hadjar', leclerc: 'Leclerc', hamilton: 'Hamilton',
+          norris: 'Norris', piastri: 'Piastri', russell: 'Russell', antonelli: 'Antonelli',
+          alonso: 'Alonso', stroll: 'Stroll', gasly: 'Gasly', colapinto: 'Colapinto',
+          albon: 'Albon', sainz: 'Sainz', lawson: 'Lawson', lindblad: 'Lindblad',
+          hulkenberg: 'Hulkenberg', bortoleto: 'Bortoleto', ocon: 'Ocon', bearman: 'Bearman',
+          perez: 'Perez', bottas: 'Bottas',
+        };
+        const driverList = predictions
+          .map((id: string, i: number) => `${i + 1}. ${driverNames[id] || id}`)
+          .join('\n');
+        const msg = `🏎️ *${teamName}* submitted picks for ${raceName}:\n\n${driverList}`;
+        await db.collection('whatsapp_queue').add({
+          groupName: 'Prix6.Win',
+          message: msg,
+          status: 'PENDING',
+          createdAt: FieldValue.serverTimestamp(),
+          retryCount: 0,
+        });
+      } catch (waErr: any) {
+        console.error('[submit-prediction] WhatsApp notification error (non-fatal):', waErr.message);
+      }
+    })();
+
     return NextResponse.json({ success: true, message: 'Prediction submitted successfully' });
 
   // GUID: API_SUBMIT_PREDICTION-007-v04

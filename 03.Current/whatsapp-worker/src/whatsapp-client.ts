@@ -45,6 +45,7 @@ export class WhatsAppClient {
   private lastSuccessfulPing: Date | null = null;
   private authDir: string;
   private shouldReconnect: boolean = true;
+  private groupNameCache: Map<string, string> = new Map();
 
   constructor() {
     this.authDir = isWindows ? AUTH_DIR_WINDOWS : AUTH_DIR_DOCKER;
@@ -176,13 +177,19 @@ export class WhatsAppClient {
       }
     });
 
-    // Incoming messages (for debugging)
+    // Incoming messages — log Prix6.Win group messages to Firestore
     this.sock.ev.on('messages.upsert', ({ messages }) => {
       for (const msg of messages) {
         if (!msg.key.fromMe && msg.message) {
           const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-          if (text) {
-            console.log(`📨 Message from ${msg.key.remoteJid}: ${text.substring(0, 50)}...`);
+          if (!text) continue;
+
+          const remoteJid = msg.key.remoteJid || '';
+          console.log(`📨 Message from ${remoteJid}: ${text.substring(0, 50)}...`);
+
+          // Log Prix6.Win group messages to Firestore (fire-and-forget)
+          if (remoteJid.endsWith('@g.us')) {
+            this.logGroupMessage(remoteJid, msg.key.participant || '', text).catch(() => {});
           }
         }
       }
@@ -355,6 +362,41 @@ export class WhatsAppClient {
         await this.logStatusChange('reconnecting', { afterReason: '3+ keep-alive failures' });
         setTimeout(() => this.connectSocket(), RECONNECT_DELAY_MS);
       }
+    }
+  }
+
+  /**
+   * Log an inbound group message to Firestore (whatsapp_messages collection).
+   * Only logs messages from the target group (Prix6.Win) to avoid noise.
+   */
+  private async logGroupMessage(groupJid: string, participant: string, text: string): Promise<void> {
+    try {
+      // Only log messages from the target group
+      const targetGroup = (process.env.WHATSAPP_GROUP_NAME || 'Prix6.Win').toLowerCase();
+
+      // Resolve group name (cache after first lookup)
+      if (!this.groupNameCache.has(groupJid) && this.sock) {
+        try {
+          const groups = await this.sock.groupFetchAllParticipating();
+          for (const [jid, data] of Object.entries(groups)) {
+            this.groupNameCache.set(jid, data.subject);
+          }
+        } catch { /* non-critical */ }
+      }
+
+      const groupName = this.groupNameCache.get(groupJid) || '';
+      if (!groupName.toLowerCase().includes(targetGroup)) return;
+
+      const db = getFirestore();
+      await db.collection('whatsapp_messages').add({
+        groupJid,
+        groupName,
+        participant,
+        text: text.substring(0, 2000),
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      console.error('Failed to log group message:', error);
     }
   }
 
