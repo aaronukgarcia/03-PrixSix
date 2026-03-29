@@ -51,6 +51,11 @@ async function fetchOpenF1SessionKeys(): Promise<Map<string, number>> {
         // Key by date_start truncated to minute (strips timezone offset differences)
         const prefix = s.date_start.slice(0, 16); // "2026-03-08T04:00"
         map.set(prefix, s.session_key);
+        // Also key by date + session_name for fallback when times differ by an hour
+        // (schedule times can differ from OpenF1 by ±1h due to timezone/DST corrections)
+        const dateOnly = s.date_start.slice(0, 10); // "2026-03-08"
+        const fallbackKey = `${dateOnly}::${(s.session_name ?? '').toLowerCase()}`;
+        if (!map.has(fallbackKey)) map.set(fallbackKey, s.session_key);
       }
     }
   } catch {
@@ -174,9 +179,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     for (const s of scheduleSessions) {
       const nameKey = `${s.meetingName.toLowerCase()}::${s.sessionName.toLowerCase()}`;
       if (!firestoreNameSet.has(nameKey)) {
-        // Resolve to real OpenF1 session key by matching date_start
+        // Resolve to real OpenF1 session key by matching date_start (minute precision),
+        // falling back to date + session name when schedule times differ from OpenF1 by ±1h
         const datePrefix = s.dateStart.slice(0, 16); // "2026-03-08T04:00"
-        const realKey = openF1Keys.get(datePrefix) ?? s.syntheticKey;
+        const dateFallback = `${s.dateStart.slice(0, 10)}::${s.sessionName.toLowerCase()}`; // "2026-03-08::race"
+        const realKey = openF1Keys.get(datePrefix) ?? openF1Keys.get(dateFallback) ?? s.syntheticKey;
 
         sessionMap.set(realKey, {
           sessionKey:         realKey,

@@ -220,7 +220,7 @@ export const RaceSchedule: Race[] = [
     // 2026 Official F1 Calendar (22 races — Bahrain & Saudi Arabia cancelled, no replacements)
     { name: "Australian Grand Prix",   location: "Melbourne",        raceTime: "2026-03-08T04:00:00Z", qualifyingTime: "2026-03-07T05:00:00Z", hasSprint: false, results: [], trackTimezone: "Australia/Melbourne" },
     { name: "Chinese Grand Prix",      location: "Shanghai",         raceTime: "2026-03-15T07:00:00Z", qualifyingTime: "2026-03-13T07:00:00Z", sprintTime: "2026-03-14T03:00:00Z", hasSprint: true,  results: [], trackTimezone: "Asia/Shanghai" },
-    { name: "Japanese Grand Prix",     location: "Suzuka",           raceTime: "2026-03-29T06:00:00Z", qualifyingTime: "2026-03-28T07:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Tokyo" },
+    { name: "Japanese Grand Prix",     location: "Suzuka",           raceTime: "2026-03-29T05:00:00Z", qualifyingTime: "2026-03-28T06:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Tokyo" },
     { name: "Miami Grand Prix",        location: "Miami",            raceTime: "2026-05-03T20:00:00Z", qualifyingTime: "2026-05-01T21:00:00Z", sprintTime: "2026-05-02T20:00:00Z", hasSprint: true,  results: [], trackTimezone: "America/New_York" },
     { name: "Canadian Grand Prix",     location: "Montreal",         raceTime: "2026-05-24T18:00:00Z", qualifyingTime: "2026-05-22T20:00:00Z", sprintTime: "2026-05-23T18:00:00Z", hasSprint: true,  results: [], trackTimezone: "America/Toronto" },
     { name: "Monaco Grand Prix",       location: "Monaco",           raceTime: "2026-06-07T13:00:00Z", qualifyingTime: "2026-06-06T14:00:00Z", hasSprint: false, results: [], trackTimezone: "Europe/Monaco" },
