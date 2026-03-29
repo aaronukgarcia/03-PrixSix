@@ -58,7 +58,8 @@ function isIndexedDBError(error: any): boolean {
     message.includes('Connection to Indexed Database server lost') ||
     message.includes('IDBDatabase') ||
     message.includes('indexed database') ||
-    message.includes('without an in-progress transaction')
+    message.includes('without an in-progress transaction') ||
+    message.includes('backing store')
   );
 }
 

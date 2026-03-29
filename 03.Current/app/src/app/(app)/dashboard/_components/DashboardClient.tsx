@@ -11,6 +11,7 @@
 
 import { useAuth, useFirestore, useDoc } from "@/firebase";
 import type { Race } from "@/lib/data";
+import { generateRaceId } from "@/lib/normalize-race-id";
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -111,7 +112,7 @@ export function DashboardClient({
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => calculateTimeLeft(nextMilestone.targetTime));
   const [didExpire, setDidExpire] = useState(false);
 
-  const raceId = nextRace.name.replace(/\s+/g, '-');
+  const raceId = generateRaceId(nextRace.name, 'gp');
 
   // GUID: COMPONENT_DASHBOARD_CLIENT-005-v03
   // [Intent] Memoised prediction document ID constructed from user ID and race ID.

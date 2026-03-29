@@ -628,6 +628,17 @@ export function useReplayPlayer(
       );
       setError(`${CLIENT_ERRORS.PIT_WALL_REPLAY_LOAD_FAILED.message} (${cid})`);
       updatePlaybackState('error');
+      // Log to admin error panel (fire-and-forget)
+      fetch('/api/log-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          correlationId: cid,
+          errorCode: CLIENT_ERRORS.PIT_WALL_REPLAY_LOAD_FAILED.code,
+          error: msg,
+          context: { route: '/pit-wall', feature: 'replay', sessionKey: session?.sessionKey },
+        }),
+      }).catch(() => {});
     };
 
     // GUID: REPLAY_PLAYER_HOOK-012-v03
@@ -660,6 +671,13 @@ export function useReplayPlayer(
         );
       } else if (getAuthTokenRef.current) {
         // Path 3: Trigger Cloud Function ingest + watch for completion via onSnapshot
+        // Validate session key — synthetic hash keys (from schedule, not OpenF1) are 9+ digits
+        // and will fail ingest. Real OpenF1 keys are typically 5 digits (e.g. 11234).
+        if (session.sessionKey > 99999) {
+          throw new Error(
+            'Session data not yet available from OpenF1 — the race may not have started or data is still being processed. Try again later.',
+          );
+        }
         if (!cancelled) setLoadingSource('source');
         if (!cancelled) setIngestStatus('Triggering ingest...');
 

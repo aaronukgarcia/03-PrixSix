@@ -432,12 +432,10 @@ export default function PitWallClient() {
         if (cancelled) return;
         const sessions: ReplaySessionMetadata[] = data.sessions ?? [];
         setReplaySessions(sessions);
-        // Auto-select the most recent AVAILABLE session (available=true means ingested)
+        // Auto-select the most recent session (first in array, sorted by dateStart desc).
+        // Unavailable sessions show "(will download)" and trigger ingest on play.
         if (sessions.length > 0 && !selectedReplaySession) {
-          const firstAvailable = sessions.find(s => s.available !== false);
-          if (firstAvailable) {
-            setSelectedReplaySession(firstAvailable);
-          }
+          setSelectedReplaySession(sessions[0]);
         }
         setReplaySessionsLoading(false);
       })
