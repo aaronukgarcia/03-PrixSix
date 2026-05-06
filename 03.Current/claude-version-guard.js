@@ -38,10 +38,15 @@ process.stdin.on('end', () => {
       process.exit(0);
     }
 
-    // Check what's staged
+    // @FIX (v3.1.8): Removed hardcoded path `E:\\GoogleDrive\\Papers\\03-PrixSix` —
+    //   project moved to `E:\\git\\prix6\\03.Current` ~2026-04 and the old path no
+    //   longer exists. The hardcoded `git -C` was failing silently (caught by the
+    //   try/except → exit 0), meaning GR#2 enforcement was completely disabled
+    //   from the project move until 2026-05-06. Now uses git from cwd, which is
+    //   path-agnostic and works wherever Claude Code launches from inside the repo.
     let staged = '';
     try {
-      staged = execSync('git -C "E:\\GoogleDrive\\Papers\\03-PrixSix" diff --cached --name-only', {
+      staged = execSync('git diff --cached --name-only', {
         encoding: 'utf8',
         timeout: 5000,
       });
@@ -57,7 +62,7 @@ process.stdin.on('end', () => {
       // Both files staged — now verify the version ACTUALLY changed (not just re-staged)
       let versionDiff = '';
       try {
-        versionDiff = execSync('git -C "E:\\GoogleDrive\\Papers\\03-PrixSix" diff --cached -- "03.Current/app/package.json" "03.Current/app/src/lib/version.ts"', {
+        versionDiff = execSync('git diff --cached -- app/package.json app/src/lib/version.ts', {
           encoding: 'utf8',
           timeout: 5000,
         });
