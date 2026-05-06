@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1836,
+  "total_guids": 1839,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -78291,7 +78291,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 32,
+      "version": 33,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -78307,7 +78307,7 @@
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 32,
+      "version": 33,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -115231,6 +115231,69 @@
       "callChain": {
         "calledBy": [
           "ADMIN_ERRORLOG-015"
+        ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-080-v01",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "applyBackupRetention — scheduled Cloud Function (03:30 UTC daily). Enforces retention policy: keep last 7 days, then keep only Friday and 1st-of-month backups; purge everything else. Compatible with the bucket 7-day Object Retention Lock. Added 2026-05-06 v3.1.2.",
+      "dependencies": [
+        "@google-cloud/storage",
+        "firebase-admin/firestore"
+      ],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "applyBackupRetention"
+      },
+      "callChain": {
+        "calledBy": [
+          "Cloud Scheduler"
+        ],
+        "calls": [
+          "BACKUP_FUNCTIONS-081",
+          "BACKUP_FUNCTIONS-082"
+        ]
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-081-v01",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Query backup_history for entries older than 7 days. Filter is exclusive of the 7-day boundary to give the Object Retention Lock comfortable headroom.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "applyBackupRetention"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-080"
+        ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_FUNCTIONS-082-v01",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Purge a single old backup — deletes GCS folder via Storage SDK then Firestore backup_history doc. Safe order: GCS first, Firestore second; partial failures are self-healing on next run.",
+      "dependencies": [],
+      "location": {
+        "filePath": "functions/index.js",
+        "functionName": "applyBackupRetention"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_FUNCTIONS-080"
         ],
         "calls": []
       },

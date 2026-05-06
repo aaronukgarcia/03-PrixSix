@@ -1166,6 +1166,156 @@ exports.manualSmokeTest = onCall(
   }
 );
 
+// ── applyBackupRetention ──────────────────────────────────────
+// GUID: BACKUP_FUNCTIONS-080-v01
+/**
+ * applyBackupRetention — Scheduled Cloud Function (2nd-gen, Cloud Run)
+ *
+ * [Intent] Enforce the project's backup retention policy:
+ *          - Last 7 days: keep every daily backup
+ *          - Beyond 7 days: keep only Friday backups (UTC day-of-week 5)
+ *            AND 1st-of-month backups (UTC day-of-month 1)
+ *          - Everything else: purge (GCS folder + backup_history doc)
+ *
+ *          Compatible with the bucket's 7-day Object Retention Lock —
+ *          the lock prevents deletion BEFORE 7 days, this job only
+ *          targets objects already past that age.
+ *
+ * [Inbound Trigger] Cloud Scheduler cron: 03:30 UTC daily (90 minutes
+ *          after dailyBackup at 02:00 UTC, leaving slack for slow runs).
+ *
+ * [Downstream Impact]
+ *   - Reads backup_history Firestore collection (entries older than 7d).
+ *   - Deletes GCS folders under gs://prix6-backups/{prefix}/ for purged backups.
+ *   - Deletes the corresponding backup_history Firestore docs.
+ *   - Emits BACKUP_RETENTION_HEARTBEAT structured log with kept/purged/error counts.
+ *   - Idempotent: re-running finds no purgeable docs (already deleted).
+ *   - Smoke-test history docs (type='smoke_test') do NOT have a GCS folder —
+ *     the policy applies to them too but only the Firestore doc is deleted.
+ *
+ * @returns {Promise<void>}
+ */
+exports.applyBackupRetention = onSchedule(
+  {
+    schedule: "30 3 * * *",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 540,
+    memory: "256MiB",
+    retryCount: 0,
+  },
+  async () => {
+    const db = getFirestore();
+    const correlationId = generateCorrelationId("rtn");
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    let kept = 0;
+    let purged = 0;
+    let errors = 0;
+    let bytesPurged = 0;
+
+    try {
+      // GUID: BACKUP_FUNCTIONS-081-v01
+      // [Intent] Pull every backup_history entry older than the 7-day floor.
+      //          The floor is exclusive — entries at exactly 7d are still kept
+      //          to give the 7-day Object Retention Lock comfortable headroom.
+      // [Inbound Trigger] applyBackupRetention scheduled run.
+      // [Downstream Impact] Iterating snap.docs and deciding keep/purge per entry.
+      const snap = await db
+        .collection(HISTORY_COLLECTION)
+        .where("timestamp", "<", Timestamp.fromDate(sevenDaysAgo))
+        .get();
+
+      const storage = new Storage();
+      const bucket = storage.bucket(BUCKET);
+
+      for (const doc of snap.docs) {
+        const data = doc.data();
+        const ts = data.timestamp?._seconds ?? data.timestamp?.seconds;
+        if (typeof ts !== "number") {
+          errors++;
+          console.error(
+            `[retention ${correlationId}] skipping ${doc.id} — no usable timestamp`
+          );
+          continue;
+        }
+        const date = new Date(ts * 1000);
+        const dayOfWeek = date.getUTCDay(); // 0=Sun … 5=Fri … 6=Sat
+        const dayOfMonth = date.getUTCDate();
+        const keep = dayOfWeek === 5 || dayOfMonth === 1;
+
+        if (keep) {
+          kept++;
+          continue;
+        }
+
+        // GUID: BACKUP_FUNCTIONS-082-v01
+        // [Intent] Purge a single old backup. Order: delete GCS folder first,
+        //          then Firestore doc. If GCS deletion fails (e.g. retention
+        //          lock not yet expired for some object), the Firestore doc is
+        //          left alone and the next run will retry. If Firestore delete
+        //          fails after GCS succeeds, we have an orphaned record — the
+        //          next run will see no GCS folder and still attempt the Firestore
+        //          delete (deleteFiles is a no-op on empty prefix).
+        // [Inbound Trigger] Per-doc decision in the retention loop.
+        // [Downstream Impact] Removes backup data permanently. Bucket size shrinks.
+        //                     backup_history entry disappears from admin dashboard.
+        try {
+          const path = data.path || "";
+          if (path.startsWith(`gs://${BUCKET}/`)) {
+            const folder = path.replace(`gs://${BUCKET}/`, "");
+            await bucket.deleteFiles({ prefix: `${folder}/` });
+          }
+          await doc.ref.delete();
+          purged++;
+          bytesPurged += data.sizeBytes || 0;
+          console.log(
+            `[retention ${correlationId}] purged ${doc.id} (${date.toISOString().slice(0, 10)}, ${data.sizeBytes || 0} bytes)`
+          );
+        } catch (err) {
+          errors++;
+          console.error(
+            `[retention ${correlationId}] failed to purge ${doc.id}:`,
+            err.message || String(err)
+          );
+        }
+      }
+
+      // Heartbeat log — same pattern as dailyBackup so the structured-log
+      // metric pipeline can monitor that retention is running daily.
+      console.log(
+        JSON.stringify({
+          severity: "INFO",
+          message: "BACKUP_RETENTION_HEARTBEAT",
+          correlationId,
+          kept,
+          purged,
+          errors,
+          bytesPurged,
+          inspectedOlderThan: sevenDaysAgo.toISOString(),
+          timestamp: now.toISOString(),
+        })
+      );
+    } catch (err) {
+      console.log(
+        JSON.stringify({
+          severity: "ERROR",
+          message: "BACKUP_RETENTION_HEARTBEAT",
+          correlationId,
+          status: "FAILED",
+          error: err.message || String(err),
+          kept,
+          purged,
+          errors: errors + 1,
+          timestamp: now.toISOString(),
+        })
+      );
+      throw err; // re-throw so Cloud Functions marks the invocation failed
+    }
+  }
+);
+
 // ── Session expiry ────────────────────────────────────────────
 // GUID: SESSION_FUNCTIONS-000-v03
 /**
