@@ -97,6 +97,61 @@ interface BackupHistoryEntry {
   error?: string;
 }
 
+// GUID: BACKUP_DASHBOARD-034-v01
+// [Intent] Classify a backup_history entry under the v3.1.2 retention policy:
+//          last 7 days = Daily, beyond 7d & Friday = Weekly archive, beyond 7d &
+//          1st-of-month = Monthly archive, otherwise Pending purge. Mirrors the
+//          logic in functions/index.js applyBackupRetention so the admin sees
+//          the same decision the cron will make on the next 03:30 UTC run.
+// [Inbound Trigger] Called per-row in the Backup History table render.
+// [Downstream Impact] Drives the Retention column badge label and colour.
+//                     If the policy in the Cloud Function changes, update both.
+type RetentionClass =
+  | { kind: 'daily';   label: string; className: string }
+  | { kind: 'weekly';  label: string; className: string }
+  | { kind: 'monthly'; label: string; className: string }
+  | { kind: 'purge';   label: string; className: string }
+  | { kind: 'unknown'; label: string; className: string };
+
+function classifyRetention(
+  timestamp: BackupHistoryEntry['timestamp'],
+): RetentionClass {
+  if (!timestamp?.seconds) {
+    return { kind: 'unknown', label: '—', className: 'text-muted-foreground' };
+  }
+  const date = new Date(timestamp.seconds * 1000);
+  const ageMs = Date.now() - date.getTime();
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  if (ageMs < sevenDaysMs) {
+    return {
+      kind: 'daily',
+      label: 'Daily',
+      className: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30',
+    };
+  }
+  const dow = date.getUTCDay(); // 0=Sun .. 5=Fri .. 6=Sat
+  const dom = date.getUTCDate();
+  if (dow === 5) {
+    return {
+      kind: 'weekly',
+      label: 'Weekly (Fri)',
+      className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30',
+    };
+  }
+  if (dom === 1) {
+    return {
+      kind: 'monthly',
+      label: 'Monthly (1st)',
+      className: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30',
+    };
+  }
+  return {
+    kind: 'purge',
+    label: 'Pending purge',
+    className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30',
+  };
+}
+
 // GUID: BACKUP_DASHBOARD-002-v03
 /**
  * TimestampDisplay — Renders a Firestore Timestamp as relative time with
@@ -863,7 +918,34 @@ export function BackupHealthDashboard() {
             {isBackfilling ? 'Backfilling…' : 'Backfill from GCS'}
           </Button>
         </div>
-        <CardDescription>All past backups with date, time, and size</CardDescription>
+        <CardDescription>
+          All past backups with date, time, and size. The Retention column applies the
+          v3.1.2 policy: last 7 days = Daily; beyond 7 days = Weekly (Friday) / Monthly
+          (1st-of-month) archive; everything else = pending purge by the 03:30 UTC cron.
+        </CardDescription>
+        {historyData && historyData.length > 0 && (() => {
+          const counts = { daily: 0, weekly: 0, monthly: 0, purge: 0, unknown: 0 };
+          historyData.forEach((e) => { counts[classifyRetention(e.timestamp).kind]++; });
+          return (
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+              <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30">
+                Daily: {counts.daily}
+              </Badge>
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30">
+                Weekly (Fri): {counts.weekly}
+              </Badge>
+              <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">
+                Monthly (1st): {counts.monthly}
+              </Badge>
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                Pending purge: {counts.purge}
+              </Badge>
+              <span className="text-muted-foreground ml-1">
+                Total kept after next purge: {counts.daily + counts.weekly + counts.monthly}
+              </span>
+            </div>
+          );
+        })()}
       </CardHeader>
       <CardContent>
         {isHistoryLoading ? (
@@ -882,6 +964,7 @@ export function BackupHealthDashboard() {
               <TableRow>
                 <TableHead>Date / Time</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Retention</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Trigger</TableHead>
                 <TableHead className="text-right">Duration</TableHead>
@@ -895,6 +978,7 @@ export function BackupHealthDashboard() {
                 const date = entry.timestamp
                   ? new Date(entry.timestamp.seconds * 1000)
                   : null;
+                const retention = classifyRetention(entry.timestamp);
                 return (
                   <TableRow key={entry.id}>
                     <TableCell className="font-mono text-xs whitespace-nowrap">
@@ -903,6 +987,11 @@ export function BackupHealthDashboard() {
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
                         {entry.type === 'smoke_test' ? 'Smoke Test' : 'Backup'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-xs ${retention.className}`}>
+                        {retention.label}
                       </Badge>
                     </TableCell>
                     <TableCell>

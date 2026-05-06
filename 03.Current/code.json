@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1839,
+  "total_guids": 1840,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -78291,7 +78291,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 34,
+      "version": 35,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -78307,7 +78307,7 @@
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 34,
+      "version": 35,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -106021,7 +106021,7 @@
     },
     {
       "guid": "BACKUP_DASHBOARD-033",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Backup History table — shows all past backup runs with date/time,",
       "dependencies": [],
@@ -106034,7 +106034,7 @@
         "calls": []
       },
       "created": "2026-03-03T19:10:12.267Z",
-      "lastUpdated": "2026-03-03T19:10:12.267Z"
+      "lastUpdated": "2026-05-06T00:00:00Z"
     },
     {
       "guid": "BACKUP_FUNCTIONS-000",
@@ -115294,6 +115294,25 @@
       "callChain": {
         "calledBy": [
           "BACKUP_FUNCTIONS-080"
+        ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-034-v01",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "classifyRetention — pure function classifying a backup_history entry under v3.1.2 retention policy: Daily (last 7d), Weekly (Friday >7d), Monthly (1st >7d), Pending purge (everything else >7d). Mirrors functions/index.js applyBackupRetention so admin sees the same decision the cron will make.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx",
+        "functionName": "classifyRetention"
+      },
+      "callChain": {
+        "calledBy": [
+          "BACKUP_DASHBOARD-033"
         ],
         "calls": []
       },
