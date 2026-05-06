@@ -10,7 +10,12 @@ import { getTodayDateString } from '@/lib/email-tracking';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
-import { calculateDriverPoints, SCORING_POINTS } from '@/lib/scoring-rules';
+import {
+  computeRaceScores,
+  aggregateStandings,
+  buildTeamNamesMap,
+  type CumulativeStanding,
+} from '@/lib/cumulative-standings';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -110,92 +115,21 @@ async function recordSentEmailAdmin(
   }
 }
 
-// GUID: API_SEND_RESULTS_EMAIL-005-v01
-// [Intent] Compute real cumulative season standings from all race_results + prediction docs in Firestore.
-//          Called by the POST handler instead of using the standings passed from /api/calculate-scores,
-//          which only contains the current race's points (bug reported by Tony Green, 2026-03-14).
-// [Inbound Trigger] Called once per POST request after all users are fetched.
-// [Downstream Impact] Returns [{rank, teamName, totalPoints}] sorted by totalPoints desc with tie ranks.
-//                     Used as the Season Standings table in all results emails.
+// GUID: API_SEND_RESULTS_EMAIL-005-v03
+// [Intent] Thin wrapper over the SSOT lib for cumulative standings. Delegates to
+//          @/lib/cumulative-standings so the email shows the same numbers the user
+//          sees on the /standings page. Caller wraps in try/catch so a compute
+//          failure degrades gracefully (email still ships without the standings table)
+//          rather than blocking the whole results email.
+// [Inbound Trigger] Called once per POST request after team names are loaded.
+// [Downstream Impact] Returns [{rank, userId, teamName, totalPoints}] sorted by total
+//                     points desc with tie ranks. Throws TracedError on Firestore failure.
 async function computeCumulativeStandings(
   db: Awaited<ReturnType<typeof getFirebaseAdmin>>['db'],
   teamNameByUid: Map<string, string>,
-): Promise<{ rank: number; teamName: string; totalPoints: number }[]> {
-  // Fetch all race results and all predictions in parallel
-  const [raceResultsSnap, predictionsSnap] = await Promise.all([
-    db.collection('race_results').get(),
-    db.collectionGroup('predictions').get(),
-  ]);
-
-  // Build: uid -> Map<normalizedRaceId, {driver1..6}>
-  // Normalise: lowercase + strip leading/trailing whitespace (mirrors the scoring engine)
-  const normalise = (id: string) => id.trim().toLowerCase();
-
-  const predsByUser = new Map<string, Map<string, Record<string, string>>>();
-  predictionsSnap.docs.forEach((doc: any) => {
-    const data = doc.data();
-    const pathParts: string[] = doc.ref.path.split('/'); // users/{uid}/predictions/{id}
-    const uid = pathParts[1];
-    if (!data.raceId) return;
-    const key = normalise(data.raceId);
-    if (!predsByUser.has(uid)) predsByUser.set(uid, new Map());
-    // Keep latest prediction per race (collectionGroup may return multiple)
-    const existing = predsByUser.get(uid)!.get(key);
-    if (!existing || (data.submittedAt?.toMillis?.() ?? 0) > (existing._ts ?? 0)) {
-      predsByUser.get(uid)!.set(key, { ...data, _ts: data.submittedAt?.toMillis?.() ?? 0 });
-    }
-  });
-
-  // Accumulate points: teamName -> totalPoints
-  const totals = new Map<string, number>();
-
-  raceResultsSnap.docs.forEach((raceDoc: any) => {
-    const result = raceDoc.data();
-    const raceKey = normalise(raceDoc.id);
-    const actualTop6: string[] = [
-      result.driver1, result.driver2, result.driver3,
-      result.driver4, result.driver5, result.driver6,
-    ].filter(Boolean);
-    if (actualTop6.length < 6) return; // incomplete result, skip
-
-    teamNameByUid.forEach((teamName, uid) => {
-      const userPreds = predsByUser.get(uid);
-      if (!userPreds) return;
-
-      // Try exact match first, then strip -gp/-sprint suffix (carry-forward edge case)
-      const pred = userPreds.get(raceKey) ?? userPreds.get(raceKey.replace(/-?(gp|sprint)$/i, '').trim());
-      if (!pred) return; // no prediction for this race = no points
-
-      const userDrivers: string[] = [
-        pred.driver1, pred.driver2, pred.driver3,
-        pred.driver4, pred.driver5, pred.driver6,
-      ].filter(Boolean);
-
-      let racePoints = 0;
-      userDrivers.forEach((driver, i) => {
-        const actualPos = actualTop6.indexOf(driver);
-        racePoints += calculateDriverPoints(i, actualPos);
-      });
-
-      // Bonus: all 6 in exact order
-      if (userDrivers.length === 6 && userDrivers.every((d, i) => d === actualTop6[i])) {
-        racePoints += SCORING_POINTS.bonusAll6;
-      }
-
-      totals.set(teamName, (totals.get(teamName) ?? 0) + racePoints);
-    });
-  });
-
-  // Sort and assign ranks with ties
-  const sorted = Array.from(totals.entries())
-    .map(([teamName, totalPoints]) => ({ teamName, totalPoints }))
-    .sort((a, b) => b.totalPoints - a.totalPoints);
-
-  let rank = 1;
-  return sorted.map((entry, i) => {
-    if (i > 0 && entry.totalPoints < sorted[i - 1].totalPoints) rank = i + 1;
-    return { ...entry, rank };
-  });
+): Promise<CumulativeStanding[]> {
+  const { scores } = await computeRaceScores(db);
+  return aggregateStandings(scores, teamNameByUid);
 }
 
 // GUID: API_SEND_RESULTS_EMAIL-002-v03
@@ -236,16 +170,27 @@ export async function POST(request: NextRequest) {
       return userData.emailPreferences?.resultsNotifications !== false;
     });
 
-    // Build uid -> teamName map for all users (needed for cumulative standings)
-    const teamNameByUid = new Map<string, string>();
-    usersSnapshot.docs.forEach(doc => {
-      const d = doc.data();
-      if (d.teamName) teamNameByUid.set(doc.id, d.teamName);
-    });
+    // Build uid -> teamName map for all users (primary AND secondary teams).
+    // buildTeamNamesMap is the shared helper — also used by /api/standings and the
+    // admin health probe so all three places resolve names identically.
+    const teamNameByUid = await buildTeamNamesMap(db);
 
-    // Compute real cumulative season standings from all race_results + predictions.
-    // The standings array passed from /api/calculate-scores is current-race only (SSOT-001 constraint).
-    const standings = await computeCumulativeStandings(db, teamNameByUid);
+    // Golden Rule #1 — graceful degradation around the cumulative standings compute.
+    // If the lib throws (Firestore outage, malformed data, permission error), the email
+    // still ships with the per-race scores; the Season Standings table is replaced with
+    // a placeholder pointing the user to the live /standings page. The traced error has
+    // already been logged inside the lib (PX-5008). We capture the correlation ID so
+    // the placeholder can show it for support.
+    let standings: CumulativeStanding[] = [];
+    let standingsError: { correlationId?: string; code?: string } | null = null;
+    try {
+      standings = await computeCumulativeStandings(db, teamNameByUid);
+    } catch (err: any) {
+      standingsError = {
+        correlationId: err?.correlationId ?? generateCorrelationId(),
+        code: err?.definition?.code ?? ERRORS.SCORE_STANDINGS_FAILED.code,
+      };
+    }
 
     const results: { email: string; success: boolean; error?: string }[] = [];
 
@@ -274,6 +219,7 @@ export async function POST(request: NextRequest) {
         allScores: scores,
         standings,
         userRank: userRank?.rank,
+        standingsError,
       });
 
       // Send to each recipient
@@ -338,12 +284,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GUID: API_SEND_RESULTS_EMAIL-004-v04
+// GUID: API_SEND_RESULTS_EMAIL-004-v05
 // @SECURITY_FIX: Added HTML escaping to prevent XSS injection (EMAIL-005).
 //   All user-controlled data (team names, driver names, race names, predictions) now escaped.
-// [Intent] Builds the full HTML email body for race results, including the user's score hero section, official result table, user prediction, race scores table (sorted by points, user highlighted), and season standings table (user highlighted).
+// [Intent] Builds the full HTML email body for race results, including the user's score
+//          hero section, official result table, user prediction, race scores table (sorted
+//          by points, user highlighted), and season standings table (user highlighted).
+//          When standingsError is non-null the standings table is replaced with a placeholder
+//          callout pointing the user to the live /standings page (graceful degradation).
 // [Inbound Trigger] Called once per user inside the POST handler's user loop.
-// [Downstream Impact] The generated HTML is passed to sendEmail. Changes to the template affect all results notification emails. Links point to prix6.win/profile.
+// [Downstream Impact] The generated HTML is passed to sendEmail. Changes to the template
+//                     affect all results notification emails. Links point to prix6.win.
 function buildResultsEmailHtml(data: {
   teamName: string;
   raceName: string;
@@ -353,8 +304,9 @@ function buildResultsEmailHtml(data: {
   allScores: { teamName: string; prediction: string; points: number }[];
   standings: { rank: number; teamName: string; totalPoints: number }[];
   userRank?: number;
+  standingsError?: { correlationId?: string; code?: string } | null;
 }): string {
-  const { teamName, raceName, officialResult, userPrediction, userPoints, allScores, standings, userRank } = data;
+  const { teamName, raceName, officialResult, userPrediction, userPoints, allScores, standings, userRank, standingsError } = data;
 
   // SECURITY: Escape all user-controlled content to prevent XSS (EMAIL-005 fix)
   const officialResultHtml = officialResult
@@ -422,7 +374,13 @@ function buildResultsEmailHtml(data: {
     </table>
 
     <h3 style="color:#1a1a2e;border-bottom:2px solid #e63946;padding-bottom:5px;">Season Standings</h3>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+    ${standingsError
+      ? `<div style="background:#fff3cd;border:1px solid #ffeaa7;border-radius:6px;padding:12px;margin-bottom:20px;color:#856404;font-size:14px;">
+           <p style="margin:0 0 6px 0;font-weight:bold;">Season standings temporarily unavailable</p>
+           <p style="margin:0;">View the latest standings at <a href="https://prix6.win/standings" style="color:#856404;font-weight:bold;">prix6.win/standings</a>.</p>
+           <p style="margin:6px 0 0 0;font-size:11px;color:#999;">Ref: ${escapeHtml(standingsError.code ?? '')} ${escapeHtml(standingsError.correlationId ?? '')}</p>
+         </div>`
+      : `<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
       <thead>
         <tr style="background:#1a1a2e;color:white;">
           <th style="padding:8px;text-align:left;">Rank</th>
@@ -433,7 +391,8 @@ function buildResultsEmailHtml(data: {
       <tbody>
         ${standingsHtml}
       </tbody>
-    </table>
+    </table>`
+    }
   </div>
 
   <div style="background:#1a1a2e;color:white;padding:15px;text-align:center;border-radius:0 0 8px 8px;font-size:12px;">

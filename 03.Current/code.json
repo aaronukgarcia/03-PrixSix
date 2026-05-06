@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1819,
+  "total_guids": 1835,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -114867,6 +114867,356 @@
       },
       "created": "2026-03-25T11:14:28.508Z",
       "lastUpdated": "2026-03-25T11:14:28.508Z"
+    },
+    {
+      "guid": "LIB_CUMULATIVE_STANDINGS-000-v02",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Server-side shared lib for cumulative season standings. Single source of truth — used by /api/standings, /api/send-results-email, /api/admin/health/standings. Faithfully ports the canonical algorithm from standings/page.tsx into admin SDK land.",
+      "dependencies": [
+        "LIB_SCORING_RULES",
+        "LIB_NORMALIZE_RACE_ID",
+        "LIB_ERROR_REGISTRY",
+        "LIB_TRACED_ERROR",
+        "LIB_FIREBASE_ADMIN"
+      ],
+      "location": {
+        "filePath": "app/src/lib/cumulative-standings.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "API_STANDINGS-002",
+          "API_SEND_RESULTS_EMAIL-005",
+          "API_ADMIN_HEALTH_STANDINGS-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CUMULATIVE_STANDINGS-001-v02",
+      "version": 2,
+      "logic_category": "CONFIGURATION",
+      "description": "Granular per-(team × race) score row type. Mirrors the ScoreData shape used by the legacy standings page client-side compute.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cumulative-standings.ts",
+        "functionName": "ScoreData"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CUMULATIVE_STANDINGS-002-v02",
+      "version": 2,
+      "logic_category": "CONFIGURATION",
+      "description": "Single ranked row in the cumulative standings table. Matches the shape expected by the email handler renderer.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cumulative-standings.ts",
+        "functionName": "CumulativeStanding"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CUMULATIVE_STANDINGS-003-v01",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Options for aggregateStandings — leagueMemberUserIds for league filtering, limitToRaceIds for \"after race N\" snapshots.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cumulative-standings.ts",
+        "functionName": "AggregateOptions"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CUMULATIVE_STANDINGS-004-v02",
+      "version": 2,
+      "logic_category": "ORCHESTRATION",
+      "description": "Compute granular per-(team × race) scores from race_results × predictions. Carry-forward order: race-specific → strip -sprint → latest prior. Errors logged with PX-5008 and re-thrown as TracedError.",
+      "dependencies": [
+        "LIB_SCORING_RULES-003",
+        "LIB_NORMALIZE_RACE_ID-002"
+      ],
+      "location": {
+        "filePath": "app/src/lib/cumulative-standings.ts",
+        "functionName": "computeRaceScores"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_STANDINGS-002",
+          "API_SEND_RESULTS_EMAIL-005",
+          "API_ADMIN_HEALTH_STANDINGS-002"
+        ],
+        "calls": [
+          "LIB_SCORING_RULES-003",
+          "LIB_NORMALIZE_RACE_ID-002"
+        ]
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CUMULATIVE_STANDINGS-005-v02",
+      "version": 2,
+      "logic_category": "TRANSFORMATION",
+      "description": "Sum granular ScoreData entries by userId, look up team names, sort descending, assign ranks with tie handling. Optional league filter and per-race limit.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cumulative-standings.ts",
+        "functionName": "aggregateStandings"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_STANDINGS-002",
+          "API_SEND_RESULTS_EMAIL-005",
+          "API_ADMIN_HEALTH_STANDINGS-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "LIB_CUMULATIVE_STANDINGS-006-v01",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Build a teamNamesByUid map from the users collection, handling both primary teams and {uid}-secondary entries. Centralised so all consumers resolve names identically.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cumulative-standings.ts",
+        "functionName": "buildTeamNamesMap"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_STANDINGS-002",
+          "API_SEND_RESULTS_EMAIL-003",
+          "API_ADMIN_HEALTH_STANDINGS-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "API_STANDINGS-000-v01",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Server-side cumulative standings endpoint. Single source of truth for the standings page (replacing client-side compute) and any future consumer. Auth via Firebase ID token.",
+      "dependencies": [
+        "LIB_CUMULATIVE_STANDINGS-000",
+        "LIB_FIREBASE_ADMIN"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/standings/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "PAGE_STANDINGS-011"
+        ],
+        "calls": [
+          "LIB_CUMULATIVE_STANDINGS-004",
+          "LIB_CUMULATIVE_STANDINGS-005",
+          "LIB_CUMULATIVE_STANDINGS-006"
+        ]
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "API_STANDINGS-001-v01",
+      "version": 1,
+      "logic_category": "DATA_ACCESS",
+      "description": "Resolve a league document to its memberUserIds array. Returns null for missing/global leagues (no filter), empty array for leagues with no members.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/standings/route.ts",
+        "functionName": "resolveLeagueMembers"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_STANDINGS-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "API_STANDINGS-002-v01",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "GET handler — verify bearer token, optionally resolve league filter, call shared compute lib, return granular ScoreData[] plus ranked CumulativeStanding[].",
+      "dependencies": [
+        "LIB_CUMULATIVE_STANDINGS-004",
+        "LIB_CUMULATIVE_STANDINGS-005",
+        "LIB_CUMULATIVE_STANDINGS-006"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/standings/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "PAGE_STANDINGS-011"
+        ],
+        "calls": [
+          "LIB_CUMULATIVE_STANDINGS-004",
+          "LIB_CUMULATIVE_STANDINGS-005",
+          "LIB_CUMULATIVE_STANDINGS-006",
+          "API_STANDINGS-001"
+        ]
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_HEALTH_STANDINGS-000-v01",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Admin health probe for cumulative standings. Runs the shared lib, applies invariants (the all-zeros pattern, empty-with-data, count mismatches), returns RAG status. Read-only.",
+      "dependencies": [
+        "LIB_CUMULATIVE_STANDINGS-000"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/health/standings/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_INTERFACE_HEALTH-007"
+        ],
+        "calls": [
+          "LIB_CUMULATIVE_STANDINGS-004",
+          "LIB_CUMULATIVE_STANDINGS-005",
+          "LIB_CUMULATIVE_STANDINGS-006"
+        ]
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_HEALTH_STANDINGS-001-v01",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Apply heuristic invariants to a standings payload. Detects the all-zeros pattern, empty-with-data, count mismatches. Returns warning strings — empty list = healthy.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/health/standings/route.ts",
+        "functionName": "detectDegradation"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_HEALTH_STANDINGS-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "API_ADMIN_HEALTH_STANDINGS-002-v01",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "GET handler — verify admin, run lib, apply invariants, return RAG. Errors return HTTP 200 with status=down so the admin UI can render the failure state.",
+      "dependencies": [
+        "LIB_CUMULATIVE_STANDINGS-004",
+        "LIB_CUMULATIVE_STANDINGS-005",
+        "LIB_CUMULATIVE_STANDINGS-006",
+        "API_ADMIN_HEALTH_STANDINGS-001"
+      ],
+      "location": {
+        "filePath": "app/src/app/api/admin/health/standings/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_INTERFACE_HEALTH-007"
+        ],
+        "calls": [
+          "LIB_CUMULATIVE_STANDINGS-004",
+          "LIB_CUMULATIVE_STANDINGS-005",
+          "LIB_CUMULATIVE_STANDINGS-006",
+          "API_ADMIN_HEALTH_STANDINGS-001"
+        ]
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-006-v01",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Extra payload returned by the standings probe — warnings list and a top-5 sample for visual sanity-check. Stored separately from InterfaceHealth so the standings card can render the additional detail.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": "StandingsDiagnostic"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-007-v01",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Check cumulative standings calculation by hitting /api/admin/health/standings. Updates standingsHealth (RAG card) and standingsDiag (warnings + top-5 sample) state.",
+      "dependencies": [
+        "API_ADMIN_HEALTH_STANDINGS-002"
+      ],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": "checkStandingsHealth"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_INTERFACE_HEALTH-005"
+        ],
+        "calls": [
+          "API_ADMIN_HEALTH_STANDINGS-002"
+        ]
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_INTERFACE_HEALTH-008-v01",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Diagnostic detail panel under the cards. Shows the standings probe warning list (when degraded) and a top-5 sample so admins can sanity-check the numbers visually.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
+        "functionName": "InterfaceHealthMonitor"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
     }
   ],
   "firestoreCollections": {
@@ -115579,5 +115929,5 @@
       }
     }
   },
-  "last_updated": "2026-03-25T11:14:28.508Z"
+  "last_updated": "2026-05-06T00:00:00Z"
 }

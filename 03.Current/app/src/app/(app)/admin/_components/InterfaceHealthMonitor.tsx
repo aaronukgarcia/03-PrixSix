@@ -1,10 +1,13 @@
-// GUID: ADMIN_INTERFACE_HEALTH-000-v01
+// GUID: ADMIN_INTERFACE_HEALTH-000-v02
 // [Intent] Admin component for real-time health monitoring of external interfaces (PubChat/OpenF1,
-//          WhatsApp, Email/Graph API). Provides RAG (Red/Amber/Green) status indicators with
-//          diagnostic information to quickly identify interface failures.
+//          WhatsApp, Email/Graph API) AND the cumulative standings calculation. Provides RAG
+//          (Red/Amber/Green) status indicators with diagnostic information to quickly identify
+//          failures. The standings panel runs the same shared lib that powers /standings and the
+//          results email — degraded amber catches the all-zeros pattern that broke the email
+//          silently for ~6 weeks before being reported (see CHANGELOG 3.1.0).
 // [Inbound Trigger] Rendered in the admin panel when the "Health" tab is selected.
-// [Downstream Impact] Makes test API calls to /api/admin/health/* endpoints to verify connectivity.
-//                     No writes - read-only health checks.
+// [Downstream Impact] Makes test API calls to /api/admin/health/* endpoints to verify connectivity
+//                     and produced standings invariants. Read-only — no writes.
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -24,7 +27,8 @@ import {
     Radio,
     Clock,
     Wifi,
-    WifiOff
+    WifiOff,
+    Trophy
 } from 'lucide-react';
 import { useAuth } from '@/firebase';
 
@@ -42,6 +46,20 @@ interface InterfaceHealth {
         endpoint: string;
         statusCode: number | null;
     };
+}
+
+// GUID: ADMIN_INTERFACE_HEALTH-006-v01
+// [Intent] Extra payload returned by the standings probe — warnings list and a top-5 sample
+//          for visual sanity-check. Stored separately from InterfaceHealth so the standings
+//          card can render the additional detail without contaminating the other 3 cards.
+// [Inbound Trigger] Populated by checkStandingsHealth from /api/admin/health/standings response.
+// [Downstream Impact] Drives the warnings alert and "Top 5 sample" panel under the standings card.
+interface StandingsDiagnostic {
+    raceResultsCount: number;
+    predictionsCount: number;
+    scoresCount: number;
+    warnings: string[];
+    topFive: { rank: number; teamName: string; totalPoints: number }[];
 }
 
 // GUID: ADMIN_INTERFACE_HEALTH-001-v01
@@ -72,6 +90,16 @@ export function InterfaceHealthMonitor() {
         error: null,
         details: { authenticated: false, endpoint: '/api/admin/whatsapp/health', statusCode: null }
     });
+
+    const [standingsHealth, setStandingsHealth] = useState<InterfaceHealth>({
+        name: 'Standings Calculation',
+        status: 'checking',
+        lastChecked: null,
+        responseTime: null,
+        error: null,
+        details: { authenticated: false, endpoint: '/api/admin/health/standings', statusCode: null }
+    });
+    const [standingsDiag, setStandingsDiag] = useState<StandingsDiagnostic | null>(null);
 
     const [emailHealth, setEmailHealth] = useState<InterfaceHealth>({
         name: 'Email / Graph API',
@@ -342,10 +370,109 @@ export function InterfaceHealthMonitor() {
         }
     };
 
-    // GUID: ADMIN_INTERFACE_HEALTH-005-v01
+    // GUID: ADMIN_INTERFACE_HEALTH-007-v01
+    // [Intent] Check the cumulative standings calculation by hitting /api/admin/health/standings.
+    //          The endpoint runs the same lib that powers /standings and the results email,
+    //          then applies invariants ("all-zeros pattern", empty-with-data, etc). Amber means
+    //          the compute completed but tripped a heuristic — admin should investigate before
+    //          the next results email goes out.
+    // [Inbound Trigger] runAllChecks (every 30s) and explicit "Refresh All" click.
+    // [Downstream Impact] Updates standingsHealth (RAG card) and standingsDiag (warnings + top-5
+    //                     sample) state. The diagnostic panel below the grid shows the sample.
+    const checkStandingsHealth = async (token: string): Promise<void> => {
+        const startTime = performance.now();
+
+        try {
+            const res = await fetch('/api/admin/health/standings', {
+                headers: { 'Authorization': `Bearer ${token}` },
+                signal: AbortSignal.timeout(15000), // 15s — compute can take a few seconds with full collectionGroup
+            });
+
+            const endTime = performance.now();
+            const responseTime = Math.round(endTime - startTime);
+            const json = await res.json().catch(() => ({}));
+
+            if (res.status === 200) {
+                const apiStatus: HealthStatus = json.status === 'healthy' || json.status === 'degraded' || json.status === 'down'
+                    ? json.status
+                    : 'degraded';
+
+                // First warning becomes the error message displayed on the card. Full list is
+                // shown in the diagnostic panel below.
+                const firstWarning: string | null = Array.isArray(json.warnings) && json.warnings.length > 0
+                    ? json.warnings[0]
+                    : null;
+
+                setStandingsHealth({
+                    name: 'Standings Calculation',
+                    status: apiStatus,
+                    lastChecked: new Date(),
+                    responseTime,
+                    error: apiStatus === 'healthy' ? null : (firstWarning ?? json.error ?? 'Compute degraded'),
+                    details: {
+                        authenticated: true,
+                        endpoint: '/api/admin/health/standings',
+                        statusCode: res.status,
+                    },
+                });
+
+                setStandingsDiag({
+                    raceResultsCount: json.raceResultsCount ?? 0,
+                    predictionsCount: json.predictionsCount ?? 0,
+                    scoresCount: json.scoresCount ?? 0,
+                    warnings: Array.isArray(json.warnings) ? json.warnings : [],
+                    topFive: Array.isArray(json.topFive) ? json.topFive : [],
+                });
+            } else if (res.status === 401 || res.status === 403) {
+                setStandingsHealth({
+                    name: 'Standings Calculation',
+                    status: 'down',
+                    lastChecked: new Date(),
+                    responseTime,
+                    error: res.status === 403 ? 'Admin access required' : 'Authentication failed',
+                    details: {
+                        authenticated: res.status !== 401,
+                        endpoint: '/api/admin/health/standings',
+                        statusCode: res.status,
+                    },
+                });
+                setStandingsDiag(null);
+            } else {
+                setStandingsHealth({
+                    name: 'Standings Calculation',
+                    status: 'down',
+                    lastChecked: new Date(),
+                    responseTime,
+                    error: json.error || `HTTP ${res.status}`,
+                    details: {
+                        authenticated: true,
+                        endpoint: '/api/admin/health/standings',
+                        statusCode: res.status,
+                    },
+                });
+                setStandingsDiag(null);
+            }
+        } catch (err) {
+            setStandingsHealth({
+                name: 'Standings Calculation',
+                status: 'down',
+                lastChecked: new Date(),
+                responseTime: null,
+                error: err instanceof Error ? err.message : 'Network error',
+                details: {
+                    authenticated: false,
+                    endpoint: '/api/admin/health/standings',
+                    statusCode: null,
+                },
+            });
+            setStandingsDiag(null);
+        }
+    };
+
+    // GUID: ADMIN_INTERFACE_HEALTH-005-v02
     // [Intent] Run all health checks in parallel and update lastFullCheck timestamp.
     // [Inbound Trigger] Component mount, manual refresh, or auto-refresh timer.
-    // [Downstream Impact] Updates all three health states simultaneously.
+    // [Downstream Impact] Updates all four health states simultaneously.
     const runAllChecks = async () => {
         if (!authToken) {
             console.warn('No auth token available for health checks');
@@ -358,6 +485,7 @@ export function InterfaceHealthMonitor() {
             checkPubChatHealth(authToken),
             checkWhatsAppHealth(authToken),
             checkEmailHealth(authToken),
+            checkStandingsHealth(authToken),
         ]);
 
         setLastFullCheck(new Date());
@@ -550,7 +678,7 @@ export function InterfaceHealthMonitor() {
             )}
 
             {/* Interface cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {renderInterfaceCard(
                     pubChatHealth,
                     <Radio className="h-5 w-5 text-purple-600" />,
@@ -568,7 +696,77 @@ export function InterfaceHealthMonitor() {
                     <Mail className="h-5 w-5 text-blue-600" />,
                     'Microsoft Graph API'
                 )}
+
+                {renderInterfaceCard(
+                    standingsHealth,
+                    <Trophy className="h-5 w-5 text-amber-600" />,
+                    'Cumulative standings compute'
+                )}
             </div>
+
+            {/* GUID: ADMIN_INTERFACE_HEALTH-008-v01
+                [Intent] Diagnostic detail panel under the cards. Shows the standings probe's
+                  warning list (when degraded) and a top-5 sample so admins can sanity-check
+                  the numbers visually without leaving the page. Hidden when no data has been
+                  fetched yet (i.e. on first mount before the probe responds).
+                [Inbound Trigger] standingsDiag state populated by checkStandingsHealth.
+                [Downstream Impact] Pure presentational — no side effects. */}
+            {standingsDiag && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <Trophy className="h-4 w-4 text-amber-600" />
+                            Standings Diagnostic
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                            Race results: {standingsDiag.raceResultsCount} ·
+                            Predictions: {standingsDiag.predictionsCount} ·
+                            Score rows produced: {standingsDiag.scoresCount}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {standingsDiag.warnings.length > 0 && (
+                            <Alert variant="destructive" className="text-xs">
+                                <AlertTriangle className="h-3 w-3" />
+                                <AlertDescription>
+                                    <p className="font-medium mb-1">{standingsDiag.warnings.length} invariant violation(s):</p>
+                                    <ul className="list-disc list-inside space-y-1">
+                                        {standingsDiag.warnings.map((w, i) => (
+                                            <li key={i}>{w}</li>
+                                        ))}
+                                    </ul>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+
+                        {standingsDiag.topFive.length > 0 ? (
+                            <div>
+                                <p className="text-xs text-muted-foreground mb-2">Top 5 sample (eyeball check):</p>
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="text-xs text-muted-foreground border-b">
+                                            <th className="text-left py-1 w-12">Rank</th>
+                                            <th className="text-left py-1">Team</th>
+                                            <th className="text-right py-1 w-20">Points</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {standingsDiag.topFive.map((row) => (
+                                            <tr key={row.rank + '_' + row.teamName} className="border-b last:border-0">
+                                                <td className="py-1 font-mono">{row.rank}</td>
+                                                <td className="py-1">{row.teamName}</td>
+                                                <td className="py-1 text-right font-mono">{row.totalPoints}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-muted-foreground">No standings produced.</p>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

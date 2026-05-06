@@ -97,6 +97,8 @@ export const CLIENT_ERRORS: Record<string, ClientErrorDefinition> = {
   SCORE_DELETE_FAILED:            { key: 'SCORE_DELETE_FAILED',            code: 'PX-5007', message: 'Failed to delete score from database',                                     severity: 'error'    },
   SCORE_STANDINGS_FAILED:         { key: 'SCORE_STANDINGS_FAILED',         code: 'PX-5008', message: 'Failed to calculate standings',                                            severity: 'error'    },
   SCORE_USER_LOOKUP_FAILED:       { key: 'SCORE_USER_LOOKUP_FAILED',       code: 'PX-5009', message: 'Failed to look up user data during scoring',                               severity: 'error'    },
+  STANDINGS_HEALTH_DEGRADED:      { key: 'STANDINGS_HEALTH_DEGRADED',      code: 'PX-5010', message: 'Cumulative standings produced suspicious output',                          severity: 'warning'  },
+  STANDINGS_FETCH_FAILED:         { key: 'STANDINGS_FETCH_FAILED',         code: 'PX-5011', message: 'Failed to load season standings',                                          severity: 'error'    },
   SESSION_INVALID:                { key: 'SESSION_INVALID',                code: 'PX-6001', message: 'Invalid session',                                                          severity: 'error'    },
   SESSION_TIMEOUT:                { key: 'SESSION_TIMEOUT',                code: 'PX-6002', message: 'Session timed out due to inactivity',                                      severity: 'error'    },
   SESSION_CONFLICT:               { key: 'SESSION_CONFLICT',               code: 'PX-6003', message: 'Session conflict detected',                                                severity: 'error'    },
