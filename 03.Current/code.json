@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1840,
+  "total_guids": 1841,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -53351,7 +53351,7 @@
     },
     {
       "guid": "BACKUP_FUNCTIONS-020",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
       "description": "runRecoveryTest scheduled Cloud Function (04:00 UTC Sundays). Imports the latest backup into a disposable recovery project, verifies critical documents exist, cleans up, and writes smoke test result to status doc.",
       "dependencies": [],
@@ -53367,7 +53367,7 @@
         "calls": []
       },
       "created": "2026-02-17T23:27:00.150Z",
-      "lastUpdated": "2026-02-17T23:27:00.150Z"
+      "lastUpdated": "2026-05-06T00:00:00Z"
     },
     {
       "guid": "BACKUP_FUNCTIONS-021",
@@ -78291,7 +78291,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 35,
+      "version": 36,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -78307,7 +78307,7 @@
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 35,
+      "version": 36,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -106055,7 +106055,7 @@
     },
     {
       "guid": "BACKUP_FUNCTIONS-019",
-      "version": 1,
+      "version": 2,
       "logic_category": "ORCHESTRATION",
       "description": "Back up Firebase Storage files (profile photos and other user-uploaded content). This backs up user-generated content that cannot be regenerated, unlike application code which is already versioned in Git.",
       "dependencies": [],
@@ -106068,7 +106068,7 @@
         "calls": []
       },
       "created": "2026-03-03T19:10:12.267Z",
-      "lastUpdated": "2026-03-03T19:10:12.267Z"
+      "lastUpdated": "2026-05-06T00:00:00Z"
     },
     {
       "guid": "BACKUP_FUNCTIONS-023A",
@@ -115314,6 +115314,23 @@
         "calledBy": [
           "BACKUP_DASHBOARD-033"
         ],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "BACKUP_DASHBOARD-035-v01",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "Retention Schedule card — shows next 03:30 UTC purge time + 3-state deployment indicator (Active/Pending deploy/Stuck) based on lastRetentionRunTimestamp from backup_status/latest. Pure display.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
         "calls": []
       },
       "created": "2026-05-06T00:00:00Z",

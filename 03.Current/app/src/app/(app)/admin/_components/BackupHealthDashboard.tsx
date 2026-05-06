@@ -74,6 +74,16 @@ interface BackupStatus {
   smokeTestCorrelationId?: string;
   bucketRetentionLockEnabled?: boolean;
   bucketRetentionDays?: number;
+  // @ADDED (v3.1.5): Written by applyBackupRetention scheduled function on each run.
+  // Absent until the function has been deployed and fired at least once. The dashboard
+  // uses these to show a 3-state retention indicator (deployed/pending-deploy/stuck).
+  lastRetentionRunTimestamp?: { seconds: number; nanoseconds: number };
+  lastRetentionRunStatus?: 'SUCCESS' | 'PARTIAL';
+  lastRetentionRunKept?: number;
+  lastRetentionRunPurged?: number;
+  lastRetentionRunErrors?: number;
+  lastRetentionRunBytesPurged?: number;
+  retentionCorrelationId?: string;
   updatedAt?: { seconds: number; nanoseconds: number };
 }
 
@@ -890,6 +900,115 @@ export function BackupHealthDashboard() {
         </CardContent>
       </Card>
     </div>
+
+    {/* GUID: BACKUP_DASHBOARD-035-v01
+        [Intent] Retention status card — shows when the next applyBackupRetention cron
+                 will fire (03:30 UTC daily) and a 3-state indicator of whether the
+                 function is actually running. Green = healthy (heartbeat within 36h),
+                 amber = pending deploy (no heartbeat ever), red = stuck (heartbeat
+                 stale by >36h). Reads from backup_status/latest fields written by
+                 applyBackupRetention's writeStatus call. Surfaces the policy explicitly
+                 so admins know what will be kept/purged before each run.
+        [Inbound Trigger] Rendered between the 3-card status row and the Backup History
+                 table on the admin Backups tab.
+        [Downstream Impact] Pure display — no writes, no callable invocations. */}
+    {(() => {
+      // Compute next 03:30 UTC purge time.
+      const now = new Date();
+      const next = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        3, 30, 0, 0,
+      ));
+      if (next.getTime() <= now.getTime()) {
+        next.setUTCDate(next.getUTCDate() + 1);
+      }
+
+      // 3-state classification of retention deployment status
+      const lastRunTs = data?.lastRetentionRunTimestamp?.seconds;
+      const lastRun = lastRunTs ? new Date(lastRunTs * 1000) : null;
+      const ageMs = lastRun ? now.getTime() - lastRun.getTime() : Infinity;
+      const STALE_THRESHOLD_MS = 36 * 60 * 60 * 1000; // 36 hours
+
+      let stateLabel: string;
+      let stateClass: string;
+      let stateIcon: JSX.Element;
+      let stateExplain: string;
+      if (!lastRun) {
+        stateLabel = 'Pending deploy';
+        stateClass = 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30';
+        stateIcon = <AlertTriangle className="h-4 w-4 text-amber-600" />;
+        stateExplain = 'Cloud Function applyBackupRetention is in code but has never run. Deploy with: firebase deploy --only functions:applyBackupRetention';
+      } else if (ageMs > STALE_THRESHOLD_MS) {
+        stateLabel = 'Stuck';
+        stateClass = 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30';
+        stateIcon = <XCircle className="h-4 w-4 text-red-600" />;
+        stateExplain = `Last run ${formatDistanceToNow(lastRun, { addSuffix: true })}. Expected at 03:30 UTC daily — investigate Cloud Function logs.`;
+      } else {
+        stateLabel = 'Active';
+        stateClass = 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30';
+        stateIcon = <CheckCircle2 className="h-4 w-4 text-green-600" />;
+        stateExplain = `Last run ${formatDistanceToNow(lastRun, { addSuffix: true })}.`;
+      }
+
+      const purged = data?.lastRetentionRunPurged ?? 0;
+      const kept = data?.lastRetentionRunKept ?? 0;
+      const bytesPurged = data?.lastRetentionRunBytesPurged ?? 0;
+
+      return (
+        <Card className="mt-4">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4 text-sky-500" />
+                Retention Schedule
+              </CardTitle>
+              <Badge variant="outline" className={`text-xs ${stateClass}`}>
+                {stateIcon}
+                <span className="ml-1">{stateLabel}</span>
+              </Badge>
+            </div>
+            <CardDescription>
+              applyBackupRetention runs at 03:30 UTC daily. Policy: last 7 days kept, then
+              Friday + 1st-of-month archived, everything else purged.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Next purge due</p>
+                <p className="font-mono">{format(next, 'yyyy-MM-dd HH:mm')} UTC</p>
+                <p className="text-xs text-muted-foreground">
+                  in {formatDistanceToNow(next)}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Last run</p>
+                {lastRun ? (
+                  <>
+                    <p className="font-mono">{format(lastRun, 'yyyy-MM-dd HH:mm')} UTC</p>
+                    <p className="text-xs text-muted-foreground">
+                      kept {kept}, purged {purged}
+                      {bytesPurged > 0 && ` (${formatBytes(bytesPurged)})`}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Never</p>
+                )}
+              </div>
+            </div>
+            <Alert
+              variant={stateLabel === 'Pending deploy' || stateLabel === 'Stuck' ? 'destructive' : 'default'}
+              className="text-xs"
+            >
+              <Info className="h-3 w-3" />
+              <AlertDescription>{stateExplain}</AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      );
+    })()}
 
     {/* GUID: BACKUP_DASHBOARD-033-v03
         [Intent] Backup History table — shows all past backup runs with date/time,

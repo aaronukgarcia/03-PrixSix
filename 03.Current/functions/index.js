@@ -229,10 +229,33 @@ async function performBackup(db, { trigger = "scheduled" } = {}) {
     let storageFilesBackedUp = 0;
     let storageBackupSizeBytes = 0;
     try {
-      const sourceBucket = storage.bucket(`${MAIN_PROJECT}.appspot.com`);
-
-      // Check if bucket exists before attempting to list files
-      const [bucketExists] = await sourceBucket.exists();
+      // @FIX (v3.1.5): Was hardcoded to `${MAIN_PROJECT}.appspot.com` (legacy Firebase
+      //   bucket naming). The actual default bucket for this project is
+      //   `studio-6033436327-281b1.firebasestorage.app` (newer naming). Result: every
+      //   backup ever recorded has storageFiles=0 / storageSizeBytes=0 because
+      //   bucketExists returned false and the code logged "bucket does not exist —
+      //   skipping". 2.7 MB of Storage content (profile photos etc.) was NOT being
+      //   backed up. Try the newer name first, fall back to the legacy name for
+      //   future-project compatibility.
+      const candidateNames = [
+        `${MAIN_PROJECT}.firebasestorage.app`,
+        `${MAIN_PROJECT}.appspot.com`,
+      ];
+      let sourceBucket = null;
+      let bucketExists = false;
+      for (const name of candidateNames) {
+        const candidate = storage.bucket(name);
+        const [exists] = await candidate.exists();
+        if (exists) {
+          sourceBucket = candidate;
+          bucketExists = true;
+          console.log(`Storage source bucket: ${name}`);
+          break;
+        }
+      }
+      if (!sourceBucket) {
+        sourceBucket = storage.bucket(candidateNames[0]); // fallback for the else-branch below
+      }
 
       if (bucketExists) {
         // Get all files from Storage (currently just profile-photos/)
@@ -746,7 +769,11 @@ exports.runRecoveryTest = onSchedule(
     timeZone: "UTC",
     region: REGION,
     timeoutSeconds: 540, // 9 minutes
-    memory: "512MiB",
+    // @FIX (v3.1.5): Bumped from 512MiB to 1024MiB. The function was OOMing every Sunday
+    //   since 2026-03-22 with "Memory limit of 512 MiB exceeded with 514 MiB used" — the
+    //   Firestore export+import workload grew slightly past the limit. Restoring the smoke
+    //   test means the dashboard's "Last smoke test" indicator stops being stale.
+    memory: "1GiB",
     retryCount: 0,
   },
   async () => {
@@ -1297,6 +1324,20 @@ exports.applyBackupRetention = onSchedule(
           timestamp: now.toISOString(),
         })
       );
+
+      // @ADDED (v3.1.5): Persist last-run summary to backup_status/latest so the
+      //   admin dashboard can show retention status (3-state indicator: active /
+      //   pending-deploy / stuck) and the next purge-due time without needing to
+      //   query Cloud Logging from the client.
+      await writeStatus(db, {
+        lastRetentionRunTimestamp: Timestamp.now(),
+        lastRetentionRunStatus: errors > 0 ? "PARTIAL" : "SUCCESS",
+        lastRetentionRunKept: kept,
+        lastRetentionRunPurged: purged,
+        lastRetentionRunErrors: errors,
+        lastRetentionRunBytesPurged: bytesPurged,
+        retentionCorrelationId: correlationId,
+      });
     } catch (err) {
       console.log(
         JSON.stringify({
