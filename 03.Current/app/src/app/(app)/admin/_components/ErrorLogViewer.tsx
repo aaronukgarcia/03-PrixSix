@@ -1,8 +1,11 @@
-// GUID: ADMIN_ERRORLOG-000-v06
+// GUID: ADMIN_ERRORLOG-000-v07
 // @SECURITY_FIX: Added stack trace sanitization to prevent information disclosure (ADMINCOMP-011).
 // @SECURITY_FIX: Replaced direct Firestore writes with API endpoint for error resolution (ADMINCOMP-012).
 // @SECURITY_FIX: Extended sanitizeStackTrace to strip ALL Windows absolute paths with drive letters (GEMINI-AUDIT-020).
 // @SECURITY_FIX: Gated console.error calls behind NODE_ENV !== 'production' (GEMINI-AUDIT-020).
+// @BUG_FIX (v3.1.1): Tab no longer crashes with "Invalid time value" RangeError when an
+//   error_log row has resolvedAt or createdAt stored as a Firestore Timestamp object.
+//   New safeDate() helper is now used for ALL date coercion in this file. See err_mou1bkbm_29343000.
 // [Intent] Admin component for viewing, searching, filtering, and resolving system error logs.
 // [Inbound Trigger] Rendered on the admin Error Logs tab.
 // [Downstream Impact] Displays error_logs Firestore collection; allows admins to mark errors resolved. Changes to error log schema or error-codes.ts categories affect display.
@@ -34,6 +37,44 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
+
+// GUID: ADMIN_ERRORLOG-000B-v01
+// @BUG_FIX (v3.1.1): RangeError "Invalid time value" crashed the whole Error Logs tab when any
+//   row had resolvedAt stored as a Firestore Timestamp object (half of historical entries).
+//   `new Date(timestampObj)` returns Invalid Date — it does NOT throw — so the existing
+//   try/catch in getTimestamp() was a no-op for malformed input. date-fns format() then threw
+//   on the invalid Date. Caught by err_mou1bkbm_29343000 / 2026-05-06.
+// [Intent] Tolerantly coerce a Firestore-or-ISO-string-or-number timestamp value into a valid
+//          Date, returning null if the input is missing or unparseable. Use everywhere the
+//          renderer reads a date field — never call `new Date()` directly on log fields.
+// [Inbound Trigger] Called by getTimestamp() and the resolvedAt renderer.
+// [Downstream Impact] Replaces all direct `new Date(log.X)` calls. If the helper returns null,
+//                     the UI falls back to "Unknown time" / hides the formatted span.
+function safeDate(input: any): Date | null {
+  if (input == null) return null;
+  // Firestore Timestamp shape — admin SDK serialises with `_seconds`, web SDK with `seconds`.
+  if (typeof input === 'object') {
+    const secs = (input.seconds ?? input._seconds);
+    if (typeof secs === 'number') {
+      const d = new Date(secs * 1000);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // Some Timestamp instances expose toDate()
+    if (typeof input.toDate === 'function') {
+      try {
+        const d = input.toDate();
+        return d instanceof Date && !isNaN(d.getTime()) ? d : null;
+      } catch { return null; }
+    }
+    return null;
+  }
+  // ISO string or epoch number
+  if (typeof input === 'string' || typeof input === 'number') {
+    const d = new Date(input);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
 
 // GUID: ADMIN_ERRORLOG-001a-v02
 // @SECURITY_FIX: Extended to strip ALL Windows absolute paths with drive letters, not just
@@ -94,13 +135,13 @@ interface ErrorLog {
     };
     [key: string]: any;
   };
-  timestamp: {
-    seconds: number;
-    nanoseconds: number;
-  };
-  createdAt?: string;
+  // Reality: timestamp/createdAt/resolvedAt may be Firestore Timestamp objects
+  // ({seconds, nanoseconds} or {_seconds, _nanoseconds}), ISO strings, or numbers
+  // depending on which write path produced the doc. The renderer must use safeDate().
+  timestamp?: { seconds?: number; nanoseconds?: number; _seconds?: number; _nanoseconds?: number; toDate?: () => Date } | string | number;
+  createdAt?: { seconds?: number; nanoseconds?: number; _seconds?: number; _nanoseconds?: number; toDate?: () => Date } | string | number;
   resolved?: boolean;
-  resolvedAt?: string;
+  resolvedAt?: { seconds?: number; nanoseconds?: number; _seconds?: number; _nanoseconds?: number; toDate?: () => Date } | string | number;
   resolvedBy?: string;
 }
 
@@ -240,8 +281,9 @@ export function ErrorLogViewer() {
       if (selectedView === 'recent') {
         const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
         logs = logs.filter(log => {
-          const ts = log.timestamp?.seconds ? log.timestamp.seconds * 1000 : 0;
-          return ts > oneDayAgo;
+          // @BUG_FIX (v3.1.1): use safeDate to tolerate the multiple shapes timestamp can take.
+          const d = safeDate(log.timestamp) ?? safeDate(log.createdAt);
+          return d ? d.getTime() > oneDayAgo : false;
         });
       }
 
@@ -544,25 +586,17 @@ function ErrorLogItem({ log, accordion, user, onResolved }: {
     }
   };
 
-  // GUID: ADMIN_ERRORLOG-015-v03
-  // [Intent] Safely extracts a Date object from the log's timestamp, handling both Firestore seconds and ISO string formats.
+  // GUID: ADMIN_ERRORLOG-015-v04
+  // @BUG_FIX (v3.1.1): Use safeDate() helper which validates the resulting Date before
+  //   returning it. Previous version returned `new Date(log.createdAt)` directly, which
+  //   could be Invalid Date if createdAt was stored as a Firestore Timestamp object —
+  //   the try/catch never fired because `new Date()` does not throw on bad input. The
+  //   downstream date-fns format() then threw RangeError and crashed the whole tab.
+  // [Intent] Safely extract a Date from log.timestamp (preferred) or log.createdAt
+  //          (fallback). Handles Firestore Timestamp objects, ISO strings, numbers.
   // [Inbound Trigger] Called during render to produce human-readable timestamps.
   // [Downstream Impact] If null is returned, the UI displays "Unknown time" instead of crashing.
-  // Safely get timestamp - handle null/undefined timestamp
-  const getTimestamp = (): Date | null => {
-    try {
-      if (log.timestamp?.seconds) {
-        return new Date(log.timestamp.seconds * 1000);
-      }
-      if (log.createdAt) {
-        return new Date(log.createdAt);
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  };
-  const timestamp = getTimestamp();
+  const timestamp = safeDate(log.timestamp) ?? safeDate(log.createdAt);
 
   // GUID: ADMIN_ERRORLOG-016-v03
   // [Intent] Safely serialises the error log's context object to a JSON string for display.
@@ -616,11 +650,17 @@ function ErrorLogItem({ log, accordion, user, onResolved }: {
           <div className="flex items-center gap-2 text-green-600">
             <CheckCircle2 className="h-4 w-4" />
             <span className="text-sm font-medium">Resolved</span>
-            {log.resolvedAt && (
-              <span className="text-xs text-muted-foreground">
-                on {format(new Date(log.resolvedAt), "MMM d, yyyy")}
-              </span>
-            )}
+            {/* @BUG_FIX (v3.1.1): resolvedAt may be ISO string OR Firestore Timestamp object
+                in historical data; use safeDate() to handle both and silently hide the date
+                rather than crashing the whole tab when the value is unparseable. */}
+            {(() => {
+              const d = safeDate(log.resolvedAt);
+              return d ? (
+                <span className="text-xs text-muted-foreground">
+                  on {format(d, "MMM d, yyyy")}
+                </span>
+              ) : null;
+            })()}
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">Not resolved</div>

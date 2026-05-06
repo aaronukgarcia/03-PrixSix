@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-03-03",
-  "total_guids": 1835,
+  "total_guids": 1836,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -6741,7 +6741,7 @@
     },
     {
       "guid": "ADMIN_ERRORLOG-000",
-      "version": 6,
+      "version": 7,
       "logic_category": "ORCHESTRATION",
       "description": "Admin component for viewing, searching, filtering, and resolving system error logs.",
       "dependencies": [
@@ -6875,7 +6875,7 @@
         ]
       },
       "created": "2026-01-22T10:54:37Z",
-      "lastUpdated": "2026-02-23T00:00:00Z"
+      "lastUpdated": "2026-05-06T00:00:00Z"
     },
     {
       "guid": "ADMIN_ERRORLOG-001",
@@ -8957,7 +8957,7 @@
     },
     {
       "guid": "ADMIN_ERRORLOG-015",
-      "version": 3,
+      "version": 4,
       "logic_category": "TRANSFORMATION",
       "description": "Safely extracts a Date object from the log's timestamp, handling both Firestore seconds and ISO string formats.",
       "dependencies": [
@@ -9092,7 +9092,7 @@
         ]
       },
       "created": "2026-01-22T10:54:37Z",
-      "lastUpdated": "2026-02-10T16:48:01Z"
+      "lastUpdated": "2026-05-06T00:00:00Z"
     },
     {
       "guid": "ADMIN_ERRORLOG-016",
@@ -78291,7 +78291,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 31,
+      "version": 32,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -78307,7 +78307,7 @@
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 31,
+      "version": 32,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -115213,6 +115213,25 @@
       },
       "callChain": {
         "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-05-06T00:00:00Z",
+      "lastUpdated": "2026-05-06T00:00:00Z"
+    },
+    {
+      "guid": "ADMIN_ERRORLOG-000B-v01",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "safeDate() helper — tolerantly coerce Firestore Timestamp / ISO string / number / null into a valid Date or null. Use everywhere ErrorLogViewer reads a date field. Added 3.1.1 to fix RangeError crash from err_mou1bkbm_29343000 when resolvedAt was a Firestore Timestamp object.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx",
+        "functionName": "safeDate"
+      },
+      "callChain": {
+        "calledBy": [
+          "ADMIN_ERRORLOG-015"
+        ],
         "calls": []
       },
       "created": "2026-05-06T00:00:00Z",
