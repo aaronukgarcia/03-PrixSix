@@ -206,6 +206,10 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
   // Tracks which collection fetches hit the CC_FETCH_CAP safety limit during the last run.
   // Surfaced as an amber warning banner so admins know results may be incomplete.
   const [cappedFetches, setCappedFetches] = useState<string[]>([]);
+  // @ADDED (v3.1.3): Hide info-severity entries by default — pre-season "team has no
+  // predictions yet" and standings "N users with no prediction" entries are informational
+  // and clutter the report. Toggle persists for the session only; defaults to off on mount.
+  const [showInfoEntries, setShowInfoEntries] = useState(false);
 
   // Data is now fetched ON-DEMAND when running checks, not on component mount
   // This prevents loading 4+ MB of Firestore data just by viewing the CC tab
@@ -707,22 +711,42 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
       </Card>
 
       {/* Issues Detail */}
-      {summary && totalIssues > 0 && (
+      {summary && totalIssues > 0 && (() => {
+        // @ADDED (v3.1.3): Filter info-severity entries unless the toggle is on.
+        const filterIssues = (issues: typeof summary.results[number]['issues']) =>
+          showInfoEntries ? issues : issues.filter(i => i.severity !== 'info');
+        const visibleResults = summary.results
+          .map(r => ({ ...r, issues: filterIssues(r.issues) }))
+          .filter(r => r.issues.length > 0);
+        const visibleCount = visibleResults.reduce((n, r) => n + r.issues.length, 0);
+        const hiddenCount = totalIssues - visibleCount;
+        return (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
-              Issues ({totalIssues})
-            </CardTitle>
-            <CardDescription>
-              Detailed list of all issues found during the consistency check.
-            </CardDescription>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Issues ({visibleCount}{hiddenCount > 0 ? ` of ${totalIssues}` : ''})
+                </CardTitle>
+                <CardDescription>
+                  Detailed list of all issues found during the consistency check.
+                  {hiddenCount > 0 && ` ${hiddenCount} info-level entries hidden.`}
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowInfoEntries(s => !s)}
+              >
+                {showInfoEntries ? 'Hide info entries' : `Show all (${hiddenCount} info)`}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[400px]">
               <Accordion type="multiple" className="w-full">
-                {summary.results
-                  .filter(r => r.issues.length > 0)
+                {visibleResults
                   .map((result) => (
                     <AccordionItem key={result.category} value={result.category}>
                       <AccordionTrigger className="hover:no-underline">
@@ -768,7 +792,8 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
             </ScrollArea>
           </CardContent>
         </Card>
-      )}
+        );
+      })()}
 
       {/* Success Message */}
       {summary && totalIssues === 0 && (

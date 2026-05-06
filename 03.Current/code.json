@@ -78291,7 +78291,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 33,
+      "version": 34,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -78307,7 +78307,7 @@
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 33,
+      "version": 34,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],

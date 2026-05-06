@@ -621,8 +621,19 @@ export function useReplayPlayer(
 
     const onStreamError = (err: unknown) => {
       if (cancelled) return;
-      const cid = generateClientCorrelationId();
       const msg = err instanceof Error ? err.message : 'Unknown error';
+
+      // @FIX (v3.1.3): Expected errors (e.g. "session not yet available" pre-race) bypass
+      // error_log writes — UI still shows the message but the admin error panel stays clean.
+      // The `expected` flag is set at the throw site; see Path 3 above.
+      const isExpected = !!(err && typeof err === 'object' && (err as { expected?: boolean }).expected);
+      if (isExpected) {
+        setError(msg);
+        updatePlaybackState('error');
+        return;
+      }
+
+      const cid = generateClientCorrelationId();
       console.error(
         `[useReplayPlayer] ${CLIENT_ERRORS.PIT_WALL_REPLAY_LOAD_FAILED.code} — ${msg} | cid=${cid}`,
       );
@@ -674,9 +685,16 @@ export function useReplayPlayer(
         // Validate session key — synthetic hash keys (from schedule, not OpenF1) are 9+ digits
         // and will fail ingest. Real OpenF1 keys are typically 5 digits (e.g. 11234).
         if (session.sessionKey > 99999) {
-          throw new Error(
+          // @FIX (v3.1.3): Mark this as an EXPECTED state, not an error. The session-not-yet-
+          //   available case fires every time someone opens a future race's replay before OpenF1
+          //   has data. Was logging to /api/log-client-error and accumulating noise in the
+          //   admin error panel as PX-3311. UI still shows the message; we just don't write
+          //   an error_log entry for the expected case (see onStreamError handler below).
+          const expectedErr = new Error(
             'Session data not yet available from OpenF1 — the race may not have started or data is still being processed. Try again later.',
           );
+          (expectedErr as Error & { expected?: boolean }).expected = true;
+          throw expectedErr;
         }
         if (!cancelled) setLoadingSource('source');
         if (!cancelled) setIngestStatus('Triggering ingest...');

@@ -757,12 +757,19 @@ export function checkRaces(): CheckResult {
     }
   }
 
-  // Check expected count
-  if (RaceSchedule.length !== 24) {
+  // @FIX (v3.1.3): The hardcoded "24 races" was wrong for the 2026 season.
+  //   Bahrain and Saudi Arabia GPs were cancelled without replacements, so the
+  //   official 2026 calendar is 22 rounds (see comment in lib/data.ts:220).
+  //   Updated the expected count to match. Future seasons may need to adjust this
+  //   value — the tactical fix is to keep this in sync with the data; the strategic
+  //   fix would be to derive expected count from a constant in data.ts so the
+  //   check moves with the schedule automatically. Filed as a follow-up.
+  const EXPECTED_RACE_COUNT = 22;
+  if (RaceSchedule.length !== EXPECTED_RACE_COUNT) {
     issues.push({
       severity: 'warning',
       entity: 'RaceSchedule',
-      message: `Expected 24 races, found ${RaceSchedule.length}`,
+      message: `Expected ${EXPECTED_RACE_COUNT} races, found ${RaceSchedule.length}`,
     });
   }
 
@@ -1842,22 +1849,15 @@ export function checkScores(
     scoreTypeCounts.typeA + scoreTypeCounts.typeB + scoreTypeCounts.typeC +
     scoreTypeCounts.typeD + scoreTypeCounts.typeE;
 
-  // Check for missing scores (predictions with results but no score)
-  for (const pred of predictions) {
-    const userId = pred.userId || pred.teamId;
-    const normalizedPredRaceId = normalizeRaceId(pred.raceId || '');
-    if (pred.raceId && userId && resultsRaceIds.has(normalizedPredRaceId)) {
-      const hasScore = scores.some(s => normalizeRaceId(s.raceId || '') === normalizedPredRaceId && s.userId === userId);
-      if (!hasScore) {
-        issues.push({
-          severity: 'warning',
-          entity: `Prediction ${pred.id}`,
-          message: 'Prediction has race result but no corresponding score',
-          details: { raceId: pred.raceId, userId },
-        });
-      }
-    }
-  }
+  // @REMOVED (v3.1.3): "Prediction has race result but no corresponding score" check.
+  // Pre-SSOT-001 this validated that the scores collection had a doc per
+  // (user, race) tuple with a race_result. Post-SSOT-001 the scores collection
+  // was eliminated — scores are computed in real-time on the standings page from
+  // race_results × predictions. There is no doc to check for. The check was
+  // generating 163 false-positive warnings every CC run since the migration.
+  // The standings calculation is now monitored by /api/admin/health/standings
+  // (admin → Health → Standings Calculation panel), which is the right layer
+  // for this concern.
 
   const hasErrors = issues.some(i => i.severity === 'error');
   const hasWarnings = issues.some(i => i.severity === 'warning');
