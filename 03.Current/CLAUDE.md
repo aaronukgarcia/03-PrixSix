@@ -64,6 +64,14 @@ These rules MUST be followed on every piece of code written and every response g
 | #9 | Shell Preference — Microsoft PowerShell first, then CMD, then bash if needed |
 | #10 | Dependency Update Discipline — check for updates on any dependency encountered during bug fixes or feature builds |
 | #11 | Pre-Commit Security Review — mandatory security threat modeling before every commit |
+| #12 | Dependency & Completeness Check — never mark complete until ALL dependents implemented; never feature without backup, never backup without restore test |
+| #13 | Complete All Identified Issues — when user lists N failures, fix ALL N; never "TODO" or "lower priority" them |
+| #14 | Memory Recall at Task Start — query Vestige before composing commits, replying to bug reports, or starting a new task type — not just at session start |
+| #15 | Validators Derive From Data — expected counts/values must come from data files (with comments) or runtime queries, never hardcoded constants that ossify |
+| #16 | Type-Safe Storage Boundaries — never trust TS types about Firestore data; coerce via `safeX()` helpers because `new Date(badInput)` returns Invalid Date instead of throwing |
+| #17 | Silent Failure Detection — every Cloud Function with a user-visible status field MUST have automated freshness monitoring; OOM/crash can hide for weeks otherwise |
+| #18 | Migration Dead-Code Audit — when eliminating a collection/field/feature, audit for orphaned readers/validators in the SAME commit, not later |
+| #19 | Cloud Functions Deploy Bundling — every commit changing `functions/` MUST end with `firebase deploy --only functions:...` bundling ALL pending function changes from prior commits |
 
 > **Full implementation patterns, code templates, and compliance checklists:** `docs/golden-rules-detail.md`
 
@@ -449,6 +457,14 @@ firebase apphosting:secrets:grantaccess SECRET_NAME --backend prixsix
 13. ✅ **GOLDEN RULE #7:** Errors use `ERRORS.KEY` from error-registry.ts
 14. ✅ **GOLDEN RULE #8:** Prompt prefix used on every response; violations logged to Vestige memory
 15. ✅ **GOLDEN RULE #11:** Pre-commit security review completed, 5 questions answered, logged to Vestige
+16. ✅ **GOLDEN RULE #12:** All dependent systems implemented (no orphaned imports, no feature without backup/restore test, no endpoint without error logging)
+17. ✅ **GOLDEN RULE #13:** Every issue the user identified is resolved — none deferred as "TODO" or "lower priority"
+18. ✅ **GOLDEN RULE #14:** Vestige queried for project-specific commit-style and topic rules before composing the message
+19. ✅ **GOLDEN RULE #15:** Any new validator derives expected counts/values from data, not hardcoded constants
+20. ✅ **GOLDEN RULE #16:** Date/string coercion of Firestore data uses `safeX()` helpers (never `new Date(rawField)` directly)
+21. ✅ **GOLDEN RULE #17:** New scheduled functions write a status field that `/health-check` CHECK 11 can monitor for freshness
+22. ✅ **GOLDEN RULE #18:** If this commit eliminates a collection/field, dead-code audit ran (orphaned readers checked in the same commit)
+23. ✅ **GOLDEN RULE #19:** If `functions/` changed, commit message ends with `firebase deploy --only functions:...` bundling ALL pending function changes
 
 ---
 

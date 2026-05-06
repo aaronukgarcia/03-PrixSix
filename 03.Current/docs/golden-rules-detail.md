@@ -1,7 +1,8 @@
 # docs/golden-rules-detail.md
 
-> Full implementation patterns, code templates, and compliance checklists for all 11 Golden Rules.
+> Full implementation patterns, code templates, and compliance checklists for all 19 Golden Rules.
 > This file is referenced from `CLAUDE.md` and should be read when you need detailed guidance.
+> Rules #12-#19 added to this file in v3.1.6 as part of the Golden Rules audit (see `docs/gr-audit-2026-05-06.md`).
 
 ---
 
@@ -631,4 +632,361 @@ The plaintext PIN storage vulnerability (missed in initial review, caught by Gem
 
 ---
 
-*See also: `CLAUDE.md` for the one-line summaries of all 11 rules.*
+## GOLDEN RULE #12: Dependency & Completeness Check
+
+**Before marking work complete, verify every dependent system is also complete. Never create a dependency without an implementation. Never ship a feature without its supporting infrastructure.**
+
+### What "complete" requires
+
+| If you create… | …then you also need |
+|---|---|
+| A new API endpoint | Error logging via `logTracedError`, registered error code, GUID comment, code.json entry |
+| A new Firestore collection | Security rules, CC validation, schema documented, backup verified to include it |
+| A new feature | A path back out (rollback / feature flag / disable mechanism) |
+| A new backup mechanism | A verified restore test |
+| A new dependency in source | Implementation actually present (no orphaned imports) |
+| A new scheduled function | Status field readable by admin dashboard + `/health-check` CHECK 11 covers it |
+
+### Origin
+
+Codified 2026-02-12 after multiple incidents where work was claimed "complete" but key dependents were missing — most notably the version bump that didn't update `commit-history.json`, leaving `/about/dev` 27 versions stale.
+
+### Compliance checklist
+
+- [ ] Every new import points to code that exists in this commit
+- [ ] Every new collection has security rules in `firestore.rules` (committed AND deployed via `/rules-deploy`)
+- [ ] Every new feature has a corresponding off-switch (feature flag, env var, or `.disable()` path)
+- [ ] Every backup write has a corresponding restore-test run within 7 days
+- [ ] Every new error path has a registry entry, correlation ID, and admin viewer integration
+- [ ] Documentation (CHANGELOG.md, /about/dev commit-history, code.json) updated alongside the code
+
+**If ANY checkbox fails, the work is not complete. Do not claim done.**
+
+---
+
+## GOLDEN RULE #13: Complete All Identified Issues
+
+**When the user identifies multiple failures and asks for them to be fixed, ALL must be resolved immediately — no "TODO" markers, no "lower priority" punts, no "we'll get to it later".**
+
+### The pattern this prevents
+
+User: *"Fix this dam mess — A, B, C, D, E."*
+Agent (wrong): *"Fixed A, B, D, E. Marked C as TODO (lower priority)."*
+User reaction: *"SLOPPY."* Trust eroded; user has to re-list issues.
+
+### The rule
+
+When the user lists N failures and asks them fixed:
+
+1. **Fix all N.** No exceptions.
+2. **Do not classify any as "lower priority"** — the user's frustration level signals that all are blocking.
+3. **Do not claim completion** until every item on the original list is verified resolved.
+4. **Verify each fix before reporting done** — don't claim X is fixed without checking.
+5. **If a fix genuinely cannot be done in this session** (true blocker, not effort), say so explicitly and ask whether to defer or push through.
+
+### Origin
+
+Codified 2026-02-12 after a session where 4-of-5 user-identified failures were fixed and the 5th was marked "TODO (lower priority)". User had to re-prompt; the deferred item was actually as important as the others.
+
+### Application across "all yes" responses
+
+When the user replies "all yes" or "go for it" to a multi-item plan, treat every plan item as binding. Do not silently drop or defer items mid-execution. If new information makes one item infeasible, surface it before continuing.
+
+### Compliance checklist
+
+- [ ] Every issue from the user's original list has a verifiable fix in this commit
+- [ ] No "TODO" / "later" / "lower priority" markers added to staged code or comments
+- [ ] Each fix has been verified (test run, manual check, log inspection — depending on type)
+- [ ] If any item couldn't be resolved, it's surfaced explicitly to the user, not buried
+
+---
+
+## GOLDEN RULE #14: Memory Recall at Task Start
+
+**Query Vestige memory at the start of every non-trivial task — not only at session start. Project-specific rules in memory override Claude Code defaults, but only if they get queried in time.**
+
+### The pattern this prevents
+
+A rule was saved to Vestige (e.g. "no Co-Authored-By trailers in this repo"). Session-start recall pulled identity-related memories but not commit-style rules. When composing a commit, the agent fell back to the global Claude Code default and added the trailer — violating a rule that was sitting in memory with retention 0.95+. Fix: query memory at the moment the task starts, not just at session start.
+
+### When to query memory (non-exhaustive)
+
+| Task | Suggested query |
+|---|---|
+| Composing a commit message | `commit style attribution trailer message format Prix Six` |
+| Replying to a bug report | `<feature area> bug fix lesson Prix Six` |
+| Starting work on an unfamiliar module | `<module name> rule pattern Prix Six` |
+| Executing a destructive Firestore op | `destructive operation safety pattern Prix Six` |
+| Adding a Cloud Function | `Cloud Functions deploy pattern Prix Six` |
+| Running CI / build commands | `build environment local Prix Six` |
+
+### How to query
+
+```
+mcp__vestige__search query="<topic words> Prix Six"
+mcp__vestige__search query="prixsix <feature> rule"
+```
+
+Two queries with slightly different wording is safer than one — Vestige uses hybrid keyword+semantic search, and a single bad keyword can miss a relevant memory.
+
+### Application
+
+The `/commit` skill GATE 0 (added 2026-05-06) implements this rule for commits specifically. Other skills should follow the same pattern at their entry point.
+
+### Compliance checklist
+
+- [ ] Before starting a non-trivial task, queried Vestige with task-relevant terms
+- [ ] Surfaced any project-specific rules that override global defaults
+- [ ] Applied those rules when composing the response or code change
+- [ ] If memory and source-of-truth file (CLAUDE.md, skill file) disagree, source-of-truth wins; flag the discrepancy
+
+---
+
+## GOLDEN RULE #15: Validators Derive From Data
+
+**Validators must compute expected values from data, not hardcode them. Hardcoded constants in validators ossify and contradict reality.**
+
+### The pattern this prevents
+
+`lib/consistency.ts` had `if (RaceSchedule.length !== 24)` — but the 2026 calendar dropped to 22 (Bahrain & Saudi cancelled). The hardcoded 24 became a perpetual false-positive warning. Worse, the next agent (me) almost added the cancelled races back to align the data with the validator before reading the data file's leading comment.
+
+### The rule
+
+| Anti-pattern | Right approach |
+|---|---|
+| `if (X.length !== 24)` | `const expected = X.expected ?? X.length; if (X.length !== expected)` |
+| Hardcoded "expected count of N" in validator | Derive from a constant exported alongside the data |
+| Validator says "missing X" without checking the data file's comments | Validator reads the data file's metadata or comment-derived expected state |
+
+### Default fix direction
+
+When validator and data disagree:
+1. **Read the data file's leading comment first.** Often it explains why the count/shape is what it is.
+2. **Default fix: align the validator with the data.** Validators ossify into hardcoded expectations that lag reality.
+3. **Only modify data if the validator's expectation is genuinely correct** and the data is genuinely wrong.
+4. **Add a comment** to the validator explaining where the expected value comes from, so the next reader doesn't repeat the cycle.
+
+### Compliance checklist
+
+- [ ] No hardcoded numeric expectations in validators (counts, sizes, lengths)
+- [ ] If a constant must be hardcoded, it's exported from the data module, not inlined in the validator
+- [ ] Each validator has a comment explaining how its expected value is determined
+- [ ] When validator + data disagree, the data file's comments were read before "fixing"
+
+---
+
+## GOLDEN RULE #16: Type-Safe Storage Boundaries
+
+**Never trust TypeScript types about Firestore data. Coerce values via safe helpers before any operation that throws on bad input.**
+
+### Why TypeScript types lie
+
+Firestore data flows through code that:
+- Reads docs written by older versions of the schema
+- Reads docs written by manual scripts with different shapes
+- Reads docs where some fields are missing entirely
+- Has Firestore Timestamp objects that look like JS objects, not strings, despite TS declaring `string`
+
+Critical fact: **`new Date(invalidInput)` does NOT throw — it returns an Invalid Date** whose `.getTime()` is `NaN`. Downstream calls like `format(invalidDate, 'yyyy-MM-dd')` or `.toISOString()` then throw `RangeError: Invalid time value` and crash the entire render path.
+
+### Required pattern
+
+```typescript
+function safeDate(input: any): Date | null {
+  if (input == null) return null;
+  if (typeof input === 'object') {
+    const secs = input.seconds ?? input._seconds;
+    if (typeof secs === 'number') {
+      const d = new Date(secs * 1000);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof input.toDate === 'function') {
+      try {
+        const d = input.toDate();
+        return d instanceof Date && !isNaN(d.getTime()) ? d : null;
+      } catch { return null; }
+    }
+    return null;
+  }
+  if (typeof input === 'string' || typeof input === 'number') {
+    const d = new Date(input);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+```
+
+The reference implementation lives in `app/src/app/(app)/admin/_components/ErrorLogViewer.tsx` (added v3.1.1 to fix `err_mou1bkbm_29343000`).
+
+### Equivalent helpers needed for other types
+
+| Type to coerce | Helper | Risk if not used |
+|---|---|---|
+| Date / Timestamp | `safeDate(input)` | `format()` throws Invalid time value |
+| String | `String(input ?? '')` | `.toUpperCase()` throws on numbers (PX-9001 v2.5.4) |
+| JSON parse | `safeJsonParse(input)` | `JSON.parse(undefined)` throws |
+| Array | `Array.isArray(input) ? input : []` | `.forEach` / `.map` throws on non-arrays |
+
+### When to apply
+
+Any time data flows from Firestore (`useDoc`, `useCollection`, `db.collection()...get()`) into:
+- Date constructors
+- String methods (`.toUpperCase()`, `.toLowerCase()`, `.includes()`)
+- `JSON.parse()`
+- `.length` / `.forEach` / `.map` accesses
+
+The TS type declaration is a hint, not a guarantee. **Coerce, then operate.**
+
+### Compliance checklist
+
+- [ ] No `new Date(firestoreField)` calls without `safeDate()` wrapping
+- [ ] No `.toUpperCase()` / `.toLowerCase()` on Firestore data without `String(input ?? '')` coercion
+- [ ] No `.forEach`/`.map`/`.length` on Firestore array fields without `Array.isArray` guard
+- [ ] TypeScript type declarations on Firestore-sourced types reflect ALL real shapes (e.g. `string | { seconds: number }` not just `string`)
+
+---
+
+## GOLDEN RULE #17: Silent Failure Detection
+
+**Every Cloud Function with a user-visible status field MUST have automated freshness monitoring. Silent OOM, network errors, or undeployed functions can hide for weeks otherwise.**
+
+### The pattern this prevents
+
+`runRecoveryTest` OOMed every Sunday for 6+ weeks (since 2026-03-22). The function appeared `ACTIVE` in `gcloud functions list`. Each scheduled run executed, ran auth-verify, started the storage check, then died at "Memory limit of 512 MiB exceeded" — **before** writing `lastSmokeTestTimestamp`. The dashboard showed "Last smoke test: 2026-03-22" for 6 weeks. Nobody noticed because nobody had a freshness monitor.
+
+### The rule
+
+For any scheduled Cloud Function whose status is shown in the admin dashboard:
+
+1. The function must write a timestamp to a known Firestore field on every successful run
+2. `/health-check` CHECK 11 must include that field with an expected max age (schedule + grace)
+3. The admin dashboard must display the timestamp prominently AND show a "stale" indicator if it's beyond expected
+4. If the function fails (OOM or otherwise), the failure path should ALSO write a heartbeat (e.g. via structured log) so monitoring can distinguish "ran and failed" from "didn't run"
+
+### Required pattern
+
+```javascript
+exports.someScheduledFn = onSchedule({...}, async () => {
+  try {
+    // ... do work ...
+    await writeStatus(db, {
+      lastSomeFnTimestamp: Timestamp.now(),
+      lastSomeFnStatus: 'SUCCESS',
+      // ... other diagnostic fields ...
+    });
+    console.log(JSON.stringify({ severity: 'INFO', message: 'SOMEFN_HEARTBEAT', timestamp: ... }));
+  } catch (err) {
+    // Heartbeat on failure too — distinguishes "ran and failed" from "didn't run"
+    console.log(JSON.stringify({ severity: 'ERROR', message: 'SOMEFN_HEARTBEAT', error: err.message }));
+    throw err; // re-throw so Cloud Functions marks invocation as failed
+  }
+});
+```
+
+### Compliance checklist
+
+- [ ] Every new scheduled function writes a `lastXTimestamp` field to a known status doc on success
+- [ ] Failure paths also emit a heartbeat (structured log AND/OR a `lastXStatus: 'FAILED'` doc field)
+- [ ] `/health-check` CHECK 11 includes the new field with appropriate `maxAgeH`
+- [ ] Admin dashboard displays the timestamp + stale indicator
+- [ ] Memory provisioning includes ≥30% headroom for "all of X" datasets that grow over time
+
+---
+
+## GOLDEN RULE #18: Migration Dead-Code Audit
+
+**When eliminating a collection, field, or feature, audit for orphaned readers/validators in the SAME commit, not a follow-up. The audit is part of the migration, not a chore that comes later.**
+
+### The pattern this prevents
+
+SSOT-001 eliminated the `scores` Firestore collection in favour of real-time computation from `race_results × predictions`. The migration changed how scores were produced — but **left an orphaned validator** in `lib/consistency.ts` that still tried to read the eliminated collection. Result: 163 false-positive CC warnings every run, every day, for ~6 weeks until v3.1.3 caught it.
+
+### The rule
+
+When a commit eliminates a collection, field, or feature:
+
+1. **Grep for all readers** in the same session:
+   ```bash
+   grep -rn "collection('<eliminated>')" app/src
+   grep -rn "<eliminatedField>" app/src
+   ```
+2. **Check skills and validators** that may reference the old shape:
+   ```bash
+   grep -rn "<eliminated>" app/src/lib/consistency.ts
+   grep -rn "<eliminated>" .claude/commands/
+   ```
+3. **Remove or rewrite each finding** in the same commit — not a follow-up
+4. **Document the elimination** in CHANGELOG.md and as a `@REMOVED` comment in any non-trivial removal so future readers know the history
+
+### Specific risk areas
+
+- Validators in `lib/consistency.ts` (163-warning case)
+- Type interfaces that still declare the eliminated field (results-utils.tsx `Score` interface)
+- API routes that still write to the eliminated collection (signup/route.ts late-joiner-handicap → `scores`)
+- Skill files that still mention the eliminated thing (`/cc`, `/check-race-data`)
+- Backup/restore scripts that still expect the old shape
+
+### Compliance checklist
+
+- [ ] All readers of the eliminated thing identified via grep
+- [ ] All readers either updated or explicitly removed in this commit
+- [ ] No type interfaces still declare the eliminated fields as required
+- [ ] Skills and validators that mention the eliminated thing are updated
+- [ ] Migration commit message lists the readers found and what was done with each
+- [ ] Follow-up audit memory written if any reader was deferred (rare; should usually be in scope)
+
+---
+
+## GOLDEN RULE #19: Cloud Functions Deploy Bundling
+
+**Cloud Functions are NOT auto-deployed by App Hosting on push to main. Every commit changing `functions/` MUST end with the bundled `firebase deploy --only functions:...` command including ALL pending function changes from prior commits.**
+
+### Why this exists
+
+App Hosting deploys via push to main. Cloud Functions deploy only via manual `firebase deploy --only functions:<name>`. The two are independent. If you forget the manual deploy, your code is in git but your functions are still running the old version.
+
+The Prix Six 2026-05-06 session accumulated FOUR pending function deploys across two commits before noticing — `applyBackupRetention` (v3.1.2) plus three changes in v3.1.5. Easy to lose track.
+
+### The rule
+
+Every commit message body that touches `functions/` MUST end with:
+
+```
+REQUIRES MANUAL DEPLOY: firebase deploy --only functions:<name1>,functions:<name2>,...
+```
+
+The deploy command MUST include:
+- All functions changed in **this** commit
+- All functions changed in any **prior commit** that doesn't have a confirmed deploy
+
+### Audit prior commits
+
+Before composing the commit message, run:
+
+```bash
+git log --oneline -10 -- functions/index.js
+git log -10 --pretty=format:"%H%n%s%n%b%n---" -- functions/index.js | grep -E "firebase deploy --only functions" | head -5
+```
+
+For each prior commit's listed deploy command, ask: **was that deploy actually run?** If you can't confirm yes (e.g. via Cloud Function logs showing recent invocations of the new code), include those function names in the new bundled command.
+
+### Two distinct deploys per release
+
+When reporting "vX.Y.Z is live" after a release that includes function changes, ALWAYS distinguish:
+
+> ✅ App Hosting (push triggered) — vX.Y.Z live at /api/version
+> ⚠ Cloud Functions — pending manual deploy: `firebase deploy --only functions:<list>`
+
+Don't claim full deploy until both have happened.
+
+### Compliance checklist
+
+- [ ] If `functions/` files in staged changes, commit message body ends with `firebase deploy --only functions:...`
+- [ ] Bundled command includes any prior pending function deploys (audited via `git log` of `functions/`)
+- [ ] Release status reporting distinguishes App Hosting from Cloud Functions deploys
+- [ ] If user has not run the deploy command after the commit landed, flag it explicitly in the next session's status report
+
+---
+
+*See also: `CLAUDE.md` for the one-line summaries of all 19 rules.*
+*Audit history: `docs/gr-audit-2026-05-06.md` documents the bug-cross-reference that surfaced rules #14-#19.*
