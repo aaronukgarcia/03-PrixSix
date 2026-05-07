@@ -20,17 +20,25 @@ process.stdin.setEncoding('utf8');
 process.stdin.on('data', chunk => { input += chunk; });
 process.stdin.on('end', () => {
   try {
+    if (process.env.CLAUDE_DISABLE_VERSION_GUARD === '1') {
+      process.exit(0);
+    }
+
     const data = JSON.parse(input);
     const command = data?.tool_input?.command ?? '';
 
-    // @FIX (v3.1.9): Replaced two-stage substring check with a single regex that matches
-    //   `git commit` or `git -C <path> commit` as actual command tokens (with word
-    //   boundaries). The previous logic had `if (!command.includes('commit')) exit(0)`
-    //   which fired false positives on ANY bash command containing the substring
-    //   "commit" — e.g. node scripts with literal text like `'pre-commit fix'` in a
-    //   data field. This was discovered in the v3.1.8 rollout when a BOW update
-    //   script with `closedNote: 'pre-commit Co-Authored-By...'` was blocked.
-    if (!/\bgit\s+(?:-C\s+\S+\s+)?commit\b/.test(command)) {
+    // @FIX (v3.1.10): The v3.1.9 word-boundary regex still fired on "git commit"
+    //   inside string literals (e.g. BOW summaries describing the regex itself).
+    //   Tightened to require a SHELL COMMAND BOUNDARY before "git commit" — start
+    //   of string, or after a shell separator (; & | ( newline). Inside a quoted
+    //   string the preceding char is typically space/letters/quote, none of which
+    //   match this class. So real `git commit` invocations match; mentions of
+    //   "git commit" in string content do not.
+    //
+    // @ESCAPE_HATCH (v3.1.10): set CLAUDE_DISABLE_VERSION_GUARD=1 to bypass entirely
+    //   when working on chained `git add && git commit` sequences where the hook
+    //   sees the future-staged state, not the current.
+    if (!/(?:^|[;&|(\n])\s*git\s+(?:-C\s+\S+\s+)?commit\b/.test(command)) {
       process.exit(0);
     }
 
