@@ -23,13 +23,14 @@ process.stdin.on('end', () => {
     const data = JSON.parse(input);
     const command = data?.tool_input?.command ?? '';
 
-    // Only intercept git commit commands
-    if (!command.includes('git commit') && !command.includes('git -C') ) {
-      process.exit(0);
-    }
-
-    // Refine: must actually be a commit (not git log, git status, etc.)
-    if (!command.includes('commit')) {
+    // @FIX (v3.1.9): Replaced two-stage substring check with a single regex that matches
+    //   `git commit` or `git -C <path> commit` as actual command tokens (with word
+    //   boundaries). The previous logic had `if (!command.includes('commit')) exit(0)`
+    //   which fired false positives on ANY bash command containing the substring
+    //   "commit" — e.g. node scripts with literal text like `'pre-commit fix'` in a
+    //   data field. This was discovered in the v3.1.8 rollout when a BOW update
+    //   script with `closedNote: 'pre-commit Co-Authored-By...'` was blocked.
+    if (!/\bgit\s+(?:-C\s+\S+\s+)?commit\b/.test(command)) {
       process.exit(0);
     }
 
