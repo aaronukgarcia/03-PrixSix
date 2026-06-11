@@ -2,7 +2,15 @@
   "lastUpdated": "2026-06-11",
   "commits": [
     {
-      "id": "b131466",
+      "id": "PENDING",
+      "date": "2026-06-11",
+      "version": "3.1.12",
+      "author": "aaron garcia",
+      "message": "fix: rate-limit + cache /api/team-name-suggestions to close SEC-DOS-001 (v3.1.12)",
+      "major": false
+    },
+    {
+      "id": "b42c97c",
       "date": "2026-06-11",
       "version": "3.1.11",
       "author": "aaron garcia",

@@ -1166,6 +1166,21 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     calledBy: [],
     calls: ['BACKUP_DASHBOARD-013', 'BACKUP_FUNCTIONS-015', 'BACKUP_FUNCTIONS-026'],
   },
+  // SEC-DOS-001: Generic per-IP request rate limit for public/unauthenticated endpoints.
+  RATE_LIMIT_EXCEEDED: {
+    key: 'RATE_LIMIT_EXCEEDED',
+    code: 'PX-8005',
+    guid: 'LIB_RATE_LIMIT-000',
+    module: 'LIB_RATE_LIMIT',
+    file: 'app/src/lib/rate-limit.ts',
+    functionName: 'checkRateLimit',
+    message: 'Too many requests. Please try again shortly.',
+    severity: 'warning',
+    recovery: 'Wait for the rate-limit window to reset (Retry-After header). Adjust limit/windowMs in the calling route if legitimate traffic is blocked.',
+    failureModes: ['Client exceeded per-IP request budget within the window', 'Automated flooding / denial-of-wallet attempt'],
+    calledBy: ['API_TEAM_NAME_SUGGESTIONS-001'],
+    calls: [],
+  },
   AUDIT_LOG_FAILED: {
     key: 'AUDIT_LOG_FAILED',
     code: 'PX-8101',

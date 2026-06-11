@@ -127,6 +127,7 @@ export const ERROR_CODES = {
   ATTACK_ALERT_FAILED: { code: 'PX-8002', message: 'Failed to create attack alert' },
   ATTACK_LOG_WRITE_FAILED: { code: 'PX-8003', message: 'Failed to write login attempt to database' },
   ATTACK_CHECK_FAILED: { code: 'PX-8004', message: 'Attack detection check failed' },
+  RATE_LIMIT_EXCEEDED: { code: 'PX-8005', message: 'Too many requests. Please try again shortly.' },
 
   // 9xxx - Unknown/Unexpected
   UNKNOWN_ERROR: { code: 'PX-9001', message: 'An unexpected error occurred' },
