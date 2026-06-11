@@ -364,7 +364,9 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const traced = createTracedError(ERRORS.DATABASE_ERROR, {
+      // @FIX: ERRORS.DATABASE_ERROR does not exist (ERRORS is Record<string,…> → undefined at
+      //   runtime). This path is a failed user-document create, so use ERRORS.FIRESTORE_WRITE_FAILED (PX-4002).
+      const traced = createTracedError(ERRORS.FIRESTORE_WRITE_FAILED, {
         correlationId,
         context: { route: '/api/auth/signup', action: 'create_user_document', requestData: { email: normalizedEmail, teamName: normalizedTeamName } },
         cause: firestoreError instanceof Error ? firestoreError : undefined,

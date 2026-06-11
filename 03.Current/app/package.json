@@ -1,6 +1,6 @@
 {
   "name": "nextn",
-  "version": "3.1.13",
+  "version": "3.1.14",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
@@ -21,7 +21,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@genkit-ai/google-genai": "^1.33.0",
     "@genkit-ai/next": "^1.33.0",
-    "@genkit-ai/vertexai": "^1.33.0",
     "@hookform/resolvers": "^5.2.2",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@radix-ui/react-accordion": "^1.2.3",

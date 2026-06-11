@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-11",
+      "version": "3.1.14",
+      "author": "aaron garcia",
+      "message": "fix+chore: migrate Genkit to @genkit-ai/google-genai + correct 4 dead ERRORS.* refs; carries the PX-3101 AI fix (v3.1.14)",
+      "major": false
+    },
+    {
+      "id": "f40f033",
+      "date": "2026-06-11",
       "version": "3.1.13",
       "author": "aaron garcia",
       "message": "fix: PX-3101 — switch retired gemini-2.0-flash to gemini-2.5-flash + disable thinking budget (v3.1.13)",

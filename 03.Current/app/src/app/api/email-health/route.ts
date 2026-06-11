@@ -60,7 +60,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
     const { db: errorDb } = await getFirebaseAdmin();
-    const traced = createTracedError(ERRORS.AUTH_ADMIN_VERIFICATION_FAILED, {
+    // @FIX: ERRORS.AUTH_ADMIN_VERIFICATION_FAILED does not exist (ERRORS is Record<string,…> →
+    //   undefined at runtime). This catch is a Firestore read failing during the admin check, so
+    //   use ERRORS.FIRESTORE_READ_FAILED (PX-4001).
+    const traced = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
       correlationId,
       context: { route: '/api/email-health', action: 'GET', phase: 'admin_check' },
       cause: error instanceof Error ? error : undefined,
@@ -147,7 +150,9 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
     const { db: errorDb } = await getFirebaseAdmin();
-    const traced = createTracedError(ERRORS.DATABASE_READ_FAILED, {
+    // @FIX: ERRORS.DATABASE_READ_FAILED does not exist (ERRORS is Record<string,…> so it was
+    //   undefined at runtime). Corrected to ERRORS.FIRESTORE_READ_FAILED (PX-4001).
+    const traced = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
       correlationId,
       context: { route: '/api/email-health', action: 'GET', phase: 'health_checks' },
       cause: error instanceof Error ? error : undefined,

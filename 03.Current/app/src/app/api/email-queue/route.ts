@@ -138,7 +138,9 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     // @GOLDEN_RULE_1: Proper error logging with 4-pillar pattern (Phase 4 compliance).
     const { db: errorDb } = await getFirebaseAdmin();
-    const traced = createTracedError(ERRORS.DATABASE_READ_FAILED, {
+    // @FIX: ERRORS.DATABASE_READ_FAILED does not exist (ERRORS is Record<string,…> so it was
+    //   undefined at runtime). Corrected to ERRORS.FIRESTORE_READ_FAILED (PX-4001).
+    const traced = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
       correlationId,
       context: { route: '/api/email-queue', action: 'GET' },
       cause: error instanceof Error ? error : undefined,
