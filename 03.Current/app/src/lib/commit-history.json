@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-03-25",
+  "lastUpdated": "2026-06-11",
   "commits": [
+    {
+      "id": "b131466",
+      "date": "2026-06-11",
+      "version": "3.1.11",
+      "author": "aaron garcia",
+      "message": "fix: attach Firebase ID token on OAuth profile completion — team-name submit no longer returns 401 Unauthorized (v3.1.11)",
+      "major": false
+    },
     {
       "id": "250df90",
       "date": "2026-03-25",

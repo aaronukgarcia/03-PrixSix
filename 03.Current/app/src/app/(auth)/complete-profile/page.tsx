@@ -146,8 +146,13 @@ export default function CompleteProfilePage() {
     }
   }
 
-  // GUID: PAGE_COMPLETE_PROFILE-006-v04
-  // [Intent] Submit team name to complete-oauth-profile API.
+  // GUID: PAGE_COMPLETE_PROFILE-006-v05
+  // @AUTH_FIX (BUG-OAUTH-PROFILE-401): The complete-oauth-profile endpoint calls verifyAuthToken()
+  //   and returns 401 "Unauthorized" when no Bearer token is present. This page previously sent only
+  //   a Content-Type header, so EVERY team-name submission (typed or suggested) failed with
+  //   "Unauthorized" for new Google/Apple OAuth users. Now attaches the Firebase ID token in the
+  //   Authorization header, matching every other authenticated caller in the app.
+  // [Intent] Submit team name to complete-oauth-profile API with the Firebase ID token.
   // [Inbound Trigger] User clicks "Join Prix Six" and form validation passes.
   // [Downstream Impact] Creates Firestore user doc. On success, toast + redirect happens
   //                     automatically via onAuthStateChanged detecting the new doc.
@@ -158,10 +163,14 @@ export default function CompleteProfilePage() {
 
     try {
       const providers = getProviderIds(firebaseUser);
+      const idToken = await firebaseUser.getIdToken();
 
       const response = await fetch('/api/auth/complete-oauth-profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           uid: firebaseUser.uid,
           teamName: values.teamName,
