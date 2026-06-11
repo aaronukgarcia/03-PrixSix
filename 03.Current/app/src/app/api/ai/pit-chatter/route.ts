@@ -130,7 +130,7 @@ ${persona.style}
 Write 120–160 words of pit-side chatter reacting to this exact leaderboard. Reference specific drivers, times, and tyres. No generic F1 waffle. Begin immediately — no intro, no sign-off.`;
 }
 
-// GUID: API_AI_PIT_CHATTER-006-v01
+// GUID: API_AI_PIT_CHATTER-006-v02
 // [Intent] POST handler — auth, rate limit, prompt build, AI call, response.
 // [Inbound Trigger] POST /api/ai/pit-chatter from LiveTimingClient.
 // [Downstream Impact] Calls Vertex AI (cost per request). Returns chatter text + persona.
@@ -181,7 +181,9 @@ export async function POST(request: NextRequest) {
     try {
       const result = await ai.generate({
         prompt,
-        config: { maxOutputTokens: 300, temperature: 0.85 },
+        // @FIX (PX-3101): disable thinking — gemini-2.5-flash would otherwise spend the entire
+        //   300-token budget on hidden reasoning and return empty chatter. Banter needs no reasoning.
+        config: { maxOutputTokens: 300, temperature: 0.85, thinkingConfig: { thinkingBudget: 0 } },
       });
       chatter = result.text.trim();
     } catch (aiError: any) {

@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-11",
+      "version": "3.1.13",
+      "author": "aaron garcia",
+      "message": "fix: PX-3101 — switch retired gemini-2.0-flash to gemini-2.5-flash + disable thinking budget (v3.1.13)",
+      "major": false
+    },
+    {
+      "id": "a5c8552",
+      "date": "2026-06-11",
       "version": "3.1.12",
       "author": "aaron garcia",
       "message": "fix: rate-limit + cache /api/team-name-suggestions to close SEC-DOS-001 (v3.1.12)",

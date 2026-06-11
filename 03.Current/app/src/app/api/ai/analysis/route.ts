@@ -332,7 +332,7 @@ export async function POST(request: NextRequest) {
       totalWeight || calculatedTotal
     );
 
-    // GUID: API_AI_ANALYSIS-009-v04
+    // GUID: API_AI_ANALYSIS-009-v05
     // [Intent] Call Genkit AI (Gemini) with the weighted prompt and configured generation parameters. Dedicated try/catch provides specific AI error handling with detailed logging.
     // [Inbound Trigger] Prompt built successfully from validated inputs.
     // [Downstream Impact] Returns AI-generated analysis text on success. On failure, logs detailed AI error info (name, code, status, truncated stack) to error_logs and returns a fallback message. Token limit of 1500 controls cost and response length.
@@ -341,8 +341,13 @@ export async function POST(request: NextRequest) {
       const result = await ai.generate({
         prompt,
         config: {
-          maxOutputTokens: 1500, // ~1000 words: 9 facets x 50 + 2 pundits x 250 + verdict
+          maxOutputTokens: 2048, // ~1000-1200 words: 9 facets x 50 + 2 pundits x 250 + verdict
           temperature: 0.7,
+          // @FIX (PX-3101): gemini-2.5-flash is a thinking model — with thinking enabled it spent
+          //   ~1410 of 1500 output tokens on hidden reasoning, truncating the visible analysis to a
+          //   couple of sentences (finishReason MAX_TOKENS). This is punditry, not a reasoning task,
+          //   so disable thinking to give the whole budget to the answer. Verified 2026-06-11.
+          thinkingConfig: { thinkingBudget: 0 },
         },
       });
       analysisText = result.text;

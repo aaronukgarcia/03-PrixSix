@@ -32857,9 +32857,9 @@
   },
   {
    "guid": "API_AI_ANALYSIS-009",
-   "version": 3,
+   "version": 5,
    "logic_category": "RECOVERY",
-   "description": "Call Genkit AI (Gemini) with the weighted prompt and configured generation parameters. Dedicated try/catch provides specific AI error handling with detailed logging.",
+   "description": "Call Genkit AI (Gemini) with the weighted prompt and configured generation parameters. Dedicated try/catch provides specific AI error handling with detailed logging. @PX-3101: thinkingBudget:0 + maxOutputTokens 2048 so thinking model does not starve the answer",
    "dependencies": [
     "AI_GENKIT-000",
     "LIB_FIREBASE_ADMIN-000",
@@ -32912,7 +32912,7 @@
     "calls": []
    },
    "created": "2026-01-22T09:29:43Z",
-   "lastUpdated": "2026-02-12T22:59:58Z"
+   "lastUpdated": "2026-06-11T15:05:00Z"
   },
   {
    "guid": "API_AI_ANALYSIS-010",
@@ -101189,9 +101189,9 @@
   },
   {
    "guid": "AI_GENKIT-000",
-   "version": 3,
+   "version": 4,
    "logic_category": "INITIALIZATION",
-   "description": "Genkit AI SDK initialization for Vertex AI (Google Cloud). Configured for project studio-6033436327-281b1, location europe-west4, model vertexai/gemini-2.0-flash. Exported as ai singleton. Used by AI analysis features.",
+   "description": "Genkit AI SDK initialization for Vertex AI (Google Cloud). Configured for project studio-6033436327-281b1, location europe-west4, model vertexai/gemini-2.0-flash. Exported as ai singleton. Used by AI analysis features. @PX-3101: model switched gemini-2.0-flash(404/retired)->gemini-2.5-flash in europe-west4",
    "dependencies": [],
    "location": {
     "filePath": "app/src/ai/genkit.ts"
@@ -101205,7 +101205,7 @@
     "calls": []
    },
    "created": "2026-01-18T19:25:01Z",
-   "lastUpdated": "2026-01-22T10:06:25Z"
+   "lastUpdated": "2026-06-11T15:05:00Z"
   },
   {
    "guid": "ERROR_REGISTRY-000",
@@ -109353,9 +109353,9 @@
   },
   {
    "guid": "API_AI_PIT_CHATTER-006",
-   "version": 1,
+   "version": 2,
    "logic_category": "ORCHESTRATION",
-   "description": "POST handler — auth, rate limit, prompt build, Vertex AI (Gemini) call via Genkit, response.",
+   "description": "POST handler — auth, rate limit, prompt build, Vertex AI (Gemini) call via Genkit, response. @PX-3101: thinkingBudget:0 so 300-token banter is not eaten by hidden reasoning",
    "dependencies": [],
    "location": {
     "filePath": "app/src/app/api/ai/pit-chatter/route.ts",
@@ -109366,7 +109366,7 @@
     "calls": []
    },
    "created": "2026-03-10T00:00:00Z",
-   "lastUpdated": "2026-03-10T00:00:00Z"
+   "lastUpdated": "2026-06-11T15:05:00Z"
   },
   {
    "guid": "API_LIVE_REFRESH_TIMING-000",
@@ -116239,5 +116239,5 @@
    }
   }
  },
- "last_updated": "2026-06-11T14:40:00Z"
+ "last_updated": "2026-06-11T15:05:00Z"
 }
