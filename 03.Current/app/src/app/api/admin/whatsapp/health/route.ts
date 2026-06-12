@@ -10,7 +10,7 @@ import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin } from '@/lib/
 
 export const dynamic = 'force-dynamic';
 
-// GUID: API_ADMIN_WHATSAPP_HEALTH-001-v02
+// GUID: API_ADMIN_WHATSAPP_HEALTH-001-v03
 // @SECURITY_FIX: Added isAdmin Firestore check after token verification (GEMINI-AUDIT-124).
 //   Previously any authenticated user could probe the internal WhatsApp worker URL.
 // [Intent] GET handler that checks WhatsApp worker connectivity by fetching the /health endpoint.
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         try {
             const healthUrl = new URL('/health', workerUrl).toString();
             const res = await fetch(healthUrl, {
-                signal: AbortSignal.timeout(5000), // 5s timeout
+                signal: AbortSignal.timeout(10000), // 10s — worker is a scale-to-zero Azure Container App; 5s was too tight for cold starts (~3-5s), causing false "timeout" health failures
             });
 
             const endTime = performance.now();

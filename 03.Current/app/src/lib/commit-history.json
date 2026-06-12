@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.18",
+      "author": "aaron garcia",
+      "message": "fix: raise WhatsApp health-check timeout 5s->10s for scale-to-zero worker cold starts (v3.1.18)",
+      "major": false
+    },
+    {
+      "id": "2de134e",
+      "date": "2026-06-12",
       "version": "3.1.17",
       "author": "aaron garcia",
       "message": "fix+chore: wire up WhatsApp worker URL (SSOT) + safe npm audit fix (app+functions) (v3.1.17)",
