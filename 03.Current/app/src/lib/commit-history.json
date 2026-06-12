@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.21",
+      "author": "aaron garcia",
+      "message": "fix: PX-3101 regression — align @genkit-ai/google-genai to 1.37.0 (v3.1.17 audit-fix skewed it vs core) (v3.1.21)",
+      "major": false
+    },
+    {
+      "id": "30a4ef1",
+      "date": "2026-06-12",
       "version": "3.1.20",
       "author": "aaron garcia",
       "message": "fix: re-sync WHATSAPP_APP_SECRET (worker 401) via redeploy + correct the WhatsApp panel restart command (v3.1.20)",
