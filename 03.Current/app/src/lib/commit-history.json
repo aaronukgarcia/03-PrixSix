@@ -3,6 +3,14 @@
   "commits": [
     {
       "id": "PENDING",
+      "date": "2026-06-12",
+      "version": "3.1.15",
+      "author": "aaron garcia",
+      "message": "refactor: type ERRORS/CLIENT_ERRORS via satisfies so bad keys fail at compile; remove orphaned app/api duplicates (v3.1.15)",
+      "major": false
+    },
+    {
+      "id": "111a644",
       "date": "2026-06-11",
       "version": "3.1.14",
       "author": "aaron garcia",

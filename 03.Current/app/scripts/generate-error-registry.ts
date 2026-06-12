@@ -139,7 +139,9 @@ function main() {
     ' * Typed error definitions sourced from code.json errorProfile.emits.',
     ' * Every catch block should use ERRORS.KEY_NAME to create traced errors.',
     ' */',
-    'export const ERRORS: Record<string, ErrorDefinition> = {',
+    '// Typed via `satisfies` so the exact key set is preserved — accessing a non-existent key is a',
+    '// COMPILE error instead of resolving to undefined at runtime.',
+    'export const ERRORS = {',
   ];
 
   for (const err of errors) {
@@ -159,7 +161,7 @@ function main() {
     registryLines.push('  },');
   }
 
-  registryLines.push('} as const;');
+  registryLines.push('} satisfies Record<string, ErrorDefinition>;');
   registryLines.push('');
 
   fs.writeFileSync(REGISTRY_OUTPUT, registryLines.join('\n'));

@@ -36,6 +36,23 @@ export interface ErrorDefinition {
   calls: string[];
 }
 
+// GUID: TYPES_ERRORS-001b-v01
+// [Intent] Lighter error-definition shape for subsystems (e.g. Pit Wall) that only need the
+//          user-facing fields (code/message) and don't carry the full Q1–Q4 diagnostic metadata.
+//          Registry entries of this shape are consumed only for `.code`/`.message`, never passed
+//          to createTracedError() (which requires the full ErrorDefinition).
+// [Downstream Impact] Part of the ERRORS `satisfies` union so these entries type-check while the
+//                     overall registry keeps exact-key safety.
+export interface LightErrorDefinition {
+  key: string;
+  code: string;
+  message: string;
+  severity: ErrorSeverity;
+  description?: string;
+  suggestedAction?: string;
+  modulePath?: string;
+}
+
 // GUID: TYPES_ERRORS-002-v03
 // [Intent] Extends the standard Error with traced-error metadata. Created at runtime by createTracedError()
 //          and passed to logTracedError() for persistence. The correlationId links user reports to server logs.

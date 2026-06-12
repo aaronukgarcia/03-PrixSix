@@ -10,13 +10,17 @@
 //   from '@/lib/error-registry-client' instead — it exposes only the safe subset
 //   (key, code, message, severity) and is intentionally stripped of all internal identifiers.
 
-import type { ErrorDefinition } from '@/types/errors';
+import type { ErrorDefinition, LightErrorDefinition } from '@/types/errors';
 
 /**
  * Typed error definitions sourced from code.json errorProfile.emits.
  * Every catch block should use ERRORS.KEY_NAME to create traced errors.
  */
-export const ERRORS: Record<string, ErrorDefinition> = {
+// NOTE: typed via `satisfies` (not `: Record<string, ErrorDefinition>`) so the inferred type keeps
+// the exact key set — accessing a non-existent key (e.g. ERRORS.DATABASE_READ_FAILED) is now a
+// COMPILE error instead of silently resolving to undefined at runtime. Mirror this in the generator
+// (scripts/generate-error-registry.ts) and in error-registry-client.ts.
+export const ERRORS = {
   AUTH_INVALID_TOKEN: {
     key: 'AUTH_INVALID_TOKEN',
     code: 'PX-1001',
@@ -1223,4 +1227,4 @@ export const ERRORS: Record<string, ErrorDefinition> = {
     calledBy: [],
     calls: ['BACKUP_DASHBOARD-013', 'BACKUP_FUNCTIONS-015', 'BACKUP_FUNCTIONS-026'],
   },
-} as const;
+} satisfies Record<string, ErrorDefinition | LightErrorDefinition>;

@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 1854,
+ "total_guids": 1855,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -115527,6 +115527,24 @@
    },
    "created": "2026-06-11T14:40:00Z",
    "lastUpdated": "2026-06-11T14:40:00Z"
+  },
+  {
+   "guid": "TYPES_ERRORS-001b",
+   "version": 1,
+   "logic_category": "TYPES",
+   "description": "LightErrorDefinition interface — lighter error shape (code/message only) for Pit Wall registry entries; part of the ERRORS satisfies union.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/types/errors.ts"
+   },
+   "callChain": {
+    "calledBy": [
+     "ERROR_REGISTRY-000"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z"
   }
  ],
  "firestoreCollections": {
@@ -116239,5 +116257,5 @@
    }
   }
  },
- "last_updated": "2026-06-11T15:30:00Z"
+ "last_updated": "2026-06-12T00:00:00Z"
 }

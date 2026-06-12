@@ -28,7 +28,9 @@ export interface ClientErrorDefinition {
  * Client-safe error definitions. Only includes user-facing fields.
  * Server-side code should use the full ERRORS from '@/lib/error-registry'.
  */
-export const CLIENT_ERRORS: Record<string, ClientErrorDefinition> = {
+// Typed via `satisfies` so the exact key set is preserved — a non-existent CLIENT_ERRORS key is a
+// COMPILE error rather than runtime undefined. Mirror of the ERRORS change in error-registry.ts.
+export const CLIENT_ERRORS = {
   AUTH_INVALID_TOKEN:             { key: 'AUTH_INVALID_TOKEN',             code: 'PX-1001', message: 'Invalid or missing authentication token',                                  severity: 'error'    },
   AUTH_ADMIN_REQUIRED:            { key: 'AUTH_ADMIN_REQUIRED',            code: 'PX-1002', message: 'Admin access required',                                                    severity: 'error'    },
   AUTH_USER_NOT_FOUND:            { key: 'AUTH_USER_NOT_FOUND',            code: 'PX-1003', message: 'User not found',                                                           severity: 'error'    },
@@ -119,4 +121,4 @@ export const CLIENT_ERRORS: Record<string, ClientErrorDefinition> = {
   AUDIT_LOG_FAILED:               { key: 'AUDIT_LOG_FAILED',               code: 'PX-8101', message: 'Failed to write audit log entry',                                          severity: 'warning'  },
   UNKNOWN_ERROR:                  { key: 'UNKNOWN_ERROR',                  code: 'PX-9001', message: 'An unexpected error occurred',                                              severity: 'error'    },
   NETWORK_ERROR:                  { key: 'NETWORK_ERROR',                  code: 'PX-9002', message: 'Network error - please check your connection',                              severity: 'error'    },
-} as const;
+} satisfies Record<string, ClientErrorDefinition>;
