@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 2116,
+ "total_guids": 2117,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -119979,6 +119979,22 @@
    },
    "created": "2026-06-12T05:00:00Z",
    "lastUpdated": "2026-06-12T05:00:00Z"
+  },
+  {
+   "guid": "API_SEND_HOT_NEWS_EMAIL-002B",
+   "version": 1,
+   "logic_category": "MUTATION",
+   "description": "maybeQueueHotNewsWhatsApp: when alsoWhatsApp, enqueue hot-news to the configured WhatsApp targetGroup via Admin SDK (whatsapp_queue is server-write-only).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/send-hot-news-email/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T06:00:00Z",
+   "lastUpdated": "2026-06-12T06:00:00Z"
   }
  ],
  "firestoreCollections": {
@@ -120691,5 +120707,5 @@
    }
   }
  },
- "last_updated": "2026-06-12T05:00:00Z"
+ "last_updated": "2026-06-12T06:00:00Z"
 }

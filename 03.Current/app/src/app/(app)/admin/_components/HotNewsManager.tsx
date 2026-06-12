@@ -35,7 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertCircle, RefreshCw, Mail, Copy, Check, RotateCcw, Clock } from "lucide-react";
+import { AlertCircle, RefreshCw, Mail, Copy, Check, RotateCcw, Clock, MessageCircle } from "lucide-react";
 import { hotNewsFeedFlow } from "@/ai/flows/hot-news-feed";
 import { logAuditEvent } from "@/lib/audit";
 import { ERROR_CODES, generateClientCorrelationId } from "@/lib/error-codes";
@@ -71,6 +71,9 @@ export function HotNewsManager() {
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sendEmails, setSendEmails] = useState(false);
+  // @FEAT (v3.1.23): "also send to WhatsApp" — when ticked, the send-hot-news-email route also
+  // enqueues the hot news to the configured WhatsApp group.
+  const [alsoSendWhatsApp, setAlsoSendWhatsApp] = useState(false);
   const [isSendingEmails, setIsSendingEmails] = useState(false);
 
   // Email send safety state — tracks last send time for cooldown and shows confirmation dialog
@@ -196,6 +199,7 @@ export function HotNewsManager() {
               updatedBy: firebaseUser.uid,
               updatedByEmail: user?.email,
               adminUid: firebaseUser.uid,
+              alsoWhatsApp: alsoSendWhatsApp,
             }),
           });
 
@@ -548,6 +552,25 @@ export function HotNewsManager() {
               Send email to all subscribed users
               {emailCooldownActive && (
                 <span className="text-xs text-amber-600 font-normal">(cooldown active)</span>
+              )}
+            </label>
+          </div>
+          {/* @FEAT (v3.1.23): also push the hot news to the configured WhatsApp group */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="also-whatsapp"
+              checked={alsoSendWhatsApp && sendEmails}
+              onCheckedChange={(checked) => setAlsoSendWhatsApp(checked === true)}
+              disabled={!sendEmails || isSaving || isRefreshing || isSendingEmails}
+            />
+            <label
+              htmlFor="also-whatsapp"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Also send to WhatsApp group
+              {!sendEmails && (
+                <span className="text-xs text-muted-foreground font-normal">(tick &quot;Send email&quot; first)</span>
               )}
             </label>
           </div>

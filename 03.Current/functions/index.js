@@ -2359,3 +2359,79 @@ exports.ingestReplaySession = onCall(
     }
   }
 );
+
+// GUID: BACKUP_FUNCTIONS-040-v01
+/**
+ * publishHotNewsToWhatsApp
+ *
+ * [Intent] Daily at 07:00 Europe/London, fork the current hot news out to the configured WhatsApp
+ *          group by enqueuing a whatsapp_queue message (the worker delivers it). The website's hot
+ *          news content is kept fresh by its own refresh; this job only PUBLISHES the current content
+ *          to WhatsApp once per day.
+ * [Inbound Trigger] Cloud Scheduler cron: "0 7 * * *" (07:00 Europe/London, every day).
+ * [Downstream Impact] Reads app-settings/hot-news (content) and admin_configuration/whatsapp_alerts
+ *          (masterEnabled, targetGroup). When masterEnabled and content/targetGroup are present, adds
+ *          a PENDING whatsapp_queue doc. Writes admin_configuration/hotNewsWhatsAppStatus for
+ *          freshness monitoring (Golden Rule #17). Skips silently (with a status) when disabled.
+ */
+exports.publishHotNewsToWhatsApp = onSchedule(
+  {
+    schedule: "0 7 * * *",
+    timeZone: "Europe/London",
+    region: REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    retryCount: 0,
+  },
+  async () => {
+    const db = getFirestore();
+    const correlationId = generateCorrelationId("hnw");
+    const statusRef = db.collection("admin_configuration").doc("hotNewsWhatsAppStatus");
+
+    const writeStatus = async (state, detail) => {
+      await statusRef.set(
+        { lastRunAt: Timestamp.now(), state, detail: detail || null, correlationId },
+        { merge: true }
+      );
+    };
+
+    try {
+      const [hotNewsSnap, waSnap] = await Promise.all([
+        db.collection("app-settings").doc("hot-news").get(),
+        db.collection("admin_configuration").doc("whatsapp_alerts").get(),
+      ]);
+
+      const content = hotNewsSnap.exists ? (hotNewsSnap.data().content || "").trim() : "";
+      const wa = waSnap.exists ? waSnap.data() : {};
+      const targetGroup = wa.targetGroup;
+
+      if (!wa.masterEnabled) { await writeStatus("skipped", "WhatsApp master switch off"); return; }
+      if (!content) { await writeStatus("skipped", "No hot news content"); return; }
+      if (!targetGroup) { await writeStatus("skipped", "No target group configured"); return; }
+
+      await db.collection("whatsapp_queue").add({
+        groupName: targetGroup,
+        message: `🏎️ *Prix Six Hot News*\n\n${content}`,
+        status: "PENDING",
+        createdAt: Timestamp.now(),
+        retryCount: 0,
+        source: "hot-news-daily-7am",
+        testMode: wa.testMode === true,
+      });
+
+      await db.collection("audit_logs").add({
+        userId: "system",
+        action: "HOT_NEWS_WHATSAPP_DAILY",
+        details: { targetGroup, contentLength: content.length, testMode: wa.testMode === true },
+        correlationId,
+        timestamp: Timestamp.now(),
+      });
+
+      await writeStatus("sent", `Queued to ${targetGroup}`);
+      console.log(JSON.stringify({ severity: "INFO", message: "HOT_NEWS_WHATSAPP_SENT", correlationId, targetGroup }));
+    } catch (err) {
+      await writeStatus("error", err.message || String(err)).catch(() => {});
+      console.error(JSON.stringify({ severity: "ERROR", message: "HOT_NEWS_WHATSAPP_FAILED", correlationId, error: err.message || String(err) }));
+    }
+  }
+);

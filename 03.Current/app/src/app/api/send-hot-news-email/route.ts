@@ -78,6 +78,39 @@ interface HotNewsEmailRequest {
   updatedBy: string;
   updatedByEmail: string;
   adminUid: string;
+  alsoWhatsApp?: boolean; // when true, also enqueue the hot news to the configured WhatsApp group
+}
+
+// GUID: API_SEND_HOT_NEWS_EMAIL-002B-v01
+// [Intent] When the admin ticks "also send to WhatsApp", enqueue the hot-news content to the
+//          configured WhatsApp target group (admin_configuration/whatsapp_alerts.targetGroup). The
+//          whatsapp_queue collection is server-write-only, so this must run with the Admin SDK.
+// [Inbound Trigger] Called by the POST handler when alsoWhatsApp is true, after auth + throttle pass.
+// [Downstream Impact] Adds a PENDING whatsapp_queue doc picked up by the worker. Returns a small
+//                     status object surfaced in the API response; never throws (best-effort).
+async function maybeQueueHotNewsWhatsApp(
+  db: FirebaseFirestore.Firestore,
+  FieldValue: typeof import('firebase-admin').firestore.FieldValue,
+  content: string,
+  alsoWhatsApp: boolean | undefined
+): Promise<{ queued: boolean; group?: string; reason?: string } | null> {
+  if (!alsoWhatsApp) return null;
+  try {
+    const waSettings = (await db.collection('admin_configuration').doc('whatsapp_alerts').get()).data();
+    const targetGroup: string | undefined = waSettings?.targetGroup;
+    if (!targetGroup) return { queued: false, reason: 'No WhatsApp target group configured' };
+    await db.collection('whatsapp_queue').add({
+      groupName: targetGroup,
+      message: `🏎️ *Prix Six Hot News*\n\n${content}`,
+      status: 'PENDING',
+      createdAt: FieldValue.serverTimestamp(),
+      retryCount: 0,
+      source: 'hot-news-email',
+    });
+    return { queued: true, group: targetGroup };
+  } catch (e: any) {
+    return { queued: false, reason: e?.message || 'enqueue failed' };
+  }
 }
 
 // GUID: API_SEND_HOT_NEWS_EMAIL-003-v03
@@ -130,7 +163,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data: HotNewsEmailRequest = await request.json();
-    const { content, updatedBy, updatedByEmail, adminUid } = data;
+    const { content, updatedBy, updatedByEmail, adminUid, alsoWhatsApp } = data;
 
     if (verifiedUser.uid !== adminUid) {
       await logError({ correlationId, error: `Token UID mismatch on send-hot-news-email: token=${verifiedUser.uid}, body=${adminUid}`, context: { route: '/api/send-hot-news-email' } });
@@ -231,6 +264,9 @@ export async function POST(request: NextRequest) {
       timestamp: FieldValue.serverTimestamp(),
     });
 
+    // Also enqueue to WhatsApp if requested (best-effort; fires regardless of email subscriber count)
+    const whatsAppResult = await maybeQueueHotNewsWhatsApp(db, FieldValue, content, alsoWhatsApp);
+
     // Get or create today's email stats using Admin SDK
     const today = getTodayDateString();
     const statsRef = db.collection('email_daily_stats').doc(today);
@@ -264,9 +300,10 @@ export async function POST(request: NextRequest) {
     if (usersToNotify.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'No users subscribed to hot news emails',
+        message: `No users subscribed to hot news emails${whatsAppResult?.queued ? ' — sent to WhatsApp' : ''}`,
         correlationId,
         results: [],
+        whatsApp: whatsAppResult,
         auditLogged: true,
       });
     }
@@ -380,9 +417,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Sent ${successCount} of ${usersToNotify.length} hot news emails`,
+      message: `Sent ${successCount} of ${usersToNotify.length} hot news emails${whatsAppResult?.queued ? ' + WhatsApp' : ''}`,
       correlationId,
       results,
+      whatsApp: whatsAppResult,
       auditLogged: true,
     });
   } catch (error: any) {

@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.23",
+      "author": "aaron garcia",
+      "message": "feat: hot-news 'also send to WhatsApp' checkbox + daily 7am hot-news->WhatsApp Cloud Function (v3.1.23)",
+      "major": false
+    },
+    {
+      "id": "8f37530",
+      "date": "2026-06-12",
       "version": "3.1.22",
       "author": "aaron garcia",
       "message": "feat: WhatsApp queue clear controls (per-message + clear-all/failed) + prompt rate-limit-safe QR auto-fetch (v3.1.22)",
