@@ -751,7 +751,7 @@ export function WhatsAppManager() {
     }
   };
 
-  // GUID: ADMIN_WHATSAPP-025-v03
+  // GUID: ADMIN_WHATSAPP-025-v04
   // [Intent] Derived boolean that compares local editing state against last-saved settings to detect unsaved changes.
   // [Inbound Trigger] Evaluated on every render. Compared fields: masterEnabled, testMode, targetGroup, alertToggles.
   // [Downstream Impact] Controls visibility of "Unsaved Changes" badge and enabled state of "Save Settings" button.
@@ -804,12 +804,12 @@ export function WhatsAppManager() {
               <p className="text-sm text-muted-foreground">{statusError}</p>
 
               <div className="rounded-md bg-zinc-900 p-3 space-y-2">
-                <p className="text-xs text-zinc-400 font-medium">To restart the WhatsApp worker:</p>
+                <p className="text-xs text-zinc-400 font-medium">To restart the WhatsApp worker (Azure Container App):</p>
                 <code className="block text-xs text-green-400 font-mono bg-black/50 p-2 rounded overflow-x-auto">
-                  az container restart --resource-group garcia --name prixsix-whatsapp-worker
+                  az containerapp revision restart --name prixsix-whatsapp --resource-group garcia --revision $(az containerapp revision list -n prixsix-whatsapp -g garcia --query "[?properties.active].name | [0]" -o tsv)
                 </code>
                 <p className="text-xs text-zinc-500">
-                  Run this in Azure CLI, or ask Bob/Bill to restart it for you.
+                  Run this in Azure CLI, or ask Bob/Bill to restart it for you. (Note: a 401 is usually a secret mismatch, not a worker fault — a restart won&apos;t fix that.)
                 </p>
               </div>
 

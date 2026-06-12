@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.20",
+      "author": "aaron garcia",
+      "message": "fix: re-sync WHATSAPP_APP_SECRET (worker 401) via redeploy + correct the WhatsApp panel restart command (v3.1.20)",
+      "major": false
+    },
+    {
+      "id": "2018b3a",
+      "date": "2026-06-12",
       "version": "3.1.19",
       "author": "aaron garcia",
       "message": "feat: WhatsApp health reports amber 'sleeping' state for scale-to-zero cold starts instead of red failure (v3.1.19)",

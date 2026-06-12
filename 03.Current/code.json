@@ -26391,7 +26391,7 @@
   },
   {
    "guid": "ADMIN_WHATSAPP-025",
-   "version": 3,
+   "version": 4,
    "logic_category": "TRANSFORMATION",
    "description": "Derived boolean that compares local editing state against last-saved settings to detect unsaved changes.",
    "dependencies": [
@@ -26491,7 +26491,7 @@
     ]
    },
    "created": "2026-01-20T23:50:13Z",
-   "lastUpdated": "2026-02-10T16:34:05Z"
+   "lastUpdated": "2026-06-12T04:00:00Z"
   },
   {
    "guid": "API_ADD_SECONDARY_TEAM-000",
@@ -120643,5 +120643,5 @@
    }
   }
  },
- "last_updated": "2026-06-12T03:00:00Z"
+ "last_updated": "2026-06-12T04:00:00Z"
 }
