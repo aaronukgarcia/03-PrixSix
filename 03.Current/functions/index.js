@@ -2379,13 +2379,30 @@ exports.publishHotNewsToWhatsApp = onSchedule(
     schedule: "0 7 * * *",
     timeZone: "Europe/London",
     region: REGION,
-    timeoutSeconds: 60,
+    timeoutSeconds: 120,
     memory: "256MiB",
     retryCount: 0,
+    secrets: ["WHATSAPP_APP_SECRET"],
   },
   async () => {
     const db = getFirestore();
     const correlationId = generateCorrelationId("hnw");
+    const WORKER_URL = "https://prixsix-whatsapp.delightfulmushroom-6fa10cd0.uksouth.azurecontainerapps.io";
+
+    // Wake the scale-to-zero WhatsApp worker via its HMAC-protected /process-queue. The job runs at
+    // 07:00 when the worker is certainly asleep, so without this the message would sit PENDING.
+    const wakeWorker = async () => {
+      try {
+        const secret = process.env.WHATSAPP_APP_SECRET;
+        if (!secret) return;
+        const sig = `sha256=${crypto.createHmac("sha256", secret).update("process-queue").digest("hex")}`;
+        await fetch(`${WORKER_URL}/process-queue`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Hub-Signature-256": sig },
+          signal: AbortSignal.timeout(15000),
+        });
+      } catch (e) { /* best-effort */ }
+    };
     const statusRef = db.collection("admin_configuration").doc("hotNewsWhatsAppStatus");
 
     const writeStatus = async (state, detail) => {
@@ -2418,6 +2435,8 @@ exports.publishHotNewsToWhatsApp = onSchedule(
         source: "hot-news-daily-7am",
         testMode: wa.testMode === true,
       });
+
+      await wakeWorker();
 
       await db.collection("audit_logs").add({
         userId: "system",

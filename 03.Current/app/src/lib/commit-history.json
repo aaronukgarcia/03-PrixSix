@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.25",
+      "author": "aaron garcia",
+      "message": "fix: wake scale-to-zero WhatsApp worker on enqueue (stranded-PENDING bug) — submit-prediction, hot-news, 7am fn (v3.1.25)",
+      "major": false
+    },
+    {
+      "id": "ee48da4",
+      "date": "2026-06-12",
       "version": "3.1.24",
       "author": "aaron garcia",
       "message": "docs: capture WhatsApp + genkit-skew lessons in code.json (lessons block + GUID notes) (v3.1.24)",

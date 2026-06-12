@@ -23,6 +23,7 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { generateRaceId, generateRaceIdLowercase } from '@/lib/normalize-race-id';
+import { wakeWhatsAppWorker } from '@/lib/whatsapp-wake';
 import { getRaceByName } from '@/lib/race-schedule-server';
 
 // Force dynamic to skip static analysis at build time
@@ -369,6 +370,9 @@ export async function POST(request: NextRequest) {
           createdAt: FieldValue.serverTimestamp(),
           retryCount: 0,
         });
+        // Wake the scale-to-zero worker so the message delivers immediately instead of sitting
+        // PENDING until the worker happens to wake (the Kwik Fitties stranding bug). Best-effort.
+        await wakeWhatsAppWorker();
       } catch (waErr: any) {
         console.error('[submit-prediction] WhatsApp notification error (non-fatal):', waErr.message);
       }

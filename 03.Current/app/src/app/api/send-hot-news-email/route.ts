@@ -12,6 +12,7 @@ import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } fr
 import { ERROR_CODES } from '@/lib/error-codes';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { wakeWhatsAppWorker } from '@/lib/whatsapp-wake';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -107,6 +108,7 @@ async function maybeQueueHotNewsWhatsApp(
       retryCount: 0,
       source: 'hot-news-email',
     });
+    await wakeWhatsAppWorker(); // wake scale-to-zero worker so it delivers promptly
     return { queued: true, group: targetGroup };
   } catch (e: any) {
     return { queued: false, reason: e?.message || 'enqueue failed' };

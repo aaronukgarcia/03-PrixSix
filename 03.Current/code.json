@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 2117,
+ "total_guids": 2118,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -53495,7 +53495,7 @@
   },
   {
    "guid": "BACKUP_FUNCTIONS-040",
-   "version": 3,
+   "version": 2,
    "logic_category": "ORCHESTRATION",
    "description": "BACKUP_FUNCTIONS code block BACKUP_FUNCTIONS-040",
    "dependencies": [],
@@ -53511,7 +53511,7 @@
     "calls": []
    },
    "created": "2026-01-29T15:39:26Z",
-   "lastUpdated": "2026-02-17T18:09:29Z"
+   "lastUpdated": "2026-06-12T07:00:00Z"
   },
   {
    "guid": "BACKUP_FUNCTIONS-050",
@@ -119995,6 +119995,25 @@
    },
    "created": "2026-06-12T06:00:00Z",
    "lastUpdated": "2026-06-12T06:00:00Z"
+  },
+  {
+   "guid": "LIB_WHATSAPP_WAKE-000",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "wakeWhatsAppWorker: POST HMAC-signed /process-queue to wake the scale-to-zero worker after enqueue so messages deliver promptly instead of stranding PENDING. Best-effort.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/whatsapp-wake.ts"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_SUBMIT_PREDICTION-009",
+     "API_SEND_HOT_NEWS_EMAIL-002B"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-12T07:00:00Z",
+   "lastUpdated": "2026-06-12T07:00:00Z"
   }
  ],
  "firestoreCollections": {
@@ -120707,7 +120726,7 @@
    }
   }
  },
- "last_updated": "2026-06-12T06:30:00Z",
+ "last_updated": "2026-06-12T07:00:00Z",
  "lessons": [
   {
    "id": "WA-HEALTH-PUBLIC",
