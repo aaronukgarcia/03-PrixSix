@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.17",
+      "author": "aaron garcia",
+      "message": "fix+chore: wire up WhatsApp worker URL (SSOT) + safe npm audit fix (app+functions) (v3.1.17)",
+      "major": false
+    },
+    {
+      "id": "609d5a1",
+      "date": "2026-06-12",
       "version": "3.1.16",
       "author": "aaron garcia",
       "message": "chore: register 258 undocumented GUIDs in code.json — registry now fully in sync with source (v3.1.16)",

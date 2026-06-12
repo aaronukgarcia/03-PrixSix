@@ -49615,9 +49615,9 @@
   },
   {
    "guid": "API_WHATSAPP_PROXY-001",
-   "version": 3,
+   "version": 5,
    "logic_category": "ORCHESTRATION",
-   "description": "Internal URL constant for the WhatsApp worker â€” HTTP-only, not exposed to browsers. Traffic flows: Browser -> this proxy (HTTPS) -> worker (HTTP).",
+   "description": "Worker URL now read from WHATSAPP_WORKER_URL env (apphosting.yaml) with hardcoded FQDN fallback — SSOT shared with whatsapp health probe.",
    "dependencies": [
     "LIB_FIREBASE_ADMIN-000",
     "LIB_FIREBASE_ADMIN-001",
@@ -49733,7 +49733,7 @@
     "calls": []
    },
    "created": "2026-01-26T12:21:50Z",
-   "lastUpdated": "2026-02-17T23:09:01Z"
+   "lastUpdated": "2026-06-12T01:00:00Z"
   },
   {
    "guid": "API_WHATSAPP_PROXY-002",
@@ -120643,5 +120643,5 @@
    }
   }
  },
- "last_updated": "2026-06-12T00:00:00Z"
+ "last_updated": "2026-06-12T01:00:00Z"
 }

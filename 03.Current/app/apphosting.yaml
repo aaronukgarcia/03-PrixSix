@@ -39,6 +39,11 @@ env:
   # WhatsApp Worker authentication secret (for HMAC proxy verification)
   - variable: WHATSAPP_APP_SECRET
     secret: WHATSAPP_APP_SECRET
+  # WhatsApp Worker URL (Azure Container App FQDN). Not a secret — access is gated by the
+  # HMAC signature (WHATSAPP_APP_SECRET); the URL is already present in the proxy source.
+  # Read by the whatsapp-proxy route and the /api/admin/whatsapp/health probe (SSOT).
+  - variable: WHATSAPP_WORKER_URL
+    value: https://prixsix-whatsapp.delightfulmushroom-6fa10cd0.uksouth.azurecontainerapps.io
   # Cron authentication secret — shared between Cloud Function (refreshHotNews) and app
   # Set via: firebase apphosting:secrets:set CRON_SECRET
   - variable: CRON_SECRET

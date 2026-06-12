@@ -10,11 +10,14 @@ import { verifyAuthToken, getFirebaseAdmin, generateCorrelationId } from '@/lib/
 // Force dynamic to skip static analysis
 export const dynamic = 'force-dynamic';
 
-// GUID: API_WHATSAPP_PROXY-001-v04
+// GUID: API_WHATSAPP_PROXY-001-v05
+// @SSOT_FIX (GR#3): Read the worker URL from WHATSAPP_WORKER_URL (now set in apphosting.yaml) so the
+//   proxy and /api/admin/whatsapp/health share one source of truth. The previously-hardcoded FQDN is
+//   kept only as a fallback for local/dev where the env var may be unset.
 // [Intent] Internal URL constant for the WhatsApp worker — HTTPS on Azure Container Apps. Traffic flows: Browser -> this proxy (HTTPS) -> worker (HTTPS).
 // [Inbound Trigger] Referenced by GET and POST handlers when constructing fetch URLs.
-// [Downstream Impact] Changing this URL requires the WhatsApp worker to be redeployed at the new address. Azure Container Apps FQDN.
-const WHATSAPP_WORKER_INTERNAL_URL = 'https://prixsix-whatsapp.delightfulmushroom-6fa10cd0.uksouth.azurecontainerapps.io';
+// [Downstream Impact] Set WHATSAPP_WORKER_URL in apphosting.yaml to point at the deployed worker; the health check reads the same var.
+const WHATSAPP_WORKER_INTERNAL_URL = process.env.WHATSAPP_WORKER_URL || 'https://prixsix-whatsapp.delightfulmushroom-6fa10cd0.uksouth.azurecontainerapps.io';
 
 // GUID: API_WHATSAPP_PROXY-002-v03
 // [Intent] Generate HMAC SHA-256 signature for outgoing worker requests so the worker can verify requests originate from this trusted proxy.
