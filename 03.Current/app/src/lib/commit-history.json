@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.27",
+      "author": "aaron garcia",
+      "message": "feat: schedule-driven WhatsApp alerts — deadline reminders (24h+2h), late-prediction, race reminder, weekly standings + EOS button (v3.1.27)",
+      "major": false
+    },
+    {
+      "id": "f2ae0b2",
+      "date": "2026-06-12",
       "version": "3.1.26",
       "author": "aaron garcia",
       "message": "feat: wire event-driven WhatsApp alerts (resultsPublished, newPlayerJoined) via shared sendWhatsAppAlert helper (v3.1.26)",

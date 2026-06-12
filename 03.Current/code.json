@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 2119,
+ "total_guids": 2123,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -120038,6 +120038,70 @@
    },
    "created": "2026-06-12T08:00:00Z",
    "lastUpdated": "2026-06-12T08:00:00Z"
+  },
+  {
+   "guid": "CRON_WHATSAPP_SCHEDULED-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Scheduled WhatsApp alerts cron route (CRON_SECRET): deadline reminders 24h+2h, late-prediction warning, race-start reminder, weekly standings; dedup in admin_configuration/whatsappScheduledState.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/cron/whatsapp-scheduled/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T09:00:00Z",
+   "lastUpdated": "2026-06-12T09:00:00Z"
+  },
+  {
+   "guid": "API_ADMIN_WHATSAPP_EOS-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Admin End-of-Season summary route: posts champion + final standings to the WhatsApp group via endOfSeasonSummary alert.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/whatsapp-eos/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T09:00:00Z",
+   "lastUpdated": "2026-06-12T09:00:00Z"
+  },
+  {
+   "guid": "BACKUP_FUNCTIONS-041",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "whatsAppScheduledTick: onSchedule every 30min -> calls /api/cron/whatsapp-scheduled with CRON_SECRET (scheduler trigger for time-driven WhatsApp alerts).",
+   "dependencies": [],
+   "location": {
+    "filePath": "functions/index.js"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T09:00:00Z",
+   "lastUpdated": "2026-06-12T09:00:00Z"
+  },
+  {
+   "guid": "ADMIN_WHATSAPP-021c",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "postEosSummary handler + button — POST /api/admin/whatsapp-eos to post the season summary.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T09:00:00Z",
+   "lastUpdated": "2026-06-12T09:00:00Z"
   }
  ],
  "firestoreCollections": {
@@ -120750,7 +120814,7 @@
    }
   }
  },
- "last_updated": "2026-06-12T08:00:00Z",
+ "last_updated": "2026-06-12T09:00:00Z",
  "lessons": [
   {
    "id": "WA-HEALTH-PUBLIC",

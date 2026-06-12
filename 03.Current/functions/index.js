@@ -2454,3 +2454,47 @@ exports.publishHotNewsToWhatsApp = onSchedule(
     }
   }
 );
+
+// GUID: BACKUP_FUNCTIONS-041-v01
+/**
+ * whatsAppScheduledTick
+ *
+ * [Intent] Every 30 minutes, trigger the App Hosting cron route /api/cron/whatsapp-scheduled which
+ *          handles all time-driven WhatsApp alerts (prediction-deadline reminders at 24h + 2h, the
+ *          late-prediction warning, the race-start reminder, and the weekly standings post). The
+ *          route owns the schedule/deadline/standings logic (TS libs) + per-event dedup; this function
+ *          is just the scheduler trigger, same pattern as refreshHotNews/syncSessionTimes.
+ * [Inbound Trigger] Cloud Scheduler cron: every 30 min.
+ * [Downstream Impact] Calls the route with the CRON_SECRET bearer token. The route enqueues
+ *          whatsapp_queue messages (gated by the per-type whatsapp_alerts toggles).
+ */
+exports.whatsAppScheduledTick = onSchedule(
+  {
+    schedule: "*/30 * * * *",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 120,
+    memory: "256MiB",
+    retryCount: 0,
+    secrets: ["CRON_SECRET"],
+  },
+  async () => {
+    const correlationId = generateCorrelationId("wast");
+    const secret = (process.env.CRON_SECRET || "").replace(/^﻿/, "");
+    const appUrl = process.env.APP_URL || "https://prix6.win";
+    if (!secret) {
+      console.error(JSON.stringify({ severity: "ERROR", message: "WA_SCHEDULED_MISSING_SECRET", correlationId }));
+      return;
+    }
+    try {
+      const resp = await fetch(`${appUrl}/api/cron/whatsapp-scheduled`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${secret}`, "Content-Type": "application/json" },
+      });
+      const body = await resp.json().catch(() => ({}));
+      console.log(JSON.stringify({ severity: resp.ok ? "INFO" : "ERROR", message: resp.ok ? "WA_SCHEDULED_OK" : "WA_SCHEDULED_HTTP_ERROR", correlationId, status: resp.status, actions: body.actions ?? null }));
+    } catch (err) {
+      console.error(JSON.stringify({ severity: "ERROR", message: "WA_SCHEDULED_FAILED", correlationId, error: err.message || String(err) }));
+    }
+  }
+);

@@ -748,6 +748,29 @@ export function WhatsAppManager() {
     }
   };
 
+  // GUID: ADMIN_WHATSAPP-021c-v01
+  // [Intent] Post the End-of-Season summary (champion + final standings) to the WhatsApp group via
+  //          the admin EOS route. Gated server-side by the endOfSeasonSummary alert toggle.
+  // [Inbound Trigger] "Post End-of-Season Summary" button (with confirm).
+  // [Downstream Impact] POST /api/admin/whatsapp-eos -> enqueues one whatsapp_queue message.
+  const [postingEos, setPostingEos] = useState(false);
+  const postEosSummary = async () => {
+    if (!window.confirm('Post the End-of-Season summary (champion + final standings) to the WhatsApp group?')) return;
+    setPostingEos(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not authenticated');
+      const res = await fetch('/api/admin/whatsapp-eos', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to post summary');
+      toast({ title: 'End-of-Season summary posted', description: data.message });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Failed to post summary', description: error.message });
+    } finally {
+      setPostingEos(false);
+    }
+  };
+
   // GUID: ADMIN_WHATSAPP-022-v03
   // [Intent] Toggle an individual alert type on or off in the local editing state.
   // [Inbound Trigger] Called when admin toggles a Switch in the Alert Categories accordion.
@@ -1399,6 +1422,15 @@ export function WhatsAppManager() {
               </CardDescription>
             </div>
             <div className="flex gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={postEosSummary}
+                disabled={postingEos}
+                title="Post champion + final standings to the WhatsApp group"
+              >
+                {postingEos ? <Loader2 className="w-4 h-4 animate-spin" /> : '🏆 Post EOS Summary'}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
