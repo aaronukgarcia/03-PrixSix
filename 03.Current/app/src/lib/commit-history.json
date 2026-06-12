@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.19",
+      "author": "aaron garcia",
+      "message": "feat: WhatsApp health reports amber 'sleeping' state for scale-to-zero cold starts instead of red failure (v3.1.19)",
+      "major": false
+    },
+    {
+      "id": "6d814a4",
+      "date": "2026-06-12",
       "version": "3.1.18",
       "author": "aaron garcia",
       "message": "fix: raise WhatsApp health-check timeout 5s->10s for scale-to-zero worker cold starts (v3.1.18)",

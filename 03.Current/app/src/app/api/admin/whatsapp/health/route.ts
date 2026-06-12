@@ -10,7 +10,7 @@ import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin } from '@/lib/
 
 export const dynamic = 'force-dynamic';
 
-// GUID: API_ADMIN_WHATSAPP_HEALTH-001-v03
+// GUID: API_ADMIN_WHATSAPP_HEALTH-001-v04
 // @SECURITY_FIX: Added isAdmin Firestore check after token verification (GEMINI-AUDIT-124).
 //   Previously any authenticated user could probe the internal WhatsApp worker URL.
 // [Intent] GET handler that checks WhatsApp worker connectivity by fetching the /health endpoint.
@@ -92,6 +92,26 @@ export async function GET(request: NextRequest) {
                 });
             }
         } catch (fetchError) {
+            // @COLD_START (v3.1.19): The worker is a scale-to-zero Azure Container App. A true cold
+            //   start (container schedule + Node boot + whatsapp-web.js/puppeteer init) takes longer
+            //   than the 10s probe budget, so AbortSignal.timeout throws a 'TimeoutError'. That is NOT
+            //   an outage — the worker is merely asleep and the first real message will wake it.
+            //   Report a distinct amber "sleeping" state (healthy: null) rather than a red failure.
+            const name = (fetchError as any)?.name;
+            const isTimeout = name === 'TimeoutError' || name === 'AbortError';
+            if (isTimeout) {
+                return NextResponse.json({
+                    healthy: null,
+                    state: 'sleeping',
+                    error: 'Worker asleep (scale-to-zero) — first message will wake it (~15-30s)',
+                    details: {
+                        configured: true,
+                        workerUrl,
+                        reason: 'cold-start-timeout',
+                        timeoutMs: 10000,
+                    },
+                });
+            }
             return NextResponse.json({
                 healthy: false,
                 error: fetchError instanceof Error ? fetchError.message : 'Worker unreachable',

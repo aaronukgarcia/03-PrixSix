@@ -196,7 +196,7 @@ export function InterfaceHealthMonitor() {
         }
     };
 
-    // GUID: ADMIN_INTERFACE_HEALTH-003-v01
+    // GUID: ADMIN_INTERFACE_HEALTH-003-v02
     // [Intent] Check WhatsApp worker interface health by calling the health endpoint.
     // [Inbound Trigger] Manual refresh button or auto-refresh timer.
     // [Downstream Impact] Updates whatsappHealth state with status, response time, and errors.
@@ -205,8 +205,10 @@ export function InterfaceHealthMonitor() {
 
         try {
             const res = await fetch('/api/admin/whatsapp/health', {
+                // 15s — longer than the route's own 10s worker probe so the route's "sleeping"
+                // response (returned at ~10s on a cold start) arrives before this client aborts.
                 headers: { 'Authorization': `Bearer ${token}` },
-                signal: AbortSignal.timeout(10000),
+                signal: AbortSignal.timeout(15000),
             });
 
             const endTime = performance.now();
@@ -214,12 +216,17 @@ export function InterfaceHealthMonitor() {
 
             if (res.status === 200) {
                 const json = await res.json();
+                // @COLD_START (v3.1.19): healthy:null / state:'sleeping' means the scale-to-zero worker
+                //   is asleep (not an outage) — render amber 'degraded' with a clear, non-alarming note.
+                const isSleeping = json.healthy === null || json.state === 'sleeping';
                 setWhatsappHealth({
                     name: 'WhatsApp Worker',
-                    status: json.healthy ? 'healthy' : 'degraded',
+                    status: json.healthy === true ? 'healthy' : 'degraded',
                     lastChecked: new Date(),
                     responseTime,
-                    error: json.healthy ? null : json.error || 'Service degraded',
+                    error: json.healthy === true
+                        ? null
+                        : (isSleeping ? 'Worker asleep (scale-to-zero) — wakes on first message' : (json.error || 'Service degraded')),
                     details: {
                         authenticated: true,
                         endpoint: '/api/admin/whatsapp/health',

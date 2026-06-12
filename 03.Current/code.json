@@ -103142,7 +103142,7 @@
   },
   {
    "guid": "API_ADMIN_WHATSAPP_HEALTH-001",
-   "version": 3,
+   "version": 4,
    "logic_category": "ORCHESTRATION",
    "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates WHATSAPP_WORKER_URL env var, fetches /health on worker with 5s timeout, returns JSON with healthy flag, response time, and status code. v02 added isAdmin Firestore check.",
    "dependencies": [
@@ -103157,7 +103157,7 @@
     "calls": []
    },
    "created": "2026-02-24T00:00:00Z",
-   "lastUpdated": "2026-06-12T02:00:00Z"
+   "lastUpdated": "2026-06-12T03:00:00Z"
   },
   {
    "guid": "API_ADMIN_OPENF1_DRIVERS-000",
@@ -105050,7 +105050,7 @@
   },
   {
    "guid": "ADMIN_INTERFACE_HEALTH-003",
-   "version": 1,
+   "version": 2,
    "logic_category": "CONFIGURATION",
    "description": "Check WhatsApp worker interface health by calling the health endpoint.",
    "dependencies": [],
@@ -105063,7 +105063,7 @@
     "calls": []
    },
    "created": "2026-03-03T19:10:12.267Z",
-   "lastUpdated": "2026-03-03T19:10:12.267Z"
+   "lastUpdated": "2026-06-12T03:00:00Z"
   },
   {
    "guid": "ADMIN_INTERFACE_HEALTH-004",
@@ -120643,5 +120643,5 @@
    }
   }
  },
- "last_updated": "2026-06-12T02:00:00Z"
+ "last_updated": "2026-06-12T03:00:00Z"
 }
