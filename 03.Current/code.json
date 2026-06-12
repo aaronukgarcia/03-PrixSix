@@ -49739,7 +49739,7 @@
    "guid": "API_WHATSAPP_PROXY-002",
    "version": 3,
    "logic_category": "VALIDATION",
-   "description": "Generate HMAC SHA-256 signature for outgoing worker requests so the worker can verify requests originate from this trusted proxy.",
+   "description": "Generate HMAC SHA-256 signature for outgoing worker requests so the worker can verify requests originate from this trusted proxy. LESSON: worker /health is public so a signed /health 200 does not prove the secret; only /status validates HMAC.",
    "dependencies": [
     "LIB_FIREBASE_ADMIN-000",
     "LIB_FIREBASE_ADMIN-001",
@@ -49855,7 +49855,7 @@
     "calls": []
    },
    "created": "2026-01-26T12:21:50Z",
-   "lastUpdated": "2026-02-17T23:09:01Z"
+   "lastUpdated": "2026-06-12T06:30:00Z"
   },
   {
    "guid": "API_WHATSAPP_PROXY-003",
@@ -101191,7 +101191,7 @@
    "guid": "AI_GENKIT-000",
    "version": 5,
    "logic_category": "INITIALIZATION",
-   "description": "Genkit AI SDK initialization for Vertex AI (Google Cloud). Configured for project studio-6033436327-281b1, location europe-west4, model vertexai/gemini-2.0-flash. Exported as ai singleton. Used by AI analysis features. @PX-3101: model switched gemini-2.0-flash(404/retired)->gemini-2.5-flash in europe-west4 @MIGRATION: vertexai backend now via @genkit-ai/google-genai (deprecated @genkit-ai/vertexai removed).",
+   "description": "Genkit AI SDK initialization for Vertex AI (Google Cloud). Configured for project studio-6033436327-281b1, location europe-west4, model vertexai/gemini-2.0-flash. Exported as ai singleton. Used by AI analysis features. @PX-3101: model switched gemini-2.0-flash(404/retired)->gemini-2.5-flash in europe-west4 @MIGRATION: vertexai backend now via @genkit-ai/google-genai (deprecated @genkit-ai/vertexai removed). LESSON: keep genkit + all @genkit-ai/* on one version — a skew (plugin 1.33 vs core 1.37) throws Unknown action type and breaks all AI (PX-3101).",
    "dependencies": [],
    "location": {
     "filePath": "app/src/ai/genkit.ts"
@@ -101205,7 +101205,7 @@
     "calls": []
    },
    "created": "2026-01-18T19:25:01Z",
-   "lastUpdated": "2026-06-11T15:30:00Z"
+   "lastUpdated": "2026-06-12T06:30:00Z"
   },
   {
    "guid": "ERROR_REGISTRY-000",
@@ -103144,7 +103144,7 @@
    "guid": "API_ADMIN_WHATSAPP_HEALTH-001",
    "version": 4,
    "logic_category": "ORCHESTRATION",
-   "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates WHATSAPP_WORKER_URL env var, fetches /health on worker with 5s timeout, returns JSON with healthy flag, response time, and status code. v02 added isAdmin Firestore check.",
+   "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates WHATSAPP_WORKER_URL env var, fetches /health on worker with 5s timeout, returns JSON with healthy flag, response time, and status code. v02 added isAdmin Firestore check. LESSON: this hits the worker /health which is PUBLIC — green here does not prove the app secret is right; check /status.",
    "dependencies": [
     "LIB_FIREBASE_ADMIN-000"
    ],
@@ -103157,7 +103157,7 @@
     "calls": []
    },
    "created": "2026-02-24T00:00:00Z",
-   "lastUpdated": "2026-06-12T03:00:00Z"
+   "lastUpdated": "2026-06-12T06:30:00Z"
   },
   {
    "guid": "API_ADMIN_OPENF1_DRIVERS-000",
@@ -120707,5 +120707,37 @@
    }
   }
  },
- "last_updated": "2026-06-12T06:00:00Z"
+ "last_updated": "2026-06-12T06:30:00Z",
+ "lessons": [
+  {
+   "id": "WA-HEALTH-PUBLIC",
+   "area": "whatsapp",
+   "lesson": "Worker /health is PUBLIC (no HMAC) — a green health check does NOT prove the app secret is correct. Only /status (HMAC-validated) does. A 401 Invalid signature on /status = wrong/stale app WHATSAPP_APP_SECRET binding.",
+   "added": "2026-06-12T06:30:00Z"
+  },
+  {
+   "id": "WA-STALE-SECRET",
+   "area": "whatsapp",
+   "lesson": "App Hosting can serve a STALE secret value across deploys even when GCP Secret Manager, Key Vault and the worker all match. Fix: gcloud secrets versions add WHATSAPP_APP_SECRET --data-file=<clean> then redeploy. Prove-at-source: compute HMAC(secret,\"status\") yourself and curl the worker /status -> 200 means worker fine, app wrong.",
+   "added": "2026-06-12T06:30:00Z"
+  },
+  {
+   "id": "WA-QR-TTL",
+   "area": "whatsapp",
+   "lesson": "Worker QR is valid a FEW MINUTES (not 20s) and generation is rate-limited; /qr returns 404 when none available. Refresh modestly (60s), fetch promptly on awaitingQR.",
+   "added": "2026-06-12T06:30:00Z"
+  },
+  {
+   "id": "WA-TOGGLES-DECORATIVE",
+   "area": "whatsapp",
+   "lesson": "Most whatsapp_alerts toggles (hotNewsPublished, resultsPublished, ...) have NO sender wired. Only prediction-submit, manual send, and hot-news (v3.1.23) actually enqueue whatsapp_queue.",
+   "added": "2026-06-12T06:30:00Z"
+  },
+  {
+   "id": "GENKIT-VERSION-SKEW",
+   "area": "ai",
+   "lesson": "npm audit fix can bump genkit core but not the @genkit-ai/google-genai plugin -> \"Unknown action type returned from plugin vertexai\" (PX-3101). Keep the whole genkit + @genkit-ai/* family on one version; re-test AI after ANY dep change (build skips type validation).",
+   "added": "2026-06-12T06:30:00Z"
+  }
+ ]
 }

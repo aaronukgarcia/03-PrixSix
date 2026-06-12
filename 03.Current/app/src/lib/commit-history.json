@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.24",
+      "author": "aaron garcia",
+      "message": "docs: capture WhatsApp + genkit-skew lessons in code.json (lessons block + GUID notes) (v3.1.24)",
+      "major": false
+    },
+    {
+      "id": "2517666",
+      "date": "2026-06-12",
       "version": "3.1.23",
       "author": "aaron garcia",
       "message": "feat: hot-news 'also send to WhatsApp' checkbox + daily 7am hot-news->WhatsApp Cloud Function (v3.1.23)",
