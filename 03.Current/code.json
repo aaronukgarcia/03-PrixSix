@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 1855,
+ "total_guids": 2113,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -115545,6 +115545,4392 @@
    },
    "created": "2026-06-12T00:00:00Z",
    "lastUpdated": "2026-06-12T00:00:00Z"
+  },
+  {
+   "guid": "PAGE_ADMIN-BOOKOFWORK",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Import BookOfWorkManager for the 17th admin tab.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_ADMIN-HEALTH",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Import InterfaceHealthMonitor for the 18th admin tab (Health monitoring).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_ADMIN-PITLANE",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Import PitLaneAdmin for the 19th admin tab (Pit Lane override control).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_ADMIN-PITWALL",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Import PitWallManager for the 20th admin tab (Pit Wall ops dashboard).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_ADMIN-HOTLINK",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Admin Hot Link verification state management. Receives initial verification status from server component (secure httpOnly cookie check) as prop.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_ADMIN-008",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Tab group definitions — organises 20 tabs into 5 semantic groups with consistent colour theming. Each group has a label, accent colour, and ordered items.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_ADMIN-009",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Grouped tab navigation — 5 semantic rows with colour-coded left borders",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/AdminPageClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "BACKUP_DASHBOARD-035",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Retention status card — shows when the next applyBackupRetention cron",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_ERRORLOG-000B",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Tolerantly coerce a Firestore-or-ISO-string-or-number timestamp value into a valid Date, returning null if the input is missing or unparseable. Use everywhere the renderer reads a date field — never call `new Date()` directly on log fields.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_INTERFACE_HEALTH-006",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Extra payload returned by the standings probe — warnings list and a top-5 sample for visual sanity-check. Stored separately from InterfaceHealth so the standings card can render the additional detail without contaminating the other 3 cards.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_INTERFACE_HEALTH-007",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Check the cumulative standings calculation by hitting /api/admin/health/standings. The endpoint runs the same lib that powers /standings and the results email, then applies invariants (\"all-zeros pattern\", empty-with-data, etc). Amber means the compute completed but tripped a heuristic — admin should investigate before",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_INTERFACE_HEALTH-008",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Diagnostic detail panel under the cards. Shows the standings probe's",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-000",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Admin Pit Wall manager — operational dashboard for the Pit Wall module. Shows OpenF1 health, cache status, replay data management, circuit maps, and cache/replay purge controls.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-001",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Pit Wall known circuits — from CIRCUIT_COORDS in live-data/route.ts. Used to show which circuits have cached track paths.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-002",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Main PitWallManager component exported for the admin tab.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-003",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Fetch health data from admin endpoint.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-004",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Subscribe to replay_sessions collection in real-time.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-005",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Scan localStorage for cached circuit paths on mount.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-006",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Purge replay data for a single session.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-007",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Purge all replay data — requires type-to-confirm.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-008",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Purge server-side live data cache.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-010",
+   "version": 2,
+   "logic_category": "UI",
+   "description": "Trigger replay ingest for a session via Cloud Function. Fire-and-forget — the onSnapshot listener on replay_sessions picks up progress automatically.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_PITWALL-011",
+   "version": 2,
+   "logic_category": "UI",
+   "description": "Re-ingest a completed session: purge first, then trigger Cloud Function ingest.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ADMIN_WHATSAPP-002a",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Sanitize message content by escaping HTML entities to prevent XSS in message preview displays.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-020",
+   "version": 2,
+   "logic_category": "UI",
+   "description": "localStorage helpers for persisting the circuit path across page loads. Keyed by circuitKey so each circuit has its own cached outline. Max 8000 points stored (~1 race worth of position history). v02: Key bumped to v2 to invalidate stale multi-car point cloud data from v1.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-056",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Filter sentinel coordinates from a circuit path. OpenF1 uses a well-known sentinel position (e.g. -8325,-7058 for Shanghai) for cars not on track. These outliers distort the track outline and bounds calculation. Detection: any point whose distance from the path centroid exceeds 2× the",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-018",
+   "version": 2,
+   "logic_category": "UI",
+   "description": "Accumulated circuit path — GPS points from a SINGLE driver's sequential positions. v02: Tracks only one driver (prefer P1) to produce a clean single-lap outline instead of mixing 20 drivers' positions into a jumbled point cloud. Loop closure detection freezes the outline once a full lap is traced.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-031",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Single-driver path tracker state. Tracks which driver we're following for the circuit outline and whether the loop has been closed (frozen). Stored as ref since it doesn't need to trigger React re-renders.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-052",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Load circuit path on circuitKey change. Priority: localStorage > static circuits.json. Static data provides instant circuit outlines for known circuits (e.g. Chinese GP) even on first visit or mid-race join. localStorage persisted paths override because they may have more points from a full live session.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-025",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Ref tracking the latest circuit path for debounced saves — avoids stale closures in interval/event listeners without triggering re-registrations.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-032",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Single-driver circuit path accumulation — picks ONE driver (P1 preferred, fallback to first with GPS data) and tracks only their sequential positions. This produces a clean single racing line that traces the circuit outline. When the path loops back to within 50m of the start (after 100+ points),",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-026",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Debounced localStorage save for circuit path — replaces synchronous save on every poll. Saves every 30s if path length changed, on tab hide, and on page close. Prevents main-thread blocking from 8000-point JSON serialisation.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-019",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Session-adaptive polling — automatically lowers interval to 10s when a live session is detected, resets to 60s (default) when the session ends. Only adjusts if the user has not manually set a custom interval (intervalIsTemporary). This is the primary reset path for the polling interval; the 90-min safety-net",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-050",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Stable auth token getter for Firestore chunk-loading in useReplayPlayer.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-027",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Select radio messages source — in replay mode, use replay radio messages cast to RadioMessage shape; otherwise use live radio messages.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-055",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Select race control source — in replay mode, map accumulated replay race control messages to RaceControlMessage[] (adding synthetic id); otherwise use live raceControl.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-057",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Build timeline event markers from replay race control messages for the scrub bar. Each event is positioned by virtualTimeMs (relative to session start) and colour-coded by flag type. Only computed in replay mode when data is available.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-053",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Seed static circuit path for replay mode — when no live circuitKey is available, use the replay session's circuitKey to load from static circuits.json. This gives instant circuit outlines in replay without waiting for a full lap. Coordinates match: circuits.json is extracted from the same Firestore replay data.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-029",
+   "version": 2,
+   "logic_category": "UI",
+   "description": "Accumulate circuit path from replay/showreel drivers when no live session is providing GPS data. Uses single-driver tracking (same as live mode) to produce a clean circuit outline instead of a multi-car jumble. v02: Single-driver tracking with loop closure detection.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-028",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Follow-mode camera — click a driver in the race table to zoom the track map in and track them. Click again to return to full-track overview.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-051",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Compute virtual time delta for replay mode — the elapsed virtual time since the last driver data push. In replay at 4-8x speed, wall time between frames is tiny (~60ms) but virtual time gap is large. Without this, the interpolation system's impossible-travel filter rejects every position update as a GPS spike.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-033",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Trail display settings — configurable from the toolbar. trailEnabled: master toggle for trail rendering (default: on). trailTtlMs: trail lifetime in milliseconds (default: 750ms). Options: 250, 500, 750, 1000, 1500ms.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-035",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "3-tier zoom state machine for the track map. Zoom 0: default layout (280px header, FIA feed + race table visible). Zoom 1: fullscreen track map (FIA feed, race table, radio panel hidden). Zoom 2: hyper-focus — camera locks on focusPosition (~100m radius, 8x zoom).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-030",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Live prediction score — computes the logged-in user's score based on current driver positions. Uses the meeting name to find the right prediction document. Skipped during 2025 showreel replays (no matching 2026 predictions).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-016",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "(PIT_WALL_CLIENT-016) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-034",
+   "version": 2,
+   "logic_category": "UI",
+   "description": "Trail + bloom controls — toggles and TTL selector. Minimal inline UI. */}",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_CLIENT-037",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Zoom toggle button — cycles through 0 → 1 → 2 → 0. */}",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "FPS_COUNTER-000",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Lightweight FPS counter overlay for the track map. Uses requestAnimationFrame to measure real frame rate. Displayed at top-right of the track map area.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/FpsCounter.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_LIVE_SCORE_BANNER-000",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Compact banner showing the logged-in user's predicted score in real-time based on current driver positions. Sits between the toolbar and race table in the Pit Wall layout. Shows total points, per-driver breakdown, and primary/secondary team toggle.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/LiveScoreBanner.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_LIVE_SCORE_BANNER-001",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Props for the LiveScoreBanner component.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/LiveScoreBanner.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_LIVE_SCORE_BANNER-002",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Colour code per-driver points — green for exact, amber for close, dim for zero.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/LiveScoreBanner.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_LIVE_SCORE_BANNER-003",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Main banner component — collapsed shows total + compact driver chips, expanded shows per-driver detail rows.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/LiveScoreBanner.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_RACE_TABLE-012",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Cache last non-empty driver array so the table keeps rendering stale rows while new data is in transit. Prevents \"Waiting for session data\" flash between live polls (every 5-60s) and replay frame updates.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_CONTROLS-006",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Race control event marker on the timeline — positioned by virtual time, colour-coded by flag type, with tooltip showing the message.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_CONTROLS-004",
+   "version": 2,
+   "logic_category": "UI",
+   "description": "Error state — distinguish expected download states from real errors. v02: \"downloading from source\" messages shown in amber (expected), not red (error).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_CONTROLS-005",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "FEAT-PW-004 — dropdown lists all prior Race/Sprint sessions. */}",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_CONTROLS-007",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Scrub bar with FIA event markers overlaid. Each race control message */}",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "ZOOM_RACE_ORDER-000",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Race order panel for Zoom 2 — left side vertical list of all drivers sorted by position. Click any driver to jump the camera focus to them. Shows position badge, team colour indicator, and driver code.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_components/ZoomRaceOrder.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HISTORICAL_REPLAY_HOOK-004",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Pause RAF when tab hidden, resume when visible. Guarded with isHiddenRef to prevent rapid hide→show→hide within <100ms from double-advancing virtual time (both hide events would increment startVirtualTimeRef but startWallTimeRef was reset by the intervening show).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useHistoricalReplay.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HOOK_LIVE_PREDICTION_SCORE-000",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Custom hook that computes a live prediction score for the logged-in user by matching their submitted predictions against real-time driver positions from the Pit Wall data feed. Supports primary and secondary teams. Score recalculates on every poll cycle as positions change.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HOOK_LIVE_PREDICTION_SCORE-001",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Per-driver score breakdown for the banner display.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HOOK_LIVE_PREDICTION_SCORE-002",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Full score state returned by the hook.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HOOK_LIVE_PREDICTION_SCORE-003",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Build a lookup from 3-letter driver code to their current race position. OpenF1 driverCode (\"VER\") matches getDriverCode(\"verstappen\") → \"VER\".",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HOOK_LIVE_PREDICTION_SCORE-004",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Match an OpenF1 meeting name to a 2026 RaceSchedule entry. Returns null if no match (e.g. 2025 replay with no 2026 equivalent).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HOOK_LIVE_PREDICTION_SCORE-005",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Core hook — fetches predictions from Firestore when race/user changes, then recalculates score on every activeDrivers update.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HOOK_LIVE_PREDICTION_SCORE-006",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Fetch user's prediction document from Firestore when race or team selection changes. Determines sprint vs GP from sessionType. Matches meetingName to RaceSchedule.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "HOOK_LIVE_PREDICTION_SCORE-007",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Compute live score by matching predictions against current driver positions. Runs on every activeDrivers change (every poll cycle) for real-time scoring.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_DATA_HOOK-006",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Fetch detail tier — laps, car_data, team_radio. Runs concurrently with core so slow endpoints don't block the table from appearing. Returns null on any error (detail is supplemental; core failure is the only hard error).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_DATA_HOOK-007",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Parse JSON via worker if available, else fall back to inline JSON.parse. Each pending request has a 5-second timeout — if the worker crashes or a message is lost, the promise rejects and the pending entry is cleaned up. Prevents unbounded growth of pendingRef map over long polling sessions.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_SETTINGS_HOOK-007",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Immediately reset the polling interval to 60s default and cancel the safety-net timer. Called by PitWallClient when a live session ends — the primary reset path. The 90-minute timer is a fallback for when the user navigates away mid-session.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PRE_RACE_MODE_HOOK-002",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "AbortController ref — aborts in-flight schedule fetch when circuitShortName changes or component unmounts, preventing stale responses from winning.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/usePreRaceMode.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-006",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "(REPLAY_PLAYER_HOOK-006) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-010",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Progressive chunk loading from Firestore via /api/pit-wall/replay-chunks. Fetches chunks in groups of 3, appends frames to mutable data object, fires onFramesReady after first batch for instant-start playback. Then continues loading remaining chunks in background.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-011",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Full-transport RAF-based playback hook. Manages download, virtual time, and controls. v02: Accepts optional getAuthToken callback for Firestore chunk-loading mode. When session.firestoreStatus === 'complete', loads chunks progressively from Firestore. Otherwise, streams from historical-replay API (triggers ingest + Firestore write).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-013",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Stabilise getAuthToken reference — prevent auth state changes from re-triggering the load effect. getAuthToken depends on firebaseUser which can change reference multiple times during auth resolution. Each change would cancel the RAF via effect cleanup, killing the playback loop before",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-014",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Cancel the replay tick timer. Uses clearTimeout because the replay loop runs on setTimeout (not RAF). RAF was unreliable — callbacks silently failed to fire in some browser contexts, causing the replay to never advance past frame 0. setTimeout at 16ms gives equivalent ~60fps timing with reliable delivery.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-015",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Build driver states and detect frozen/broken GPS data. Some drivers in the replay have permanently frozen GPS (stuck at grid position with speed=0 in every frame — broken ingest data). After the first 30 seconds, mark them as retired so the track map hides them and",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-007",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Race control messages are now pre-populated from all frames at load time (onDataReady + onStreamComplete) rather than accumulated per-tick. Per-tick accumulation was unreliable — seeks/skips could miss frames, and the full scan in onStreamComplete is authoritative.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-016",
+   "version": 2,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Race control messages are now pre-populated from all frames at load time (onDataReady + onStreamComplete) rather than accumulated per-tick. Per-tick accumulation was unreliable — seeks/skips could miss frames, and the full scan in onStreamComplete is authoritative.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-018",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Stabilising indicator — after a seek, the interpolation system needs several frames to build up prev/next positions for smooth movement. Show \"Stabilising...\" for 3 seconds so users know the jerkiness is normal.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-009",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "(REPLAY_PLAYER_HOOK-009) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-017",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Pre-populate ALL race control messages from loaded frames. The per-tick accumulation only captures messages for frames that the playhead passes through. If the user seeks or the tick skips frames, messages are missed. Scanning all frames once at load-complete ensures the FIA feed is always populated.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_PLAYER_HOOK-012",
+   "version": 3,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "Choose loading path based on session metadata: 1. firestoreStatus === 'complete' → chunk-load from Firestore (fast, durable) 2. downloadUrl exists → legacy Firebase Storage download (existing sessions) 3. No download URL + getAuthToken → trigger Cloud Function ingest (fire-and-forget),",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_BG_LAYER-000",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "PixiJS v8 rendering layer — dark background, atmosphere gradient, rain overlay, and status text for the Pit Wall track map. Draws the bottom-most visual layer.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/BackgroundLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_BG_LAYER-001",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Monospace text style for status overlay — large, very faint white.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/BackgroundLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_BG_LAYER-002",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Smaller monospace style for the sub-status line.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/BackgroundLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_BG_LAYER-005",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Subtle grid pattern — thin lines every 50px at ~3% opacity. Adds a premium telemetry-screen texture without distracting from the data.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/BackgroundLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_BG_LAYER-003",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Redraw background and atmosphere gradient on canvas resize.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/BackgroundLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_BG_LAYER-004",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Per-frame update — adjusts rain overlay intensity and status text content.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/BackgroundLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-000",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "PixiJS v8 rendering layer — 22 pre-allocated car sprites with team-colour dots, glow halos, driver code labels, position badges (P1-P3), DRS indicators, pit ring overlays, and follow-mode highlight ring.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-001",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Text styles for driver labels and position badges.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-001b",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "ATC-style minimal dots — smaller than v1 for a clean radar display look. 3.5px dots with 5px glow halos, subtle presence without clutter.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-002",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Internal pooled sprite structure — each slot holds all display objects for one car.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-006",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Track which pool slot the pointer is hovering over for label reveal. -1 = no hover. Updated by pointerover/pointerout on each car container.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-003",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Pre-allocate all car sprites at construction to avoid per-frame allocation.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-007",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Make car dots interactive for hover-to-reveal driver code labels. Hit area is slightly larger than the dot for easier targeting.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-004",
+   "version": 3,
+   "logic_category": "LOGIC",
+   "description": "Per-frame update — assigns interpolated positions to pool slots, updates colours, labels, badges, DRS/pit/follow indicators, and alpha for retired cars. v03: Zoom 2 hyper-focus reworked — focus car is same dot size as others (no oversized circle). All nearby cars show labels+badges for context. Focus",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-008",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Zoom 2 hyper-focus — all cars rendered at the same dot size. Focus car distinguished only by full alpha and a subtle cyan ring. Nearby cars at 0.85 alpha so they're clearly visible (not dimmed to near-invisible). The camera centres on the focus car, so all visible cars are contextually relevant.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-004b",
+   "version": 3,
+   "logic_category": "LOGIC",
+   "description": "ATC-style minimal display — labels, badges, and DRS hidden by default. Zoom 2 hyper-focus: ALL visible cars show labels+badges (you can only see nearby cars anyway at 5x zoom, so showing them all gives race context). Focus car: subtle cyan ring only (no oversized dot).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAR_LAYER-005",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Returns the canvas-space position of a specific driver for follow-mode camera. Returns null if the driver is not in the current interpolated set.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_LAYER-000",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "PixiJS v8 rendering layer — circuit outline with 3 pastel sector colours, sector boundary marks, and start/finish line. Draws the track as subtle charcoal lines on the dark background, barely visible until cars give it context.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_LAYER-006",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Track width 3x car dot diameter (3.5px radius × 2 × 3 = 21px) so side-by-side cars during overtakes are visually contained within the track ribbon.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_LAYER-001",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Sector stroke colours — dark muted tones that sit just above the background.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_LAYER-002",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Sector glow fill colours — even darker, wide blur underneath the stroke.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_LAYER-003",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Tiny label style for sector markers.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_LAYER-004",
+   "version": 3,
+   "logic_category": "LOGIC",
+   "description": "Rebuild all track graphics from a new circuit outline. Projects GPS points to canvas space, divides into 3 equal-arc-length sectors, draws glow + stroke per sector, perpendicular marks at sector boundaries. v02: S/F line positioned from API-provided GPS coordinate (correlated from",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_LAYER-005",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Clear all graphics for a full rebuild or teardown.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_LAYER-000",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "PixiJS v8 rendering layer — renders fine ATC-style vapour-trail contrails behind each car. Reads GPS-space trail points and projects to canvas at draw time. v02: GPS-space storage eliminates trail jumping on canvas resize. Thinner lines (0.5-1.5px), exponential alpha decay, smooth round caps. Configurable TTL",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrailLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_LAYER-003",
+   "version": 3,
+   "logic_category": "LOGIC",
+   "description": "Per-frame draw of all active trails. Projects GPS->canvas at draw time so trails are stable across canvas resizes. Thinner lines with exponential alpha decay create a fine ATC vapour-trail effect. v03: Velocity-scaled TTL — trails stretch at high speed and compress in slow",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrailLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_LAYER-004",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Full teardown — destroy all trail graphics and clear internal state.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/layers/TrailLayer.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-000",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Main PixiJS Application lifecycle manager for the Pit Wall track map. Coordinates all rendering layers (background, track, trails, cars) and systems (interpolation, trails, camera). Created from a React shell via dynamic import to avoid SSR issues. All rendering runs on the PixiJS v8",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-001",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Scene graph structure: stage +-- backgroundLayer.container  (no zoom — stays fixed behind everything) +-- worldContainer             (camera zoom/pan applied here)",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-002",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Scene graph containers — worldContainer receives camera transforms, bloomContainer receives the AdvancedBloomFilter for car/trail glow.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-013",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Zoom level state for the 3-tier zoom system. 0 = default overview, 1 = fullscreen overview, 2 = hyper-focus (~100m radius). focusPosition = race position to track in Zoom 2 (default P1).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-008",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Trail + bloom display settings — configurable from React via setData(). trailEnabled: master toggle for trail rendering. trailTtlMs: trail lifetime in milliseconds (250-1500ms). bloomEnabled: when true, car dots render inside the bloom container for a glow",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-011",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Per-driver trail direction tracking — prevents backwards trail artifacts. Stores the last trail GPS position and normalised direction vector per driver. If a new trail point implies the car reversed direction (negative dot product with the previous direction), the trail point is skipped.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-012",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "S/F line GPS position from API (lap date_start correlated with location data). Passed to TrackLayer.rebuild() for accurate S/F marker placement.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-015",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Session key tracking — when session changes (live→replay, replay→different session), all interpolation, trail, and direction state must be flushed so stale data from the previous session doesn't leak into the new one.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-003",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Async initialisation — creates the PixiJS Application, appends the canvas to the DOM, builds the scene graph, applies the bloom filter, and starts the ticker. Guarded against races with destroy() (the React component may unmount before init completes if the user navigates away quickly).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-009",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Create the bloom filter but don't apply it yet — bloom is opt-in via the GUI toggle. When enabled, car dots move into bloomContainer for a glow effect. When disabled (default), dots render outside bloom for GPU reliability.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-004",
+   "version": 3,
+   "logic_category": "LOGIC",
+   "description": "Data ingress from React. Called on every prop change via the React useEffect in PitWallTrackMap. Pushes new driver data to the interpolation system and rebuilds track polyline/outline when the circuit path grows significantly. No rendering happens here — rendering is driven by the ticker.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-016",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Detect session change and flush all interpolation/trail/direction state. Without this, stale updateCount/prevPositions/lastDrawnPositions persist across session switches and drivers that reappear skip spawn protection.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-018",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "When drivers transition from empty→populated (first replay data arrives), reset the interpolation system. Without this, the second setData call sees prev positions from the first call (grid positions at frame 0) and rejects the actual race positions as impossible-travel spikes because the",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-017",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Bloom toggle — move car dots into/out of bloomContainer at runtime. When bloom is ON: dots inside bloomContainer get a glow halo. When bloom is OFF (default): dots in worldContainer, reliable on all GPUs. Bloom filter is only applied to bloomContainer when enabled.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-005",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "60fps ticker callback — the main render loop. Order: 1. Background layer (rain, status text, atmosphere) 2. Track layer (rebuild circuit outline if changed) 3. Interpolate driver positions",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-010",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "GPS rogue filtering — compute track centroid from bounds and discard positions > 2000m away (rogue spikes from OpenF1 GPS data).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRACK_APP-014",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Zoom 2 hyper-focus — resolve which driver holds the focusPosition and pass their driverNumber to CarLayer for differentiated rendering. Position-based: if P1 is overtaken, focus auto-jumps to new P1. v02: Falls back to first driver in array if no exact position match,",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAMERA_SYSTEM-000",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Camera system for the PixiJS track map. Handles follow-driver zoom/pan with smooth lerp transitions. Works by manipulating a PixiJS Container's pivot, position, and scale — no matrix math needed.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/CameraSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAMERA_SYSTEM-001",
+   "version": 3,
+   "logic_category": "LOGIC",
+   "description": "Constants for camera behaviour. OVERVIEW_ZOOM = Zoom 1 fullscreen magnification centred on track (no driver selected). FOLLOW_ZOOM = magnification when tracking a driver (Zoom 0/1 with follow). HYPER_ZOOM = Zoom 2 hyper-focus mode (~100m radius).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/CameraSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAMERA_SYSTEM-002",
+   "version": 3,
+   "logic_category": "LOGIC",
+   "description": "Update camera target based on zoom level and followed position. zoomLevel 0 with no followedPos: default overview (zoom 1x). zoomLevel 1 with no followedPos: fullscreen overview (OVERVIEW_ZOOM = 1.8x centred). zoomLevel 0/1 with followedPos: follow-mode (FOLLOW_ZOOM = 3x).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/CameraSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAMERA_SYSTEM-003",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Apply the current camera state to a PixiJS Container. Sets pivot to the camera focus point, positions the container so the focus point is at screen centre, and applies zoom via uniform scale.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/CameraSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_CAMERA_SYSTEM-004",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Immediately snap to the overview state (zoom 1, centred). No lerp transition. Use when switching sessions or resetting the view.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/CameraSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-000",
+   "version": 4,
+   "logic_category": "LOGIC",
+   "description": "Extracted interpolation logic for smooth car position animation on the track map. v02: Snap-to-track validation, spawn protection (< 2 updates → raw GPS). v03: Speed-based GPS spike filtering in onDriversUpdate — if implied speed between consecutive positions exceeds 400 km/h, the new position is rejected as a GPS",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-001",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Snap threshold squared — if a driver jumps more than 500m between updates, snap directly instead of lerping. Backup for any spikes the speed filter misses.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-006",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Maximum allowed drift between snap-to-track and raw lerp results.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-008",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Maximum plausible speed in m/s. F1 top speed is ~370 km/h = ~103 m/s. 400 km/h = 111 m/s gives headroom for GPS jitter without letting spikes through.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-007",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Per-driver update counter for spawn protection.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-010",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Grace period after reset — skip the spike filter for the first few updates. After reset (e.g. session change, replay start), the first data may be at the grid position. The second data has real race positions. If virtualTimeDeltaMs is undefined or tiny on the early frames, the spike filter computes a small maxDist",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-009",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Stores the last interpolated (drawn) position per driver. Used as the new prev position when fresh data arrives, so the car continues smoothly from where it was visually instead of snapping back to the old target.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-005",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Multi-circuit sentinel detection + frozen driver hiding. OpenF1 returns a fixed placeholder coordinate per circuit for drivers whose GPS transponder is offline, retired, or never started. E.g. Shanghai = (-8325, -7058). Detection: group all speed=0 drivers by exact (x,y). Any coordinate shared by",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-013",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Multi-circuit sentinel detection + frozen driver hiding. OpenF1 returns a fixed placeholder coordinate per circuit for drivers whose GPS transponder is offline, retired, or never started. E.g. Shanghai = (-8325, -7058). Detection: group all speed=0 drivers by exact (x,y). Any coordinate shared by",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-002",
+   "version": 4,
+   "logic_category": "LOGIC",
+   "description": "Called when new driver data arrives. Validates each position against the previous position using speed-based plausibility. Positions implying travel faster than MAX_PLAUSIBLE_SPEED_MPS are rejected as GPS spikes — the previous position is kept, preventing impossible-travel fly-in/fly-back artifacts.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-011",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "When true, the spike filter is disabled entirely. Used for replay mode where GPS data is pre-recorded and doesn't have live GPS spikes. The spike filter causes a death spiral in replay: grid→track position jump is rejected, then the gap grows every frame, permanently freezing all cars.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-012",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Bounds-based outlier rejection. Compute the 10th–90th percentile bounding box from all current positions (the \"track envelope\"), then reject any driver whose position falls more than 2x the track width/height outside that envelope. This catches pit building GPS coordinates, marshalling area positions, and extreme",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-014",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Sentinel detection — find the circuit's \"null position\" by grouping speed=0 drivers by exact (x,y). If 3+ drivers share the same coordinate with speed=0, that's the sentinel. Once found, it never changes for this session. Grid formation is safe: grid slots are at DIFFERENT coordinates.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-015",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Frozen driver detection — hide drivers whose position hasn't changed for 10+ consecutive updates AND have speed=0. Catches individual retirements that don't land at the sentinel (e.g. car parked in gravel trap with unique coords).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-003",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "(PIXI_INTERP_SYSTEM-003) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_INTERP_SYSTEM-004",
+   "version": 3,
+   "logic_category": "LOGIC",
+   "description": "(PIXI_INTERP_SYSTEM-004) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_SYSTEM-000",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Ring-buffer trail system for driver contrails on the PixiJS track map. Each driver has a fixed-size circular buffer of trail points. Points age out after a configurable TTL and their alpha fades exponentially. Colour is pre-computed at push time based on telemetry (brake = red tint, heavy throttle = green tint,",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_SYSTEM-001",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Default trail lifetime in milliseconds. Configurable via TrailSystem.getActiveTrails(). 750ms at ~80m/s = ~60m trail = fine, short vapour trail.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_SYSTEM-002",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Maximum trail points per driver. Ring buffer wraps at this limit. 120 points at ~60fps = 2 seconds of history, more than enough for any TTL setting.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_SYSTEM-003",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Per-driver ring buffer of trail points. Fixed allocation — no GC pressure during the hot render loop. Points are written at `head` and the buffer wraps. v02: Stores GPS-space coordinates instead of canvas-space.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_SYSTEM-004",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Push a new trail point into the ring buffer in GPS-space coordinates. Pre-computes the colour based on telemetry: braking blends toward red, heavy throttle with acceleration blends toward green, otherwise pure team colour.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_SYSTEM-005",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Return active (non-expired) trail points in chronological order (oldest first). v02: Accepts configurable TTL. Uses exponential decay (alpha = e^(-3*age/ttl)) for a natural vapour-trail dissipation effect instead of linear fade.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_TRAIL_SYSTEM-006",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Top-level manager for all driver trails. Lazily creates DriverTrail instances on first access per driver number. Provides a clear() for session resets. v02: getActiveTrails accepts configurable TTL.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_HELPERS-000",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Utility functions for PixiJS v8 WebGL track map rendering. Pure math helpers — no PixiJS imports, no React, no DOM.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/utils/pixi-helpers.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_HELPERS-001",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Convert a CSS hex colour string (with or without '#') to a PixiJS-compatible 0xRRGGBB number. Returns 0xFFFFFF (white) on invalid input.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/utils/pixi-helpers.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_HELPERS-002",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Linearly interpolate between two 0xRRGGBB colours channel-by-channel. t=0 returns colour a, t=1 returns colour b.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/utils/pixi-helpers.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIXI_HELPERS-003",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Project GPS metres (x, y) to canvas pixel coordinates using the track bounding box. Y axis is inverted (OpenF1 Y increases upward, canvas Y increases downward). Padding shrinks the usable area to keep cars away from canvas edges. v02: Added null guard for replay frames with missing GPS coordinates. Null/undefined",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_pixi/utils/pixi-helpers.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TYPES-010",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Per-driver enrichment returned by /api/pit-wall/live-data?tier=detail. Contains the slow-to-compute fields (lap times, sectors, car telemetry, tyres) that are merged into existing DriverRaceState[] after core data loads.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TYPES-011",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Response shape for /api/pit-wall/live-data?tier=detail. Carries the slow endpoints (laps, car_data, team_radio) separately so they can be merged into the already-visible core data.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TYPES-009",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "A single GPS point in projected metres (not WGS84). Used to accumulate the circuit path from car position history.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-000",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Track spline utilities for snap-to-track interpolation AND circuit outline rendering. Converts the accumulated GPS circuit path into usable data structures.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-001",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Downsampled polyline with cumulative arc-length distances for 1D projection.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-002",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Target number of points after downsampling. 500 gives sub-metre resolution on a ~5km circuit while keeping projectOntoTrack fast (500 segments × 20 cars = 10K ops/frame).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-003",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Build a downsampled polyline from raw GPS circuit path with cumulative distances. Downsamples by taking every Nth point (N = path.length / TARGET_POINTS). Returns null if path has fewer than 20 points (not enough for a meaningful polyline).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-004",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Project a 2D point onto the nearest segment of the polyline. Returns the 1D arc-length parameter [0, totalLength] of the closest point. Uses perpendicular projection onto each segment, clamped to segment endpoints.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-005",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Convert a 1D arc-length parameter back to 2D coordinates on the polyline. Uses binary search on cumulative distances for O(log n) lookup. Handles lap wraparound via modulo on totalLength.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-006",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Clean single-lap circuit outline for rendering. Unlike TrackPolyline (which is optimised for interpolation from raw sequential data), CircuitOutline is spatially deduplicated and nearest-neighbor sorted so it forms a coherent closed loop even when built from a jumbled multi-car point cloud.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-007",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Grid-based spatial deduplication — collapse all points within the same grid cell into a single representative point (the first one encountered). O(n) time. Grid size controls resolution: 10m = ~500 cells for a 5km circuit.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-008",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Nearest-neighbor traversal — reorders a cloud of 2D points into a spatially coherent path by always stepping to the closest unvisited point. This turns a jumbled multi-car point cloud into a single-lap circuit outline. O(n²) but n ≈ 300-600 after dedup so it runs in <1ms.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_TRACK_SPLINE-009",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Build a clean circuit outline from the raw accumulated GPS point cloud. Steps: deduplicate on a 10m grid → nearest-neighbor sort → compute distances → detect loop closure. Returns null if insufficient data.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_RESULTS-025C",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Full carry-forward resolution for the results page — mirrors the 3-tier logic used by the standings page: 1. Race-specific prediction (primary query above) 2. For Sprint: same-weekend GP prediction (both \"Name-GP\" and \"Name\" formats)",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/results/page.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_COMPLETE_PROFILE-005b",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Cycles through the fetched suggestions sequentially. Wraps around when the end of the list is reached.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(auth)/complete-profile/page.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PAGE_COMPLETE_PROFILE-005c",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Intercepts form submission to check if team name resembles the user's email. If it does, shows a dialog with fun alternatives. If not, proceeds normally.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(auth)/complete-profile/page.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_DELETE_USER-002a",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Verify the Firebase Auth token from the Authorization header. The UID from the verified token is the authoritative identity — the body adminUid is only accepted after confirming it matches the token UID.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/delete-user/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_DELETE_USER-003a",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Confirm the token-verified UID matches the body-supplied adminUid. This prevents an attacker from authenticating as user A but supplying admin B's UID in the body to perform deletions under B's identity (IDOR / privilege escalation).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/delete-user/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_HEALTH_STANDINGS-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Admin health probe for the cumulative standings calculation. Runs the same shared lib that produces the on-screen standings and the email standings table, validates the output against simple invariants, and returns a RAG status the InterfaceHealthMonitor renders. The amber \"degraded\" check here",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/health/standings/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_HEALTH_STANDINGS-001",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Apply heuristic invariants to a standings payload. Detects the specific bug that prompted this whole feature: cumulative standings returning all-zeros despite predictions and race_results both being non-empty. Returns a list of warning strings — empty list means healthy, any entry means degraded.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/health/standings/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_HEALTH_STANDINGS-002",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "GET handler. Verifies admin, runs the lib, applies invariants, returns RAG.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/health/standings/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_PITWALL_CACHE_PURGE-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Admin-only endpoint to purge Pit Wall server-side caches. Clears live data cache, detail cache, and OpenF1 token cache. Next request to live-data will trigger a fresh OpenF1 fan-out.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/pit-wall-cache-purge/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_PITWALL_CACHE_PURGE-001",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "POST handler — purges all Pit Wall caches and logs to audit_logs.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/pit-wall-cache-purge/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_PITWALL_HEALTH-001",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "GET handler — returns Pit Wall health status including OpenF1 reachability, token validity, and cache state for both live data and detail tiers.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/pit-wall-health/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_PITWALL_INGEST-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Admin-only endpoint to trigger replay ingest for a given OpenF1 session. Validates admin auth, checks current Firestore status to avoid duplicate ingests, then fires-and-forgets the ingestReplaySession pipeline. Returns 202 immediately.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/pit-wall-ingest/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_PITWALL_INGEST-001",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "POST handler — triggers replay ingest for a session. Fire-and-forget pattern: returns 202 Accepted immediately while ingest runs in the background.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/pit-wall-ingest/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_PITWALL_INGEST-002",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Detached promise — ingest runs asynchronously. No-op callbacks because data streams to Firestore, not to a client response stream.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/pit-wall-ingest/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PURGE_REPLAY-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Admin API route to purge durable replay data from Firestore. Deletes replay_chunks + replay_meta documents for a session (or all sessions), resets firestoreStatus on replay_sessions doc, and logs to audit_logs.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/purge-replay/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PURGE_REPLAY-001",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "DELETE handler — purges replay chunks + meta for one or all sessions. Query params: session_key — purge one session all=true — purge all sessions",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/purge-replay/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PURGE_REPLAY-002",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Admin-only gate — verify the calling user has isAdmin: true in Firestore.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/purge-replay/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PURGE_REPLAY-003",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Execute purge and log to audit_logs.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/purge-replay/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PIT_WALL_HISTORICAL_REPLAY-008",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Showreel (downsampled) path — kept for backward compat with useHistoricalReplay. Fetches drivers + positions + session from OpenF1, downsamples to 5s intervals, returns JSON (not NDJSON). Used when mode=showreel query param is set.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PIT_WALL_HISTORICAL_REPLAY-009",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Check Firestore for pre-ingested full-fidelity chunks.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PIT_WALL_HISTORICAL_REPLAY-010",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Stream NDJSON to client while simultaneously writing chunks to Firestore. Line 1: metadata (drivers, durationMs, etc.) Lines 2+: individual ReplayFrame objects Client starts playback after 60 frames arrive.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PIT_WALL_HISTORICAL_REPLAY-011",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Keep-alive progress pings — sent to the NDJSON stream while fetching from OpenF1. Prevents the load balancer from killing the idle HTTP connection (60s timeout). Client ignores _status lines.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/historical-replay/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PIT_WALL_LIVE_DATA-024",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Use pre-stringified JSON for cache/coalesced responses to avoid N×JSON.stringify(). slice(0, -1) removes the closing \"}\" so we can append cache metadata fields before re-closing. This avoids parsing and re-stringifying the entire payload.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/live-data/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PIT_WALL_LIVE_DATA-025",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "30-second time window for /laps and /car_data (same rationale as core tier). /car_data is the heaviest endpoint in the detail tier — ~4500 records/s across 20 drivers. /team_radio is left unbounded (small, needed in full for message history display).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/live-data/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_PIT_WALL_LIVE_DATA-020",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Compute the approximate S/F line GPS position by correlating the /laps date_start timestamp (when a driver crosses S/F) with the nearest /location GPS reading for the same driver. Uses the most recent completed non-pit-out lap. date_start is approximate (~±0.5s), and /location samples at ~3.7 Hz, so",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/live-data/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_REPLAY_CHUNKS-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Chunk-loading API for GPS Replay Firestore mode. Reads pre-ingested replay chunks from Firestore and returns NDJSON. First request (from=0) includes metadata line, then flattened frames. Client calls this in groups of 3 chunks for progressive loading.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/replay-chunks/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_REPLAY_CHUNKS-001",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "GET handler — reads chunks from Firestore and streams as NDJSON. Query params: session_key (required) — session to load from (default 0) — chunk index to start from",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/replay-chunks/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_REPLAY_CHUNKS-002",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "If from=0, include metadata as first NDJSON line so client gets drivers, durationMs, etc. before frames arrive.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/replay-chunks/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_REPLAY_CHUNKS-003",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Load requested chunks and flatten frames into NDJSON lines.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/replay-chunks/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_REPLAY_SESSIONS-005",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Build a list of completed Race and Sprint sessions from the static RaceSchedule. A session is \"completed\" if its dateStart (raceTime or sprintTime) is in the past. Returns objects shaped for merge with Firestore replay_sessions. Uses a deterministic synthetic sessionKey derived from race name + session type",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/replay-sessions/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_REPLAY_SESSIONS-007",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Fetch real OpenF1 session keys for all 2026 Race+Sprint sessions. Used to resolve schedule-derived sessions to actual sessionKeys that the ingest pipeline can use to fetch data from OpenF1. Matched by date_start (ISO string comparison, truncated to minutes).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/replay-sessions/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_REPLAY_SESSIONS-006",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Deterministic hash of a string to a positive integer, used as a synthetic sessionKey for schedule-derived sessions that don't have a Firestore doc. Negative range avoided (sessionKey is typed as number in the client).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/pit-wall/replay-sessions/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_STANDINGS-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Server-side cumulative standings endpoint. Single source of truth for the standings page (replacing client-side compute) and any future consumer. Delegates all algorithm to @/lib/cumulative-standings — this route is purely auth + transport + optional league filter.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/standings/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_STANDINGS-001",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Resolve a league document to its memberUserIds array, returning null if the leagueId is missing or the league is global (which means \"no filter\"). Returns an empty array if the league exists but has no members — caller should render an empty standings table in that case.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/standings/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_STANDINGS-002",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "GET handler. Verifies the bearer token, optionally resolves a league filter, calls the shared compute lib, and returns the granular ScoreData[] plus the ranked CumulativeStanding[] in one payload. The page can rebuild its existing memos (chartData, raceWinners) from scores without changing their shapes.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/standings/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_SUBMIT_PREDICTION-003a",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Verifies that teamId in the request body is a team ID that belongs to the authenticated user. Prevents a user from submitting predictions under another user's team.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/submit-prediction/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_SUBMIT_PREDICTION-005a",
+   "version": 2,
+   "logic_category": "ROUTE",
+   "description": "Normalize raceId to Title-Case format (e.g., \"British-Grand-Prix-Sprint\") for consistency. Client may send any case format, so we enforce single source of truth here.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/submit-prediction/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "API_SUBMIT_PREDICTION-009",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Fire-and-forget WhatsApp group notification when a prediction is submitted. Sends team name and picked six drivers to the Prix6.Win group via whatsapp_queue. Never blocks the user's response — all errors are non-fatal.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/submit-prediction/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-000",
+   "version": 2,
+   "logic_category": "UTILITY",
+   "description": "Server-side shared lib for cumulative season standings. Replaces three previous implementations (standings page client-side, send-results-email inline, ad-hoc). Faithfully ports the canonical algorithm from standings/page.tsx into admin SDK land so the email handler, the standings API, and the admin health probe all",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-001",
+   "version": 2,
+   "logic_category": "UTILITY",
+   "description": "Granular per-(team × race) score row. Mirrors the ScoreData shape used by the legacy standings page client-side compute so that downstream useMemo blocks (chartData, raceWinners) consume this output unchanged once the page is migrated.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-002",
+   "version": 2,
+   "logic_category": "UTILITY",
+   "description": "Single ranked row in the cumulative standings table. Matches the shape expected by the email handler's renderer.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-003",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "Options for aggregateStandings. leagueMemberUserIds enables server-side league filtering without making the lib aware of the league domain model.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-004",
+   "version": 2,
+   "logic_category": "UTILITY",
+   "description": "Compute granular per-(team × race) scores from race_results × predictions. Faithful port of the canonical standings/page.tsx:220-330 algorithm. Carry-forward order: race-specific → strip -sprint suffix → latest prior submission. Uses SCORING_POINTS.bonusAll6 + calculateDriverPoints for parity with the",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-005",
+   "version": 2,
+   "logic_category": "UTILITY",
+   "description": "Sum granular ScoreData entries by userId, look up team names, sort descending, assign ranks with tie handling (teams on equal points share a rank, the next team's rank skips). Optional league filter restricts which userIds are summed; optional limitToRaceIds restricts which races contribute (for \"after race N\").",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-006",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "Helper for callers: build a teamNamesByUid map from the users collection, handling both primary teams and `${uid}-secondary` suffixed entries. Centralised here so /api/standings, /api/send-results-email, and the health probe all resolve names identically — including secondaries which the previous email",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_ERRORS-013",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "(PIT_WALL_ERRORS-013) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/error-registry.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_ERRORS-014",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "(PIT_WALL_ERRORS-014) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/error-registry.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_ERRORS-015",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "(PIT_WALL_ERRORS-015) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/error-registry.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_ERRORS-016",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "(PIT_WALL_ERRORS-016) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/error-registry.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_ERRORS-017",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "(PIT_WALL_ERRORS-017) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/error-registry.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_ERRORS-018",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "(PIT_WALL_ERRORS-018) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/error-registry.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_ERRORS-019",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "(PIT_WALL_ERRORS-019) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/error-registry.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "PIT_WALL_ERRORS-021",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "(PIT_WALL_ERRORS-021) — auto-registered from source on 2026-06-12; description pending.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/error-registry.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_PITWALL_CACHE-001",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "Module-level live data cache — one entry keyed by session_key. Session change (e.g. quali → race) invalidates stale entry.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/pit-wall-cache.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_PITWALL_CACHE-010",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "Pre-stringified JSON caches — avoid 200× JSON.stringify() on coalesced responses. When getOrFetchCoreData resolves for N concurrent requests, each would call NextResponse.json() which re-stringifies the same object. By caching the JSON string at write time, coalesced/cached responses return a raw Response with",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/pit-wall-cache.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_PITWALL_CACHE-002",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "OpenF1 token cache — stored here so health endpoint can report token status.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/pit-wall-cache.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_PITWALL_CACHE-011",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "Return pre-stringified JSON for zero-cost coalesced/cached responses. Callers construct a raw Response(jsonStr) instead of NextResponse.json().",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/pit-wall-cache.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "LIB_PITWALL_CACHE-004",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "Return cache status summary for admin health endpoint.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/pit-wall-cache.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-000",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Shared ingest engine for durable Firestore telemetry storage. Fetches all OpenF1 endpoints (location, position, car_data, laps, stints, pit, team_radio, drivers, sessions), builds full-fidelity frames (NO downsampling — keeps all ~18K time points), merges car_data/intervals/laps/stints into position frames, and writes chunk documents",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-001",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Chunk document stored in replay_chunks/{sessionKey}_{chunkIndex}.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-002",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Metadata document stored in replay_meta/{sessionKey}.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-003",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Progress callback for streaming frames to client during ingest.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-004",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Fetch JSON from OpenF1 with timeout and abort controller.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-005",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Fetch an OpenF1 endpoint with retry on rate limit and chunking for large datasets.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-006",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Fetch location data in time-windowed chunks to avoid OpenF1's \"too much data\" error. v02: Accepts optional onChunkProgress callback to send keep-alive pings during the long chunked fetch (12 iterations × 1.5s = ~90s). Without pings inside this loop, the HTTP stream sits silent and the load balancer kills it at 60s.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-007",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Fetch car_data in time-windowed chunks (largest dataset, ~530K records). v02: Added onChunkProgress callback for keep-alive pings.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-008",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Build a per-driver time-sorted lookup with binary search for floor entry.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-009",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Build pit stop count lookup — count pits before each timestamp.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-010",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Build stint (tyre) lookup — compound and age by lap number.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-011",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Build sorted radio messages array for frame matching.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-021",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Build sorted race control messages array for frame matching. Maps OpenF1 /race_control records into a timestamped array for assignment to replay frames using the same 250ms window technique as radio.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-012",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Build full-fidelity ReplayFrame[] from raw location data + all telemetry lookups. No downsampling — keeps every unique time point from /location (~2 Hz per driver). Car data, intervals, laps, stints, pit stops merged into each position entry. Radio messages matched to frames within 250ms window.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-013",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Write a single chunk document to Firestore.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-014",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Full ingest pipeline: fetch all OpenF1 data, build frames, stream to client, write chunks to Firestore, write meta doc, update session doc. Called by historical-replay route on Firestore miss.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-020",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Atomically claim the ingest slot using a Firestore transaction. Only one request can transition firestoreStatus from 'none' (or 'failed') to 'ingesting'. Concurrent requests see the status has already changed and bail out, preventing duplicate chunk writes.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-022",
+   "version": 2,
+   "logic_category": "LOGIC",
+   "description": "Fetch all data endpoints with keep-alive progress callbacks. v02: Also writes progress to Firestore session doc when onFirestoreProgress is true (admin-triggered ingests). The admin panel's onSnapshot listener picks up changes in real time, showing which endpoint is being fetched.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-015",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Check Firestore status for a session — used by historical-replay route to decide path. GUID: REPLAY_INGEST-015-v02",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-016",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Load chunk documents from Firestore for the replay-chunks API route.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-017",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Load replay metadata for the replay-chunks API route (first request includes meta).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-018",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Purge all Firestore data for a replay session (chunks + meta + status reset). Used by admin purge-replay route.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "REPLAY_INGEST-019",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Delete all chunk documents for a session using batched deletes (500 ops max per batch).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/replay-ingest.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "VALIDATION-HOTLINK",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Validate Admin Hot Link token exchange requests. Ensures tokens",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/validation.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "VALIDATION-CHALLENGE",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Validate admin challenge (magic link) generation requests. Currently",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/validation.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "VALIDATION-EMAIL",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Strict email validation to prevent injection attacks and ensure",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/validation.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "VALIDATION-TOKEN",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Generate cryptographically secure tokens using Node.js crypto module.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/validation.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
+  },
+  {
+   "guid": "VALIDATION-RATELIMIT",
+   "version": 1,
+   "logic_category": "LOGIC",
+   "description": "Define rate limit thresholds for admin operations to prevent",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/validation.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-06-12T00:00:00Z",
+   "autoRegistered": true
   }
  ],
  "firestoreCollections": {
