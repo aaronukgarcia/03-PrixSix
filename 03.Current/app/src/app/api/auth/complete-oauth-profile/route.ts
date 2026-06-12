@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
+import { sendWhatsAppAlert } from '@/lib/whatsapp-alert';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
@@ -358,6 +359,9 @@ export async function POST(request: NextRequest) {
       },
       timestamp: FieldValue.serverTimestamp(),
     });
+
+    // newPlayerJoined WhatsApp alert — fire-and-forget, gated by whatsapp_alerts settings.
+    void sendWhatsAppAlert('newPlayerJoined', `👋 *${normalizedTeamName}* just joined Prix Six! Welcome aboard. 🏎️`);
 
     return NextResponse.json({
       success: true,

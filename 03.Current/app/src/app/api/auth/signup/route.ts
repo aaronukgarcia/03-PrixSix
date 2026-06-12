@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { sendWhatsAppAlert } from '@/lib/whatsapp-alert';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
@@ -502,6 +503,9 @@ export async function POST(request: NextRequest) {
 
     // Generate custom token for immediate sign-in
     const customToken = await auth.createCustomToken(uid);
+
+    // newPlayerJoined WhatsApp alert — fire-and-forget, gated by whatsapp_alerts settings.
+    void sendWhatsAppAlert('newPlayerJoined', `👋 *${normalizedTeamName}* just joined Prix Six! Welcome aboard. 🏎️`);
 
     return NextResponse.json({
       success: true,

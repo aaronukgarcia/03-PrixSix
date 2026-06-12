@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
+import { sendWhatsAppAlert } from '@/lib/whatsapp-alert';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { F1Drivers } from '@/lib/data';
@@ -613,6 +614,9 @@ export async function POST(request: NextRequest) {
       }
       return { ...entry, rank: currentRank };
     });
+
+    // resultsPublished WhatsApp alert — fire-and-forget, gated by whatsapp_alerts settings.
+    void sendWhatsAppAlert('resultsPublished', `📊 *Results are in for ${raceName}!*\n\nScores have been updated — check the standings on Prix Six. 🏁`);
 
     return NextResponse.json({
       success: true,

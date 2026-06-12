@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-06-12",
+      "version": "3.1.26",
+      "author": "aaron garcia",
+      "message": "feat: wire event-driven WhatsApp alerts (resultsPublished, newPlayerJoined) via shared sendWhatsAppAlert helper (v3.1.26)",
+      "major": false
+    },
+    {
+      "id": "7c712af",
+      "date": "2026-06-12",
       "version": "3.1.25",
       "author": "aaron garcia",
       "message": "fix: wake scale-to-zero WhatsApp worker on enqueue (stranded-PENDING bug) — submit-prediction, hot-news, 7am fn (v3.1.25)",

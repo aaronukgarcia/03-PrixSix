@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 2118,
+ "total_guids": 2119,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -120014,6 +120014,30 @@
    },
    "created": "2026-06-12T07:00:00Z",
    "lastUpdated": "2026-06-12T07:00:00Z"
+  },
+  {
+   "guid": "LIB_WHATSAPP_ALERT-000",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "sendWhatsAppAlert: central gateway — gates on masterEnabled && alerts[type] && targetGroup, respects testMode, enqueues whatsapp_queue + wakes worker. Used by event triggers (resultsPublished, newPlayerJoined) and scheduled jobs.",
+   "dependencies": [
+    "LIB_WHATSAPP_WAKE-000"
+   ],
+   "location": {
+    "filePath": "app/src/lib/whatsapp-alert.ts"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_CALCULATE_SCORES",
+     "API_AUTH_SIGNUP",
+     "API_AUTH_COMPLETE_OAUTH"
+    ],
+    "calls": [
+     "LIB_WHATSAPP_WAKE-000"
+    ]
+   },
+   "created": "2026-06-12T08:00:00Z",
+   "lastUpdated": "2026-06-12T08:00:00Z"
   }
  ],
  "firestoreCollections": {
@@ -120726,7 +120750,7 @@
    }
   }
  },
- "last_updated": "2026-06-12T07:00:00Z",
+ "last_updated": "2026-06-12T08:00:00Z",
  "lessons": [
   {
    "id": "WA-HEALTH-PUBLIC",
