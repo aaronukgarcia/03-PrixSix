@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 2113,
+ "total_guids": 2116,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -24931,9 +24931,9 @@
   },
   {
    "guid": "ADMIN_WHATSAPP-014",
-   "version": 3,
+   "version": 4,
    "logic_category": "TRANSFORMATION",
-   "description": "Auto-refresh the QR code every 30 seconds while the worker is awaiting QR scan and a QR code is displayed.",
+   "description": "QR auto-fetch+refresh: prompt initial fetch on awaitingQR, 60s rate-limit-safe re-read (few-minute TTL).",
    "dependencies": [
     "FIRESTORE_SETTINGS-000",
     "LIB_AUDIT-000",
@@ -25031,7 +25031,7 @@
     ]
    },
    "created": "2026-01-20T23:50:13Z",
-   "lastUpdated": "2026-02-10T16:34:05Z"
+   "lastUpdated": "2026-06-12T05:00:00Z"
   },
   {
    "guid": "ADMIN_WHATSAPP-015",
@@ -119931,6 +119931,54 @@
    "created": "2026-06-12T00:00:00Z",
    "lastUpdated": "2026-06-12T00:00:00Z",
    "autoRegistered": true
+  },
+  {
+   "guid": "API_ADMIN_WHATSAPP_QUEUE-000",
+   "version": 1,
+   "logic_category": "ROUTE",
+   "description": "Admin-only whatsapp_queue clear endpoint (server-write-only collection); DELETE by id or scope=all/<STATUS>.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/whatsapp-queue/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T05:00:00Z",
+   "lastUpdated": "2026-06-12T05:00:00Z"
+  },
+  {
+   "guid": "API_ADMIN_WHATSAPP_QUEUE-001",
+   "version": 1,
+   "logic_category": "MUTATION",
+   "description": "DELETE handler: admin auth + isAdmin, batched deletes, audit log.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/admin/whatsapp-queue/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T05:00:00Z",
+   "lastUpdated": "2026-06-12T05:00:00Z"
+  },
+  {
+   "guid": "ADMIN_WHATSAPP-021b",
+   "version": 1,
+   "logic_category": "STATE_MANAGEMENT",
+   "description": "clearQueue handler — calls DELETE /api/admin/whatsapp-queue (per-id or scope) with admin token; drives queue trash + Clear-All/Failed buttons.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/admin/_components/WhatsAppManager.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-12T05:00:00Z",
+   "lastUpdated": "2026-06-12T05:00:00Z"
   }
  ],
  "firestoreCollections": {
@@ -120643,5 +120691,5 @@
    }
   }
  },
- "last_updated": "2026-06-12T04:00:00Z"
+ "last_updated": "2026-06-12T05:00:00Z"
 }

@@ -36,6 +36,7 @@ import {
 import {
   Send,
   RefreshCw,
+  Trash2,
   MessageSquare,
   Clock,
   CheckCircle2,
@@ -296,9 +297,12 @@ export function WhatsAppManager() {
   const [qrAgeSeconds, setQrAgeSeconds] = useState<number>(0);
 
   // QR code expiry settings
-  const QR_REFRESH_INTERVAL_MS = 30000; // Auto-refresh every 30 seconds
-  const QR_WARN_AGE_SECONDS = 60; // Warn if QR is older than 60 seconds
-  const QR_STALE_AGE_SECONDS = 120; // Consider stale after 2 minutes
+  // @QR_TUNING (v3.1.22): the worker's QR is valid for a few minutes and QR generation is rate-limited,
+  // so refresh modestly (60s, a cheap read of the stored QR) rather than aggressively — and treat a
+  // few-minute age as the warn/stale window. The QR is auto-fetched the moment awaitingQR flips true.
+  const QR_REFRESH_INTERVAL_MS = 60000; // Re-read the stored QR every 60s (rate-limit-safe)
+  const QR_WARN_AGE_SECONDS = 120; // Amber if the displayed QR is older than 2 minutes
+  const QR_STALE_AGE_SECONDS = 240; // Stale after 4 minutes — fetch a fresh one
 
   // GUID: ADMIN_WHATSAPP-009-v03
   // [Intent] Retrieve Firebase auth token for authenticated API requests to the WhatsApp proxy.
@@ -443,14 +447,21 @@ export function WhatsAppManager() {
     return () => clearInterval(interval);
   }, [fetchWorkerStatus]);
 
-  // GUID: ADMIN_WHATSAPP-014-v03
-  // [Intent] Auto-refresh the QR code every 30 seconds while the worker is awaiting QR scan and a QR code is displayed.
-  // [Inbound Trigger] Activated when workerStatus.awaitingQR is true and qrCodeData is present.
-  // [Downstream Impact] Keeps QR code fresh for scanning. Prevents expired QR codes from being displayed.
+  // GUID: ADMIN_WHATSAPP-014-v04
+  // @QR_TUNING (v3.1.22): Fetch the QR PROMPTLY the moment the worker reports awaitingQR (no manual
+  //   "Show QR" click needed), then re-read it every QR_REFRESH_INTERVAL_MS so a fresh code is always
+  //   on screen within the few-minute validity window.
+  // [Intent] Auto-fetch and keep the QR fresh while the worker is awaiting a QR scan.
+  // [Inbound Trigger] Activated when workerStatus.awaitingQR is true.
+  // [Downstream Impact] Keeps a scannable QR on screen. Prevents expired QR codes from being displayed.
   useEffect(() => {
-    if (!workerStatus?.awaitingQR || !qrCodeData) return;
+    if (!workerStatus?.awaitingQR) return;
 
-    // Set up auto-refresh interval
+    // Prompt initial fetch (don't wait for a click or the first interval tick)
+    if (!qrCodeData && !qrLoading) {
+      fetchQRCode();
+    }
+
     const refreshInterval = setInterval(() => {
       if (!qrLoading) {
         fetchQRCode();
@@ -703,6 +714,37 @@ export function WhatsAppManager() {
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  // GUID: ADMIN_WHATSAPP-021b-v01
+  // [Intent] Clear messages from whatsapp_queue via the admin-only server route (the collection is
+  //          server-write-only, so deletes can't happen client-side). Supports a single message by id
+  //          or a bulk scope ('all' or a status like 'FAILED'). The real-time listener refreshes the UI.
+  // [Inbound Trigger] Per-message trash button, "Clear Failed", or "Clear All" in the Message Queue card.
+  // [Downstream Impact] DELETE /api/admin/whatsapp-queue. Prevents a stale/failed backlog from sending
+  //                     when the worker reconnects.
+  const [clearingQueue, setClearingQueue] = useState<string | null>(null);
+  const clearQueue = async (opts: { id?: string; scope?: string; label: string }) => {
+    if (opts.scope && !window.confirm(`Clear ${opts.label}? This cannot be undone.`)) return;
+    setClearingQueue(opts.id || opts.scope || 'busy');
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not authenticated');
+      const qs = opts.id ? `id=${encodeURIComponent(opts.id)}` : `scope=${encodeURIComponent(opts.scope!)}`;
+      const res = await fetch(`/api/admin/whatsapp-queue?${qs}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(`${data.error || 'Failed to clear queue'}${data.errorCode ? ` [${data.errorCode}]` : ''}`);
+      }
+      toast({ title: 'Queue updated', description: `Removed ${data.deleted} message${data.deleted === 1 ? '' : 's'}.` });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Failed to clear queue', description: error.message });
+    } finally {
+      setClearingQueue(null);
     }
   };
 
@@ -1346,13 +1388,35 @@ export function WhatsAppManager() {
       {/* Message Queue Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="w-5 h-5" />
-            Message Queue
-          </CardTitle>
-          <CardDescription>
-            Last 10 messages in the queue. Updates in real-time.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Message Queue
+              </CardTitle>
+              <CardDescription>
+                Last 10 messages in the queue. Updates in real-time.
+              </CardDescription>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => clearQueue({ scope: 'FAILED', label: 'all FAILED messages' })}
+                disabled={clearingQueue !== null}
+              >
+                {clearingQueue === 'FAILED' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Clear Failed'}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => clearQueue({ scope: 'all', label: 'the ENTIRE queue' })}
+                disabled={clearingQueue !== null}
+              >
+                {clearingQueue === 'all' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Clear All'}
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {queueLoading ? (
@@ -1373,6 +1437,7 @@ export function WhatsAppManager() {
                   <TableHead className="w-32">Group</TableHead>
                   <TableHead>Message</TableHead>
                   <TableHead className="w-28">Created</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1389,6 +1454,18 @@ export function WhatsAppManager() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {formatTime(msg.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        title="Delete this message"
+                        onClick={() => msg.id && clearQueue({ id: msg.id, label: 'this message' })}
+                        disabled={clearingQueue !== null || !msg.id}
+                      >
+                        {clearingQueue === msg.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
