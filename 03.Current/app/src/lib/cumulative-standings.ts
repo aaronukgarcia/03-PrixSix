@@ -26,11 +26,39 @@
 
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { calculateDriverPoints, SCORING_POINTS } from '@/lib/scoring-rules';
-import { normalizeRaceIdForComparison } from '@/lib/normalize-race-id';
+import { normalizeRaceIdForComparison, generateRaceId } from '@/lib/normalize-race-id';
+import { RaceSchedule } from '@/lib/data';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError } from '@/lib/traced-error';
 
 type AdminFirestore = Awaited<ReturnType<typeof getFirebaseAdmin>>['db'];
+
+/** Synthetic raceId used for late-joiner adjustment rows so they ride through the same
+ *  ScoreData pipeline the standings page already understands (it sums any score row,
+ *  and has explicit handling for this id). */
+export const ADJUSTMENT_RACE_ID = 'late-joiner-penalty';
+
+// GUID: LIB_CUMULATIVE_STANDINGS-007-v01
+// [Intent] Build a map of normalised raceId → the UTC millis the race actually ran, derived
+//          from the static RaceSchedule. Used to gate carry-forward so a team is never awarded
+//          points (via the latest-prior-submission fallback) for a race that ran BEFORE the team
+//          submitted their first prediction — i.e. before they joined. GP races key off raceTime;
+//          sprints key off sprintTime.
+// [Inbound Trigger] Called once per computeRaceScores invocation.
+// [Downstream Impact] A race missing from the schedule simply has no entry → carry-forward is
+//                     allowed for it (legacy-safe; never blocks a legitimate score).
+function buildRaceRunMillisMap(): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const race of RaceSchedule) {
+    const gpKey = normalizeRaceIdForComparison(generateRaceId(race.name, 'gp'));
+    if (race.raceTime) map.set(gpKey, new Date(race.raceTime).getTime());
+    if (race.hasSprint && race.sprintTime) {
+      const sprintKey = normalizeRaceIdForComparison(generateRaceId(race.name, 'sprint'));
+      map.set(sprintKey, new Date(race.sprintTime).getTime());
+    }
+  }
+  return map;
+}
 
 // GUID: LIB_CUMULATIVE_STANDINGS-001-v02
 // [Intent] Granular per-(team × race) score row. Mirrors the ScoreData shape used by the
@@ -146,11 +174,28 @@ export async function computeRaceScores(db: AdminFirestore): Promise<{
     const scores: ScoreData[] = [];
     const raceIdsWithScores = new Set<string>();
 
+    // When the race actually ran (UTC millis), per normalised raceId. Used to stop carry-forward
+    // from back-filling races that happened before a team joined. See buildRaceRunMillisMap.
+    const raceRunMillis = buildRaceRunMillisMap();
+
+    // Each team's earliest prediction submission (millis). A team can only legitimately receive
+    // carry-forward points for races that ran on/after this moment — never for races before they
+    // joined. Teams with no usable timestamp (millis 0) are never gated (legacy-safe).
+    const earliestSubmissionByTeam = new Map<string, number>();
+    teamPredictionsByRace.forEach((raceMap, teamId) => {
+      let earliest = Number.POSITIVE_INFINITY;
+      raceMap.forEach(({ timestamp }) => {
+        if (timestamp > 0 && timestamp < earliest) earliest = timestamp;
+      });
+      earliestSubmissionByTeam.set(teamId, Number.isFinite(earliest) ? earliest : 0);
+    });
+
     raceResultsMap.forEach((actualResults, resultDocId) => {
       const normalizedResultId = normalizeRaceIdForComparison(resultDocId);
 
       teamPredictionsByRace.forEach((raceMap, teamId) => {
         let teamPredictions: string[] | null = null;
+        let carriedForward = false;
 
         // (1) Race-specific match
         if (raceMap.has(normalizedResultId)) {
@@ -172,8 +217,22 @@ export async function computeRaceScores(db: AdminFirestore): Promise<{
               teamPredictions = predictions;
             }
           });
+          carriedForward = !!teamPredictions;
         }
         if (!teamPredictions) return;
+
+        // Carry-forward gate: never award a carried-forward score for a race that ran before this
+        // team's first submission (i.e. before they joined). Without this, a late joiner with a
+        // single prediction would have it retro-applied to every completed race and rocket to the
+        // top of the table. Race-specific (1) and sprint-fallback (2) matches are NOT gated — those
+        // are genuine predictions the team actually made for that weekend.
+        if (carriedForward) {
+          const ranAt = raceRunMillis.get(normalizedResultId);
+          const joinedAt = earliestSubmissionByTeam.get(teamId) ?? 0;
+          if (ranAt !== undefined && joinedAt > 0 && ranAt < joinedAt) {
+            return;
+          }
+        }
 
         let totalPoints = 0;
         let correctCount = 0;
@@ -277,4 +336,27 @@ export async function buildTeamNamesMap(db: AdminFirestore): Promise<Map<string,
     }
   });
   return map;
+}
+
+// GUID: LIB_CUMULATIVE_STANDINGS-008-v01
+// [Intent] Read the standings_adjustments collection and turn each adjustment into a synthetic
+//          ScoreData row keyed by ADJUSTMENT_RACE_ID. Adjustments are league-wide point deltas that
+//          are NOT derived from race_results × predictions — currently the late-joiner -5 penalty,
+//          and (for future joiners) a starting-position baseline. Emitting them as ScoreData rows
+//          means every consumer (standings page, results email, admin health) folds them into totals
+//          via the existing per-userId sum with zero special-casing, and the standings page already
+//          recognises ADJUSTMENT_RACE_ID for its chart start-point and red penalty annotation.
+// [Inbound Trigger] Called by /api/standings (and any other consumer) right after computeRaceScores.
+// [Downstream Impact] Each doc must have { userId: string, points: number }. Docs missing either are
+//                     skipped. A negative points value renders red on the standings page.
+// [Schema] standings_adjustments/{autoId}: { userId, points, label?, reason?, createdAt? }
+export async function readStandingsAdjustments(db: AdminFirestore): Promise<ScoreData[]> {
+  const snap = await db.collection('standings_adjustments').get();
+  const rows: ScoreData[] = [];
+  snap.docs.forEach((doc) => {
+    const data: any = doc.data();
+    if (!data || typeof data.userId !== 'string' || typeof data.points !== 'number') return;
+    rows.push({ userId: data.userId, raceId: ADJUSTMENT_RACE_ID, totalPoints: data.points });
+  });
+  return rows;
 }

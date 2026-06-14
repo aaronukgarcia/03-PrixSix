@@ -89,6 +89,17 @@ export interface User {
   lastLogin?: any; // Timestamp of last PIN login
   lastSeen?: any;  // Timestamp of last navigation action (updated by logAuditEvent)
   createdAt?: Timestamp; // Registration date — written by /api/auth/signup as serverTimestamp()
+  lateJoiner?: boolean; // True if the team joined mid-season (handicap applied) — see @/lib/late-joiner
+  lateJoinerAcknowledged?: boolean; // True once the user has read+acknowledged the welcome screen
+  lateJoinerInfo?: {
+    clonedFromUserId?: string;
+    clonedFromTeamName?: string;
+    clonedCount?: number;
+    penalty?: number;
+    lastPlacePoints?: number;
+    nextRaceName?: string;
+    appliedAt?: any;
+  };
 }
 
 // GUID: FIREBASE_PROVIDER-004-v03
@@ -348,6 +359,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
                   if (isFirstSnapshot && userData.mustChangePin) {
                     router.push('/profile');
+                  } else if (isFirstSnapshot && userData.lateJoiner && !userData.lateJoinerAcknowledged) {
+                    // Late joiners must read+acknowledge the mid-season welcome screen first.
+                    router.push('/welcome');
                   }
                 } else {
                   // GUID: FIREBASE_PROVIDER-030-v04

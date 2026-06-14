@@ -322,6 +322,14 @@ service cloud.firestore {
       allow read, write: if false; // Server-side only via Admin SDK
     }
 
+    // Late-joiner standings adjustments (one-time -5 penalty / starting baseline).
+    // Written only by the signup API + admin correction tools via the Admin SDK, and read only
+    // server-side by /api/standings. Clients never touch this directly. Admins may read for audit.
+    match /standings_adjustments/{userId} {
+      allow get, list: if isAdmin();
+      allow write: if false; // Server-side only via Admin SDK
+    }
+
     // Error logs - server-side creates via Admin SDK, admin reads/updates/creates
     match /error_logs/{logId} {
       allow get, list: if isAdmin();

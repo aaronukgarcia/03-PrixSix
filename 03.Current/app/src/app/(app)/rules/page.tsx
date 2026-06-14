@@ -69,7 +69,7 @@ export default function RulesPage() {
                  <ul className="space-y-3">
                     {SCORING_RULES.map(item => (
                         <li key={item.pointsDisplay} className="flex items-start gap-4">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold flex-shrink-0">{item.pointsDisplay}</span>
+                            <span className={`flex h-8 w-8 items-center justify-center rounded-full font-bold flex-shrink-0 ${item.points < 0 ? 'bg-red-600/10 text-red-600' : 'bg-primary/10 text-primary'}`}>{item.pointsDisplay}</span>
                             <div>
                                 <h3 className="font-semibold">{item.title}</h3>
                                 <p className="text-sm text-muted-foreground">{item.description}</p>

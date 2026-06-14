@@ -27,6 +27,7 @@ import {
   computeRaceScores,
   aggregateStandings,
   buildTeamNamesMap,
+  readStandingsAdjustments,
 } from '@/lib/cumulative-standings';
 
 export const dynamic = 'force-dynamic';
@@ -88,11 +89,16 @@ export async function GET(request: NextRequest) {
       if (members !== null) leagueMemberUserIds = members;
     }
 
-    // computeRaceScores + buildTeamNamesMap are independent — fetch in parallel.
-    const [{ scores }, names] = await Promise.all([
+    // computeRaceScores + buildTeamNamesMap + adjustments are independent — fetch in parallel.
+    const [{ scores: raceScores }, names, adjustmentRows] = await Promise.all([
       computeRaceScores(db),
       buildTeamNamesMap(db),
+      readStandingsAdjustments(db),
     ]);
+
+    // Fold late-joiner adjustments into the score stream as synthetic rows so the page, email,
+    // and health probe all sum them identically (see readStandingsAdjustments / ADJUSTMENT_RACE_ID).
+    const scores = [...raceScores, ...adjustmentRows];
 
     const standings = aggregateStandings(scores, names, { leagueMemberUserIds });
 

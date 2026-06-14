@@ -16,6 +16,7 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { validateCsrfProtection } from '@/lib/csrf-protection';
+import { applyLateJoinerHandicap } from '@/lib/late-joiner';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -403,56 +404,21 @@ export async function POST(request: NextRequest) {
       warnings.push('League enrollment pending - you may not appear in standings immediately.');
     }
 
-    // GUID: API_AUTH_SIGNUP-014-v03
-    // [Intent] Apply the late-joiner handicap rule: if the season has already started (scores exist), calculate a starting score of (lowest real score - 5) so the new user starts 5 points behind last place. Skips existing adjustment scores when determining the minimum.
+    // GUID: API_AUTH_SIGNUP-014-v05
+    // @BUG_FIX (v3.1.x): The previous implementation read the dead `scores` collection (post-SSOT-001
+    //   the live standings come from race_results × predictions) so the handicap was both miscalculated
+    //   AND never read by the standings page. The full late-joiner mechanic now lives in
+    //   @/lib/late-joiner: it clones the current last-place team's prior-race predictions into the new
+    //   team, writes a one-time -5 penalty to standings_adjustments (read by /api/standings), sets the
+    //   lateJoiner flags that drive the welcome/acknowledgement screen, and writes an audit entry for
+    //   the team creation AND for every cloned submission (full transparency).
     // [Inbound Trigger] Runs after global league enrolment.
-    // [Downstream Impact] Creates a scores document with isAdjustment=true and raceId='late-joiner-handicap'. This score is included in standings calculations. An audit log entry is also created. If this fails, the user starts at 0 points (no handicap applied).
-    // LATE JOINER RULE: If season has started, new users start 5 points behind last place
-    // All late joiners get the same handicap: (lowest real score - 5)
+    // [Downstream Impact] See @/lib/late-joiner contract. Non-blocking: a handicap failure is logged
+    //   but never prevents account creation (the user simply starts at 0).
     try {
-      const scoresSnapshot = await db.collection('scores').get();
-      if (!scoresSnapshot.empty) {
-        // Calculate total points per user, excluding adjustment scores
-        const userTotals = new Map<string, number>();
-        scoresSnapshot.forEach(scoreDoc => {
-          const scoreData = scoreDoc.data();
-          // Skip adjustment scores (late joiner handicaps) when calculating base standings
-          if (scoreData.isAdjustment) return;
-          const scoreUserId = scoreData.userId;
-          const points = scoreData.totalPoints || 0;
-          userTotals.set(scoreUserId, (userTotals.get(scoreUserId) || 0) + points);
-        });
-
-        // Only apply handicap if there are users with real race scores
-        if (userTotals.size > 0) {
-          const minScore = Math.min(...Array.from(userTotals.values()));
-          const handicapPoints = minScore - 5;
-
-          // Create a handicap score document - this is positive starting points
-          await db.collection('scores').doc(`late-joiner-handicap_${uid}`).set({
-            userId: uid,
-            raceId: 'late-joiner-handicap',
-            raceName: 'Late Joiner Handicap',
-            totalPoints: handicapPoints,
-            breakdown: `Late joiner starting points: ${minScore} (last place) - 5 = ${handicapPoints}`,
-            calculatedAt: FieldValue.serverTimestamp(),
-            isAdjustment: true,
-          });
-
-          await db.collection('audit_logs').add({
-            userId: uid,
-            action: 'LATE_JOINER_HANDICAP',
-            details: {
-              minScore,
-              handicapPoints,
-              reason: 'Season already in progress - starts 5 points behind last place'
-            },
-            timestamp: FieldValue.serverTimestamp(),
-          });
-        }
-      }
+      await applyLateJoinerHandicap(db, uid, normalizedTeamName);
     } catch (handicapError: any) {
-      console.warn('[Signup] Could not calculate late joiner handicap:', handicapError.message);
+      console.warn('[Signup] Could not apply late joiner handicap:', handicapError.message);
     }
 
     // GUID: API_AUTH_SIGNUP-015-v05

@@ -48,6 +48,9 @@ export const SCORING_POINTS = {
 
   /** Bonus points if all 6 predicted drivers finish in the top 6 (any position) */
   bonusAll6: 10,
+
+  /** One-time penalty applied to late joiners: they start 5 points behind the last-place team */
+  lateJoinerPenalty: -5,
 } as const;
 
 // GUID: LIB_SCORING_RULES-002-v03
@@ -146,6 +149,12 @@ export const SCORING_RULES = [
     pointsDisplay: `+${SCORING_POINTS.bonusAll6}`,
     title: 'Perfect 6 Bonus',
     description: 'BONUS points if you correctly predict all 6 drivers who finish in the top 6, regardless of their positions.',
+  },
+  {
+    points: SCORING_POINTS.lateJoinerPenalty,
+    pointsDisplay: `${SCORING_POINTS.lateJoinerPenalty}`,
+    title: 'Late Joiner Penalty',
+    description: 'A one-time penalty applied to any team that joins after the season has started. Late joiners begin 5 points behind the current last-place team.',
   },
 ] as const;
 

@@ -2379,7 +2379,7 @@ exports.publishHotNewsToWhatsApp = onSchedule(
     schedule: "0 7 * * *",
     timeZone: "Europe/London",
     region: REGION,
-    timeoutSeconds: 120,
+    timeoutSeconds: 180,
     memory: "256MiB",
     retryCount: 0,
     secrets: ["WHATSAPP_APP_SECRET"],
@@ -2389,19 +2389,44 @@ exports.publishHotNewsToWhatsApp = onSchedule(
     const correlationId = generateCorrelationId("hnw");
     const WORKER_URL = "https://prixsix-whatsapp.delightfulmushroom-6fa10cd0.uksouth.azurecontainerapps.io";
 
-    // Wake the scale-to-zero WhatsApp worker via its HMAC-protected /process-queue. The job runs at
-    // 07:00 when the worker is certainly asleep, so without this the message would sit PENDING.
-    const wakeWorker = async () => {
-      try {
-        const secret = process.env.WHATSAPP_APP_SECRET;
-        if (!secret) return;
-        const sig = `sha256=${crypto.createHmac("sha256", secret).update("process-queue").digest("hex")}`;
-        await fetch(`${WORKER_URL}/process-queue`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Hub-Signature-256": sig },
-          signal: AbortSignal.timeout(15000),
-        });
-      } catch (e) { /* best-effort */ }
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    // Wake the scale-to-zero WhatsApp worker and WAIT until its WhatsApp socket is genuinely
+    // stable BEFORE we enqueue. This job runs at 07:00 when the worker is certainly asleep.
+    //
+    // @BUG_FIX (cold-start race, diagnosed 2026-06-14 from Log Analytics): The worker used to be
+    // woken AFTER enqueue, so it cold-started and fired the queued message ~1s after the Baileys
+    // socket reported "ready" — before the connection had actually stabilised (the socket's
+    // "init queries" timed out ~60s later, and the account identity was sometimes still "unknown").
+    // Baileys returned a local "sent successfully" but WhatsApp never received the message. By
+    // warming the worker and polling /health until it reports connected (then adding a short
+    // stabilisation pause) BEFORE enqueuing, the message is only added once the socket is healthy,
+    // so the worker's queue listener delivers it on a stable connection.
+    //
+    // NOTE: the durable fix belongs in the worker (it should not begin processing the queue until
+    // the connection is fully established). This function-side gate is the mitigation we can ship
+    // from this repo. Returns true if the worker reported ready.
+    const warmAndWaitReady = async () => {
+      const deadline = Date.now() + 75000; // up to 75s (function timeout is 180s)
+      let ready = false;
+      // First touch triggers the cold start.
+      while (Date.now() < deadline) {
+        try {
+          const resp = await fetch(`${WORKER_URL}/health`, { signal: AbortSignal.timeout(10000) });
+          if (resp.ok) {
+            const h = await resp.json();
+            if (h && h.whatsapp && h.whatsapp.connected === true && h.whatsapp.awaitingQR === false) {
+              ready = true;
+              break;
+            }
+          }
+        } catch (e) { /* worker still cold / waking — keep polling */ }
+        await sleep(3000);
+      }
+      // Even once "connected", give the freshly-restored socket time to clear its init-queries
+      // window so the first send lands on a fully-synced connection.
+      if (ready) await sleep(15000);
+      return ready;
     };
     const statusRef = db.collection("admin_configuration").doc("hotNewsWhatsAppStatus");
 
@@ -2426,6 +2451,11 @@ exports.publishHotNewsToWhatsApp = onSchedule(
       if (!content) { await writeStatus("skipped", "No hot news content"); return; }
       if (!targetGroup) { await writeStatus("skipped", "No target group configured"); return; }
 
+      // Warm the worker and wait for a stable WhatsApp connection BEFORE enqueuing (see
+      // warmAndWaitReady). If it never reports ready we still enqueue — the worker's listener will
+      // pick it up whenever it next stabilises — but we record that delivery may be delayed.
+      const workerReady = await warmAndWaitReady();
+
       await db.collection("whatsapp_queue").add({
         groupName: targetGroup,
         message: `🏎️ *Prix Six Hot News*\n\n${content}`,
@@ -2436,17 +2466,15 @@ exports.publishHotNewsToWhatsApp = onSchedule(
         testMode: wa.testMode === true,
       });
 
-      await wakeWorker();
-
       await db.collection("audit_logs").add({
         userId: "system",
         action: "HOT_NEWS_WHATSAPP_DAILY",
-        details: { targetGroup, contentLength: content.length, testMode: wa.testMode === true },
+        details: { targetGroup, contentLength: content.length, testMode: wa.testMode === true, workerReady },
         correlationId,
         timestamp: Timestamp.now(),
       });
 
-      await writeStatus("sent", `Queued to ${targetGroup}`);
+      await writeStatus("sent", `Queued to ${targetGroup}${workerReady ? "" : " (worker not confirmed ready — delivery may be delayed)"}`);
       console.log(JSON.stringify({ severity: "INFO", message: "HOT_NEWS_WHATSAPP_SENT", correlationId, targetGroup }));
     } catch (err) {
       await writeStatus("error", err.message || String(err)).catch(() => {});

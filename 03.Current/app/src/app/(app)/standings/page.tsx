@@ -157,6 +157,7 @@ interface StandingEntry {
   newOverall: number;
   gap: number;
   rankChange: number;
+  penalty: number; // late-joiner adjustment total (negative = penalty, shown in red); 0 if none
 }
 
 // GUID: PAGE_STANDINGS-008-v04
@@ -459,6 +460,15 @@ export default function StandingsPage() {
       userTotals.set(score.userId, existing);
     });
 
+    // Per-user late-joiner adjustment total (negative = penalty). Rendered as a red annotation
+    // under the team name. Already folded into oldOverall/newOverall above via the handicap branch.
+    const penaltyByUser = new Map<string, number>();
+    filteredScores.forEach((score) => {
+      if (score.raceId === 'late-joiner-handicap' || score.raceId === 'late-joiner-penalty') {
+        penaltyByUser.set(score.userId, (penaltyByUser.get(score.userId) || 0) + score.totalPoints);
+      }
+    });
+
     // Sort by new overall points (descending)
     const sorted = Array.from(userTotals.entries())
       .sort((a, b) => b[1].newOverall - a[1].newOverall);
@@ -514,6 +524,7 @@ export default function StandingsPage() {
         newOverall: data.newOverall,
         gap,
         rankChange,
+        penalty: penaltyByUser.get(userId) || 0,
       };
     });
 
@@ -1104,6 +1115,11 @@ export default function StandingsPage() {
                       {team.teamName}
                       <RankBadge rank={team.rank} />
                     </span>
+                    {team.penalty < 0 && (
+                      <span className="block text-xs font-medium text-red-600" title="One-time late-joining penalty">
+                        {team.penalty} late-joining penalty
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
                     {selectedRaceIndex > 0 ? (
