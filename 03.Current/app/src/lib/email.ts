@@ -285,6 +285,7 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
       <p>- The Prix Six Team</p>
     </div>
     <div class="footer">
+      <p style="font-size:13px;color:#444;">🏎️ Want to be part of the banter? Email <a href="mailto:${escapeHtml(senderEmail)}">Aaron</a> and ask to join the <strong>WhatsApp Prix6.win</strong> group.</p>
       <p>This is an automated security email from Prix Six</p>
       <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
       <p>Email Reference: ${emailGuid} | Build: ${escapeHtml(APP_VERSION)}</p>
@@ -433,7 +434,8 @@ export async function sendEmail({ toEmail, subject, htmlContent }: GenericEmailP
   const contentWithFooter = `
 ${htmlContent}
 <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-  <p>This is an automated security email from Prix Six</p>
+  <p style="font-size:13px;color:#444;">🏎️ Want to be part of the banter? Email <a href="mailto:${escapeHtml(senderEmail)}">Aaron</a> and ask to join the <strong>WhatsApp Prix6.win</strong> group.</p>
+  <p>This is an automated email from Prix Six</p>
   <p>© ${new Date().getFullYear()} Prix Six. All rights reserved.</p>
   <p>Email Reference: ${emailGuid} | Build: ${escapeHtml(APP_VERSION)}</p>
   <p>Prix Six - F1 Prediction League</p>

@@ -2428,6 +2428,61 @@ exports.publishHotNewsToWhatsApp = onSchedule(
       if (ready) await sleep(15000);
       return ready;
     };
+
+    // Compute season status + the "next session" banner from the race_schedule collection
+    // (written by syncSessionTimes). Returns { inSeason, banner }. The banner mirrors the dashboard
+    // countdown ("Next: Spielberg Qualifying — 12 days, 1 hour, 53 minutes") computed as-of NOW
+    // (the 07:00 push time). inSeason gates the daily send so it only fires during the racing season.
+    const buildSeasonAndBanner = async () => {
+      const now = Date.now();
+      const snap = await db.collection("race_schedule").get();
+      const events = []; // { t, location, label }
+      let seasonStart = Infinity, seasonEnd = -Infinity;
+      snap.forEach((d) => {
+        const x = d.data();
+        const loc = x.location || x.name || "the next round";
+        const q = x.qualifyingTime ? new Date(x.qualifyingTime).getTime() : null;
+        const sp = x.sprintTime ? new Date(x.sprintTime).getTime() : null;
+        const r = x.raceTime ? new Date(x.raceTime).getTime() : null;
+        if (q) { events.push({ t: q, location: loc, label: "Qualifying" }); seasonStart = Math.min(seasonStart, q); }
+        if (sp) events.push({ t: sp, location: loc, label: "Sprint" });
+        if (r) { events.push({ t: r, location: loc, label: "Race" }); seasonEnd = Math.max(seasonEnd, r); }
+      });
+      // In season from 14 days before the first qualifying through 1 day after the final race.
+      const inSeason = Number.isFinite(seasonStart) && Number.isFinite(seasonEnd) &&
+        now >= seasonStart - 14 * 864e5 && now <= seasonEnd + 864e5;
+      const upcoming = events.filter((e) => e.t > now).sort((a, b) => a.t - b.t)[0];
+      let banner = null;
+      if (upcoming) {
+        let mins = Math.max(0, Math.round((upcoming.t - now) / 60000));
+        const days = Math.floor(mins / 1440); mins -= days * 1440;
+        const hours = Math.floor(mins / 60); mins -= hours * 60;
+        const parts = [];
+        if (days) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+        parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+        parts.push(`${mins} min${mins === 1 ? "" : "s"}`);
+        banner = `🏁 *Next:* ${upcoming.location} ${upcoming.label}\n⏱️ ${parts.join(", ")}`;
+      }
+      return { inSeason, banner };
+    };
+
+    // Post the message to Microsoft Teams via an Incoming Webhook / Power Automate URL, if configured.
+    // TEAMS_WEBHOOK_URL is read from the environment; until it is set this is a graceful no-op so the
+    // WhatsApp path is unaffected. Returns 'sent' | 'skipped' | 'error'.
+    const sendTeams = async (text) => {
+      const url = process.env.TEAMS_WEBHOOK_URL;
+      if (!url) return "skipped";
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+          signal: AbortSignal.timeout(15000),
+        });
+        return resp.ok ? "sent" : "error";
+      } catch (e) { return "error"; }
+    };
+
     const statusRef = db.collection("admin_configuration").doc("hotNewsWhatsAppStatus");
 
     const writeStatus = async (state, detail) => {
@@ -2451,6 +2506,13 @@ exports.publishHotNewsToWhatsApp = onSchedule(
       if (!content) { await writeStatus("skipped", "No hot news content"); return; }
       if (!targetGroup) { await writeStatus("skipped", "No target group configured"); return; }
 
+      // Only push during the racing season (see buildSeasonAndBanner). Outside it, skip quietly.
+      const { inSeason, banner } = await buildSeasonAndBanner();
+      if (!inSeason) { await writeStatus("skipped", "Out of season — no daily hot news"); return; }
+
+      // Prepend the next-session countdown banner to the hot-news body (WhatsApp + Teams).
+      const message = `🏎️ *Prix Six Hot News*\n${banner ? `\n${banner}\n` : "\n"}\n${content}`;
+
       // Warm the worker and wait for a stable WhatsApp connection BEFORE enqueuing (see
       // warmAndWaitReady). If it never reports ready we still enqueue — the worker's listener will
       // pick it up whenever it next stabilises — but we record that delivery may be delayed.
@@ -2458,7 +2520,7 @@ exports.publishHotNewsToWhatsApp = onSchedule(
 
       await db.collection("whatsapp_queue").add({
         groupName: targetGroup,
-        message: `🏎️ *Prix Six Hot News*\n\n${content}`,
+        message,
         status: "PENDING",
         createdAt: Timestamp.now(),
         retryCount: 0,
@@ -2466,16 +2528,19 @@ exports.publishHotNewsToWhatsApp = onSchedule(
         testMode: wa.testMode === true,
       });
 
+      // Also push to Microsoft Teams (no-op until TEAMS_WEBHOOK_URL is configured).
+      const teamsResult = await sendTeams(message);
+
       await db.collection("audit_logs").add({
         userId: "system",
         action: "HOT_NEWS_WHATSAPP_DAILY",
-        details: { targetGroup, contentLength: content.length, testMode: wa.testMode === true, workerReady },
+        details: { targetGroup, contentLength: content.length, testMode: wa.testMode === true, workerReady, teamsResult, banner: banner || null },
         correlationId,
         timestamp: Timestamp.now(),
       });
 
-      await writeStatus("sent", `Queued to ${targetGroup}${workerReady ? "" : " (worker not confirmed ready — delivery may be delayed)"}`);
-      console.log(JSON.stringify({ severity: "INFO", message: "HOT_NEWS_WHATSAPP_SENT", correlationId, targetGroup }));
+      await writeStatus("sent", `Queued to ${targetGroup}${workerReady ? "" : " (worker not confirmed ready — delivery may be delayed)"} | Teams: ${teamsResult}`);
+      console.log(JSON.stringify({ severity: "INFO", message: "HOT_NEWS_WHATSAPP_SENT", correlationId, targetGroup, teamsResult }));
     } catch (err) {
       await writeStatus("error", err.message || String(err)).catch(() => {});
       console.error(JSON.stringify({ severity: "ERROR", message: "HOT_NEWS_WHATSAPP_FAILED", correlationId, error: err.message || String(err) }));
