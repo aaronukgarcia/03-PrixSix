@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 2123,
+ "total_guids": 2135,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -69174,9 +69174,9 @@
   },
   {
    "guid": "LIB_CONSISTENCY-005",
-   "version": 3,
+   "version": 4,
    "logic_category": "TRANSFORMATION",
-   "description": "Aggregate counts of each scoring type across all validated scores.",
+   "description": "Aggregate counts of each scoring type across the league (A-F tiers + bonus, plus Type G late-joiner adjustments). v04: computed in checkScores from the live SSOT (race_results x predictions), not the dead scores-collection breakdown strings.",
    "dependencies": [
     "LIB_DATA-000",
     "LIB_DATA-001",
@@ -69210,7 +69210,7 @@
     "calls": []
    },
    "created": "2026-01-19T20:10:52Z",
-   "lastUpdated": "2026-02-13T12:00:34Z"
+   "lastUpdated": "2026-06-15T00:00:00Z"
   },
   {
    "guid": "LIB_CONSISTENCY-006",
@@ -70105,9 +70105,9 @@
   },
   {
    "guid": "LIB_CONSISTENCY-028",
-   "version": 7,
+   "version": 9,
    "logic_category": "VALIDATION",
-   "description": "The most comprehensive check function. Validates all score documents against race results and predictions. predictionMap stores PredictionData[] per key to handle Sprint/GP prediction collisions. v07 adds comprehensive double cross-check: breakdown math verification, ghost point detection, per-driver point accuracy (reverse Teamâ†’Admin), forward Adminâ†’Team check, and bonus verification.",
+   "description": "The most comprehensive check function. Validates all score documents against race results and predictions. predictionMap stores PredictionData[] per key to handle Sprint/GP prediction collisions. v07 adds comprehensive double cross-check: breakdown math verification, ghost point detection, per-driver point accuracy (reverse Teamâ†’Admin), forward Adminâ†’Team check, and bonus verification. v09: Score Type Breakdown re-pointed to live race_results x predictions; Type G from standings_adjustments count.",
    "dependencies": [
     "LIB_DATA-000",
     "LIB_DATA-001",
@@ -70141,7 +70141,7 @@
     "calls": []
    },
    "created": "2026-01-19T20:10:52Z",
-   "lastUpdated": "2026-02-13T12:00:34Z"
+   "lastUpdated": "2026-06-15T00:00:00Z"
   },
   {
    "guid": "LIB_CONSISTENCY-029",
@@ -120102,6 +120102,228 @@
    },
    "created": "2026-06-12T09:00:00Z",
    "lastUpdated": "2026-06-12T09:00:00Z"
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-007",
+   "version": 1,
+   "logic_category": "TRANSFORMATION",
+   "description": "Build a map of normalised raceId -> the UTC millis the race ran, from the static RaceSchedule (GP keys off raceTime, sprints off sprintTime). Used to gate carry-forward so a team is never awarded points for a race that ran before they joined.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts",
+    "functionName": "buildRaceRunMillisMap"
+   },
+   "callChain": {
+    "calledBy": [
+     "LIB_CUMULATIVE_STANDINGS-004"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "LIB_CUMULATIVE_STANDINGS-008",
+   "version": 1,
+   "logic_category": "DATA_ACCESS",
+   "description": "Read the standings_adjustments collection and return one synthetic ScoreData row per adjustment (raceId=ADJUSTMENT_RACE_ID, late-joiner-penalty). Lets every consumer fold one-time point deltas (e.g. the late-joiner -5) into totals via the existing per-userId sum.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cumulative-standings.ts",
+    "functionName": "readStandingsAdjustments"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_STANDINGS-002"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "LIB_LATE_JOINER-000",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "Single source of truth for the late-joiner handicap mechanic: clone the current last-place team prior-race predictions into a new mid-season team, apply a one-time -5 penalty, set lateJoiner flags driving the welcome screen, and audit creation + every cloned submission. Used by /api/auth/signup.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/late-joiner.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "LIB_LATE_JOINER-001",
+   "version": 1,
+   "logic_category": "TRANSFORMATION",
+   "description": "Return the name of the next race the late joiner will play on their own picks (first RaceSchedule entry whose raceTime is still in the future). Shown on the welcome screen.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/late-joiner.ts",
+    "functionName": "getNextRaceName"
+   },
+   "callChain": {
+    "calledBy": [
+     "LIB_LATE_JOINER-002"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "LIB_LATE_JOINER-002",
+   "version": 1,
+   "logic_category": "DATA_ACCESS",
+   "description": "Apply the full late-joiner handicap for a new user: compute current standings, find last place, clone their completed-race predictions into the new uid, write a -5 standings_adjustments doc, set lateJoiner user-doc flags, and audit team creation plus each cloned submission. Returns {applied:false} when the season has not started.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/late-joiner.ts",
+    "functionName": "applyLateJoinerHandicap"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_AUTH_SIGNUP-014"
+    ],
+    "calls": [
+     "LIB_CUMULATIVE_STANDINGS-004",
+     "LIB_CUMULATIVE_STANDINGS-005",
+     "LIB_CUMULATIVE_STANDINGS-006",
+     "LIB_LATE_JOINER-001"
+    ]
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "PAGE_WELCOME-000",
+   "version": 1,
+   "logic_category": "UI",
+   "description": "Mid-season welcome/acknowledgement screen for late joiners: explains next race, that prior scores were cloned from last place, the one-time -5 penalty, signposts the Rules page, and requires a read-and-understood checkbox before continuing. Confirming records an audited acknowledgement.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/welcome/page.tsx",
+    "functionName": "WelcomePage"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": [
+     "API_AUTH_ACK_LATE_JOINER-000"
+    ]
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "API_AUTH_ACK_LATE_JOINER-000",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "POST handler that records a late joiner acknowledgement of the welcome screen: verifies the bearer token, sets users/{uid}.lateJoinerAcknowledged=true (lifting the /welcome redirect gate), and writes a LATE_JOINER_ACKNOWLEDGED audit entry.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/api/auth/acknowledge-late-joiner/route.ts",
+    "functionName": "POST"
+   },
+   "callChain": {
+    "calledBy": [
+     "PAGE_WELCOME-000"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "BACKUP_FUNCTIONS-080",
+   "version": 1,
+   "logic_category": "DATA_ACCESS",
+   "description": "applyBackupRetention — scheduled Cloud Function (03:30 UTC daily). Enforces backup retention: keep all daily backups <7d, then only Friday + 1st-of-month backups; purge the rest (GCS folder + backup_history doc). Compatible with the bucket 7-day Object Retention Lock.",
+   "dependencies": [],
+   "location": {
+    "filePath": "functions/index.js",
+    "functionName": "applyBackupRetention"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "BACKUP_FUNCTIONS-081",
+   "version": 1,
+   "logic_category": "DATA_ACCESS",
+   "description": "Query inside applyBackupRetention: pull every backup_history entry older than the exclusive 7-day floor, then decide keep/purge per entry.",
+   "dependencies": [],
+   "location": {
+    "filePath": "functions/index.js",
+    "functionName": "applyBackupRetention"
+   },
+   "callChain": {
+    "calledBy": [
+     "BACKUP_FUNCTIONS-080"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "BACKUP_FUNCTIONS-082",
+   "version": 1,
+   "logic_category": "DATA_ACCESS",
+   "description": "Purge a single old backup inside applyBackupRetention: delete the GCS folder first, then the Firestore backup_history doc, so a GCS failure leaves the record for the next run to retry.",
+   "dependencies": [],
+   "location": {
+    "filePath": "functions/index.js",
+    "functionName": "applyBackupRetention"
+   },
+   "callChain": {
+    "calledBy": [
+     "BACKUP_FUNCTIONS-080"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "REPLAY_CHUNKS_RULES-001",
+   "version": 1,
+   "logic_category": "SECURITY",
+   "description": "Firestore security rules for replay_chunks (GPS replay chunk docs, ~800 frames each). Signed-in users may get/list; writes are Admin-SDK-only (replay-ingest.ts).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/firestore.rules"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "REPLAY_META_RULES-001",
+   "version": 1,
+   "logic_category": "SECURITY",
+   "description": "Firestore security rules for replay_meta (GPS replay session metadata, one doc per session). Signed-in users may get; writes are Admin-SDK-only (replay-ingest.ts).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/firestore.rules"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-15T00:00:00Z",
+   "lastUpdated": "2026-06-15T00:00:00Z"
   }
  ],
  "firestoreCollections": {
@@ -120814,7 +121036,7 @@
    }
   }
  },
- "last_updated": "2026-06-12T09:00:00Z",
+ "last_updated": "2026-06-15T00:00:00Z",
  "lessons": [
   {
    "id": "WA-HEALTH-PUBLIC",

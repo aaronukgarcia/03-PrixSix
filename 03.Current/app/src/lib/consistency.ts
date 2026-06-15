@@ -60,11 +60,13 @@ export interface Issue {
   details?: Record<string, unknown>;
 }
 
-// GUID: LIB_CONSISTENCY-005-v03
-// [Intent] Aggregate counts of each scoring type across all validated scores.
+// GUID: LIB_CONSISTENCY-005-v04
+// [Intent] Aggregate counts of each scoring type across the league.
 //   Used to provide a statistical breakdown of how points were awarded league-wide.
-//   Types A-F map to Prix Six scoring rules; typeG tracks late-joiner handicap entries.
-// [Inbound Trigger] Populated inside checkScores() by parsing score breakdown strings.
+//   Types A-F map to Prix Six scoring rules; typeG tracks late-joiner adjustments.
+// @CHANGE (v04): now computed in checkScores() from the live SSOT (race_results × predictions),
+//   not by parsing the dead scores-collection breakdown strings (SSOT-001).
+// [Inbound Trigger] Populated inside checkScores() by replaying predictions against results.
 // [Downstream Impact] Attached to the 'scores' CheckResult as scoreTypeCounts.
 //   ConsistencyChecker.tsx renders this as a score distribution summary table.
 export interface ScoreTypeCounts {
@@ -1286,7 +1288,7 @@ function parseBreakdown(
   return { entries, bonusPoints, sum, malformed: false };
 }
 
-// GUID: LIB_CONSISTENCY-028-v08
+// GUID: LIB_CONSISTENCY-028-v09
 // @ERROR_PRONE: Breakdown string parsing (splitting on comma, matching "+N" patterns) is fragile.
 //   If the breakdown format changes in scoring.ts, the score type counting here will silently break.
 // @AUDIT_NOTE: Late-joiner handicap scores surface an 'info' note (not warning) if totalPoints
@@ -1330,7 +1332,8 @@ export function checkScores(
   scores: ScoreData[],
   raceResults: RaceResultData[],
   predictions: PredictionData[],
-  users: UserData[]
+  users: UserData[],
+  lateJoinerCount: number = 0
 ): CheckResult {
   const issues: Issue[] = [];
   const userIds = new Set(users.map(u => u.id));
@@ -1808,41 +1811,92 @@ export function checkScores(
     }
   }
 
-  // Count score types from breakdown strings
+  // ── Score Type Breakdown — computed from the LIVE SSOT (race_results × predictions) ──
+  // @BUG_FIX (v3.2.1): Previously this tallied score-type tiers by parsing `breakdown` strings on
+  //   the `scores` collection. Post-SSOT-001 that collection is dead (no breakdown field, only
+  //   pre-refactor leftovers), so every tier read 0. We now replay each team's prediction against
+  //   each scored race exactly as @/lib/cumulative-standings does (race-specific match → sprint
+  //   fallback → date-gated carry-forward) and tally each of the 6 driver picks into A–F, plus the
+  //   Perfect-6 bonus (F). Type G (late-joiner) comes from the standings_adjustments count passed in.
+  //   This keeps the breakdown a faithful statistical summary of how points are actually awarded.
   const scoreTypeCounts: ScoreTypeCounts = {
-    typeA: 0,  // +6 Exact Position
-    typeB: 0,  // +4 One Position Off
-    typeC: 0,  // +3 Two Positions Off
-    typeD: 0,  // +2 Three+ Positions Off
-    typeE: 0,  // 0 Not in Top 6
-    typeF: 0,  // +10 Perfect 6 Bonus
-    typeG: lateJoinerHandicapScores.length,  // Late Joiner Handicap
+    typeA: 0, typeB: 0, typeC: 0, typeD: 0, typeE: 0, typeF: 0,
+    typeG: lateJoinerCount,  // Late-joiner adjustments (standings_adjustments)
     totalRaceScores: 0,
     totalDriverPredictions: 0,
   };
 
-  for (const score of scores) {
-    if (score.raceId === 'late-joiner-handicap') continue;
-
-    scoreTypeCounts.totalRaceScores++;
-    const breakdown = score.breakdown || '';
-    const parts = breakdown.split(',').map(p => p.trim());
-
-    for (const part of parts) {
-      if (part.includes('BonusAll6') || part.includes('Bonus')) {
-        scoreTypeCounts.typeF++;
-      } else if (part.includes('+6')) {
-        scoreTypeCounts.typeA++;
-      } else if (part.includes('+4')) {
-        scoreTypeCounts.typeB++;
-      } else if (part.includes('+3')) {
-        scoreTypeCounts.typeC++;
-      } else if (part.includes('+2')) {
-        scoreTypeCounts.typeD++;
-      } else if (part.includes('+0')) {
-        scoreTypeCounts.typeE++;
-      }
+  // When each race actually ran (ms) — gates carry-forward so a team is not tallied for races that
+  // ran before they joined. Mirrors buildRaceRunMillisMap in cumulative-standings.
+  const raceRunMillis = new Map<string, number>();
+  for (const race of RaceSchedule) {
+    const gpKey = normalizeRaceIdForComparison(generateRaceId(race.name, 'gp'));
+    if (race.raceTime) raceRunMillis.set(gpKey, new Date(race.raceTime).getTime());
+    if (race.hasSprint && race.sprintTime) {
+      raceRunMillis.set(normalizeRaceIdForComparison(generateRaceId(race.name, 'sprint')), new Date(race.sprintTime).getTime());
     }
+  }
+
+  // Per-team predictions keyed by normalised raceId, keeping the latest by submittedAt; plus each
+  // team's earliest submission (for the carry-forward gate).
+  const teamPredsByRace = new Map<string, Map<string, { drivers: string[]; ts: number }>>();
+  const earliestByTeam = new Map<string, number>();
+  for (const pred of predictions) {
+    const teamId = pred.userId || pred.teamId;
+    if (!teamId || !Array.isArray(pred.predictions) || pred.predictions.length !== 6) continue;
+    const norm = pred.raceId ? normalizeRaceIdForComparison(pred.raceId) : null;
+    if (!norm) continue;
+    const ts = pred.submittedAt ? new Date(pred.submittedAt as any).getTime() : 0;
+    const tsv = Number.isFinite(ts) ? ts : 0;
+    if (!teamPredsByRace.has(teamId)) teamPredsByRace.set(teamId, new Map());
+    const m = teamPredsByRace.get(teamId)!;
+    const ex = m.get(norm);
+    if (!ex || tsv > ex.ts) m.set(norm, { drivers: pred.predictions, ts: tsv });
+    if (tsv > 0) earliestByTeam.set(teamId, Math.min(earliestByTeam.get(teamId) ?? Infinity, tsv));
+  }
+
+  for (const result of raceResults) {
+    const normRace = normalizeRaceIdForComparison(result.raceId || result.id || '');
+    const actualTop6 = [result.driver1, result.driver2, result.driver3, result.driver4, result.driver5, result.driver6];
+    if (actualTop6.some(d => !d)) continue; // incomplete result — skip
+    const normalizedActual = actualTop6.map(d => (d as string).toLowerCase());
+
+    teamPredsByRace.forEach((races, teamId) => {
+      // Resolve the prediction the standings engine would score for this team+race.
+      let drivers: string[] | null = null;
+      let carried = false;
+      if (races.has(normRace)) {
+        drivers = races.get(normRace)!.drivers;
+      } else if (normRace.endsWith('-sprint')) {
+        const base = normRace.replace(/-sprint$/, '');
+        if (races.has(base)) drivers = races.get(base)!.drivers;
+      }
+      if (!drivers) {
+        let latest = 0;
+        races.forEach(v => { if (v.ts > latest) { latest = v.ts; drivers = v.drivers; } });
+        carried = !!drivers;
+      }
+      if (!drivers) return;
+      if (carried) {
+        const ranAt = raceRunMillis.get(normRace);
+        const joinedAt = earliestByTeam.get(teamId) ?? 0;
+        if (ranAt !== undefined && joinedAt > 0 && ranAt < joinedAt) return; // didn't play this race
+      }
+
+      scoreTypeCounts.totalRaceScores++;
+      let correctCount = 0;
+      for (let pos = 0; pos < 6; pos++) {
+        const actualPos = normalizedActual.indexOf((drivers[pos] || '').toLowerCase());
+        if (actualPos === -1) { scoreTypeCounts.typeE++; continue; }
+        correctCount++;
+        const diff = Math.abs(pos - actualPos);
+        if (diff === 0) scoreTypeCounts.typeA++;
+        else if (diff === 1) scoreTypeCounts.typeB++;
+        else if (diff === 2) scoreTypeCounts.typeC++;
+        else scoreTypeCounts.typeD++;
+      }
+      if (correctCount === 6) scoreTypeCounts.typeF++; // Perfect 6 bonus (one per team-race)
+    });
   }
 
   scoreTypeCounts.totalDriverPredictions =

@@ -352,7 +352,11 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
           breakdown: s.breakdown,
         };
       });
-      results.push(checkScores(scoreData, resultData, allPredictions, userData));
+      // Late-joiner penalties live in standings_adjustments (post-SSOT-001), not the scores
+      // collection — fetch the count so the Score Type Breakdown's Type G reflects reality.
+      const adjustmentsSnap = await getDocs(query(collection(firestore, 'standings_adjustments'), limit(CC_FETCH_CAP)));
+      const lateJoinerCount = adjustmentsSnap.size;
+      results.push(checkScores(scoreData, resultData, allPredictions, userData, lateJoinerCount));
 
       // Check Standings
       setCurrentPhase('standings');
