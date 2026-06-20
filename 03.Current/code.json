@@ -120088,6 +120088,22 @@
    "lastUpdated": "2026-06-12T09:00:00Z"
   },
   {
+   "guid": "BACKUP_FUNCTIONS-042",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "whatsAppQueueWatchdog: onSchedule every 15min -> reverts stuck-PROCESSING whatsapp_queue docs to PENDING, wakes the worker on stale-PENDING, counts FAILED in last 24h, writes admin_configuration/whatsAppQueueWatchdogStatus (GR#17 silent-failure detection for WhatsApp delivery).",
+   "dependencies": [],
+   "location": {
+    "filePath": "functions/index.js"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-06-20T00:00:00Z",
+   "lastUpdated": "2026-06-20T00:00:00Z"
+  },
+  {
    "guid": "ADMIN_WHATSAPP-021c",
    "version": 1,
    "logic_category": "STATE_MANAGEMENT",

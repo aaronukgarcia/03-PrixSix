@@ -2591,3 +2591,122 @@ exports.whatsAppScheduledTick = onSchedule(
     }
   }
 );
+
+// GUID: BACKUP_FUNCTIONS-042-v01
+/**
+ * whatsAppQueueWatchdog
+ *
+ * [Intent] Defence-in-depth for WhatsApp delivery (GR#17 — silent-failure detection). Every 15 min,
+ *          inspect the whatsapp_queue for two stuck states the happy path cannot self-heal, and surface
+ *          delivery health to a status doc that /health-check can monitor for freshness:
+ *            1. STUCK PROCESSING — a doc left in PROCESSING with no further update (worker crashed
+ *               mid-send, before queue-processor could write SENT/PENDING/FAILED). The message almost
+ *               certainly never delivered, so revert it to PENDING; the worker's live listener re-sends
+ *               it (and, post-v05, only marks SENT on a real WhatsApp ack).
+ *            2. STALE PENDING — a doc sitting PENDING well past enqueue (worker asleep / listener
+ *               wedged). Wake the worker by POSTing the HMAC-signed /process-queue endpoint.
+ *          Also count FAILED docs in the last 24h so a delivery regression is visible, not silent.
+ * [Inbound Trigger] Cloud Scheduler cron: every 15 min.
+ * [Downstream Impact] Mutates whatsapp_queue (PROCESSING->PENDING requeues only), may POST to the
+ *          worker /process-queue, writes admin_configuration/whatsAppQueueWatchdogStatus and an
+ *          audit_log entry when it takes action. Reads WHATSAPP_APP_SECRET to sign the wake request.
+ */
+exports.whatsAppQueueWatchdog = onSchedule(
+  {
+    schedule: "*/15 * * * *",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 120,
+    memory: "256MiB",
+    retryCount: 0,
+    secrets: ["WHATSAPP_APP_SECRET"],
+  },
+  async () => {
+    const db = getFirestore();
+    const correlationId = generateCorrelationId("wadog");
+    const WORKER_URL = "https://prixsix-whatsapp.delightfulmushroom-6fa10cd0.uksouth.azurecontainerapps.io";
+    const now = Date.now();
+    const PROCESSING_STUCK_MS = 5 * 60 * 1000;  // PROCESSING older than this = worker died mid-send
+    const PENDING_STALE_MS = 10 * 60 * 1000;    // PENDING older than this = not being drained
+
+    const statusRef = db.collection("admin_configuration").doc("whatsAppQueueWatchdogStatus");
+    const writeStatus = async (state, detail, extra = {}) => {
+      await statusRef.set(
+        { lastRunAt: Timestamp.now(), state, detail: detail || null, correlationId, ...extra },
+        { merge: true }
+      ).catch(() => {});
+    };
+
+    try {
+      // 1. STUCK PROCESSING — revert to PENDING so the worker re-sends.
+      const processingSnap = await db.collection("whatsapp_queue").where("status", "==", "PROCESSING").get();
+      let requeuedStuck = 0;
+      for (const doc of processingSnap.docs) {
+        const x = doc.data();
+        const procAt = x.processedAt && x.processedAt.toMillis ? x.processedAt.toMillis() : 0;
+        if (now - procAt > PROCESSING_STUCK_MS) {
+          await doc.ref.update({
+            status: "PENDING",
+            watchdogRequeuedAt: Timestamp.now(),
+            error: "Reverted by watchdog — stuck in PROCESSING (worker likely crashed mid-send)",
+          });
+          requeuedStuck++;
+        }
+      }
+
+      // 2. STALE PENDING — wake the worker if anything has been waiting too long.
+      const pendingSnap = await db.collection("whatsapp_queue").where("status", "==", "PENDING").get();
+      let stalePending = 0;
+      pendingSnap.forEach((doc) => {
+        const x = doc.data();
+        const createdAt = x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : now;
+        if (now - createdAt > PENDING_STALE_MS) stalePending++;
+      });
+
+      let woke = false;
+      if (stalePending > 0 || requeuedStuck > 0) {
+        const secret = process.env.WHATSAPP_APP_SECRET;
+        if (secret) {
+          try {
+            const signature = `sha256=${crypto.createHmac("sha256", secret).update("process-queue").digest("hex")}`;
+            await fetch(`${WORKER_URL}/process-queue`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Hub-Signature-256": signature },
+              signal: AbortSignal.timeout(10000),
+            });
+            woke = true;
+          } catch (e) { /* best-effort: warm worker drains on its own when it next stabilises */ }
+        }
+      }
+
+      // 3. FAILED in last 24h — surface a delivery regression instead of letting it stay silent.
+      // Single-field query (no composite index) + in-memory date filter; FAILED docs are rare.
+      const sinceMs = now - 24 * 60 * 60 * 1000;
+      const failedSnap = await db.collection("whatsapp_queue").where("status", "==", "FAILED").get();
+      let failed24h = 0;
+      failedSnap.forEach((doc) => {
+        const x = doc.data();
+        const createdAt = x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : 0;
+        if (createdAt >= sinceMs) failed24h++;
+      });
+
+      const state = (requeuedStuck > 0 || failed24h > 0) ? "attention" : "ok";
+      if (requeuedStuck > 0 || stalePending > 0 || failed24h > 0) {
+        await db.collection("audit_logs").add({
+          userId: "system",
+          action: "WHATSAPP_QUEUE_WATCHDOG",
+          details: { requeuedStuck, stalePending, failed24h, workerWoke: woke },
+          correlationId,
+          timestamp: Timestamp.now(),
+        }).catch(() => {});
+      }
+
+      await writeStatus(state, `requeuedStuck=${requeuedStuck} stalePending=${stalePending} failed24h=${failed24h} woke=${woke}`,
+        { requeuedStuck, stalePending, failed24h, workerWoke: woke });
+      console.log(JSON.stringify({ severity: "INFO", message: "WA_QUEUE_WATCHDOG_OK", correlationId, requeuedStuck, stalePending, failed24h, woke }));
+    } catch (err) {
+      await writeStatus("error", err.message || String(err));
+      console.error(JSON.stringify({ severity: "ERROR", message: "WA_QUEUE_WATCHDOG_FAILED", correlationId, error: err.message || String(err) }));
+    }
+  }
+);
