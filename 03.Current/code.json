@@ -97555,9 +97555,9 @@
   },
   {
    "guid": "WHATSAPP_CLIENT-000",
-   "version": 3,
+   "version": 5,
    "logic_category": "ORCHESTRATION",
-   "description": "WhatsApp Web.js client wrapper with Azure Blob Storage session persistence, keep-alive pings, QR code generation, and platform-specific Puppeteer configuration. Handles authentication, disconnection recovery, and group message sending.",
+   "description": "Baileys (WebSocket) WhatsApp client wrapper with Azure Blob session persistence, keep-alive pings, QR generation, disconnection recovery and group message sending. v05 adds waitForStable(): the connection is only treated as send-ready once continuously OPEN for >=15s AND a real query (groupFetchAllParticipating) succeeds — fixes the cold-start false-SENT where a relay on a not-yet-settled socket resolved locally but WhatsApp silently dropped it.",
    "dependencies": [
     "AZURE_STORE-000",
     "FIREBASE_CONFIG_WORKER-000"
@@ -97620,9 +97620,9 @@
   },
   {
    "guid": "QUEUE_PROCESSOR-000",
-   "version": 3,
+   "version": 4,
    "logic_category": "ORCHESTRATION",
-   "description": "Firestore queue listener that processes whatsapp_queue collection documents. Monitors PENDING messages, applies rate limiting (5-10s between messages), retries failures up to 3 times, and updates status to SENT/FAILED.",
+   "description": "Firestore queue listener that processes whatsapp_queue documents. Monitors PENDING messages, awaits whatsapp.waitForStable() before every send (v04 cold-start false-SENT fix), applies rate limiting (5-10s), retries failures up to 3 times, and updates status to SENT/FAILED.",
    "dependencies": [
     "FIREBASE_CONFIG_WORKER-000",
     "WHATSAPP_CLIENT-000"

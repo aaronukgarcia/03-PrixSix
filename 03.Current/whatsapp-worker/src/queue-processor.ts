@@ -1,4 +1,9 @@
-// GUID: QUEUE_PROCESSOR-000-v03
+// GUID: QUEUE_PROCESSOR-000-v04
+// @BUG_FIX (v04, cold-start false-SENT — 2026-06-20): before sending, await whatsapp.waitForStable()
+// so a message is only relayed once the socket has settled (continuously open >=15s + a successful
+// query). Without this, a message relayed on a just-opened socket resolves locally (marked SENT) but
+// may never reach WhatsApp — the reported "7am + prediction didn't arrive" symptom. If the connection
+// can't stabilise, the send is treated as a failure and retried (PENDING) rather than fake-SENT.
 import { getFirestore } from './firebase-config';
 import { WhatsAppClient } from './whatsapp-client';
 import { Firestore, Timestamp } from 'firebase-admin/firestore';
@@ -96,6 +101,13 @@ export class QueueProcessor {
         status: 'PROCESSING',
         processedAt: Timestamp.now(),
       });
+
+      // Wait for a genuinely stable connection before sending (v04 cold-start false-SENT fix).
+      // If it can't stabilise, fail fast → the catch below retries (PENDING) instead of fake-SENT.
+      const stable = await this.whatsapp.waitForStable();
+      if (!stable) {
+        throw new Error('Connection not stable — deferring send to avoid false-SENT');
+      }
 
       // Apply rate limiting
       await this.applyRateLimit();

@@ -1,9 +1,18 @@
-// GUID: WHATSAPP_CLIENT-000-v04
+// GUID: WHATSAPP_CLIENT-000-v05
 // [Intent] WhatsApp client wrapper using Baileys (WebSocket protocol, no Puppeteer/Chromium).
 //          Drop-in replacement for the whatsapp-web.js based client — same public interface.
 // [Inbound Trigger] Instantiated by index.ts at server startup.
-// [Downstream Impact] Provides sendMessage, sendToGroup, getStatus, getGroups for queue-processor
-//                     and Express endpoints. Logs status changes to Firestore.
+// [Downstream Impact] Provides sendMessage, sendToGroup, getStatus, getGroups, waitForStable for
+//                     queue-processor and Express endpoints. Logs status changes to Firestore.
+//
+// @BUG_FIX (v05, cold-start false-SENT — 2026-06-20): the connection reports `isReady` the instant
+// Baileys' socket opens, but the socket isn't yet usable — its init-queries window is still settling
+// (we observe `getUSyncDevices` 408 timeouts right after open). A queued message relayed in that
+// window resolves locally (marked SENT) but WhatsApp may never receive it — the reported "7am +
+// prediction didn't arrive" symptom. FIX: waitForStable() — only treat the connection as send-ready
+// once it has been continuously OPEN for STABILIZE_MS *and* a real query (groupFetchAllParticipating)
+// succeeds. queue-processor awaits this before every send. A reconnect resets the timer. This is the
+// same settle the 7am Cloud Function does via warmAndWaitReady, now applied to ALL queued messages.
 
 import makeWASocket, {
   useMultiFileAuthState,
@@ -46,6 +55,11 @@ export class WhatsAppClient {
   private authDir: string;
   private shouldReconnect: boolean = true;
   private groupNameCache: Map<string, string> = new Map();
+  // Timestamp (ms) of the most recent successful 'open'. Reset to null on close. Used by
+  // waitForStable() to require the socket has been continuously open long enough to settle.
+  private readyAt: number | null = null;
+  // How long the connection must be continuously open before we trust it for sends (see v05 @BUG_FIX).
+  private readonly STABILIZE_MS = 15000;
 
   constructor() {
     this.authDir = isWindows ? AUTH_DIR_WINDOWS : AUTH_DIR_DOCKER;
@@ -123,6 +137,7 @@ export class WhatsAppClient {
       // Connected successfully
       if (connection === 'open') {
         this.isReady = true;
+        this.readyAt = Date.now(); // start the stabilization clock (see waitForStable)
         this.qrCodeData = null;
         this.consecutiveFailures = 0;
         this.lastSuccessfulPing = new Date();
@@ -149,6 +164,7 @@ export class WhatsAppClient {
       // Disconnected
       if (connection === 'close') {
         this.isReady = false;
+        this.readyAt = null; // reset the stabilization clock; next 'open' restarts the settle
         this.stopKeepAlive();
 
         const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
@@ -194,6 +210,31 @@ export class WhatsAppClient {
         }
       }
     });
+  }
+
+  /**
+   * Wait until the connection is genuinely send-ready: continuously OPEN for at least STABILIZE_MS
+   * AND able to complete a real query (groupFetchAllParticipating). Resolves true when stable,
+   * false if it can't stabilise within timeoutMs. Called by the queue-processor before every send to
+   * avoid the cold-start false-SENT (a relay on a just-opened, not-yet-settled socket that resolves
+   * locally but never reaches WhatsApp). A reconnect resets readyAt, so this re-waits the full settle.
+   */
+  async waitForStable(timeoutMs: number = 90000): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (this.isReady && this.sock && this.readyAt !== null && (Date.now() - this.readyAt) >= this.STABILIZE_MS) {
+        try {
+          // A successful query proves the socket is actually usable, not just nominally "open".
+          await this.sock.groupFetchAllParticipating();
+          return true;
+        } catch {
+          // Socket open but not yet able to query — keep waiting.
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    console.error(`❌ waitForStable: connection did not stabilise within ${timeoutMs / 1000}s`);
+    return false;
   }
 
   /**
