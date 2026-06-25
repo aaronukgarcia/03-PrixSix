@@ -243,12 +243,55 @@ async function fetchOpenF1Weather(): Promise<{ trackTemp: number; rainfall: numb
     }
 }
 
-// GUID: HOT_NEWS_FLOW-008-v04
+// GUID: HOT_NEWS_FLOW-010-v01
+// [Intent] Fetch REAL current-season F1 championship data — driver standings (top 6), constructor
+//          standings (top 5) and the last race podium — from Jolpica-F1 (api.jolpi.ca, the free,
+//          no-key Ergast-compatible successor). This grounds the bulletin in ACTUAL 2026 form
+//          instead of the model's stale training knowledge (which e.g. wrongly had Verstappen
+//          leading in RB20/MCL38 cars). Returns a pre-formatted prompt block, or null on any failure.
+// [Inbound Trigger] hotNewsFeedFlow() builds the prompt's CURRENT CHAMPIONSHIP section from this.
+// [Downstream Impact] Accurate driver/team storylines; null => prompt falls back to evergreen angles.
+async function fetchF1Standings(): Promise<string | null> {
+    try {
+        const BASE = 'https://api.jolpi.ca/ergast/f1/current';
+        const j = async (path: string) => {
+            const r = await fetch(`${BASE}/${path}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+            if (!r.ok) throw new Error(`jolpica ${path} ${r.status}`);
+            return r.json();
+        };
+        const [ds, cs, lr] = await Promise.all([
+            j('driverstandings/?limit=6'),
+            j('constructorstandings/?limit=5'),
+            j('last/results/?limit=3'),
+        ]);
+        const dList = ds?.MRData?.StandingsTable?.StandingsLists?.[0];
+        const cList = cs?.MRData?.StandingsTable?.StandingsLists?.[0];
+        const race = lr?.MRData?.RaceTable?.Races?.[0];
+        if (!dList?.DriverStandings?.length || !cList?.ConstructorStandings?.length) return null;
+
+        const drivers = dList.DriverStandings.map((d: any) =>
+            `${d.position}. ${(d.Driver.givenName ?? '').charAt(0)} ${d.Driver.familyName} (${d.Constructors?.[0]?.name ?? '?'}) ${d.points}pts${Number(d.wins) > 0 ? `, ${d.wins} win${Number(d.wins) > 1 ? 's' : ''}` : ''}`
+        );
+        const cons = cList.ConstructorStandings.map((c: any) => `${c.position}. ${c.Constructor.name} ${c.points}pts`);
+
+        let lastLine = '';
+        if (race?.Results?.length) {
+            const podium = race.Results.map((r: any) => `${r.position}. ${r.Driver.familyName} (${r.Constructor.name})`);
+            lastLine = `\nLast race (${race.raceName}): ${podium.join(', ')}`;
+        }
+        return `CURRENT ${dList.season} CHAMPIONSHIP (after round ${dList.round}):\nDrivers: ${drivers.join('; ')}\nConstructors: ${cons.join('; ')}${lastLine}`;
+    } catch {
+        return null;
+    }
+}
+
+// GUID: HOT_NEWS_FLOW-008-v05
 // [Intent] Core AI generation flow — fetches weather, builds prompt, calls Gemini 2.0 Flash,
 //          writes result to Firestore with refreshCount increment and messageId suffix in text.
 //          v04: prompt reframed to lead on DRIVER/TEAM storylines for the forthcoming race
-//          (form, rivalries, championship stakes, circuit fit) with weather demoted to ≤1 bullet,
-//          plus a guardrail against fabricating driver/team facts the model is unsure of.
+//          (form, rivalries, championship stakes, circuit fit) with weather demoted to ≤1 bullet.
+//          v05: inject REAL current-season standings/results (fetchF1Standings → Jolpica) as ground
+//          truth so championship claims are accurate, not the model's stale training memory.
 //          This is the function called by both the admin "Refresh Now" button and the hourly cron.
 // [Inbound Trigger] Admin panel server action or /api/cron/refresh-hot-news POST route.
 // [Downstream Impact] Writes app-settings/hot-news content (with #NNNN suffix) + refreshCount + messageId.
@@ -268,10 +311,16 @@ export const hotNewsFeedFlow = ai.defineFlow(
         const phase = getWeekendPhase(activeRace, now);
 
         const coords = VENUE_COORDS[location];
-        const [openMeteo, openF1] = await Promise.all([
+        const [openMeteo, openF1, f1Data] = await Promise.all([
             coords ? fetchOpenMeteoWeather(coords[0], coords[1]) : Promise.resolve(null),
             fetchOpenF1Weather(),
+            fetchF1Standings(),
         ]);
+
+        // Real championship data (ground truth) or a fallback instruction if the feed is down.
+        const f1Section = f1Data
+            ? f1Data
+            : 'CURRENT CHAMPIONSHIP: live data unavailable — do NOT state specific championship positions or points; keep to evergreen driver/team storylines and circuit fit.';
 
         // Build weather section for prompt
         let weatherSection: string;
@@ -295,18 +344,19 @@ focused on DRIVER and TEAM storylines that help players make their Six predictio
 
 CURRENT PHASE: ${phase}
 
+${f1Section}
+
 Lead with the people and the teams — NOT the weather. Cover angles such as:
-- Which drivers and teams arrive in form, and the momentum or rivalries going into this round
-- The championship picture and what's at stake here for the front-runners
+- Who is in form and the championship picture — use the CURRENT CHAMPIONSHIP data above as the SOURCE OF TRUTH for names, positions, points and the last winner
+- Momentum and rivalries going into this round
 - Driver/team factors specific to this circuit (a team's car characteristics suiting ${location}, a driver's history at this track)
 - At most ONE bullet on weather/track conditions, and only if it materially affects driver/team prospects
 
 WEATHER (reference sparingly, at most one bullet):
 ${weatherSection}
 
-Ground every claim in the teams' and drivers' established 2026-season form and this circuit's known characteristics.
-Do NOT invent specific recent results, penalties, quotes, or lineup changes you are unsure about — keep it to what is reliably true.
-Plain text only. Use bullet points starting with •. No markdown headers. No preamble.`;
+Base ALL championship claims strictly on the CURRENT CHAMPIONSHIP data above — do NOT contradict it or fall back on prior-season memory (do not name specific car models or assume who leads).
+Do NOT invent penalties, quotes, or lineup changes. Plain text only. Use bullet points starting with •. No markdown headers. No preamble.`;
 
         const response = await ai.generate(prompt);
         const newsFeed = response.text;

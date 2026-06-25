@@ -103704,9 +103704,9 @@
   },
   {
    "guid": "HOT_NEWS_FLOW-008",
-   "version": 5,
+   "version": 6,
    "logic_category": "ORCHESTRATION",
-   "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather, builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news. Appends #NNNN messageId suffix (starts at #0018). v04 prompt leads on DRIVER/TEAM storylines (form, rivalries, championship stakes, circuit fit) with weather demoted to <=1 bullet + anti-hallucination guardrail.",
+   "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather + REAL F1 standings (fetchF1Standings/Jolpica), builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news. Appends #NNNN messageId suffix (starts at #0018). v05 prompt leads on DRIVER/TEAM storylines grounded in actual current-season standings/last-race as source of truth; weather <=1 bullet.",
    "dependencies": [],
    "location": {
     "filePath": "app/src/ai/flows/hot-news-feed.ts",
@@ -103719,11 +103719,31 @@
     "calls": [
      "HOT_NEWS_FLOW-005",
      "HOT_NEWS_FLOW-006",
-     "HOT_NEWS_FLOW-007"
+     "HOT_NEWS_FLOW-007",
+     "HOT_NEWS_FLOW-010"
     ]
    },
    "created": "2026-03-03T18:13:54.532Z",
-   "lastUpdated": "2026-03-13T11:34:32.160Z"
+   "lastUpdated": "2026-06-25T00:00:00.000Z"
+  },
+  {
+   "guid": "HOT_NEWS_FLOW-010",
+   "version": 1,
+   "logic_category": "DATA_ACCESS",
+   "description": "fetchF1Standings — fetches REAL current-season F1 driver standings (top 6), constructor standings (top 5) and last-race podium from Jolpica-F1 (api.jolpi.ca, free no-key Ergast-compatible API). Returns a pre-formatted prompt block or null on failure. Grounds the hot-news bulletin in actual championship form instead of the model's stale training knowledge.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/ai/flows/hot-news-feed.ts",
+    "functionName": "fetchF1Standings"
+   },
+   "callChain": {
+    "calledBy": [
+     "HOT_NEWS_FLOW-008"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-25T00:00:00.000Z",
+   "lastUpdated": "2026-06-25T00:00:00.000Z"
   },
   {
    "guid": "CRON_HOT_NEWS-000",
