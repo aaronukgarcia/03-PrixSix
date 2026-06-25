@@ -1,8 +1,10 @@
 # ============================================================
 # Prix Six WhatsApp Worker - Azure Container Apps Deployment
 # ============================================================
-# This script deploys to Container Apps with scale-to-zero
-# Cost: $0 when idle, ~$1/day when active
+# This script deploys to Container Apps KEPT WARM (min-replicas 1).
+# Cost: ~$1/day always-on. Do NOT change to scale-to-zero (min 0): cold starts silently
+# drop the daily 7am WhatsApp send (Baileys session not settled enough to fan out a group
+# message even though sendMessage resolves). Confirmed & fixed 2026-06-25.
 
 param(
     [switch]$SkipBuild,
@@ -20,7 +22,7 @@ $CONTAINER_APP_ENV = "prixsix-env"
 $IMAGE_NAME = "prixsix-whatsapp-worker"
 
 Write-Host "=== Azure Container Apps Deployment ===" -ForegroundColor Cyan
-Write-Host "Cost-optimized with scale-to-zero" -ForegroundColor Green
+Write-Host "Keep-warm (min-replicas 1) for reliable WhatsApp delivery" -ForegroundColor Green
 
 Write-Host "`n=== Phase 1: Verify Storage & Registry ===" -ForegroundColor Cyan
 
@@ -132,10 +134,16 @@ $appExists = az containerapp show `
 
 if ($appExists) {
     Write-Host "Updating existing container app..." -ForegroundColor Yellow
+    # KEEP-WARM (min-replicas 1): scale-to-zero cold starts leave the freshly-restored Baileys
+    # session in a window where a group send resolves locally (marked SENT) but WhatsApp never
+    # delivers it — this silently broke the daily 7am hot-news (confirmed & fixed 2026-06-25).
+    # Setting it explicitly here too so a re-run of this script can never drift min-replicas back to 0.
     az containerapp update `
         --name $CONTAINER_APP_NAME `
         --resource-group $RESOURCE_GROUP `
         --image ${ACR_SERVER}/${IMAGE_NAME}:latest `
+        --min-replicas 1 `
+        --max-replicas 1 `
         --set-env-vars `
             PORT=3000 `
             WHATSAPP_GROUP_NAME="Prix Six" `
@@ -157,7 +165,7 @@ if ($appExists) {
         --registry-password $ACR_PASSWORD `
         --target-port 3000 `
         --ingress external `
-        --min-replicas 0 `
+        --min-replicas 1 `
         --max-replicas 1 `
         --cpu 1.0 `
         --memory 2.0Gi `
@@ -181,7 +189,7 @@ $FQDN = az containerapp show `
     --resource-group $RESOURCE_GROUP `
     --query properties.configuration.ingress.fqdn -o tsv
 
-Write-Host "`nWhatsApp Worker deployed with scale-to-zero!" -ForegroundColor Green
+Write-Host "`nWhatsApp Worker deployed keep-warm (min-replicas 1)!" -ForegroundColor Green
 Write-Host "FQDN: https://$FQDN" -ForegroundColor Green
 Write-Host "Health check: https://$FQDN/health" -ForegroundColor Green
 Write-Host "Status: https://$FQDN/status" -ForegroundColor Green
