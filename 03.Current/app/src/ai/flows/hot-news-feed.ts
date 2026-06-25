@@ -292,6 +292,8 @@ async function fetchF1Standings(): Promise<string | null> {
 //          (form, rivalries, championship stakes, circuit fit) with weather demoted to ≤1 bullet.
 //          v05: inject REAL current-season standings/results (fetchF1Standings → Jolpica) as ground
 //          truth so championship claims are accurate, not the model's stale training memory.
+//          v06: WhatsApp formatting — instruct single-asterisk bold (WhatsApp markup), never ** /
+//          markdown headers, since the bulletin is broadcast to the WhatsApp group (** rendered literally).
 //          This is the function called by both the admin "Refresh Now" button and the hourly cron.
 // [Inbound Trigger] Admin panel server action or /api/cron/refresh-hot-news POST route.
 // [Downstream Impact] Writes app-settings/hot-news content (with #NNNN suffix) + refreshCount + messageId.
@@ -356,7 +358,13 @@ WEATHER (reference sparingly, at most one bullet):
 ${weatherSection}
 
 Base ALL championship claims strictly on the CURRENT CHAMPIONSHIP data above — do NOT contradict it or fall back on prior-season memory (do not name specific car models or assume who leads).
-Do NOT invent penalties, quotes, or lineup changes. Plain text only. Use bullet points starting with •. No markdown headers. No preamble.`;
+Do NOT invent penalties, quotes, or lineup changes.
+
+FORMATTING — this is sent to WhatsApp, so use WhatsApp markup ONLY:
+- Each bullet starts with "• ".
+- For a short bold lead-in, wrap it in a SINGLE asterisk: • *Antonelli's charge:* leads by 41 points...
+- NEVER use double asterisks (**), markdown headers (#), or underscores. Double asterisks render as literal "**" in WhatsApp.
+- No preamble, no closing line — just the bullets.`;
 
         const response = await ai.generate(prompt);
         const newsFeed = response.text;

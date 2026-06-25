@@ -103704,7 +103704,7 @@
   },
   {
    "guid": "HOT_NEWS_FLOW-008",
-   "version": 6,
+   "version": 7,
    "logic_category": "ORCHESTRATION",
    "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather + REAL F1 standings (fetchF1Standings/Jolpica), builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news. Appends #NNNN messageId suffix (starts at #0018). v05 prompt leads on DRIVER/TEAM storylines grounded in actual current-season standings/last-race as source of truth; weather <=1 bullet.",
    "dependencies": [],
