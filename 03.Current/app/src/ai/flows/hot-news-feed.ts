@@ -243,9 +243,12 @@ async function fetchOpenF1Weather(): Promise<{ trackTemp: number; rainfall: numb
     }
 }
 
-// GUID: HOT_NEWS_FLOW-008-v03
+// GUID: HOT_NEWS_FLOW-008-v04
 // [Intent] Core AI generation flow — fetches weather, builds prompt, calls Gemini 2.0 Flash,
 //          writes result to Firestore with refreshCount increment and messageId suffix in text.
+//          v04: prompt reframed to lead on DRIVER/TEAM storylines for the forthcoming race
+//          (form, rivalries, championship stakes, circuit fit) with weather demoted to ≤1 bullet,
+//          plus a guardrail against fabricating driver/team facts the model is unsure of.
 //          This is the function called by both the admin "Refresh Now" button and the hourly cron.
 // [Inbound Trigger] Admin panel server action or /api/cron/refresh-hot-news POST route.
 // [Downstream Impact] Writes app-settings/hot-news content (with #NNNN suffix) + refreshCount + messageId.
@@ -286,16 +289,23 @@ export const hotNewsFeedFlow = ai.defineFlow(
             weatherSection += `\n- Live track temperature: ${openF1.trackTemp}°C | Rainfall on track: ${openF1.rainfall}mm`;
         }
 
-        const prompt = `You are a race strategist for Prix Six, an F1 prediction league.
-Generate a hot news bulletin (3–4 bullet points, max 150 words) for the ${raceName} at ${location} (${sprintNote}).
+        const prompt = `You are an F1 correspondent for Prix Six, an F1 prediction league.
+Write a hot news bulletin (3–4 bullet points, max 150 words) previewing the ${raceName} at ${location} (${sprintNote}),
+focused on DRIVER and TEAM storylines that help players make their Six predictions.
 
 CURRENT PHASE: ${phase}
 
-WEATHER at the circuit:
+Lead with the people and the teams — NOT the weather. Cover angles such as:
+- Which drivers and teams arrive in form, and the momentum or rivalries going into this round
+- The championship picture and what's at stake here for the front-runners
+- Driver/team factors specific to this circuit (a team's car characteristics suiting ${location}, a driver's history at this track)
+- At most ONE bullet on weather/track conditions, and only if it materially affects driver/team prospects
+
+WEATHER (reference sparingly, at most one bullet):
 ${weatherSection}
 
-Write punchy, factual bullets about the REMAINING sessions this weekend — relevant to predictions still to be made.
-Cover: weather impact on tyre strategy, conditions advantage for specific teams, what to watch for in the next session.
+Ground every claim in the teams' and drivers' established 2026-season form and this circuit's known characteristics.
+Do NOT invent specific recent results, penalties, quotes, or lineup changes you are unsure about — keep it to what is reliably true.
 Plain text only. Use bullet points starting with •. No markdown headers. No preamble.`;
 
         const response = await ai.generate(prompt);

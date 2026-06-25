@@ -103704,9 +103704,9 @@
   },
   {
    "guid": "HOT_NEWS_FLOW-008",
-   "version": 4,
+   "version": 5,
    "logic_category": "ORCHESTRATION",
-   "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather, builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news. Appends #NNNN messageId suffix to generated text (starts at #0018).",
+   "description": "hotNewsFeedFlow — Genkit AI flow: fetches weather, builds prompt, calls Gemini 2.0 Flash, writes bulletin + refreshCount to app-settings/hot-news. Appends #NNNN messageId suffix (starts at #0018). v04 prompt leads on DRIVER/TEAM storylines (form, rivalries, championship stakes, circuit fit) with weather demoted to <=1 bullet + anti-hallucination guardrail.",
    "dependencies": [],
    "location": {
     "filePath": "app/src/ai/flows/hot-news-feed.ts",
