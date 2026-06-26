@@ -97555,9 +97555,9 @@
   },
   {
    "guid": "WHATSAPP_CLIENT-000",
-   "version": 5,
+   "version": 6,
    "logic_category": "ORCHESTRATION",
-   "description": "Baileys (WebSocket) WhatsApp client wrapper with Azure Blob session persistence, keep-alive pings, QR generation, disconnection recovery and group message sending. v05 adds waitForStable(): the connection is only treated as send-ready once continuously OPEN for >=15s AND a real query (groupFetchAllParticipating) succeeds — fixes the cold-start false-SENT where a relay on a not-yet-settled socket resolved locally but WhatsApp silently dropped it.",
+   "description": "Baileys (WebSocket) WhatsApp client wrapper with Azure Blob session persistence, keep-alive pings, QR generation, disconnection recovery and group message sending. v05 adds waitForStable(): the connection is only treated as send-ready once continuously OPEN for >=15s AND a real query (groupFetchAllParticipating) succeeds — fixes the cold-start false-SENT. v06 (2026-06-26) fixes the SELF-INFLICTED connectionReplaced storm: connectSocket() now tears down the old socket (removeAllListeners + end) before creating a new one, and scheduleReconnect() is single-flight (only one reconnect ever pending) so the 'close' handler and keep-alive-fail handler can't spawn overlapping sockets that replace each other every ~10s. The flap was the worker fighting its own orphaned sockets, NOT an external device.",
    "dependencies": [
     "AZURE_STORE-000",
     "FIREBASE_CONFIG_WORKER-000"

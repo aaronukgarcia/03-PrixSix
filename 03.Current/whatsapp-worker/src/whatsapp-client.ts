@@ -1,9 +1,21 @@
-// GUID: WHATSAPP_CLIENT-000-v05
+// GUID: WHATSAPP_CLIENT-000-v06
 // [Intent] WhatsApp client wrapper using Baileys (WebSocket protocol, no Puppeteer/Chromium).
 //          Drop-in replacement for the whatsapp-web.js based client — same public interface.
 // [Inbound Trigger] Instantiated by index.ts at server startup.
 // [Downstream Impact] Provides sendMessage, sendToGroup, getStatus, getGroups, waitForStable for
 //                     queue-processor and Express endpoints. Logs status changes to Firestore.
+//
+// @BUG_FIX (v06, SELF-INFLICTED connectionReplaced storm — 2026-06-26): the flap that "looked like a
+// second device" was the worker fighting ITS OWN orphaned sockets. connectSocket() created a new
+// Baileys socket WITHOUT ending the previous one, and TWO paths (the connection 'close' handler AND
+// the keep-alive 3-fail handler) each scheduled a reconnect with no single-flight guard. After any
+// disconnect (WhatsApp restartRequired/timedOut), a scheduled reconnect spun up a 2nd socket on the
+// same creds → connectionReplaced → which scheduled ANOTHER reconnect → a self-perpetuating ~10s
+// (== RECONNECT_DELAY_MS) storm. FIX: (1) scheduleReconnect() single-flight guard so only one
+// reconnect is ever pending; (2) connectSocket() tears down the old socket (removeAllListeners + end)
+// before creating a new one, so two sockets never run on the same credentials. The earlier
+// "external competitor / re-pair" theory was a dead end (Azure swept clean, flap period == our own
+// reconnect timer).
 //
 // @BUG_FIX (v05, cold-start false-SENT — 2026-06-20): the connection reports `isReady` the instant
 // Baileys' socket opens, but the socket isn't yet usable — its init-queries window is still settling
@@ -54,6 +66,9 @@ export class WhatsAppClient {
   private lastSuccessfulPing: Date | null = null;
   private authDir: string;
   private shouldReconnect: boolean = true;
+  // Single-flight reconnect guard (v06): true while a reconnect timer is pending, so the 'close'
+  // handler and the keep-alive-fail handler can never schedule two overlapping reconnects.
+  private reconnecting: boolean = false;
   private groupNameCache: Map<string, string> = new Map();
   // Timestamp (ms) of the most recent successful 'open'. Reset to null on close. Used by
   // waitForStable() to require the socket has been continuously open long enough to settle.
@@ -94,6 +109,19 @@ export class WhatsAppClient {
    * Create and connect the Baileys WebSocket
    */
   private async connectSocket(): Promise<void> {
+    // A reconnect (if one was pending) is now being consumed — clear the guard so a future
+    // disconnect can schedule the NEXT one, but not until then.
+    this.reconnecting = false;
+
+    // Tear down any previous socket BEFORE creating a new one, so we never run two sockets on the
+    // same credentials (that self-replacement is the v06 connectionReplaced storm). Remove listeners
+    // first so the old socket's 'close' can't fire our handler and schedule yet another reconnect.
+    if (this.sock) {
+      try { (this.sock.ev as any).removeAllListeners(); } catch { /* ignore */ }
+      try { this.sock.end(undefined as any); } catch { /* ignore */ }
+      this.sock = null;
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -184,11 +212,10 @@ export class WhatsAppClient {
           return;
         }
 
-        // Auto-reconnect for all other disconnect reasons
+        // Auto-reconnect for all other disconnect reasons (single-flight — see scheduleReconnect).
         if (this.shouldReconnect) {
           await this.logStatusChange('reconnecting', { afterReason: reason });
-          console.log(`🔄 Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`);
-          setTimeout(() => this.connectSocket(), RECONNECT_DELAY_MS);
+          this.scheduleReconnect(reason);
         }
       }
     });
@@ -210,6 +237,23 @@ export class WhatsAppClient {
         }
       }
     });
+  }
+
+  /**
+   * Schedule a single reconnect after RECONNECT_DELAY_MS. Single-flight: if a reconnect is already
+   * pending (this.reconnecting), do nothing — this is what prevents the 'close' handler and the
+   * keep-alive-fail handler from each spawning a socket and triggering the connectionReplaced storm.
+   * The guard is cleared at the top of connectSocket() when the pending reconnect actually runs.
+   */
+  private scheduleReconnect(reason: string): void {
+    if (!this.shouldReconnect) return;
+    if (this.reconnecting) {
+      console.log(`↩️  Reconnect already pending — ignoring duplicate trigger (${reason})`);
+      return;
+    }
+    this.reconnecting = true;
+    console.log(`🔄 Reconnecting in ${RECONNECT_DELAY_MS / 1000}s... (${reason})`);
+    setTimeout(() => this.connectSocket().catch(e => console.error('Reconnect failed:', e?.message)), RECONNECT_DELAY_MS);
   }
 
   /**
@@ -401,7 +445,7 @@ export class WhatsAppClient {
         this.isReady = false;
         this.stopKeepAlive();
         await this.logStatusChange('reconnecting', { afterReason: '3+ keep-alive failures' });
-        setTimeout(() => this.connectSocket(), RECONNECT_DELAY_MS);
+        this.scheduleReconnect('3+ keep-alive failures');
       }
     }
   }
