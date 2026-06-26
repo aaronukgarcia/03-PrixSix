@@ -59,6 +59,13 @@ const STATUS_COLLECTION = "backup_status";
 const STATUS_DOC = "latest";
 const HISTORY_COLLECTION = "backup_history";
 
+// WhatsApp delivery groups (SSOT — mirrored in app/src/lib/whatsapp-alert.ts).
+// Production messages go to the league group; TEST messages (testMode) go to the sandbox group so
+// real players never receive test traffic. admin_configuration/whatsapp_alerts may override these
+// coded defaults via `targetGroup` (prod) and `testGroup` (test).
+const WHATSAPP_PROD_GROUP = "Prix6.Win";
+const WHATSAPP_TEST_GROUP = "prix6-test";
+
 // ── Shared helpers ─────────────────────────────────────────────
 
 // GUID: BACKUP_FUNCTIONS-003-v04
@@ -2360,7 +2367,7 @@ exports.ingestReplaySession = onCall(
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-040-v01
+// GUID: BACKUP_FUNCTIONS-040-v02
 /**
  * publishHotNewsToWhatsApp
  *
@@ -2370,9 +2377,11 @@ exports.ingestReplaySession = onCall(
  *          to WhatsApp once per day.
  * [Inbound Trigger] Cloud Scheduler cron: "0 7 * * *" (07:00 Europe/London, every day).
  * [Downstream Impact] Reads app-settings/hot-news (content) and admin_configuration/whatsapp_alerts
- *          (masterEnabled, targetGroup). When masterEnabled and content/targetGroup are present, adds
- *          a PENDING whatsapp_queue doc. Writes admin_configuration/hotNewsWhatsAppStatus for
- *          freshness monitoring (Golden Rule #17). Skips silently (with a status) when disabled.
+ *          (masterEnabled, targetGroup, testMode, testGroup). Routes to the TEST group
+ *          (WHATSAPP_TEST_GROUP / wa.testGroup) when testMode is on, else the PRODUCTION group
+ *          (wa.targetGroup / WHATSAPP_PROD_GROUP) — test traffic never reaches real players. Adds a
+ *          PENDING whatsapp_queue doc. Writes admin_configuration/hotNewsWhatsAppStatus for freshness
+ *          monitoring (Golden Rule #17). Skips silently (with a status) when disabled.
  */
 exports.publishHotNewsToWhatsApp = onSchedule(
   {
@@ -2500,7 +2509,12 @@ exports.publishHotNewsToWhatsApp = onSchedule(
 
       const content = hotNewsSnap.exists ? (hotNewsSnap.data().content || "").trim() : "";
       const wa = waSnap.exists ? waSnap.data() : {};
-      const targetGroup = wa.targetGroup;
+
+      // Route by testMode: test traffic to the sandbox group, production to the league group.
+      const isTest = wa.testMode === true;
+      const targetGroup = isTest
+        ? (wa.testGroup || WHATSAPP_TEST_GROUP)
+        : (wa.targetGroup || WHATSAPP_PROD_GROUP);
 
       if (!wa.masterEnabled) { await writeStatus("skipped", "WhatsApp master switch off"); return; }
       if (!content) { await writeStatus("skipped", "No hot news content"); return; }
@@ -2525,7 +2539,7 @@ exports.publishHotNewsToWhatsApp = onSchedule(
         createdAt: Timestamp.now(),
         retryCount: 0,
         source: "hot-news-daily-7am",
-        testMode: wa.testMode === true,
+        testMode: isTest,
       });
 
       // Also push to Microsoft Teams (no-op until TEAMS_WEBHOOK_URL is configured).
@@ -2534,7 +2548,7 @@ exports.publishHotNewsToWhatsApp = onSchedule(
       await db.collection("audit_logs").add({
         userId: "system",
         action: "HOT_NEWS_WHATSAPP_DAILY",
-        details: { targetGroup, contentLength: content.length, testMode: wa.testMode === true, workerReady, teamsResult, banner: banner || null },
+        details: { targetGroup, contentLength: content.length, testMode: isTest, workerReady, teamsResult, banner: banner || null },
         correlationId,
         timestamp: Timestamp.now(),
       });

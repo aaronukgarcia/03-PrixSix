@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-03-03",
- "total_guids": 2135,
+ "total_guids": 2138,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -97620,9 +97620,9 @@
   },
   {
    "guid": "QUEUE_PROCESSOR-000",
-   "version": 4,
+   "version": 5,
    "logic_category": "ORCHESTRATION",
-   "description": "Firestore queue listener that processes whatsapp_queue documents. Monitors PENDING messages, awaits whatsapp.waitForStable() before every send (v04 cold-start false-SENT fix), applies rate limiting (5-10s), retries failures up to 3 times, and updates status to SENT/FAILED.",
+   "description": "Firestore queue listener that processes whatsapp_queue documents. Monitors PENDING messages, awaits whatsapp.waitForStable() before every send (v04 cold-start false-SENT fix), applies rate limiting (5-10s), retries failures up to 3 times, updates status to SENT/FAILED. v05 (2026-06-26): appends a unique trace suffix 'Bill#<n>' to EVERY outgoing message via atomic counter admin_configuration/messageCounter (seeded 98765); number assigned once per doc (messageNumber) and reused on retry. Enforced here as the single send chokepoint so no source can bypass it.",
    "dependencies": [
     "FIREBASE_CONFIG_WORKER-000",
     "WHATSAPP_CLIENT-000"
@@ -120037,9 +120037,9 @@
   },
   {
    "guid": "LIB_WHATSAPP_ALERT-000",
-   "version": 1,
+   "version": 2,
    "logic_category": "UTILITY",
-   "description": "sendWhatsAppAlert: central gateway — gates on masterEnabled && alerts[type] && targetGroup, respects testMode, enqueues whatsapp_queue + wakes worker. Used by event triggers (resultsPublished, newPlayerJoined) and scheduled jobs.",
+   "description": "sendWhatsAppAlert: central gateway — gates on masterEnabled && alerts[type], resolves destination by testMode (test traffic -> prix6-test sandbox group, production -> league group), enqueues whatsapp_queue (with testMode flag) + wakes worker. v2: test/prod group routing so real players never get test messages. Used by event triggers (resultsPublished, newPlayerJoined) and scheduled jobs.",
    "dependencies": [
     "LIB_WHATSAPP_WAKE-000"
    ],
@@ -120057,7 +120057,25 @@
     ]
    },
    "created": "2026-06-12T08:00:00Z",
-   "lastUpdated": "2026-06-12T08:00:00Z"
+   "lastUpdated": "2026-06-26T11:20:00Z"
+  },
+  {
+   "guid": "LIB_WHATSAPP_ALERT-002",
+   "version": 1,
+   "logic_category": "UTILITY",
+   "description": "WhatsApp delivery group constants (SSOT): WHATSAPP_PRODUCTION_GROUP='Prix6.Win' (real players), WHATSAPP_TEST_GROUP='prix6-test' (sandbox for test traffic). Mirrored in functions/index.js (WHATSAPP_PROD_GROUP/WHATSAPP_TEST_GROUP). Overridable via admin_configuration/whatsapp_alerts.targetGroup/.testGroup.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/whatsapp-alert.ts"
+   },
+   "callChain": {
+    "calledBy": [
+     "LIB_WHATSAPP_ALERT-000"
+    ],
+    "calls": []
+   },
+   "created": "2026-06-26T11:20:00Z",
+   "lastUpdated": "2026-06-26T11:20:00Z"
   },
   {
    "guid": "CRON_WHATSAPP_SCHEDULED-000",

@@ -1,9 +1,13 @@
-// GUID: QUEUE_PROCESSOR-000-v04
+// GUID: QUEUE_PROCESSOR-000-v05
 // @BUG_FIX (v04, cold-start false-SENT — 2026-06-20): before sending, await whatsapp.waitForStable()
 // so a message is only relayed once the socket has settled (continuously open >=15s + a successful
 // query). Without this, a message relayed on a just-opened socket resolves locally (marked SENT) but
 // may never reach WhatsApp — the reported "7am + prediction didn't arrive" symptom. If the connection
 // can't stabilise, the send is treated as a failure and retried (PENDING) rather than fake-SENT.
+// @FEATURE (v05, 2026-06-26): EVERY outgoing message gets a unique trace suffix "Bill#<n>" (auto-
+// incrementing, seeded at 98765). This is enforced here — the single chokepoint all messages pass
+// through — so the tag is guaranteed regardless of source (alerts, 7am, ad-hoc). The number is
+// allocated once per doc (stored as messageNumber) and reused on retry so it stays stable.
 import { getFirestore } from './firebase-config';
 import { WhatsAppClient } from './whatsapp-client';
 import { Firestore, Timestamp } from 'firebase-admin/firestore';
@@ -18,6 +22,7 @@ interface QueueMessage {
   processedAt?: Timestamp;
   error?: string;
   retryCount?: number;
+  messageNumber?: number; // assigned once on first send; reused on retry (see v05)
 }
 
 export class QueueProcessor {
@@ -31,6 +36,10 @@ export class QueueProcessor {
   private readonly MIN_DELAY_MS = 5000; // 5 seconds between messages
   private readonly MAX_DELAY_MS = 10000; // 10 seconds max delay
   private readonly MAX_RETRIES = 3;
+
+  // Trace-suffix (v05): every message ends with "Bill#<n>". Counter seeded so the first is Bill#98765.
+  private readonly MESSAGE_TAG = 'Bill';
+  private readonly MESSAGE_NUMBER_SEED = 98765;
 
   constructor(whatsapp: WhatsAppClient) {
     this.db = getFirestore();
@@ -112,13 +121,22 @@ export class QueueProcessor {
       // Apply rate limiting
       await this.applyRateLimit();
 
+      // Assign a stable trace number once per doc (reused on retry), then append "Bill#<n>" to EVERY
+      // outgoing message. Enforced here so no source can bypass it.
+      let messageNumber = message.messageNumber;
+      if (typeof messageNumber !== 'number') {
+        messageNumber = await this.allocateMessageNumber();
+        await docRef.update({ messageNumber });
+      }
+      const outgoing = `${message.message}\n\n${this.MESSAGE_TAG}#${messageNumber}`;
+
       // Send the message
       let success = false;
 
       if (message.groupName) {
-        success = await this.whatsapp.sendToGroup(message.groupName, message.message);
+        success = await this.whatsapp.sendToGroup(message.groupName, outgoing);
       } else if (message.chatId) {
-        success = await this.whatsapp.sendMessage(message.chatId, message.message);
+        success = await this.whatsapp.sendMessage(message.chatId, outgoing);
       } else {
         throw new Error('No chatId or groupName specified');
       }
@@ -161,6 +179,23 @@ export class QueueProcessor {
     } finally {
       this.isProcessing = false;
     }
+  }
+
+  /**
+   * Allocate the next global message trace number atomically (admin_configuration/messageCounter.next).
+   * Seeded so the first allocation returns MESSAGE_NUMBER_SEED (98765). Transaction-safe against the
+   * (single) worker; persisted so numbers survive restarts.
+   */
+  private async allocateMessageNumber(): Promise<number> {
+    const counterRef = this.db.collection('admin_configuration').doc('messageCounter');
+    return this.db.runTransaction(async (t) => {
+      const snap = await t.get(counterRef);
+      const next = snap.exists && typeof snap.data()!.next === 'number'
+        ? (snap.data()!.next as number)
+        : this.MESSAGE_NUMBER_SEED;
+      t.set(counterRef, { next: next + 1, updatedAt: Timestamp.now() }, { merge: true });
+      return next;
+    });
   }
 
   /**
