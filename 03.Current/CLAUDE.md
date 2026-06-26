@@ -39,6 +39,8 @@ node claude-sync.js checkin --name Bill --force --human-ok   # evict impostor, c
 ```
 > ⚠️ **`--human-ok` is a human-only flag.** Claude instances are NEVER permitted to supply `--human-ok` autonomously. Without it, `--force` is blocked at the script level.
 
+> 🔁 **Crash/reboot auto-recovery (claude-sync v2.1).** If your previous session **crashed or the machine rebooted** without checking out, you no longer need `--force`. A plain `checkin --name Bill` now **auto-reclaims** your own name from the dead holder — proven dead via boot-id mismatch (reboot) or a stale local heartbeat (crash). A *genuinely live* holder keeps a fresh heartbeat and is never reclaimed, so eviction of a live peer still requires the human-only `--force --human-ok`. "If you were Bill and you crashed, you come back as Bill."
+
 **Multi-agent only (Bob/Ben also running):**
 ```powershell
 # After checkin, paste the session ID line shown in the checkin output:

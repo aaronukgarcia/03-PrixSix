@@ -1,5 +1,17 @@
 /**
  * claude-sync.js — DHCP-Style Permit Coordination for Multiple Claude Code Sessions
+ * Version: 2.1.0 — Stale-lease self-reclaim (crash/reboot recovery)
+ *
+ * v2.1.0: A `checkin --name X` can now take back slot X from a holder that is
+ *   PROVABLY gone (crashed or rebooted on this machine) WITHOUT --human-ok.
+ *   "If I was Bill and I crashed, I come back as Bill." Liveness is proven by:
+ *     • bootId   — lease created under a different OS boot ⇒ rebooted ⇒ dead.
+ *     • heartbeat — local .claude-heartbeat-<name>, touched on every renew/ping;
+ *                   missing or > 75s old ⇒ holder not actively alive ⇒ dead.
+ *   Same-machine only (hostname-scoped); a live, actively-renewing holder keeps a
+ *   fresh heartbeat and is NEVER reclaimed — eviction of a LIVE peer still needs
+ *   the human-only --force --human-ok gate. See assessHolderLiveness().
+ *
  * Version: 2.0.0 — Complete rewrite with named lease/permit model
  *
  * ARCHITECTURE: Named permit pool (inspired by DHCP / AD RID Pool)
@@ -55,6 +67,7 @@ const admin = require('firebase-admin');
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -69,6 +82,12 @@ const LEASE_TTL_MS = 5 * 60 * 1000;            // 5-minute permit TTL
 const RENEWAL_THRESHOLD_MS = 2.5 * 60 * 1000;  // auto-renew if < 2.5 min remaining
 const SLEEP_THRESHOLD_MS = 5 * 60 * 1000;       // peer "sleeping" if no renewal in 5 min
 const DEEP_SLEEP_THRESHOLD_MS = 30 * 60 * 1000; // peer "deep sleeping" if > 30 min
+
+// Stale-lease self-reclaim (DHCP-style): lets a same-name checkin take back a
+// slot held by a holder that PROVABLY crashed or rebooted — without the
+// human-only --force --human-ok gate (which still guards eviction of a LIVE peer).
+const BOOT_TOLERANCE_MS = 60 * 1000;        // boot timestamps within 60s = same boot
+const HEARTBEAT_STALE_MS = 75 * 1000;       // local heartbeat older than this = holder not actively alive
 
 const VALID_NAMES = ['Bill', 'Bob', 'Ben'];
 
@@ -169,6 +188,45 @@ function deleteSessionId() {
   try { if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE); } catch { /* ignore */ }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Liveness Fingerprints — boot id + per-name heartbeat file
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Coarse OS boot timestamp (ms). Two processes from the SAME boot agree within a
+ * few seconds; a reboot shifts this by however long the machine was off. Used to
+ * detect "this lease was created under a dead boot" so it can be reclaimed.
+ */
+function getBootId() {
+  return Date.now() - Math.floor(os.uptime() * 1000);
+}
+
+/** Local heartbeat file for a permit name (same-machine liveness proof). */
+function heartbeatFile(name) {
+  return path.join(__dirname, `.claude-heartbeat-${name}`);
+}
+
+/** Refresh the heartbeat for a name — called on every renew/ping/checkin while alive. */
+function touchHeartbeat(name) {
+  if (!name) return;
+  try { fs.writeFileSync(heartbeatFile(name), String(Date.now()), 'utf8'); } catch { /* ignore */ }
+}
+
+/** Age of a name's heartbeat in ms; Infinity if the file is missing. */
+function heartbeatAgeMs(name) {
+  if (!name) return Infinity;
+  try {
+    const st = fs.statSync(heartbeatFile(name));
+    return Date.now() - st.mtimeMs;
+  } catch { return Infinity; }
+}
+
+/** Remove a name's heartbeat on checkout / GC. */
+function clearHeartbeat(name) {
+  if (!name) return;
+  try { if (fs.existsSync(heartbeatFile(name))) fs.unlinkSync(heartbeatFile(name)); } catch { /* ignore */ }
+}
+
 /**
  * Resolve my session ID — priority order:
  *   1. $CLAUDE_SESSION_ID env var (per-terminal, set by user after checkin) — most reliable
@@ -264,6 +322,38 @@ function getMyLease(leases, sessionId) {
   return null;
 }
 
+/**
+ * Decide whether an occupied (still-valid-by-TTL) lease belongs to a holder that
+ * is PROVABLY gone — crashed or rebooted — and may therefore be reclaimed by a
+ * same-name checkin WITHOUT human authorisation.
+ *
+ * Safety model:
+ *   - Only same-machine holders are assessed. A different-host holder cannot be
+ *     evaluated locally, so it is reported ALIVE (caller rejects → human-ok path).
+ *   - Reboot: lease.bootId differs from the current boot beyond tolerance.
+ *   - Same-boot crash: the local heartbeat for this name is missing or stale. A
+ *     genuinely active instance touches its heartbeat on every hook fire, so a
+ *     fresh heartbeat means "alive" and blocks reclaim.
+ *
+ * @returns {{ dead: boolean, reason: string }}
+ */
+function assessHolderLiveness(name, lease) {
+  const sameHost = !lease.hostname || lease.hostname === os.hostname();
+  if (!sameHost) return { dead: false, reason: `different-host (${lease.hostname})` };
+
+  if (typeof lease.bootId === 'number'
+      && Math.abs(getBootId() - lease.bootId) > BOOT_TOLERANCE_MS) {
+    return { dead: true, reason: 'rebooted-since-grant' };
+  }
+
+  const age = heartbeatAgeMs(name);
+  if (age > HEARTBEAT_STALE_MS) {
+    return { dead: true, reason: age === Infinity ? 'no-heartbeat' : `stale-heartbeat-${Math.round(age / 1000)}s` };
+  }
+
+  return { dead: false, reason: 'alive' };
+}
+
 /** Returns the first name whose lease is null or expired, or null if all occupied. */
 function getAvailableName(leases) {
   for (const name of VALID_NAMES) {
@@ -295,6 +385,7 @@ function gcExpiredLeases(state) {
         }
       }
       state.leases[name] = null;
+      clearHeartbeat(name);
     }
   }
 
@@ -385,10 +476,12 @@ async function cmdCheckin() {
   const requestedName = parseRequestedName(); // --name Bill|Bob|Ben (optional)
   let result = null;
   let gcResult = null;
+  let reclaimInfo = null;
 
   await db.runTransaction(async (t) => {
     result = null;
     gcResult = null;
+    reclaimInfo = null;
 
     const docRef = getDocRef();
     const doc = await t.get(docRef);
@@ -434,16 +527,36 @@ async function cmdCheckin() {
           console.error('');
           process.exit(1);
         } else {
-          // Slot occupied, --force not given — reject with guidance
-          result = {
-            ok: false,
-            reason: 'name-occupied',
-            requestedName,
-            holder: existingLease,
-            holders: Object.fromEntries(VALID_NAMES.map(n => [n, state.leases[n]]))
-          };
-          t.set(docRef, state);
-          return;
+          // Slot occupied, --force not given. Before rejecting, check whether the
+          // holder is PROVABLY gone (crashed / rebooted on this machine). If so,
+          // self-reclaim the name — no human-ok needed (we are not evicting a live
+          // peer, we are taking back a dead lease, DHCP-style). "If I was Bill and
+          // I crashed, I come back as Bill."
+          const liveness = assessHolderLiveness(requestedName, existingLease);
+          if (liveness.dead) {
+            const deadSession = existingLease.sessionId;
+            for (const [filePath, claim] of Object.entries(state.claimedFiles || {})) {
+              if (claim.sessionId === deadSession || claim.name === requestedName) {
+                delete state.claimedFiles[filePath];
+              }
+            }
+            addLog(state, 'system', 'RECLAIM', 'system',
+              `Auto-reclaimed ${requestedName} from dead holder ${deadSession} (${liveness.reason})`);
+            state.leases[requestedName] = null;
+            name = requestedName;
+            reclaimInfo = { reason: liveness.reason, deadSession };
+          } else {
+            // Holder is genuinely live (or an unassessable remote) — reject with guidance
+            result = {
+              ok: false,
+              reason: 'name-occupied',
+              requestedName,
+              holder: existingLease,
+              holders: Object.fromEntries(VALID_NAMES.map(n => [n, state.leases[n]]))
+            };
+            t.set(docRef, state);
+            return;
+          }
         }
       } else {
         // Slot is free (or expired) — claim it directly
@@ -476,7 +589,11 @@ async function cmdCheckin() {
       grantedAt,
       expiresAt,
       lastRenewedAt: grantedAt,
-      branch
+      branch,
+      name,                       // self-describing (used by liveness checks)
+      hostname: os.hostname(),    // same-machine scoping for reclaim safety
+      bootId: getBootId(),        // detects "lease from a dead boot" → reclaimable
+      ownerPid: process.ppid || process.pid  // diagnostic: owning process
     };
 
     addLog(state, sessionId, name, branch, `${name} acquired permit on branch '${branch}'`);
@@ -488,6 +605,11 @@ async function cmdCheckin() {
   // Report GC results
   if (gcResult && gcResult.cleared.length > 0) {
     console.log(`[GC] Auto-expired ${gcResult.cleared.length} permit(s): ${gcResult.cleared.join(', ')}`);
+  }
+
+  // Report self-reclaim of a crashed/rebooted holder
+  if (reclaimInfo) {
+    console.log(`[RECLAIM] Took back ${requestedName} from dead holder ${reclaimInfo.deadSession} (${reclaimInfo.reason}).`);
   }
 
   if (!result || !result.ok) {
@@ -533,6 +655,9 @@ async function cmdCheckin() {
 
   // Save to convenience file (single-instance fallback)
   saveSessionId(sessionId);
+
+  // Establish liveness heartbeat immediately so the slot reads as alive at once
+  touchHeartbeat(name);
 
   const line = '='.repeat(60);
   const dashes = '─'.repeat(60);
@@ -610,12 +735,16 @@ async function cmdRenew() {
       return; // no write — avoids unnecessary Firestore churn
     }
 
-    // Renew: extend from now
+    // Renew: extend from now (and refresh liveness fingerprints)
     const expiresAt = new Date(now.getTime() + LEASE_TTL_MS).toISOString();
     state.leases[name] = {
       ...lease,
       expiresAt,
-      lastRenewedAt: now.toISOString()
+      lastRenewedAt: now.toISOString(),
+      name,
+      hostname: os.hostname(),
+      bootId: getBootId(),
+      ownerPid: process.ppid || process.pid
     };
 
     if (!FLAG_AUTO) {
@@ -644,6 +773,11 @@ async function cmdRenew() {
     }
     process.exit(1);
   }
+
+  // Always refresh the local heartbeat — even on the throttled "skip" path — so an
+  // actively-working instance keeps proving liveness between Firestore renewals.
+  // This is what stops another same-name checkin from reclaiming a live slot.
+  if (result.name) touchHeartbeat(result.name);
 
   if (result.skipped) {
     // Auto mode, lease still fresh — exit silently (don't pollute logs)
@@ -696,6 +830,7 @@ async function cmdCheckout() {
           }
           addLog(state, 'system', 'ADMIN', 'system', `Force-cleared ${name}'s permit`);
           state.leases[name] = null;
+          clearHeartbeat(name);
         }
       }
 
@@ -754,6 +889,7 @@ async function cmdCheckout() {
     addLog(state, myLease.sessionId, myName, myLease.branch,
       `${myName} checked out. Released ${releasedFiles.length} file(s).`);
     state.leases[myName] = null;
+    clearHeartbeat(myName);
     t.set(docRef, state);
     result = { ok: true, name: myName, releasedFiles };
   });
@@ -810,11 +946,15 @@ async function cmdPing() {
     const { name, lease } = myLease;
     const expiresAt = new Date(now.getTime() + LEASE_TTL_MS).toISOString();
 
-    // Renew permit
+    // Renew permit (and refresh liveness fingerprints)
     state.leases[name] = {
       ...lease,
       expiresAt,
-      lastRenewedAt: now.toISOString()
+      lastRenewedAt: now.toISOString(),
+      name,
+      hostname: os.hostname(),
+      bootId: getBootId(),
+      ownerPid: process.ppid || process.pid
     };
 
     addLog(state, sessionId, name, lease.branch, `${name} ping (permit renewed)`);
@@ -830,6 +970,8 @@ async function cmdPing() {
     console.error('No valid permit found. Your permit may have expired. Run "checkin".');
     process.exit(1);
   }
+
+  touchHeartbeat(result.name);
 
   console.log(`${result.name.toLowerCase()}> ping — permit renewed. Expires: ${formatTime(result.expiresAt)}`);
   for (const line of result.wdLines) {
