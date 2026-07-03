@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 // Worker version — bump on every worker change; surfaced on /health for post-deploy verification
 // (the container has no About page). Keep in sync with whatsapp-worker/package.json.
-const WORKER_VERSION = '2.2.0';
+const WORKER_VERSION = '2.2.1';
 
 // Add JSON body parser for webhook
 app.use(express.json());

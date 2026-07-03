@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-07-03",
+      "version": "3.4.3",
+      "author": "aaron garcia",
+      "message": "chore(worker): harden .dockerignore (exclude secret files from image) + worker 2.2.1; deployed to Azure rev 0000016 (v3.4.3)",
+      "major": false
+    },
+    {
+      "id": "PENDING",
+      "date": "2026-07-03",
       "version": "3.4.2",
       "author": "aaron garcia",
       "message": "feat: WhatsApp 'pit lane closed' notice at prediction deadline + worker rate-overlimit query-storm fix (v3.4.2 / worker 2.2.0)",

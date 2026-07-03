@@ -6,3 +6,8 @@ dist
 .wwebjs_auth
 .wwebjs_cache
 service-account.json
+# Secrets that live in the deploy dir but must never be baked into the image (GR#11). They are
+# injected as runtime env vars (WHATSAPP_APP_SECRET) — the container never reads these files.
+.api-key.txt
+.whatsapp-app-secret.txt
+*.secret.txt
