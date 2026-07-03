@@ -1,9 +1,32 @@
-// GUID: WHATSAPP_CLIENT-000-v06
+// GUID: WHATSAPP_CLIENT-000-v07
 // [Intent] WhatsApp client wrapper using Baileys (WebSocket protocol, no Puppeteer/Chromium).
 //          Drop-in replacement for the whatsapp-web.js based client — same public interface.
 // [Inbound Trigger] Instantiated by index.ts at server startup.
 // [Downstream Impact] Provides sendMessage, sendToGroup, getStatus, getGroups, waitForStable for
 //                     queue-processor and Express endpoints. Logs status changes to Firestore.
+//
+// @BUG_FIX (v07, self-inflicted rate-overlimit query storm — 2026-07-03): WhatsApp began returning
+// `rate-overlimit` on sends (7am Hot News + submission notices silently FAILED / needed retries), and
+// it degraded with socket uptime — worst since minReplicas:1 keep-warm (v3.2.8) made the socket
+// persist for days. ROOT CAUSE: groupFetchAllParticipating() — a heavyweight, WhatsApp-rate-limited IQ
+// query — was used as a general primitive on THREE hot paths, uncached: (a) the keep-alive ping every
+// 180s, (b) waitForStable() before EVERY send, (c) sendToGroup() to resolve the group JID on EVERY
+// send + retry. On an always-on socket those IQ queries accumulate against the account's rate limit
+// until WhatsApp throttles; then the keep-alive's own 3-strikes-→-reconnect handler tore down a
+// healthy socket, whose reconnect fired MORE init-queries — a self-reinforcing spiral. FIX:
+//   1. Cache the group JID (resolveGroupJid + jidCache) — sendToGroup does ONE groupFetch on the first
+//      send after (re)connect, then reuses the JID. Group JIDs are permanent, so the cache survives
+//      reconnects. Removes a groupFetch from every steady-state send.
+//   2. waitForStable() no longer runs groupFetch as its probe — it time-gates (continuously open >=
+//      STABILIZE_MS) + checks sock.user. The first send's resolveGroupJid still does a real query, so
+//      the cold-start false-SENT guard (v05) is preserved for that first send, then the socket is warm.
+//   3. Keep-alive is now a LIGHTWEIGHT in-memory liveness check (sock.user + WS readyState), no IQ
+//      query, and a `rate-overlimit`-class failure is NOT treated as a dead socket. Real disconnects
+//      still arrive via connection.update 'close', which handles reconnect. Net effect: IQ-query volume
+//      drops ~10-20x, so the always-on socket stops accumulating the throttle and keep-warm can stay.
+// FOLLOW-UP (not in v07): queue-processor retries re-fire immediately (3 in ~14s) with no backoff; a
+// rate-overlimit-aware backoff belongs there, but it interacts with the fragile isProcessing single-
+// flight (which drops concurrent messages) so it was deferred to avoid a regression in the queue model.
 //
 // @BUG_FIX (v06, SELF-INFLICTED connectionReplaced storm — 2026-06-26): the flap that "looked like a
 // second device" was the worker fighting ITS OWN orphaned sockets. connectSocket() created a new
@@ -70,6 +93,10 @@ export class WhatsAppClient {
   // handler and the keep-alive-fail handler can never schedule two overlapping reconnects.
   private reconnecting: boolean = false;
   private groupNameCache: Map<string, string> = new Map();
+  // v07: cache of lowercased group-name search term -> resolved group JID. Group JIDs are permanent,
+  // so this survives reconnects and eliminates a groupFetchAllParticipating() on every steady-state
+  // send. Invalidated for a specific entry only if a send to that cached JID throws (stale JID).
+  private jidCache: Map<string, string> = new Map();
   // Timestamp (ms) of the most recent successful 'open'. Reset to null on close. Used by
   // waitForStable() to require the socket has been continuously open long enough to settle.
   private readyAt: number | null = null;
@@ -258,22 +285,25 @@ export class WhatsAppClient {
 
   /**
    * Wait until the connection is genuinely send-ready: continuously OPEN for at least STABILIZE_MS
-   * AND able to complete a real query (groupFetchAllParticipating). Resolves true when stable,
-   * false if it can't stabilise within timeoutMs. Called by the queue-processor before every send to
-   * avoid the cold-start false-SENT (a relay on a just-opened, not-yet-settled socket that resolves
-   * locally but never reaches WhatsApp). A reconnect resets readyAt, so this re-waits the full settle.
+   * with an authenticated socket (sock.user set). Resolves true when stable, false if it can't
+   * stabilise within timeoutMs. Called by the queue-processor before every send to avoid the
+   * cold-start false-SENT (a relay on a just-opened, not-yet-settled socket that resolves locally but
+   * never reaches WhatsApp). A reconnect resets readyAt, so this re-waits the full settle.
+   *
+   * v07: previously this probed with groupFetchAllParticipating() — a rate-limited IQ query — on every
+   * send, a major driver of the rate-overlimit throttle. The STABILIZE_MS time-gate already clears the
+   * post-open settle window (the getUSyncDevices 408s occur in the first few seconds), and the first
+   * send's resolveGroupJid() still issues ONE real query, so the false-SENT guard is preserved for the
+   * first send while steady-state sends no longer each pay an IQ query here.
    */
   async waitForStable(timeoutMs: number = 90000): Promise<boolean> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      if (this.isReady && this.sock && this.readyAt !== null && (Date.now() - this.readyAt) >= this.STABILIZE_MS) {
-        try {
-          // A successful query proves the socket is actually usable, not just nominally "open".
-          await this.sock.groupFetchAllParticipating();
-          return true;
-        } catch {
-          // Socket open but not yet able to query — keep waiting.
-        }
+      if (
+        this.isReady && this.sock && this.sock.user &&
+        this.readyAt !== null && (Date.now() - this.readyAt) >= this.STABILIZE_MS
+      ) {
+        return true;
       }
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
@@ -301,7 +331,37 @@ export class WhatsAppClient {
   }
 
   /**
-   * Send a message to a WhatsApp group by name (case-insensitive substring match)
+   * Resolve a group name (case-insensitive substring match) to its permanent JID, caching the result.
+   * v07: this is the ONLY steady-state caller of groupFetchAllParticipating() on the send path, and it
+   * runs it at most once per group per (re)connect — a cache hit on every subsequent send. Populates
+   * groupNameCache (jid -> subject) as a side effect so inbound logging benefits too.
+   */
+  private async resolveGroupJid(groupName: string): Promise<string | null> {
+    const searchName = groupName.toLowerCase();
+    const cached = this.jidCache.get(searchName);
+    if (cached) return cached;
+    if (!this.sock) return null;
+
+    const groups = await this.sock.groupFetchAllParticipating();
+    for (const [jid, data] of Object.entries(groups)) {
+      this.groupNameCache.set(jid, data.subject);
+    }
+    const match = Object.entries(groups).find(([, data]) =>
+      data.subject.toLowerCase().includes(searchName)
+    );
+    if (!match) {
+      const available = Object.values(groups).map(g => g.subject);
+      console.error(`❌ Group "${groupName}" not found. Available groups:`, available);
+      return null;
+    }
+    this.jidCache.set(searchName, match[0]);
+    return match[0];
+  }
+
+  /**
+   * Send a message to a WhatsApp group by name (case-insensitive substring match).
+   * v07: resolves the JID via the cache (one groupFetch per (re)connect, not per send). If a send to a
+   * cached JID throws, the cache entry is invalidated so the next attempt re-resolves it.
    */
   async sendToGroup(groupName: string, message: string): Promise<boolean> {
     if (!this.isReady || !this.sock) {
@@ -310,22 +370,17 @@ export class WhatsAppClient {
     }
 
     try {
-      const groups = await this.sock.groupFetchAllParticipating();
-      const searchName = groupName.toLowerCase();
+      const groupJid = await this.resolveGroupJid(groupName);
+      if (!groupJid) return false;
 
-      const match = Object.entries(groups).find(([, data]) =>
-        data.subject.toLowerCase().includes(searchName)
-      );
-
-      if (!match) {
-        const available = Object.values(groups).map(g => g.subject);
-        console.error(`❌ Group "${groupName}" not found. Available groups:`, available);
-        return false;
+      try {
+        await this.sock.sendMessage(groupJid, { text: message });
+      } catch (sendErr) {
+        // A cached JID could (rarely) be stale — drop it so the next retry re-resolves fresh.
+        this.jidCache.delete(groupName.toLowerCase());
+        throw sendErr;
       }
-
-      const [groupJid, groupData] = match;
-      await this.sock.sendMessage(groupJid, { text: message });
-      console.log(`✅ Message sent to group "${groupData.subject}"`);
+      console.log(`✅ Message sent to group "${groupName}" (${groupJid})`);
       return true;
     } catch (error: any) {
       console.error(`❌ Failed to send to group "${groupName}":`, error.message);
@@ -411,42 +466,45 @@ export class WhatsAppClient {
   private async performKeepAlivePing(): Promise<void> {
     if (!this.isReady || !this.sock) return;
 
-    try {
-      const groups = await this.sock.groupFetchAllParticipating();
-      const state = this.sock.user ? 'CONNECTED' : 'DISCONNECTED';
+    // v07: LIGHTWEIGHT liveness only — NO groupFetchAllParticipating() (that IQ query was the main
+    // driver of the rate-overlimit throttle). Baileys keeps the WS alive itself and emits
+    // connection.update 'close' on real disconnects (which drives reconnect). Here we merely observe
+    // the socket: an authenticated user + an OPEN WebSocket means healthy. A throttle (rate-overlimit)
+    // is NOT a dead socket, so it must never trigger a reconnect the way the old query-failure path did.
+    const ws: any = (this.sock as any).ws;
+    const wsState = ws?.readyState;
+    const wsOpen = wsState === undefined ? true : (wsState === 1 /* WebSocket.OPEN */);
+    const connected = !!this.sock.user && wsOpen;
 
+    if (connected) {
       this.lastSuccessfulPing = new Date();
       this.consecutiveFailures = 0;
 
       // Log to Firestore ~10% of the time to reduce spam
       if (Math.random() < 0.1) {
         await this.logStatusChange('keep_alive_ping', {
-          state,
-          groupCount: Object.keys(groups).length,
+          state: 'CONNECTED',
           timestamp: new Date().toISOString(),
         });
       }
+      return;
+    }
 
-      if (state !== 'CONNECTED') {
-        console.warn(`⚠️ Keep-alive: state is ${state}, not CONNECTED`);
-      }
-    } catch (error: any) {
-      this.consecutiveFailures++;
-      console.error(`❌ Keep-alive failed (${this.consecutiveFailures}):`, error.message);
+    // Not connected at the socket level — this is a genuine liveness problem, not a rate limit.
+    this.consecutiveFailures++;
+    console.warn(`⚠️ Keep-alive: socket not healthy (user=${!!this.sock.user}, wsState=${wsState}) — failure ${this.consecutiveFailures}`);
+    await this.logStatusChange('keep_alive_fail', {
+      error: `socket not healthy (wsState=${wsState})`,
+      consecutiveFailures: this.consecutiveFailures,
+    });
 
-      await this.logStatusChange('keep_alive_fail', {
-        error: error.message,
-        consecutiveFailures: this.consecutiveFailures,
-      });
-
-      // After 3 consecutive failures, attempt reconnect
-      if (this.consecutiveFailures >= 3) {
-        console.warn('⚠️ 3+ consecutive keep-alive failures — reconnecting...');
-        this.isReady = false;
-        this.stopKeepAlive();
-        await this.logStatusChange('reconnecting', { afterReason: '3+ keep-alive failures' });
-        this.scheduleReconnect('3+ keep-alive failures');
-      }
+    // After 3 consecutive genuinely-unhealthy checks, force a reconnect (single-flight guarded).
+    if (this.consecutiveFailures >= 3) {
+      console.warn('⚠️ 3+ consecutive unhealthy keep-alive checks — reconnecting...');
+      this.isReady = false;
+      this.stopKeepAlive();
+      await this.logStatusChange('reconnecting', { afterReason: '3+ unhealthy keep-alive checks' });
+      this.scheduleReconnect('3+ unhealthy keep-alive checks');
     }
   }
 

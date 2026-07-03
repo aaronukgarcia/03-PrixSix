@@ -1,11 +1,14 @@
-// GUID: CRON_WHATSAPP_SCHEDULED-000-v01
+// GUID: CRON_WHATSAPP_SCHEDULED-000-v02
 // Auth:   CRON_SECRET bearer token (timing-safe), same pattern as the other cron routes.
 // Runs:   every ~30 min via the whatsAppScheduledTick Cloud Function.
 // [Intent] Time-driven WhatsApp alerts that the per-event call sites can't do: prediction-deadline
 //          reminders (24h + 2h before qualifying lock), a late-prediction warning listing who still
-//          hasn't predicted, a race-start reminder, and a weekly standings post. Each is gated by its
-//          whatsapp_alerts toggle (via sendWhatsAppAlert) and de-duplicated in
+//          hasn't predicted, a pit-lane-CLOSED notice at the deadline (qualifying underway), a
+//          race-start reminder, and a weekly standings post. Each is gated by its whatsapp_alerts
+//          toggle (via sendWhatsAppAlert) and de-duplicated in
 //          admin_configuration/whatsappScheduledState so it fires once.
+// @FIX (v3.4.2): added the pit-lane-closed notice (rstate.sentClosed) — previously nothing was sent
+//          at the moment predictions lock; all deadline messages fired BEFORE close.
 // [Downstream Impact] Enqueues whatsapp_queue messages (which wake the worker). Idempotent per tick.
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -82,6 +85,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const res = await sendWhatsAppAlert('qualifyingReminder',
           `🚨 *Last chance — predictions for ${next.name} close in under 2 hours!* Lock in your picks now.`);
         if (res.queued !== false) { rstate.sent2 = true; actions.push(`2h:${next.name}`); }
+      }
+      // Pit-lane-closed / qualifying-underway — first tick AT or AFTER the deadline. The `upcoming`
+      // filter keeps this race as `next` until deadline+2h, so this window is [deadline, deadline+2h).
+      // Reuses the qualifyingReminder toggle (same deadline family) so no new admin switch is needed.
+      // Cron ticks ~every 30 min, so this lands within ~30 min of qualifying start, not to the second.
+      if (!rstate.sentClosed && now >= deadline && now < deadline + 2 * HOUR) {
+        const res = await sendWhatsAppAlert('qualifyingReminder',
+          `🔒 *Pit lane closed* — predictions for ${next.name} are locked. Qualifying is underway. Good luck all! 🏎️`);
+        if (res.queued !== false) { rstate.sentClosed = true; actions.push(`closed:${next.name}`); }
       }
       // Late-prediction warning (~3h before): list who still hasn't predicted
       if (!rstate.sentLate && now >= deadline - 3 * HOUR && now < deadline) {

@@ -9,6 +9,10 @@ import { QueueProcessor } from './queue-processor';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Worker version — bump on every worker change; surfaced on /health for post-deploy verification
+// (the container has no About page). Keep in sync with whatsapp-worker/package.json.
+const WORKER_VERSION = '2.2.0';
+
 // Add JSON body parser for webhook
 app.use(express.json());
 
@@ -67,6 +71,7 @@ app.get('/health', (req: Request, res: Response) => {
 
   res.json({
     status: 'ok',
+    version: WORKER_VERSION,
     whatsapp: {
       connected: status.ready,
       awaitingQR: !!status.qrCode,

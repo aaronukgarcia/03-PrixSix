@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-07-03",
+      "version": "3.4.2",
+      "author": "aaron garcia",
+      "message": "feat: WhatsApp 'pit lane closed' notice at prediction deadline + worker rate-overlimit query-storm fix (v3.4.2 / worker 2.2.0)",
+      "major": false
+    },
+    {
+      "id": "PENDING",
+      "date": "2026-07-03",
       "version": "3.4.1",
       "author": "aaron garcia",
       "message": "fix: standings graph is now a position/bump chart — lines cross on overtakes, hover shows real per-race order (v3.4.1)",
