@@ -51,6 +51,59 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
 
+// GUID: PAGE_STANDINGS-024-v01
+// [Intent] Rank the teams within a single chart data point (one race) by their cumulative points,
+//   returning a { teamName: position } map. Highest points = position 1. This turns the
+//   cumulative-points series into a POSITION (bump-chart) series so lines cross whenever teams swap
+//   places in the running order.
+// [Inbound Trigger] Called once per chart data point (Start, each Sprint, each GP) while chartData is built.
+// [Downstream Impact] The returned map is stored on the point as `__ranks` and read by each <Line>'s
+//   function dataKey and by BumpChartTooltip. Ties resolve by iteration order (adjacent ranks) —
+//   acceptable for a visual chart; the table remains the authority for official tie-breaking.
+function ranksFromPoints(point: Record<string, any>): Record<string, number> {
+  const entries = Object.entries(point)
+    .filter(([k]) => k !== 'race' && k !== '__ranks') as [string, number][];
+  entries.sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0));
+  const ranks: Record<string, number> = {};
+  entries.forEach(([team], i) => { ranks[team] = i + 1; });
+  return ranks;
+}
+
+// GUID: PAGE_STANDINGS-025-v01
+// [Intent] Custom Recharts tooltip for the bump chart. Lists the teams for the hovered race in that
+//   race's ACTUAL position order (sorted by rank), showing "P{rank} Team — {points} pts". Replaces
+//   the default tooltip, whose item order was fixed by <Line> declaration order (sorted once by the
+//   selected race), causing the hover order to look identical at every race regardless of position.
+// [Inbound Trigger] Rendered by Recharts on hover; receives the active payload for the hovered point.
+// [Downstream Impact] Pure presentational component. Reads item.value (rank) and item.payload[team]
+//   (cumulative points) from the payload. No side effects.
+function BumpChartTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: any }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const rows = payload
+    .map((item: any) => ({
+      team: item.name as string,
+      rank: item.value as number,
+      points: (item.payload?.[item.name] ?? 0) as number,
+      color: (item.color ?? item.stroke) as string,
+    }))
+    .filter(r => typeof r.rank === 'number' && !Number.isNaN(r.rank))
+    .sort((a, b) => a.rank - b.rank);
+  if (rows.length === 0) return null;
+  return (
+    <div style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '12px', padding: '8px 10px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+      <div style={{ fontWeight: 'bold', marginBottom: 4 }}>{label}</div>
+      {rows.map(r => (
+        <div key={r.team} style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', lineHeight: 1.5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: r.color, display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 22 }}>P{r.rank}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 150 }}>{r.team}</span>
+          <span style={{ marginLeft: 'auto', paddingLeft: 10, opacity: 0.65 }}>{r.points} pts</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // GUID: PAGE_STANDINGS-001-v03
 // [Intent] Visual indicator for rank changes between race weekends — shows arrows/chevrons based
 //   on the magnitude and direction of change.
@@ -391,8 +444,8 @@ export default function StandingsPage() {
   // [Intent] Calculate cumulative standings for the selected race weekend — computes old/new overall
   //   points, sprint/GP breakdown, rank with tie handling, rank change from previous race, and gap.
   // [Inbound Trigger] filteredScores, completedRaceWeekends, selectedRaceIndex, or userNames changes.
-  // [Downstream Impact] Drives the standings table rendering, raceWinners calculation, chartTeams
-  //   filtering, and maxPoints for chart Y-axis.
+  // [Downstream Impact] Drives the standings table rendering, raceWinners calculation, and chartTeams
+  //   filtering (and the chart Y-axis team count via standings.length).
   // @FIX GEMINI-AUDIT: allPriorEventIds and currentWeekendEventIds now contain normalised IDs
   //   (via normalizeRaceIdForComparison) to match the normalised score.raceId values in filteredScores.
   //   baseRaceId shim removed — normalisation makes both legacy and new formats resolve to the same key.
@@ -574,11 +627,18 @@ export default function StandingsPage() {
     return { gpWinners, sprintWinners };
   }, [standings]);
 
-  // GUID: PAGE_STANDINGS-015-v04
+  // GUID: PAGE_STANDINGS-015-v05
   // [Intent] Build chart data for season progression — cumulative points per team after each race
   //   weekend (including separate Sprint/GP data points for sprint weekends), up to selected race.
+  //   Each point also carries a `__ranks` map (teamName -> position for THAT race, via
+  //   ranksFromPoints) so the chart can render as a POSITION/bump chart where lines cross on overtakes.
+  //   The cumulative points remain under teamName keys and are shown in the tooltip alongside position.
   // [Inbound Trigger] completedRaceWeekends, filteredScores, userNames, or selectedRaceIndex changes.
-  // [Downstream Impact] chartData array is consumed by the Recharts LineChart rendering.
+  // [Downstream Impact] chartData array is consumed by the Recharts LineChart. Each <Line> reads the
+  //   position from `__ranks[teamName]` (function dataKey); BumpChartTooltip reads both rank and points.
+  // @FIX (bump-chart, v3.4.1): previously each <Line> plotted raw cumulative points on a [0,maxPoints]
+  //   axis, so the running order barely changed visually (lines never crossed) and the default tooltip
+  //   listed teams in a fixed order. Now plots per-race rank on an inverted axis. See GUID -024/-025.
   // @FIX GEMINI-AUDIT: score.raceId comparisons now use normalizeRaceIdForComparison() to match the
   //   normalised IDs stored in filteredScores. baseRaceId shim removed.
   const chartData = useMemo(() => {
@@ -602,6 +662,7 @@ export default function StandingsPage() {
       );
       startPoint[teamName] = handicap?.totalPoints || 0;
     });
+    startPoint.__ranks = ranksFromPoints(startPoint);
     data.push(startPoint);
 
     // Calculate cumulative totals after each race weekend (only up to selected)
@@ -636,6 +697,7 @@ export default function StandingsPage() {
           const teamName = userNames.get(userId) || userId;
           sprintPoint[teamName] = cumulativeTotals.get(userId) || 0;
         });
+        sprintPoint.__ranks = ranksFromPoints(sprintPoint);
         data.push(sprintPoint);
 
         // Second: Add GP scores (compare normalised IDs)
@@ -652,6 +714,7 @@ export default function StandingsPage() {
           const teamName = userNames.get(userId) || userId;
           gpPoint[teamName] = cumulativeTotals.get(userId) || 0;
         });
+        gpPoint.__ranks = ranksFromPoints(gpPoint);
         data.push(gpPoint);
       } else {
         // Non-sprint weekend: just add GP scores (compare normalised IDs)
@@ -668,6 +731,7 @@ export default function StandingsPage() {
           const teamName = userNames.get(userId) || userId;
           racePoint[teamName] = cumulativeTotals.get(userId) || 0;
         });
+        racePoint.__ranks = ranksFromPoints(racePoint);
         data.push(racePoint);
       }
     });
@@ -746,15 +810,10 @@ export default function StandingsPage() {
     return `hsl(${hue}, 65%, 55%)`;
   }, []);
 
-  // GUID: PAGE_STANDINGS-019-v03
-  // [Intent] Calculate maximum points for the chart Y-axis with a 10% buffer for visual headroom.
-  // [Inbound Trigger] standings array changes (specifically the top team's newOverall).
-  // [Downstream Impact] Sets the YAxis domain upper bound in the Recharts LineChart.
-  const maxPoints = useMemo(() => {
-    if (standings.length === 0) return 100;
-    // Add 10% buffer for better visualization
-    return Math.ceil(standings[0].newOverall * 1.1);
-  }, [standings]);
+  // GUID: PAGE_STANDINGS-019-v04
+  // @REMOVED (bump-chart, v3.4.1): maxPoints memo deleted. The chart Y-axis now plots POSITION (rank
+  //   1..N via an inverted axis), not cumulative points, so the points-based domain upper bound is no
+  //   longer consumed. Its sole reader was the <YAxis domain>. Dead-code audit per Golden Rule #18.
 
   // GUID: PAGE_STANDINGS-020-v03
   // [Intent] Client-side pagination — tracks how many standings rows to display and whether more exist.
@@ -910,22 +969,22 @@ export default function StandingsPage() {
                     axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                     tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                   />
+                  {/* Bump chart: Y axis is POSITION (rank), 1 at the top. `reversed` flips the
+                      default bottom-to-top ordering so P1 sits highest. Lines now cross on overtakes. */}
                   <YAxis
-                    domain={[0, maxPoints]}
+                    type="number"
+                    domain={[1, Math.max(standings.length, 2)]}
+                    reversed
+                    allowDecimals={false}
+                    tickFormatter={(v) => `P${v}`}
                     tick={{ fontSize: 10 }}
                     axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                     tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                     width={35}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                    }}
-                    labelStyle={{ fontWeight: 'bold' }}
-                  />
+                  {/* Custom tooltip lists teams in the hovered race's real position order
+                      (sorted by rank), showing points too — fixes the fixed-order hover bug. */}
+                  <Tooltip content={<BumpChartTooltip />} />
                   {/* 7a3f1d2e — mode-aware line styling */}
                   {chartTeams.map((teamName) => {
                     const rank = standings.findIndex(s => s.teamName === teamName);
@@ -938,13 +997,17 @@ export default function StandingsPage() {
                     return (
                       <Line
                         key={teamName}
-                        type="monotone"
-                        dataKey={teamName}
+                        type="linear"
+                        // Bump chart: plot POSITION from the point's __ranks map (not raw points),
+                        // so a line's height is the team's running-order place at that race.
+                        dataKey={(row: any) => row?.__ranks?.[teamName]}
+                        name={teamName}
                         stroke={getStableTeamColor(teamName)}
                         strokeWidth={bold ? 2.5 : 1}
                         dot={false}
                         opacity={bold ? 1 : 0.4}
                         isAnimationActive={false}
+                        connectNulls
                       />
                     );
                   })}

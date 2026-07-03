@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-07-03",
+      "version": "3.4.1",
+      "author": "aaron garcia",
+      "message": "fix: standings graph is now a position/bump chart — lines cross on overtakes, hover shows real per-race order (v3.4.1)",
+      "major": false
+    },
+    {
+      "id": "PENDING",
+      "date": "2026-07-03",
       "version": "3.4.0",
       "author": "aaron garcia",
       "message": "fix: ground AI prediction analysis in the real 2026 grid — stop pundits mocking correct picks (Hamilton→Ferrari) as fantasy (v3.4.0)",
