@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
+import { F1Drivers } from '@/lib/data';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
@@ -103,8 +104,47 @@ const calculateWordBudgets = (weights: AnalysisWeights): Record<string, number> 
   return budgets;
 };
 
-// GUID: API_AI_ANALYSIS-006-v04
-// [Intent] Build the complete AI prompt dynamically based on race details, user predictions, and weight configuration. Includes facet descriptions with emphasis levels, word budgets, exclusion notes, and formatting rules (British English, headings, verdict). All user-controlled fields (raceName, circuit) are sanitized via sanitizeForPrompt() before interpolation.
+// GUID: API_AI_ANALYSIS-013-v01
+// [Intent] Build an authoritative "ground truth" block describing the ACTUAL current F1 grid,
+//   sourced from lib/data.ts (F1Drivers — the single source of truth for the 2026 season). This is
+//   prepended to the AI prompt so the model treats the real driver→team line-up as fact rather than
+//   falling back on its stale training-cutoff knowledge of the grid.
+// [Inbound Trigger] Called by buildWeightedPrompt() on every request.
+// [Downstream Impact] Without this block the model mis-reads correct current-season picks (e.g.
+//   "Hamilton (Ferrari)", "Antonelli (Mercedes)") as user fantasy and mocks them — because its
+//   training prior places Hamilton at Mercedes and treats Antonelli as an unproven rookie. Deriving
+//   the roster from F1Drivers (Golden Rule #15 — no hardcoded roster) keeps this correct as the grid
+//   changes. NOTE (follow-up item 3): this grounds the LINE-UP only; current form/standings are still
+//   not injected, so "data-driven" facets (results, win rates, odds) remain model-estimated. Feeding
+//   real standings/recent form from Firestore is the tracked next step.
+const buildGridGroundTruth = (): string => {
+  // Group drivers by team, preserving the data.ts ordering.
+  const byTeam = new Map<string, string[]>();
+  for (const d of F1Drivers) {
+    if (!byTeam.has(d.team)) byTeam.set(d.team, []);
+    byTeam.get(d.team)!.push(d.name);
+  }
+  const roster = Array.from(byTeam.entries())
+    .map(([team, drivers]) => `- ${team}: ${drivers.join(', ')}`)
+    .join('\n');
+
+  return `AUTHORITATIVE GROUND TRUTH — THE ACTUAL CURRENT F1 GRID (2026 season):
+${roster}
+
+CRITICAL: The line-up above is the REAL, current 2026 grid and is authoritative. Your own
+training knowledge of driver-team pairings is OUT OF DATE — defer to the list above without
+exception. In particular: Lewis Hamilton drives for Ferrari (not Mercedes); Kimi Antonelli is
+George Russell's full Mercedes team-mate (a legitimate line-up, not a fantasy); several teams are
+new or renamed for 2026 (Audi, Cadillac, Racing Bulls). The user's team assignments in their
+prediction are CORRECT. Do NOT question, "correct", or mock a pick merely because it conflicts with
+an older grid you remember — treat every driver→team pairing shown as established fact.
+`;
+};
+
+// GUID: API_AI_ANALYSIS-006-v05
+// @FIX (grid-grounding): Prepend buildGridGroundTruth() so the model stops mocking correct 2026 picks
+//   (e.g. Hamilton→Ferrari) as user fantasy based on stale training data. See GUID -013 for detail.
+// [Intent] Build the complete AI prompt dynamically based on race details, user predictions, and weight configuration. Includes an authoritative current-grid ground-truth block, facet descriptions with emphasis levels, word budgets, exclusion notes, and formatting rules (British English, headings, verdict). All user-controlled fields (raceName, circuit) are sanitized via sanitizeForPrompt() before interpolation.
 // [Inbound Trigger] Called by the POST handler after validating the request.
 // [Downstream Impact] The returned prompt string is sent directly to Genkit ai.generate(). Prompt quality directly affects analysis quality. Facet descriptions define the AI's knowledge of each analysis dimension.
 const buildWeightedPrompt = (
@@ -164,6 +204,7 @@ const buildWeightedPrompt = (
 
   return `You are an expert Formula 1 analyst providing race prediction analysis for Prix Six, a fantasy F1 league.
 
+${buildGridGroundTruth()}
 The user has submitted their top 6 prediction for the ${safeRaceName} at ${safeCircuit}.
 
 Their prediction:
@@ -184,6 +225,7 @@ IMPORTANT RULES:
 7. Be direct and insightful - pack value into every word
 8. Reference specific data points where possible (lap times, previous results, odds)
 9. End with a 20-word verdict on the prediction's overall strength
+10. Base ALL commentary — pundits included — on the authoritative 2026 grid above. Tease bold POSITION calls if you like, but NEVER mock a driver→team pairing from the user's prediction (e.g. Hamilton at Ferrari) as unrealistic — those pairings are correct current fact.
 
 Begin your analysis:`;
 };

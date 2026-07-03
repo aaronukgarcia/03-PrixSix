@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-06-11",
+  "lastUpdated": "2026-07-03",
   "commits": [
+    {
+      "id": "PENDING",
+      "date": "2026-07-03",
+      "version": "3.4.0",
+      "author": "aaron garcia",
+      "message": "fix: ground AI prediction analysis in the real 2026 grid — stop pundits mocking correct picks (Hamilton→Ferrari) as fantasy (v3.4.0)",
+      "major": false
+    },
     {
       "id": "PENDING",
       "date": "2026-06-12",
