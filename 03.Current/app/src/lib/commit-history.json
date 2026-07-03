@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-07-03",
+      "version": "3.4.4",
+      "author": "aaron garcia",
+      "message": "feat: standings graph zoom — independent Teams (Top 10/All/My Position) + Races (Last 3/All) toggles, auto-fit position axis, right-edge team labels (v3.4.4)",
+      "major": false
+    },
+    {
+      "id": "PENDING",
+      "date": "2026-07-03",
       "version": "3.4.3",
       "author": "aaron garcia",
       "message": "chore(worker): harden .dockerignore (exclude secret files from image) + worker 2.2.1; deployed to Azure rev 0000016 (v3.4.3)",

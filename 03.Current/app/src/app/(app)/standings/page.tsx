@@ -62,7 +62,7 @@ import { generateClientCorrelationId } from '@/lib/error-codes';
 //   acceptable for a visual chart; the table remains the authority for official tie-breaking.
 function ranksFromPoints(point: Record<string, any>): Record<string, number> {
   const entries = Object.entries(point)
-    .filter(([k]) => k !== 'race' && k !== '__ranks') as [string, number][];
+    .filter(([k]) => k !== 'race' && k !== '__ranks' && k !== '__weekendIdx') as [string, number][];
   entries.sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0));
   const ranks: Record<string, number> = {};
   entries.forEach(([team], i) => { ranks[team] = i + 1; });
@@ -249,7 +249,13 @@ export default function StandingsPage() {
   const router = useRouter();
   const { selectedLeague } = useLeague();
   const { user, firebaseUser } = useAuth(); // 7a3f1d2e — identify current user for chart filtering. firebaseUser supplies the bearer token for /api/standings.
-  const [chartMode, setChartMode] = useState<'top10' | 'myPosition'>('top10'); // 7a3f1d2e — chart line filter toggle
+  // Chart zoom controls (v3.4.4): two independent axes of zoom.
+  //  - chartMode = which TEAMS: 'top10' | 'all' | 'myPosition'
+  //  - raceRange = which RACES on the x-axis: 'last3' (recent battle) | 'all' (whole season)
+  // Default = the zoomed-in view (top 10 teams, last 3 races) where the meaningful current-order
+  // detail lives; the user can zoom out on either axis independently.
+  const [chartMode, setChartMode] = useState<'top10' | 'all' | 'myPosition'>('top10'); // 7a3f1d2e — chart line filter toggle
+  const [raceRange, setRaceRange] = useState<'last3' | 'all'>('last3');
 
   const [allScores, setAllScores] = useState<ScoreData[]>([]);
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
@@ -627,7 +633,9 @@ export default function StandingsPage() {
     return { gpWinners, sprintWinners };
   }, [standings]);
 
-  // GUID: PAGE_STANDINGS-015-v05
+  // GUID: PAGE_STANDINGS-015-v06
+  // @FEATURE (zoom, v3.4.4): each point also carries `__weekendIdx` (pre-season Start = -1) so the
+  //   RACE-axis zoom (displayData, GUID -026) can crop to the last 3 weekends without recomputing ranks.
   // [Intent] Build chart data for season progression — cumulative points per team after each race
   //   weekend (including separate Sprint/GP data points for sprint weekends), up to selected race.
   //   Each point also carries a `__ranks` map (teamName -> position for THAT race, via
@@ -663,6 +671,7 @@ export default function StandingsPage() {
       startPoint[teamName] = handicap?.totalPoints || 0;
     });
     startPoint.__ranks = ranksFromPoints(startPoint);
+    startPoint.__weekendIdx = -1; // pre-season marker (excluded from the "last 3 races" window)
     data.push(startPoint);
 
     // Calculate cumulative totals after each race weekend (only up to selected)
@@ -698,6 +707,7 @@ export default function StandingsPage() {
           sprintPoint[teamName] = cumulativeTotals.get(userId) || 0;
         });
         sprintPoint.__ranks = ranksFromPoints(sprintPoint);
+        sprintPoint.__weekendIdx = raceIndex;
         data.push(sprintPoint);
 
         // Second: Add GP scores (compare normalised IDs)
@@ -715,6 +725,7 @@ export default function StandingsPage() {
           gpPoint[teamName] = cumulativeTotals.get(userId) || 0;
         });
         gpPoint.__ranks = ranksFromPoints(gpPoint);
+        gpPoint.__weekendIdx = raceIndex;
         data.push(gpPoint);
       } else {
         // Non-sprint weekend: just add GP scores (compare normalised IDs)
@@ -732,6 +743,7 @@ export default function StandingsPage() {
           racePoint[teamName] = cumulativeTotals.get(userId) || 0;
         });
         racePoint.__ranks = ranksFromPoints(racePoint);
+        racePoint.__weekendIdx = raceIndex;
         data.push(racePoint);
       }
     });
@@ -748,14 +760,21 @@ export default function StandingsPage() {
     return { primary: user.id, secondary: user.secondaryTeamName ? `${user.id}-secondary` : null };
   }, [user]);
 
-  // GUID: PAGE_STANDINGS-017-v03
-  // [Intent] Filter chart lines to approximately 11 teams based on chartMode (top10 or myPosition).
-  //   In top10 mode: top 10 teams + user's team(s) if outside top 10.
-  //   In myPosition mode: user's team + 5 above + 5 below in standings.
+  // GUID: PAGE_STANDINGS-017-v04
+  // [Intent] Choose which team lines to render, by chartMode:
+  //   'top10'      → top 10 teams + user's team(s) if outside top 10.
+  //   'all'        → every team (zoom-out).
+  //   'myPosition' → user's team + 5 above + 5 below in standings.
   // [Inbound Trigger] standings, chartMode, or userTeamIds changes.
-  // [Downstream Impact] chartTeams array controls which Line components are rendered in the chart.
+  // [Downstream Impact] chartTeams array controls which Line components are rendered in the chart, and
+  //   feeds the auto-fit Y domain (GUID -027) and right-edge label gating.
   const chartTeams = useMemo(() => {
     if (standings.length === 0) return [];
+
+    if (chartMode === 'all') {
+      // Zoom-out: every team, in standings order.
+      return standings.map(s => s.teamName);
+    }
 
     if (chartMode === 'top10') {
       // Top 10 + user's team(s) if outside top 10
@@ -795,6 +814,51 @@ export default function StandingsPage() {
 
     return standings.filter(s => windowNames.has(s.teamName)).map(s => s.teamName);
   }, [standings, chartMode, userTeamIds]);
+
+  // GUID: PAGE_STANDINGS-026-v01
+  // [Intent] Apply the RACE-axis zoom to chartData. 'all' shows every point; 'last3' keeps only the
+  //   points belonging to the last 3 race weekends (by __weekendIdx), dropping the pre-season Start.
+  //   Ranks are cumulative and already baked into each point's __ranks, so windowing the x-axis never
+  //   changes a team's plotted position — it just crops which races are visible.
+  // [Inbound Trigger] chartData or raceRange changes.
+  // [Downstream Impact] Fed to the LineChart as `data`; also drives the auto-fit Y domain and the
+  //   right-edge labels (last point = last element).
+  const displayData = useMemo(() => {
+    if (raceRange === 'all' || chartData.length === 0) return chartData;
+    const maxIdx = chartData.reduce((m, p) => Math.max(m, p.__weekendIdx ?? -1), -1);
+    if (maxIdx < 0) return chartData;
+    const cutoff = Math.max(0, maxIdx - 2); // last 3 weekends
+    const windowed = chartData.filter(p => (p.__weekendIdx ?? -1) >= cutoff);
+    return windowed.length > 0 ? windowed : chartData;
+  }, [chartData, raceRange]);
+
+  // GUID: PAGE_STANDINGS-027-v01
+  // [Intent] Auto-fit the position (Y) axis to only the teams AND races currently shown, padded by one
+  //   place each side. This is the fix for the "right-hand side isn't logical" report: with all ~20+
+  //   teams the axis was P1..P22 and the top battle was squashed. Zooming to top 10 now fills the chart.
+  // [Inbound Trigger] displayData, chartTeams, or standings length changes.
+  // [Downstream Impact] Provides the <YAxis domain>. Falls back to the full [1, N] range if no ranks.
+  const yDomain = useMemo<[number, number]>(() => {
+    const fullMax = Math.max(standings.length, 2);
+    let min = Infinity, max = -Infinity;
+    for (const p of displayData) {
+      const ranks: Record<string, number> = p.__ranks || {};
+      for (const t of chartTeams) {
+        const r = ranks[t];
+        if (typeof r === 'number' && !Number.isNaN(r)) {
+          if (r < min) min = r;
+          if (r > max) max = r;
+        }
+      }
+    }
+    if (!isFinite(min) || !isFinite(max)) return [1, fullMax];
+    return [Math.max(1, min - 1), Math.min(fullMax, max + 1)];
+  }, [displayData, chartTeams, standings.length]);
+
+  // Right-edge team labels: only when few enough lines to stay readable (not in all-teams zoom-out).
+  // Ranks guarantee each labelled endpoint sits on a distinct P-row, so labels don't overlap.
+  const chartLastIndex = displayData.length - 1;
+  const showRightLabels = chartTeams.length > 0 && chartTeams.length <= 12;
 
   // GUID: PAGE_STANDINGS-018-v03
   // [Intent] Generate a deterministic HSL colour for each team name — ensures the same team always
@@ -939,30 +1003,61 @@ export default function StandingsPage() {
         {/* 7a3f1d2e — Season progression chart with mode toggle */}
         {!isLoading && chartData.length > 1 && chartTeams.length > 0 && (
           <div className="space-y-2 mb-4">
-            {/* 7a3f1d2e — chart mode toggle buttons */}
-            <div className="flex gap-1">
-              <Button
-                variant={chartMode === 'top10' ? 'default' : 'outline'}
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => setChartMode('top10')}
-              >
-                <Users className="h-3 w-3" />
-                Top 10
-              </Button>
-              <Button
-                variant={chartMode === 'myPosition' ? 'default' : 'outline'}
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => setChartMode('myPosition')}
-              >
-                <Crosshair className="h-3 w-3" />
-                My Position
-              </Button>
+            {/* Zoom controls (v3.4.4): independent TEAMS and RACES toggles. Default = Top 10 + Last 3. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-0.5">Teams</span>
+                <Button
+                  variant={chartMode === 'top10' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setChartMode('top10')}
+                >
+                  <Users className="h-3 w-3" />
+                  Top 10
+                </Button>
+                <Button
+                  variant={chartMode === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setChartMode('all')}
+                >
+                  <Users className="h-3 w-3" />
+                  All
+                </Button>
+                <Button
+                  variant={chartMode === 'myPosition' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setChartMode('myPosition')}
+                >
+                  <Crosshair className="h-3 w-3" />
+                  My Position
+                </Button>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-0.5">Races</span>
+                <Button
+                  variant={raceRange === 'last3' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setRaceRange('last3')}
+                >
+                  Last 3
+                </Button>
+                <Button
+                  variant={raceRange === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setRaceRange('all')}
+                >
+                  All
+                </Button>
+              </div>
             </div>
             <div className="w-full h-48">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart key={`chart-${selectedRaceIndex}-${chartMode}`} data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <LineChart key={`chart-${selectedRaceIndex}-${chartMode}-${raceRange}`} data={displayData} margin={{ top: 5, right: showRightLabels ? 74 : 5, left: 0, bottom: 5 }}>
                   <XAxis
                     dataKey="race"
                     tick={{ fontSize: 10 }}
@@ -973,7 +1068,7 @@ export default function StandingsPage() {
                       default bottom-to-top ordering so P1 sits highest. Lines now cross on overtakes. */}
                   <YAxis
                     type="number"
-                    domain={[1, Math.max(standings.length, 2)]}
+                    domain={yDomain}
                     reversed
                     allowDecimals={false}
                     tickFormatter={(v) => `P${v}`}
@@ -991,8 +1086,9 @@ export default function StandingsPage() {
                     const entry = standings.find(s => s.teamName === teamName);
                     const isUserTeam = entry != null && (entry.userId === userTeamIds.primary || entry.userId === userTeamIds.secondary);
 
-                    // top10: top 3 bold+opaque; myPosition: user's teams bold+opaque
-                    const bold = chartMode === 'top10' ? rank < 3 : isUserTeam;
+                    // myPosition: user's teams bold+opaque. top10/all: top 3 bold+opaque.
+                    const bold = chartMode === 'myPosition' ? isUserTeam : rank < 3;
+                    const teamColor = getStableTeamColor(teamName);
 
                     return (
                       <Line
@@ -1002,12 +1098,33 @@ export default function StandingsPage() {
                         // so a line's height is the team's running-order place at that race.
                         dataKey={(row: any) => row?.__ranks?.[teamName]}
                         name={teamName}
-                        stroke={getStableTeamColor(teamName)}
+                        stroke={teamColor}
                         strokeWidth={bold ? 2.5 : 1}
                         dot={false}
                         opacity={bold ? 1 : 0.4}
                         isAnimationActive={false}
                         connectNulls
+                        // Right-edge label: the team's name at its final (latest-race) point, so the
+                        // "detail on the right" reads directly instead of via colour-guessing. Only when
+                        // few enough lines to stay legible (see showRightLabels).
+                        label={showRightLabels ? (p: any) => {
+                          if (!p || p.index !== chartLastIndex || typeof p.y !== 'number') return null;
+                          const label = teamName.length > 15 ? `${teamName.slice(0, 14)}…` : teamName;
+                          return (
+                            <text
+                              key={`lbl-${teamName}`}
+                              x={p.x + 6}
+                              y={p.y}
+                              dy={3}
+                              fontSize={9}
+                              fontWeight={bold ? 700 : 400}
+                              fill={teamColor}
+                              textAnchor="start"
+                            >
+                              {label}
+                            </text>
+                          );
+                        } : undefined}
                       />
                     );
                   })}
