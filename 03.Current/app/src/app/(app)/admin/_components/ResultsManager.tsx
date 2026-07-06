@@ -297,7 +297,7 @@ export function ResultsManager() {
                 const officialResult = predictions
                     .map(driver => driver?.name || 'Unknown');
 
-                await fetch('/api/send-results-email', {
+                const emailResponse = await fetch('/api/send-results-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -308,8 +308,29 @@ export function ResultsManager() {
                         standings,
                     }),
                 });
+
+                // GOLDEN RULE #1/#17 — surface a silent cap suppression to the admin.
+                // If the daily global email cap blocked any recipients, the league did NOT
+                // receive their results email. Raise a prominent, selectable alert with the
+                // correlation ID so the admin can act (this is the exact British-GP-2026-07-05
+                // failure where a whole race's emails vanished silently).
+                const emailJson = await emailResponse.json().catch(() => null);
+                if (emailJson?.globalLimitReached) {
+                    toast({
+                        variant: "destructive",
+                        title: "⚠️ Some results emails were NOT sent",
+                        description: `${emailJson.suppressedCount} email(s) were blocked because the daily send limit (${emailJson.dailyLimit}) was reached. The affected players did not receive their results email. Ref ${emailJson.limitErrorCode ?? ''} ${emailJson.correlationId ?? ''}`.trim(),
+                        duration: 30000,
+                    });
+                }
             } catch (emailError) {
                 console.error('Failed to send results emails:', emailError);
+                toast({
+                    variant: "destructive",
+                    title: "⚠️ Results emails may not have been sent",
+                    description: `The results-email request failed: ${emailError instanceof Error ? emailError.message : String(emailError)}. Verify delivery and re-send if needed.`,
+                    duration: 30000,
+                });
             }
 
             toast({

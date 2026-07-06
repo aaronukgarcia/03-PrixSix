@@ -29,16 +29,24 @@ async function getAdminFirebase() {
   return { db, FieldValue };
 }
 
-// GUID: API_SEND_RESULTS_EMAIL-001B-v02
+// GUID: API_SEND_RESULTS_EMAIL-001B-v03
 // @SECURITY_FIX: Removed hardcoded ADMIN_EMAIL fallback — missing config now fails fast (GEMINI-AUDIT-055C).
 //   A hardcoded email in source (a) exposes a real address to anyone who reads the bundle,
 //   and (b) silently masks misconfiguration by substituting a default when the env var is absent.
 //   Fix: requireAdminEmail() fails fast with ERRORS.EMAIL_CONFIG_MISSING+logError+correlationId
 //   if neither GRAPH_SENDER_EMAIL nor ADMIN_EMAIL env var is set.
+// @BUGFIX (2026-07-06): Raised DAILY_GLOBAL_LIMIT 30 -> 100. The old cap of 30 was exactly the
+//   league size, so a SINGLE race batch consumed the entire daily budget. On a sprint weekend
+//   (two results postings on the same calendar day — Sprint then GP), the second race's emails
+//   were ALL silently suppressed (British GP 2026-07-05: Sprint batch at 12:45 hit 30/30, the
+//   21:09 GP posting sent ZERO). 100 comfortably covers a sprint weekend (2 races x ~31
+//   recipients incl. verified secondary emails, plus headroom). Do NOT lower below ~2x league size.
+//   canSendEmailAdmin now returns limitType so the caller can distinguish a GLOBAL-cap block
+//   (which must be surfaced to the admin + logged) from a benign per-address block.
 // [Intent] Server-side rate-limit check using Admin SDK. Replaces client-side canSendEmail which used incompatible firebase/firestore SDK. Resolves the admin email from env at runtime to exempt it from per-address rate limits.
 // [Inbound Trigger] Called before each email send in the POST handler loop.
-// [Downstream Impact] Returns canSend boolean. If false, the email is skipped with the reason. Rate limits: 30 global/day, 5 per address/day (admin exempt). Throws EMAIL_CONFIG_MISSING if GRAPH_SENDER_EMAIL/ADMIN_EMAIL env var is absent.
-const DAILY_GLOBAL_LIMIT = 30;
+// [Downstream Impact] Returns { canSend, reason?, limitType? }. If false, the email is skipped with the reason. Rate limits: 100 global/day, 5 per address/day (admin exempt from per-address only, NOT global). Throws EMAIL_CONFIG_MISSING if GRAPH_SENDER_EMAIL/ADMIN_EMAIL env var is absent.
+const DAILY_GLOBAL_LIMIT = 100;
 const DAILY_PER_ADDRESS_LIMIT = 5;
 
 function requireAdminEmail(): string {
@@ -61,7 +69,7 @@ function requireAdminEmail(): string {
 async function canSendEmailAdmin(
   db: Awaited<ReturnType<typeof getFirebaseAdmin>>['db'],
   toEmail: string
-): Promise<{ canSend: boolean; reason?: string }> {
+): Promise<{ canSend: boolean; reason?: string; limitType?: 'global' | 'address' }> {
   const today = getTodayDateString();
   const statsRef = db.collection('email_daily_stats').doc(today);
   const statsDoc = await statsRef.get();
@@ -71,7 +79,7 @@ async function canSendEmailAdmin(
     : { totalSent: 0, emailsSent: [] };
 
   if (stats.totalSent >= DAILY_GLOBAL_LIMIT) {
-    return { canSend: false, reason: `Daily global limit of ${DAILY_GLOBAL_LIMIT} emails reached` };
+    return { canSend: false, reason: `Daily global limit of ${DAILY_GLOBAL_LIMIT} emails reached`, limitType: 'global' };
   }
 
   const adminEmail = requireAdminEmail();
@@ -80,7 +88,7 @@ async function canSendEmailAdmin(
       (e) => e.toEmail?.toLowerCase() === toEmail.toLowerCase()
     ).length;
     if (addressCount >= DAILY_PER_ADDRESS_LIMIT) {
-      return { canSend: false, reason: `Daily limit of ${DAILY_PER_ADDRESS_LIMIT} emails to ${toEmail} reached` };
+      return { canSend: false, reason: `Daily limit of ${DAILY_PER_ADDRESS_LIMIT} emails to ${toEmail} reached`, limitType: 'address' };
     }
   }
 
@@ -152,10 +160,10 @@ interface ResultsEmailRequest {
   }[];
 }
 
-// GUID: API_SEND_RESULTS_EMAIL-003-v04
+// GUID: API_SEND_RESULTS_EMAIL-003-v05
 // [Intent] POST handler — queries all users who have not opted out of results notifications, builds a personalised results email for each (showing their prediction, score, race scores table, and season standings), sends via Graph API, and records delivery in email-tracking.
 // [Inbound Trigger] HTTP POST with JSON body matching ResultsEmailRequest.
-// [Downstream Impact] Sends personalised emails via sendEmail; records via recordSentEmail to email_daily_stats. Also sends to verified secondary email addresses. Errors are console-logged (note: does not use logError — potential Golden Rule #1 gap).
+// [Downstream Impact] Sends personalised emails via sendEmail; records via recordSentEmail to email_daily_stats. Also sends to verified secondary email addresses. When the GLOBAL daily cap suppresses any recipient it logs a registry error (EMAIL_DAILY_LIMIT/PX-3003) once per batch and returns globalLimitReached/suppressedCount/correlationId so the admin UI can raise a visible alert (fixes the prior silent-suppression Golden Rule #1/#17 gap).
 export async function POST(request: NextRequest) {
   try {
     const data: ResultsEmailRequest = await request.json();
@@ -193,6 +201,10 @@ export async function POST(request: NextRequest) {
     }
 
     const results: { email: string; success: boolean; error?: string }[] = [];
+    // Count recipients skipped specifically because the GLOBAL daily cap was exhausted.
+    // These are silent failures (the admin never learns their league didn't get the email)
+    // unless we log + surface them — see the post-loop block and the API response flags.
+    let globalLimitBlocked = 0;
 
     for (const userDoc of usersToNotify) {
       const userData = userDoc.data();
@@ -227,6 +239,7 @@ export async function POST(request: NextRequest) {
         // Check rate limiting for each recipient
         const rateCheck = await canSendEmailAdmin(db, recipientEmail);
         if (!rateCheck.canSend) {
+          if (rateCheck.limitType === 'global') globalLimitBlocked++;
           results.push({ email: recipientEmail, success: false, error: rateCheck.reason });
           continue;
         }
@@ -259,10 +272,45 @@ export async function POST(request: NextRequest) {
     }
 
     const successCount = results.filter(r => r.success).length;
+
+    // GOLDEN RULE #1 / #7 / #17 — do not let the daily-cap suppression stay silent.
+    // If ANY results email was blocked by the GLOBAL cap, log a registry error with a
+    // correlation ID (once per batch, not per recipient) and return flags so the admin
+    // portal can raise a visible alert. This is exactly the failure that hid the British
+    // GP 2026-07-05 non-delivery (whole GP batch suppressed by the earlier Sprint batch).
+    let limitCorrelationId: string | undefined;
+    if (globalLimitBlocked > 0) {
+      limitCorrelationId = generateCorrelationId();
+      logError({
+        correlationId: limitCorrelationId,
+        error: new Error(
+          `[${ERRORS.EMAIL_DAILY_LIMIT.code}] Results email suppressed for ${globalLimitBlocked} recipient(s) — daily global limit of ${DAILY_GLOBAL_LIMIT} reached while sending "${raceName}" results`
+        ),
+        context: {
+          action: 'send-results-email',
+          route: '/api/send-results-email',
+          additionalInfo: {
+            errorKey: ERRORS.EMAIL_DAILY_LIMIT.key,
+            raceName,
+            raceId,
+            globalLimitBlocked,
+            dailyLimit: DAILY_GLOBAL_LIMIT,
+            sentCount: successCount,
+          },
+        },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       message: `Sent ${successCount} of ${usersToNotify.length} emails`,
       results,
+      // Admin-portal alert signal (see ResultsManager.handleConfirmedSubmit).
+      globalLimitReached: globalLimitBlocked > 0,
+      suppressedCount: globalLimitBlocked,
+      dailyLimit: DAILY_GLOBAL_LIMIT,
+      limitErrorCode: globalLimitBlocked > 0 ? ERRORS.EMAIL_DAILY_LIMIT.code : undefined,
+      correlationId: limitCorrelationId,
     });
   } catch (error: any) {
     const correlationId = generateCorrelationId();
