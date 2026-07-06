@@ -706,8 +706,9 @@ export default function StandingsPage() {
           }
         });
 
-        // Create data point after Sprint
-        const sprintPoint: Record<string, any> = { race: `R${raceIndex + 1}S` };
+        // Create data point after Sprint. Label "R{n} Spr" (v3.4.7) so it's unmistakably the sprint,
+        // distinct from the weekend's GP point "R{n}" — the terse "R{n}S" read as a separate race.
+        const sprintPoint: Record<string, any> = { race: `R${raceIndex + 1} Spr` };
         userIds.forEach(userId => {
           const teamName = userNames.get(userId) || userId;
           sprintPoint[teamName] = cumulativeTotals.get(userId) || 0;
@@ -1265,8 +1266,11 @@ export default function StandingsPage() {
               )}
               <TableHead className="text-right">
                 <span className="flex items-center justify-end gap-1">
+                  {/* @FIX (v3.4.7): label this "GP" (not "R{n}") so on sprint weekends the two race
+                      columns read clearly as "Sprint | GP". Previously the GP column showed the weekend
+                      number, which read as if the GP result was missing next to the labelled Sprint. */}
                   <Flag className="h-3 w-3" />
-                  R{selectedRaceIndex + 1}
+                  GP
                 </span>
               </TableHead>
               <TableHead className="text-right">New Overall</TableHead>

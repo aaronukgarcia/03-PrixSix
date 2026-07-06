@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-07-06",
+      "version": "3.4.7",
+      "author": "aaron garcia",
+      "message": "fix: label the standings GP column 'GP' (was 'R{n}') + chart sprint point 'R{n} Spr' — sprint weekends now read 'Sprint | GP' clearly; GP data was always present, just cryptically labelled (v3.4.7)",
+      "major": false
+    },
+    {
+      "id": "PENDING",
+      "date": "2026-07-06",
       "version": "3.4.6",
       "author": "aaron garcia",
       "message": "fix: standings now always pull live — no-store on /api/standings fetch + response, so newly-entered results (e.g. British GP after the Sprint) show immediately instead of a stale cached snapshot (v3.4.6)",
