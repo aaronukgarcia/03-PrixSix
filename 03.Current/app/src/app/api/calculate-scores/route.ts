@@ -23,6 +23,13 @@ import { F1Drivers } from '@/lib/data';
 import { SCORING_POINTS, calculateDriverPoints } from '@/lib/scoring-rules';
 import { normalizeRaceId, generateRaceId } from '@/lib/normalize-race-id';
 import { getRaceByName } from '@/lib/race-schedule-server';
+import {
+  computeRaceScores,
+  aggregateStandings,
+  buildTeamNamesMap,
+  readStandingsAdjustments,
+} from '@/lib/cumulative-standings';
+import { buildResultsWhatsAppMessage } from '@/lib/whatsapp-results-message';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -585,7 +592,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Scoring] Successfully calculated ${calculatedScores.length} scores`);
 
-    // GUID: API_CALCULATE_SCORES-017-v04
+    // GUID: API_CALCULATE_SCORES-017-v05
+    // @CHANGE (v3.4.9): the resultsPublished WhatsApp alert below is now an enriched, concise summary
+    //   (podium + round-winning team + championship top 5 via cumulative-standings) instead of a bare
+    //   "results are in" line — deliberately shorter than the results email. See whatsapp-results-message.ts.
     // [Intent] Aggregates this race's scores to produce per-race standings for the API response.
     //   NOTE (SSOT-001): Cumulative season standings are computed in real-time on the Standings page
     //   from race_results + predictions. This response only shows the current race's per-team scores
@@ -616,7 +626,47 @@ export async function POST(request: NextRequest) {
     });
 
     // resultsPublished WhatsApp alert — fire-and-forget, gated by whatsapp_alerts settings.
-    void sendWhatsAppAlert('resultsPublished', `📊 *Results are in for ${raceName}!*\n\nScores have been updated — check the standings on Prix Six. 🏁`);
+    // The WhatsApp message is a CONCISE summary (podium + round-winning team + championship top 5) —
+    // deliberately NOT the full email content. Building it needs the cumulative championship standings,
+    // which we compute here; if that compute fails we degrade to a podium+winner message (Golden Rule #1)
+    // and never block the scoring response (the whole thing is fire-and-forget below).
+    void (async () => {
+      try {
+        // Podium = official top-3 finishing drivers, by name.
+        const podium = actualResults.slice(0, 3).map(id => F1Drivers.find(d => d.id === id)?.name || id);
+
+        // Round winner(s) = the team(s) with the highest points for THIS race (ties included).
+        const maxPoints = scores.reduce((m, s) => Math.max(m, s.points), 0);
+        const roundWinners = scores.filter(s => s.points === maxPoints && s.teamName !== 'Unknown').map(s => s.teamName);
+
+        // Cumulative championship standings — computed exactly like /api/standings (race scores +
+        // late-joiner adjustments), so the WhatsApp top-5 matches the site.
+        let championship: { rank: number; teamName: string; totalPoints: number }[] = [];
+        try {
+          const [{ scores: raceScores }, adjustments, names] = await Promise.all([
+            computeRaceScores(db),
+            readStandingsAdjustments(db),
+            buildTeamNamesMap(db),
+          ]);
+          championship = aggregateStandings([...raceScores, ...adjustments], names);
+        } catch {
+          // Degrade gracefully — send podium + winner without the standings table.
+        }
+
+        const message = buildResultsWhatsAppMessage({
+          raceName,
+          podium,
+          roundWinners,
+          roundWinnerPoints: maxPoints,
+          standings: championship,
+          standingsTopN: 5,
+        });
+        await sendWhatsAppAlert('resultsPublished', message);
+      } catch {
+        // Absolute fallback — never let the alert path throw. Send the old bare message.
+        void sendWhatsAppAlert('resultsPublished', `📊 *Results are in for ${raceName}!*\n\nScores have been updated — check the standings on Prix Six. 🏁`);
+      }
+    })();
 
     return NextResponse.json({
       success: true,
