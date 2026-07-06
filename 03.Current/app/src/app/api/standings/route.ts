@@ -16,8 +16,11 @@
 //          auth + transport + optional league filter.
 // [Inbound Trigger] GET request from /standings page (and any future consumer).
 // [Downstream Impact] Replaces the inline collectionGroup compute previously done in
-//                     the standings page client component. Caching is left to the caller
-//                     for now — the page uses onSnapshot(race_results) as a refetch trigger.
+//                     the standings page client component. Responses are sent with
+//                     Cache-Control: no-store (v3.4.6) so no browser/CDN layer can serve a stale
+//                     standings snapshot; the page also fetches with cache:'no-store' and uses
+//                     onSnapshot(race_results) as a refetch trigger. Together these guarantee
+//                     standings always reflect the live race_results.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, generateCorrelationId, verifyAuthToken } from '@/lib/firebase-admin';
@@ -102,12 +105,19 @@ export async function GET(request: NextRequest) {
 
     const standings = aggregateStandings(scores, names, { leagueMemberUserIds });
 
-    return NextResponse.json({
-      success: true,
-      scores,
-      standings,
-      computedAt: new Date().toISOString(),
-    });
+    // @FIX (v3.4.6): explicit no-store so no browser/CDN layer serves a stale standings snapshot.
+    // Standings must always reflect the live race_results (results are entered mid-weekend — e.g. the
+    // GP a day after the Sprint — and a cached response left standings showing sprint-only). The route
+    // is already `force-dynamic` (no Next data cache); this closes the HTTP-cache gap too.
+    return NextResponse.json(
+      {
+        success: true,
+        scores,
+        standings,
+        computedAt: new Date().toISOString(),
+      },
+      { headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' } },
+    );
   } catch (error: any) {
     // computeRaceScores throws a TracedError already — preserve its correlationId/code
     // so the client can show the same Ref the user would see in the error log.

@@ -295,7 +295,13 @@ export default function StandingsPage() {
     const refetch = async () => {
       try {
         const token = await firebaseUser.getIdToken();
+        // @FIX (v3.4.6): cache:'no-store' — without it the browser could serve a STALE cached
+        // /api/standings response, so a newly-entered result (e.g. the British GP after the Sprint)
+        // would not appear even though race_results already had it and onSnapshot re-fired. The
+        // Results page reads race_results live from Firestore, which is why it showed the GP while
+        // Standings did not. Force every fetch (mount + each snapshot tick) to hit the server fresh.
         const res = await fetch('/api/standings', {
+          cache: 'no-store',
           headers: { Authorization: `Bearer ${token}` },
         });
 

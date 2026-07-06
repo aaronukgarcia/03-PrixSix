@@ -4,6 +4,14 @@
     {
       "id": "PENDING",
       "date": "2026-07-06",
+      "version": "3.4.6",
+      "author": "aaron garcia",
+      "message": "fix: standings now always pull live — no-store on /api/standings fetch + response, so newly-entered results (e.g. British GP after the Sprint) show immediately instead of a stale cached snapshot (v3.4.6)",
+      "major": false
+    },
+    {
+      "id": "PENDING",
+      "date": "2026-07-06",
       "version": "3.4.5",
       "author": "aaron garcia",
       "message": "feat: AI analysis grounded in real recent form — inject actual top-6 finishers of recent races from race_results so driver-form commentary stops being hallucinated (v3.4.5)",
