@@ -1,14 +1,16 @@
-// GUID: API_AI_ANALYSIS-000-v04
-// [Intent] AI-powered race prediction analysis API route. Accepts a user's top-6 driver prediction and analysis weight configuration, builds a dynamic weighted prompt, calls Genkit/Gemini AI, and returns structured analysis text covering multiple F1 analysis facets and optional pundit personas.
+// GUID: API_AI_ANALYSIS-000-v05
+// [Intent] AI-powered race prediction analysis API route. Accepts a user's top-6 driver prediction and analysis weight configuration, builds a dynamic weighted prompt grounded in the REAL 2026 grid (GUID -013) and REAL recent race results (GUID -014), calls Genkit/Gemini AI, and returns structured analysis text covering multiple F1 analysis facets and optional pundit personas.
 // [Inbound Trigger] POST request from the predictions analysis UI when a user requests AI analysis of their race prediction.
-// [Downstream Impact] Calls Google AI (Gemini) via Genkit. Returns analysis text to the client. Logs errors to error_logs. AI costs are incurred per request. No data is persisted beyond error logs. Per-user rate limit enforced via Firestore (20 req/hour). User-controlled fields are sanitized before prompt interpolation.
+// [Downstream Impact] Reads race_results + race_schedule (for the recent-form grounding block) and calls Google AI (Gemini) via Genkit. Returns analysis text to the client. Logs errors to error_logs. AI costs are incurred per request. Nothing is persisted beyond error logs + the rate-limit counter. Per-user rate limit enforced via Firestore (20 req/hour). User-controlled fields are sanitized before prompt interpolation.
 
 // AI-powered race prediction analysis with weighted facets
 // Uses Genkit with Google AI (Gemini)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
-import { F1Drivers } from '@/lib/data';
+import { F1Drivers, getDriverName } from '@/lib/data';
+import { getRaceSchedule } from '@/lib/race-schedule-server';
+import { generateRaceId, normalizeRaceIdForComparison } from '@/lib/normalize-race-id';
 import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
@@ -114,9 +116,9 @@ const calculateWordBudgets = (weights: AnalysisWeights): Record<string, number> 
 //   "Hamilton (Ferrari)", "Antonelli (Mercedes)") as user fantasy and mocks them — because its
 //   training prior places Hamilton at Mercedes and treats Antonelli as an unproven rookie. Deriving
 //   the roster from F1Drivers (Golden Rule #15 — no hardcoded roster) keeps this correct as the grid
-//   changes. NOTE (follow-up item 3): this grounds the LINE-UP only; current form/standings are still
-//   not injected, so "data-driven" facets (results, win rates, odds) remain model-estimated. Feeding
-//   real standings/recent form from Firestore is the tracked next step.
+//   changes. NOTE: this block grounds the LINE-UP; recent driver FORM is grounded separately by
+//   buildRecentFormBlock (GUID -014, item 3 — now implemented). Prior-year circuit history and live
+//   betting odds are still not in the app's data, so those specific facets stay qualitative.
 const buildGridGroundTruth = (): string => {
   // Group drivers by team, preserving the data.ts ordering.
   const byTeam = new Map<string, string[]>();
@@ -141,10 +143,75 @@ an older grid you remember — treat every driver→team pairing shown as establ
 `;
 };
 
-// GUID: API_AI_ANALYSIS-006-v05
+// GUID: API_AI_ANALYSIS-014-v01
+// [Intent] Build an authoritative "recent form" block from the app's OWN race_results (the SSOT of
+//   actual F1 classifications) — the top-6 finishers of the most recent completed GP races this 2026
+//   season. Injected into the prompt so the model grounds "driver form / recent performance"
+//   commentary in real results instead of hallucinating finishing positions from stale training data
+//   (item 3 follow-up to the grid grounding, GUID -013).
+// [Inbound Trigger] Called once per request by the POST handler (async — reads Firestore + schedule).
+// [Downstream Impact] Returns a prompt fragment (or '' if no completed races / on any error — the
+//   caller proceeds without it so analysis never breaks). Honest scope: the app stores only the 2026
+//   top-6 finish order, NOT prior-year circuit history or live betting odds — the block explicitly
+//   tells the model NOT to fabricate those. Ordering uses race_schedule (round order) + raceTime.
+async function buildRecentFormBlock(db: FirebaseFirestore.Firestore, maxRaces = 4): Promise<string> {
+  try {
+    const [resultsSnap, schedule] = await Promise.all([
+      db.collection('race_results').get(),
+      getRaceSchedule(),
+    ]);
+
+    // normalised GP race id -> top-6 finisher names (skip sprint result docs for a clean form picture)
+    const resultsByNorm = new Map<string, string[]>();
+    resultsSnap.forEach((doc) => {
+      const d = doc.data();
+      if (!d) return;
+      const norm = normalizeRaceIdForComparison(doc.id);
+      if (norm.endsWith('-sprint')) return;
+      const names = [d.driver1, d.driver2, d.driver3, d.driver4, d.driver5, d.driver6]
+        .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+        .map((id: string) => getDriverName(id) || id);
+      if (names.length > 0) resultsByNorm.set(norm, names);
+    });
+
+    const now = Date.now();
+    const completed = schedule
+      .filter((r) => r.raceTime && new Date(r.raceTime).getTime() <= now)
+      .map((r) => ({ name: r.name, norm: normalizeRaceIdForComparison(generateRaceId(r.name)) }))
+      .filter((r) => resultsByNorm.has(r.norm));
+
+    const recent = completed.slice(-maxRaces);
+    if (recent.length === 0) return '';
+
+    const lines = recent
+      .map((r) => {
+        const finishers = resultsByNorm.get(r.norm)!;
+        const order = finishers.map((name, i) => `${i + 1}.${name}`).join('  ');
+        return `- ${r.name}: ${order}`;
+      })
+      .join('\n');
+
+    return `RECENT FORM — actual top-6 finishers in the most recent completed races (2026 season, from
+the app's own race_results — authoritative, most recent last):
+${lines}
+
+Base ALL "driver form / recent performance" commentary on THESE results, not on remembered form.
+IMPORTANT: this data covers only the 2026 top-6 finish order. The app does NOT hold prior-year
+circuit history, qualifying/lap times, or live betting odds — for the Track Changes, Historical
+Results, Betting Odds and similar facets, reason qualitatively from the grid and the form above and
+do NOT invent specific historical stats, lap times, win rates, or bookmaker prices.
+`;
+  } catch {
+    return '';
+  }
+}
+
+// GUID: API_AI_ANALYSIS-006-v06
 // @FIX (grid-grounding): Prepend buildGridGroundTruth() so the model stops mocking correct 2026 picks
 //   (e.g. Hamilton→Ferrari) as user fantasy based on stale training data. See GUID -013 for detail.
-// [Intent] Build the complete AI prompt dynamically based on race details, user predictions, and weight configuration. Includes an authoritative current-grid ground-truth block, facet descriptions with emphasis levels, word budgets, exclusion notes, and formatting rules (British English, headings, verdict). All user-controlled fields (raceName, circuit) are sanitized via sanitizeForPrompt() before interpolation.
+// @FEATURE (recent-form, item 3): also inject recentFormBlock (GUID -014) — the real top-6 finishers
+//   of recent races — so "driver form" commentary is grounded in actual results, not hallucinated.
+// [Intent] Build the complete AI prompt dynamically based on race details, user predictions, and weight configuration. Includes an authoritative current-grid ground-truth block, a real recent-form block, facet descriptions with emphasis levels, word budgets, exclusion notes, and formatting rules (British English, headings, verdict). All user-controlled fields (raceName, circuit) are sanitized via sanitizeForPrompt() before interpolation.
 // [Inbound Trigger] Called by the POST handler after validating the request.
 // [Downstream Impact] The returned prompt string is sent directly to Genkit ai.generate(). Prompt quality directly affects analysis quality. Facet descriptions define the AI's knowledge of each analysis dimension.
 const buildWeightedPrompt = (
@@ -152,7 +219,8 @@ const buildWeightedPrompt = (
   circuit: string,
   predictionList: string,
   weights: AnalysisWeights,
-  totalWeight: number
+  totalWeight: number,
+  recentFormBlock: string = ''
 ): string => {
   // Sanitize user-controlled fields before prompt interpolation (Item sr0StCf3qIA14HAW1iSB)
   const safeRaceName = sanitizeForPrompt(raceName, 100);
@@ -205,6 +273,7 @@ const buildWeightedPrompt = (
   return `You are an expert Formula 1 analyst providing race prediction analysis for Prix Six, a fantasy F1 league.
 
 ${buildGridGroundTruth()}
+${recentFormBlock}
 The user has submitted their top 6 prediction for the ${safeRaceName} at ${safeCircuit}.
 
 Their prediction:
@@ -365,13 +434,26 @@ export async function POST(request: NextRequest) {
       .map(p => `P${p.position}: ${sanitizeForPrompt(p.driverName, 50)} (${sanitizeForPrompt(p.team, 50)})`)
       .join('\n');
 
+    // Fetch the real recent-form block (item 3). Never throws (returns '' on error), so a Firestore/
+    // schedule hiccup degrades gracefully to grid-grounding-only rather than failing the analysis.
+    let recentFormBlock = '';
+    try {
+      const { db } = await getFirebaseAdmin();
+      recentFormBlock = await buildRecentFormBlock(db);
+    } catch (formErr: any) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`[Recent Form Fetch Error ${correlationId}]`, formErr?.message);
+      }
+    }
+
     // Build weighted prompt — raceName and circuit are sanitized inside buildWeightedPrompt
     const prompt = buildWeightedPrompt(
       raceName,
       circuit,
       predictionList,
       weights,
-      totalWeight || calculatedTotal
+      totalWeight || calculatedTotal,
+      recentFormBlock
     );
 
     // GUID: API_AI_ANALYSIS-009-v05

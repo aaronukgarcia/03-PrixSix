@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-03",
+  "lastUpdated": "2026-07-06",
   "commits": [
+    {
+      "id": "PENDING",
+      "date": "2026-07-06",
+      "version": "3.4.5",
+      "author": "aaron garcia",
+      "message": "feat: AI analysis grounded in real recent form — inject actual top-6 finishers of recent races from race_results so driver-form commentary stops being hallucinated (v3.4.5)",
+      "major": false
+    },
     {
       "id": "PENDING",
       "date": "2026-07-03",
