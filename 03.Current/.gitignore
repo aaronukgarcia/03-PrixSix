@@ -97,3 +97,10 @@ whatsapp-worker/.wwebjs_auth
 whatsapp-worker/.wwebjs_cache
 .wwebjs_auth
 .wwebjs_cache
+
+# Local one-off / operational scripts holding real PII (cyber.md M-2b landmine).
+# The repo is PUBLIC — these untracked files (_send-reinvite-emails.js, _pst-state.json with
+# real player emails + internal Exchange hostnames) must never be accidentally `git add`ed.
+scripts/_*
+**/scripts/_*
+scripts/*-state.json

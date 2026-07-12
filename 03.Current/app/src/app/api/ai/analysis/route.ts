@@ -15,6 +15,9 @@ import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } fr
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
+// GUID: API_AI_ANALYSIS-011-v02: prompt sanitiser moved to shared lib (Golden Rule #3) — shared with
+// ai/flows/hot-news-feed so external text (RSS headlines, Jolpica strings) is sanitised identically.
+import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -70,19 +73,9 @@ const WORDS_PER_PUNDIT = 250;
 
 const PUNDIT_FACETS = ['jackSparrow', 'rowanHornblower'];
 
-// GUID: API_AI_ANALYSIS-011-v01
-// [Intent] Sanitize a user-controlled string before interpolation into an AI prompt. Strips control characters, newlines, carriage returns, null bytes, and any characters outside the safe allowlist (alphanumeric, space, hyphen, apostrophe, dot, comma, parentheses, ampersand). Truncates to maxLen to prevent oversized inputs.
-// [Inbound Trigger] Called by buildWeightedPrompt and the prediction list builder for every user-supplied field (raceName, circuit, driverName, team) before they are embedded in the prompt string.
-// [Downstream Impact] Prevents prompt injection attacks where crafted input strings could override or hijack AI instructions. Sanitized output is safe for direct interpolation into template literals sent to Gemini.
-function sanitizeForPrompt(input: string, maxLen = 100): string {
-  if (typeof input !== 'string') return '';
-  // Strip control characters (including newlines \n, carriage returns \r, null bytes \x00, etc.)
-  // Allow only: alphanumeric, space, hyphen, apostrophe, dot, comma, parentheses, ampersand
-  const stripped = input
-    .replace(/[\x00-\x1F\x7F]/g, '')  // remove all ASCII control characters (0-31, 127)
-    .replace(/[^a-zA-Z0-9 \-'.,()&]/g, '');  // strip anything outside the safe allowlist
-  return stripped.substring(0, maxLen);
-}
+// GUID: API_AI_ANALYSIS-011-v02
+// sanitizeForPrompt is now imported from '@/lib/sanitize-prompt' (see imports above). The local copy
+// was removed to keep a single source of truth shared with the hot-news flow (Golden Rule #3).
 
 // GUID: API_AI_ANALYSIS-005-v03
 // [Intent] Calculate per-facet word budgets based on weights. Standard facets get a fixed 50 words if active; pundit facets scale linearly from 0-250 words based on weight (0-10).

@@ -955,9 +955,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     try {
       // Use our custom Graph API-based email verification
+      // @SECURITY_FIX (cyber.md H-1): route now requires a valid self-token — attach the user's ID token.
+      const idToken = await firebaseUser.getIdToken();
       const response = await fetch('/api/send-verification-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -1198,16 +1200,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const linkGoogle = async (): Promise<OAuthLinkResult> => {
     const result = await linkGoogleToAccount(auth);
     if (result.success && user?.email) {
-      fetch('/api/send-provider-linked-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          teamName: user.teamName,
-          providerId: 'google.com',
-          secondaryEmail: user.secondaryEmailVerified ? user.secondaryEmail : undefined,
-        }),
-      }).catch(() => { /* fire-and-forget */ });
+      // @SECURITY_FIX (cyber.md H-1): route now requires a valid self-token — attach the user's ID token.
+      auth.currentUser?.getIdToken().then((idToken) =>
+        fetch('/api/send-provider-linked-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({
+            email: user.email,
+            teamName: user.teamName,
+            providerId: 'google.com',
+            secondaryEmail: user.secondaryEmailVerified ? user.secondaryEmail : undefined,
+          }),
+        })
+      ).catch(() => { /* fire-and-forget */ });
     }
     return result;
   };
@@ -1219,16 +1224,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const linkApple = async (): Promise<OAuthLinkResult> => {
     const result = await linkAppleToAccount(auth);
     if (result.success && user?.email) {
-      fetch('/api/send-provider-linked-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          teamName: user.teamName,
-          providerId: 'apple.com',
-          secondaryEmail: user.secondaryEmailVerified ? user.secondaryEmail : undefined,
-        }),
-      }).catch(() => { /* fire-and-forget */ });
+      // @SECURITY_FIX (cyber.md H-1): route now requires a valid self-token — attach the user's ID token.
+      auth.currentUser?.getIdToken().then((idToken) =>
+        fetch('/api/send-provider-linked-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({
+            email: user.email,
+            teamName: user.teamName,
+            providerId: 'apple.com',
+            secondaryEmail: user.secondaryEmailVerified ? user.secondaryEmail : undefined,
+          }),
+        })
+      ).catch(() => { /* fire-and-forget */ });
     }
     return result;
   };

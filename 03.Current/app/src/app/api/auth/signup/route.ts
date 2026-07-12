@@ -14,6 +14,7 @@ import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebas
 import { sendWhatsAppAlert } from '@/lib/whatsapp-alert';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
+import { internalAuthHeaders } from '@/lib/internal-auth';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { validateCsrfProtection } from '@/lib/csrf-protection';
 import { applyLateJoinerHandicap } from '@/lib/late-joiner';
@@ -432,9 +433,10 @@ export async function POST(request: NextRequest) {
     // Send verification email (also serves as welcome email — no separate welcome needed)
     try {
       const baseUrl = request.headers.get('origin') || 'https://prix6.win';
+      // @SECURITY_FIX (cyber.md H-1): send-verification-email now requires internal secret (server) or a self-token.
       const emailResponse = await fetch(`${baseUrl}/api/send-verification-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
         body: JSON.stringify({
           uid,
           email: normalizedEmail,

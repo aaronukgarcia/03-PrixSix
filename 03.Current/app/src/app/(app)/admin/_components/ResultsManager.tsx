@@ -297,9 +297,10 @@ export function ResultsManager() {
                 const officialResult = predictions
                     .map(driver => driver?.name || 'Unknown');
 
+                // @SECURITY_FIX (cyber.md H-1): send-results-email now requires a verified admin token.
                 const emailResponse = await fetch('/api/send-results-email', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                     body: JSON.stringify({
                         raceId,
                         raceName: selectedRace,

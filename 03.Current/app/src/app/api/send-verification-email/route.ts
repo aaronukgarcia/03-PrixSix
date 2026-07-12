@@ -6,11 +6,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { sendEmail, escapeHtml } from '@/lib/email';
+import { isInternalRequest } from '@/lib/internal-auth';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import crypto from 'crypto';
 
 // GUID: API_SEND_VERIFICATION_EMAIL-001-v03
@@ -39,6 +41,33 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // @SECURITY_FIX (cyber.md H-1): this route was UNAUTHENTICATED — anyone could email any address
+    // and overwrite email_verification_tokens/{uid}. It has two legitimate callers:
+    //   1. signup/route.ts (server → server): authenticated via the internal service secret.
+    //   2. provider.tsx resend (authed client): must present a valid Firebase token for their OWN uid.
+    // The public (client) path is additionally IP rate-limited to blunt resend flooding.
+    const internal = isInternalRequest(request);
+    let callerUid: string | null = null;
+
+    if (!internal) {
+      const rl = checkRateLimit(`send-verification-email:${getClientIp(request)}`, { limit: 5, windowMs: 10 * 60 * 1000 });
+      if (!rl.allowed) {
+        return NextResponse.json(
+          { success: false, error: ERRORS.RATE_LIMIT_EXCEEDED.message, errorCode: ERRORS.RATE_LIMIT_EXCEEDED.code, correlationId, retryAfterSeconds: rl.retryAfterSeconds },
+          { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+        );
+      }
+      const verifiedUser = await verifyAuthToken(request.headers.get('Authorization'));
+      if (!verifiedUser) {
+        await logError({ correlationId, error: 'Unauthenticated request to send-verification-email', context: { route: '/api/send-verification-email' } });
+        return NextResponse.json(
+          { success: false, error: ERROR_CODES.AUTH_INVALID_TOKEN.message, errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code, correlationId },
+          { status: 401 }
+        );
+      }
+      callerUid = verifiedUser.uid;
+    }
+
     const body = await request.json();
     const { uid, email, teamName } = body;
 
@@ -51,6 +80,15 @@ export async function POST(request: NextRequest) {
           correlationId,
         },
         { status: 400 }
+      );
+    }
+
+    // A logged-in caller may only (re)send verification for their OWN account — no arbitrary uid/email.
+    if (!internal && callerUid !== uid) {
+      await logError({ correlationId, error: `UID mismatch on send-verification-email: token=${callerUid}, body=${uid}`, context: { route: '/api/send-verification-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_PERMISSION_DENIED.message, errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code, correlationId },
+        { status: 403 }
       );
     }
 

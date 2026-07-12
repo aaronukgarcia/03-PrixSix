@@ -21,6 +21,7 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { validateCsrfProtection } from '@/lib/csrf-protection';
 import { sendEmail } from '@/lib/email';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import crypto from 'crypto';
 
 // Force dynamic to skip static analysis at build time
@@ -71,9 +72,34 @@ export async function POST(request: NextRequest) {
     return csrfError;
   }
 
+  // @SECURITY_FIX (cyber.md M-4): reset-pin was CSRF-protected and timing-normalised but UNTHROTTLED.
+  // An attacker could repeatedly POST a known email to keep re-randomising that victim's PIN and spam
+  // their inbox (targeted lockout/annoyance). Add a coarse per-IP limit here (pre-body). This 429 is
+  // independent of whether the email exists, so it leaks nothing for enumeration and is returned fast.
+  const ipRl = checkRateLimit(`reset-pin-ip:${getClientIp(request)}`, { limit: 5, windowMs: 15 * 60 * 1000 });
+  if (!ipRl.allowed) {
+    return NextResponse.json(
+      { success: false, error: ERRORS.RATE_LIMIT_EXCEEDED.message, errorCode: ERRORS.RATE_LIMIT_EXCEEDED.code, correlationId, retryAfterSeconds: ipRl.retryAfterSeconds },
+      { status: 429, headers: { 'Retry-After': String(ipRl.retryAfterSeconds) } }
+    );
+  }
+
   try {
     const data: ResetPinRequest = await request.json();
     const { email } = data;
+
+    // Per-email throttle: blunt a distributed flood that targets ONE victim's inbox from many IPs.
+    // Keyed on the normalised email; a hit here also does not distinguish existence (applied before lookup).
+    if (email && typeof email === 'string') {
+      const emailRl = checkRateLimit(`reset-pin-email:${email.trim().toLowerCase()}`, { limit: 3, windowMs: 15 * 60 * 1000 });
+      if (!emailRl.allowed) {
+        await padToMinDuration();
+        return NextResponse.json(
+          { success: false, error: ERRORS.RATE_LIMIT_EXCEEDED.message, errorCode: ERRORS.RATE_LIMIT_EXCEEDED.code, correlationId, retryAfterSeconds: emailRl.retryAfterSeconds },
+          { status: 429, headers: { 'Retry-After': String(emailRl.retryAfterSeconds) } }
+        );
+      }
+    }
 
     // GUID: API_AUTH_RESET_PIN-003-v04
     // [Intent] Validate that the email field is present in the request body.

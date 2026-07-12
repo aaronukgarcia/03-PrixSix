@@ -84,6 +84,30 @@ try {
 
   fs.writeFileSync(targetPath, JSON.stringify(historyData, null, 2));
   console.log(`[sync-commit-history] Successfully updated commit-history.json. Resolved: ${resolvedCount}, Added: ${addedCount}`);
+
+  // GUID: SCRIPT_SYNC_COMMIT_HISTORY-001-v01
+  // [Intent] Refresh app/src/lib/guid-count.json from the repo-root code.json so /about/dev shows
+  //          the live GUID count WITHOUT the page importing the 3.5MB code.json across the app root
+  //          (that import broke the v3.4.10/v3.4.11 build). This keeps the count dynamic but the
+  //          bundled artifact tiny and inside the Next.js root.
+  // [Downstream Impact] Writes a small JSON consumed by about/dev/page.tsx. Fails soft — a missing
+  //                     code.json only leaves the last-known count in place; it never breaks the build.
+  try {
+    const codeJsonPath = path.join(__dirname, '../code.json');
+    const guidCountPath = path.join(__dirname, '../app/src/lib/guid-count.json');
+    if (fs.existsSync(codeJsonPath)) {
+      const totalGuids = JSON.parse(fs.readFileSync(codeJsonPath, 'utf8')).total_guids;
+      if (Number.isFinite(totalGuids)) {
+        fs.writeFileSync(guidCountPath, JSON.stringify({
+          total_guids: totalGuids,
+          note: 'Auto-synced from code.json by scripts/sync-commit-history.js at build time. Do not edit by hand.',
+        }, null, 2) + '\n');
+        console.log(`[sync-commit-history] Synced guid-count.json: total_guids=${totalGuids}`);
+      }
+    }
+  } catch (guidErr) {
+    console.warn('[sync-commit-history] Warning: Failed to sync guid-count.json:', guidErr.message);
+  }
 } catch (err) {
   // Fail graceful — if git commands are not supported or checkout has no history, do not fail the build
   console.warn('[sync-commit-history] Warning: Failed to automatically sync git history:', err.message);

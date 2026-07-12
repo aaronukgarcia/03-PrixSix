@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { ERRORS } from '@/lib/error-registry';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // GUID: API_LOG_CLIENT_ERROR-001-v04
 // [Intent] Initialise Firebase Admin SDK if not already done. Supports both production (Application Default Credentials) and local development (service account file).
@@ -86,6 +87,18 @@ interface TracedErrorRequest {
 //                     intentionally returns 500 silently — the client is already in an error state.
 export async function POST(request: NextRequest) {
   try {
+    // @SECURITY_FIX (cyber.md LOW): this route is intentionally unauthenticated (it captures client
+    // errors before login) and already caps payload size, but had NO rate limit — so error_logs could
+    // be flooded (Firestore write-cost + admin-dashboard pollution). Add a coarse per-IP throttle.
+    // Generous limit so genuine error bursts (a broken page firing many boundaries) still get through.
+    const errRl = checkRateLimit(`log-client-error:${getClientIp(request)}`, { limit: 60, windowMs: 60 * 1000 });
+    if (!errRl.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded' },
+        { status: 429, headers: { 'Retry-After': String(errRl.retryAfterSeconds) } }
+      );
+    }
+
     // SECURITY: Limit payload size to prevent DoS (1MB limit)
     const MAX_PAYLOAD_SIZE = 1024 * 1024; // 1MB
     const contentLength = request.headers.get('content-length');

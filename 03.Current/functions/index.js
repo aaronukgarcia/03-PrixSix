@@ -1997,7 +1997,10 @@ exports.ingestReplaySession = onCall(
     retryCount: 0,
   },
   async (request) => {
-    // Auth check — any authenticated user
+    // @SECURITY_FIX (cyber.md M-5): previously any AUTHENTICATED user could invoke this. Each call
+    // fetches 9 OpenF1 endpoints and writes chunked docs (1GiB/540s function), so a user iterating
+    // distinct sessionKeys could drive Firestore write-cost + compute spend (denial-of-wallet). Gate
+    // to admins only — this is an admin/pre-race tool, mirroring manualBackup / manualSmokeTest.
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required to ingest replay sessions.");
     }
@@ -2008,6 +2011,11 @@ exports.ingestReplaySession = onCall(
     }
 
     const db = getFirestore();
+
+    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
+    if (!callerDoc.exists || callerDoc.data().isAdmin !== true) {
+      throw new HttpsError("permission-denied", "Only admins can ingest replay sessions.");
+    }
     const sessionDocRef = db.collection('replay_sessions').doc(String(sessionKey));
 
     // ── Claim ingest lock via transaction ──
@@ -2328,11 +2336,14 @@ exports.ingestReplaySession = onCall(
         firestoreIngestedAt: Timestamp.now(),
         firestoreError: null,
         cacheVersion: REPLAY_CACHE_VERSION,
-        circuitKey: sessionMeta.circuit_key ?? null,
-        meetingName: sessionMeta.meeting_name ?? null,
-        sessionName: sessionMeta.session_name ?? null,
-        dateStart: sessionMeta.date_start ?? null,
-        dateEnd: sessionMeta.date_end ?? null,
+        // @BUGFIX (cyber.md M-5): these referenced an undefined `sessionMeta` (the session metadata
+        // object is `meta`, defined above), which threw a ReferenceError at the end of every
+        // successful ingest — corrupting the final status write. Corrected to `meta`.
+        circuitKey: meta.circuit_key ?? null,
+        meetingName: meta.meeting_name ?? null,
+        sessionName: meta.session_name ?? null,
+        dateStart: meta.date_start ?? null,
+        dateEnd: meta.date_end ?? null,
       }, { merge: true });
 
       console.log(JSON.stringify({

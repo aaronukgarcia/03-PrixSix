@@ -6,7 +6,7 @@
 // [Downstream Impact] Sends branded email via sendEmail (Graph API). No Firestore state changes.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { ERRORS } from '@/lib/error-registry';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
@@ -52,8 +52,29 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   try {
+    // @SECURITY_FIX (cyber.md H-1): this route was UNAUTHENTICATED — any anonymous caller could send
+    // "your account was linked / contact us" phishing-bait to any address. Its only caller is the
+    // authenticated provider.tsx link flow, so require a valid Firebase token. When the token carries
+    // an email claim it must match the target address, so an authed user cannot email an arbitrary victim.
+    const verifiedUser = await verifyAuthToken(request.headers.get('Authorization'));
+    if (!verifiedUser) {
+      await logError({ correlationId, error: 'Unauthenticated request to send-provider-linked-email', context: { route: '/api/send-provider-linked-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_INVALID_TOKEN.message, errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code, correlationId },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { email, teamName, providerId, secondaryEmail } = body;
+
+    if (verifiedUser.email && email && verifiedUser.email.toLowerCase() !== String(email).toLowerCase()) {
+      await logError({ correlationId, error: `Email mismatch on send-provider-linked-email: token=${verifiedUser.email}, body=${email}`, context: { route: '/api/send-provider-linked-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_PERMISSION_DENIED.message, errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code, correlationId },
+        { status: 403 }
+      );
+    }
 
     if (!email || !providerId) {
       return NextResponse.json(

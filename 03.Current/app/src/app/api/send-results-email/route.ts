@@ -7,8 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { getTodayDateString } from '@/lib/email-tracking';
-import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import {
   computeRaceScores,
@@ -165,12 +166,36 @@ interface ResultsEmailRequest {
 // [Inbound Trigger] HTTP POST with JSON body matching ResultsEmailRequest.
 // [Downstream Impact] Sends personalised emails via sendEmail; records via recordSentEmail to email_daily_stats. Also sends to verified secondary email addresses. When the GLOBAL daily cap suppresses any recipient it logs a registry error (EMAIL_DAILY_LIMIT/PX-3003) once per batch and returns globalLimitReached/suppressedCount/correlationId so the admin UI can raise a visible alert (fixes the prior silent-suppression Golden Rule #1/#17 gap).
 export async function POST(request: NextRequest) {
+  const authCorrelationId = generateCorrelationId();
   try {
+    // @SECURITY_FIX (cyber.md H-1): this route was UNAUTHENTICATED — any anonymous caller could
+    // mass-email the ENTIRE league with attacker-controlled results text and exhaust the 100/day
+    // Graph cap, silently suppressing real results emails. Its only caller is the admin ResultsManager,
+    // so require a verified admin (same pattern as send-hot-news-email).
+    const verifiedUser = await verifyAuthToken(request.headers.get('Authorization'));
+    if (!verifiedUser) {
+      await logError({ correlationId: authCorrelationId, error: 'Unauthenticated request to send-results-email', context: { route: '/api/send-results-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_INVALID_TOKEN.message, errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code, correlationId: authCorrelationId },
+        { status: 401 }
+      );
+    }
+
     const data: ResultsEmailRequest = await request.json();
     const { raceId, raceName, officialResult, scores } = data;
 
     // Get all users who have opted in to results notifications
     const { db, FieldValue } = await getAdminFirebase();
+
+    // Verify caller has isAdmin=true in Firestore (server-side, cannot be spoofed by a client claim).
+    const adminDoc = await db.collection('users').doc(verifiedUser.uid).get();
+    if (!adminDoc.exists || !adminDoc.data()?.isAdmin) {
+      await logError({ correlationId: authCorrelationId, error: `Non-admin attempted results-email broadcast: uid=${verifiedUser.uid}`, context: { route: '/api/send-results-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_ADMIN_REQUIRED.message, errorCode: ERROR_CODES.AUTH_ADMIN_REQUIRED.code, correlationId: authCorrelationId },
+        { status: 403 }
+      );
+    }
     const usersSnapshot = await db.collection('users').get();
     const usersToNotify = usersSnapshot.docs.filter(doc => {
       const userData = doc.data();

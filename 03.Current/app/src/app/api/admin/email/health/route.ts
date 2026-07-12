@@ -9,7 +9,7 @@
 //           /users/{senderEmail} is the correct probe for app-only tokens and validates the exact sender account.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
+import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin } from '@/lib/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +30,18 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(
                 { healthy: false, error: 'Unauthorized', correlationId },
                 { status: 401 }
+            );
+        }
+
+        // @SECURITY_FIX (cyber.md LOW): every other /api/admin/* route re-checks isAdmin in Firestore,
+        // but this one verified only that the caller was authenticated — so any logged-in (non-admin)
+        // user could probe Graph/OAuth health + config. Add the server-side isAdmin gate for consistency.
+        const { db } = await getFirebaseAdmin();
+        const adminDoc = await db.collection('users').doc(verifiedUser.uid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isAdmin) {
+            return NextResponse.json(
+                { healthy: false, error: 'Forbidden', correlationId },
+                { status: 403 }
             );
         }
 

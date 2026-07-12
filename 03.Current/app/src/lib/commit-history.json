@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-12",
   "commits": [
     {
+      "id": "e3ab42c",
+      "date": "2026-07-12",
+      "version": "3.4.11",
+      "author": "aaron garcia",
+      "message": "feat: automate commit-history.json pre-build sync & resolve /about/dev gaps (v3.4.11)",
+      "major": true
+    },
+    {
       "id": "0016ced",
       "date": "2026-07-12",
       "version": "3.4.10",

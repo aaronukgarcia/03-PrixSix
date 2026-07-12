@@ -7,7 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendWelcomeEmail } from '@/lib/email';
 import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { isInternalRequest } from '@/lib/internal-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +19,19 @@ export const dynamic = 'force-dynamic';
 // [Downstream Impact] On success, returns emailGuid to caller. On failure, logs to error_logs with correlation ID and returns error details for selectable display.
 export async function POST(request: NextRequest) {
   try {
+    // @SECURITY_FIX (cyber.md H-1): This route was previously UNAUTHENTICATED — any anonymous caller
+    // could send a Prix-Six-branded "welcome" email (with an attacker-supplied PIN/team name) to any
+    // address, enabling phishing and Graph-quota exhaustion. Its only legitimate caller is the
+    // server-side complete-oauth-profile route, so require the internal service secret.
+    if (!isInternalRequest(request)) {
+      const correlationId = generateCorrelationId();
+      await logError({ correlationId, error: 'Unauthorized (non-internal) request to send-welcome-email', context: { route: '/api/send-welcome-email' } });
+      return NextResponse.json(
+        { success: false, error: ERROR_CODES.AUTH_INVALID_TOKEN.message, errorCode: ERROR_CODES.AUTH_INVALID_TOKEN.code, correlationId },
+        { status: 401 }
+      );
+    }
+
     const { toEmail, teamName, pin } = await request.json();
 
     if (!toEmail || !teamName || !pin) {

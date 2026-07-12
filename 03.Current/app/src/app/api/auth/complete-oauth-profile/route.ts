@@ -17,6 +17,7 @@ import { sendWhatsAppAlert } from '@/lib/whatsapp-alert';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { internalAuthHeaders } from '@/lib/internal-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -330,9 +331,10 @@ export async function POST(request: NextRequest) {
     // [Downstream Impact] If the email endpoint is down, the account is still created.
     try {
       const baseUrl = request.headers.get('origin') || 'https://prix6.win';
+      // @SECURITY_FIX (cyber.md H-1): send-welcome-email now requires the internal service secret.
       await fetch(`${baseUrl}/api/send-welcome-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
         body: JSON.stringify({
           toEmail: normalizedEmail,
           teamName: normalizedTeamName,

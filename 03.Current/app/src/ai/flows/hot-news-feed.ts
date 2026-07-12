@@ -29,6 +29,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { RaceSchedule } from '@/lib/data';
 import type { Race } from '@/lib/data';
 import { generateRaceIdLowercase } from '@/lib/normalize-race-id';
+import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 
 // GUID: HOT_NEWS_FLOW-001-v01
 // [Intent] Output schema for the hot news feed — content string + metadata.
@@ -302,7 +303,11 @@ async function fetchF1Headlines(): Promise<string[]> {
             const itemContent = match[1];
             const titleMatch = titleRegex.exec(itemContent);
             if (titleMatch) {
-                const title = (titleMatch[1] || titleMatch[2] || "").trim();
+                // @SECURITY_FIX (cyber.md F5): these headlines come from an EXTERNAL feed and are
+                // interpolated into a Gemini prompt whose output is auto-broadcast to the WhatsApp group.
+                // Sanitise (strip control chars/newlines + cap length) so a compromised/mischievous feed
+                // cannot smuggle instructions into the prompt. Uses the shared prompt sanitiser.
+                const title = sanitizeForPrompt((titleMatch[1] || titleMatch[2] || "").trim(), 160);
                 if (title) items.push(title);
             }
         }
