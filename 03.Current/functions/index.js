@@ -2385,7 +2385,7 @@ exports.ingestReplaySession = onCall(
  */
 exports.publishHotNewsToWhatsApp = onSchedule(
   {
-    schedule: "0 7 * * *",
+    schedule: "0 7 * * 0,4,5,6",
     timeZone: "Europe/London",
     region: REGION,
     timeoutSeconds: 180,
@@ -2439,7 +2439,7 @@ exports.publishHotNewsToWhatsApp = onSchedule(
     };
 
     // Compute season status + the "next session" banner from the race_schedule collection
-    // (written by syncSessionTimes). Returns { inSeason, banner }. The banner mirrors the dashboard
+    // (written by syncSessionTimes). Returns { inSeason, isRaceWeek, banner }. The banner mirrors the dashboard
     // countdown ("Next: Spielberg Qualifying — 12 days, 1 hour, 53 minutes") computed as-of NOW
     // (the 07:00 push time). inSeason gates the daily send so it only fires during the racing season.
     const buildSeasonAndBanner = async () => {
@@ -2461,6 +2461,11 @@ exports.publishHotNewsToWhatsApp = onSchedule(
       const inSeason = Number.isFinite(seasonStart) && Number.isFinite(seasonEnd) &&
         now >= seasonStart - 14 * 864e5 && now <= seasonEnd + 864e5;
       const upcoming = events.filter((e) => e.t > now).sort((a, b) => a.t - b.t)[0];
+      
+      // Smart filter: only send on active race weeks. A race week is active if the next session
+      // is scheduled within the next 7 days (7 * 86,400,000 ms).
+      const isRaceWeek = upcoming && (upcoming.t - now) < 7 * 864e5;
+
       let banner = null;
       if (upcoming) {
         let mins = Math.max(0, Math.round((upcoming.t - now) / 60000));
@@ -2472,7 +2477,7 @@ exports.publishHotNewsToWhatsApp = onSchedule(
         parts.push(`${mins} min${mins === 1 ? "" : "s"}`);
         banner = `🏁 *Next:* ${upcoming.location} ${upcoming.label}\n⏱️ ${parts.join(", ")}`;
       }
-      return { inSeason, banner };
+      return { inSeason, isRaceWeek, banner };
     };
 
     // Post the message to Microsoft Teams via an Incoming Webhook / Power Automate URL, if configured.
@@ -2520,9 +2525,10 @@ exports.publishHotNewsToWhatsApp = onSchedule(
       if (!content) { await writeStatus("skipped", "No hot news content"); return; }
       if (!targetGroup) { await writeStatus("skipped", "No target group configured"); return; }
 
-      // Only push during the racing season (see buildSeasonAndBanner). Outside it, skip quietly.
-      const { inSeason, banner } = await buildSeasonAndBanner();
+      // Only push during the racing season and on race weeks (see buildSeasonAndBanner). Outside it, skip quietly.
+      const { inSeason, isRaceWeek, banner } = await buildSeasonAndBanner();
       if (!inSeason) { await writeStatus("skipped", "Out of season — no daily hot news"); return; }
+      if (!isRaceWeek) { await writeStatus("skipped", "Not a race week — no daily hot news"); return; }
 
       // Prepend the next-session countdown banner to the hot-news body (WhatsApp + Teams).
       const message = `🏎️ *Prix Six Hot News*\n${banner ? `\n${banner}\n` : "\n"}\n${content}`;

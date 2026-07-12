@@ -25,6 +25,7 @@ import { ERROR_CODES } from '@/lib/error-codes';
 import { generateRaceId, generateRaceIdLowercase } from '@/lib/normalize-race-id';
 import { wakeWhatsAppWorker } from '@/lib/whatsapp-wake';
 import { getRaceByName } from '@/lib/race-schedule-server';
+import { generateCheekyComment } from '@/ai/flows/cheeky-bill';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -362,7 +363,16 @@ export async function POST(request: NextRequest) {
         const driverList = predictions
           .map((id: string, i: number) => `${i + 1}. ${driverNames[id] || id}`)
           .join('\n');
-        const msg = `🏎️ *${teamName}* submitted picks for ${raceName}:\n\n${driverList}`;
+
+        // Generate a cheeky snarky comment from Bill about this submission (non-blocking)
+        let cheekyLine = "";
+        try {
+          cheekyLine = await generateCheekyComment({ teamName, driverList });
+        } catch (cheekyErr: any) {
+          console.error('[submit-prediction] Error generating cheeky Bill comment (non-fatal):', cheekyErr.message);
+        }
+
+        const msg = `🏎️ *${teamName}* submitted picks for ${raceName}:\n\n${driverList}${cheekyLine ? `\n\n_${cheekyLine}_` : ""}`;
         await db.collection('whatsapp_queue').add({
           groupName: 'Prix6.Win',
           message: msg,

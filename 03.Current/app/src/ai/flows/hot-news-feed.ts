@@ -285,6 +285,57 @@ async function fetchF1Standings(): Promise<string | null> {
     }
 }
 
+// GUID: HOT_NEWS_FLOW-011-v01
+// [Intent] Fetch current real-world F1 news headlines from Autosport RSS to provide varied up-to-date context.
+async function fetchF1Headlines(): Promise<string[]> {
+    try {
+        const resp = await fetch('https://www.autosport.com/rss/feed/f1', {
+            signal: AbortSignal.timeout(6000)
+        });
+        if (!resp.ok) return [];
+        const xml = await resp.text();
+        const items: string[] = [];
+        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+        const titleRegex = /<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/;
+        let match;
+        while ((match = itemRegex.exec(xml)) !== null && items.length < 5) {
+            const itemContent = match[1];
+            const titleMatch = titleRegex.exec(itemContent);
+            if (titleMatch) {
+                const title = (titleMatch[1] || titleMatch[2] || "").trim();
+                if (title) items.push(title);
+            }
+        }
+        return items;
+    } catch {
+        return [];
+    }
+}
+
+// GUID: HOT_NEWS_FLOW-012-v01
+// [Intent] Fetch the previous 10 daily bulletins from whatsapp_queue to avoid repeating stories/angles.
+//          Uses in-memory filtering over recent queue items to remain completely composite-index-free and safe.
+async function fetchPreviousBulletins(): Promise<string[]> {
+    try {
+        const { db } = await getFirebaseAdmin();
+        const snap = await db.collection('whatsapp_queue')
+            .orderBy('createdAt', 'desc')
+            .limit(50)
+            .get();
+        return snap.docs
+            .map(doc => doc.data())
+            .filter(data => data.source === 'hot-news-daily-7am')
+            .slice(0, 10)
+            .map(data => {
+                const msg = data.message || "";
+                return msg.replace(/🏎️ \*Prix Six Hot News\*[\s\S]*?\n\n\n/, "").trim();
+            })
+            .filter(Boolean);
+    } catch {
+        return [];
+    }
+}
+
 // GUID: HOT_NEWS_FLOW-008-v05
 // [Intent] Core AI generation flow — fetches weather, builds prompt, calls Gemini 2.0 Flash,
 //          writes result to Firestore with refreshCount increment and messageId suffix in text.
@@ -313,10 +364,12 @@ export const hotNewsFeedFlow = ai.defineFlow(
         const phase = getWeekendPhase(activeRace, now);
 
         const coords = VENUE_COORDS[location];
-        const [openMeteo, openF1, f1Data] = await Promise.all([
+        const [openMeteo, openF1, f1Data, headlines, prevBulletins] = await Promise.all([
             coords ? fetchOpenMeteoWeather(coords[0], coords[1]) : Promise.resolve(null),
             fetchOpenF1Weather(),
             fetchF1Standings(),
+            fetchF1Headlines(),
+            fetchPreviousBulletins(),
         ]);
 
         // Real championship data (ground truth) or a fallback instruction if the feed is down.
@@ -340,17 +393,25 @@ export const hotNewsFeedFlow = ai.defineFlow(
             weatherSection += `\n- Live track temperature: ${openF1.trackTemp}°C | Rainfall on track: ${openF1.rainfall}mm`;
         }
 
-        const prompt = `You are an F1 correspondent for Prix Six, an F1 prediction league.
+        let prompt = `You are an F1 correspondent for Prix Six, an F1 prediction league.
 Write a hot news bulletin (3–4 bullet points, max 150 words) previewing the ${raceName} at ${location} (${sprintNote}),
 focused on DRIVER and TEAM storylines that help players make their Six predictions.
 
 CURRENT PHASE: ${phase}
 
-${f1Section}
+${f1Section}`;
 
-Lead with the people and the teams — NOT the weather. Cover angles such as:
+        if (headlines.length > 0) {
+            prompt += `\n\nLATEST F1 NEWS HEADLINES (use these as source material for fresh, up-to-date driver/team storylines):\n${headlines.map(h => `- ${h}`).join('\n')}`;
+        }
+
+        if (prevBulletins.length > 0) {
+            prompt += `\n\nPRIOR DAILY BULLETINS (CRITICAL: do NOT repeat or overlap with these storylines, topics, angles, or specific phrases. We need totally fresh variety!):\n${prevBulletins.map((b, idx) => `[Bulletin ${idx+1}]\n${b}`).join('\n\n')}`;
+        }
+
+        prompt += `\n\nLead with the people and the teams — NOT the weather. Cover angles such as:
 - Who is in form and the championship picture — use the CURRENT CHAMPIONSHIP data above as the SOURCE OF TRUTH for names, positions, points and the last winner
-- Momentum and rivalries going into this round
+- Momentum, news, and rivalries going into this round — ground your bulletin in the LATEST F1 NEWS HEADLINES if available
 - Driver/team factors specific to this circuit (a team's car characteristics suiting ${location}, a driver's history at this track)
 - At most ONE bullet on weather/track conditions, and only if it materially affects driver/team prospects
 

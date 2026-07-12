@@ -120750,6 +120750,31 @@
      "src/ — All application source code",
      "public/ — Static assets served at the web root",
      "email/ — Transactional email templates"
+    ],
+    "third_party_dependencies": [
+     "next",
+     "firebase",
+     "firebase-admin",
+     "react",
+     "react-dom",
+     "genkit",
+     "@genkit-ai/google-genai",
+     "@genkit-ai/next",
+     "@azure/keyvault-secrets",
+     "@hookform/resolvers",
+     "date-fns",
+     "framer-motion",
+     "isomorphic-dompurify",
+     "lucide-react",
+     "react-day-picker",
+     "react-hook-form",
+     "react-qr-code",
+     "react-resizable-panels",
+     "recharts",
+     "tailwind-merge",
+     "tailwindcss",
+     "typescript",
+     "zod"
     ]
    },
    "app/src": {
@@ -120966,6 +120991,10 @@
     "key_files": [
      "index.js — Cloud Functions entry point",
      "package.json — Functions dependencies (deployed separately from app)"
+    ],
+    "third_party_dependencies": [
+     "@google-cloud/firestore",
+     "firebase-admin"
     ]
    },
    "functions-python": {
@@ -120973,6 +121002,15 @@
     "description": "Firebase Cloud Functions (Python). Contains the pub_chat_updater function — a Python Cloud Function that processes WhatsApp message events and updates the public chat Firestore collection.",
     "key_files": [
      "pub_chat_updater/ — Python function: WhatsApp → Firestore pub_chat updater"
+    ],
+    "third_party_dependencies": [
+     "functions-framework",
+     "bleach",
+     "feedparser",
+     "firebase-admin",
+     "google-cloud-secret-manager",
+     "google-genai",
+     "requests"
     ]
    },
    "functions-python/pub_chat_updater": {
@@ -120985,6 +121023,14 @@
     "key_files": [
      "src/ — Worker source code",
      ".wwebjs_auth/ — WhatsApp Web session persistence (browser profile, cookies)"
+    ],
+    "third_party_dependencies": [
+     "@azure/storage-blob",
+     "@whiskeysockets/baileys",
+     "dotenv",
+     "express",
+     "firebase-admin",
+     "pino"
     ]
    },
    "whatsapp-worker/src": {
@@ -121121,6 +121167,758 @@
    "area": "ai",
    "lesson": "npm audit fix can bump genkit core but not the @genkit-ai/google-genai plugin -> \"Unknown action type returned from plugin vertexai\" (PX-3101). Keep the whole genkit + @genkit-ai/* family on one version; re-test AI after ANY dep change (build skips type validation).",
    "added": "2026-06-12T06:30:00Z"
+  }
+ ],
+ "third_party_dependencies": [
+  {
+   "module": "Next.js App (app)",
+   "name": "@azure/identity",
+   "type": "dependency",
+   "current": "4.6.0",
+   "latest": "4.6.0",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@azure/keyvault-secrets",
+   "type": "dependency",
+   "current": "4.11.1",
+   "latest": "4.11.2",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@dnd-kit/core",
+   "type": "dependency",
+   "current": "10.0.0",
+   "latest": "10.0.0",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@dnd-kit/sortable",
+   "type": "dependency",
+   "current": "10.0.0",
+   "latest": "10.0.0",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@dnd-kit/utilities",
+   "type": "dependency",
+   "current": "3.2.2",
+   "latest": "3.2.2",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@genkit-ai/google-genai",
+   "type": "dependency",
+   "current": "1.37.0",
+   "latest": "1.39.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@genkit-ai/next",
+   "type": "dependency",
+   "current": "1.37.0",
+   "latest": "1.39.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@hookform/resolvers",
+   "type": "dependency",
+   "current": "5.2.2",
+   "latest": "5.4.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@microsoft/microsoft-graph-client",
+   "type": "dependency",
+   "current": "3.0.7",
+   "latest": "3.0.7",
+   "needs_update": false,
+   "license": "Apache-2.0",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-accordion",
+   "type": "dependency",
+   "current": "1.2.12",
+   "latest": "1.2.16",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-alert-dialog",
+   "type": "dependency",
+   "current": "1.1.15",
+   "latest": "1.1.19",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-avatar",
+   "type": "dependency",
+   "current": "1.1.11",
+   "latest": "1.2.2",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-checkbox",
+   "type": "dependency",
+   "current": "1.3.3",
+   "latest": "1.3.7",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-collapsible",
+   "type": "dependency",
+   "current": "1.1.12",
+   "latest": "1.1.16",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-dialog",
+   "type": "dependency",
+   "current": "1.1.15",
+   "latest": "1.1.19",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-dropdown-menu",
+   "type": "dependency",
+   "current": "2.1.16",
+   "latest": "2.1.20",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-label",
+   "type": "dependency",
+   "current": "2.1.8",
+   "latest": "2.1.11",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-menubar",
+   "type": "dependency",
+   "current": "1.1.16",
+   "latest": "1.1.20",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-popover",
+   "type": "dependency",
+   "current": "1.1.15",
+   "latest": "1.1.19",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-progress",
+   "type": "dependency",
+   "current": "1.1.8",
+   "latest": "1.1.12",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-radio-group",
+   "type": "dependency",
+   "current": "1.3.8",
+   "latest": "1.4.3",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-scroll-area",
+   "type": "dependency",
+   "current": "1.2.10",
+   "latest": "1.2.14",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-select",
+   "type": "dependency",
+   "current": "2.2.6",
+   "latest": "2.3.3",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-separator",
+   "type": "dependency",
+   "current": "1.1.8",
+   "latest": "1.1.11",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-slider",
+   "type": "dependency",
+   "current": "1.3.6",
+   "latest": "1.4.3",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-slot",
+   "type": "dependency",
+   "current": "1.2.4",
+   "latest": "1.3.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-switch",
+   "type": "dependency",
+   "current": "1.2.6",
+   "latest": "1.3.3",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-tabs",
+   "type": "dependency",
+   "current": "1.1.13",
+   "latest": "1.1.17",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-toast",
+   "type": "dependency",
+   "current": "1.2.15",
+   "latest": "1.2.19",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@radix-ui/react-tooltip",
+   "type": "dependency",
+   "current": "1.2.8",
+   "latest": "1.2.12",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@tailwindcss/postcss",
+   "type": "dependency",
+   "current": "4.2.4",
+   "latest": "4.3.2",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "@types/dompurify",
+   "type": "dependency",
+   "current": "3.0.5",
+   "latest": "3.2.4",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "class-variance-authority",
+   "type": "dependency",
+   "current": "0.7.1",
+   "latest": "0.7.1",
+   "needs_update": false,
+   "license": "Apache-2.0",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "clsx",
+   "type": "dependency",
+   "current": "2.1.1",
+   "latest": "2.1.1",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "date-fns",
+   "type": "dependency",
+   "current": "4.1.0",
+   "latest": "4.4.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "dotenv",
+   "type": "dependency",
+   "current": "17.4.2",
+   "latest": "17.4.2",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "embla-carousel-react",
+   "type": "dependency",
+   "current": "8.6.0",
+   "latest": "8.6.0",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "firebase",
+   "type": "dependency",
+   "current": "12.12.1",
+   "latest": "12.15.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "firebase-admin",
+   "type": "dependency",
+   "current": "13.10.0",
+   "latest": "14.1.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "framer-motion",
+   "type": "dependency",
+   "current": "12.38.0",
+   "latest": "12.42.2",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "genkit",
+   "type": "dependency",
+   "current": "1.37.0",
+   "latest": "1.39.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "isomorphic-dompurify",
+   "type": "dependency",
+   "current": "3.10.0",
+   "latest": "3.18.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "lucide-react",
+   "type": "dependency",
+   "current": "0.577.0",
+   "latest": "1.23.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "next",
+   "type": "dependency",
+   "current": "16.2.9",
+   "latest": "16.2.10",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "patch-package",
+   "type": "dependency",
+   "current": "8.0.0",
+   "latest": "8.0.0",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "pixi-filters",
+   "type": "dependency",
+   "current": "6.1.5",
+   "latest": "6.1.5",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "pixi.js",
+   "type": "dependency",
+   "current": "8.18.1",
+   "latest": "8.19.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "react",
+   "type": "dependency",
+   "current": "19.2.5",
+   "latest": "19.2.7",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "react-day-picker",
+   "type": "dependency",
+   "current": "9.14.0",
+   "latest": "10.0.1",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "react-dom",
+   "type": "dependency",
+   "current": "19.2.5",
+   "latest": "19.2.7",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "react-hook-form",
+   "type": "dependency",
+   "current": "7.74.0",
+   "latest": "7.81.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "react-qr-code",
+   "type": "dependency",
+   "current": "2.0.18",
+   "latest": "2.2.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "react-resizable-panels",
+   "type": "dependency",
+   "current": "4.10.0",
+   "latest": "4.12.1",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "recharts",
+   "type": "dependency",
+   "current": "3.8.1",
+   "latest": "3.9.2",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "tailwind-merge",
+   "type": "dependency",
+   "current": "3.5.0",
+   "latest": "3.6.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "tailwindcss-animate",
+   "type": "dependency",
+   "current": "1.0.7",
+   "latest": "1.0.7",
+   "needs_update": false,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "typescript",
+   "type": "devDependency",
+   "current": "5.9.3",
+   "latest": "6.0.3",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Next.js App (app)",
+   "name": "zod",
+   "type": "dependency",
+   "current": "3.25.76",
+   "latest": "4.4.3",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "app/package.json"
+  },
+  {
+   "module": "Firebase Functions (functions)",
+   "name": "@google-cloud/firestore",
+   "type": "dependency",
+   "current": "7.11.6",
+   "latest": "8.6.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "functions/package.json"
+  },
+  {
+   "module": "Firebase Functions (functions)",
+   "name": "@google-cloud/storage",
+   "type": "dependency",
+   "current": "7.16.0",
+   "latest": "7.16.0",
+   "needs_update": false,
+   "license": "Apache-2.0",
+   "definedIn": "functions/package.json"
+  },
+  {
+   "module": "Firebase Functions (functions)",
+   "name": "firebase-admin",
+   "type": "dependency",
+   "current": "13.10.0",
+   "latest": "14.1.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "functions/package.json"
+  },
+  {
+   "module": "Firebase Functions (functions)",
+   "name": "firebase-functions",
+   "type": "dependency",
+   "current": "7.2.5",
+   "latest": "7.2.5",
+   "needs_update": false,
+   "license": "Apache-2.0",
+   "definedIn": "functions/package.json"
+  },
+  {
+   "module": "WhatsApp Worker (whatsapp-worker)",
+   "name": "@azure/storage-blob",
+   "type": "dependency",
+   "current": "12.31.0",
+   "latest": "12.33.0",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "whatsapp-worker/package.json"
+  },
+  {
+   "module": "WhatsApp Worker (whatsapp-worker)",
+   "name": "@whiskeysockets/baileys",
+   "type": "dependency",
+   "current": "6.7.21",
+   "latest": "7.0.0-rc13",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "whatsapp-worker/package.json"
+  },
+  {
+   "module": "WhatsApp Worker (whatsapp-worker)",
+   "name": "dotenv",
+   "type": "dependency",
+   "current": "16.6.1",
+   "latest": "17.4.2",
+   "needs_update": true,
+   "license": "BSD-2-Clause",
+   "definedIn": "whatsapp-worker/package.json"
+  },
+  {
+   "module": "WhatsApp Worker (whatsapp-worker)",
+   "name": "express",
+   "type": "dependency",
+   "current": "4.22.1",
+   "latest": "5.2.1",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "whatsapp-worker/package.json"
+  },
+  {
+   "module": "WhatsApp Worker (whatsapp-worker)",
+   "name": "firebase-admin",
+   "type": "dependency",
+   "current": "13.8.0",
+   "latest": "14.1.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "whatsapp-worker/package.json"
+  },
+  {
+   "module": "WhatsApp Worker (whatsapp-worker)",
+   "name": "pino",
+   "type": "dependency",
+   "current": "9.14.0",
+   "latest": "10.3.1",
+   "needs_update": true,
+   "license": "MIT",
+   "definedIn": "whatsapp-worker/package.json"
+  },
+  {
+   "module": "Python Functions (functions-python)",
+   "name": "functions-framework",
+   "type": "dependency",
+   "current": "3.x",
+   "latest": "3.10.1",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "functions-python/pub_chat_updater/requirements.txt"
+  },
+  {
+   "module": "Python Functions (functions-python)",
+   "name": "bleach",
+   "type": "dependency",
+   "current": "6.3.0",
+   "latest": "6.4.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "functions-python/pub_chat_updater/requirements.txt"
+  },
+  {
+   "module": "Python Functions (functions-python)",
+   "name": "feedparser",
+   "type": "dependency",
+   "current": "6.0.11",
+   "latest": "6.0.12",
+   "needs_update": true,
+   "license": "BSD-2-Clause",
+   "definedIn": "functions-python/pub_chat_updater/requirements.txt"
+  },
+  {
+   "module": "Python Functions (functions-python)",
+   "name": "firebase-admin",
+   "type": "dependency",
+   "current": "6.5.x",
+   "latest": "7.5.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "functions-python/pub_chat_updater/requirements.txt"
+  },
+  {
+   "module": "Python Functions (functions-python)",
+   "name": "google-cloud-secret-manager",
+   "type": "dependency",
+   "current": "2.20.x",
+   "latest": "2.29.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "functions-python/pub_chat_updater/requirements.txt"
+  },
+  {
+   "module": "Python Functions (functions-python)",
+   "name": "google-genai",
+   "type": "dependency",
+   "current": "1.0.x",
+   "latest": "2.10.0",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "functions-python/pub_chat_updater/requirements.txt"
+  },
+  {
+   "module": "Python Functions (functions-python)",
+   "name": "requests",
+   "type": "dependency",
+   "current": "2.31.x",
+   "latest": "2.34.2",
+   "needs_update": true,
+   "license": "Apache-2.0",
+   "definedIn": "functions-python/pub_chat_updater/requirements.txt"
   }
  ]
 }
