@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { VersionHistory } from './_components/VersionHistory';
 import { APP_VERSION } from '@/lib/version';
 import commitHistory from '@/lib/commit-history.json';
+import codeJson from '../../../../../../code.json';
 
 // GUID: PAGE_DEV-001-v03
 // [Intent] Next.js page metadata for SEO — sets title and description for the dev info page.
@@ -99,7 +100,7 @@ export default function DevPage() {
                 </div>
                 <div>
                   <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">GUID Registry</p>
-                  <p className="font-mono text-lg text-zinc-100">1,819</p>
+                  <p className="font-mono text-lg text-zinc-100">{(codeJson as any).total_guids?.toLocaleString() || '2,138'}</p>
                   <p className="text-[10px] text-zinc-600">tracked code blocks</p>
                 </div>
               </div>

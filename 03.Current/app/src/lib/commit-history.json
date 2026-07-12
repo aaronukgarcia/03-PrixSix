@@ -1,6 +1,198 @@
 {
-  "lastUpdated": "2026-07-06",
+  "lastUpdated": "2026-07-12",
   "commits": [
+    {
+      "id": "0016ced",
+      "date": "2026-07-12",
+      "version": "3.4.10",
+      "author": "aaron garcia",
+      "message": "feat: optimize WhatsApp scheduling, inject Autosport RSS & launch Cheeky Bill AI (v3.4.10)",
+      "major": true
+    },
+    {
+      "id": "b2ad9b3",
+      "date": "2026-07-06",
+      "version": "3.4.9",
+      "author": "aaron garcia",
+      "message": "feat: enrich WhatsApp results message (podium + round winner + standings) (v3.4.9)",
+      "major": true
+    },
+    {
+      "id": "cd00d7a",
+      "date": "2026-07-06",
+      "version": "3.4.8",
+      "author": "aaron garcia",
+      "message": "fix: raise results-email daily cap to 100 + surface silent cap suppression (v3.4.8)",
+      "major": false
+    },
+    {
+      "id": "e063927",
+      "date": "2026-07-06",
+      "version": "3.4.7",
+      "author": "aaron garcia",
+      "message": "fix: label standings GP column \"GP\" for sprint-weekend clarity (v3.4.7)",
+      "major": false
+    },
+    {
+      "id": "65a5d28",
+      "date": "2026-07-06",
+      "version": "3.4.6",
+      "author": "aaron garcia",
+      "message": "fix: standings always pull live results (no-store) (v3.4.6)",
+      "major": false
+    },
+    {
+      "id": "df66d01",
+      "date": "2026-07-06",
+      "version": "3.4.5",
+      "author": "aaron garcia",
+      "message": "feat: ground AI analysis in real recent form (v3.4.5)",
+      "major": true
+    },
+    {
+      "id": "242d79a",
+      "date": "2026-07-03",
+      "version": "3.4.4",
+      "author": "aaron garcia",
+      "message": "feat: standings graph zoom controls + readability fixes (v3.4.4)",
+      "major": true
+    },
+    {
+      "id": "ce80d09",
+      "date": "2026-07-03",
+      "version": "3.4.3",
+      "author": "aaron garcia",
+      "message": "chore(worker): harden .dockerignore + worker 2.2.1 (v3.4.3)",
+      "major": false
+    },
+    {
+      "id": "891afed",
+      "date": "2026-07-03",
+      "version": "3.4.2 / worker 2.2.0",
+      "author": "aaron garcia",
+      "message": "feat: WhatsApp pit-lane-closed notice + worker rate-overlimit query-storm fix (v3.4.2 / worker 2.2.0)",
+      "major": true
+    },
+    {
+      "id": "5e64b7c",
+      "date": "2026-07-03",
+      "version": "3.4.1",
+      "author": "aaron garcia",
+      "message": "fix: standings graph is now a position/bump chart (v3.4.1)",
+      "major": false
+    },
+    {
+      "id": "ad5bd25",
+      "date": "2026-07-03",
+      "version": "3.4.0",
+      "author": "aaron garcia",
+      "message": "fix: ground AI prediction analysis in the real 2026 grid (v3.4.0)",
+      "major": false
+    },
+    {
+      "id": "0df0c4c",
+      "date": "2026-06-26",
+      "version": "3.3.1",
+      "author": "aaron garcia",
+      "message": "fix: worker single-flight reconnect — stop self-inflicted connectionReplaced storm (v3.3.1)",
+      "major": false
+    },
+    {
+      "id": "061ff32",
+      "date": "2026-06-26",
+      "version": "3.3.0",
+      "author": "aaron garcia",
+      "message": "feat: WhatsApp two-group routing + per-message Bill#<n> trace suffix (v3.3.0)",
+      "major": true
+    },
+    {
+      "id": "f2a0ec0",
+      "date": "2026-06-26",
+      "version": "3.2.9",
+      "author": "aaron garcia",
+      "message": "fix: claude-sync auto-reclaims own permit after crash/reboot (v3.2.9)",
+      "major": false
+    },
+    {
+      "id": "d918909",
+      "date": "2026-06-25",
+      "version": "3.2.8",
+      "author": "aaron garcia",
+      "message": "chore: deploy script defaults worker to min-replicas 1 (keep-warm) (v3.2.8)",
+      "major": false
+    },
+    {
+      "id": "177271c",
+      "date": "2026-06-25",
+      "version": "3.2.7",
+      "author": "aaron garcia",
+      "message": "fix: WhatsApp-friendly hot-news formatting (v3.2.7)",
+      "major": false
+    },
+    {
+      "id": "026a38a",
+      "date": "2026-06-25",
+      "version": "3.2.6",
+      "author": "aaron garcia",
+      "message": "feat: ground hot-news in real F1 standings via Jolpica (v3.2.6)",
+      "major": true
+    },
+    {
+      "id": "3e982a2",
+      "date": "2026-06-25",
+      "version": "3.2.5",
+      "author": "aaron garcia",
+      "message": "feat: hot-news prompt reframed to driver/team storylines (v3.2.5)",
+      "major": true
+    },
+    {
+      "id": "9a9df69",
+      "date": "2026-06-24",
+      "version": "3.2.4",
+      "author": "aaron garcia",
+      "message": "fix: WhatsApp cold-start false-SENT — stabilization gate before send (v3.2.4)",
+      "major": false
+    },
+    {
+      "id": "b980e64",
+      "date": "2026-06-20",
+      "version": "3.2.3",
+      "author": "aaron garcia",
+      "message": "feat: WhatsApp queue watchdog + delivery RCA (v3.2.3)",
+      "major": true
+    },
+    {
+      "id": "71a3f61",
+      "date": "2026-06-15",
+      "version": "3.2.2",
+      "author": "aaron garcia",
+      "message": "feat: daily hot-news in-season guard + next-session banner + Teams + email join CTA (v3.2.2)",
+      "major": true
+    },
+    {
+      "id": "fa92560",
+      "date": "2026-06-15",
+      "version": "3.2.1",
+      "author": "aaron garcia",
+      "message": "fix: re-point CC Score Type Breakdown to live SSOT + code.json sync (v3.2.1)",
+      "major": false
+    },
+    {
+      "id": "349ed32",
+      "date": "2026-06-14",
+      "version": "3.2.0",
+      "author": "aaron garcia",
+      "message": "feat: late-joiner overhaul + standings carry-forward fix + 7am cold-start fix (v3.2.0)",
+      "major": true
+    },
+    {
+      "id": "bb8cee3",
+      "date": "2026-06-12",
+      "version": "3.1.27",
+      "author": "aaron garcia",
+      "message": "feat: schedule-driven WhatsApp alerts + EOS button (v3.1.27)",
+      "major": true
+    },
     {
       "id": "PENDING",
       "date": "2026-07-06",
