@@ -18,6 +18,7 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { internalAuthHeaders } from '@/lib/internal-auth';
+import { validateInvite, consumeInvite, revertInvite } from '@/lib/invites';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,7 @@ interface CompleteOAuthProfileRequest {
   email: string;
   photoUrl?: string;
   providers: string[];
+  inviteToken?: string;
 }
 
 const GLOBAL_LEAGUE_ID = 'global';
@@ -44,6 +46,8 @@ const GLOBAL_LEAGUE_ID = 'global';
 //                     the client-side onAuthStateChanged picks up the new doc and sets user state.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
+  // SEC-SIGNUP-001: tracks a consumed invite token so failure paths can revert it (single-use safety).
+  let consumedInviteToken: string | null = null;
 
   try {
     const authHeader = request.headers.get('Authorization');
@@ -57,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data: CompleteOAuthProfileRequest = await request.json();
-    const { uid, teamName, email, photoUrl, providers } = data;
+    const { uid, teamName, email, photoUrl, providers, inviteToken } = data;
 
     if (verifiedUser.uid !== uid) {
         return NextResponse.json(
@@ -188,28 +192,67 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_COMPLETE_OAUTH-008-v03
-    // [Intent] Check if signups are enabled.
+    // GUID: API_AUTH_COMPLETE_OAUTH-008-v05
+    // @SECURITY_FIX(SEC-SIGNUP-001): Fail-closed signup gate, mirroring API_AUTH_SIGNUP-008-v05.
+    //   Previous version read the non-existent admin_configuration/site_settings doc and
+    //   proceeded on missing doc or read error (fail-open), so any Google sign-in could
+    //   self-provision a full account while registration was "closed". Now reads
+    //   admin_configuration/global (SSOT with the admin Site Functions panel) and proceeds
+    //   ONLY when newUserSignupEnabled === true or a valid friend-invite token is supplied.
+    // [Intent] Fail-closed signup gate with friend-invite bypass — OAuth profile completion
+    //          is a signup and obeys the same gate as /api/auth/signup.
     // [Inbound Trigger] After team name validation.
-    // [Downstream Impact] Returns 403 if disabled.
+    // [Downstream Impact] Missing doc, missing field, or settings read error all fail closed
+    //                     (403 AUTH_PERMISSION_DENIED). A valid invite is consumed here
+    //                     (single-use transaction, uid recorded) and reverted on failure
+    //                     paths. Emits PX-2102/PX-2103 for bad tokens.
+    let signupEnabled = false;
     try {
-      const settingsDoc = await db.collection('admin_configuration').doc('site_settings').get();
-      if (settingsDoc.exists) {
-        const settings = settingsDoc.data();
-        if (settings?.newUserSignupEnabled === false) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: 'New user registration is currently disabled.',
-              errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code,
-              correlationId,
-            },
-            { status: 403 }
-          );
-        }
-      }
+      const settingsDoc = await db.collection('admin_configuration').doc('global').get();
+      signupEnabled = settingsDoc.exists && settingsDoc.data()?.newUserSignupEnabled === true;
     } catch (settingsError) {
-      console.warn('[Complete OAuth Profile] Could not check signup settings:', settingsError);
+      console.error('[Complete OAuth Profile] Could not check signup settings (failing closed):', settingsError);
+    }
+    if (!signupEnabled) {
+      if (!inviteToken) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'New user registration is currently disabled.',
+            errorCode: ERRORS.AUTH_PERMISSION_DENIED.code,
+            correlationId,
+          },
+          { status: 403 }
+        );
+      }
+      const inviteCheck = await validateInvite(db, inviteToken);
+      if (!inviteCheck.valid) {
+        const expired = inviteCheck.reason === 'expired';
+        return NextResponse.json(
+          {
+            success: false,
+            error: expired
+              ? 'This invite link has expired — ask your friend to send a fresh one.'
+              : 'This invite link is invalid or has already been used.',
+            errorCode: expired ? ERRORS.INVITE_EXPIRED.code : ERRORS.INVITE_INVALID.code,
+            correlationId,
+          },
+          { status: 403 }
+        );
+      }
+      const consumed = await consumeInvite(db, inviteCheck.token, { uid, email: normalizedEmail });
+      if (!consumed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This invite link is invalid or has already been used.',
+            errorCode: ERRORS.INVITE_INVALID.code,
+            correlationId,
+          },
+          { status: 403 }
+        );
+      }
+      consumedInviteToken = inviteCheck.token;
     }
 
     // GUID: API_AUTH_COMPLETE_OAUTH-009-v04
@@ -245,6 +288,11 @@ export async function POST(request: NextRequest) {
     } catch (createError: any) {
       // If doc already exists, return 409 (likely from concurrent request)
       if (createError.code === 6 || createError.message?.includes('already exists')) {
+        // SEC-SIGNUP-001: no new account was minted — un-burn the invite
+        if (consumedInviteToken) {
+          await revertInvite(db, consumedInviteToken).catch(() => {});
+          consumedInviteToken = null;
+        }
         return NextResponse.json(
           {
             success: false,
@@ -379,6 +427,12 @@ export async function POST(request: NextRequest) {
     if (process.env.NODE_ENV !== 'production') { console.error(`[Complete OAuth Profile Error ${correlationId}]`, error); }
 
     const { db } = await getFirebaseAdmin();
+
+    // SEC-SIGNUP-001: profile creation failed after the invite was burned — un-burn it
+    if (consumedInviteToken) {
+      await revertInvite(db, consumedInviteToken).catch(() => {});
+    }
+
     const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
       context: { route: '/api/auth/complete-oauth-profile', action: 'POST', errorType: error.code || error.name || 'UnknownError' },

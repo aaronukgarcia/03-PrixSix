@@ -43,6 +43,7 @@ import {
   HelpCircle,
   Radio,
   TowerControl,
+  UserPlus,
 } from "lucide-react";
 import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { Logo } from "@/components/Logo";
@@ -70,12 +71,15 @@ const menuItemsTop = [
   { href: "/pit-wall",    label: "Pit Wall",       icon: TowerControl },
 ];
 
-// GUID: COMPONENT_APP_SIDEBAR-001B-v05
+// GUID: COMPONENT_APP_SIDEBAR-001B-v06
 // [Intent] Menu items rendered BELOW the Results collapsible group.
 // @FIX(v05) Added "Getting Started" link to surface onboarding permanently in navigation.
 // Renamed "About" to "Help" with HelpCircle icon for clearer discoverability.
+// @FIX(v06) Added "Invite a Friend" (/invite) — members send single-use signup invites
+//           (SEC-SIGNUP-001 friend-invite system).
 const menuItemsBottom = [
   { href: "/onboarding", label: "Getting Started", icon: BookOpen },
+  { href: "/invite", label: "Invite a Friend", icon: UserPlus },
   { href: "/submissions", label: "Submissions", icon: FileCheck },
   { href: "/audit", label: "Audit", icon: History },
   { href: "/teams", label: "Teams", icon: Users },

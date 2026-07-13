@@ -18,6 +18,7 @@ import { internalAuthHeaders } from '@/lib/internal-auth';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { validateCsrfProtection } from '@/lib/csrf-protection';
 import { applyLateJoinerHandicap } from '@/lib/late-joiner';
+import { validateInvite, consumeInvite, revertInvite } from '@/lib/invites';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,7 @@ interface SignupRequest {
   email: string;
   teamName: string;
   pin: string;
+  inviteToken?: string;
 }
 
 // GUID: API_AUTH_SIGNUP-004-v03
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data: SignupRequest = await request.json();
-    const { email, teamName, pin } = data;
+    const { email, teamName, pin, inviteToken } = data;
 
     // GUID: API_AUTH_SIGNUP-005-v03
     // [Intent] Validate that all required fields (email, team name, PIN) are present.
@@ -142,30 +144,67 @@ export async function POST(request: NextRequest) {
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
 
-    // GUID: API_AUTH_SIGNUP-008-v03
-    // [Intent] Check the admin_configuration/site_settings document to determine if new user signups are currently enabled. Allows admins to disable registration without code changes.
+    // GUID: API_AUTH_SIGNUP-008-v05
+    // @SECURITY_FIX(SEC-SIGNUP-001): Fail-closed signup gate. Previous version read the
+    //   non-existent admin_configuration/site_settings doc and proceeded on missing doc or
+    //   read error (fail-open), leaving POST /api/auth/signup accepting registrations while
+    //   the /signup UI said "Registration Closed". Now reads admin_configuration/global —
+    //   the SAME doc the admin Site Functions panel writes (SSOT, was a doc-ID mismatch) —
+    //   and signup proceeds ONLY when newUserSignupEnabled === true.
+    // [Intent] Fail-closed signup gate with friend-invite bypass. Signup proceeds when the
+    //          admin toggle newUserSignupEnabled === true, OR when a valid pending unexpired
+    //          invite token accompanies the request (API_AUTH_SIGNUP-024).
     // [Inbound Trigger] Runs after input normalisation and Firebase Admin initialisation.
-    // [Downstream Impact] If newUserSignupEnabled is false, returns 403 with AUTH_PERMISSION_DENIED. If the settings document cannot be read, signup proceeds (fail-open).
-    // Check if new user signups are enabled
+    // [Downstream Impact] Missing doc, missing field, or settings read error all fail closed.
+    //                     A valid invite sets inviteTokenToConsume, burned single-use just
+    //                     before Auth user creation. Emits PX-2102/PX-2103 for bad tokens.
+    // Check if new user signups are enabled — fail closed
+    let signupEnabled = false;
     try {
-      const settingsDoc = await db.collection('admin_configuration').doc('site_settings').get();
-      if (settingsDoc.exists) {
-        const settings = settingsDoc.data();
-        if (settings?.newUserSignupEnabled === false) {
+      const settingsDoc = await db.collection('admin_configuration').doc('global').get();
+      signupEnabled = settingsDoc.exists && settingsDoc.data()?.newUserSignupEnabled === true;
+    } catch (settingsError) {
+      console.error('[Signup] Could not check signup settings (failing closed):', settingsError);
+    }
+
+    // GUID: API_AUTH_SIGNUP-024-v01
+    // [Intent] Friend-invite bypass: when public signup is disabled, a valid pending
+    //          unexpired invite token (from /api/invites/create) permits this one signup.
+    // [Inbound Trigger] Gate evaluation above found signupEnabled === false.
+    // [Downstream Impact] Valid token → signup continues and the token is consumed
+    //                     (single-use transaction) before Auth user creation. Invalid →
+    //                     403 PX-2102 INVITE_INVALID; expired → 403 PX-2103 INVITE_EXPIRED.
+    let inviteTokenToConsume: string | null = null;
+    if (!signupEnabled) {
+      if (inviteToken) {
+        const inviteCheck = await validateInvite(db, inviteToken);
+        if (inviteCheck.valid) {
+          inviteTokenToConsume = inviteCheck.token;
+        } else {
+          const expired = inviteCheck.reason === 'expired';
           return NextResponse.json(
             {
               success: false,
-              error: 'New user registration is currently disabled.',
-              errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code,
+              error: expired
+                ? 'This invite link has expired — ask your friend to send a fresh one.'
+                : 'This invite link is invalid or has already been used.',
+              errorCode: expired ? ERRORS.INVITE_EXPIRED.code : ERRORS.INVITE_INVALID.code,
               correlationId,
             },
             { status: 403 }
           );
         }
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'New user registration is currently disabled.',
+            errorCode: ERRORS.AUTH_PERMISSION_DENIED.code,
+            correlationId,
+          },
+          { status: 403 }
+        );
       }
-    } catch (settingsError) {
-      console.warn('[Signup] Could not check signup settings:', settingsError);
-      // Continue with signup if settings check fails
     }
 
     // GUID: API_AUTH_SIGNUP-009-v03
@@ -204,6 +243,32 @@ export async function POST(request: NextRequest) {
     //                     and update on success. Returns 409 if name is already taken (primary or secondary).
     const normalizedNewName = normalizedTeamName.toLowerCase();
     const teamNameSentinelRef = db.collection('team_names').doc(normalizedNewName);
+
+    // GUID: API_AUTH_SIGNUP-026-v01
+    // @SECURITY_FIX(SEC-SIGNUP-002): Check existing PRIMARY team names directly in users.
+    //   The sentinel collection only contains names claimed via THIS route — OAuth signups
+    //   (complete-oauth-profile) never write a sentinel, so their team names were duplicable
+    //   here (found live: a probe successfully re-registered an OAuth user's team name).
+    // [Intent] Reject signups whose team name matches any existing user's primary team name.
+    // [Inbound Trigger] Runs before the sentinel transaction.
+    // [Downstream Impact] Returns 409 VALIDATION_DUPLICATE_ENTRY. Uses the indexed
+    //                     teamNameLower field written by both signup paths.
+    const primarySnapshot = await db.collection('users')
+      .where('teamNameLower', '==', normalizedNewName)
+      .limit(1)
+      .get();
+
+    if (!primarySnapshot.empty) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'This team name is already taken. Please choose a unique name.',
+          errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code,
+          correlationId,
+        },
+        { status: 409 }
+      );
+    }
 
     // Check against existing secondary team names (non-concurrent check — secondary names are
     // only set via profile update API, not concurrently with new signups, so query is safe here)
@@ -250,12 +315,37 @@ export async function POST(request: NextRequest) {
       throw sentinelError; // Re-throw unexpected Firestore errors to the outer catch
     }
 
-    // GUID: API_AUTH_SIGNUP-011-v06
+    // GUID: API_AUTH_SIGNUP-025-v01
+    // [Intent] Burn the friend-invite token (single-use, transactional) now that every
+    //          pre-creation check has passed. Done BEFORE Auth user creation so two racing
+    //          signups on the same token cannot both mint accounts; reverted on failure
+    //          below so a transient error doesn't strand the invitee with a dead link.
+    // [Inbound Trigger] inviteTokenToConsume was set by the gate (API_AUTH_SIGNUP-024).
+    // [Downstream Impact] Losing the consume race frees the team-name sentinel and returns
+    //                     403 PX-2102.
+    if (inviteTokenToConsume) {
+      const consumed = await consumeInvite(db, inviteTokenToConsume, { email: normalizedEmail });
+      if (!consumed) {
+        await teamNameSentinelRef.delete().catch(() => {});
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This invite link is invalid or has already been used.',
+            errorCode: ERRORS.INVITE_INVALID.code,
+            correlationId,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    // GUID: API_AUTH_SIGNUP-011-v07
     // @SECURITY_FIX: GEMINI-AUDIT-112 — Added teamNameSentinelRef cleanup on Auth creation failure.
     //   If Auth.createUser() throws, the sentinel is deleted so the name is freed for future signups.
+    // @FIX(v07) SEC-SIGNUP-001: consumed invite token is reverted to pending on Auth failure.
     // [Intent] Create the Firebase Auth user record with the provided email and PIN as password. Handles the auth/email-already-exists error case separately from other auth errors.
     // [Inbound Trigger] Runs after all validation and uniqueness checks pass (including sentinel claim).
-    // [Downstream Impact] On success, the uid from the created user record is used for all subsequent Firestore document creation. On failure, sentinel is cleaned up and no Firestore documents are created.
+    // [Downstream Impact] On success, the uid from the created user record is used for all subsequent Firestore document creation. On failure, sentinel is cleaned up, any consumed invite is reverted, and no Firestore documents are created.
     // Create Firebase Auth user
     let userRecord;
     try {
@@ -270,6 +360,12 @@ export async function POST(request: NextRequest) {
         // @SECURITY_FIX (Wave 10): NODE_ENV gate
         if (process.env.NODE_ENV !== 'production') { console.error(`[Signup ${correlationId}] Failed to cleanup team name sentinel after auth error:`, deleteErr); }
       });
+      // Revert the invite so the friend can retry with the same link
+      if (inviteTokenToConsume) {
+        await revertInvite(db, inviteTokenToConsume).catch((revertErr: any) => {
+          if (process.env.NODE_ENV !== 'production') { console.error(`[Signup ${correlationId}] Failed to revert invite after auth error:`, revertErr); }
+        });
+      }
       // @SECURITY_FIX (Wave 10): NODE_ENV gate
       if (process.env.NODE_ENV !== 'production') { console.error(`[Signup Auth Error ${correlationId}]`, authError); }
 
@@ -338,12 +434,24 @@ export async function POST(request: NextRequest) {
 
       // Update sentinel with userId now that the user document is committed (non-critical metadata)
       teamNameSentinelRef.update({ userId: uid, reservedAt: FieldValue.serverTimestamp() }).catch(() => {});
+
+      // Record the new uid on the consumed invite (non-critical metadata)
+      if (inviteTokenToConsume) {
+        db.collection('invites').doc(inviteTokenToConsume).update({ acceptedUid: uid }).catch(() => {});
+      }
     } catch (firestoreError: any) {
       // Cleanup sentinel — free the name reservation before rolling back Auth user
       await teamNameSentinelRef.delete().catch((deleteErr: any) => {
         // @SECURITY_FIX (Wave 10): NODE_ENV gate
         if (process.env.NODE_ENV !== 'production') { console.error(`[Signup ${correlationId}] Failed to cleanup team name sentinel after Firestore error:`, deleteErr); }
       });
+
+      // Revert the invite so the friend can retry with the same link (account fully rolled back below)
+      if (inviteTokenToConsume) {
+        await revertInvite(db, inviteTokenToConsume).catch((revertErr: any) => {
+          if (process.env.NODE_ENV !== 'production') { console.error(`[Signup ${correlationId}] Failed to revert invite after Firestore error:`, revertErr); }
+        });
+      }
 
       // CRITICAL: Rollback Auth user creation to prevent orphaned accounts
       // @SECURITY_FIX (Wave 10): NODE_ENV gate

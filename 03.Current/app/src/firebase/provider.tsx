@@ -131,7 +131,7 @@ export interface FirebaseContextState {
   updateUser: (userId: string, data: Partial<User>) => Promise<AuthResult>;
   deleteUser: (userId: string) => Promise<AuthResult>;
   login: (email: string, pin: string) => Promise<AuthResult>;
-  signup: (email: string, teamName: string, pin?: string) => Promise<AuthResult>;
+  signup: (email: string, teamName: string, pin?: string, inviteToken?: string) => Promise<AuthResult>;
   logout: () => void;
   addSecondaryTeam: (teamName: string) => Promise<AuthResult>;
   resetPin: (email: string) => Promise<AuthResult>;
@@ -564,13 +564,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
   };
 
-  // GUID: FIREBASE_PROVIDER-010-v05
+  // GUID: FIREBASE_PROVIDER-010-v06
+  // @FIX(v06) Optional inviteToken forwarded to the signup API — friend-invite links
+  //           (SEC-SIGNUP-001) are the only self-serve path while registration is closed.
   // [Intent] Registers a new user via server-side API (which uses Admin SDK for Firestore writes
   // and Firebase Auth user creation), then auto-signs in with the returned custom token.
-  // [Inbound Trigger] Called from the signup/registration page when a new user submits their details.
+  // [Inbound Trigger] Called from the invite signup form when a new user submits their details.
   // [Downstream Impact] On success, creates a Firebase Auth user + Firestore user document, then
   // triggers auth state listener (FIREBASE_PROVIDER-008). Logs client errors with correlation IDs.
-  const signup = async (email: string, teamName: string, pin?: string): Promise<AuthResult> => {
+  const signup = async (email: string, teamName: string, pin?: string, inviteToken?: string): Promise<AuthResult> => {
     // Use server-side API for signup (handles permission checks with Admin SDK)
     try {
       // Add 30s timeout for signup (longer than login due to email sending, league enrollment, etc.)
@@ -581,7 +583,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, teamName, pin }),
+        body: JSON.stringify({ email, teamName, pin, inviteToken }),
         signal: controller.signal,
       });
 

@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-13",
   "commits": [
     {
+      "id": "4e0da6c",
+      "date": "2026-07-13",
+      "version": "3.4.14",
+      "author": "aaron garcia",
+      "message": "feat: Cheeky Bill situational awareness — submission history + real WDC form (v3.4.14)",
+      "major": true
+    },
+    {
       "id": "cd80ac1",
       "date": "2026-07-13",
       "version": "3.4.x",

@@ -146,16 +146,21 @@ export default function CompleteProfilePage() {
     }
   }
 
-  // GUID: PAGE_COMPLETE_PROFILE-006-v05
+  // GUID: PAGE_COMPLETE_PROFILE-006-v06
   // @AUTH_FIX (BUG-OAUTH-PROFILE-401): The complete-oauth-profile endpoint calls verifyAuthToken()
   //   and returns 401 "Unauthorized" when no Bearer token is present. This page previously sent only
   //   a Content-Type header, so EVERY team-name submission (typed or suggested) failed with
   //   "Unauthorized" for new Google/Apple OAuth users. Now attaches the Firebase ID token in the
   //   Authorization header, matching every other authenticated caller in the app.
   // [Intent] Submit team name to complete-oauth-profile API with the Firebase ID token.
+  //          SEC-SIGNUP-001: forwards the friend-invite token stashed in sessionStorage by
+  //          the /signup invite form (key must match COMPONENT_INVITE_SIGNUP-001) — while
+  //          public registration is closed this is what authorises the signup gate.
   // [Inbound Trigger] User clicks "Join Prix Six" and form validation passes.
   // [Downstream Impact] Creates Firestore user doc. On success, toast + redirect happens
-  //                     automatically via onAuthStateChanged detecting the new doc.
+  //                     automatically via onAuthStateChanged detecting the new doc; the
+  //                     stashed invite token is cleared. On failure it is retained so the
+  //                     user can retry (the server reverts the burned token).
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!firebaseUser) return;
     setLoading(true);
@@ -164,6 +169,7 @@ export default function CompleteProfilePage() {
     try {
       const providers = getProviderIds(firebaseUser);
       const idToken = await firebaseUser.getIdToken();
+      const inviteToken = sessionStorage.getItem('prix6InviteToken') || undefined;
 
       const response = await fetch('/api/auth/complete-oauth-profile', {
         method: 'POST',
@@ -177,12 +183,14 @@ export default function CompleteProfilePage() {
           email: firebaseUser.email,
           photoUrl: firebaseUser.photoURL || undefined,
           providers,
+          inviteToken,
         }),
       });
 
       const result = await response.json();
 
       if (result.success) {
+        sessionStorage.removeItem('prix6InviteToken');
         toast({
           title: "Welcome to Prix Six!",
           description: "Your team has been created. Loading your dashboard...",

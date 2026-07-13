@@ -422,6 +422,14 @@ service cloud.firestore {
       allow read, write: if false; // Server-side only via Admin SDK
     }
 
+    // GUID: INVITES_RULES-001-v01
+    // [Intent] Friend-invite tokens (SEC-SIGNUP-001 signup-gate bypass). Doc ID IS the
+    //          secret token, so any client read would leak live invite links — admins
+    //          included. All access via Admin SDK (/api/invites/create + signup gates).
+    match /invites/{inviteId} {
+      allow read, write: if false; // Server-side only via Admin SDK
+    }
+
     // Login attempts - server-side only (Admin SDK bypasses rules)
     // Used for attack detection
     match /login_attempts/{attemptId} {

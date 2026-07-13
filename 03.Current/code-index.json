@@ -1,27 +1,21 @@
 {
-  "generated": "2026-01-31",
-  "totalGuids": 945,
-  "totalErrorCodes": 66,
+  "generated": "2026-07-13",
+  "totalGuids": 2174,
+  "totalErrorCodes": 96,
   "byErrorCode": {
-    "0": {
-      "guid": "PAGE_ONBOARDING-007",
-      "file": "app/src/app/(app)/onboarding/page.tsx",
-      "function": "OnboardingPage",
-      "recovery": ""
-    },
     "PX-6004": {
       "guid": "FIREBASE_PROVIDER-061",
       "file": "app/src/firebase/provider.tsx",
       "function": "",
       "message": "Failed to record logon event",
-      "recovery": "Non-blocking — OAuth login continues. Session will expire via scheduled function."
+      "recovery": "Non-blocking â€” OAuth login continues. Session will expire via scheduled function."
     },
     "PX-6005": {
       "guid": "API_AUTH_RECORD_LOGOUT-000",
       "file": "app/src/app/api/auth/record-logout/route.ts",
       "function": "",
       "message": "Failed to record logout event",
-      "recovery": "Non-blocking — logout proceeds. Session will expire via scheduled function after 24h."
+      "recovery": "Non-blocking â€” logout proceeds. Session will expire via scheduled function after 24h."
     },
     "PX-1008": {
       "guid": "LIB_ERROR_CODES-001",
@@ -31,8 +25,8 @@
       "recovery": ""
     },
     "PX-9001": {
-      "guid": "PAGE_TEAMS-008",
-      "file": "app/src/app/(app)/teams/page.tsx",
+      "guid": "PAGE_SUBMISSIONS-008",
+      "file": "app/src/app/(app)/submissions/page.tsx",
       "function": "",
       "message": "An unexpected error occurred",
       "recovery": "Check server logs with the correlation ID for root cause."
@@ -156,10 +150,17 @@
       "message": "Email service not configured",
       "recovery": "Set GRAPH_* secrets in Firebase App Hosting. Grant access to backend."
     },
+    "PX-8101": {
+      "guid": "LIB_AUDIT-005",
+      "file": "app/src/lib/audit.ts",
+      "function": "logAuditEvent",
+      "message": "Failed to write audit log entry",
+      "recovery": "Non-blocking — audit trail may have gaps. Check Firestore audit_logs permissions."
+    },
     "PX-1001": {
-      "guid": "PAGE_TEAMS-008",
-      "file": "app/src/app/(app)/teams/page.tsx",
-      "function": "",
+      "guid": "PAGE_LEAGUE_DETAIL-004",
+      "file": "app/src/app/(app)/leagues/[leagueId]/page.tsx",
+      "function": "for",
       "message": "Invalid or missing authentication token",
       "recovery": "User should log out and log in again. Check token expiry."
     },
@@ -237,7 +238,7 @@
       "guid": "LIB_ERROR_CODES-001",
       "file": "app/src/lib/error-codes.ts",
       "function": "",
-      "message": "Profile incomplete — please enter your team name",
+      "message": "Profile incomplete â€” please enter your team name",
       "recovery": "User needs to complete their profile (enter team name) to continue."
     },
     "PX-1017": {
@@ -360,8 +361,8 @@
       "recovery": "Reduce batch size or retry. Check for document conflicts."
     },
     "PX-4004": {
-      "guid": "PAGE_TEAMS-008",
-      "file": "app/src/app/(app)/teams/page.tsx",
+      "guid": "PAGE_SUBMISSIONS-008",
+      "file": "app/src/app/(app)/submissions/page.tsx",
       "function": "",
       "message": "Database index required",
       "recovery": "Create the required composite index in Firebase Console."
@@ -457,15 +458,246 @@
       "message": "Session conflict detected",
       "recovery": ""
     },
+    "PX-3102": {
+      "guid": "LIB_ERROR_CODES-001",
+      "file": "app/src/lib/error-codes.ts",
+      "function": "",
+      "message": "AI analysis rate limit exceeded. Please try again later.",
+      "recovery": "Wait for the 1-hour rate limit window to reset (20 requests/hour per user)."
+    },
     "PX-6006": {
       "guid": "SESSION_FUNCTIONS-000",
       "file": "functions/index.js",
       "function": "expireStaleLogons",
       "message": "Failed to expire stale session",
       "recovery": "Function retries on next 15-minute schedule. Stale sessions remain Active until next successful run."
+    },
+    "PX-2012": {
+      "guid": "API_ADMIN_SITE_FUNCTIONS-002",
+      "file": "app/src/app/api/admin/update-site-functions/route.ts",
+      "function": "POST",
+      "message": "Business rule violation",
+      "recovery": "Check the business rule constraints. At least one authentication method must remain enabled to prevent site lockout."
+    },
+    "PX-5011": {
+      "guid": "PAGE_STANDINGS-011",
+      "file": "app/src/app/(app)/standings/page.tsx",
+      "function": "unsubscribe",
+      "message": "Failed to load season standings",
+      "recovery": "Refresh the page. If the problem persists check /api/standings status, then admin Health → Standings Calculation panel."
+    },
+    "PX-3301": {
+      "guid": "PIT_WALL_ERRORS-001",
+      "file": "UNKNOWN",
+      "function": "",
+      "message": "Pit Wall live data fetch failed",
+      "recovery": "Retry. If persistent, OpenF1 may be unavailable."
+    },
+    "PX-3302": {
+      "guid": "PIT_WALL_ERRORS-002",
+      "file": "UNKNOWN",
+      "function": "",
+      "message": "No active F1 session found",
+      "recovery": "Pit Wall is only available during live F1 sessions."
+    },
+    "PX-3303": {
+      "guid": "PIT_WALL_ERRORS-003",
+      "file": "UNKNOWN",
+      "function": "",
+      "message": "Some Pit Wall data could not be loaded",
+      "recovery": "Partial data is shown. Retry for complete data."
+    },
+    "PX-3304": {
+      "guid": "PIT_WALL_ERRORS-004",
+      "file": "UNKNOWN",
+      "function": "",
+      "message": "Team radio data unavailable for this session",
+      "recovery": "Radio clips may not be available for all session types."
+    },
+    "PX-3305": {
+      "guid": "PIT_WALL_ERRORS-005",
+      "file": "UNKNOWN",
+      "function": "",
+      "message": "Weather radar data could not be loaded",
+      "recovery": "Non-critical. Weather conditions still shown from OpenF1 weather endpoint."
+    },
+    "PX-3306": {
+      "guid": "PIT_WALL_ERRORS-006",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "ERRORS.PIT_WALL_HISTORICAL_LOOKUP_FAILED",
+      "message": "Could not look up historical sessions for showreel",
+      "recovery": "OpenF1 may restrict historical access during live sessions. Showreel will be skipped."
+    },
+    "PX-3307": {
+      "guid": "PIT_WALL_ERRORS-007",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED",
+      "message": "Historical replay data could not be loaded",
+      "recovery": "Non-critical — showreel skips to next race or exits. Live mode unaffected."
+    },
+    "PX-3308": {
+      "guid": "PIT_WALL_ERRORS-008",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "ERRORS.PIT_WALL_SHOWREEL_NO_SESSIONS",
+      "message": "No 2025 historical sessions found for this circuit",
+      "recovery": "Showreel unavailable for this circuit. Normal standby mode shown."
+    },
+    "PX-3309": {
+      "guid": "PIT_WALL_ERRORS-009",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "ERRORS.PIT_WALL_OPENF1_RESTRICTED",
+      "message": "OpenF1 historical data restricted during live session",
+      "recovery": "Showreel skipped — live session is active. Switch to live Pit Wall mode."
+    },
+    "PX-3310": {
+      "guid": "PIT_WALL_ERRORS-010",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "ERRORS.PIT_WALL_SHOWREEL_SCHEDULE_FAILED",
+      "message": "Could not build showreel schedule",
+      "recovery": "Non-critical — countdown mode shown instead."
+    },
+    "PX-3311": {
+      "guid": "PIT_WALL_ERRORS-011",
+      "file": "UNKNOWN",
+      "function": "",
+      "message": "GPS replay data could not be loaded",
+      "recovery": "Check network connection and try again."
+    },
+    "PX-3312": {
+      "guid": "PIT_WALL_ERRORS-012",
+      "file": "UNKNOWN",
+      "function": "",
+      "message": "Could not load available replay sessions",
+      "recovery": "Check Firestore rules and connectivity."
+    },
+    "PX-3320": {
+      "guid": "PIT_WALL_ERRORS-020",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Failed to collect Pit Wall process metrics",
+      "recovery": "Check server logs. Metrics are non-critical — health endpoint still returns other data."
+    },
+    "PX-8005": {
+      "guid": "LIB_RATE_LIMIT-000",
+      "file": "app/src/lib/rate-limit.ts",
+      "function": "",
+      "message": "Too many requests. Please try again shortly.",
+      "recovery": "Wait for the rate-limit window to reset (Retry-After header). Adjust limit/windowMs in the calling route if legitimate traffic is blocked."
+    },
+    "PX-5010": {
+      "guid": "LIB_CUMULATIVE_STANDINGS-000",
+      "file": "app/src/lib/cumulative-standings.ts",
+      "function": "",
+      "message": "Cumulative standings produced suspicious output (likely a regression of the all-zeros bug)",
+      "recovery": "Run the parity script. Check whether predictions changed shape, or whether SSOT-001 dropped a code path that this lib still depends on."
+    },
+    "PX-3313": {
+      "guid": "PIT_WALL_ERRORS-013",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Replay ingest from OpenF1 failed",
+      "recovery": "Check OpenF1 API availability. Retry or purge and re-ingest."
+    },
+    "PX-3314": {
+      "guid": "PIT_WALL_ERRORS-014",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Replay ingest already in progress for this session",
+      "recovery": "Wait and retry in 30 seconds."
+    },
+    "PX-3315": {
+      "guid": "PIT_WALL_ERRORS-015",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Could not load replay chunks from Firestore",
+      "recovery": "Check Firestore rules and connectivity. Try purging and re-ingesting."
+    },
+    "PX-3316": {
+      "guid": "PIT_WALL_ERRORS-016",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Failed to purge replay data",
+      "recovery": "Check admin auth and Firestore connectivity."
+    },
+    "PX-3317": {
+      "guid": "PIT_WALL_ERRORS-017",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Replay metadata not found in Firestore",
+      "recovery": "Purge and re-ingest the session."
+    },
+    "PX-3318": {
+      "guid": "PIT_WALL_ERRORS-018",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Pit Wall health check failed",
+      "recovery": "Check server logs for the correlationId. Verify OpenF1 is reachable."
+    },
+    "PX-3319": {
+      "guid": "PIT_WALL_ERRORS-019",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Failed to purge Pit Wall cache",
+      "recovery": "Check server logs. Cache will expire naturally within TTL if purge fails."
+    },
+    "PX-3321": {
+      "guid": "PIT_WALL_ERRORS-021",
+      "file": "app/src/lib/error-registry.ts",
+      "function": "",
+      "message": "Failed to trigger replay ingest",
+      "recovery": "Check the sessionKey is valid. Retry from the admin panel. Check server logs for details."
+    },
+    "PX-2101": {
+      "guid": "API_INVITES_CREATE-001",
+      "file": "app/src/app/api/invites/create/route.ts",
+      "function": "POST",
+      "message": "Invite could not be sent",
+      "recovery": "Retry sending the invite. Check email_logs and Graph API status if it persists."
+    },
+    "PX-2104": {
+      "guid": "API_INVITES_CREATE-001",
+      "file": "app/src/app/api/invites/create/route.ts",
+      "function": "POST",
+      "message": "This email already belongs to a Prix Six player",
+      "recovery": "Tell the inviter the friend already has an account and should log in instead."
+    },
+    "PX-2102": {
+      "guid": "API_AUTH_SIGNUP-024",
+      "file": "app/src/app/api/auth/signup/route.ts",
+      "function": "POST",
+      "message": "Invite link is invalid or has already been used",
+      "recovery": "Ask the inviter to send a fresh invite from the Invite a Friend page."
+    },
+    "PX-2103": {
+      "guid": "API_AUTH_SIGNUP-024",
+      "file": "app/src/app/api/auth/signup/route.ts",
+      "function": "POST",
+      "message": "Invite link has expired",
+      "recovery": "Ask the inviter to send a fresh invite — links live for 14 days."
     }
   },
   "byTopic": {
+    "schedule": [
+      "RACE_SCHEDULE_RULES-001",
+      "PAGE_SCHEDULE-000",
+      "PAGE_SCHEDULE-001",
+      "PAGE_SCHEDULE-002",
+      "SCHEDULED_TRIGGER_HOURLY",
+      "LIB_RACE_SCHEDULE_SERVER-000",
+      "LIB_RACE_SCHEDULE_SERVER-001",
+      "LIB_RACE_SCHEDULE_SERVER-002",
+      "LIB_RACE_SCHEDULE_SERVER-003",
+      "LIB_RACE_SCHEDULE_SERVER-004",
+      "LIB_RACE_SCHEDULE_SERVER-005",
+      "PAGE_SCHEDULE-000-v03",
+      "PAGE_SCHEDULE-001-v03",
+      "PAGE_SCHEDULE-003",
+      "SHOWREEL_SCHEDULER-000",
+      "SHOWREEL_SCHEDULER-001",
+      "SHOWREEL_SCHEDULER-002",
+      "SHOWREEL_SCHEDULER-003",
+      "CRON_WHATSAPP_SCHEDULED-000"
+    ],
     "attack": [
       "ADMIN_ATTACK_MONITOR-000",
       "ADMIN_ATTACK_MONITOR-001",
@@ -488,7 +720,14 @@
       "LIB_ATTACK_DETECTION-008",
       "LIB_ATTACK_DETECTION-009",
       "LIB_ATTACK_DETECTION-010",
-      "LIB_ATTACK_DETECTION-011"
+      "LIB_ATTACK_DETECTION-011",
+      "API_ADMIN_ACK_ATTACK-000",
+      "API_ADMIN_ACK_ATTACK-001",
+      "API_ADMIN_ACK_ATTACK-002",
+      "API_ADMIN_ACK_ATTACK-003",
+      "API_ADMIN_ACK_ATTACK-004",
+      "API_ADMIN_ACK_ATTACK-005",
+      "API_ADMIN_ACK_ATTACK-006"
     ],
     "admin": [
       "ADMIN_ATTACK_MONITOR-000",
@@ -503,12 +742,6 @@
       "ADMIN_ATTACK_MONITOR-009",
       "ADMIN_AUDIT-000",
       "ADMIN_AUDIT-001",
-      "ADMIN_AUDIT-002",
-      "ADMIN_AUDIT-003",
-      "ADMIN_AUDIT-004",
-      "ADMIN_AUDIT-005",
-      "ADMIN_AUDIT-006",
-      "ADMIN_AUDIT-007",
       "ADMIN_AUDITLOG-000",
       "ADMIN_AUDITLOG-001",
       "ADMIN_AUDITLOG-002",
@@ -546,6 +779,7 @@
       "ADMIN_EMAILLOG-015",
       "ADMIN_ERRORLOG-000",
       "ADMIN_ERRORLOG-001",
+      "ADMIN_ERRORLOG-001a",
       "ADMIN_ERRORLOG-002",
       "ADMIN_ERRORLOG-003",
       "ADMIN_ERRORLOG-004",
@@ -693,6 +927,33 @@
       "API_ADMIN_DELETE_USER-009",
       "API_ADMIN_DELETE_USER-010",
       "API_ADMIN_DELETE_USER-011",
+      "API_ADMIN_FETCH_TIMING_DATA-000",
+      "API_ADMIN_FETCH_TIMING_DATA-001",
+      "API_ADMIN_FETCH_TIMING_DATA-002",
+      "API_ADMIN_FETCH_TIMING_DATA-003",
+      "API_ADMIN_FETCH_TIMING_DATA-004",
+      "API_ADMIN_FETCH_TIMING_DATA-005",
+      "API_ADMIN_FETCH_TIMING_DATA-006",
+      "API_ADMIN_FETCH_TIMING_DATA-007",
+      "API_ADMIN_FETCH_TIMING_DATA-008",
+      "API_ADMIN_FETCH_TIMING_DATA-009",
+      "API_ADMIN_FETCH_TIMING_DATA-010",
+      "API_ADMIN_FETCH_TIMING_DATA-011",
+      "API_ADMIN_FETCH_TIMING_DATA-012",
+      "API_ADMIN_FETCH_TIMING_DATA-013",
+      "API_ADMIN_FETCH_TIMING_DATA-014",
+      "API_ADMIN_FETCH_TIMING_DATA-015",
+      "API_ADMIN_OPENF1_SESSIONS-000",
+      "API_ADMIN_OPENF1_SESSIONS-001",
+      "API_ADMIN_OPENF1_SESSIONS-002",
+      "API_ADMIN_OPENF1_SESSIONS-003",
+      "API_ADMIN_OPENF1_SESSIONS-004",
+      "API_ADMIN_OPENF1_SESSIONS-005",
+      "API_ADMIN_OPENF1_SESSIONS-006",
+      "API_ADMIN_OPENF1_SESSIONS-007",
+      "API_ADMIN_PREDICTION_COUNT-000",
+      "API_ADMIN_PREDICTION_COUNT-001",
+      "API_ADMIN_PREDICTION_COUNT-002",
       "API_ADMIN_UPDATE_USER-000",
       "API_ADMIN_UPDATE_USER-001",
       "API_ADMIN_UPDATE_USER-002",
@@ -704,9 +965,13 @@
       "API_ADMIN_UPDATE_USER-008",
       "API_ADMIN_UPDATE_USER-009",
       "API_ADMIN_UPDATE_USER-010",
+      "API_ADMIN_SINGLE_USER_MODE-000",
+      "API_ADMIN_SINGLE_USER_MODE-001",
+      "API_ADMIN_SINGLE_USER_MODE-002",
+      "API_ADMIN_SINGLE_USER_MODE-003",
+      "API_ADMIN_SINGLE_USER_MODE-004",
+      "API_ADMIN_SINGLE_USER_MODE-005",
       "BACKUP_ADMIN_TAB-001",
-      "BACKUP_ADMIN_TAB-002",
-      "BACKUP_ADMIN_TAB-003",
       "LIB_FIREBASE_ADMIN-000",
       "LIB_FIREBASE_ADMIN-001",
       "LIB_FIREBASE_ADMIN-002",
@@ -721,17 +986,208 @@
       "PAGE_ADMIN-005",
       "PAGE_ADMIN-006",
       "PAGE_ADMIN-007",
-      "PUBCHAT_ADMIN_TAB-001"
+      "PUBCHAT_ADMIN_TAB-001",
+      "ADMIN_BOOKOFWORK-000",
+      "API_ADMIN_UPDATE_USER-011",
+      "API_ADMIN_SITE_FUNCTIONS-000",
+      "API_ADMIN_SITE_FUNCTIONS-001",
+      "API_ADMIN_SITE_FUNCTIONS-002",
+      "API_ADMIN_SITE_FUNCTIONS-003",
+      "ADMIN_HOT_NEWS-010",
+      "ADMIN_HOT_NEWS-011",
+      "ADMIN_HOT_NEWS-012",
+      "ADMIN_HOT_NEWS-013",
+      "ADMIN_HOT_NEWS-014",
+      "ADMIN_HOT_NEWS-015",
+      "ADMIN_HOT_NEWS-016",
+      "API_ADMIN_EMAIL_HEALTH-000",
+      "API_ADMIN_EMAIL_HEALTH-001",
+      "API_ADMIN_ACK_ATTACK-000",
+      "API_ADMIN_ACK_ATTACK-001",
+      "API_ADMIN_ACK_ATTACK-002",
+      "API_ADMIN_ACK_ATTACK-003",
+      "API_ADMIN_ACK_ATTACK-004",
+      "API_ADMIN_ACK_ATTACK-005",
+      "API_ADMIN_ACK_ATTACK-006",
+      "API_ADMIN_RESOLVE-000",
+      "API_ADMIN_RESOLVE-001",
+      "API_ADMIN_RESOLVE-002",
+      "API_ADMIN_RESOLVE-003",
+      "API_ADMIN_RESOLVE-004",
+      "API_ADMIN_RESOLVE-005",
+      "API_ADMIN_RESOLVE-006",
+      "API_ADMIN_RESOLVE-007",
+      "API_ADMIN_UNLOCK-000",
+      "API_ADMIN_UNLOCK-001",
+      "API_ADMIN_UNLOCK-002",
+      "API_ADMIN_UNLOCK-003",
+      "API_ADMIN_VERIFY_ACCESS-000",
+      "API_ADMIN_VERIFY_ACCESS-001",
+      "API_ADMIN_VERIFY_ACCESS-002",
+      "API_ADMIN_VERIFY_ACCESS-003",
+      "API_ADMIN_VERIFY_ACCESS-004",
+      "API_ADMIN_VERIFY_ACCESS-005",
+      "API_ADMIN_VERIFY_ACCESS-006",
+      "API_ADMIN_VERIFY_ACCESS-007",
+      "API_ADMIN_VERIFY_ACCESS-008",
+      "API_ADMIN_WHATSAPP_HEALTH-000",
+      "API_ADMIN_WHATSAPP_HEALTH-001",
+      "API_ADMIN_OPENF1_DRIVERS-000",
+      "API_ADMIN_OPENF1_DRIVERS-001",
+      "API_ADMIN_OPENF1_DRIVERS-002",
+      "API_ADMIN_OPENF1_DRIVERS-003",
+      "API_ADMIN_OPENF1_DRIVERS-004",
+      "API_ADMIN_OPENF1_LOCATION-000",
+      "API_ADMIN_OPENF1_LOCATION-001",
+      "API_ADMIN_OPENF1_LOCATION-002",
+      "API_ADMIN_HOT_NEWS-000",
+      "API_ADMIN_HOT_NEWS-001",
+      "API_ADMIN_HOT_NEWS-002",
+      "API_ADMIN_HOT_NEWS-003",
+      "API_AUTH_ADMIN_CHALLENGE-000",
+      "API_AUTH_ADMIN_CHALLENGE-001",
+      "API_AUTH_ADMIN_CHALLENGE-002",
+      "PAGE_ADMIN_VERIFY-001",
+      "ADMIN_BOOKOFWORK-001",
+      "ADMIN_BOOKOFWORK-002",
+      "ADMIN_BOOKOFWORK-003",
+      "ADMIN_BOOKOFWORK-004",
+      "ADMIN_BOOKOFWORK-004A",
+      "ADMIN_BOOKOFWORK-005",
+      "ADMIN_BOOKOFWORK-006",
+      "ADMIN_BOOKOFWORK-007",
+      "ADMIN_BOOKOFWORK-008",
+      "ADMIN_BOOKOFWORK-009",
+      "ADMIN_BOOKOFWORK-010",
+      "ADMIN_BOOKOFWORK-011",
+      "ADMIN_BOOKOFWORK-012",
+      "ADMIN_BOOKOFWORK-013",
+      "ADMIN_BOOKOFWORK-014",
+      "ADMIN_BOOKOFWORK-015",
+      "ADMIN_BOOKOFWORK-016",
+      "ADMIN_BOOKOFWORK-017",
+      "ADMIN_CONSISTENCY-012",
+      "ADMIN_CONSISTENCY-013",
+      "ADMIN_EMAILLOG-016",
+      "ADMIN_HOTLINK_CLEANUP-001",
+      "ADMIN_HOTLINK_RULES-001",
+      "ADMIN_INTERFACE_HEALTH-000",
+      "ADMIN_INTERFACE_HEALTH-001",
+      "ADMIN_INTERFACE_HEALTH-002",
+      "ADMIN_INTERFACE_HEALTH-003",
+      "ADMIN_INTERFACE_HEALTH-004",
+      "ADMIN_INTERFACE_HEALTH-005",
+      "ADMIN_VERIFICATION_RULES-001",
+      "API_ADMIN_FETCH_TIMING_DATA-016",
+      "API_ADMIN_OPENF1_SESSIONS-008",
+      "API_ADMIN_PREDICTION_COUNT-003",
+      "API_ADMIN_PREDICTION_COUNT-004",
+      "API_ADMIN_PREDICTION_COUNT-005",
+      "API_AUTH_ADMIN_CHALLENGE-003",
+      "API_AUTH_ADMIN_CHALLENGE-004",
+      "API_AUTH_ADMIN_CHALLENGE-005",
+      "API_AUTH_ADMIN_CHALLENGE-006",
+      "API_AUTH_ADMIN_CHALLENGE-007",
+      "API_AUTH_ADMIN_CHALLENGE-008",
+      "API_AUTH_ADMIN_CHALLENGE-009",
+      "BACKUP_ADMIN_TAB-002",
+      "BACKUP_ADMIN_TAB-003",
+      "PAGE_ADMIN_SERVER-000",
+      "PAGE_ADMIN_SERVER-001",
+      "PAGE_ADMIN_SERVER-002",
+      "PAGE_ADMIN_SERVER-003",
+      "PUBCHAT_ADMIN_TAB-002",
+      "PUBCHAT_ADMIN_TAB-003",
+      "ADMIN_PIT_LANE-000",
+      "ADMIN_PIT_LANE-001",
+      "ADMIN_PIT_LANE-002",
+      "ADMIN_PIT_LANE-003",
+      "ADMIN_PIT_LANE-004",
+      "ADMIN_PIT_LANE-005",
+      "ADMIN_PIT_LANE-006",
+      "ADMIN_PIT_LANE-007",
+      "ADMIN_PIT_LANE-008",
+      "ADMIN_PIT_LANE-009",
+      "ADMIN_PIT_LANE-010",
+      "ADMIN_PIT_LANE-011",
+      "ADMIN_PIT_LANE-012",
+      "ADMIN_TEAM-000-v06",
+      "ADMIN_TEAM-001-v03",
+      "ADMIN_TEAM-002-v06",
+      "ADMIN_TEAM-002A",
+      "ADMIN_TEAM-002B",
+      "ADMIN_TEAM-002C",
+      "ADMIN_TEAM-002D",
+      "ADMIN_TEAM-003-v03",
+      "ADMIN_TEAM-004-v03",
+      "ADMIN_TEAM-005-v04",
+      "ADMIN_TEAM-006-v03",
+      "ADMIN_TEAM-007-v03",
+      "ADMIN_TEAM-008-v03",
+      "ADMIN_TEAM-009A",
+      "ADMIN_TEAM-009-v06",
+      "API_ADMIN_RESEND_WELCOME-000",
+      "API_ADMIN_RESEND_WELCOME-001",
+      "LIB_FIREBASE_ADMIN-000-v05",
+      "LIB_FIREBASE_ADMIN-001-v03",
+      "LIB_FIREBASE_ADMIN-002-v04",
+      "LIB_FIREBASE_ADMIN-006",
+      "ADMIN_RESULTS-020",
+      "ADMIN_RESULTS-021",
+      "ADMIN_RESULTS-022",
+      "ADMIN_RESULTS-023",
+      "API_ADMIN_PITWALL_HEALTH-000",
+      "ADMIN_PITWALL-009",
+      "API_ADMIN_HEALTH_STANDINGS-000-v01",
+      "API_ADMIN_HEALTH_STANDINGS-001-v01",
+      "API_ADMIN_HEALTH_STANDINGS-002-v01",
+      "ADMIN_INTERFACE_HEALTH-006-v01",
+      "ADMIN_INTERFACE_HEALTH-007-v01",
+      "ADMIN_INTERFACE_HEALTH-008-v01",
+      "ADMIN_ERRORLOG-000B-v01",
+      "PAGE_ADMIN-BOOKOFWORK",
+      "PAGE_ADMIN-HEALTH",
+      "PAGE_ADMIN-PITLANE",
+      "PAGE_ADMIN-PITWALL",
+      "PAGE_ADMIN-HOTLINK",
+      "PAGE_ADMIN-008",
+      "PAGE_ADMIN-009",
+      "ADMIN_ERRORLOG-000B",
+      "ADMIN_INTERFACE_HEALTH-006",
+      "ADMIN_INTERFACE_HEALTH-007",
+      "ADMIN_INTERFACE_HEALTH-008",
+      "ADMIN_PITWALL-000",
+      "ADMIN_PITWALL-001",
+      "ADMIN_PITWALL-002",
+      "ADMIN_PITWALL-003",
+      "ADMIN_PITWALL-004",
+      "ADMIN_PITWALL-005",
+      "ADMIN_PITWALL-006",
+      "ADMIN_PITWALL-007",
+      "ADMIN_PITWALL-008",
+      "ADMIN_PITWALL-010",
+      "ADMIN_PITWALL-011",
+      "ADMIN_WHATSAPP-002a",
+      "API_ADMIN_DELETE_USER-002a",
+      "API_ADMIN_DELETE_USER-003a",
+      "API_ADMIN_HEALTH_STANDINGS-000",
+      "API_ADMIN_HEALTH_STANDINGS-001",
+      "API_ADMIN_HEALTH_STANDINGS-002",
+      "API_ADMIN_PITWALL_CACHE_PURGE-000",
+      "API_ADMIN_PITWALL_CACHE_PURGE-001",
+      "API_ADMIN_PITWALL_HEALTH-001",
+      "API_ADMIN_PITWALL_INGEST-000",
+      "API_ADMIN_PITWALL_INGEST-001",
+      "API_ADMIN_PITWALL_INGEST-002",
+      "API_ADMIN_WHATSAPP_QUEUE-000",
+      "API_ADMIN_WHATSAPP_QUEUE-001",
+      "ADMIN_WHATSAPP-021b",
+      "API_ADMIN_WHATSAPP_EOS-000",
+      "ADMIN_WHATSAPP-021c"
     ],
     "audit": [
       "ADMIN_AUDIT-000",
       "ADMIN_AUDIT-001",
-      "ADMIN_AUDIT-002",
-      "ADMIN_AUDIT-003",
-      "ADMIN_AUDIT-004",
-      "ADMIN_AUDIT-005",
-      "ADMIN_AUDIT-006",
-      "ADMIN_AUDIT-007",
       "ADMIN_AUDITLOG-000",
       "ADMIN_AUDITLOG-001",
       "ADMIN_AUDITLOG-002",
@@ -757,7 +1213,8 @@
       "PAGE_AUDIT-007",
       "PAGE_AUDIT-008",
       "PAGE_AUDIT-009",
-      "PAGE_AUDIT-010"
+      "PAGE_AUDIT-010",
+      "AUDIT_LOG_RULES-001"
     ],
     "consistency": [
       "ADMIN_CONSISTENCY-000",
@@ -803,7 +1260,11 @@
       "LIB_CONSISTENCY-028",
       "LIB_CONSISTENCY-029",
       "LIB_CONSISTENCY-030",
-      "LIB_CONSISTENCY-031"
+      "LIB_CONSISTENCY-031",
+      "LIB_CONSISTENCY-013B",
+      "LIB_CONSISTENCY-027B",
+      "ADMIN_CONSISTENCY-012",
+      "ADMIN_CONSISTENCY-013"
     ],
     "results": [
       "ADMIN_CONSISTENCY-000",
@@ -838,6 +1299,7 @@
       "API_DELETE_SCORES-006",
       "API_SEND_RESULTS_EMAIL-000",
       "API_SEND_RESULTS_EMAIL-001",
+      "API_SEND_RESULTS_EMAIL-001B",
       "API_SEND_RESULTS_EMAIL-002",
       "API_SEND_RESULTS_EMAIL-003",
       "API_SEND_RESULTS_EMAIL-004",
@@ -846,18 +1308,37 @@
       "LIB_CONSISTENCY-010",
       "LIB_CONSISTENCY-025",
       "LIB_CONSISTENCY-027",
+      "LIB_CONSISTENCY-028",
+      "LIB_RESULTS_UTILS-000",
+      "LIB_RESULTS_UTILS-001",
+      "LIB_RESULTS_UTILS-002",
+      "LIB_RESULTS_UTILS-003",
+      "LIB_RESULTS_UTILS-004",
+      "LIB_RESULTS_UTILS-005",
+      "LIB_RESULTS_UTILS-006",
+      "LIB_RESULTS_UTILS-007",
+      "LIB_RESULTS_UTILS-008",
+      "LIB_RESULTS_UTILS-009",
+      "LIB_RESULTS_UTILS-010",
+      "LIB_RESULTS_UTILS-011",
+      "LIB_RESULTS_UTILS-012",
+      "LIB_RESULTS_UTILS-013",
+      "LIB_RESULTS_UTILS-014",
+      "LIB_RESULTS_UTILS-015",
+      "LIB_RESULTS_UTILS-016",
       "LIB_SCORING-001",
-      "PAGE_PREDICTIONS-012",
+      "PAGE_MY_RESULTS-000",
+      "PAGE_MY_RESULTS-001",
+      "PAGE_MY_RESULTS-002",
+      "PAGE_MY_RESULTS-003",
+      "PAGE_MY_RESULTS-004",
+      "PAGE_MY_RESULTS-005",
+      "PAGE_MY_RESULTS-006",
+      "PAGE_MY_RESULTS-007",
+      "PAGE_MY_RESULTS-008",
+      "PAGE_MY_RESULTS-009",
       "PAGE_RESULTS-000",
-      "PAGE_RESULTS-001",
-      "PAGE_RESULTS-002",
-      "PAGE_RESULTS-003",
-      "PAGE_RESULTS-004",
-      "PAGE_RESULTS-005",
       "PAGE_RESULTS-006",
-      "PAGE_RESULTS-007",
-      "PAGE_RESULTS-008",
-      "PAGE_RESULTS-009",
       "PAGE_RESULTS-010",
       "PAGE_RESULTS-011",
       "PAGE_RESULTS-012",
@@ -865,21 +1346,32 @@
       "PAGE_RESULTS-014",
       "PAGE_RESULTS-015",
       "PAGE_RESULTS-016",
-      "PAGE_RESULTS-017",
       "PAGE_RESULTS-018",
-      "PAGE_RESULTS-019",
       "PAGE_RESULTS-020",
-      "PAGE_RESULTS-021",
       "PAGE_RESULTS-022",
-      "PAGE_RESULTS-023",
-      "PAGE_RESULTS-024",
       "PAGE_RESULTS-025",
       "PAGE_RESULTS-026",
       "PAGE_RESULTS-027",
       "PAGE_RESULTS-028",
       "PAGE_RESULTS-029",
       "PAGE_RESULTS-030",
-      "PAGE_RESULTS-031"
+      "PAGE_RESULTS-031",
+      "API_SEND_RESULTS_EMAIL-001C",
+      "COMPONENT_APP_SIDEBAR-004",
+      "PAGE_MY_RESULTS-010",
+      "PAGE_MY_RESULTS-011",
+      "PAGE_PREDICTIONS-004",
+      "PAGE_PREDICTIONS-012",
+      "PAGE_RESULTS-025A",
+      "PAGE_RESULTS-025B",
+      "PAGE_STANDINGS-011",
+      "API_SUBMIT_PREDICTION-004B",
+      "ADMIN_RESULTS-020",
+      "ADMIN_RESULTS-021",
+      "ADMIN_RESULTS-022",
+      "ADMIN_RESULTS-023",
+      "API_SEND_RESULTS_EMAIL-005",
+      "PAGE_RESULTS-025C"
     ],
     "email": [
       "ADMIN_EMAILLOG-000",
@@ -910,13 +1402,19 @@
       "API_EMAIL_QUEUE-006",
       "API_SEND_HOT_NEWS_EMAIL-000",
       "API_SEND_HOT_NEWS_EMAIL-001",
+      "API_SEND_HOT_NEWS_EMAIL-001B",
       "API_SEND_HOT_NEWS_EMAIL-002",
       "API_SEND_HOT_NEWS_EMAIL-003",
       "API_SEND_HOT_NEWS_EMAIL-004",
       "API_SEND_HOT_NEWS_EMAIL-005",
+      "API_SEND_HOT_NEWS_EMAIL-005B",
       "API_SEND_HOT_NEWS_EMAIL-006",
+      "API_SEND_PROVIDER_LINKED_EMAIL-000",
+      "API_SEND_PROVIDER_LINKED_EMAIL-001",
+      "API_SEND_PROVIDER_LINKED_EMAIL-002",
       "API_SEND_RESULTS_EMAIL-000",
       "API_SEND_RESULTS_EMAIL-001",
+      "API_SEND_RESULTS_EMAIL-001B",
       "API_SEND_RESULTS_EMAIL-002",
       "API_SEND_RESULTS_EMAIL-003",
       "API_SEND_RESULTS_EMAIL-004",
@@ -992,11 +1490,35 @@
       "PAGE_VERIFY_SECONDARY_EMAIL-002",
       "PAGE_VERIFY_SECONDARY_EMAIL-003",
       "PAGE_VERIFY_SECONDARY_EMAIL-004",
-      "PAGE_VERIFY_SECONDARY_EMAIL-005"
+      "PAGE_VERIFY_SECONDARY_EMAIL-005",
+      "LIB_EMAIL-000A",
+      "LIB_EMAIL-005a",
+      "API_ADMIN_EMAIL_HEALTH-000",
+      "API_ADMIN_EMAIL_HEALTH-001",
+      "VALIDATION-EMAIL-001",
+      "ADMIN_EMAILLOG-016",
+      "API_EMAIL_QUEUE-001A",
+      "API_SEND_HOT_NEWS_EMAIL-001A",
+      "API_SEND_HOT_NEWS_EMAIL-005A",
+      "API_SEND_PROVIDER_LINKED_EMAIL-001A",
+      "API_SEND_RESULTS_EMAIL-001C",
+      "COMPONENT_EMAIL_BANNER-004",
+      "CRON_EMAIL_QUEUE-000",
+      "CRON_EMAIL_QUEUE-001",
+      "CRON_EMAIL_QUEUE-002",
+      "CRON_EMAIL_QUEUE-003",
+      "API_SEND_VERIFICATION_EMAIL-000-v05",
+      "API_SEND_VERIFICATION_EMAIL-001-v03",
+      "API_SEND_VERIFICATION_EMAIL-002-v06",
+      "API_SEND_VERIFICATION_EMAIL-003",
+      "API_SEND_RESULTS_EMAIL-005",
+      "VALIDATION-EMAIL",
+      "API_SEND_HOT_NEWS_EMAIL-002B"
     ],
     "error": [
       "ADMIN_ERRORLOG-000",
       "ADMIN_ERRORLOG-001",
+      "ADMIN_ERRORLOG-001a",
       "ADMIN_ERRORLOG-002",
       "ADMIN_ERRORLOG-003",
       "ADMIN_ERRORLOG-004",
@@ -1019,7 +1541,9 @@
       "API_LOG_CLIENT_ERROR-004",
       "API_LOG_CLIENT_ERROR-005",
       "API_LOG_CLIENT_ERROR-006",
+      "API_LOG_CLIENT_ERROR-007",
       "BACKUP_ERRORS-001",
+      "ERROR_REGISTRY_CLIENT-000",
       "LIB_ERROR_CODES-000",
       "LIB_ERROR_CODES-001",
       "LIB_ERROR_CODES-002",
@@ -1027,11 +1551,86 @@
       "LIB_ERROR_CODES-004",
       "LIB_ERROR_CODES-005",
       "LIB_ERROR_CODES-006",
-      "LIB_ERROR_CODES-007"
+      "LIB_ERROR_CODES-007",
+      "LIB_TRACED_ERROR-000",
+      "LIB_TRACED_ERROR-001",
+      "LIB_TRACED_ERROR-002",
+      "LIB_TRACED_ERROR-003",
+      "TYPES_ERRORS-000",
+      "TYPES_ERRORS-001",
+      "TYPES_ERRORS-002",
+      "ROOT_ERROR-000",
+      "GLOBAL_ERROR-000",
+      "APP_ERROR-000",
+      "AUTH_ERROR-000",
+      "ERROR_REGISTRY-000",
+      "COMPONENT_CHUNK_ERROR_HANDLER-000",
+      "COMPONENT_CHUNK_ERROR_HANDLER-001",
+      "COMPONENT_CHUNK_ERROR_HANDLER-002",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-000",
+      "FIREBASE_ERROR_EMITTER-000",
+      "FIREBASE_ERROR_EMITTER-001",
+      "FIREBASE_ERROR_EMITTER-002",
+      "FIREBASE_ERRORS-000",
+      "FIREBASE_ERRORS-001",
+      "FIREBASE_ERRORS-002",
+      "FIREBASE_ERRORS-003",
+      "FIREBASE_ERRORS-004",
+      "HOOK_USE_ERROR_COPY-000",
+      "COMPONENT_FIREBASE_ERROR_LISTENER-000",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-001",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-002",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-003",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-004",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-005",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-006",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-007",
+      "LIB_TRACED_ERROR-004",
+      "PAGE_GLOBAL_ERROR-000",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-000-v03",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-001-v02",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-002-v02",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-003-v02",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-004-v03",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-005-v03",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-006-v02",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-007-v01",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-008",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-009",
+      "PAGE_GLOBAL_ERROR-000-v02",
+      "PAGE_GLOBAL_ERROR-001",
+      "PAGE_GLOBAL_ERROR-002",
+      "GLOBAL_ERROR-000-v03",
+      "COMPONENT_GLOBAL_ERROR_LOGGER-010",
+      "PIT_WALL_ERRORS-001",
+      "PIT_WALL_ERRORS-002",
+      "PIT_WALL_ERRORS-003",
+      "PIT_WALL_ERRORS-004",
+      "PIT_WALL_ERRORS-005",
+      "PIT_WALL_ERRORS-006",
+      "PIT_WALL_ERRORS-007",
+      "PIT_WALL_ERRORS-008",
+      "PIT_WALL_ERRORS-009",
+      "PIT_WALL_ERRORS-010",
+      "PIT_WALL_ERRORS-011",
+      "PIT_WALL_ERRORS-012",
+      "PIT_WALL_ERRORS-020",
+      "ADMIN_ERRORLOG-000B-v01",
+      "TYPES_ERRORS-001b",
+      "ADMIN_ERRORLOG-000B",
+      "PIT_WALL_ERRORS-013",
+      "PIT_WALL_ERRORS-014",
+      "PIT_WALL_ERRORS-015",
+      "PIT_WALL_ERRORS-016",
+      "PIT_WALL_ERRORS-017",
+      "PIT_WALL_ERRORS-018",
+      "PIT_WALL_ERRORS-019",
+      "PIT_WALL_ERRORS-021"
     ],
     "pin": [
       "ADMIN_ERRORLOG-006",
       "ADMIN_RESULTS-001",
+      "API_ADMIN_FETCH_TIMING_DATA-008",
       "API_ADMIN_UPDATE_USER-000",
       "API_AUTH_LOGIN-000",
       "API_AUTH_LOGIN-005",
@@ -1050,7 +1649,6 @@
       "API_AUTH_SIGNUP-004",
       "API_AUTH_SIGNUP-005",
       "API_AUTH_SIGNUP-006",
-      "API_AUTH_SIGNUP-011",
       "API_CALCULATE_SCORES-004",
       "API_CALCULATE_SCORES-011",
       "API_DELETE_SCORES-002",
@@ -1059,10 +1657,16 @@
       "API_SEND_WELCOME_EMAIL-001",
       "API_WHATSAPP_PROXY-008",
       "BACKUP_FUNCTIONS-021",
+      "COMPONENT_CONVERSION_BANNER-000",
+      "COMPONENT_CONVERSION_BANNER-001",
+      "COMPONENT_SECURITY_UPGRADE-000",
+      "COMPONENT_SECURITY_UPGRADE-001",
+      "FEATURE_ACCOUNT_LINKER-000",
       "FIREBASE_PROVIDER-004",
       "FIREBASE_PROVIDER-009",
       "FIREBASE_PROVIDER-015",
       "FIREBASE_PROVIDER-016",
+      "LIB_DATA-001A",
       "LIB_EMAIL-006",
       "LIB_EMAIL-007",
       "PAGE_ABOUT-013",
@@ -1073,13 +1677,49 @@
       "PAGE_LOGIN-000",
       "PAGE_LOGIN-001",
       "PAGE_LOGIN-002",
+      "PAGE_LOGIN-004",
       "PAGE_PROFILE-004",
+      "PAGE_VERIFY_EMAIL-005",
+      "PAGE_VERIFY_SECONDARY_EMAIL-005",
+      "SERVICE_AUTH_OAUTH-005",
+      "WHATSAPP_CLIENT-000",
+      "FIREBASE_PROVIDER-000",
+      "ERROR_REGISTRY-000",
+      "SCRIPT_MIGRATE_MASK_PINS-000",
+      "SCRIPT_ROLLBACK_MASK_PINS-000",
+      "API_AUTH_RESET_PIN-013",
+      "FIREBASE_ERRORS-004",
+      "COMPONENT_FEEDBACK_LINK-000",
+      "LIB_UTILS-002",
+      "PAGE_LOGIN-007",
       "PAGE_PROFILE-009",
       "PAGE_PROFILE-013",
       "PAGE_PROFILE-017",
-      "PAGE_SIGNUP-002",
-      "PAGE_VERIFY_EMAIL-005",
-      "PAGE_VERIFY_SECONDARY_EMAIL-005"
+      "PAGE_PROFILE-031",
+      "SCRIPT_MIGRATE_MASK_PINS-003",
+      "SCRIPT_MIGRATE_MASK_PINS-004",
+      "SCRIPT_MIGRATE_MASK_PINS-007",
+      "SCRIPT_MIGRATE_MASK_PINS-009",
+      "SCRIPT_MIGRATE_MASK_PINS-010",
+      "ADMIN_TEAM-009A",
+      "API_ADMIN_RESEND_WELCOME-000",
+      "API_ADMIN_RESEND_WELCOME-001",
+      "API_NOTIFY_PIN_CHANGED-000",
+      "API_NOTIFY_PIN_CHANGED-001",
+      "DELTA_INDICATOR-003",
+      "API_PIT_WALL_LIVE_DATA-023",
+      "ADMIN_WHATSAPP-002a",
+      "PIXI_TRAIL_LAYER-000",
+      "PIXI_INTERP_SYSTEM-001",
+      "PIXI_INTERP_SYSTEM-009",
+      "PIXI_INTERP_SYSTEM-014",
+      "PIT_WALL_TRACK_SPLINE-002",
+      "PIT_WALL_TRACK_SPLINE-008",
+      "API_PIT_WALL_HISTORICAL_REPLAY-011",
+      "REPLAY_INGEST-006",
+      "REPLAY_INGEST-007",
+      "COMPONENT_INVITE_SIGNUP-002",
+      "COMPONENT_INVITE_SIGNUP-003"
     ],
     "feedback": [
       "ADMIN_FEEDBACK-000",
@@ -1094,7 +1734,11 @@
       "ADMIN_FEEDBACK-009",
       "ADMIN_FEEDBACK-010",
       "ADMIN_FEEDBACK-011",
-      "ADMIN_FEEDBACK-012"
+      "ADMIN_FEEDBACK-012",
+      "COMPONENT_FEEDBACK_FORM-000",
+      "DASHBOARD_RESOLVED_FEEDBACK-000",
+      "COMPONENT_FEEDBACK_LINK-000",
+      "COMPONENT_FEEDBACK_LINK-001"
     ],
     "league": [
       "ADMIN_LEAGUES-000",
@@ -1106,6 +1750,7 @@
       "ADMIN_LEAGUES-006",
       "ADMIN_LEAGUES-007",
       "ADMIN_LEAGUES-008",
+      "API_LEAGUE_JOIN-001",
       "LIB_LEAGUES-000",
       "LIB_LEAGUES-001",
       "LIB_LEAGUES-002",
@@ -1117,6 +1762,15 @@
       "LIB_LEAGUES-008",
       "LIB_LEAGUES-009",
       "LIB_LEAGUES-010",
+      "LIB_LEAGUES-011",
+      "PAGE_LEAGUES-000",
+      "PAGE_LEAGUES-001",
+      "PAGE_LEAGUES-002",
+      "PAGE_LEAGUES-003",
+      "PAGE_LEAGUES-004",
+      "PAGE_LEAGUES-005",
+      "PAGE_LEAGUES-006",
+      "PAGE_LEAGUES-007",
       "PAGE_LEAGUE_DETAIL-000",
       "PAGE_LEAGUE_DETAIL-001",
       "PAGE_LEAGUE_DETAIL-002",
@@ -1128,14 +1782,23 @@
       "PAGE_LEAGUE_DETAIL-008",
       "PAGE_LEAGUE_DETAIL-009",
       "PAGE_LEAGUE_DETAIL-010",
-      "PAGE_LEAGUES-000",
-      "PAGE_LEAGUES-001",
-      "PAGE_LEAGUES-002",
-      "PAGE_LEAGUES-003",
-      "PAGE_LEAGUES-004",
-      "PAGE_LEAGUES-005",
-      "PAGE_LEAGUES-006",
-      "PAGE_LEAGUES-007"
+      "LEAGUE_CONTEXT-000",
+      "LIB_TYPES_LEAGUE-000",
+      "LIB_TYPES_LEAGUE-001",
+      "COMPONENT_LEAGUE_SELECTOR-000",
+      "API_LEAGUE_DELETE-000",
+      "API_LEAGUE_DELETE-001",
+      "API_LEAGUE_DELETE-002",
+      "API_LEAGUE_DELETE-003",
+      "API_LEAGUE_DELETE-004",
+      "API_LEAGUE_DELETE-005",
+      "API_LEAGUE_DELETE-006",
+      "API_LEAGUE_JOIN-002",
+      "API_LEAGUE_JOIN-003",
+      "API_LEAGUE_JOIN-004",
+      "API_LEAGUE_JOIN-005",
+      "API_LEAGUE_JOIN-006",
+      "LEAGUE_RULES-001"
     ],
     "scoring": [
       "ADMIN_SCORING-000",
@@ -1183,7 +1846,22 @@
       "LIB_SCORING_RULES-004",
       "LIB_SCORING_RULES-005",
       "LIB_SCORING_RULES-006",
-      "LIB_SCORING_RULES-007"
+      "LIB_SCORING_RULES-007",
+      "API_DELETE_SCORES-008",
+      "API_DELETE_SCORES-009",
+      "API_CALCULATE_SCORES-019",
+      "PIT_WALL_LIVE_SCORE_BANNER-000",
+      "PIT_WALL_LIVE_SCORE_BANNER-001",
+      "PIT_WALL_LIVE_SCORE_BANNER-002",
+      "PIT_WALL_LIVE_SCORE_BANNER-003",
+      "HOOK_LIVE_PREDICTION_SCORE-000",
+      "HOOK_LIVE_PREDICTION_SCORE-001",
+      "HOOK_LIVE_PREDICTION_SCORE-002",
+      "HOOK_LIVE_PREDICTION_SCORE-003",
+      "HOOK_LIVE_PREDICTION_SCORE-004",
+      "HOOK_LIVE_PREDICTION_SCORE-005",
+      "HOOK_LIVE_PREDICTION_SCORE-006",
+      "HOOK_LIVE_PREDICTION_SCORE-007"
     ],
     "standings": [
       "ADMIN_STANDING_DATA-000",
@@ -1205,6 +1883,7 @@
       "PAGE_STANDINGS-008",
       "PAGE_STANDINGS-009",
       "PAGE_STANDINGS-010",
+      "PAGE_STANDINGS-023",
       "PAGE_STANDINGS-011",
       "PAGE_STANDINGS-012",
       "PAGE_STANDINGS-013",
@@ -1216,7 +1895,35 @@
       "PAGE_STANDINGS-019",
       "PAGE_STANDINGS-020",
       "PAGE_STANDINGS-021",
-      "PAGE_STANDINGS-022"
+      "PAGE_STANDINGS-022",
+      "LIB_CUMULATIVE_STANDINGS-000-v02",
+      "LIB_CUMULATIVE_STANDINGS-001-v02",
+      "LIB_CUMULATIVE_STANDINGS-002-v02",
+      "LIB_CUMULATIVE_STANDINGS-003-v01",
+      "LIB_CUMULATIVE_STANDINGS-004-v02",
+      "LIB_CUMULATIVE_STANDINGS-005-v02",
+      "LIB_CUMULATIVE_STANDINGS-006-v01",
+      "API_STANDINGS-000-v01",
+      "API_STANDINGS-001-v01",
+      "API_STANDINGS-002-v01",
+      "API_ADMIN_HEALTH_STANDINGS-000-v01",
+      "API_ADMIN_HEALTH_STANDINGS-001-v01",
+      "API_ADMIN_HEALTH_STANDINGS-002-v01",
+      "API_ADMIN_HEALTH_STANDINGS-000",
+      "API_ADMIN_HEALTH_STANDINGS-001",
+      "API_ADMIN_HEALTH_STANDINGS-002",
+      "API_STANDINGS-000",
+      "API_STANDINGS-001",
+      "API_STANDINGS-002",
+      "LIB_CUMULATIVE_STANDINGS-000",
+      "LIB_CUMULATIVE_STANDINGS-001",
+      "LIB_CUMULATIVE_STANDINGS-002",
+      "LIB_CUMULATIVE_STANDINGS-003",
+      "LIB_CUMULATIVE_STANDINGS-004",
+      "LIB_CUMULATIVE_STANDINGS-005",
+      "LIB_CUMULATIVE_STANDINGS-006",
+      "LIB_CUMULATIVE_STANDINGS-007",
+      "LIB_CUMULATIVE_STANDINGS-008"
     ],
     "team": [
       "ADMIN_TEAM-000",
@@ -1240,11 +1947,22 @@
       "API_ADD_SECONDARY_TEAM-008",
       "API_ADD_SECONDARY_TEAM-009",
       "API_ADD_SECONDARY_TEAM-010",
+      "API_TEAM_NAME_SUGGESTIONS-000",
+      "API_TEAM_NAME_SUGGESTIONS-001",
+      "LIB_TEAM_NAME_SUGGESTIONS-000",
+      "LIB_TEAM_NAME_SUGGESTIONS-001",
+      "LIB_TEAM_NAME_SUGGESTIONS-002",
+      "LIB_TEAM_NAME_SUGGESTIONS-003",
       "PAGE_TEAMS-000",
       "PAGE_TEAMS-001",
       "PAGE_TEAMS-002",
       "PAGE_TEAMS-003",
       "PAGE_TEAMS-004",
+      "AI_TEAM_NAME_GENERATOR-000",
+      "FS_OFFICIAL_TEAMS-000",
+      "FS_OFFICIAL_TEAMS-001",
+      "FS_OFFICIAL_TEAMS-002",
+      "FS_OFFICIAL_TEAMS-003",
       "PAGE_TEAMS-005",
       "PAGE_TEAMS-006",
       "PAGE_TEAMS-007",
@@ -1255,7 +1973,30 @@
       "PAGE_TEAMS-012",
       "PAGE_TEAMS-013",
       "PAGE_TEAMS-014",
-      "PAGE_TEAMS-015"
+      "PAGE_TEAMS-015",
+      "TEAM_NAMES_RULES-001",
+      "ADMIN_TEAM-000-v06",
+      "ADMIN_TEAM-001-v03",
+      "ADMIN_TEAM-002-v06",
+      "ADMIN_TEAM-002A",
+      "ADMIN_TEAM-002B",
+      "ADMIN_TEAM-002C",
+      "ADMIN_TEAM-002D",
+      "ADMIN_TEAM-003-v03",
+      "ADMIN_TEAM-004-v03",
+      "ADMIN_TEAM-005-v04",
+      "ADMIN_TEAM-006-v03",
+      "ADMIN_TEAM-007-v03",
+      "ADMIN_TEAM-008-v03",
+      "ADMIN_TEAM-009A",
+      "ADMIN_TEAM-009-v06",
+      "OFFICIAL_TEAMS_RULES-001",
+      "API_ADD_SECONDARY_TEAM-011",
+      "API_TEAM_NAME_SUGGESTIONS-002",
+      "API_TEAM_NAME_SUGGESTIONS-003",
+      "API_TEAM_NAME_SUGGESTIONS-004",
+      "API_TEAM_NAME_SUGGESTIONS-005",
+      "API_TEAM_NAME_SUGGESTIONS-006"
     ],
     "whatsapp": [
       "ADMIN_WHATSAPP-000",
@@ -1296,9 +2037,190 @@
       "API_WHATSAPP_PROXY-009",
       "API_WHATSAPP_PROXY-010",
       "API_WHATSAPP_PROXY-011",
-      "API_WHATSAPP_PROXY-012"
+      "API_WHATSAPP_PROXY-012",
+      "WHATSAPP_WORKER_INDEX-000",
+      "WHATSAPP_CLIENT-000",
+      "WHATSAPP_WORKER_TYPES-000",
+      "API_ADMIN_WHATSAPP_HEALTH-000",
+      "API_ADMIN_WHATSAPP_HEALTH-001",
+      "WHATSAPP_WORKER-000",
+      "ADMIN_WHATSAPP-002a",
+      "API_ADMIN_WHATSAPP_QUEUE-000",
+      "API_ADMIN_WHATSAPP_QUEUE-001",
+      "ADMIN_WHATSAPP-021b",
+      "LIB_WHATSAPP_WAKE-000",
+      "LIB_WHATSAPP_ALERT-000",
+      "LIB_WHATSAPP_ALERT-002",
+      "CRON_WHATSAPP_SCHEDULED-000",
+      "API_ADMIN_WHATSAPP_EOS-000",
+      "ADMIN_WHATSAPP-021c"
+    ],
+    "prediction": [
+      "API_ADMIN_PREDICTION_COUNT-000",
+      "API_ADMIN_PREDICTION_COUNT-001",
+      "API_ADMIN_PREDICTION_COUNT-002",
+      "API_SUBMIT_PREDICTION-000",
+      "API_SUBMIT_PREDICTION-001",
+      "API_SUBMIT_PREDICTION-002",
+      "API_SUBMIT_PREDICTION-003",
+      "API_SUBMIT_PREDICTION-004",
+      "API_SUBMIT_PREDICTION-005",
+      "API_SUBMIT_PREDICTION-006",
+      "API_SUBMIT_PREDICTION-007",
+      "COMPONENT_PREDICTION_EDITOR-000",
+      "COMPONENT_PREDICTION_EDITOR-001",
+      "COMPONENT_PREDICTION_EDITOR-002",
+      "COMPONENT_PREDICTION_EDITOR-003",
+      "COMPONENT_PREDICTION_EDITOR-004",
+      "COMPONENT_PREDICTION_EDITOR-005",
+      "COMPONENT_PREDICTION_EDITOR-006",
+      "COMPONENT_PREDICTION_EDITOR-007",
+      "COMPONENT_PREDICTION_EDITOR-008",
+      "COMPONENT_PREDICTION_EDITOR-009",
+      "COMPONENT_PREDICTION_EDITOR-010",
+      "COMPONENT_PREDICTION_EDITOR-011",
+      "COMPONENT_PREDICTION_EDITOR-012",
+      "COMPONENT_PREDICTION_EDITOR-013",
+      "COMPONENT_PREDICTION_EDITOR-014",
+      "COMPONENT_PREDICTION_EDITOR-015",
+      "COMPONENT_PREDICTION_EDITOR-016",
+      "COMPONENT_PREDICTION_EDITOR-017",
+      "COMPONENT_PREDICTION_EDITOR-018",
+      "COMPONENT_PREDICTION_EDITOR-019",
+      "COMPONENT_PREDICTION_EDITOR-020",
+      "COMPONENT_PREDICTION_EDITOR-021",
+      "COMPONENT_PREDICTION_EDITOR-022",
+      "PAGE_PREDICTIONS-000",
+      "PAGE_PREDICTIONS-001",
+      "PAGE_PREDICTIONS-013",
+      "PAGE_PREDICTIONS-014",
+      "PAGE_PREDICTIONS-015",
+      "DND_PREDICTION_WRAPPER-000",
+      "API_ADMIN_PREDICTION_COUNT-003",
+      "API_ADMIN_PREDICTION_COUNT-004",
+      "API_ADMIN_PREDICTION_COUNT-005",
+      "COMPONENT_PREDICTION_EDITOR-023",
+      "PAGE_PREDICTIONS-002",
+      "PAGE_PREDICTIONS-003",
+      "PAGE_PREDICTIONS-004",
+      "PAGE_PREDICTIONS-005",
+      "PAGE_PREDICTIONS-006",
+      "PAGE_PREDICTIONS-007",
+      "PAGE_PREDICTIONS-008",
+      "PAGE_PREDICTIONS-009",
+      "PAGE_PREDICTIONS-010",
+      "PAGE_PREDICTIONS-011",
+      "PAGE_PREDICTIONS-012",
+      "API_SUBMIT_PREDICTION-000-v06",
+      "PAGE_PREDICTIONS-000-v05",
+      "API_SUBMIT_PREDICTION-004B",
+      "PAGE_PREDICTIONS-002A",
+      "API_SUBMIT_PREDICTION-008",
+      "HOOK_LIVE_PREDICTION_SCORE-000",
+      "HOOK_LIVE_PREDICTION_SCORE-001",
+      "HOOK_LIVE_PREDICTION_SCORE-002",
+      "HOOK_LIVE_PREDICTION_SCORE-003",
+      "HOOK_LIVE_PREDICTION_SCORE-004",
+      "HOOK_LIVE_PREDICTION_SCORE-005",
+      "HOOK_LIVE_PREDICTION_SCORE-006",
+      "HOOK_LIVE_PREDICTION_SCORE-007",
+      "API_SUBMIT_PREDICTION-003a",
+      "API_SUBMIT_PREDICTION-005a",
+      "API_SUBMIT_PREDICTION-009"
+    ],
+    "verification": [
+      "API_ADMIN_SINGLE_USER_MODE-003",
+      "API_ADMIN_SINGLE_USER_MODE-005",
+      "API_AI_ANALYSIS-012",
+      "API_AUTH_LOGIN-009",
+      "API_AUTH_LOGIN-010",
+      "API_AUTH_SIGNUP-000",
+      "API_AUTH_SIGNUP-015",
+      "API_CALCULATE_SCORES-006",
+      "API_SEND_SECONDARY_VERIFICATION-000",
+      "API_SEND_SECONDARY_VERIFICATION-001",
+      "API_SEND_SECONDARY_VERIFICATION-002",
+      "API_SEND_VERIFICATION_EMAIL-000",
+      "API_SEND_VERIFICATION_EMAIL-001",
+      "API_SEND_VERIFICATION_EMAIL-002",
+      "API_UPDATE_SECONDARY_EMAIL-000",
+      "API_UPDATE_SECONDARY_EMAIL-007",
+      "API_VERIFY_EMAIL-000",
+      "API_VERIFY_EMAIL-001",
+      "API_VERIFY_EMAIL-003",
+      "API_VERIFY_EMAIL-006",
+      "API_VERIFY_SECONDARY_EMAIL-000",
+      "API_VERIFY_SECONDARY_EMAIL-001",
+      "API_VERIFY_SECONDARY_EMAIL-003",
+      "API_VERIFY_SECONDARY_EMAIL-004",
+      "API_VERIFY_SECONDARY_EMAIL-006",
+      "API_WHATSAPP_PROXY-004",
+      "BACKUP_FUNCTIONS-022",
+      "BACKUP_FUNCTIONS-023",
+      "BACKUP_FUNCTIONS-024",
+      "BACKUP_FUNCTIONS-025",
+      "COMPONENT_CONVERSION_BANNER-000",
+      "COMPONENT_EMAIL_BANNER-001",
+      "COMPONENT_EMAIL_BANNER-002",
+      "COMPONENT_EMAIL_BANNER-003",
+      "FIREBASE_PROVIDER-009",
+      "FIREBASE_PROVIDER-017",
+      "FIREBASE_PROVIDER-020",
+      "FIREBASE_PROVIDER-021",
+      "LIB_CONSISTENCY-028",
+      "LIB_FIREBASE_ADMIN-000",
+      "LIB_VERSION-001",
+      "PAGE_ONBOARDING-006",
+      "PAGE_VERIFY_EMAIL-000",
+      "PAGE_VERIFY_EMAIL-001",
+      "PAGE_VERIFY_SECONDARY_EMAIL-000",
+      "PAGE_VERIFY_SECONDARY_EMAIL-001",
+      "APP_LAYOUT-000",
+      "API_ADMIN_UPDATE_USER-011",
+      "VALIDATION-EMAIL-001",
+      "API_ADMIN_VERIFY_ACCESS-001",
+      "API_ADMIN_VERIFY_ACCESS-003",
+      "API_ADMIN_VERIFY_ACCESS-005",
+      "API_ADMIN_VERIFY_ACCESS-006",
+      "API_AUTH_ADMIN_CHALLENGE-000",
+      "API_AUTH_ADMIN_CHALLENGE-001",
+      "API_AUTH_ADMIN_CHALLENGE-002",
+      "PAGE_ADMIN_VERIFY-001",
+      "ADMIN_VERIFICATION_RULES-001",
+      "API_AUTH_ADMIN_CHALLENGE-005",
+      "API_AUTH_ADMIN_CHALLENGE-006",
+      "API_AUTH_ADMIN_CHALLENGE-007",
+      "API_AUTH_ADMIN_CHALLENGE-009",
+      "BACKUP_DASHBOARD-023",
+      "COMPONENT_EMAIL_BANNER-004",
+      "PAGE_ADMIN_SERVER-000",
+      "PAGE_ADMIN_SERVER-001",
+      "PAGE_ADMIN_SERVER-002",
+      "PAGE_PROFILE-018",
+      "PAGE_PROFILE-019",
+      "PAGE_PROFILE-023",
+      "API_SEND_VERIFICATION_EMAIL-000-v05",
+      "API_SEND_VERIFICATION_EMAIL-001-v03",
+      "API_SEND_VERIFICATION_EMAIL-002-v06",
+      "LIB_FIREBASE_ADMIN-000-v05",
+      "PAGE_ADMIN-HOTLINK"
     ],
     "login": [
+      "API_AUTH_COMPLETE_OAUTH-000",
+      "API_AUTH_COMPLETE_OAUTH-001",
+      "API_AUTH_COMPLETE_OAUTH-002",
+      "API_AUTH_COMPLETE_OAUTH-003",
+      "API_AUTH_COMPLETE_OAUTH-004",
+      "API_AUTH_COMPLETE_OAUTH-005",
+      "API_AUTH_COMPLETE_OAUTH-006",
+      "API_AUTH_COMPLETE_OAUTH-007",
+      "API_AUTH_COMPLETE_OAUTH-008",
+      "API_AUTH_COMPLETE_OAUTH-009",
+      "API_AUTH_COMPLETE_OAUTH-010",
+      "API_AUTH_COMPLETE_OAUTH-011",
+      "API_AUTH_COMPLETE_OAUTH-012",
+      "API_AUTH_COMPLETE_OAUTH-013",
+      "API_AUTH_COMPLETE_OAUTH-014",
       "API_AUTH_LOGIN-000",
       "API_AUTH_LOGIN-001",
       "API_AUTH_LOGIN-002",
@@ -1343,127 +2265,171 @@
       "API_AUTH_SIGNUP-015",
       "API_AUTH_SIGNUP-016",
       "API_AUTH_SIGNUP-017",
+      "COMPONENT_OAUTH_ICONS-000",
+      "COMPONENT_OAUTH_ICONS-001",
+      "COMPONENT_OAUTH_ICONS-002",
       "PAGE_LOGIN-000",
       "PAGE_LOGIN-001",
       "PAGE_LOGIN-002",
       "PAGE_LOGIN-003",
-      "PAGE_LOGIN-008"
+      "PAGE_LOGIN-004",
+      "PAGE_LOGIN-005",
+      "PAGE_LOGIN-008",
+      "SERVICE_AUTH_OAUTH-000",
+      "SERVICE_AUTH_OAUTH-001",
+      "SERVICE_AUTH_OAUTH-002",
+      "SERVICE_AUTH_OAUTH-003",
+      "SERVICE_AUTH_OAUTH-004",
+      "SERVICE_AUTH_OAUTH-005",
+      "SERVICE_AUTH_OAUTH-006",
+      "SERVICE_AUTH_OAUTH-007",
+      "SERVICE_AUTH_OAUTH-008",
+      "SERVICE_AUTH_OAUTH-009",
+      "SERVICE_AUTH_OAUTH-010",
+      "SERVICE_AUTH_OAUTH-011",
+      "AUTH_ERROR-000",
+      "API_AUTH_RESET_PIN-013",
+      "API_AUTH_LOGIN-014",
+      "API_AUTH_LOGIN-015",
+      "API_AUTH_ADMIN_CHALLENGE-000",
+      "API_AUTH_ADMIN_CHALLENGE-001",
+      "API_AUTH_ADMIN_CHALLENGE-002",
+      "FIREBASE_NON_BLOCKING_LOGIN-000",
+      "FIREBASE_NON_BLOCKING_LOGIN-001",
+      "FIREBASE_NON_BLOCKING_LOGIN-002",
+      "API_AUTH_ADMIN_CHALLENGE-003",
+      "API_AUTH_ADMIN_CHALLENGE-004",
+      "API_AUTH_ADMIN_CHALLENGE-005",
+      "API_AUTH_ADMIN_CHALLENGE-006",
+      "API_AUTH_ADMIN_CHALLENGE-007",
+      "API_AUTH_ADMIN_CHALLENGE-008",
+      "API_AUTH_ADMIN_CHALLENGE-009",
+      "API_AUTH_SIGNUP-022",
+      "PAGE_LOGIN-006",
+      "PAGE_LOGIN-007",
+      "PAGE_LOGIN-009",
+      "API_AUTH_ACK_LATE_JOINER-000",
+      "API_AUTH_SIGNUP-024",
+      "API_AUTH_SIGNUP-025"
     ],
-    "verification": [
-      "API_AUTH_LOGIN-009",
-      "API_AUTH_LOGIN-010",
-      "API_AUTH_SIGNUP-000",
-      "API_AUTH_SIGNUP-015",
-      "API_CALCULATE_SCORES-006",
-      "API_SEND_SECONDARY_VERIFICATION-000",
-      "API_SEND_SECONDARY_VERIFICATION-001",
-      "API_SEND_SECONDARY_VERIFICATION-002",
-      "API_SEND_VERIFICATION_EMAIL-000",
-      "API_SEND_VERIFICATION_EMAIL-001",
-      "API_SEND_VERIFICATION_EMAIL-002",
-      "API_UPDATE_SECONDARY_EMAIL-000",
-      "API_UPDATE_SECONDARY_EMAIL-007",
-      "API_VERIFY_EMAIL-000",
-      "API_VERIFY_EMAIL-001",
-      "API_VERIFY_EMAIL-003",
-      "API_VERIFY_EMAIL-006",
-      "API_VERIFY_SECONDARY_EMAIL-000",
-      "API_VERIFY_SECONDARY_EMAIL-001",
-      "API_VERIFY_SECONDARY_EMAIL-003",
-      "API_VERIFY_SECONDARY_EMAIL-004",
-      "API_VERIFY_SECONDARY_EMAIL-006",
-      "API_WHATSAPP_PROXY-004",
-      "BACKUP_FUNCTIONS-022",
-      "BACKUP_FUNCTIONS-023",
-      "BACKUP_FUNCTIONS-024",
-      "BACKUP_FUNCTIONS-025",
-      "COMPONENT_EMAIL_BANNER-001",
-      "COMPONENT_EMAIL_BANNER-002",
-      "COMPONENT_EMAIL_BANNER-003",
-      "FIREBASE_PROVIDER-009",
-      "FIREBASE_PROVIDER-017",
-      "FIREBASE_PROVIDER-020",
-      "FIREBASE_PROVIDER-021",
-      "LIB_FIREBASE_ADMIN-000",
-      "LIB_VERSION-001",
-      "PAGE_PROFILE-018",
-      "PAGE_PROFILE-019",
-      "PAGE_PROFILE-023",
-      "PAGE_VERIFY_EMAIL-000",
-      "PAGE_VERIFY_EMAIL-001",
-      "PAGE_VERIFY_SECONDARY_EMAIL-000",
-      "PAGE_VERIFY_SECONDARY_EMAIL-001",
-      "PROVISION_RECOVERY-040",
-      "PROVISION_RECOVERY-066",
-      "PAGE_ONBOARDING-006"
+    "oauth": [
+      "API_AUTH_COMPLETE_OAUTH-000",
+      "API_AUTH_COMPLETE_OAUTH-001",
+      "API_AUTH_COMPLETE_OAUTH-002",
+      "API_AUTH_COMPLETE_OAUTH-003",
+      "API_AUTH_COMPLETE_OAUTH-004",
+      "API_AUTH_COMPLETE_OAUTH-005",
+      "API_AUTH_COMPLETE_OAUTH-006",
+      "API_AUTH_COMPLETE_OAUTH-007",
+      "API_AUTH_COMPLETE_OAUTH-008",
+      "API_AUTH_COMPLETE_OAUTH-009",
+      "API_AUTH_COMPLETE_OAUTH-010",
+      "API_AUTH_COMPLETE_OAUTH-011",
+      "API_AUTH_COMPLETE_OAUTH-012",
+      "API_AUTH_COMPLETE_OAUTH-013",
+      "API_AUTH_COMPLETE_OAUTH-014",
+      "COMPONENT_OAUTH_ICONS-000",
+      "COMPONENT_OAUTH_ICONS-001",
+      "COMPONENT_OAUTH_ICONS-002",
+      "SERVICE_AUTH_OAUTH-000",
+      "SERVICE_AUTH_OAUTH-001",
+      "SERVICE_AUTH_OAUTH-002",
+      "SERVICE_AUTH_OAUTH-003",
+      "SERVICE_AUTH_OAUTH-004",
+      "SERVICE_AUTH_OAUTH-005",
+      "SERVICE_AUTH_OAUTH-006",
+      "SERVICE_AUTH_OAUTH-007",
+      "SERVICE_AUTH_OAUTH-008",
+      "SERVICE_AUTH_OAUTH-009",
+      "SERVICE_AUTH_OAUTH-010",
+      "SERVICE_AUTH_OAUTH-011"
     ],
     "signup": [
+      "API_AUTH_COMPLETE_OAUTH-000",
+      "API_AUTH_COMPLETE_OAUTH-008",
       "API_AUTH_SIGNUP-001",
       "API_AUTH_SIGNUP-003",
       "API_AUTH_SIGNUP-004",
       "API_AUTH_SIGNUP-008",
+      "API_AUTH_SIGNUP-011",
       "API_AUTH_SIGNUP-015",
       "API_AUTH_SIGNUP-017",
       "FIREBASE_PROVIDER-004",
+      "FIREBASE_PROVIDER-010",
+      "LIB_TEAM_NAME_SUGGESTIONS-000",
+      "PAGE_COMPLETE_PROFILE-006",
       "PAGE_SIGNUP-000",
-      "PAGE_SIGNUP-003",
-      "PAGE_SIGNUP-004",
-      "PAGE_SIGNUP-007"
+      "AUTH_ERROR-000",
+      "FIREBASE_PROVIDER-000",
+      "API_HEALTH-008",
+      "VALIDATION-EMAIL-001",
+      "TEAM_NAMES_RULES-001",
+      "PAGE_SIGNUP-000-v07",
+      "PAGE_SIGNUP-001",
+      "LIB_LATE_JOINER-000",
+      "API_AUTH_SIGNUP-024",
+      "LIB_INVITES-000",
+      "LIB_INVITES-004",
+      "API_INVITES_CREATE-000",
+      "COMPONENT_INVITE_SIGNUP-000",
+      "COMPONENT_INVITE_SIGNUP-003",
+      "COMPONENT_INVITE_SIGNUP-004",
+      "PAGE_INVITE-000",
+      "API_AUTH_SIGNUP-025"
     ],
-    "prediction": [
-      "API_SUBMIT_PREDICTION-000",
-      "API_SUBMIT_PREDICTION-001",
-      "API_SUBMIT_PREDICTION-002",
-      "API_SUBMIT_PREDICTION-003",
-      "API_SUBMIT_PREDICTION-004",
-      "API_SUBMIT_PREDICTION-005",
-      "API_SUBMIT_PREDICTION-006",
-      "API_SUBMIT_PREDICTION-007",
-      "COMPONENT_PREDICTION_EDITOR-000",
-      "COMPONENT_PREDICTION_EDITOR-001",
-      "COMPONENT_PREDICTION_EDITOR-002",
-      "COMPONENT_PREDICTION_EDITOR-003",
-      "COMPONENT_PREDICTION_EDITOR-004",
-      "COMPONENT_PREDICTION_EDITOR-005",
-      "COMPONENT_PREDICTION_EDITOR-006",
-      "COMPONENT_PREDICTION_EDITOR-007",
-      "COMPONENT_PREDICTION_EDITOR-008",
-      "COMPONENT_PREDICTION_EDITOR-009",
-      "COMPONENT_PREDICTION_EDITOR-010",
-      "COMPONENT_PREDICTION_EDITOR-011",
-      "COMPONENT_PREDICTION_EDITOR-012",
-      "COMPONENT_PREDICTION_EDITOR-013",
-      "COMPONENT_PREDICTION_EDITOR-014",
-      "COMPONENT_PREDICTION_EDITOR-015",
-      "COMPONENT_PREDICTION_EDITOR-016",
-      "COMPONENT_PREDICTION_EDITOR-017",
-      "COMPONENT_PREDICTION_EDITOR-018",
-      "COMPONENT_PREDICTION_EDITOR-019",
-      "PAGE_PREDICTIONS-000",
-      "PAGE_PREDICTIONS-001",
-      "PAGE_PREDICTIONS-002",
-      "PAGE_PREDICTIONS-003",
-      "PAGE_PREDICTIONS-004",
-      "PAGE_PREDICTIONS-005",
-      "PAGE_PREDICTIONS-006",
-      "PAGE_PREDICTIONS-007",
-      "PAGE_PREDICTIONS-008",
-      "PAGE_PREDICTIONS-009",
-      "PAGE_PREDICTIONS-010",
-      "PAGE_PREDICTIONS-011",
-      "PAGE_PREDICTIONS-012",
-      "PAGE_PREDICTIONS-013"
+    "auth": [
+      "API_SEND_PROVIDER_LINKED_EMAIL-000",
+      "API_SEND_PROVIDER_LINKED_EMAIL-001",
+      "API_SEND_PROVIDER_LINKED_EMAIL-002",
+      "FIREBASE_PROVIDER-001",
+      "FIREBASE_PROVIDER-002",
+      "FIREBASE_PROVIDER-003",
+      "FIREBASE_PROVIDER-004",
+      "FIREBASE_PROVIDER-005",
+      "FIREBASE_PROVIDER-006",
+      "FIREBASE_PROVIDER-007",
+      "FIREBASE_PROVIDER-008",
+      "FIREBASE_PROVIDER-009",
+      "FIREBASE_PROVIDER-010",
+      "FIREBASE_PROVIDER-011",
+      "FIREBASE_PROVIDER-012",
+      "FIREBASE_PROVIDER-013",
+      "FIREBASE_PROVIDER-014",
+      "FIREBASE_PROVIDER-015",
+      "FIREBASE_PROVIDER-016",
+      "FIREBASE_PROVIDER-017",
+      "FIREBASE_PROVIDER-018",
+      "FIREBASE_PROVIDER-019",
+      "FIREBASE_PROVIDER-020",
+      "FIREBASE_PROVIDER-021",
+      "FIREBASE_PROVIDER-022",
+      "FIREBASE_PROVIDER-023",
+      "FIREBASE_PROVIDER-024",
+      "FIREBASE_PROVIDER-025",
+      "FIREBASE_PROVIDER-026",
+      "FIREBASE_PROVIDER-027",
+      "FIREBASE_PROVIDER-028",
+      "FIREBASE_PROVIDER-029",
+      "FIREBASE_PROVIDER-030",
+      "FIREBASE_PROVIDER-031",
+      "FIREBASE_PROVIDER-032",
+      "FIREBASE_PROVIDER-050",
+      "FIREBASE_PROVIDER-051",
+      "FIREBASE_PROVIDER-060",
+      "FIREBASE_PROVIDER-061",
+      "FIREBASE_CLIENT_PROVIDER-000",
+      "FIREBASE_PROVIDER-000",
+      "API_SEND_PROVIDER_LINKED_EMAIL-001A"
     ],
     "backup": [
       "BACKUP_ADMIN_TAB-001",
-      "BACKUP_ADMIN_TAB-002",
-      "BACKUP_ADMIN_TAB-003",
       "BACKUP_DASHBOARD-000",
       "BACKUP_DASHBOARD-001",
       "BACKUP_DASHBOARD-002",
       "BACKUP_DASHBOARD-003",
       "BACKUP_DASHBOARD-004",
       "BACKUP_DASHBOARD-005",
+      "BACKUP_DASHBOARD-006",
       "BACKUP_DASHBOARD-007",
       "BACKUP_DASHBOARD-010",
       "BACKUP_DASHBOARD-011",
@@ -1471,22 +2437,25 @@
       "BACKUP_DASHBOARD-013",
       "BACKUP_DASHBOARD-014",
       "BACKUP_DASHBOARD-020",
-      "BACKUP_DASHBOARD-021",
-      "BACKUP_DASHBOARD-022",
-      "BACKUP_DASHBOARD-023",
+      "BACKUP_DASHBOARD-030",
+      "BACKUP_DASHBOARD-031",
+      "BACKUP_DASHBOARD-032",
+      "BACKUP_DASHBOARD-034",
       "BACKUP_ERRORS-001",
-      "BACKUP_FUNCTIONS-000",
       "BACKUP_FUNCTIONS-001",
       "BACKUP_FUNCTIONS-002",
       "BACKUP_FUNCTIONS-003",
       "BACKUP_FUNCTIONS-004",
       "BACKUP_FUNCTIONS-005",
+      "BACKUP_FUNCTIONS-009",
       "BACKUP_FUNCTIONS-010",
       "BACKUP_FUNCTIONS-011",
       "BACKUP_FUNCTIONS-012",
       "BACKUP_FUNCTIONS-013",
       "BACKUP_FUNCTIONS-014",
       "BACKUP_FUNCTIONS-015",
+      "BACKUP_FUNCTIONS-016",
+      "BACKUP_FUNCTIONS-017",
       "BACKUP_FUNCTIONS-018",
       "BACKUP_FUNCTIONS-020",
       "BACKUP_FUNCTIONS-021",
@@ -1497,16 +2466,44 @@
       "BACKUP_FUNCTIONS-026",
       "BACKUP_FUNCTIONS-030",
       "BACKUP_FUNCTIONS-031",
-      "BACKUP_RULES-001",
-      "BACKUP_RULES-002",
+      "BACKUP_FUNCTIONS-040",
       "BACKUP_FUNCTIONS-050",
       "BACKUP_FUNCTIONS-051",
       "BACKUP_FUNCTIONS-055",
       "BACKUP_FUNCTIONS-056",
-      "BACKUP_DASHBOARD-030",
-      "BACKUP_DASHBOARD-031",
-      "BACKUP_DASHBOARD-032",
-      "BACKUP_DASHBOARD-033"
+      "BACKUP_FUNCTIONS-057",
+      "BACKUP_FUNCTIONS-058",
+      "BACKUP_FUNCTIONS-060",
+      "BACKUP_FUNCTIONS-061",
+      "BACKUP_FUNCTIONS-070",
+      "BACKUP_ADMIN_TAB-002",
+      "BACKUP_ADMIN_TAB-003",
+      "BACKUP_DASHBOARD-021",
+      "BACKUP_DASHBOARD-022",
+      "BACKUP_DASHBOARD-023",
+      "BACKUP_DASHBOARD-033",
+      "BACKUP_FUNCTIONS-000",
+      "BACKUP_FUNCTIONS-019",
+      "BACKUP_FUNCTIONS-023A",
+      "BACKUP_FUNCTIONS-023B",
+      "BACKUP_RULES-001",
+      "BACKUP_RULES-002",
+      "BACKUP_FUNCTIONS-000-v03",
+      "BACKUP_FUNCTIONS-001-v03",
+      "BACKUP_FUNCTIONS-002-v05",
+      "BACKUP_FUNCTIONS-071",
+      "BACKUP_FUNCTIONS-072",
+      "BACKUP_FUNCTIONS-080-v01",
+      "BACKUP_FUNCTIONS-081-v01",
+      "BACKUP_FUNCTIONS-082-v01",
+      "BACKUP_DASHBOARD-034-v01",
+      "BACKUP_DASHBOARD-035-v01",
+      "BACKUP_DASHBOARD-035",
+      "BACKUP_FUNCTIONS-041",
+      "BACKUP_FUNCTIONS-042",
+      "BACKUP_FUNCTIONS-080",
+      "BACKUP_FUNCTIONS-081",
+      "BACKUP_FUNCTIONS-082"
     ],
     "dashboard": [
       "BACKUP_DASHBOARD-000",
@@ -1515,6 +2512,7 @@
       "BACKUP_DASHBOARD-003",
       "BACKUP_DASHBOARD-004",
       "BACKUP_DASHBOARD-005",
+      "BACKUP_DASHBOARD-006",
       "BACKUP_DASHBOARD-007",
       "BACKUP_DASHBOARD-010",
       "BACKUP_DASHBOARD-011",
@@ -1522,13 +2520,10 @@
       "BACKUP_DASHBOARD-013",
       "BACKUP_DASHBOARD-014",
       "BACKUP_DASHBOARD-020",
-      "BACKUP_DASHBOARD-021",
-      "BACKUP_DASHBOARD-022",
-      "BACKUP_DASHBOARD-023",
       "BACKUP_DASHBOARD-030",
       "BACKUP_DASHBOARD-031",
       "BACKUP_DASHBOARD-032",
-      "BACKUP_DASHBOARD-033",
+      "BACKUP_DASHBOARD-034",
       "COMPONENT_DASHBOARD_CLIENT-000",
       "COMPONENT_DASHBOARD_CLIENT-001",
       "COMPONENT_DASHBOARD_CLIENT-002",
@@ -1537,42 +2532,61 @@
       "COMPONENT_DASHBOARD_CLIENT-005",
       "COMPONENT_DASHBOARD_CLIENT-006",
       "COMPONENT_DASHBOARD_CLIENT-007",
+      "COMPONENT_DASHBOARD_CLIENT-008",
+      "COMPONENT_DASHBOARD_CLIENT-009",
       "PAGE_DASHBOARD-000",
       "PAGE_DASHBOARD-001",
       "PAGE_DASHBOARD-002",
-      "PAGE_DASHBOARD-003"
+      "PAGE_DASHBOARD-003",
+      "DASHBOARD_HOT_NEWS_FEED-000",
+      "DASHBOARD_RESOLVED_FEEDBACK-000",
+      "BACKUP_DASHBOARD-021",
+      "BACKUP_DASHBOARD-022",
+      "BACKUP_DASHBOARD-023",
+      "BACKUP_DASHBOARD-033",
+      "PAGE_DASHBOARD-004",
+      "PAGE_DASHBOARD-005",
+      "BACKUP_DASHBOARD-034-v01",
+      "BACKUP_DASHBOARD-035-v01",
+      "BACKUP_DASHBOARD-035"
     ],
     "smoke": [
       "BACKUP_DASHBOARD-000",
       "BACKUP_DASHBOARD-004",
+      "BACKUP_DASHBOARD-006",
       "BACKUP_DASHBOARD-020",
-      "BACKUP_DASHBOARD-023",
       "BACKUP_ERRORS-001",
-      "BACKUP_FUNCTIONS-000",
       "BACKUP_FUNCTIONS-020",
       "BACKUP_FUNCTIONS-021",
       "BACKUP_FUNCTIONS-023",
       "BACKUP_FUNCTIONS-024",
       "BACKUP_FUNCTIONS-025",
-      "PROVISION_RECOVERY-020",
-      "PROVISION_RECOVERY-060",
-      "PROVISION_RECOVERY-065",
-      "PROVISION_RECOVERY-066"
+      "BACKUP_FUNCTIONS-060",
+      "BACKUP_FUNCTIONS-061",
+      "BACKUP_DASHBOARD-023",
+      "BACKUP_FUNCTIONS-000",
+      "BACKUP_FUNCTIONS-000-v03"
+    ],
+    "deadline": [
+      "BACKUP_FUNCTIONS-058",
+      "COMPONENT_DASHBOARD_CLIENT-000",
+      "COMPONENT_DASHBOARD_CLIENT-001",
+      "COMPONENT_DASHBOARD_CLIENT-004",
+      "COMPONENT_PREDICTION_EDITOR-008",
+      "LIB_DATA-000",
+      "LIB_DATA-008",
+      "API_CALCULATE_SCORES-019",
+      "CRON_WHATSAPP_SCHEDULED-000"
     ],
     "sidebar": [
       "COMPONENT_APP_SIDEBAR-000",
       "COMPONENT_APP_SIDEBAR-001",
+      "COMPONENT_APP_SIDEBAR-001B",
       "COMPONENT_APP_SIDEBAR-002",
-      "COMPONENT_APP_SIDEBAR-003"
-    ],
-    "deadline": [
-      "COMPONENT_DASHBOARD_CLIENT-001",
-      "COMPONENT_DASHBOARD_CLIENT-004",
-      "COMPONENT_PREDICTION_EDITOR-008",
-      "LIB_DATA-008"
+      "COMPONENT_APP_SIDEBAR-003",
+      "COMPONENT_APP_SIDEBAR-004"
     ],
     "firebase": [
-      "FIREBASE_PROVIDER-000",
       "FIREBASE_PROVIDER-001",
       "FIREBASE_PROVIDER-002",
       "FIREBASE_PROVIDER-003",
@@ -1614,54 +2628,49 @@
       "LIB_FIREBASE_ADMIN-002",
       "LIB_FIREBASE_ADMIN-003",
       "LIB_FIREBASE_ADMIN-004",
-      "LIB_FIREBASE_ADMIN-005"
-    ],
-    "auth": [
+      "LIB_FIREBASE_ADMIN-005",
+      "FIREBASE_STORE-000",
+      "FIREBASE_CONFIG_WORKER-000",
+      "FIREBASE_CONFIG-000",
+      "FIREBASE_INDEX-000",
+      "FIREBASE_SERVER-000",
+      "FIREBASE_CLIENT_PROVIDER-000",
       "FIREBASE_PROVIDER-000",
-      "FIREBASE_PROVIDER-001",
-      "FIREBASE_PROVIDER-002",
-      "FIREBASE_PROVIDER-003",
-      "FIREBASE_PROVIDER-004",
-      "FIREBASE_PROVIDER-005",
-      "FIREBASE_PROVIDER-006",
-      "FIREBASE_PROVIDER-007",
-      "FIREBASE_PROVIDER-008",
-      "FIREBASE_PROVIDER-009",
-      "FIREBASE_PROVIDER-010",
-      "FIREBASE_PROVIDER-011",
-      "FIREBASE_PROVIDER-012",
-      "FIREBASE_PROVIDER-013",
-      "FIREBASE_PROVIDER-014",
-      "FIREBASE_PROVIDER-015",
-      "FIREBASE_PROVIDER-016",
-      "FIREBASE_PROVIDER-017",
-      "FIREBASE_PROVIDER-018",
-      "FIREBASE_PROVIDER-019",
-      "FIREBASE_PROVIDER-020",
-      "FIREBASE_PROVIDER-021",
-      "FIREBASE_PROVIDER-022",
-      "FIREBASE_PROVIDER-023",
-      "FIREBASE_PROVIDER-024",
-      "FIREBASE_PROVIDER-025",
-      "FIREBASE_PROVIDER-026",
-      "FIREBASE_PROVIDER-027",
-      "FIREBASE_PROVIDER-028",
-      "FIREBASE_PROVIDER-029",
-      "FIREBASE_PROVIDER-030",
-      "FIREBASE_PROVIDER-031",
-      "FIREBASE_PROVIDER-032",
-      "FIREBASE_PROVIDER-050",
-      "FIREBASE_PROVIDER-051",
-      "FIREBASE_PROVIDER-060",
-      "FIREBASE_PROVIDER-061"
+      "FIREBASE_ERROR_EMITTER-000",
+      "FIREBASE_ERROR_EMITTER-001",
+      "FIREBASE_ERROR_EMITTER-002",
+      "FIREBASE_ERRORS-000",
+      "FIREBASE_ERRORS-001",
+      "FIREBASE_ERRORS-002",
+      "FIREBASE_ERRORS-003",
+      "FIREBASE_ERRORS-004",
+      "FIREBASE_NON_BLOCKING_LOGIN-000",
+      "FIREBASE_NON_BLOCKING_LOGIN-001",
+      "FIREBASE_NON_BLOCKING_LOGIN-002",
+      "FIREBASE_NON_BLOCKING_UPDATES-000",
+      "FIREBASE_NON_BLOCKING_UPDATES-001",
+      "FIREBASE_NON_BLOCKING_UPDATES-002",
+      "FIREBASE_NON_BLOCKING_UPDATES-003",
+      "COMPONENT_FIREBASE_ERROR_LISTENER-000",
+      "LIB_FIREBASE_ADMIN-000-v05",
+      "LIB_FIREBASE_ADMIN-001-v03",
+      "LIB_FIREBASE_ADMIN-002-v04",
+      "LIB_FIREBASE_ADMIN-006"
     ],
     "profile": [
+      "PAGE_COMPLETE_PROFILE-000",
+      "PAGE_COMPLETE_PROFILE-002",
+      "PAGE_COMPLETE_PROFILE-003",
+      "PAGE_COMPLETE_PROFILE-004",
+      "PAGE_COMPLETE_PROFILE-005",
+      "PAGE_COMPLETE_PROFILE-006",
       "PAGE_PROFILE-000",
       "PAGE_PROFILE-001",
       "PAGE_PROFILE-002",
       "PAGE_PROFILE-003",
       "PAGE_PROFILE-004",
       "PAGE_PROFILE-005",
+      "PAGE_COMPLETE_PROFILE-007",
       "PAGE_PROFILE-006",
       "PAGE_PROFILE-007",
       "PAGE_PROFILE-008",
@@ -1684,37 +2693,25 @@
       "PAGE_PROFILE-025",
       "PAGE_PROFILE-026",
       "PAGE_PROFILE-027",
+      "PAGE_PROFILE-028",
+      "PAGE_PROFILE-029",
+      "PAGE_PROFILE-030",
+      "PAGE_PROFILE-031",
       "PAGE_PROFILE-040",
       "PAGE_PROFILE-041",
-      "PAGE_PROFILE-042"
-    ],
-    "schedule": [
-      "PAGE_SCHEDULE-000",
-      "PAGE_SCHEDULE-001",
-      "PAGE_SCHEDULE-002"
-    ],
-    "recovery": [
-      "PROVISION_RECOVERY-000",
-      "PROVISION_RECOVERY-001",
-      "PROVISION_RECOVERY-002",
-      "PROVISION_RECOVERY-003",
-      "PROVISION_RECOVERY-010",
-      "PROVISION_RECOVERY-020",
-      "PROVISION_RECOVERY-021",
-      "PROVISION_RECOVERY-030",
-      "PROVISION_RECOVERY-040",
-      "PROVISION_RECOVERY-050",
-      "PROVISION_RECOVERY-060",
-      "PROVISION_RECOVERY-061",
-      "PROVISION_RECOVERY-062",
-      "PROVISION_RECOVERY-063",
-      "PROVISION_RECOVERY-064",
-      "PROVISION_RECOVERY-065",
-      "PROVISION_RECOVERY-066",
-      "PROVISION_RECOVERY-070"
+      "PAGE_PROFILE-042",
+      "PAGE_PROFILE-043",
+      "PAGE_COMPLETE_PROFILE-005b",
+      "PAGE_COMPLETE_PROFILE-005c"
     ]
   },
   "byModule": {
+    "RACE_SCHEDULE_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
     "ADMIN_ATTACK_MONITOR": {
       "files": [
         "app/src/app/(app)/admin/_components/AttackMonitor.tsx"
@@ -1746,6 +2743,12 @@
       "errorCodes": []
     },
     "ADMIN_ERRORLOG": {
+      "files": [
+        "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_ERRORLOG-001a": {
       "files": [
         "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx"
       ],
@@ -1823,15 +2826,45 @@
       ],
       "errorCodes": []
     },
+    "API_ADMIN_FETCH_TIMING_DATA": {
+      "files": [
+        "app/src/app/api/admin/fetch-timing-data/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_OPENF1_SESSIONS": {
+      "files": [
+        "app/src/app/api/admin/openf1-sessions/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_PREDICTION_COUNT": {
+      "files": [
+        "app/src/app/api/admin/prediction-count/route.ts"
+      ],
+      "errorCodes": []
+    },
     "API_ADMIN_UPDATE_USER": {
       "files": [
         "app/src/app/api/admin/update-user/route.ts"
       ],
       "errorCodes": []
     },
+    "API_ADMIN_SINGLE_USER_MODE": {
+      "files": [
+        "app/src/app/api/admin/single-user-mode/route.ts"
+      ],
+      "errorCodes": []
+    },
     "API_AI_ANALYSIS": {
       "files": [
         "app/src/app/api/ai/analysis/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_AUTH_COMPLETE_OAUTH": {
+      "files": [
+        "app/src/app/api/auth/complete-oauth-profile/route.ts"
       ],
       "errorCodes": []
     },
@@ -1870,7 +2903,9 @@
         "app/src/app/api/auth/signup/route.ts"
       ],
       "errorCodes": [
-        "PX-1008"
+        "PX-1008",
+        "PX-2102",
+        "PX-2103"
       ]
     },
     "API_CALCULATE_SCORES": {
@@ -1897,6 +2932,12 @@
       ],
       "errorCodes": []
     },
+    "API_LEAGUE_JOIN": {
+      "files": [
+        "app/src/app/api/leagues/join-by-code/route.ts"
+      ],
+      "errorCodes": []
+    },
     "API_LOG_CLIENT_ERROR": {
       "files": [
         "app/src/app/api/log-client-error/route.ts"
@@ -1911,7 +2952,31 @@
       ],
       "errorCodes": []
     },
+    "API_SEND_HOT_NEWS_EMAIL-001B": {
+      "files": [
+        "app/src/app/api/send-hot-news-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_HOT_NEWS_EMAIL-005B": {
+      "files": [
+        "app/src/app/api/send-hot-news-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_PROVIDER_LINKED_EMAIL": {
+      "files": [
+        "app/src/app/api/send-provider-linked-email/route.ts"
+      ],
+      "errorCodes": []
+    },
     "API_SEND_RESULTS_EMAIL": {
+      "files": [
+        "app/src/app/api/send-results-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_RESULTS_EMAIL-001B": {
       "files": [
         "app/src/app/api/send-results-email/route.ts"
       ],
@@ -1941,6 +3006,12 @@
       ],
       "errorCodes": []
     },
+    "API_TEAM_NAME_SUGGESTIONS": {
+      "files": [
+        "app/src/app/api/team-name-suggestions/route.ts"
+      ],
+      "errorCodes": []
+    },
     "API_UPDATE_SECONDARY_EMAIL": {
       "files": [
         "app/src/app/api/update-secondary-email/route.ts"
@@ -1967,7 +3038,7 @@
     },
     "BACKUP_ADMIN_TAB": {
       "files": [
-        "app/src/app/(app)/admin/page.tsx"
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
       ],
       "errorCodes": []
     },
@@ -2001,14 +3072,7 @@
     },
     "BACKUP_FUNCTIONS": {
       "files": [
-        "functions/src/index.ts",
         "functions/index.js"
-      ],
-      "errorCodes": []
-    },
-    "BACKUP_RULES": {
-      "files": [
-        "firestore.rules"
       ],
       "errorCodes": []
     },
@@ -2018,9 +3082,21 @@
       ],
       "errorCodes": []
     },
+    "COMPONENT_APP_SIDEBAR-001B": {
+      "files": [
+        "app/src/components/layout/AppSidebar.tsx"
+      ],
+      "errorCodes": []
+    },
     "COMPONENT_CINEMATIC_INTRO": {
       "files": [
         "app/src/app/(app)/about/_components/CinematicIntro.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_CONVERSION_BANNER": {
+      "files": [
+        "app/src/components/ConversionBanner.tsx"
       ],
       "errorCodes": []
     },
@@ -2036,15 +3112,45 @@
       ],
       "errorCodes": []
     },
+    "COMPONENT_OAUTH_ICONS": {
+      "files": [
+        "app/src/components/icons/OAuthIcons.tsx"
+      ],
+      "errorCodes": []
+    },
     "COMPONENT_PREDICTION_EDITOR": {
       "files": [
         "app/src/app/(app)/predictions/_components/PredictionEditor.tsx"
       ],
       "errorCodes": []
     },
+    "COMPONENT_SECURITY_UPGRADE": {
+      "files": [
+        "app/src/components/SecurityUpgradeCard.tsx"
+      ],
+      "errorCodes": []
+    },
     "COMPONENT_VERSION_HISTORY": {
       "files": [
         "app/src/app/(app)/about/dev/_components/VersionHistory.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_WELCOME_CTA": {
+      "files": [
+        "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ERROR_REGISTRY_CLIENT": {
+      "files": [
+        "app/src/lib/error-registry-client.ts"
+      ],
+      "errorCodes": []
+    },
+    "FEATURE_ACCOUNT_LINKER": {
+      "files": [
+        "app/src/features/auth/AccountLinker.ts"
       ],
       "errorCodes": []
     },
@@ -2078,7 +3184,9 @@
       "files": [
         "app/src/lib/audit.ts"
       ],
-      "errorCodes": []
+      "errorCodes": [
+        "PX-8101"
+      ]
     },
     "LIB_CONSISTENCY": {
       "files": [
@@ -2086,7 +3194,25 @@
       ],
       "errorCodes": []
     },
+    "LIB_CSRF": {
+      "files": [
+        "app/src/lib/csrf-protection.ts"
+      ],
+      "errorCodes": []
+    },
     "LIB_DATA": {
+      "files": [
+        "app/src/lib/data.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_DATA-001A": {
+      "files": [
+        "app/src/lib/data.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_DATA-002A": {
       "files": [
         "app/src/lib/data.ts"
       ],
@@ -2157,7 +3283,8 @@
         "PX-5009",
         "PX-6001",
         "PX-6002",
-        "PX-6003"
+        "PX-6003",
+        "PX-3102"
       ]
     },
     "LIB_FILE_UPLOAD": {
@@ -2190,6 +3317,12 @@
       ],
       "errorCodes": []
     },
+    "LIB_RESULTS_UTILS": {
+      "files": [
+        "app/src/lib/results-utils.tsx"
+      ],
+      "errorCodes": []
+    },
     "LIB_SCORING": {
       "files": [
         "app/src/lib/scoring.ts"
@@ -2208,6 +3341,18 @@
       ],
       "errorCodes": []
     },
+    "LIB_TEAM_NAME_SUGGESTIONS": {
+      "files": [
+        "app/src/lib/team-name-suggestions.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_TRACED_ERROR": {
+      "files": [
+        "app/src/lib/traced-error.ts"
+      ],
+      "errorCodes": []
+    },
     "LIB_UTILS": {
       "files": [
         "app/src/lib/utils.ts"
@@ -2220,12 +3365,6 @@
       ],
       "errorCodes": []
     },
-    "LOGON_RULES": {
-      "files": [
-        "app/src/firestore.rules"
-      ],
-      "errorCodes": []
-    },
     "PAGE_ABOUT": {
       "files": [
         "app/src/app/(app)/about/page.tsx"
@@ -2234,13 +3373,19 @@
     },
     "PAGE_ADMIN": {
       "files": [
-        "app/src/app/(app)/admin/page.tsx"
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
       ],
       "errorCodes": []
     },
     "PAGE_AUDIT": {
       "files": [
         "app/src/app/(app)/audit/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_COMPLETE_PROFILE": {
+      "files": [
+        "app/src/app/(auth)/complete-profile/page.tsx"
       ],
       "errorCodes": []
     },
@@ -2264,6 +3409,12 @@
         "PX-9001"
       ]
     },
+    "PAGE_LEAGUES": {
+      "files": [
+        "app/src/app/(app)/leagues/page.tsx"
+      ],
+      "errorCodes": []
+    },
     "PAGE_LEAGUE_DETAIL": {
       "files": [
         "app/src/app/(app)/leagues/[leagueId]/page.tsx"
@@ -2273,15 +3424,21 @@
         "PX-9001"
       ]
     },
-    "PAGE_LEAGUES": {
-      "files": [
-        "app/src/app/(app)/leagues/page.tsx"
-      ],
-      "errorCodes": []
-    },
     "PAGE_LOGIN": {
       "files": [
         "app/src/app/(auth)/login/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_MY_RESULTS": {
+      "files": [
+        "app/src/app/(app)/my-results/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ONBOARDING": {
+      "files": [
+        "app/src/app/(app)/onboarding/page.tsx"
       ],
       "errorCodes": []
     },
@@ -2325,18 +3482,14 @@
       "files": [
         "app/src/app/(auth)/signup/page.tsx"
       ],
-      "errorCodes": [
-        "PX-9001"
-      ]
+      "errorCodes": []
     },
     "PAGE_STANDINGS": {
       "files": [
         "app/src/app/(app)/standings/page.tsx"
       ],
       "errorCodes": [
-        "PX-9001",
-        "PX-4004",
-        "PX-1001"
+        "PX-5011"
       ]
     },
     "PAGE_SUBMISSIONS": {
@@ -2353,11 +3506,7 @@
       "files": [
         "app/src/app/(app)/teams/page.tsx"
       ],
-      "errorCodes": [
-        "PX-4004",
-        "PX-1001",
-        "PX-9001"
-      ]
+      "errorCodes": []
     },
     "PAGE_VERIFY_EMAIL": {
       "files": [
@@ -2371,15 +3520,9 @@
       ],
       "errorCodes": []
     },
-    "PROVISION_RECOVERY": {
-      "files": [
-        "provision_recovery_env.sh"
-      ],
-      "errorCodes": []
-    },
     "PUBCHAT_ADMIN_TAB": {
       "files": [
-        "app/src/app/(app)/admin/page.tsx"
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
       ],
       "errorCodes": []
     },
@@ -2389,19 +3532,11 @@
       ],
       "errorCodes": []
     },
-    "COMPONENT_WELCOME_CTA": {
+    "SERVICE_AUTH_OAUTH": {
       "files": [
-        "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx"
+        "app/src/services/authService.ts"
       ],
       "errorCodes": []
-    },
-    "PAGE_ONBOARDING": {
-      "files": [
-        "app/src/app/(app)/onboarding/page.tsx"
-      ],
-      "errorCodes": [
-        "0"
-      ]
     },
     "SESSION_FUNCTIONS": {
       "files": [
@@ -2410,9 +3545,1842 @@
       "errorCodes": [
         "PX-6006"
       ]
+    },
+    "TYPES_ERRORS": {
+      "files": [
+        "app/src/types/errors.ts"
+      ],
+      "errorCodes": []
+    },
+    "WHATSAPP_WORKER_INDEX": {
+      "files": [
+        "whatsapp-worker/src/index.ts"
+      ],
+      "errorCodes": []
+    },
+    "WHATSAPP_CLIENT": {
+      "files": [
+        "whatsapp-worker/src/whatsapp-client.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_STORE": {
+      "files": [
+        "whatsapp-worker/src/firebase-store.ts"
+      ],
+      "errorCodes": []
+    },
+    "AZURE_STORE": {
+      "files": [
+        "whatsapp-worker/src/azure-store.ts"
+      ],
+      "errorCodes": []
+    },
+    "QUEUE_PROCESSOR": {
+      "files": [
+        "whatsapp-worker/src/queue-processor.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_CONFIG_WORKER": {
+      "files": [
+        "whatsapp-worker/src/firebase-config.ts"
+      ],
+      "errorCodes": []
+    },
+    "WHATSAPP_WORKER_TYPES": {
+      "files": [
+        "whatsapp-worker/src/types.d.ts"
+      ],
+      "errorCodes": []
+    },
+    "DND_PREDICTION_WRAPPER": {
+      "files": [
+        "app/src/app/(app)/predictions/_components/DndPredictionWrapper.tsx"
+      ],
+      "errorCodes": []
+    },
+    "DRAGGABLE_DRIVER": {
+      "files": [
+        "app/src/app/(app)/predictions/_components/DraggableDriver.tsx"
+      ],
+      "errorCodes": []
+    },
+    "DRAG_OVERLAY_CONTENT": {
+      "files": [
+        "app/src/app/(app)/predictions/_components/DragOverlayContent.tsx"
+      ],
+      "errorCodes": []
+    },
+    "DROPPABLE_GRID_SLOT": {
+      "files": [
+        "app/src/app/(app)/predictions/_components/DroppableGridSlot.tsx"
+      ],
+      "errorCodes": []
+    },
+    "DROPPABLE_POOL_ZONE": {
+      "files": [
+        "app/src/app/(app)/predictions/_components/DroppablePoolZone.tsx"
+      ],
+      "errorCodes": []
+    },
+    "MIDDLEWARE": {
+      "files": [
+        "app/src/proxy.ts"
+      ],
+      "errorCodes": []
+    },
+    "ROOT_LAYOUT": {
+      "files": [
+        "app/src/app/layout.tsx"
+      ],
+      "errorCodes": []
+    },
+    "APP_LAYOUT": {
+      "files": [
+        "app/src/app/(app)/layout.tsx",
+        "app/src/app/layout.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ROOT_ERROR": {
+      "files": [
+        "app/src/app/error.tsx"
+      ],
+      "errorCodes": []
+    },
+    "GLOBAL_ERROR": {
+      "files": [
+        "app/src/app/global-error.tsx"
+      ],
+      "errorCodes": []
+    },
+    "APP_ERROR": {
+      "files": [
+        "app/src/app/(app)/error.tsx"
+      ],
+      "errorCodes": []
+    },
+    "AUTH_ERROR": {
+      "files": [
+        "app/src/app/(auth)/error.tsx"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_CONFIG": {
+      "files": [
+        "app/src/firebase/config.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_INDEX": {
+      "files": [
+        "app/src/firebase/index.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_SERVER": {
+      "files": [
+        "app/src/firebase/server.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_CLIENT_PROVIDER": {
+      "files": [
+        "app/src/firebase/client-provider.tsx"
+      ],
+      "errorCodes": []
+    },
+    "USE_COLLECTION": {
+      "files": [
+        "app/src/firebase/firestore/use-collection.tsx"
+      ],
+      "errorCodes": []
+    },
+    "USE_DOC": {
+      "files": [
+        "app/src/firebase/firestore/use-doc.tsx"
+      ],
+      "errorCodes": []
+    },
+    "FIRESTORE_SETTINGS": {
+      "files": [
+        "app/src/firebase/firestore/settings.ts"
+      ],
+      "errorCodes": []
+    },
+    "SESSION_CONTEXT": {
+      "files": [
+        "app/src/contexts/session-context.tsx"
+      ],
+      "errorCodes": []
+    },
+    "LEAGUE_CONTEXT": {
+      "files": [
+        "app/src/contexts/league-context.tsx"
+      ],
+      "errorCodes": []
+    },
+    "AI_GENKIT": {
+      "files": [
+        "app/src/ai/genkit.ts"
+      ],
+      "errorCodes": []
+    },
+    "ERROR_REGISTRY": {
+      "files": [
+        "app/src/lib/error-registry.ts"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_CHUNK_ERROR_HANDLER": {
+      "files": [
+        "app/src/components/ChunkErrorHandler.tsx"
+      ],
+      "errorCodes": []
+    },
+    "SCRIPT_MIGRATE_MASK_PINS": {
+      "files": [
+        "app/scripts/migrate-mask-pins.ts"
+      ],
+      "errorCodes": []
+    },
+    "SCRIPT_ROLLBACK_MASK_PINS": {
+      "files": [
+        "app/scripts/rollback-mask-pins.ts"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_BOOKOFWORK": {
+      "files": [
+        "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "FUNC_PUB_CHAT_UPDATER": {
+      "files": [
+        "functions-python/pub_chat_updater/main.py",
+        "functions-python/pub_chat_updater/requirements.txt",
+        "functions-python/pub_chat_updater/.gcloudignore"
+      ],
+      "errorCodes": []
+    },
+    "SCHEDULED_TRIGGER_HOURLY": {
+      "files": [],
+      "errorCodes": []
+    },
+    "API_ADMIN_SITE_FUNCTIONS": {
+      "files": [
+        "app/src/app/api/admin/update-site-functions/route.ts"
+      ],
+      "errorCodes": [
+        "PX-2012"
+      ]
+    },
+    "LIB_CONSISTENCY-013B": {
+      "files": [
+        "app/src/lib/consistency.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CONSISTENCY-027B": {
+      "files": [
+        "app/src/lib/consistency.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_EMAIL-000A": {
+      "files": [
+        "app/src/lib/email.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_EMAIL-005a": {
+      "files": [
+        "app/src/lib/email.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_HEALTH": {
+      "files": [
+        "app/src/app/api/health/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_EMAIL_HEALTH": {
+      "files": [
+        "app/src/app/api/admin/email/health/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "VALIDATION": {
+      "files": [
+        "app/src/lib/validation.ts"
+      ],
+      "errorCodes": []
+    },
+    "VALIDATION-HOTLINK": {
+      "files": [
+        "app/src/lib/validation.ts"
+      ],
+      "errorCodes": []
+    },
+    "VALIDATION-CHALLENGE": {
+      "files": [
+        "app/src/lib/validation.ts"
+      ],
+      "errorCodes": []
+    },
+    "VALIDATION-EMAIL": {
+      "files": [
+        "app/src/lib/validation.ts"
+      ],
+      "errorCodes": []
+    },
+    "VALIDATION-TOKEN": {
+      "files": [
+        "app/src/lib/validation.ts"
+      ],
+      "errorCodes": []
+    },
+    "VALIDATION-RATELIMIT": {
+      "files": [
+        "app/src/lib/validation.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_TYPES_LEAGUE": {
+      "files": [
+        "app/src/lib/types/league.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_ACK_ATTACK": {
+      "files": [
+        "app/src/app/api/admin/acknowledge-attack/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_RESOLVE": {
+      "files": [
+        "app/src/app/api/admin/resolve-error/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_UNLOCK": {
+      "files": [
+        "app/src/app/api/admin/unlock-account/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_VERIFY_ACCESS": {
+      "files": [
+        "app/src/app/api/admin/verify-access/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_WHATSAPP_HEALTH": {
+      "files": [
+        "app/src/app/api/admin/whatsapp/health/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_OPENF1_DRIVERS": {
+      "files": [
+        "app/src/app/api/admin/openf1-drivers/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_OPENF1_LOCATION": {
+      "files": [
+        "app/src/app/api/admin/openf1-location/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_HOT_NEWS": {
+      "files": [
+        "app/src/app/api/admin/update-hot-news/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_FEEDBACK_FORM": {
+      "files": [
+        "app/src/app/(app)/dashboard/_components/FeedbackForm.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_AUTH_ADMIN_CHALLENGE": {
+      "files": [
+        "app/src/app/api/auth/admin-challenge/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "UI_TOOLTIP": {
+      "files": [
+        "app/src/components/ui/tooltip.tsx"
+      ],
+      "errorCodes": []
+    },
+    "HOT_NEWS_FLOW": {
+      "files": [
+        "app/src/ai/flows/hot-news-feed.ts"
+      ],
+      "errorCodes": []
+    },
+    "CRON_HOT_NEWS": {
+      "files": [
+        "app/src/app/api/cron/refresh-hot-news/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_ERROR_EMITTER": {
+      "files": [
+        "app/src/firebase/error-emitter.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_ERRORS": {
+      "files": [
+        "app/src/firebase/errors.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_NON_BLOCKING_LOGIN": {
+      "files": [
+        "app/src/firebase/non-blocking-login.tsx"
+      ],
+      "errorCodes": []
+    },
+    "FIREBASE_NON_BLOCKING_UPDATES": {
+      "files": [
+        "app/src/firebase/non-blocking-updates.tsx"
+      ],
+      "errorCodes": []
+    },
+    "HOOK_USE_ERROR_COPY": {
+      "files": [
+        "app/src/hooks/use-error-copy.ts"
+      ],
+      "errorCodes": []
+    },
+    "HOOK_USE_MOBILE": {
+      "files": [
+        "app/src/hooks/use-mobile.tsx"
+      ],
+      "errorCodes": []
+    },
+    "HOOK_USE_TOAST": {
+      "files": [
+        "app/src/hooks/use-toast.ts"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_FIREBASE_ERROR_LISTENER": {
+      "files": [
+        "app/src/components/FirebaseErrorListener.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_LOGO": {
+      "files": [
+        "app/src/components/Logo.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_PRE_SEASON_BANNER": {
+      "files": [
+        "app/src/components/PreSeasonBanner.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_PUB_CHAT": {
+      "files": [
+        "app/src/components/ThePaddockPubChat.tsx"
+      ],
+      "errorCodes": []
+    },
+    "AI_DEV": {
+      "files": [
+        "app/src/ai/dev.ts"
+      ],
+      "errorCodes": []
+    },
+    "AI_DYNAMIC_DRIVERS": {
+      "files": [
+        "app/src/ai/flows/dynamic-driver-updates.ts"
+      ],
+      "errorCodes": []
+    },
+    "AI_TEAM_NAME_GENERATOR": {
+      "files": [
+        "app/src/ai/flows/team-name-generator.ts"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ADMIN_VERIFY": {
+      "files": [
+        "app/src/app/(app)/admin/verify/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "DASHBOARD_HOT_NEWS_FEED": {
+      "files": [
+        "app/src/app/(app)/dashboard/_components/HotNewsFeed.tsx"
+      ],
+      "errorCodes": []
+    },
+    "DASHBOARD_RESOLVED_FEEDBACK": {
+      "files": [
+        "app/src/app/(app)/dashboard/_components/ResolvedFeedbackNotifier.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_LEAGUE_SELECTOR": {
+      "files": [
+        "app/src/components/league/LeagueSelector.tsx"
+      ],
+      "errorCodes": []
+    },
+    "TYPES_BOOKOFWORK": {
+      "files": [
+        "app/src/lib/types/book-of-work.ts"
+      ],
+      "errorCodes": []
+    },
+    "TYPES_BOOKOFWORK-004A": {
+      "files": [
+        "app/src/lib/types/book-of-work.ts"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_BOOKOFWORK-004A": {
+      "files": [
+        "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_HOTLINK_CLEANUP": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_HOTLINK_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_INTERFACE_HEALTH": {
+      "files": [
+        "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_VERIFICATION_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "API_ACCOUNT_CLOSE": {
+      "files": [
+        "app/src/app/api/account/close/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_EMAIL_QUEUE-001A": {
+      "files": [
+        "app/src/app/api/email-queue/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_LEAGUE_DELETE": {
+      "files": [
+        "app/src/app/api/leagues/delete/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_HOT_NEWS_EMAIL-001A": {
+      "files": [
+        "app/src/app/api/send-hot-news-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_HOT_NEWS_EMAIL-005A": {
+      "files": [
+        "app/src/app/api/send-hot-news-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_PROVIDER_LINKED_EMAIL-001A": {
+      "files": [
+        "app/src/app/api/send-provider-linked-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_RESULTS_EMAIL-001C": {
+      "files": [
+        "app/src/app/api/send-results-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "AUDIT_LOG_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_FUNCTIONS-023A": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_FUNCTIONS-023B": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_FEEDBACK_LINK": {
+      "files": [
+        "app/src/app/(app)/dashboard/_components/FeedbackLink.tsx"
+      ],
+      "errorCodes": []
+    },
+    "FIRESTORE_BOOKOFWORK": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "FS_OFFICIAL_TEAMS": {
+      "files": [
+        "app/src/firebase/firestore/official-teams.ts"
+      ],
+      "errorCodes": []
+    },
+    "LEAGUE_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "LIB_RACE_SCHEDULE_SERVER": {
+      "files": [
+        "app/src/lib/race-schedule-server.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_SECRETS_MANAGER": {
+      "files": [
+        "app/src/lib/secrets-manager.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIVE_TRACK_VIZ": {
+      "files": [
+        "app/src/components/LiveTrackVisualization.tsx"
+      ],
+      "errorCodes": []
+    },
+    "LOGON_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ADMIN_SERVER": {
+      "files": [
+        "app/src/app/(app)/admin/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_GLOBAL_ERROR": {
+      "files": [
+        "app/src/app/global-error.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_RESULTS-025A": {
+      "files": [
+        "app/src/app/(app)/results/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_RESULTS-025B": {
+      "files": [
+        "app/src/app/(app)/results/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "TEAM_NAMES_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "USER_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "WHATSAPP_WORKER": {
+      "files": [
+        "whatsapp-worker/src/index.ts"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_PIT_LANE": {
+      "files": [
+        "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_AI_PIT_CHATTER": {
+      "files": [
+        "app/src/app/api/ai/pit-chatter/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_LIVE_REFRESH_TIMING": {
+      "files": [
+        "app/src/app/api/live/refresh-timing/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_LIVE_TIMING_CLIENT": {
+      "files": [
+        "app/src/app/(app)/live/_components/LiveTimingClient.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-000-v06": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-001-v03": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-002-v06": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-002A": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-002B": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-002C": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-002D": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-003-v03": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-004-v03": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-005-v04": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-006-v03": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-007-v03": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-008-v03": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-009A": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_TEAM-009-v06": {
+      "files": [
+        "app/src/app/(app)/admin/_components/TeamManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_PIT_LANE": {
+      "files": [
+        "app/src/app/api/admin/pit-lane/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "CRON_EMAIL_QUEUE": {
+      "files": [
+        "app/src/app/api/cron/process-email-queue/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_LIVE": {
+      "files": [
+        "app/src/app/(app)/live/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_RESEND_WELCOME": {
+      "files": [
+        "app/src/app/api/admin/resend-welcome-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_NOTIFY_PIN_CHANGED": {
+      "files": [
+        "app/src/app/api/auth/notify-pin-changed/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER-000-v03": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER-001-v02": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER-002-v02": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER-003-v02": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER-004-v03": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER-005-v03": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER-006-v02": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_GLOBAL_ERROR_LOGGER-007-v01": {
+      "files": [
+        "app/src/components/GlobalErrorLogger.tsx"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_NEW_VERSION_BANNER": {
+      "files": [
+        "app/src/components/NewVersionBanner.tsx"
+      ],
+      "errorCodes": []
+    },
+    "HOOK_VERSION_CHECK": {
+      "files": [
+        "app/src/hooks/use-version-check.ts"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_GLOBAL_ERROR-000-v02": {
+      "files": [
+        "app/src/app/global-error.tsx"
+      ],
+      "errorCodes": []
+    },
+    "GLOBAL_ERROR-000-v03": {
+      "files": [
+        "app/src/app/global-error.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PUBCHAT_PANEL-010-v02": {
+      "files": [
+        "app/src/app/(app)/admin/_components/PubChatPanel.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PUBCHAT_PANEL-011-v02": {
+      "files": [
+        "app/src/app/(app)/admin/_components/PubChatPanel.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_VERIFICATION_EMAIL-000-v05": {
+      "files": [
+        "app/src/app/api/send-verification-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_VERIFICATION_EMAIL-001-v03": {
+      "files": [
+        "app/src/app/api/send-verification-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_VERIFICATION_EMAIL-002-v06": {
+      "files": [
+        "app/src/app/api/send-verification-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SUBMIT_PREDICTION-000-v06": {
+      "files": [
+        "app/src/app/api/submit-prediction/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_VERSION": {
+      "files": [
+        "app/src/app/api/version/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_FUNCTIONS-000-v03": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_FUNCTIONS-001-v03": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_FUNCTIONS-002-v05": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "LIB_FIREBASE_ADMIN-000-v05": {
+      "files": [
+        "app/src/lib/firebase-admin.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_FIREBASE_ADMIN-001-v03": {
+      "files": [
+        "app/src/lib/firebase-admin.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_FIREBASE_ADMIN-002-v04": {
+      "files": [
+        "app/src/lib/firebase-admin.ts"
+      ],
+      "errorCodes": []
+    },
+    "FIRESTORE_BOOKOFWORK-001-v01": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_PREDICTIONS-000-v05": {
+      "files": [
+        "app/src/app/(app)/predictions/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_SCHEDULE-000-v03": {
+      "files": [
+        "app/src/app/(app)/schedule/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_SCHEDULE-001-v03": {
+      "files": [
+        "app/src/app/(app)/schedule/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_SIGNUP-000-v07": {
+      "files": [
+        "app/src/app/(auth)/signup/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_SUBMIT_PREDICTION-004B": {
+      "files": [
+        "app/src/app/api/submit-prediction/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "OFFICIAL_TEAMS_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_PREDICTIONS-002A": {
+      "files": [
+        "app/src/app/(app)/predictions/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PUBCHAT_PANEL-002A": {
+      "files": [
+        "app/src/app/(app)/admin/_components/PubChatPanel.tsx"
+      ],
+      "errorCodes": []
+    },
+    "CRON_SYNC_SESSION_TIMES": {
+      "files": [
+        "app/src/app/api/cron/sync-session-times/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_TYPES": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_COLUMNS": {
+      "files": [],
+      "errorCodes": []
+    },
+    "PIT_WALL_SETTINGS_HOOK": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_RADIO_HOOK": {
+      "files": [],
+      "errorCodes": []
+    },
+    "PIT_WALL_INTERP_HOOK": {
+      "files": [],
+      "errorCodes": []
+    },
+    "PIT_WALL_DATA_HOOK": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_PIT_WALL_LIVE_DATA": {
+      "files": [
+        "app/src/app/api/pit-wall/live-data/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_PIT_WALL_RAINVIEWER": {
+      "files": [],
+      "errorCodes": []
+    },
+    "ROLLING_LAP_TIME": {
+      "files": [],
+      "errorCodes": []
+    },
+    "TYRE_BADGE": {
+      "files": [],
+      "errorCodes": []
+    },
+    "DELTA_INDICATOR": {
+      "files": [],
+      "errorCodes": []
+    },
+    "RADIO_ICON": {
+      "files": [],
+      "errorCodes": []
+    },
+    "UPDATE_SPEED_SLIDER": {
+      "files": [],
+      "errorCodes": []
+    },
+    "COLUMN_SELECTOR": {
+      "files": [],
+      "errorCodes": []
+    },
+    "WEATHER_STRIP": {
+      "files": [],
+      "errorCodes": []
+    },
+    "FIA_RACE_CONTROL_FEED": {
+      "files": [],
+      "errorCodes": []
+    },
+    "PIT_WALL_TRACK_MAP": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_RACE_TABLE": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx"
+      ],
+      "errorCodes": []
+    },
+    "RADIO_ZOOM_PANEL": {
+      "files": [],
+      "errorCodes": []
+    },
+    "PAGE_PIT_WALL": {
+      "files": [],
+      "errorCodes": []
+    },
+    "PIT_WALL_CLIENT": {
+      "files": [
+        "app/src/app/(app)/pit-wall/PitWallClient.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_ERRORS": {
+      "files": [
+        "app/src/lib/error-registry.ts"
+      ],
+      "errorCodes": [
+        "PX-3301",
+        "PX-3302",
+        "PX-3303",
+        "PX-3304",
+        "PX-3305",
+        "PX-3306",
+        "PX-3307",
+        "PX-3308",
+        "PX-3309",
+        "PX-3310",
+        "PX-3311",
+        "PX-3312",
+        "PX-3320",
+        "PX-3313",
+        "PX-3314",
+        "PX-3315",
+        "PX-3316",
+        "PX-3317",
+        "PX-3318",
+        "PX-3319",
+        "PX-3321"
+      ]
+    },
+    "SHOWREEL_TYPES": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_types/showreel.types.ts"
+      ],
+      "errorCodes": []
+    },
+    "SHOWREEL_SCHEDULER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_utils/showreel-scheduler.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_PIT_WALL_HISTORICAL_SESSIONS": {
+      "files": [
+        "app/src/app/api/pit-wall/historical-sessions/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_PIT_WALL_HISTORICAL_REPLAY": {
+      "files": [
+        "app/src/app/api/pit-wall/historical-replay/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "PRE_RACE_MODE_HOOK": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_hooks/usePreRaceMode.ts"
+      ],
+      "errorCodes": []
+    },
+    "HISTORICAL_REPLAY_HOOK": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_hooks/useHistoricalReplay.ts"
+      ],
+      "errorCodes": []
+    },
+    "PRE_RACE_WARMUP_BANNER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/PreRaceWarmupBanner.tsx"
+      ],
+      "errorCodes": []
+    },
+    "SHOWREEL_SPLASH": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/ShowreelSplash.tsx"
+      ],
+      "errorCodes": []
+    },
+    "RACE_SELECTOR": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/RaceSelector.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_WORKER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/pit-wall.worker.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_LOADING": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/PitWallLoadingScreen.tsx"
+      ],
+      "errorCodes": []
+    },
+    "REPLAY_CONTROLS": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx"
+      ],
+      "errorCodes": []
+    },
+    "REPLAY_PLAYER_HOOK": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts"
+      ],
+      "errorCodes": []
+    },
+    "REPLAY_TYPES": {
+      "files": [],
+      "errorCodes": []
+    },
+    "API_REPLAY_SESSIONS": {
+      "files": [
+        "app/src/app/api/pit-wall/replay-sessions/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "SCRIPT_INGEST_REPLAY": {
+      "files": [],
+      "errorCodes": []
+    },
+    "REPLAY_STORAGE_RULES": {
+      "files": [
+        "app/storage.rules"
+      ],
+      "errorCodes": []
+    },
+    "REPLAY_SESSIONS_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "LIB_PITWALL_METRICS": {
+      "files": [
+        "app/src/lib/pit-wall-metrics.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_PITWALL_CACHE": {
+      "files": [
+        "app/src/lib/pit-wall-cache.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_PITWALL_HEALTH": {
+      "files": [
+        "app/src/app/api/admin/pit-wall-health/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_PITWALL": {
+      "files": [
+        "app/src/app/(app)/admin/_components/PitWallManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CUMULATIVE_STANDINGS-000-v02": {
+      "files": [
+        "app/src/lib/cumulative-standings.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CUMULATIVE_STANDINGS-001-v02": {
+      "files": [
+        "app/src/lib/cumulative-standings.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CUMULATIVE_STANDINGS-002-v02": {
+      "files": [
+        "app/src/lib/cumulative-standings.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CUMULATIVE_STANDINGS-003-v01": {
+      "files": [
+        "app/src/lib/cumulative-standings.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CUMULATIVE_STANDINGS-004-v02": {
+      "files": [
+        "app/src/lib/cumulative-standings.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CUMULATIVE_STANDINGS-005-v02": {
+      "files": [
+        "app/src/lib/cumulative-standings.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CUMULATIVE_STANDINGS-006-v01": {
+      "files": [
+        "app/src/lib/cumulative-standings.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_STANDINGS-000-v01": {
+      "files": [
+        "app/src/app/api/standings/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_STANDINGS-001-v01": {
+      "files": [
+        "app/src/app/api/standings/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_STANDINGS-002-v01": {
+      "files": [
+        "app/src/app/api/standings/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_HEALTH_STANDINGS-000-v01": {
+      "files": [
+        "app/src/app/api/admin/health/standings/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_HEALTH_STANDINGS-001-v01": {
+      "files": [
+        "app/src/app/api/admin/health/standings/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_HEALTH_STANDINGS-002-v01": {
+      "files": [
+        "app/src/app/api/admin/health/standings/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_INTERFACE_HEALTH-006-v01": {
+      "files": [
+        "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_INTERFACE_HEALTH-007-v01": {
+      "files": [
+        "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_INTERFACE_HEALTH-008-v01": {
+      "files": [
+        "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_ERRORLOG-000B-v01": {
+      "files": [
+        "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_FUNCTIONS-080-v01": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_FUNCTIONS-081-v01": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_FUNCTIONS-082-v01": {
+      "files": [
+        "functions/index.js"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_DASHBOARD-034-v01": {
+      "files": [
+        "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx"
+      ],
+      "errorCodes": []
+    },
+    "BACKUP_DASHBOARD-035-v01": {
+      "files": [
+        "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx"
+      ],
+      "errorCodes": []
+    },
+    "LIB_RATE_LIMIT": {
+      "files": [
+        "app/src/lib/rate-limit.ts"
+      ],
+      "errorCodes": [
+        "PX-8005"
+      ]
+    },
+    "TYPES_ERRORS-001b": {
+      "files": [
+        "app/src/types/errors.ts"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ADMIN-BOOKOFWORK": {
+      "files": [
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ADMIN-HEALTH": {
+      "files": [
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ADMIN-PITLANE": {
+      "files": [
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ADMIN-PITWALL": {
+      "files": [
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ADMIN-HOTLINK": {
+      "files": [
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_ERRORLOG-000B": {
+      "files": [
+        "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_WHATSAPP-002a": {
+      "files": [
+        "app/src/app/(app)/admin/_components/WhatsAppManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "FPS_COUNTER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/FpsCounter.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_LIVE_SCORE_BANNER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/LiveScoreBanner.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ZOOM_RACE_ORDER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_components/ZoomRaceOrder.tsx"
+      ],
+      "errorCodes": []
+    },
+    "HOOK_LIVE_PREDICTION_SCORE": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_BG_LAYER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/layers/BackgroundLayer.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_CAR_LAYER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_CAR_LAYER-001b": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_CAR_LAYER-004b": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_TRACK_LAYER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_TRAIL_LAYER": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/layers/TrailLayer.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_TRACK_APP": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_CAMERA_SYSTEM": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/systems/CameraSystem.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_INTERP_SYSTEM": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_TRAIL_SYSTEM": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIXI_HELPERS": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_pixi/utils/pixi-helpers.ts"
+      ],
+      "errorCodes": []
+    },
+    "PIT_WALL_TRACK_SPLINE": {
+      "files": [
+        "app/src/app/(app)/pit-wall/_utils/trackSpline.ts"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_RESULTS-025C": {
+      "files": [
+        "app/src/app/(app)/results/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_COMPLETE_PROFILE-005b": {
+      "files": [
+        "app/src/app/(auth)/complete-profile/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_COMPLETE_PROFILE-005c": {
+      "files": [
+        "app/src/app/(auth)/complete-profile/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_DELETE_USER-002a": {
+      "files": [
+        "app/src/app/api/admin/delete-user/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_DELETE_USER-003a": {
+      "files": [
+        "app/src/app/api/admin/delete-user/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_HEALTH_STANDINGS": {
+      "files": [
+        "app/src/app/api/admin/health/standings/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_PITWALL_CACHE_PURGE": {
+      "files": [
+        "app/src/app/api/admin/pit-wall-cache-purge/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_PITWALL_INGEST": {
+      "files": [
+        "app/src/app/api/admin/pit-wall-ingest/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_PURGE_REPLAY": {
+      "files": [
+        "app/src/app/api/admin/purge-replay/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_REPLAY_CHUNKS": {
+      "files": [
+        "app/src/app/api/pit-wall/replay-chunks/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_STANDINGS": {
+      "files": [
+        "app/src/app/api/standings/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SUBMIT_PREDICTION-003a": {
+      "files": [
+        "app/src/app/api/submit-prediction/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_SUBMIT_PREDICTION-005a": {
+      "files": [
+        "app/src/app/api/submit-prediction/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CUMULATIVE_STANDINGS": {
+      "files": [
+        "app/src/lib/cumulative-standings.ts"
+      ],
+      "errorCodes": [
+        "PX-5010"
+      ]
+    },
+    "REPLAY_INGEST": {
+      "files": [
+        "app/src/lib/replay-ingest.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_WHATSAPP_QUEUE": {
+      "files": [
+        "app/src/app/api/admin/whatsapp-queue/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_WHATSAPP-021b": {
+      "files": [
+        "app/src/app/(app)/admin/_components/WhatsAppManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_SEND_HOT_NEWS_EMAIL-002B": {
+      "files": [
+        "app/src/app/api/send-hot-news-email/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_WHATSAPP_WAKE": {
+      "files": [
+        "app/src/lib/whatsapp-wake.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_WHATSAPP_ALERT": {
+      "files": [
+        "app/src/lib/whatsapp-alert.ts"
+      ],
+      "errorCodes": []
+    },
+    "CRON_WHATSAPP_SCHEDULED": {
+      "files": [
+        "app/src/app/api/cron/whatsapp-scheduled/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_ADMIN_WHATSAPP_EOS": {
+      "files": [
+        "app/src/app/api/admin/whatsapp-eos/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_WHATSAPP-021c": {
+      "files": [
+        "app/src/app/(app)/admin/_components/WhatsAppManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "LIB_LATE_JOINER": {
+      "files": [
+        "app/src/lib/late-joiner.ts"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_WELCOME": {
+      "files": [
+        "app/src/app/(app)/welcome/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "API_AUTH_ACK_LATE_JOINER": {
+      "files": [
+        "app/src/app/api/auth/acknowledge-late-joiner/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "REPLAY_CHUNKS_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "REPLAY_META_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "AI_CHEEKY_BILL": {
+      "files": [
+        "app/src/ai/flows/cheeky-bill.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CHEEKY_BILL_CONTEXT": {
+      "files": [
+        "app/src/lib/cheeky-bill-context.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_SANITIZE_PROMPT": {
+      "files": [
+        "app/src/lib/sanitize-prompt.ts"
+      ],
+      "errorCodes": []
+    },
+    "API_INVITES_CREATE": {
+      "files": [
+        "app/src/app/api/invites/create/route.ts"
+      ],
+      "errorCodes": [
+        "PX-2101",
+        "PX-2104"
+      ]
+    },
+    "LIB_INVITES": {
+      "files": [
+        "app/src/lib/invites.ts"
+      ],
+      "errorCodes": []
+    },
+    "COMPONENT_INVITE_SIGNUP": {
+      "files": [
+        "app/src/app/(auth)/signup/InviteSignupForm.tsx"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_INVITE": {
+      "files": [
+        "app/src/app/(app)/invite/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "INVITES_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
     }
   },
   "byFile": {
+    "app/src/firestore.rules": {
+      "modules": [
+        "RACE_SCHEDULE_RULES",
+        "ADMIN_HOTLINK_RULES",
+        "ADMIN_VERIFICATION_RULES",
+        "AUDIT_LOG_RULES",
+        "BACKUP_RULES",
+        "FIRESTORE_BOOKOFWORK",
+        "LEAGUE_RULES",
+        "LOGON_RULES",
+        "TEAM_NAMES_RULES",
+        "USER_RULES",
+        "FIRESTORE_BOOKOFWORK-001-v01",
+        "OFFICIAL_TEAMS_RULES",
+        "REPLAY_SESSIONS_RULES",
+        "REPLAY_CHUNKS_RULES",
+        "REPLAY_META_RULES",
+        "INVITES_RULES"
+      ],
+      "errorCodes": []
+    },
     "app/src/app/(app)/admin/_components/AttackMonitor.tsx": {
       "modules": [
         "ADMIN_ATTACK_MONITOR"
@@ -2445,7 +5413,10 @@
     },
     "app/src/app/(app)/admin/_components/ErrorLogViewer.tsx": {
       "modules": [
-        "ADMIN_ERRORLOG"
+        "ADMIN_ERRORLOG",
+        "ADMIN_ERRORLOG-001a",
+        "ADMIN_ERRORLOG-000B-v01",
+        "ADMIN_ERRORLOG-000B"
       ],
       "errorCodes": []
     },
@@ -2499,13 +5470,31 @@
     },
     "app/src/app/(app)/admin/_components/TeamManager.tsx": {
       "modules": [
-        "ADMIN_TEAM"
+        "ADMIN_TEAM",
+        "ADMIN_TEAM-000-v06",
+        "ADMIN_TEAM-001-v03",
+        "ADMIN_TEAM-002-v06",
+        "ADMIN_TEAM-002A",
+        "ADMIN_TEAM-002B",
+        "ADMIN_TEAM-002C",
+        "ADMIN_TEAM-002D",
+        "ADMIN_TEAM-003-v03",
+        "ADMIN_TEAM-004-v03",
+        "ADMIN_TEAM-005-v04",
+        "ADMIN_TEAM-006-v03",
+        "ADMIN_TEAM-007-v03",
+        "ADMIN_TEAM-008-v03",
+        "ADMIN_TEAM-009A",
+        "ADMIN_TEAM-009-v06"
       ],
       "errorCodes": []
     },
     "app/src/app/(app)/admin/_components/WhatsAppManager.tsx": {
       "modules": [
-        "ADMIN_WHATSAPP"
+        "ADMIN_WHATSAPP",
+        "ADMIN_WHATSAPP-002a",
+        "ADMIN_WHATSAPP-021b",
+        "ADMIN_WHATSAPP-021c"
       ],
       "errorCodes": []
     },
@@ -2517,7 +5506,27 @@
     },
     "app/src/app/api/admin/delete-user/route.ts": {
       "modules": [
-        "API_ADMIN_DELETE_USER"
+        "API_ADMIN_DELETE_USER",
+        "API_ADMIN_DELETE_USER-002a",
+        "API_ADMIN_DELETE_USER-003a"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/fetch-timing-data/route.ts": {
+      "modules": [
+        "API_ADMIN_FETCH_TIMING_DATA"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/openf1-sessions/route.ts": {
+      "modules": [
+        "API_ADMIN_OPENF1_SESSIONS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/prediction-count/route.ts": {
+      "modules": [
+        "API_ADMIN_PREDICTION_COUNT"
       ],
       "errorCodes": []
     },
@@ -2527,9 +5536,21 @@
       ],
       "errorCodes": []
     },
+    "app/src/app/api/admin/single-user-mode/route.ts": {
+      "modules": [
+        "API_ADMIN_SINGLE_USER_MODE"
+      ],
+      "errorCodes": []
+    },
     "app/src/app/api/ai/analysis/route.ts": {
       "modules": [
         "API_AI_ANALYSIS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/auth/complete-oauth-profile/route.ts": {
+      "modules": [
+        "API_AUTH_COMPLETE_OAUTH"
       ],
       "errorCodes": []
     },
@@ -2568,7 +5589,9 @@
         "API_AUTH_SIGNUP"
       ],
       "errorCodes": [
-        "PX-1008"
+        "PX-1008",
+        "PX-2102",
+        "PX-2103"
       ]
     },
     "app/src/app/api/calculate-scores/route.ts": {
@@ -2591,7 +5614,14 @@
     },
     "app/src/app/api/email-queue/route.ts": {
       "modules": [
-        "API_EMAIL_QUEUE"
+        "API_EMAIL_QUEUE",
+        "API_EMAIL_QUEUE-001A"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/leagues/join-by-code/route.ts": {
+      "modules": [
+        "API_LEAGUE_JOIN"
       ],
       "errorCodes": []
     },
@@ -2605,13 +5635,27 @@
     },
     "app/src/app/api/send-hot-news-email/route.ts": {
       "modules": [
-        "API_SEND_HOT_NEWS_EMAIL"
+        "API_SEND_HOT_NEWS_EMAIL",
+        "API_SEND_HOT_NEWS_EMAIL-001B",
+        "API_SEND_HOT_NEWS_EMAIL-005B",
+        "API_SEND_HOT_NEWS_EMAIL-001A",
+        "API_SEND_HOT_NEWS_EMAIL-005A",
+        "API_SEND_HOT_NEWS_EMAIL-002B"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/send-provider-linked-email/route.ts": {
+      "modules": [
+        "API_SEND_PROVIDER_LINKED_EMAIL",
+        "API_SEND_PROVIDER_LINKED_EMAIL-001A"
       ],
       "errorCodes": []
     },
     "app/src/app/api/send-results-email/route.ts": {
       "modules": [
-        "API_SEND_RESULTS_EMAIL"
+        "API_SEND_RESULTS_EMAIL",
+        "API_SEND_RESULTS_EMAIL-001B",
+        "API_SEND_RESULTS_EMAIL-001C"
       ],
       "errorCodes": []
     },
@@ -2623,7 +5667,10 @@
     },
     "app/src/app/api/send-verification-email/route.ts": {
       "modules": [
-        "API_SEND_VERIFICATION_EMAIL"
+        "API_SEND_VERIFICATION_EMAIL",
+        "API_SEND_VERIFICATION_EMAIL-000-v05",
+        "API_SEND_VERIFICATION_EMAIL-001-v03",
+        "API_SEND_VERIFICATION_EMAIL-002-v06"
       ],
       "errorCodes": []
     },
@@ -2635,7 +5682,17 @@
     },
     "app/src/app/api/submit-prediction/route.ts": {
       "modules": [
-        "API_SUBMIT_PREDICTION"
+        "API_SUBMIT_PREDICTION",
+        "API_SUBMIT_PREDICTION-000-v06",
+        "API_SUBMIT_PREDICTION-004B",
+        "API_SUBMIT_PREDICTION-003a",
+        "API_SUBMIT_PREDICTION-005a"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/team-name-suggestions/route.ts": {
+      "modules": [
+        "API_TEAM_NAME_SUGGESTIONS"
       ],
       "errorCodes": []
     },
@@ -2663,17 +5720,24 @@
       ],
       "errorCodes": []
     },
-    "app/src/app/(app)/admin/page.tsx": {
+    "app/src/app/(app)/admin/AdminPageClient.tsx": {
       "modules": [
         "BACKUP_ADMIN_TAB",
         "PAGE_ADMIN",
-        "PUBCHAT_ADMIN_TAB"
+        "PUBCHAT_ADMIN_TAB",
+        "PAGE_ADMIN-BOOKOFWORK",
+        "PAGE_ADMIN-HEALTH",
+        "PAGE_ADMIN-PITLANE",
+        "PAGE_ADMIN-PITWALL",
+        "PAGE_ADMIN-HOTLINK"
       ],
       "errorCodes": []
     },
     "app/src/app/(app)/admin/_components/BackupHealthDashboard.tsx": {
       "modules": [
-        "BACKUP_DASHBOARD"
+        "BACKUP_DASHBOARD",
+        "BACKUP_DASHBOARD-034-v01",
+        "BACKUP_DASHBOARD-035-v01"
       ],
       "errorCodes": [
         "PX-7001"
@@ -2746,25 +5810,23 @@
         "PX-5009",
         "PX-6001",
         "PX-6002",
-        "PX-6003"
+        "PX-6003",
+        "PX-3102"
       ]
-    },
-    "functions/src/index.ts": {
-      "modules": [
-        "BACKUP_FUNCTIONS"
-      ],
-      "errorCodes": []
-    },
-    "firestore.rules": {
-      "modules": [
-        "BACKUP_RULES"
-      ],
-      "errorCodes": []
     },
     "functions/index.js": {
       "modules": [
         "BACKUP_FUNCTIONS",
-        "SESSION_FUNCTIONS"
+        "SESSION_FUNCTIONS",
+        "ADMIN_HOTLINK_CLEANUP",
+        "BACKUP_FUNCTIONS-023A",
+        "BACKUP_FUNCTIONS-023B",
+        "BACKUP_FUNCTIONS-000-v03",
+        "BACKUP_FUNCTIONS-001-v03",
+        "BACKUP_FUNCTIONS-002-v05",
+        "BACKUP_FUNCTIONS-080-v01",
+        "BACKUP_FUNCTIONS-081-v01",
+        "BACKUP_FUNCTIONS-082-v01"
       ],
       "errorCodes": [
         "PX-6006"
@@ -2772,13 +5834,20 @@
     },
     "app/src/components/layout/AppSidebar.tsx": {
       "modules": [
-        "COMPONENT_APP_SIDEBAR"
+        "COMPONENT_APP_SIDEBAR",
+        "COMPONENT_APP_SIDEBAR-001B"
       ],
       "errorCodes": []
     },
     "app/src/app/(app)/about/_components/CinematicIntro.tsx": {
       "modules": [
         "COMPONENT_CINEMATIC_INTRO"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/ConversionBanner.tsx": {
+      "modules": [
+        "COMPONENT_CONVERSION_BANNER"
       ],
       "errorCodes": []
     },
@@ -2794,15 +5863,45 @@
       ],
       "errorCodes": []
     },
+    "app/src/components/icons/OAuthIcons.tsx": {
+      "modules": [
+        "COMPONENT_OAUTH_ICONS"
+      ],
+      "errorCodes": []
+    },
     "app/src/app/(app)/predictions/_components/PredictionEditor.tsx": {
       "modules": [
         "COMPONENT_PREDICTION_EDITOR"
       ],
       "errorCodes": []
     },
+    "app/src/components/SecurityUpgradeCard.tsx": {
+      "modules": [
+        "COMPONENT_SECURITY_UPGRADE"
+      ],
+      "errorCodes": []
+    },
     "app/src/app/(app)/about/dev/_components/VersionHistory.tsx": {
       "modules": [
         "COMPONENT_VERSION_HISTORY"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx": {
+      "modules": [
+        "COMPONENT_WELCOME_CTA"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/error-registry-client.ts": {
+      "modules": [
+        "ERROR_REGISTRY_CLIENT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/features/auth/AccountLinker.ts": {
+      "modules": [
+        "FEATURE_ACCOUNT_LINKER"
       ],
       "errorCodes": []
     },
@@ -2836,23 +5935,37 @@
       "modules": [
         "LIB_AUDIT"
       ],
-      "errorCodes": []
+      "errorCodes": [
+        "PX-8101"
+      ]
     },
     "app/src/lib/consistency.ts": {
       "modules": [
-        "LIB_CONSISTENCY"
+        "LIB_CONSISTENCY",
+        "LIB_CONSISTENCY-013B",
+        "LIB_CONSISTENCY-027B"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/csrf-protection.ts": {
+      "modules": [
+        "LIB_CSRF"
       ],
       "errorCodes": []
     },
     "app/src/lib/data.ts": {
       "modules": [
-        "LIB_DATA"
+        "LIB_DATA",
+        "LIB_DATA-001A",
+        "LIB_DATA-002A"
       ],
       "errorCodes": []
     },
     "app/src/lib/email.ts": {
       "modules": [
-        "LIB_EMAIL"
+        "LIB_EMAIL",
+        "LIB_EMAIL-000A",
+        "LIB_EMAIL-005a"
       ],
       "errorCodes": []
     },
@@ -2870,7 +5983,10 @@
     },
     "app/src/lib/firebase-admin.ts": {
       "modules": [
-        "LIB_FIREBASE_ADMIN"
+        "LIB_FIREBASE_ADMIN",
+        "LIB_FIREBASE_ADMIN-000-v05",
+        "LIB_FIREBASE_ADMIN-001-v03",
+        "LIB_FIREBASE_ADMIN-002-v04"
       ],
       "errorCodes": []
     },
@@ -2892,6 +6008,12 @@
       ],
       "errorCodes": []
     },
+    "app/src/lib/results-utils.tsx": {
+      "modules": [
+        "LIB_RESULTS_UTILS"
+      ],
+      "errorCodes": []
+    },
     "app/src/lib/scoring.ts": {
       "modules": [
         "LIB_SCORING"
@@ -2910,6 +6032,18 @@
       ],
       "errorCodes": []
     },
+    "app/src/lib/team-name-suggestions.ts": {
+      "modules": [
+        "LIB_TEAM_NAME_SUGGESTIONS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/traced-error.ts": {
+      "modules": [
+        "LIB_TRACED_ERROR"
+      ],
+      "errorCodes": []
+    },
     "app/src/lib/utils.ts": {
       "modules": [
         "LIB_UTILS"
@@ -2922,12 +6056,6 @@
       ],
       "errorCodes": []
     },
-    "app/src/firestore.rules": {
-      "modules": [
-        "LOGON_RULES"
-      ],
-      "errorCodes": []
-    },
     "app/src/app/(app)/about/page.tsx": {
       "modules": [
         "PAGE_ABOUT"
@@ -2937,6 +6065,14 @@
     "app/src/app/(app)/audit/page.tsx": {
       "modules": [
         "PAGE_AUDIT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(auth)/complete-profile/page.tsx": {
+      "modules": [
+        "PAGE_COMPLETE_PROFILE",
+        "PAGE_COMPLETE_PROFILE-005b",
+        "PAGE_COMPLETE_PROFILE-005c"
       ],
       "errorCodes": []
     },
@@ -2960,6 +6096,12 @@
         "PX-9001"
       ]
     },
+    "app/src/app/(app)/leagues/page.tsx": {
+      "modules": [
+        "PAGE_LEAGUES"
+      ],
+      "errorCodes": []
+    },
     "app/src/app/(app)/leagues/[leagueId]/page.tsx": {
       "modules": [
         "PAGE_LEAGUE_DETAIL"
@@ -2969,21 +6111,29 @@
         "PX-9001"
       ]
     },
-    "app/src/app/(app)/leagues/page.tsx": {
-      "modules": [
-        "PAGE_LEAGUES"
-      ],
-      "errorCodes": []
-    },
     "app/src/app/(auth)/login/page.tsx": {
       "modules": [
         "PAGE_LOGIN"
       ],
       "errorCodes": []
     },
+    "app/src/app/(app)/my-results/page.tsx": {
+      "modules": [
+        "PAGE_MY_RESULTS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/onboarding/page.tsx": {
+      "modules": [
+        "PAGE_ONBOARDING"
+      ],
+      "errorCodes": []
+    },
     "app/src/app/(app)/predictions/page.tsx": {
       "modules": [
-        "PAGE_PREDICTIONS"
+        "PAGE_PREDICTIONS",
+        "PAGE_PREDICTIONS-000-v05",
+        "PAGE_PREDICTIONS-002A"
       ],
       "errorCodes": []
     },
@@ -2995,7 +6145,10 @@
     },
     "app/src/app/(app)/results/page.tsx": {
       "modules": [
-        "PAGE_RESULTS"
+        "PAGE_RESULTS",
+        "PAGE_RESULTS-025A",
+        "PAGE_RESULTS-025B",
+        "PAGE_RESULTS-025C"
       ],
       "errorCodes": []
     },
@@ -3013,26 +6166,25 @@
     },
     "app/src/app/(app)/schedule/page.tsx": {
       "modules": [
-        "PAGE_SCHEDULE"
+        "PAGE_SCHEDULE",
+        "PAGE_SCHEDULE-000-v03",
+        "PAGE_SCHEDULE-001-v03"
       ],
       "errorCodes": []
     },
     "app/src/app/(auth)/signup/page.tsx": {
       "modules": [
-        "PAGE_SIGNUP"
+        "PAGE_SIGNUP",
+        "PAGE_SIGNUP-000-v07"
       ],
-      "errorCodes": [
-        "PX-9001"
-      ]
+      "errorCodes": []
     },
     "app/src/app/(app)/standings/page.tsx": {
       "modules": [
         "PAGE_STANDINGS"
       ],
       "errorCodes": [
-        "PX-9001",
-        "PX-4004",
-        "PX-1001"
+        "PX-5011"
       ]
     },
     "app/src/app/(app)/submissions/page.tsx": {
@@ -3049,11 +6201,7 @@
       "modules": [
         "PAGE_TEAMS"
       ],
-      "errorCodes": [
-        "PX-4004",
-        "PX-1001",
-        "PX-9001"
-      ]
+      "errorCodes": []
     },
     "app/src/app/(auth)/verify-email/page.tsx": {
       "modules": [
@@ -3067,31 +6215,1056 @@
       ],
       "errorCodes": []
     },
-    "provision_recovery_env.sh": {
-      "modules": [
-        "PROVISION_RECOVERY"
-      ],
-      "errorCodes": []
-    },
     "app/src/app/(app)/admin/_components/PubChatPanel.tsx": {
       "modules": [
-        "PUBCHAT_PANEL"
+        "PUBCHAT_PANEL",
+        "PUBCHAT_PANEL-010-v02",
+        "PUBCHAT_PANEL-011-v02",
+        "PUBCHAT_PANEL-002A"
       ],
       "errorCodes": []
     },
-    "app/src/app/(app)/dashboard/_components/WelcomeCTA.tsx": {
+    "app/src/services/authService.ts": {
       "modules": [
-        "COMPONENT_WELCOME_CTA"
+        "SERVICE_AUTH_OAUTH"
       ],
       "errorCodes": []
     },
-    "app/src/app/(app)/onboarding/page.tsx": {
+    "app/src/types/errors.ts": {
       "modules": [
-        "PAGE_ONBOARDING"
+        "TYPES_ERRORS",
+        "TYPES_ERRORS-001b"
+      ],
+      "errorCodes": []
+    },
+    "whatsapp-worker/src/index.ts": {
+      "modules": [
+        "WHATSAPP_WORKER_INDEX",
+        "WHATSAPP_WORKER"
+      ],
+      "errorCodes": []
+    },
+    "whatsapp-worker/src/whatsapp-client.ts": {
+      "modules": [
+        "WHATSAPP_CLIENT"
+      ],
+      "errorCodes": []
+    },
+    "whatsapp-worker/src/firebase-store.ts": {
+      "modules": [
+        "FIREBASE_STORE"
+      ],
+      "errorCodes": []
+    },
+    "whatsapp-worker/src/azure-store.ts": {
+      "modules": [
+        "AZURE_STORE"
+      ],
+      "errorCodes": []
+    },
+    "whatsapp-worker/src/queue-processor.ts": {
+      "modules": [
+        "QUEUE_PROCESSOR"
+      ],
+      "errorCodes": []
+    },
+    "whatsapp-worker/src/firebase-config.ts": {
+      "modules": [
+        "FIREBASE_CONFIG_WORKER"
+      ],
+      "errorCodes": []
+    },
+    "whatsapp-worker/src/types.d.ts": {
+      "modules": [
+        "WHATSAPP_WORKER_TYPES"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/predictions/_components/DndPredictionWrapper.tsx": {
+      "modules": [
+        "DND_PREDICTION_WRAPPER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/predictions/_components/DraggableDriver.tsx": {
+      "modules": [
+        "DRAGGABLE_DRIVER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/predictions/_components/DragOverlayContent.tsx": {
+      "modules": [
+        "DRAG_OVERLAY_CONTENT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/predictions/_components/DroppableGridSlot.tsx": {
+      "modules": [
+        "DROPPABLE_GRID_SLOT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/predictions/_components/DroppablePoolZone.tsx": {
+      "modules": [
+        "DROPPABLE_POOL_ZONE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/proxy.ts": {
+      "modules": [
+        "MIDDLEWARE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/layout.tsx": {
+      "modules": [
+        "ROOT_LAYOUT",
+        "APP_LAYOUT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/layout.tsx": {
+      "modules": [
+        "APP_LAYOUT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/error.tsx": {
+      "modules": [
+        "ROOT_ERROR"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/global-error.tsx": {
+      "modules": [
+        "GLOBAL_ERROR",
+        "PAGE_GLOBAL_ERROR",
+        "PAGE_GLOBAL_ERROR-000-v02",
+        "GLOBAL_ERROR-000-v03"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/error.tsx": {
+      "modules": [
+        "APP_ERROR"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(auth)/error.tsx": {
+      "modules": [
+        "AUTH_ERROR"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/config.ts": {
+      "modules": [
+        "FIREBASE_CONFIG"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/index.ts": {
+      "modules": [
+        "FIREBASE_INDEX"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/server.ts": {
+      "modules": [
+        "FIREBASE_SERVER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/client-provider.tsx": {
+      "modules": [
+        "FIREBASE_CLIENT_PROVIDER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/firestore/use-collection.tsx": {
+      "modules": [
+        "USE_COLLECTION"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/firestore/use-doc.tsx": {
+      "modules": [
+        "USE_DOC"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/firestore/settings.ts": {
+      "modules": [
+        "FIRESTORE_SETTINGS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/contexts/session-context.tsx": {
+      "modules": [
+        "SESSION_CONTEXT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/contexts/league-context.tsx": {
+      "modules": [
+        "LEAGUE_CONTEXT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/ai/genkit.ts": {
+      "modules": [
+        "AI_GENKIT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/error-registry.ts": {
+      "modules": [
+        "ERROR_REGISTRY",
+        "PIT_WALL_ERRORS"
       ],
       "errorCodes": [
-        "0"
+        "PX-3306",
+        "PX-3307",
+        "PX-3308",
+        "PX-3309",
+        "PX-3310",
+        "PX-3320",
+        "PX-3313",
+        "PX-3314",
+        "PX-3315",
+        "PX-3316",
+        "PX-3317",
+        "PX-3318",
+        "PX-3319",
+        "PX-3321"
       ]
+    },
+    "app/src/components/ChunkErrorHandler.tsx": {
+      "modules": [
+        "COMPONENT_CHUNK_ERROR_HANDLER"
+      ],
+      "errorCodes": []
+    },
+    "app/scripts/migrate-mask-pins.ts": {
+      "modules": [
+        "SCRIPT_MIGRATE_MASK_PINS"
+      ],
+      "errorCodes": []
+    },
+    "app/scripts/rollback-mask-pins.ts": {
+      "modules": [
+        "SCRIPT_ROLLBACK_MASK_PINS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/admin/_components/BookOfWorkManager.tsx": {
+      "modules": [
+        "ADMIN_BOOKOFWORK",
+        "ADMIN_BOOKOFWORK-004A"
+      ],
+      "errorCodes": []
+    },
+    "functions-python/pub_chat_updater/main.py": {
+      "modules": [
+        "FUNC_PUB_CHAT_UPDATER"
+      ],
+      "errorCodes": []
+    },
+    "functions-python/pub_chat_updater/requirements.txt": {
+      "modules": [
+        "FUNC_PUB_CHAT_UPDATER"
+      ],
+      "errorCodes": []
+    },
+    "functions-python/pub_chat_updater/.gcloudignore": {
+      "modules": [
+        "FUNC_PUB_CHAT_UPDATER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/update-site-functions/route.ts": {
+      "modules": [
+        "API_ADMIN_SITE_FUNCTIONS"
+      ],
+      "errorCodes": [
+        "PX-2012"
+      ]
+    },
+    "app/src/app/api/health/route.ts": {
+      "modules": [
+        "API_HEALTH"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/email/health/route.ts": {
+      "modules": [
+        "API_ADMIN_EMAIL_HEALTH"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/validation.ts": {
+      "modules": [
+        "VALIDATION",
+        "VALIDATION-HOTLINK",
+        "VALIDATION-CHALLENGE",
+        "VALIDATION-EMAIL",
+        "VALIDATION-TOKEN",
+        "VALIDATION-RATELIMIT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/types/league.ts": {
+      "modules": [
+        "LIB_TYPES_LEAGUE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/acknowledge-attack/route.ts": {
+      "modules": [
+        "API_ADMIN_ACK_ATTACK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/resolve-error/route.ts": {
+      "modules": [
+        "API_ADMIN_RESOLVE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/unlock-account/route.ts": {
+      "modules": [
+        "API_ADMIN_UNLOCK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/verify-access/route.ts": {
+      "modules": [
+        "API_ADMIN_VERIFY_ACCESS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/whatsapp/health/route.ts": {
+      "modules": [
+        "API_ADMIN_WHATSAPP_HEALTH"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/openf1-drivers/route.ts": {
+      "modules": [
+        "API_ADMIN_OPENF1_DRIVERS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/openf1-location/route.ts": {
+      "modules": [
+        "API_ADMIN_OPENF1_LOCATION"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/update-hot-news/route.ts": {
+      "modules": [
+        "API_ADMIN_HOT_NEWS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/GlobalErrorLogger.tsx": {
+      "modules": [
+        "COMPONENT_GLOBAL_ERROR_LOGGER",
+        "COMPONENT_GLOBAL_ERROR_LOGGER-000-v03",
+        "COMPONENT_GLOBAL_ERROR_LOGGER-001-v02",
+        "COMPONENT_GLOBAL_ERROR_LOGGER-002-v02",
+        "COMPONENT_GLOBAL_ERROR_LOGGER-003-v02",
+        "COMPONENT_GLOBAL_ERROR_LOGGER-004-v03",
+        "COMPONENT_GLOBAL_ERROR_LOGGER-005-v03",
+        "COMPONENT_GLOBAL_ERROR_LOGGER-006-v02",
+        "COMPONENT_GLOBAL_ERROR_LOGGER-007-v01"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/dashboard/_components/FeedbackForm.tsx": {
+      "modules": [
+        "COMPONENT_FEEDBACK_FORM"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/auth/admin-challenge/route.ts": {
+      "modules": [
+        "API_AUTH_ADMIN_CHALLENGE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/ui/tooltip.tsx": {
+      "modules": [
+        "UI_TOOLTIP"
+      ],
+      "errorCodes": []
+    },
+    "app/src/ai/flows/hot-news-feed.ts": {
+      "modules": [
+        "HOT_NEWS_FLOW"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/cron/refresh-hot-news/route.ts": {
+      "modules": [
+        "CRON_HOT_NEWS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/error-emitter.ts": {
+      "modules": [
+        "FIREBASE_ERROR_EMITTER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/errors.ts": {
+      "modules": [
+        "FIREBASE_ERRORS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/non-blocking-login.tsx": {
+      "modules": [
+        "FIREBASE_NON_BLOCKING_LOGIN"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/non-blocking-updates.tsx": {
+      "modules": [
+        "FIREBASE_NON_BLOCKING_UPDATES"
+      ],
+      "errorCodes": []
+    },
+    "app/src/hooks/use-error-copy.ts": {
+      "modules": [
+        "HOOK_USE_ERROR_COPY"
+      ],
+      "errorCodes": []
+    },
+    "app/src/hooks/use-mobile.tsx": {
+      "modules": [
+        "HOOK_USE_MOBILE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/hooks/use-toast.ts": {
+      "modules": [
+        "HOOK_USE_TOAST"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/FirebaseErrorListener.tsx": {
+      "modules": [
+        "COMPONENT_FIREBASE_ERROR_LISTENER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/Logo.tsx": {
+      "modules": [
+        "COMPONENT_LOGO"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/PreSeasonBanner.tsx": {
+      "modules": [
+        "COMPONENT_PRE_SEASON_BANNER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/ThePaddockPubChat.tsx": {
+      "modules": [
+        "COMPONENT_PUB_CHAT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/ai/dev.ts": {
+      "modules": [
+        "AI_DEV"
+      ],
+      "errorCodes": []
+    },
+    "app/src/ai/flows/dynamic-driver-updates.ts": {
+      "modules": [
+        "AI_DYNAMIC_DRIVERS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/ai/flows/team-name-generator.ts": {
+      "modules": [
+        "AI_TEAM_NAME_GENERATOR"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/admin/verify/page.tsx": {
+      "modules": [
+        "PAGE_ADMIN_VERIFY"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/dashboard/_components/HotNewsFeed.tsx": {
+      "modules": [
+        "DASHBOARD_HOT_NEWS_FEED"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/dashboard/_components/ResolvedFeedbackNotifier.tsx": {
+      "modules": [
+        "DASHBOARD_RESOLVED_FEEDBACK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/league/LeagueSelector.tsx": {
+      "modules": [
+        "COMPONENT_LEAGUE_SELECTOR"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/types/book-of-work.ts": {
+      "modules": [
+        "TYPES_BOOKOFWORK",
+        "TYPES_BOOKOFWORK-004A"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx": {
+      "modules": [
+        "ADMIN_INTERFACE_HEALTH",
+        "ADMIN_INTERFACE_HEALTH-006-v01",
+        "ADMIN_INTERFACE_HEALTH-007-v01",
+        "ADMIN_INTERFACE_HEALTH-008-v01"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/account/close/route.ts": {
+      "modules": [
+        "API_ACCOUNT_CLOSE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/leagues/delete/route.ts": {
+      "modules": [
+        "API_LEAGUE_DELETE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/dashboard/_components/FeedbackLink.tsx": {
+      "modules": [
+        "COMPONENT_FEEDBACK_LINK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/firebase/firestore/official-teams.ts": {
+      "modules": [
+        "FS_OFFICIAL_TEAMS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/race-schedule-server.ts": {
+      "modules": [
+        "LIB_RACE_SCHEDULE_SERVER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/secrets-manager.ts": {
+      "modules": [
+        "LIB_SECRETS_MANAGER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/LiveTrackVisualization.tsx": {
+      "modules": [
+        "LIVE_TRACK_VIZ"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/admin/page.tsx": {
+      "modules": [
+        "PAGE_ADMIN_SERVER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx": {
+      "modules": [
+        "ADMIN_PIT_LANE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/ai/pit-chatter/route.ts": {
+      "modules": [
+        "API_AI_PIT_CHATTER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/live/refresh-timing/route.ts": {
+      "modules": [
+        "API_LIVE_REFRESH_TIMING"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/live/_components/LiveTimingClient.tsx": {
+      "modules": [
+        "COMPONENT_LIVE_TIMING_CLIENT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/pit-lane/route.ts": {
+      "modules": [
+        "API_PIT_LANE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/cron/process-email-queue/route.ts": {
+      "modules": [
+        "CRON_EMAIL_QUEUE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/live/page.tsx": {
+      "modules": [
+        "PAGE_LIVE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/resend-welcome-email/route.ts": {
+      "modules": [
+        "API_ADMIN_RESEND_WELCOME"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/auth/notify-pin-changed/route.ts": {
+      "modules": [
+        "API_NOTIFY_PIN_CHANGED"
+      ],
+      "errorCodes": []
+    },
+    "app/src/components/NewVersionBanner.tsx": {
+      "modules": [
+        "COMPONENT_NEW_VERSION_BANNER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/hooks/use-version-check.ts": {
+      "modules": [
+        "HOOK_VERSION_CHECK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/version/route.ts": {
+      "modules": [
+        "API_VERSION"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/cron/sync-session-times/route.ts": {
+      "modules": [
+        "CRON_SYNC_SESSION_TIMES"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_types/pit-wall.types.ts": {
+      "modules": [
+        "PIT_WALL_TYPES"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_types/showreel.types.ts": {
+      "modules": [
+        "SHOWREEL_TYPES"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_utils/showreel-scheduler.ts": {
+      "modules": [
+        "SHOWREEL_SCHEDULER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/pit-wall/historical-sessions/route.ts": {
+      "modules": [
+        "API_PIT_WALL_HISTORICAL_SESSIONS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/pit-wall/historical-replay/route.ts": {
+      "modules": [
+        "API_PIT_WALL_HISTORICAL_REPLAY"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_hooks/usePreRaceMode.ts": {
+      "modules": [
+        "PRE_RACE_MODE_HOOK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_hooks/useHistoricalReplay.ts": {
+      "modules": [
+        "HISTORICAL_REPLAY_HOOK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/PreRaceWarmupBanner.tsx": {
+      "modules": [
+        "PRE_RACE_WARMUP_BANNER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/ShowreelSplash.tsx": {
+      "modules": [
+        "SHOWREEL_SPLASH"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/RaceSelector.tsx": {
+      "modules": [
+        "RACE_SELECTOR"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/PitWallClient.tsx": {
+      "modules": [
+        "PIT_WALL_CLIENT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_hooks/usePitWallSettings.ts": {
+      "modules": [
+        "PIT_WALL_SETTINGS_HOOK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/PitWallRaceTable.tsx": {
+      "modules": [
+        "PIT_WALL_RACE_TABLE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_hooks/usePitWallData.ts": {
+      "modules": [
+        "PIT_WALL_DATA_HOOK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/pit-wall.worker.ts": {
+      "modules": [
+        "PIT_WALL_WORKER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/PitWallTrackMap.tsx": {
+      "modules": [
+        "PIT_WALL_TRACK_MAP"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/PitWallLoadingScreen.tsx": {
+      "modules": [
+        "PIT_WALL_LOADING"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/pit-wall/live-data/route.ts": {
+      "modules": [
+        "API_PIT_WALL_LIVE_DATA"
+      ],
+      "errorCodes": []
+    },
+    "app/storage.rules": {
+      "modules": [
+        "REPLAY_STORAGE_RULES"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/pit-wall-metrics.ts": {
+      "modules": [
+        "LIB_PITWALL_METRICS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/pit-wall-cache.ts": {
+      "modules": [
+        "LIB_PITWALL_CACHE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/pit-wall-health/route.ts": {
+      "modules": [
+        "API_ADMIN_PITWALL_HEALTH"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/admin/_components/PitWallManager.tsx": {
+      "modules": [
+        "ADMIN_PITWALL"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/cumulative-standings.ts": {
+      "modules": [
+        "LIB_CUMULATIVE_STANDINGS-000-v02",
+        "LIB_CUMULATIVE_STANDINGS-001-v02",
+        "LIB_CUMULATIVE_STANDINGS-002-v02",
+        "LIB_CUMULATIVE_STANDINGS-003-v01",
+        "LIB_CUMULATIVE_STANDINGS-004-v02",
+        "LIB_CUMULATIVE_STANDINGS-005-v02",
+        "LIB_CUMULATIVE_STANDINGS-006-v01",
+        "LIB_CUMULATIVE_STANDINGS"
+      ],
+      "errorCodes": [
+        "PX-5010"
+      ]
+    },
+    "app/src/app/api/standings/route.ts": {
+      "modules": [
+        "API_STANDINGS-000-v01",
+        "API_STANDINGS-001-v01",
+        "API_STANDINGS-002-v01",
+        "API_STANDINGS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/health/standings/route.ts": {
+      "modules": [
+        "API_ADMIN_HEALTH_STANDINGS-000-v01",
+        "API_ADMIN_HEALTH_STANDINGS-001-v01",
+        "API_ADMIN_HEALTH_STANDINGS-002-v01",
+        "API_ADMIN_HEALTH_STANDINGS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/rate-limit.ts": {
+      "modules": [
+        "LIB_RATE_LIMIT"
+      ],
+      "errorCodes": [
+        "PX-8005"
+      ]
+    },
+    "app/src/app/(app)/pit-wall/_components/FpsCounter.tsx": {
+      "modules": [
+        "FPS_COUNTER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/LiveScoreBanner.tsx": {
+      "modules": [
+        "PIT_WALL_LIVE_SCORE_BANNER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/ReplayControls.tsx": {
+      "modules": [
+        "REPLAY_CONTROLS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_components/ZoomRaceOrder.tsx": {
+      "modules": [
+        "ZOOM_RACE_ORDER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_hooks/useLivePredictionScore.ts": {
+      "modules": [
+        "HOOK_LIVE_PREDICTION_SCORE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_hooks/useReplayPlayer.ts": {
+      "modules": [
+        "REPLAY_PLAYER_HOOK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/layers/BackgroundLayer.ts": {
+      "modules": [
+        "PIXI_BG_LAYER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/layers/CarLayer.ts": {
+      "modules": [
+        "PIXI_CAR_LAYER",
+        "PIXI_CAR_LAYER-001b",
+        "PIXI_CAR_LAYER-004b"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/layers/TrackLayer.ts": {
+      "modules": [
+        "PIXI_TRACK_LAYER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/layers/TrailLayer.ts": {
+      "modules": [
+        "PIXI_TRAIL_LAYER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/PixiTrackApp.ts": {
+      "modules": [
+        "PIXI_TRACK_APP"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/systems/CameraSystem.ts": {
+      "modules": [
+        "PIXI_CAMERA_SYSTEM"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/systems/InterpolationSystem.ts": {
+      "modules": [
+        "PIXI_INTERP_SYSTEM"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/systems/TrailSystem.ts": {
+      "modules": [
+        "PIXI_TRAIL_SYSTEM"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_pixi/utils/pixi-helpers.ts": {
+      "modules": [
+        "PIXI_HELPERS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/pit-wall/_utils/trackSpline.ts": {
+      "modules": [
+        "PIT_WALL_TRACK_SPLINE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/pit-wall-cache-purge/route.ts": {
+      "modules": [
+        "API_ADMIN_PITWALL_CACHE_PURGE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/pit-wall-ingest/route.ts": {
+      "modules": [
+        "API_ADMIN_PITWALL_INGEST"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/purge-replay/route.ts": {
+      "modules": [
+        "API_PURGE_REPLAY"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/pit-wall/replay-chunks/route.ts": {
+      "modules": [
+        "API_REPLAY_CHUNKS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/pit-wall/replay-sessions/route.ts": {
+      "modules": [
+        "API_REPLAY_SESSIONS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/replay-ingest.ts": {
+      "modules": [
+        "REPLAY_INGEST"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/whatsapp-queue/route.ts": {
+      "modules": [
+        "API_ADMIN_WHATSAPP_QUEUE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/whatsapp-wake.ts": {
+      "modules": [
+        "LIB_WHATSAPP_WAKE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/whatsapp-alert.ts": {
+      "modules": [
+        "LIB_WHATSAPP_ALERT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/cron/whatsapp-scheduled/route.ts": {
+      "modules": [
+        "CRON_WHATSAPP_SCHEDULED"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/admin/whatsapp-eos/route.ts": {
+      "modules": [
+        "API_ADMIN_WHATSAPP_EOS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/late-joiner.ts": {
+      "modules": [
+        "LIB_LATE_JOINER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/welcome/page.tsx": {
+      "modules": [
+        "PAGE_WELCOME"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/auth/acknowledge-late-joiner/route.ts": {
+      "modules": [
+        "API_AUTH_ACK_LATE_JOINER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/ai/flows/cheeky-bill.ts": {
+      "modules": [
+        "AI_CHEEKY_BILL"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/cheeky-bill-context.ts": {
+      "modules": [
+        "LIB_CHEEKY_BILL_CONTEXT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/sanitize-prompt.ts": {
+      "modules": [
+        "LIB_SANITIZE_PROMPT"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/invites/create/route.ts": {
+      "modules": [
+        "API_INVITES_CREATE"
+      ],
+      "errorCodes": [
+        "PX-2101",
+        "PX-2104"
+      ]
+    },
+    "app/src/lib/invites.ts": {
+      "modules": [
+        "LIB_INVITES"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(auth)/signup/InviteSignupForm.tsx": {
+      "modules": [
+        "COMPONENT_INVITE_SIGNUP"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/invite/page.tsx": {
+      "modules": [
+        "PAGE_INVITE"
+      ],
+      "errorCodes": []
     }
   }
 }

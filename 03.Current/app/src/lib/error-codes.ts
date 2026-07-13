@@ -67,6 +67,12 @@ export const ERROR_CODES = {
   VALIDATION_DUPLICATE_DRIVER: { code: 'PX-2011', message: 'Race result contains duplicate drivers' },
   VALIDATION_BUSINESS_RULE: { code: 'PX-2012', message: 'Business rule violation' },
 
+  // 21xx - Friend Invites (SEC-SIGNUP-001 signup-gate bypass)
+  INVITE_SEND_FAILED: { code: 'PX-2101', message: 'Invite could not be sent' },
+  INVITE_INVALID: { code: 'PX-2102', message: 'Invite link is invalid or has already been used' },
+  INVITE_EXPIRED: { code: 'PX-2103', message: 'Invite link has expired' },
+  INVITE_ALREADY_MEMBER: { code: 'PX-2104', message: 'This email already belongs to a Prix Six player' },
+
   // 3xxx - External Services
   EMAIL_SEND_FAILED: { code: 'PX-3001', message: 'Failed to send email' },
   EMAIL_RATE_LIMITED: { code: 'PX-3002', message: 'Email rate limit exceeded' },
