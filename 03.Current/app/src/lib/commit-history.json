@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-12",
+  "lastUpdated": "2026-07-13",
   "commits": [
+    {
+      "id": "086f94e",
+      "date": "2026-07-12",
+      "version": "3.4.12",
+      "author": "aaron garcia",
+      "message": "feat: security hardening from cyber.md review + fix broken v3.4.11 build (v3.4.12)",
+      "major": true
+    },
     {
       "id": "e3ab42c",
       "date": "2026-07-12",

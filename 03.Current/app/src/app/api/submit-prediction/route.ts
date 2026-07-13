@@ -26,6 +26,7 @@ import { generateRaceId, generateRaceIdLowercase } from '@/lib/normalize-race-id
 import { wakeWhatsAppWorker } from '@/lib/whatsapp-wake';
 import { getRaceByName } from '@/lib/race-schedule-server';
 import { generateCheekyComment } from '@/ai/flows/cheeky-bill';
+import { buildCheekyBillContext } from '@/lib/cheeky-bill-context';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -343,7 +344,11 @@ export async function POST(request: NextRequest) {
       })();
     }
 
-    // GUID: API_SUBMIT_PREDICTION-009
+    // GUID: API_SUBMIT_PREDICTION-009-v02
+    // @CHANGE (v3.4.13): Cheeky Bill roast upgrade — fetch factual banter context (last completed
+    //   race top 6 + this team's championship position, via LIB_CHEEKY_BILL_CONTEXT with its
+    //   10-min cache) and pass it to generateCheekyComment so the roast can quote real data.
+    //   Context fetch is best-effort inside the same non-fatal block.
     // [Intent] Fire-and-forget WhatsApp group notification when a prediction is submitted.
     //          Sends team name and picked six drivers to the Prix6.Win group via whatsapp_queue.
     //          Never blocks the user's response — all errors are non-fatal.
@@ -364,10 +369,19 @@ export async function POST(request: NextRequest) {
           .map((id: string, i: number) => `${i + 1}. ${driverNames[id] || id}`)
           .join('\n');
 
-        // Generate a cheeky snarky comment from Bill about this submission (non-blocking)
+        // Generate Bill's roast of this submission (non-blocking). The banter context supplies
+        // VERIFIED facts (last-race top 6, team's championship rank) so the insult can quote real
+        // data; buildCheekyBillContext never throws — it degrades to empty facts.
         let cheekyLine = "";
         try {
-          cheekyLine = await generateCheekyComment({ teamName, driverList });
+          const banterContext = await buildCheekyBillContext(db, teamId);
+          cheekyLine = await generateCheekyComment({
+            teamName,
+            driverList,
+            raceName,
+            lastRaceFacts: banterContext.lastRaceFacts,
+            standingsFacts: banterContext.standingsFacts,
+          });
         } catch (cheekyErr: any) {
           console.error('[submit-prediction] Error generating cheeky Bill comment (non-fatal):', cheekyErr.message);
         }

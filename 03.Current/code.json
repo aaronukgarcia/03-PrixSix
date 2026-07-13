@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
- "generated": "2026-03-03",
- "total_guids": 2138,
+ "generated": "2026-07-13",
+ "total_guids": 2145,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -78255,7 +78255,7 @@
   },
   {
    "guid": "LIB_VERSION-000",
-   "version": 40,
+   "version": 41,
    "logic_category": "ORCHESTRATION",
    "description": "Single source of truth for the application version number displayed in the UI.",
    "dependencies": [],
@@ -78267,11 +78267,11 @@
     "calls": []
    },
    "created": "2026-01-19T16:21:56Z",
-   "lastUpdated": "2026-05-07T00:00:00Z"
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
   },
   {
    "guid": "LIB_VERSION-001",
-   "version": 40,
+   "version": 41,
    "logic_category": "VALIDATION",
    "description": "Export the current application version string for UI display and build verification.",
    "dependencies": [],
@@ -78284,7 +78284,7 @@
     "calls": []
    },
    "created": "2026-01-19T16:21:56Z",
-   "lastUpdated": "2026-05-07T00:00:00Z"
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
   },
   {
    "guid": "PAGE_ABOUT-000",
@@ -119121,10 +119121,13 @@
   },
   {
    "guid": "API_SUBMIT_PREDICTION-009",
-   "version": 1,
+   "version": 2,
    "logic_category": "ROUTE",
-   "description": "Fire-and-forget WhatsApp group notification when a prediction is submitted. Sends team name and picked six drivers to the Prix6.Win group via whatsapp_queue. Never blocks the user's response — all errors are non-fatal.",
-   "dependencies": [],
+   "description": "Fire-and-forget WhatsApp group notification on prediction submission (team name + six picks to Prix6.Win via whatsapp_queue). v2: fetches Cheeky Bill banter context (last-race top 6 + team championship rank via LIB_CHEEKY_BILL_CONTEXT) and passes it to generateCheekyComment so the roast quotes real data. All errors non-fatal.",
+   "dependencies": [
+    "AI_CHEEKY_BILL-000",
+    "LIB_CHEEKY_BILL_CONTEXT-003"
+   ],
    "location": {
     "filePath": "app/src/app/api/submit-prediction/route.ts"
    },
@@ -119133,7 +119136,7 @@
     "calls": []
    },
    "created": "2026-06-12T00:00:00Z",
-   "lastUpdated": "2026-06-12T00:00:00Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z",
    "autoRegistered": true
   },
   {
@@ -120378,6 +120381,164 @@
    },
    "created": "2026-06-15T00:00:00Z",
    "lastUpdated": "2026-06-15T00:00:00Z"
+  },
+  {
+   "guid": "AI_CHEEKY_BILL-000",
+   "version": 2,
+   "logic_category": "AI_GENERATION",
+   "description": "Genkit flow (generateCheekyComment) generating a derogatory tongue-in-cheek roast of an F1 prediction submission, signed off by Bill. v2 (v3.4.13): player-requested tone shift to full pub-roast with few-shot examples; accepts verified banter facts (last-race top 6, championship rank) and is forbidden from inventing stats; team name sanitised via sanitizeForPrompt before interpolation (GR#11). Backdated registration — v1 (v3.4.10) was never added to code.json.",
+   "dependencies": [
+    "LIB_SANITIZE_PROMPT-001"
+   ],
+   "location": {
+    "filePath": "app/src/ai/flows/cheeky-bill.ts",
+    "functionName": "generateCheekyComment"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_SUBMIT_PREDICTION-009"
+    ],
+    "calls": [
+     "LIB_SANITIZE_PROMPT-001"
+    ]
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_CHEEKY_BILL_CONTEXT-000",
+   "version": 1,
+   "logic_category": "DATA_AGGREGATION",
+   "description": "Module header: assembles factual banter ammunition for the Cheeky Bill roast — last completed race official top 6 and submitting team championship position — from the cumulative-standings SSOT helpers (GR#3). Decorative feature: every failure degrades to empty facts, never throws.",
+   "dependencies": [
+    "LIB_CUMULATIVE_STANDINGS-004",
+    "LIB_CUMULATIVE_STANDINGS-005",
+    "LIB_CUMULATIVE_STANDINGS-006",
+    "LIB_CUMULATIVE_STANDINGS-008",
+    "LIB_NORMALIZE_RACE_ID-000"
+   ],
+   "location": {
+    "filePath": "app/src/lib/cheeky-bill-context.ts"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_SUBMIT_PREDICTION-009"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_CHEEKY_BILL_CONTEXT-001",
+   "version": 1,
+   "logic_category": "CACHING",
+   "description": "Module-level 10-min TTL cache of the expensive Firestore aggregate (all race_results + all predictions + all users). Prediction submissions cluster before qualifying; cache saves hundreds of reads per burst. Worst case a roast quotes standings 10 minutes stale (acceptable for banter).",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cheeky-bill-context.ts"
+   },
+   "callChain": {
+    "calledBy": [
+     "LIB_CHEEKY_BILL_CONTEXT-003"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_CHEEKY_BILL_CONTEXT-002",
+   "version": 1,
+   "logic_category": "DATA_AGGREGATION",
+   "description": "Finds the most recent completed race (latest scheduled run time among race_results docs) and renders its official top 6 as a prompt fact line. Doc IDs matched to RaceSchedule via normalizeRaceIdForComparison (handles Title-Case and lowercase stored IDs). Returns empty string when no results exist.",
+   "dependencies": [
+    "LIB_NORMALIZE_RACE_ID-000"
+   ],
+   "location": {
+    "filePath": "app/src/lib/cheeky-bill-context.ts",
+    "functionName": "buildLastRaceFacts"
+   },
+   "callChain": {
+    "calledBy": [
+     "LIB_CHEEKY_BILL_CONTEXT-003"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_CHEEKY_BILL_CONTEXT-003",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "buildCheekyBillContext(db, teamId): full banter context for one submitting team — cached last-race facts plus that team championship rank/points line (P<rank> of <total> with leader note). Catches everything and returns empty facts on failure (console.error only, matching the non-fatal convention of API_SUBMIT_PREDICTION-009).",
+   "dependencies": [
+    "LIB_CHEEKY_BILL_CONTEXT-001",
+    "LIB_CHEEKY_BILL_CONTEXT-002",
+    "LIB_CUMULATIVE_STANDINGS-004",
+    "LIB_CUMULATIVE_STANDINGS-005",
+    "LIB_CUMULATIVE_STANDINGS-006",
+    "LIB_CUMULATIVE_STANDINGS-008"
+   ],
+   "location": {
+    "filePath": "app/src/lib/cheeky-bill-context.ts",
+    "functionName": "buildCheekyBillContext"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_SUBMIT_PREDICTION-009"
+    ],
+    "calls": [
+     "LIB_CUMULATIVE_STANDINGS-004",
+     "LIB_CUMULATIVE_STANDINGS-005",
+     "LIB_CUMULATIVE_STANDINGS-006",
+     "LIB_CUMULATIVE_STANDINGS-008"
+    ]
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_SANITIZE_PROMPT-000",
+   "version": 1,
+   "logic_category": "SECURITY",
+   "description": "Module header: single source of truth for sanitising strings before interpolation into an AI (Gemini/Vertex) prompt. Extracted from api/ai/analysis (GR#3). Backdated registration — existed in source but was never added to code.json.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/sanitize-prompt.ts"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_AI_ANALYSIS-000",
+     "HOT_NEWS_FLOW-000",
+     "AI_CHEEKY_BILL-000"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_SANITIZE_PROMPT-001",
+   "version": 1,
+   "logic_category": "SECURITY",
+   "description": "sanitizeForPrompt(input, maxLen): strips control chars and anything outside a safe allowlist, truncates to maxLen. Non-string input returns empty string (fail-safe). Neutralises prompt injection from user/external text.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/sanitize-prompt.ts",
+    "functionName": "sanitizeForPrompt"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_AI_ANALYSIS-000",
+     "HOT_NEWS_FLOW-000",
+     "AI_CHEEKY_BILL-000"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
   }
  ],
  "firestoreCollections": {

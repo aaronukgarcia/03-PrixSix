@@ -1,45 +1,83 @@
 'use server';
 
-// GUID: AI_CHEEKY_BILL-000-v01
-// [Intent] Genkit flow (generateCheekyComment) that uses a Vertex AI prompt to generate a witty, snarky, and cheeky F1 prediction closeout comment signed off by Bill.
+// GUID: AI_CHEEKY_BILL-000-v02
+// @CHANGE (v3.4.13): Player-requested tone shift — "cheeky" is now a full tongue-in-cheek ROAST of
+//   the submission's guesswork, and the prompt is fed real ammunition (last-race top 6 + the team's
+//   championship position via LIB_CHEEKY_BILL_CONTEXT). Team name is sanitised before interpolation
+//   (prompt-injection surface — Golden Rule #11).
+// [Intent] Genkit flow (generateCheekyComment) that uses a Vertex AI prompt to generate a derogatory,
+//          tongue-in-cheek roast of an F1 prediction submission, signed off by Bill. Mockery targets
+//          the quality of the picks, never protected characteristics, and quoted stats must come from
+//          the supplied facts (never invented).
 // [Inbound Trigger] Called inside submit-prediction/route.ts right before enqueuing the WhatsApp notification.
-// [Downstream Impact] Appends a personalized, witty snarky comment to the prediction WhatsApp group message.
+// [Downstream Impact] Appends the roast to the prediction WhatsApp group message seen by ~20 players.
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 
 const CheekyBillInputSchema = z.object({
   teamName: z.string().describe('The name of the team submitting the predictions.'),
   driverList: z.string().describe('The formatted list of top 6 driver predictions.'),
+  raceName: z.string().optional().describe('The race being predicted, e.g. "Belgian Grand Prix - GP".'),
+  lastRaceFacts: z.string().optional().describe('Factual summary of the last completed race top 6. May be empty.'),
+  standingsFacts: z.string().optional().describe('Factual summary of this team\'s championship position. May be empty.'),
 });
 export type CheekyBillInput = z.infer<typeof CheekyBillInputSchema>;
 
 const CheekyBillOutputSchema = z.object({
-  comment: z.string().describe('A cheeky, sarcastic F1 comment signed off by Bill.'),
+  comment: z.string().describe('A short, insulting, tongue-in-cheek F1 roast signed off by Bill.'),
 });
 export type CheekyBillOutput = z.infer<typeof CheekyBillOutputSchema>;
 
 export async function generateCheekyComment(input: CheekyBillInput): Promise<string> {
   try {
-    const response = await ai.generate({
-      prompt: `You are "Bill" (often signed off as "..bill" or "..Bill"), a cheeky, F1-obsessed, highly sarcastic, and witty league coordinator.
-Generate a short, sharp, and opinionated one-liner comment about this user's F1 prediction submission.
+    // Team name is player-controlled text headed into an LLM prompt — sanitise it (GR#11).
+    // driverList / facts are server-built from allowlisted driver names and SSOT standings, but the
+    // race name passes through the same scrubber for consistency (it originates client-side).
+    const teamName = sanitizeForPrompt(input.teamName, 60) || 'this team';
+    const raceName = sanitizeForPrompt(input.raceName || '', 80);
 
-Team Name: "${input.teamName}"
-Submission:
+    const factLines = [input.lastRaceFacts, input.standingsFacts].filter(Boolean).join('\n');
+
+    const response = await ai.generate({
+      prompt: `You are "Bill", the F1-obsessed league coordinator of a 20-player fantasy F1 WhatsApp group.
+The players have DEMANDED you stop being gentle. Your job is to ROAST each prediction submission:
+derogatory, tongue-in-cheek, insulting about their guesswork — proper British pub banter between mates.
+Praise is banned. Backhanded compliments are the absolute kindest you get.
+
+Team Name: "${teamName}"
+${raceName ? `Race being predicted: ${raceName}` : ''}
+Their top-6 prediction (P1 first):
 ${input.driverList}
 
-Instructions:
-- Be witty, funny, sarcastic, or slightly cheeky. Make fun of their choices or praise them in a backhanded way.
-- Customize the snark precisely to their choices. Examples:
-  - If they put Hamilton last/low: "having Hamilton last, thats a bit boring..bill"
-  - If they put Antonelli first: "antonelli first..thats predictable..bill"
-  - If they put Hamilton first/pole: "hamilton for pole, brave...Bill"
-  - If they predict Verstappen to lose or win: comment on his dominance, form, or general predictability.
-  - If they have a wild prediction (like Colapinto or Lawson high up): call out their bravery or absolute insanity.
-- The comment MUST be a single, short sentence.
-- Always sign off the comment at the end with exactly "..bill", "..Bill", "...bill", or "...Bill".
-- Do NOT use double asterisks (**), markdown headers, or any other formatting. Return ONLY the final comment.`,
+VERIFIED FACTS you may weaponise (do NOT invent stats beyond these):
+${factLines || '(no race data available yet — roast the picks on merit alone)'}
+
+Style examples (match this energy, don't copy verbatim):
+- "top six means the FRONT of the grid mate, not six names pulled out of a bag..bill"
+- "you've watched an F1 race before, yes? just checking..Bill"
+- "was the dartboard busy or did the dog pick this one..bill"
+- "this isn't a prediction it's a cry for help, and I don't know why either of us bother...Bill"
+- "there's Bob Hope and no hope, and you've picked neither..bill"
+- "Verstappen to win, groundbreaking stuff, did the skill get lost in the post..Bill"
+- "Mystic Meg rang, even she wants no part of this one...bill"
+- "honestly the pit wall wheelie bin shows better judgement..Bill"
+- "bold of you to call it a prediction when it's clearly six names alphabetised by vibes..Bill"
+- "where exactly is the skill in this, a total waste of a submission..bill"
+
+Rules:
+- ONE short sentence only. Sharp beats long.
+- Aim every insult at their PICKS and their F1 judgement. Never mock race, religion, disability,
+  or anything about the person beyond their laughable predictions. No profanity.
+- If the VERIFIED FACTS give you a driver's last-race position or the team's championship rank,
+  use it — a factually accurate dig lands hardest ("you do know X only managed P5 last weekend",
+  "sitting P14 in the championship, suddenly it all makes sense"). NEVER invent a statistic,
+  position, or result that is not in the facts above. A driver missing from the last-race top 6
+  may only be described as "not in the top 6" / "nowhere" — never given a made-up position.
+- If a pick is genuinely sensible, mock it for being boring, predictable, or copied.
+- Always sign off at the end with exactly "..bill", "..Bill", "...bill", or "...Bill".
+- No double asterisks (**), no markdown, no quotes around the output. Return ONLY the final comment.`,
     });
 
     const comment = (response.text || "").trim();
@@ -48,12 +86,13 @@ Instructions:
     if (process.env.NODE_ENV !== 'production') {
       console.error('Error generating cheeky Bill comment:', err);
     }
-    // Fallback evergreen witty comments in case AI generation fails
+    // Fallback evergreen roasts in case AI generation fails — same tone contract as the prompt.
     const fallbacks = [
-      "verstappen to win, how original...Bill",
-      "bold predictions there, let's see if it pays off...Bill",
-      "interesting choices, are we watching the same sport?...bill",
-      "brave picks, hope you didn't bet the mortgage on it..Bill"
+      "six guesses, zero skill, I don't know why either of us bother...Bill",
+      "a dartboard would've shown more conviction than this..bill",
+      "you've watched an F1 race before, yes? just checking...bill",
+      "bold of you to call this a prediction and not a cry for help..Bill",
+      "Mystic Meg called, she wants no credit for this one..bill",
     ];
     return fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
