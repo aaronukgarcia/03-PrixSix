@@ -350,3 +350,17 @@ Previously stored computed per-race scores. Now scores are calculated in real-ti
 **Doc ID:** `claude-state`
 
 **Writers/Readers:** `claude-sync.js` exclusively — do not modify manually
+
+---
+
+## `invites`
+
+**Purpose:** Friend-invite tokens (SEC-SIGNUP-001) — single-use signup-gate bypass while public registration is closed. **Doc ID IS the secret 256-bit token**, so client access is fully denied (even admins) to avoid leaking live invite links.
+
+**Doc ID:** 64-char lowercase hex token (crypto-random)
+
+**Fields:** `email`, `invitedByUid`, `invitedByTeamName`, `status` (`pending`/`accepted`/`revoked`), `createdAt`, `expiresAt` (14 days), `acceptedAt?`, `acceptedUid?`, `acceptedEmail?`, `resentAt?`
+
+**Writers:** `/api/invites/create` (create/refresh), `/api/auth/signup` + `/api/auth/complete-oauth-profile` (consume/revert via `lib/invites.ts`)
+
+**Readers:** `/signup` server component (validate), the two signup gates (validate+consume). All via Admin SDK — `firestore.rules` denies all client access.

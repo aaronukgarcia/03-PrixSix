@@ -19,6 +19,7 @@ import { ERROR_CODES } from '@/lib/error-codes';
 import { validateCsrfProtection } from '@/lib/csrf-protection';
 import { applyLateJoinerHandicap } from '@/lib/late-joiner';
 import { validateInvite, consumeInvite, revertInvite } from '@/lib/invites';
+import { claimTeamName } from '@/lib/team-names';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -229,7 +230,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_SIGNUP-010-v06
+    // GUID: API_AUTH_SIGNUP-010-v07
+    // @FIX(v07) SEC-SIGNUP-003: inline sentinel transaction moved to lib/team-names.ts
+    //   claimTeamName() — the shared SSOT now used by every name-claiming flow.
     // @SECURITY_FIX: GEMINI-AUDIT-112 — Replaced TOCTOU read-then-write with atomic Firestore transaction.
     // @PERFORMANCE_FIX: Replaced getAllUsers() with indexed queries (was fetching ALL users causing 5-30s hangs).
     // [Intent] Atomically claim team name uniqueness via a sentinel document in team_names/{name}.
@@ -289,30 +292,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Atomically claim the team name via Firestore transaction.
-    // Reads team_names/{name}: if it exists → name is taken; if not → write the sentinel to reserve it.
-    // This is atomic at Firestore level — two concurrent signups cannot both pass this check.
-    try {
-      await db.runTransaction(async (txn) => {
-        const sentinelDoc = await txn.get(teamNameSentinelRef);
-        if (sentinelDoc.exists) {
-          throw Object.assign(new Error('Team name is already taken'), { code: 'TEAM_NAME_TAKEN' });
-        }
-        txn.set(teamNameSentinelRef, { reserved: true, reservedAt: FieldValue.serverTimestamp() });
-      });
-    } catch (sentinelError: any) {
-      if (sentinelError.code === 'TEAM_NAME_TAKEN') {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'This team name is already taken. Please choose a unique name.',
-            errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code,
-            correlationId,
-          },
-          { status: 409 }
-        );
-      }
-      throw sentinelError; // Re-throw unexpected Firestore errors to the outer catch
+    // Atomically claim the team name via the shared sentinel helper (SEC-SIGNUP-003 SSOT —
+    // same transaction all name-claiming flows use). Two concurrent signups cannot both win.
+    const nameClaimed = await claimTeamName(db, FieldValue, normalizedTeamName, { kind: 'primary' });
+    if (!nameClaimed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'This team name is already taken. Please choose a unique name.',
+          errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code,
+          correlationId,
+        },
+        { status: 409 }
+      );
     }
 
     // GUID: API_AUTH_SIGNUP-025-v01

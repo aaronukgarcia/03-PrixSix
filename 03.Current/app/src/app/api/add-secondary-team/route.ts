@@ -9,6 +9,7 @@ import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { getRaceSchedule } from '@/lib/race-schedule-server';
+import { claimTeamName, releaseTeamName } from '@/lib/team-names';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,8 @@ interface AddSecondaryTeamRequest {
 // [Downstream Impact] Writes to users (secondaryTeamName field), leagues (memberUserIds), scores (late-joiner handicap), and audit_logs collections. The secondary teamId format "{uid}-secondary" is used by prediction submission and scoring throughout the application.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
+  // SEC-SIGNUP-003: tracks a claimed team_names sentinel so the outer catch can release it.
+  let claimedTeamName: string | null = null;
 
   try {
     // GUID: API_ADD_SECONDARY_TEAM-003-v03
@@ -196,7 +199,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_ADD_SECONDARY_TEAM-007-v03
+    // GUID: API_ADD_SECONDARY_TEAM-012-v01
+    // @SECURITY_FIX(SEC-SIGNUP-003): Atomically claim the team_names sentinel — this route
+    //   previously relied on the full-scan check alone (TOCTOU window) and never wrote a
+    //   sentinel, so secondary names were invisible to the signup routes' sentinel check.
+    // [Intent] Reserve the secondary team name transactionally before writing user state.
+    // [Inbound Trigger] After the duplicate-name scan passes.
+    // [Downstream Impact] Losing the claim race returns 409; the outer catch releases the
+    //                     sentinel if any later step throws.
+    const nameClaimed = await claimTeamName(db, FieldValue, normalizedTeamName, { userId: uid, kind: 'secondary' });
+    if (!nameClaimed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'This team name is already taken. Please choose a unique name.',
+          errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code,
+          correlationId,
+        },
+        { status: 409 }
+      );
+    }
+    claimedTeamName = normalizedTeamName;
+
+    // GUID: API_ADD_SECONDARY_TEAM-007-v04
+    // @FIX(v04) SEC-SIGNUP-003: also writes secondaryTeamNameLower — the indexed field the
+    //   signup routes' uniqueness queries filter on, which was never populated before (those
+    //   queries silently matched nothing for every secondary team).
     // [Intent] Writes the secondary team name to the user document and adds the secondary team ID to the global league's member list.
     // [Inbound Trigger] After all validation and uniqueness checks pass.
     // [Downstream Impact] The secondaryTeamName field on the user document is read by scoring (API_CALCULATE_SCORES-009) to build the user-to-team mapping. The global league membership enables the team to appear in standings.
@@ -206,8 +234,13 @@ export async function POST(request: NextRequest) {
     // secondaryTeamCreatedAt is the durable creation record — audit_logs is supplementary.
     await db.collection('users').doc(uid).update({
       secondaryTeamName: normalizedTeamName,
+      secondaryTeamNameLower: normalizedTeamName.toLowerCase().trim(),
       secondaryTeamCreatedAt: new Date().toISOString(),
     });
+
+    // SEC-SIGNUP-003: the secondary team is committed — the sentinel belongs to the user
+    // now, so later failures (league, handicap, audit) must not release it.
+    claimedTeamName = null;
 
     // Add secondary team to global league
     try {
@@ -296,12 +329,19 @@ export async function POST(request: NextRequest) {
       secondaryTeamId,
     });
 
-  // GUID: API_ADD_SECONDARY_TEAM-010-v04
+  // GUID: API_ADD_SECONDARY_TEAM-010-v05
+  // @FIX(v05) SEC-SIGNUP-003: releases the claimed team_names sentinel on failure.
   // [Intent] Top-level error handler that catches any unhandled exception during secondary team creation, logs it with a correlation ID, and returns a 500 response with the correlation ID for user-reportable error tracing.
   // [Inbound Trigger] Any uncaught exception within the POST handler try block.
   // [Downstream Impact] Writes to error_logs collection via logTracedError. The correlation ID and error code in the response enable support to trace the specific failure.
   } catch (error: any) {
     const { db: errorDb } = await getFirebaseAdmin();
+
+    // SEC-SIGNUP-003: free the name reservation claimed before the failure
+    if (claimedTeamName) {
+      await releaseTeamName(errorDb, claimedTeamName).catch(() => {});
+    }
+
     const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
       context: { route: '/api/add-secondary-team', action: 'POST' },

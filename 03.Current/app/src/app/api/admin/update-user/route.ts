@@ -9,6 +9,7 @@ import { getFirebaseAdmin, generateCorrelationId, logError, verifyAuthToken } fr
 import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
+import { claimTeamName, releaseTeamName, normalizeTeamName } from '@/lib/team-names';
 import { z } from 'zod';
 
 // Force dynamic to skip static analysis at build time
@@ -35,6 +36,8 @@ const updateUserRequestSchema = z.object({
 // [Downstream Impact] Writes to Firebase Auth (email), Firestore users collection, Firestore predictions subcollection (teamName propagation), and audit_logs collection. Error states logged to error_logs.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
+  // SEC-SIGNUP-003: tracks a newly claimed team_names sentinel so the outer catch can release it.
+  let claimedTeamName: string | null = null;
 
   try {
     // GUID: API_ADMIN_UPDATE_USER-011-v01
@@ -188,11 +191,21 @@ export async function POST(request: NextRequest) {
       data.email = normalizedEmail;
     }
 
-    // GUID: API_ADMIN_UPDATE_USER-006-v03
-    // [Intent] Handle teamName change: check for case-insensitive duplicates across all users, capture old name for downstream propagation.
+    // GUID: API_ADMIN_UPDATE_USER-006-v04
+    // @SECURITY_FIX(SEC-SIGNUP-003): renames now keep the uniqueness machinery in sync —
+    //   previously teamNameLower was left stale (breaking every indexed uniqueness query)
+    //   and the team_names sentinel ledger was never updated (old name stayed blocked,
+    //   new name stayed claimable by anyone).
+    // [Intent] Handle teamName change: check for case-insensitive duplicates across all
+    //          users, atomically claim the new name's sentinel, keep teamNameLower in sync,
+    //          and capture old name for downstream propagation + sentinel release.
     // [Inbound Trigger] data.teamName is present in the request body.
-    // [Downstream Impact] If duplicate found, returns 409. Otherwise stores oldTeamName for prediction propagation in SEQ 008. Fetches all users for duplicate check — performance concern at scale.
+    // [Downstream Impact] If duplicate found (scan or sentinel race), returns 409. On
+    //                     success SEQ 007/008 persist the change, release the old sentinel,
+    //                     and stamp the new one. Fetches all users for duplicate check —
+    //                     performance concern at scale.
     let oldTeamName: string | null = null;
+    let newTeamNameLower: string | null = null;
     if (data.teamName) {
       const normalizedTeamName = data.teamName.trim();
       const allUsersSnapshot = await db.collection('users').get();
@@ -225,18 +238,50 @@ export async function POST(request: NextRequest) {
         oldTeamName = currentUserDoc.data()?.teamName || null;
       }
 
+      // Claim the new name's sentinel unless it's a pure case change (same doc ID).
+      const oldNameLower = oldTeamName ? normalizeTeamName(oldTeamName) : null;
+      if (normalizedNewName !== oldNameLower) {
+        const nameClaimed = await claimTeamName(db, FieldValue, normalizedTeamName, { userId, kind: 'primary' });
+        if (!nameClaimed) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'This team name is already taken. Please choose a unique name.',
+              errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code,
+              correlationId,
+            },
+            { status: 409 }
+          );
+        }
+        claimedTeamName = normalizedTeamName;
+      }
+
       data.teamName = normalizedTeamName;
+      newTeamNameLower = normalizedNewName; // merged into the update in SEQ 007
     }
 
-    // GUID: API_ADMIN_UPDATE_USER-007-v03
+    // GUID: API_ADMIN_UPDATE_USER-007-v04
+    // @FIX(v04) SEC-SIGNUP-003: teamNameLower is written alongside teamName so the indexed
+    //   uniqueness queries never go stale on rename, and the old name's sentinel is released
+    //   once the rename is committed.
     // [Intent] Persist the validated changes to the Firestore users document with a server timestamp.
     // [Inbound Trigger] All validation and deduplication checks have passed.
     // [Downstream Impact] Updates Firestore users/{userId}. The updatedAt timestamp is used for audit trail. Other components reading user data will see the new values.
     const userDocRef = db.collection('users').doc(userId);
     await userDocRef.update({
       ...data,
+      ...(newTeamNameLower ? { teamNameLower: newTeamNameLower } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+    // SEC-SIGNUP-003: rename committed — free the old name (unless pure case change; the
+    // sentinel doc ID is the lowercased name so it's the same doc in that case), then stop
+    // tracking the new sentinel: from here on it belongs to the user and must survive any
+    // later failure (e.g. predictions propagation), so the outer catch must not release it.
+    if (claimedTeamName && oldTeamName && normalizeTeamName(oldTeamName) !== normalizeTeamName(claimedTeamName)) {
+      await releaseTeamName(db, oldTeamName).catch(() => {});
+    }
+    claimedTeamName = null;
 
     // GUID: API_ADMIN_UPDATE_USER-008-v03
     // [Intent] Propagate teamName changes to all of the user's prediction documents (Golden Rule #3: Single Source of Truth — denormalised teamName must stay in sync).
@@ -298,11 +343,18 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    // GUID: API_ADMIN_UPDATE_USER-010-v04
+    // GUID: API_ADMIN_UPDATE_USER-010-v05
+    // @FIX(v05) SEC-SIGNUP-003: releases a newly claimed rename sentinel on failure.
     // [Intent] Top-level error handler — catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.
     // [Inbound Trigger] Any uncaught exception within the POST handler.
     // [Downstream Impact] Writes to error_logs collection. Returns correlationId to client for support reference. Golden Rule #1 compliance.
     const { db: errorDb } = await getFirebaseAdmin();
+
+    // SEC-SIGNUP-003: the rename didn't commit — free the new name's reservation
+    if (claimedTeamName) {
+      await releaseTeamName(errorDb, claimedTeamName).catch(() => {});
+    }
+
     const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {
       correlationId,
       context: { route: '/api/admin/update-user', action: 'POST' },

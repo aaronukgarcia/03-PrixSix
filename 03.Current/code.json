@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-07-13",
-  "total_guids": 2175,
+  "total_guids": 2183,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -27045,9 +27045,9 @@
     },
     {
       "guid": "API_ADD_SECONDARY_TEAM-007",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Writes the secondary team name to the user document and adds the secondary team ID to the global league's member list.",
+      "description": "Secondary team write — v4 adds secondaryTeamNameLower (was never populated anywhere, breaking uniqueness queries).",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -27119,7 +27119,7 @@
         "calls": []
       },
       "created": "2026-01-22T21:11:53Z",
-      "lastUpdated": "2026-01-31T10:55:25Z"
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
     },
     {
       "guid": "API_ADD_SECONDARY_TEAM-008",
@@ -27279,9 +27279,9 @@
     },
     {
       "guid": "API_ADD_SECONDARY_TEAM-010",
-      "version": 4,
+      "version": 5,
       "logic_category": "RECOVERY",
-      "description": "Top-level error handler that catches any unhandled exception during secondary team creation, logs it with a correlation ID, and returns a 500 response with the correlation ID for user-reportable error tracing.",
+      "description": "Outer catch — v5 releases the claimed team_names sentinel on failure (SEC-SIGNUP-003).",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -27353,7 +27353,7 @@
         "calls": []
       },
       "created": "2026-01-22T21:11:53Z",
-      "lastUpdated": "2026-01-31T10:55:25Z"
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
     },
     {
       "guid": "API_ADMIN_DELETE_USER-000",
@@ -31196,9 +31196,9 @@
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-006",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Handle teamName change: check for case-insensitive duplicates across all users, capture old name for downstream propagation.",
+      "description": "Rename handling — v4 claims the new sentinel, syncs teamNameLower (was left stale, breaking uniqueness queries), releases the old sentinel after commit (SEC-SIGNUP-003).",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -31397,13 +31397,13 @@
         "calls": []
       },
       "created": "2026-01-22T12:20:34Z",
-      "lastUpdated": "2026-01-31T10:55:25Z"
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-007",
-      "version": 3,
+      "version": 4,
       "logic_category": "ORCHESTRATION",
-      "description": "Persist the validated changes to the Firestore users document with a server timestamp.",
+      "description": "Persist update — v4 merges teamNameLower and releases the old sentinel post-commit.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -31602,7 +31602,7 @@
         "calls": []
       },
       "created": "2026-01-22T12:20:34Z",
-      "lastUpdated": "2026-01-31T10:55:25Z"
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-008",
@@ -32016,9 +32016,9 @@
     },
     {
       "guid": "API_ADMIN_UPDATE_USER-010",
-      "version": 4,
+      "version": 5,
       "logic_category": "RECOVERY",
-      "description": "Top-level error handler â€” catches any unhandled exceptions, logs to error_logs, and returns a safe 500 response with correlation ID.",
+      "description": "Outer catch — v5 releases a newly claimed rename sentinel on failure.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -32217,7 +32217,7 @@
         "calls": []
       },
       "created": "2026-01-22T12:20:34Z",
-      "lastUpdated": "2026-01-31T10:55:25Z"
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
     },
     {
       "guid": "API_ADMIN_SINGLE_USER_MODE-000",
@@ -33437,7 +33437,7 @@
         "calls": []
       },
       "created": "2026-01-30T20:21:35Z",
-      "lastUpdated": "2026-07-13T13:14:16.921Z"
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
     },
     {
       "guid": "API_AUTH_COMPLETE_OAUTH-009",
@@ -36764,9 +36764,9 @@
     },
     {
       "guid": "API_AUTH_SIGNUP-010",
-      "version": 4,
+      "version": 7,
       "logic_category": "ORCHESTRATION",
-      "description": "Check for duplicate team names (case-insensitive) across all existing users to ensure team name uniqueness.",
+      "description": "Team-name claim via shared lib/team-names.ts claimTeamName (SEC-SIGNUP-003 SSOT); previously an inline transaction only this route used.",
       "dependencies": [
         "LIB_FIREBASE_ADMIN-000",
         "LIB_FIREBASE_ADMIN-001",
@@ -36838,7 +36838,7 @@
         "calls": []
       },
       "created": "2026-01-22T11:53:24Z",
-      "lastUpdated": "2026-02-13T00:23:43Z"
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
     },
     {
       "guid": "API_AUTH_SIGNUP-011",
@@ -121579,6 +121579,155 @@
       },
       "created": "2026-07-13T13:36:17.544Z",
       "lastUpdated": "2026-07-13T13:36:17.544Z"
+    },
+    {
+      "guid": "LIB_TEAM_NAMES-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "SEC-SIGNUP-003 SSOT for team-name uniqueness: the team_names sentinel ledger, used by email signup, OAuth completion, secondary team creation, admin renames, and the backfill script.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/team-names.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [
+          "API_AUTH_SIGNUP-010",
+          "API_AUTH_COMPLETE_OAUTH-015",
+          "API_ADD_SECONDARY_TEAM-012",
+          "API_ADMIN_UPDATE_USER-006"
+        ],
+        "calls": []
+      },
+      "created": "2026-07-13T18:35:52.734Z",
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
+    },
+    {
+      "guid": "LIB_TEAM_NAMES-001",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "normalizeTeamName — canonical lowercase+trim; changing it orphans every sentinel doc ID.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/team-names.ts",
+        "functionName": "normalizeTeamName"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-07-13T18:35:52.734Z",
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
+    },
+    {
+      "guid": "LIB_TEAM_NAMES-002",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "claimTeamName — transactional sentinel claim (GEMINI-AUDIT-112 pattern); returns false on TEAM_NAME_TAKEN; callers must release on failure paths.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/team-names.ts",
+        "functionName": "claimTeamName"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-07-13T18:35:52.734Z",
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
+    },
+    {
+      "guid": "LIB_TEAM_NAMES-003",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "releaseTeamName — best-effort sentinel delete for rollbacks and rename releases; prefer leaking a name over double-booking.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/team-names.ts",
+        "functionName": "releaseTeamName"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-07-13T18:35:52.734Z",
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
+    },
+    {
+      "guid": "LIB_TEAM_NAMES-004",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "isTeamNameTaken — friendly pre-check across teamNameLower, secondaryTeamNameLower, and the sentinel; the claim remains the true gate.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/team-names.ts",
+        "functionName": "isTeamNameTaken"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-07-13T18:35:52.734Z",
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
+    },
+    {
+      "guid": "SCRIPT_BACKFILL_TEAM_SENTINELS-000",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "SEC-SIGNUP-003 one-shot migration (run 2026-07-13): created 34 missing sentinels, repaired 30 stale teamNameLower/secondaryTeamNameLower fields, flagged+repaired 1 stale-owner collision. Idempotent.",
+      "dependencies": [],
+      "location": {
+        "filePath": "scripts/backfill-team-name-sentinels.js",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "LIB_TEAM_NAMES-000"
+        ]
+      },
+      "created": "2026-07-13T18:35:52.734Z",
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
+    },
+    {
+      "guid": "API_AUTH_COMPLETE_OAUTH-015",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "SEC-SIGNUP-003: transactional sentinel claim in OAuth profile completion — closed the TOCTOU window and the OAuth-names-invisible-to-sentinel-check hole (root cause of the Geepers AI duplicate). Released on all failure paths; ownership finalised once the user doc commits.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/auth/complete-oauth-profile/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "LIB_TEAM_NAMES-002",
+          "LIB_TEAM_NAMES-003"
+        ]
+      },
+      "created": "2026-07-13T18:35:52.734Z",
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
+    },
+    {
+      "guid": "API_ADD_SECONDARY_TEAM-012",
+      "version": 1,
+      "logic_category": "SECURITY",
+      "description": "SEC-SIGNUP-003: transactional sentinel claim for secondary team creation; also fixed the never-written secondaryTeamNameLower field (uniqueness queries silently matched nothing).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/add-secondary-team/route.ts",
+        "functionName": "POST"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "LIB_TEAM_NAMES-002",
+          "LIB_TEAM_NAMES-003"
+        ]
+      },
+      "created": "2026-07-13T18:35:52.734Z",
+      "lastUpdated": "2026-07-13T18:35:52.734Z"
     }
   ],
   "firestoreCollections": {

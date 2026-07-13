@@ -19,6 +19,7 @@ import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { internalAuthHeaders } from '@/lib/internal-auth';
 import { validateInvite, consumeInvite, revertInvite } from '@/lib/invites';
+import { claimTeamName, releaseTeamName } from '@/lib/team-names';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,8 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
   // SEC-SIGNUP-001: tracks a consumed invite token so failure paths can revert it (single-use safety).
   let consumedInviteToken: string | null = null;
+  // SEC-SIGNUP-003: tracks a claimed team_names sentinel so failure paths can release it.
+  let claimedTeamName: string | null = null;
 
   try {
     const authHeader = request.headers.get('Authorization');
@@ -192,6 +195,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // GUID: API_AUTH_COMPLETE_OAUTH-015-v01
+    // @SECURITY_FIX(SEC-SIGNUP-003): Atomically claim the team_names sentinel — this route
+    //   previously relied on the queries above alone (TOCTOU window) and never wrote a
+    //   sentinel, leaving OAuth-claimed names invisible to the email-signup sentinel check.
+    // [Intent] Reserve the team name transactionally before any account state is written.
+    // [Inbound Trigger] After the duplicate-name queries pass.
+    // [Downstream Impact] Losing the claim race returns 409. Failure paths below release
+    //                     the sentinel; success stamps it with the uid.
+    const claimed = await claimTeamName(db, FieldValue, normalizedTeamName, { userId: uid, kind: 'primary' });
+    if (!claimed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'This team name is already taken. Please choose a unique name.',
+          errorCode: ERROR_CODES.VALIDATION_DUPLICATE_ENTRY.code,
+          correlationId,
+        },
+        { status: 409 }
+      );
+    }
+    claimedTeamName = normalizedTeamName;
+
     // GUID: API_AUTH_COMPLETE_OAUTH-008-v05
     // @SECURITY_FIX(SEC-SIGNUP-001): Fail-closed signup gate, mirroring API_AUTH_SIGNUP-008-v05.
     //   Previous version read the non-existent admin_configuration/site_settings doc and
@@ -293,6 +318,11 @@ export async function POST(request: NextRequest) {
           await revertInvite(db, consumedInviteToken).catch(() => {});
           consumedInviteToken = null;
         }
+        // SEC-SIGNUP-003: free the name reservation
+        if (claimedTeamName) {
+          await releaseTeamName(db, claimedTeamName).catch(() => {});
+          claimedTeamName = null;
+        }
         return NextResponse.json(
           {
             success: false,
@@ -306,6 +336,12 @@ export async function POST(request: NextRequest) {
       // Re-throw other errors to be caught by outer catch block
       throw createError;
     }
+
+    // SEC-SIGNUP-001/003: the account is minted from this point — the invite is legitimately
+    // spent and the sentinel belongs to the user. Stop tracking both so a failure in any
+    // later step (presence, league, handicap, email, audit) can't roll them back.
+    consumedInviteToken = null;
+    claimedTeamName = null;
 
     await db.collection('presence').doc(uid).set({
       online: false,
@@ -431,6 +467,11 @@ export async function POST(request: NextRequest) {
     // SEC-SIGNUP-001: profile creation failed after the invite was burned — un-burn it
     if (consumedInviteToken) {
       await revertInvite(db, consumedInviteToken).catch(() => {});
+    }
+
+    // SEC-SIGNUP-003: free the name reservation claimed before the failure
+    if (claimedTeamName) {
+      await releaseTeamName(db, claimedTeamName).catch(() => {});
     }
 
     const traced = createTracedError(ERRORS.UNKNOWN_ERROR, {

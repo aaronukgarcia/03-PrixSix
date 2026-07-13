@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-13",
   "commits": [
     {
+      "id": "2d11301",
+      "date": "2026-07-13",
+      "version": "3.5.0",
+      "author": "aaron garcia",
+      "message": "feat: fail-closed signup gate + Invite a Friend system (v3.5.0)",
+      "major": true
+    },
+    {
       "id": "4e0da6c",
       "date": "2026-07-13",
       "version": "3.4.14",

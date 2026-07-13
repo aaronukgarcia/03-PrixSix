@@ -19,14 +19,22 @@ const nextConfig: NextConfig = {
   // sniffing. The CSP is deliberately permissive on script/style ('unsafe-inline'/'unsafe-eval') because
   // Next.js + the current inline styles/GA need it — it still forbids framing and object embeds and is a
   // meaningful defence-in-depth baseline. Tighten toward nonces in a later hardening pass.
+  // @FIX(BUG-CSP-001, v3.5.1): the v3.4.12 CSP silently broke Google/Apple popup sign-in
+  // (auth/internal-error, PX-1017): Firebase Auth loads https://apis.google.com/js/api.js and
+  // relays the popup result through a hidden iframe to the Firebase authDomain — both were
+  // blocked (no script-src entry, no frame-src at all under default-src 'self'). It also blocked
+  // Google Fonts CSS, gtag.js, and the Cloudflare beacon. Every third-party host is now
+  // explicitly allowlisted; reproduced+verified via headless Edge against /login.
   async headers() {
+    const FIREBASE_AUTH_DOMAIN = 'https://studio-6033436327-281b1.firebaseapp.com';
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com`,
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https:",
+      `frame-src 'self' ${FIREBASE_AUTH_DOMAIN} https://prix6.win`,
       "frame-ancestors 'none'",
       "object-src 'none'",
       "base-uri 'self'",
