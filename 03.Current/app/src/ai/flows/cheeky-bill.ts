@@ -1,6 +1,10 @@
 'use server';
 
-// GUID: AI_CHEEKY_BILL-000-v02
+// GUID: AI_CHEEKY_BILL-000-v03
+// @CHANGE (v3.4.14): situational awareness — two new optional fact inputs: previousSubmissionFacts
+//   (identical / same-six-shuffled / wholesale-changes vs their last submission → "minimal effort"
+//   roasts) and formFacts (picks' REAL WDC positions + outsider/table-copy flags → "brave outside
+//   chance" roasts). Prompt gains situational instructions + two player-supplied style examples.
 // @CHANGE (v3.4.13): Player-requested tone shift — "cheeky" is now a full tongue-in-cheek ROAST of
 //   the submission's guesswork, and the prompt is fed real ammunition (last-race top 6 + the team's
 //   championship position via LIB_CHEEKY_BILL_CONTEXT). Team name is sanitised before interpolation
@@ -22,6 +26,8 @@ const CheekyBillInputSchema = z.object({
   raceName: z.string().optional().describe('The race being predicted, e.g. "Belgian Grand Prix - GP".'),
   lastRaceFacts: z.string().optional().describe('Factual summary of the last completed race top 6. May be empty.'),
   standingsFacts: z.string().optional().describe('Factual summary of this team\'s championship position. May be empty.'),
+  previousSubmissionFacts: z.string().optional().describe('Deterministic comparison vs the team\'s previous submission (identical / shuffled / new faces). May be empty.'),
+  formFacts: z.string().optional().describe('Picks\' real WDC positions plus outsider / table-copy flags. May be empty.'),
 });
 export type CheekyBillInput = z.infer<typeof CheekyBillInputSchema>;
 
@@ -38,7 +44,9 @@ export async function generateCheekyComment(input: CheekyBillInput): Promise<str
     const teamName = sanitizeForPrompt(input.teamName, 60) || 'this team';
     const raceName = sanitizeForPrompt(input.raceName || '', 80);
 
-    const factLines = [input.lastRaceFacts, input.standingsFacts].filter(Boolean).join('\n');
+    const factLines = [input.lastRaceFacts, input.standingsFacts, input.previousSubmissionFacts, input.formFacts]
+      .filter(Boolean)
+      .join('\n');
 
     const response = await ai.generate({
       prompt: `You are "Bill", the F1-obsessed league coordinator of a 20-player fantasy F1 WhatsApp group.
@@ -65,9 +73,17 @@ Style examples (match this energy, don't copy verbatim):
 - "honestly the pit wall wheelie bin shows better judgement..Bill"
 - "bold of you to call it a prediction when it's clearly six names alphabetised by vibes..Bill"
 - "where exactly is the skill in this, a total waste of a submission..bill"
+- "much the same as your last submission, minimal effort, you're not planning on winning are you..bill"
+- "brave stuff this, going with the pundits for an outside chance were we..Bill"
 
 Rules:
 - ONE short sentence only. Sharp beats long.
+- SITUATIONAL PRIORITY: if the facts include a SUBMISSION HISTORY line (identical / same six
+  shuffled / wholesale changes) or an OUTSIDER ALERT / ZERO IMAGINATION flag, roast THAT
+  specifically — laziness, panic, blind optimism, or photocopying the form book — it beats a
+  generic dig every time. Identical or barely-changed submission = mock the effort ("you're not
+  planning on winning are you"). Outsider pick = mock the blind hope, quoting the real position.
+  Championship-table copy = mock the total absence of imagination.
 - Aim every insult at their PICKS and their F1 judgement. Never mock race, religion, disability,
   or anything about the person beyond their laughable predictions. No profanity.
 - If the VERIFIED FACTS give you a driver's last-race position or the team's championship rank,

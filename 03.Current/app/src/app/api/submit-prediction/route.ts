@@ -344,7 +344,11 @@ export async function POST(request: NextRequest) {
       })();
     }
 
-    // GUID: API_SUBMIT_PREDICTION-009-v02
+    // GUID: API_SUBMIT_PREDICTION-009-v03
+    // @CHANGE (v3.4.14): situational roasts — the banter context builder now also receives
+    //   userId + normalizedRaceId + the submitted picks so it can compare against the team's
+    //   previous submission and against the real WDC form book (Jolpica). Two new fact fields
+    //   passed through to generateCheekyComment.
     // @CHANGE (v3.4.13): Cheeky Bill roast upgrade — fetch factual banter context (last completed
     //   race top 6 + this team's championship position, via LIB_CHEEKY_BILL_CONTEXT with its
     //   10-min cache) and pass it to generateCheekyComment so the roast can quote real data.
@@ -374,13 +378,20 @@ export async function POST(request: NextRequest) {
         // data; buildCheekyBillContext never throws — it degrades to empty facts.
         let cheekyLine = "";
         try {
-          const banterContext = await buildCheekyBillContext(db, teamId);
+          const banterContext = await buildCheekyBillContext(db, {
+            userId,
+            teamId,
+            raceId: normalizedRaceId,
+            predictions,
+          });
           cheekyLine = await generateCheekyComment({
             teamName,
             driverList,
             raceName,
             lastRaceFacts: banterContext.lastRaceFacts,
             standingsFacts: banterContext.standingsFacts,
+            previousSubmissionFacts: banterContext.previousSubmissionFacts,
+            formFacts: banterContext.formFacts,
           });
         } catch (cheekyErr: any) {
           console.error('[submit-prediction] Error generating cheeky Bill comment (non-fatal):', cheekyErr.message);

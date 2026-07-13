@@ -1,7 +1,7 @@
 {
  "module": "Prix Six Application",
  "generated": "2026-07-13",
- "total_guids": 2145,
+ "total_guids": 2148,
  "variables": [
   {
    "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -78255,7 +78255,7 @@
   },
   {
    "guid": "LIB_VERSION-000",
-   "version": 41,
+   "version": 42,
    "logic_category": "ORCHESTRATION",
    "description": "Single source of truth for the application version number displayed in the UI.",
    "dependencies": [],
@@ -78271,7 +78271,7 @@
   },
   {
    "guid": "LIB_VERSION-001",
-   "version": 41,
+   "version": 42,
    "logic_category": "VALIDATION",
    "description": "Export the current application version string for UI display and build verification.",
    "dependencies": [],
@@ -119121,9 +119121,9 @@
   },
   {
    "guid": "API_SUBMIT_PREDICTION-009",
-   "version": 2,
+   "version": 3,
    "logic_category": "ROUTE",
-   "description": "Fire-and-forget WhatsApp group notification on prediction submission (team name + six picks to Prix6.Win via whatsapp_queue). v2: fetches Cheeky Bill banter context (last-race top 6 + team championship rank via LIB_CHEEKY_BILL_CONTEXT) and passes it to generateCheekyComment so the roast quotes real data. All errors non-fatal.",
+   "description": "Fire-and-forget WhatsApp group notification on prediction submission. v3 (v3.4.14): context builder now receives userId+raceId+picks for submission-history and real-WDC form facts. v2 (v3.4.13): fetches Cheeky Bill banter context and passes it to generateCheekyComment. All errors non-fatal.",
    "dependencies": [
     "AI_CHEEKY_BILL-000",
     "LIB_CHEEKY_BILL_CONTEXT-003"
@@ -120384,9 +120384,9 @@
   },
   {
    "guid": "AI_CHEEKY_BILL-000",
-   "version": 2,
+   "version": 3,
    "logic_category": "AI_GENERATION",
-   "description": "Genkit flow (generateCheekyComment) generating a derogatory tongue-in-cheek roast of an F1 prediction submission, signed off by Bill. v2 (v3.4.13): player-requested tone shift to full pub-roast with few-shot examples; accepts verified banter facts (last-race top 6, championship rank) and is forbidden from inventing stats; team name sanitised via sanitizeForPrompt before interpolation (GR#11). Backdated registration — v1 (v3.4.10) was never added to code.json.",
+   "description": "Genkit flow (generateCheekyComment) generating a derogatory tongue-in-cheek roast of an F1 prediction submission, signed off by Bill. v3 (v3.4.14): situational awareness — previousSubmissionFacts + formFacts optional inputs with situational-priority roast instructions. v2 (v3.4.13): player-requested tone shift to full pub-roast with few-shot examples; accepts verified banter facts (last-race top 6, championship rank) and is forbidden from inventing stats; team name sanitised via sanitizeForPrompt before interpolation (GR#11). Backdated registration — v1 (v3.4.10) was never added to code.json.",
    "dependencies": [
     "LIB_SANITIZE_PROMPT-001"
    ],
@@ -120407,9 +120407,9 @@
   },
   {
    "guid": "LIB_CHEEKY_BILL_CONTEXT-000",
-   "version": 1,
+   "version": 2,
    "logic_category": "DATA_AGGREGATION",
-   "description": "Module header: assembles factual banter ammunition for the Cheeky Bill roast — last completed race official top 6 and submitting team championship position — from the cumulative-standings SSOT helpers (GR#3). Decorative feature: every failure degrades to empty facts, never throws.",
+   "description": "Module header: assembles factual banter ammunition for the Cheeky Bill roast — last completed race official top 6 and submitting team championship position — from the cumulative-standings SSOT helpers (GR#3). Decorative feature: every failure degrades to empty facts, never throws. v2 (v3.4.14): adds previous-submission comparison and real-WDC form facts (Jolpica, 6h cache).",
    "dependencies": [
     "LIB_CUMULATIVE_STANDINGS-004",
     "LIB_CUMULATIVE_STANDINGS-005",
@@ -120470,16 +120470,19 @@
   },
   {
    "guid": "LIB_CHEEKY_BILL_CONTEXT-003",
-   "version": 1,
+   "version": 2,
    "logic_category": "ORCHESTRATION",
-   "description": "buildCheekyBillContext(db, teamId): full banter context for one submitting team — cached last-race facts plus that team championship rank/points line (P<rank> of <total> with leader note). Catches everything and returns empty facts on failure (console.error only, matching the non-fatal convention of API_SUBMIT_PREDICTION-009).",
+   "description": "buildCheekyBillContext(db, {userId, teamId, raceId, predictions}): full banter context — cached last-race facts, team championship rank line, previous-submission comparison, real-WDC form flags. Sub-builders run concurrently and degrade to empty strings individually; whole function never throws (console.error only).",
    "dependencies": [
     "LIB_CHEEKY_BILL_CONTEXT-001",
     "LIB_CHEEKY_BILL_CONTEXT-002",
     "LIB_CUMULATIVE_STANDINGS-004",
     "LIB_CUMULATIVE_STANDINGS-005",
     "LIB_CUMULATIVE_STANDINGS-006",
-    "LIB_CUMULATIVE_STANDINGS-008"
+    "LIB_CUMULATIVE_STANDINGS-008",
+    "LIB_CHEEKY_BILL_CONTEXT-004",
+    "LIB_CHEEKY_BILL_CONTEXT-005",
+    "LIB_CHEEKY_BILL_CONTEXT-006"
    ],
    "location": {
     "filePath": "app/src/lib/cheeky-bill-context.ts",
@@ -120493,7 +120496,10 @@
      "LIB_CUMULATIVE_STANDINGS-004",
      "LIB_CUMULATIVE_STANDINGS-005",
      "LIB_CUMULATIVE_STANDINGS-006",
-     "LIB_CUMULATIVE_STANDINGS-008"
+     "LIB_CUMULATIVE_STANDINGS-008",
+     "LIB_CHEEKY_BILL_CONTEXT-004",
+     "LIB_CHEEKY_BILL_CONTEXT-005",
+     "LIB_CHEEKY_BILL_CONTEXT-006"
     ]
    },
    "created": "2026-07-13T00:00:00.000000Z",
@@ -120536,6 +120542,69 @@
      "AI_CHEEKY_BILL-000"
     ],
     "calls": []
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_CHEEKY_BILL_CONTEXT-004",
+   "version": 1,
+   "logic_category": "DATA_AGGREGATION",
+   "description": "buildPreviousSubmissionFacts: deterministic TypeScript diff of the just-submitted six vs the team most recent DIFFERENT-race submission (same-race doc is already overwritten by the time the fire-and-forget block runs). Skips isCloned docs. Emits identical / same-six-N-shuffled / N-new-faces fact strings; empty on first submission. In-memory filter over the single user predictions subcollection — no composite index.",
+   "dependencies": [
+    "LIB_NORMALIZE_RACE_ID-000"
+   ],
+   "location": {
+    "filePath": "app/src/lib/cheeky-bill-context.ts",
+    "functionName": "buildPreviousSubmissionFacts"
+   },
+   "callChain": {
+    "calledBy": [
+     "LIB_CHEEKY_BILL_CONTEXT-003"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_CHEEKY_BILL_CONTEXT-005",
+   "version": 1,
+   "logic_category": "DATA_AGGREGATION",
+   "description": "fetchRealWdcByDriverId: full real F1 drivers championship from Jolpica (api.jolpi.ca, same keyless feed as HOT_NEWS_FLOW-010, GR#3), 6h module cache. Maps familyName to Prix Six driver id via diacritic-stripped lowercase surname (all 22 grid surnames unique — verified live vs 2026 season). Returns null on any failure.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/lib/cheeky-bill-context.ts",
+    "functionName": "fetchRealWdcByDriverId"
+   },
+   "callChain": {
+    "calledBy": [
+     "LIB_CHEEKY_BILL_CONTEXT-006"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-13T00:00:00.000000Z",
+   "lastUpdated": "2026-07-13T00:00:00.000000Z"
+  },
+  {
+   "guid": "LIB_CHEEKY_BILL_CONTEXT-006",
+   "version": 1,
+   "logic_category": "DATA_AGGREGATION",
+   "description": "buildFormFacts: converts real WDC standings into roast ammunition — per-pick real championship positions, OUTSIDER ALERT for podium picks (P1-P3) ranked 10+ in reality, ZERO IMAGINATION flag when the six copy the real WDC top six in exact order. All flags computed here; the LLM only quotes them. Empty string when Jolpica is down.",
+   "dependencies": [
+    "LIB_CHEEKY_BILL_CONTEXT-005"
+   ],
+   "location": {
+    "filePath": "app/src/lib/cheeky-bill-context.ts",
+    "functionName": "buildFormFacts"
+   },
+   "callChain": {
+    "calledBy": [
+     "LIB_CHEEKY_BILL_CONTEXT-003"
+    ],
+    "calls": [
+     "LIB_CHEEKY_BILL_CONTEXT-005"
+    ]
    },
    "created": "2026-07-13T00:00:00.000000Z",
    "lastUpdated": "2026-07-13T00:00:00.000000Z"
