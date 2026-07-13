@@ -35,8 +35,10 @@ import {
   aggregateStandings,
   buildTeamNamesMap,
   readStandingsAdjustments,
+  buildRaceRunMillisMap,
 } from '@/lib/cumulative-standings';
 import { normalizeRaceIdForComparison, generateRaceId } from '@/lib/normalize-race-id';
+import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 import { RaceSchedule, F1Drivers } from '@/lib/data';
 import type { getFirebaseAdmin } from '@/lib/firebase-admin';
 
@@ -311,5 +313,103 @@ export async function buildCheekyBillContext(db: AdminFirestore, input: CheekyBi
     // Decorative path — degrade to statless roast, never block or bubble up.
     console.error('[cheeky-bill-context] Failed to build banter context (non-fatal):', err?.message || err);
     return empty;
+  }
+}
+
+// GUID: LIB_CHEEKY_BILL_CONTEXT-010-v01
+// [Intent] Deterministic, VERIFIED fact lines for the weekly-standings "Bill's take" snark
+//          (v3.5.2): last completed round + its round winner, leader gap, point ties inside the
+//          top 10, biggest riser/faller vs the standings BEFORE the latest round (computed by
+//          re-aggregating with that round's scores excluded — same SSOT, no stored history),
+//          and who is propping up the table. Same contract as the submission roast: the LLM may
+//          only quote these lines, never invent stats.
+// [Inbound Trigger] Called by the weekly block in /api/cron/whatsapp-scheduled before
+//                   generateWeeklyStandingsSnark.
+// [Downstream Impact] Returns null when there is nothing worth saying (no completed rounds /
+//                     fewer than 2 teams) — caller then posts the plain standings unchanged.
+export async function buildWeeklyStandingsFacts(db: AdminFirestore): Promise<{ factLines: string } | null> {
+  try {
+    const [{ scores }, adjustments, names] = await Promise.all([
+      computeRaceScores(db),
+      readStandingsAdjustments(db),
+      buildTeamNamesMap(db),
+    ]);
+    const allRows = [...scores, ...adjustments];
+    const current = aggregateStandings(allRows, names);
+    if (!current || current.length < 2) return null;
+
+    // Identify the most recent completed round among raceIds that actually have scores.
+    const runMillis = buildRaceRunMillisMap();
+    let latestKey: string | null = null;
+    let latestMillis = -1;
+    for (const row of scores) {
+      const t = runMillis.get(row.raceId);
+      if (t !== undefined && t > latestMillis) { latestMillis = t; latestKey = row.raceId; }
+    }
+
+    const lines: string[] = [];
+    // Team names are player-controlled text headed into an LLM prompt — sanitise (GR#11).
+    const safe = (n: string | undefined) => sanitizeForPrompt(n || '', 60) || 'unnamed team';
+
+    if (latestKey) {
+      // Human label for the round (mirror buildLastRaceFacts' schedule matching).
+      let label = latestKey;
+      for (const race of RaceSchedule) {
+        if (normalizeRaceIdForComparison(generateRaceId(race.name, 'gp')) === latestKey) { label = race.name; break; }
+        if (race.hasSprint && normalizeRaceIdForComparison(generateRaceId(race.name, 'sprint')) === latestKey) { label = `${race.name} Sprint`; break; }
+      }
+
+      // Round winner: best single-round score in the latest round.
+      let best: { userId: string; totalPoints: number } | null = null;
+      for (const row of scores) {
+        if (row.raceId === latestKey && (!best || row.totalPoints > best.totalPoints)) best = row;
+      }
+      if (best) {
+        lines.push(`Last completed round: ${label}. Round winner: "${safe(names.get(best.userId))}" with ${best.totalPoints} points.`);
+      }
+
+      // Movement vs the table BEFORE the latest round (same aggregation, that round excluded).
+      const prev = aggregateStandings(allRows.filter((r) => r.raceId !== latestKey), names);
+      const prevRank = new Map(prev.map((s) => [s.userId, s.rank]));
+      let riser: { teamName: string; delta: number; rank: number } | null = null;
+      let faller: { teamName: string; delta: number; rank: number } | null = null;
+      for (const s of current) {
+        const was = prevRank.get(s.userId);
+        if (was === undefined) continue;
+        const delta = was - s.rank; // positive = climbed
+        if (delta > 0 && (!riser || delta > riser.delta)) riser = { teamName: s.teamName, delta, rank: s.rank };
+        if (delta < 0 && (!faller || delta < faller.delta)) faller = { teamName: s.teamName, delta, rank: s.rank };
+      }
+      if (riser && riser.delta >= 2) lines.push(`Biggest riser this round: "${safe(riser.teamName)}" climbed ${riser.delta} places to P${riser.rank}.`);
+      if (faller && faller.delta <= -2) lines.push(`Biggest faller this round: "${safe(faller.teamName)}" dropped ${Math.abs(faller.delta)} places to P${faller.rank}.`);
+    }
+
+    // Leader gap.
+    const [p1, p2] = current;
+    lines.push(p1.totalPoints === p2.totalPoints
+      ? `Top of the table: "${safe(p1.teamName)}" and "${safe(p2.teamName)}" are DEAD LEVEL on ${p1.totalPoints} points.`
+      : `Leader: "${safe(p1.teamName)}" on ${p1.totalPoints}, ${p1.totalPoints - p2.totalPoints} points clear of "${safe(p2.teamName)}".`);
+
+    // Point ties inside the top 10 (most interesting cluster first).
+    const topTen = current.slice(0, 10);
+    const byPoints = new Map<number, typeof topTen>();
+    topTen.forEach((s) => { const g = byPoints.get(s.totalPoints) || []; g.push(s); byPoints.set(s.totalPoints, g); });
+    const ties = [...byPoints.values()].filter((g) => g.length > 1).sort((a, b) => b.length - a.length);
+    if (ties.length > 0) {
+      const g = ties[0];
+      // Tied teams share a rank value — describe them by their listed table positions instead.
+      const first = topTen.indexOf(g[0]) + 1;
+      const last = topTen.indexOf(g[g.length - 1]) + 1;
+      lines.push(`TIE ALERT: ${g.map((s) => `"${safe(s.teamName)}"`).join(', ')} are all level on ${g[0].totalPoints} points (positions ${first}–${last} in the table).`);
+    }
+
+    // Backmarker.
+    const last = current[current.length - 1];
+    lines.push(`Propping up the table: "${safe(last.teamName)}" in P${last.rank} with ${last.totalPoints} points.`);
+
+    return { factLines: lines.join('\n') };
+  } catch (err: any) {
+    console.error('[cheeky-bill-context] Failed to build weekly standings facts (non-fatal):', err?.message || err);
+    return null;
   }
 }

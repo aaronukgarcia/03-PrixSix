@@ -1,4 +1,8 @@
-// GUID: CRON_WHATSAPP_SCHEDULED-000-v02
+// GUID: CRON_WHATSAPP_SCHEDULED-000-v03
+// @CHANGE (v3.5.2): weekly standings post gains "Bill's take" — two verified-facts roast lines
+//          (buildWeeklyStandingsFacts + generateWeeklyStandingsSnark), fire-safe so generation
+//          failure posts the plain table. buildStandingsText now includes standings_adjustments
+//          (was omitted — WhatsApp table could disagree with the site standings, GR#3).
 // Auth:   CRON_SECRET bearer token (timing-safe), same pattern as the other cron routes.
 // Runs:   every ~30 min via the whatsAppScheduledTick Cloud Function.
 // [Intent] Time-driven WhatsApp alerts that the per-event call sites can't do: prediction-deadline
@@ -16,7 +20,9 @@ import { timingSafeEqual } from 'crypto';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { getRaceSchedule } from '@/lib/race-schedule-server';
 import { sendWhatsAppAlert } from '@/lib/whatsapp-alert';
-import { computeRaceScores, aggregateStandings, buildTeamNamesMap } from '@/lib/cumulative-standings';
+import { computeRaceScores, aggregateStandings, buildTeamNamesMap, readStandingsAdjustments } from '@/lib/cumulative-standings';
+import { buildWeeklyStandingsFacts } from '@/lib/cheeky-bill-context';
+import { generateWeeklyStandingsSnark } from '@/ai/flows/cheeky-bill';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,7 +129,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (londonDow === 'Mon' && londonHour === 18 && !weekly[wk]) {
       const standings = await buildStandingsText(db);
       if (standings) {
-        const res = await sendWhatsAppAlert('weeklyStandingsUpdate', `📊 *Prix Six — Weekly Standings*\n\n${standings}`);
+        // Bill's take (v3.5.2): two verified-facts roast lines. Decorative — any failure and
+        // the plain standings post goes out exactly as before.
+        let snark = '';
+        try {
+          const facts = await buildWeeklyStandingsFacts(db);
+          if (facts) {
+            const take = await generateWeeklyStandingsSnark({ topTen: standings, factLines: facts.factLines });
+            if (take) snark = `\n\n💬 *Bill's take:*\n${take}`;
+          }
+        } catch { /* never blocks the standings post */ }
+        const res = await sendWhatsAppAlert('weeklyStandingsUpdate', `📊 *Prix Six — Weekly Standings*\n\n${standings}${snark}`);
         if (res.queued !== false) { weekly[wk] = true; actions.push(`weekly:${wk}`); }
       }
     }
@@ -160,9 +176,14 @@ async function getNonPredictors(db: FirebaseFirestore.Firestore, race: { name: s
 // Top standings as a compact WhatsApp text block.
 async function buildStandingsText(db: FirebaseFirestore.Firestore): Promise<string | null> {
   try {
-    const { scores } = await computeRaceScores(db);
-    const names = await buildTeamNamesMap(db);
-    const standings = aggregateStandings(scores, names);
+    // @FIX(v3.5.2): include standings_adjustments (late-joiner penalties etc.) — previously
+    // omitted, so the WhatsApp table could disagree with the site standings (GR#3 SSOT).
+    const [{ scores }, adjustments, names] = await Promise.all([
+      computeRaceScores(db),
+      readStandingsAdjustments(db),
+      buildTeamNamesMap(db),
+    ]);
+    const standings = aggregateStandings([...scores, ...adjustments], names);
     if (!standings || standings.length === 0) return null;
     return standings.slice(0, 10)
       .map((s: any, i: number) => `${i + 1}. ${s.teamName} — ${s.totalPoints}`)

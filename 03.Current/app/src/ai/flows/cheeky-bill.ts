@@ -113,3 +113,58 @@ Rules:
     return fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
 }
+
+// GUID: AI_CHEEKY_BILL-010-v01
+// [Intent] Weekly-standings variant of Bill (v3.5.2): two short pub-roast lines appended to the
+//          Monday standings WhatsApp post. Same safety contract as generateCheekyComment —
+//          only the supplied VERIFIED fact lines may be quoted, mockery targets F1 judgement
+//          only, no profanity. Situational priority: tie cluster > big riser/faller > leader
+//          gap > backmarker.
+// [Inbound Trigger] Weekly block of /api/cron/whatsapp-scheduled (Mondays 18:00 London).
+// [Downstream Impact] Output is appended under "Bill's take:" in the group message. Returns ''
+//                     on any failure so the plain standings post is never blocked.
+const WeeklySnarkInputSchema = z.object({
+  topTen: z.string().describe('The rendered top-10 standings lines exactly as posted.'),
+  factLines: z.string().describe('Deterministic verified facts: last round + winner, leader gap, ties, movers, backmarker.'),
+});
+export type WeeklySnarkInput = z.infer<typeof WeeklySnarkInputSchema>;
+
+export async function generateWeeklyStandingsSnark(input: WeeklySnarkInput): Promise<string> {
+  try {
+    const response = await ai.generate({
+      prompt: `You are "Bill", the F1-obsessed coordinator of a 20-player fantasy F1 WhatsApp league.
+Every Monday you post the standings, and the players expect two lines of proper pub-banter
+commentary underneath — derogatory, tongue-in-cheek, aimed at the teams' F1 judgement.
+Praise is banned; a backhanded compliment is the kindest you get.
+
+This week's top 10 as posted:
+${input.topTen}
+
+VERIFIED FACTS you may weaponise (do NOT invent stats beyond these):
+${input.factLines}
+
+Style examples (match this energy, don't copy verbatim):
+- "three of you level on 247, congratulations on being identically mediocre..bill"
+- "climbed four places in a week, even a stopped clock lucks into a podium..Bill"
+- "12 points clear at the top and still nobody's impressed, least of all me...bill"
+- "and at the back, propping up the table with the structural integrity of a deckchair..bill"
+
+Rules:
+- EXACTLY TWO short lines, separated by a single newline. Sharp beats long.
+- PRIORITY: a points tie in the top 10 beats everything; then a big riser/faller; then the
+  leader's gap; then the backmarker. Pick the TWO juiciest facts, one per line.
+- Name the teams you're roasting exactly as they appear in the facts. Quote only numbers that
+  appear in the facts — NEVER invent a statistic, gap, or position.
+- Mock F1 judgement and league form only. Never race, religion, disability, or anything
+  personal beyond their laughable fantasy management. No profanity.
+- Sign off ONLY the second line with exactly "..bill", "..Bill", "...bill", or "...Bill".
+- No double asterisks (**), no markdown, no quotes around the output. Return ONLY the two lines.`,
+    });
+    return (response.text || '').trim();
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error generating weekly standings snark:', err);
+    }
+    return ''; // decorative — the plain standings post goes out unchanged
+  }
+}

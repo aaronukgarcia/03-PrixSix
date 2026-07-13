@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-07-13",
-  "total_guids": 2183,
+  "total_guids": 2186,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -120490,9 +120490,9 @@
     },
     {
       "guid": "CRON_WHATSAPP_SCHEDULED-000",
-      "version": 1,
+      "version": 3,
       "logic_category": "ROUTE",
-      "description": "Scheduled WhatsApp alerts cron route (CRON_SECRET): deadline reminders 24h+2h, late-prediction warning, race-start reminder, weekly standings; dedup in admin_configuration/whatsappScheduledState.",
+      "description": "Time-driven WhatsApp alerts cron; v3 adds Bill take to the weekly standings post (fire-safe) and includes standings_adjustments in the table (GR#3 — was omitted vs site standings).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/cron/whatsapp-scheduled/route.ts"
@@ -120502,7 +120502,7 @@
         "calls": []
       },
       "created": "2026-06-12T09:00:00Z",
-      "lastUpdated": "2026-06-12T09:00:00Z"
+      "lastUpdated": "2026-07-13T18:53:34.994Z"
     },
     {
       "guid": "API_ADMIN_WHATSAPP_EOS-000",
@@ -120570,7 +120570,7 @@
     },
     {
       "guid": "LIB_CUMULATIVE_STANDINGS-007",
-      "version": 1,
+      "version": 2,
       "logic_category": "TRANSFORMATION",
       "description": "Build a map of normalised raceId -> the UTC millis the race ran, from the static RaceSchedule (GP keys off raceTime, sprints off sprintTime). Used to gate carry-forward so a team is never awarded points for a race that ran before they joined.",
       "dependencies": [],
@@ -120585,7 +120585,7 @@
         "calls": []
       },
       "created": "2026-06-15T00:00:00Z",
-      "lastUpdated": "2026-06-15T00:00:00Z"
+      "lastUpdated": "2026-07-13T18:53:34.994Z"
     },
     {
       "guid": "LIB_CUMULATIVE_STANDINGS-008",
@@ -121728,6 +121728,67 @@
       },
       "created": "2026-07-13T18:35:52.734Z",
       "lastUpdated": "2026-07-13T18:35:52.734Z"
+    },
+    {
+      "guid": "LIB_CHEEKY_BILL_CONTEXT-010",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "buildWeeklyStandingsFacts — verified fact lines for the weekly Bill take: last round + round winner, biggest riser/faller vs pre-round table (re-aggregation with the round excluded), leader gap, top-10 point ties (by table position), backmarker. Null when nothing to say.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheeky-bill-context.ts",
+        "functionName": "buildWeeklyStandingsFacts"
+      },
+      "callChain": {
+        "calledBy": [
+          "CRON_WHATSAPP_SCHEDULED-000"
+        ],
+        "calls": [
+          "LIB_CUMULATIVE_STANDINGS-004",
+          "LIB_CUMULATIVE_STANDINGS-007"
+        ]
+      },
+      "created": "2026-07-13T18:53:34.994Z",
+      "lastUpdated": "2026-07-13T18:53:34.994Z"
+    },
+    {
+      "guid": "AI_CHEEKY_BILL-010",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "generateWeeklyStandingsSnark — two-line pub-roast for the Monday standings post; priority tie > mover > leader gap > backmarker; only supplied facts quotable; second line signed ..bill; returns empty string on failure (decorative).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/ai/flows/cheeky-bill.ts",
+        "functionName": "generateWeeklyStandingsSnark"
+      },
+      "callChain": {
+        "calledBy": [
+          "CRON_WHATSAPP_SCHEDULED-000"
+        ],
+        "calls": []
+      },
+      "created": "2026-07-13T18:53:34.994Z",
+      "lastUpdated": "2026-07-13T18:53:34.994Z"
+    },
+    {
+      "guid": "SCRIPT_DRY_RUN_WEEKLY_SNARK-000",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "Dry-run composing the exact weekly standings + Bill take message against live data; read-only, no WhatsApp writes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/scripts/dry-run-weekly-snark.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": [
+          "LIB_CHEEKY_BILL_CONTEXT-010",
+          "AI_CHEEKY_BILL-010"
+        ]
+      },
+      "created": "2026-07-13T18:53:34.994Z",
+      "lastUpdated": "2026-07-13T18:53:34.994Z"
     }
   ],
   "firestoreCollections": {

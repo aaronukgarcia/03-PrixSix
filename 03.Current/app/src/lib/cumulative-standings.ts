@@ -38,16 +38,18 @@ type AdminFirestore = Awaited<ReturnType<typeof getFirebaseAdmin>>['db'];
  *  and has explicit handling for this id). */
 export const ADJUSTMENT_RACE_ID = 'late-joiner-penalty';
 
-// GUID: LIB_CUMULATIVE_STANDINGS-007-v01
+// GUID: LIB_CUMULATIVE_STANDINGS-007-v02
+// @FIX(v02): exported — the weekly-standings snark builder (LIB_CHEEKY_BILL_CONTEXT) needs the
+//            same raceId → run-millis mapping to identify the most recent completed round.
 // [Intent] Build a map of normalised raceId → the UTC millis the race actually ran, derived
 //          from the static RaceSchedule. Used to gate carry-forward so a team is never awarded
 //          points (via the latest-prior-submission fallback) for a race that ran BEFORE the team
 //          submitted their first prediction — i.e. before they joined. GP races key off raceTime;
 //          sprints key off sprintTime.
-// [Inbound Trigger] Called once per computeRaceScores invocation.
+// [Inbound Trigger] Called once per computeRaceScores invocation; also by buildWeeklyStandingsFacts.
 // [Downstream Impact] A race missing from the schedule simply has no entry → carry-forward is
 //                     allowed for it (legacy-safe; never blocks a legitimate score).
-function buildRaceRunMillisMap(): Map<string, number> {
+export function buildRaceRunMillisMap(): Map<string, number> {
   const map = new Map<string, number>();
   for (const race of RaceSchedule) {
     const gpKey = normalizeRaceIdForComparison(generateRaceId(race.name, 'gp'));
