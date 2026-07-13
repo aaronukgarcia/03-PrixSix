@@ -18,6 +18,9 @@
 !03.Current/claude-pre-commit-check.js
 !03.Current/claude-pre-push-check.js
 !03.Current/claude-memory-prefetch.js
+!03.Current/claude-ping-check.js
+!03.Current/claude-startup.js
+!03.Current/claude-statusline.js
 !03.Current/firebase.json
 !03.Current/provision_recovery_env.sh
 !03.Current/scripts/

@@ -1,6 +1,28 @@
 /**
  * claude-sync.js — DHCP-Style Permit Coordination for Multiple Claude Code Sessions
- * Version: 2.1.0 — Stale-lease self-reclaim (crash/reboot recovery)
+ * Version: 2.2.0 — Per-window identity + idle-slot reservation + wake recovery
+ *
+ * v2.2.0: Fixes the 2026-07-13 identity-theft incident (window 2 stole live-but-idle
+ *   Bill's name and both windows cross-identified via the shared session-key file).
+ *   • WINDOW ID — every Claude Code window exposes CLAUDE_CODE_SESSION_ID (a stable
+ *     per-window UUID) to hooks and shell commands. checkin now records it on the
+ *     lease AND in .claude-session-map.json (windowId → {sessionId, name}), so each
+ *     window resolves ITS OWN sync session automatically. The shared last-checkin-wins
+ *     .claude-session-key file is now only a fallback for non-Claude terminals.
+ *     $env:CLAUDE_SESSION_ID is no longer required for multi-window setups (still
+ *     honoured, highest priority, for manual overrides).
+ *   • RESERVED SLOTS — a lease that expired < 30 min ago under the SAME OS boot may
+ *     belong to an idle-but-live window (the renewal hook only fires on tool use, so
+ *     idle windows can't renew). Such a slot is "reserved": a DIFFERENT window cannot
+ *     claim the name (checkin --name is rejected; auto-assign skips it) unless every
+ *     slot is reserved/occupied. The owning window (windowId match) reclaims freely;
+ *     a reboot voids all reservations; --force --human-ok overrides.
+ *   • WAKE RECOVERY — renew --auto with no valid lease now re-acquires the window's
+ *     previous name from the session map (its slot was reserved for it). If the name
+ *     was genuinely taken, it acquires the next free slot and LOUDLY tells the agent
+ *     its identity changed.
+ *   • CLAUDE_SYNC_DOC env var overrides the Firestore doc path (isolated testing);
+ *     local state files get a .test suffix so tests never pollute live sessions.
  *
  * v2.1.0: A `checkin --name X` can now take back slot X from a holder that is
  *   PROVABLY gone (crashed or rebooted on this machine) WITHOUT --human-ok.
@@ -76,10 +98,15 @@ const os = require('os');
 const PROJECT_ID = 'studio-6033436327-281b1';
 const SERVICE_ACCOUNT_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS
   || path.join(__dirname, 'service-account.json');
-const DOCUMENT_PATH = 'coordination/claude-state';
+// CLAUDE_SYNC_DOC overrides the doc path for isolated testing (never set it in real sessions)
+const DOCUMENT_PATH = process.env.CLAUDE_SYNC_DOC || 'coordination/claude-state';
+// Test runs also isolate every local state file so they can't corrupt live sessions
+const FILE_SUFFIX = process.env.CLAUDE_SYNC_DOC ? '.test' : '';
 
 const LEASE_TTL_MS = 5 * 60 * 1000;            // 5-minute permit TTL
-const RENEWAL_THRESHOLD_MS = 2.5 * 60 * 1000;  // auto-renew if < 2.5 min remaining
+// 3.5 min (was 2.5): with the 2-min hook check interval, 2.5 could skip the T+2m check
+// (3 min remaining > 2.5) and not renew until T+4m — one idle minute from expiry.
+const RENEWAL_THRESHOLD_MS = 3.5 * 60 * 1000;  // auto-renew if < 3.5 min remaining
 const SLEEP_THRESHOLD_MS = 5 * 60 * 1000;       // peer "sleeping" if no renewal in 5 min
 const DEEP_SLEEP_THRESHOLD_MS = 30 * 60 * 1000; // peer "deep sleeping" if > 30 min
 
@@ -89,14 +116,29 @@ const DEEP_SLEEP_THRESHOLD_MS = 30 * 60 * 1000; // peer "deep sleeping" if > 30 
 const BOOT_TOLERANCE_MS = 60 * 1000;        // boot timestamps within 60s = same boot
 const HEARTBEAT_STALE_MS = 75 * 1000;       // local heartbeat older than this = holder not actively alive
 
+// A lease that expired this recently (same boot) may belong to an idle-but-live
+// window — the renewal hook only fires on tool use, so idle windows can't renew.
+// The slot stays RESERVED for its previous holder; other windows must use a
+// different slot until the grace lapses (or the holder reclaims / machine reboots).
+const EXPIRED_GRACE_MS = 30 * 60 * 1000;
+
 const VALID_NAMES = ['Bill', 'Bob', 'Ben'];
 
 /**
- * Convenience cache — written after checkin so single-instance setups work without
- * passing --session. Two instances on the same machine SHARE this file; last checkin
- * wins. Multi-instance users should set $env:CLAUDE_SESSION_ID per terminal instead.
+ * Convenience cache — written after checkin so setups WITHOUT a Claude window ID
+ * (plain human terminals) work without passing --session. Instances on the same
+ * machine SHARE this file; last checkin wins — which is why Claude Code windows
+ * never resolve through it (they use the per-window session map instead).
  */
-const SESSION_FILE = path.join(__dirname, '.claude-session-key');
+const SESSION_FILE = path.join(__dirname, `.claude-session-key${FILE_SUFFIX}`);
+
+/**
+ * Per-window session map: { "<CLAUDE_CODE_SESSION_ID>": { sessionId, name, updatedAt } }.
+ * Written on every checkin from inside a Claude Code window; read by hooks so each
+ * window renews ITS OWN permit. This is what prevents two windows from
+ * cross-identifying via the shared convenience file (2026-07-13 incident).
+ */
+const SESSION_MAP_FILE = path.join(__dirname, `.claude-session-map${FILE_SUFFIX}.json`);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Firebase Init
@@ -123,6 +165,11 @@ const rawArgs = process.argv.slice(2);
 const CMD = rawArgs[0] || '';
 const FLAG_AUTO = rawArgs.includes('--auto');
 const FLAG_FORCE = rawArgs.includes('--force');
+/** --any: take the next free slot, ignoring the CLAUDE_IDENTITY env fallback. The
+ *  launcher sets CLAUDE_IDENTITY=Bill in EVERY window, so a "plain" checkin from a
+ *  second window silently became a --name Bill request — this flag is how fallback
+ *  paths (e.g. claude-startup.js after a rejection) genuinely ask for "whatever's free". */
+const FLAG_ANY = rawArgs.includes('--any');
 /** Human authorisation gate — Claude instances are NEVER permitted to supply this flag autonomously */
 const FLAG_HUMAN_OK = rawArgs.includes('--human-ok');
 
@@ -145,6 +192,7 @@ function parseRequestedName() {
     const matched = VALID_NAMES.find(v => v.toLowerCase() === n.toLowerCase());
     return matched || null;
   }
+  if (FLAG_ANY) return null; // explicit "next free slot" — skip the env fallback
   // Fallback: respect CLAUDE_IDENTITY env var (set by prix6.bat launcher)
   if (process.env.CLAUDE_IDENTITY) {
     const matched = VALID_NAMES.find(v => v.toLowerCase() === process.env.CLAUDE_IDENTITY.toLowerCase());
@@ -184,8 +232,97 @@ function saveSessionId(sessionId) {
   try { fs.writeFileSync(SESSION_FILE, sessionId, 'utf8'); } catch { /* ignore */ }
 }
 
-function deleteSessionId() {
-  try { if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE); } catch { /* ignore */ }
+/** Delete the convenience file — but only if it still points at the given session,
+ *  so checking out never wipes a newer checkin made from another terminal. */
+function deleteSessionId(onlyIfMatches) {
+  try {
+    if (!fs.existsSync(SESSION_FILE)) return;
+    if (onlyIfMatches && fs.readFileSync(SESSION_FILE, 'utf8').trim() !== onlyIfMatches) return;
+    fs.unlinkSync(SESSION_FILE);
+  } catch { /* ignore */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-Window Identity (CLAUDE_CODE_SESSION_ID → sync session map)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The Claude Code window UUID. Present in the environment of every shell command
+ * and hook spawned by a Claude Code session; absent in plain human terminals.
+ * Hooks that read it from their stdin JSON pass it down via this same env var.
+ */
+function getWindowId() {
+  const id = (process.env.CLAUDE_CODE_SESSION_ID || '').trim();
+  return id || null;
+}
+
+function loadSessionMap() {
+  try {
+    if (fs.existsSync(SESSION_MAP_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(SESSION_MAP_FILE, 'utf8'));
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch { /* corrupt map = start fresh */ }
+  return {};
+}
+
+function getSessionMapEntry(windowId) {
+  if (!windowId) return null;
+  const entry = loadSessionMap()[windowId];
+  return (entry && entry.sessionId) ? entry : null;
+}
+
+function saveSessionMapEntry(windowId, sessionId, name) {
+  if (!windowId) return;
+  try {
+    const map = loadSessionMap();
+    map[windowId] = { sessionId, name, updatedAt: new Date().toISOString() };
+    // Prune entries from long-gone windows (7 days)
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const [key, entry] of Object.entries(map)) {
+      if (!entry || !entry.updatedAt || new Date(entry.updatedAt).getTime() < cutoff) {
+        delete map[key];
+      }
+    }
+    fs.writeFileSync(SESSION_MAP_FILE, JSON.stringify(map, null, 2), 'utf8');
+  } catch { /* ignore */ }
+}
+
+function deleteSessionMapEntry(windowId) {
+  if (!windowId) return;
+  try {
+    const map = loadSessionMap();
+    if (windowId in map) {
+      delete map[windowId];
+      fs.writeFileSync(SESSION_MAP_FILE, JSON.stringify(map, null, 2), 'utf8');
+    }
+  } catch { /* ignore */ }
+}
+
+/**
+ * Write the identity files the statusline reads: a per-window one (authoritative
+ * in multi-window setups) plus the legacy shared one (fallback / single window).
+ */
+function writeIdentityFiles(name) {
+  try {
+    const dotClaude = path.join(__dirname, '.claude');
+    if (!fs.existsSync(dotClaude)) fs.mkdirSync(dotClaude, { recursive: true });
+    const lower = name.toLowerCase();
+    fs.writeFileSync(path.join(dotClaude, `.identity${FILE_SUFFIX}`), lower, 'utf8');
+    const windowId = getWindowId();
+    if (windowId) {
+      fs.writeFileSync(path.join(dotClaude, `.identity-${windowId}${FILE_SUFFIX}`), lower, 'utf8');
+    }
+  } catch { /* ignore */ }
+}
+
+function clearIdentityFileForWindow() {
+  const windowId = getWindowId();
+  if (!windowId) return;
+  try {
+    const f = path.join(__dirname, '.claude', `.identity-${windowId}${FILE_SUFFIX}`);
+    if (fs.existsSync(f)) fs.unlinkSync(f);
+  } catch { /* ignore */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -203,7 +340,7 @@ function getBootId() {
 
 /** Local heartbeat file for a permit name (same-machine liveness proof). */
 function heartbeatFile(name) {
-  return path.join(__dirname, `.claude-heartbeat-${name}`);
+  return path.join(__dirname, `.claude-heartbeat-${name}${FILE_SUFFIX}`);
 }
 
 /** Refresh the heartbeat for a name — called on every renew/ping/checkin while alive. */
@@ -229,14 +366,22 @@ function clearHeartbeat(name) {
 
 /**
  * Resolve my session ID — priority order:
- *   1. $CLAUDE_SESSION_ID env var (per-terminal, set by user after checkin) — most reliable
+ *   1. $CLAUDE_SESSION_ID env var (manual per-terminal override)
  *   2. --session SESSION_ID flag (passed explicitly to command)
- *   3. .claude-session-key file (convenience cache, works for single-instance only)
+ *   3. Session map entry for this Claude window (automatic, multi-window safe)
+ *   4. .claude-session-key file — ONLY outside a Claude window. Inside one, a
+ *      missing map entry must NOT fall through to the shared file: that file may
+ *      hold ANOTHER window's key (the exact cross-identification bug this fixes).
  */
 function getMySessionId() {
   if (process.env.CLAUDE_SESSION_ID) return process.env.CLAUDE_SESSION_ID.trim();
   const explicit = parseExplicitSessionId();
   if (explicit) return explicit;
+  const windowId = getWindowId();
+  if (windowId) {
+    const entry = getSessionMapEntry(windowId);
+    return entry ? entry.sessionId : null;
+  }
   return loadSessionId();
 }
 
@@ -338,6 +483,13 @@ function getMyLease(leases, sessionId) {
  * @returns {{ dead: boolean, reason: string }}
  */
 function assessHolderLiveness(name, lease) {
+  // Same Claude window = same session lineage — always reclaimable (e.g. a window
+  // re-checking-in after its own checkout/expiry confusion).
+  const myWindowId = getWindowId();
+  if (lease.windowId && myWindowId && lease.windowId === myWindowId) {
+    return { dead: true, reason: 'same-window' };
+  }
+
   const sameHost = !lease.hostname || lease.hostname === os.hostname();
   if (!sameHost) return { dead: false, reason: `different-host (${lease.hostname})` };
 
@@ -354,13 +506,54 @@ function assessHolderLiveness(name, lease) {
   return { dead: false, reason: 'alive' };
 }
 
-/** Returns the first name whose lease is null or expired, or null if all occupied. */
+/**
+ * Is this expired lease RESERVED for its previous (possibly idle-but-live) holder?
+ * Reserved = expired < EXPIRED_GRACE_MS ago AND nothing proves the holder dead.
+ * A reboot since grant proves death (voids the reservation); a stale heartbeat does
+ * NOT — an idle window stops renewing AND stops heart-beating, which is exactly the
+ * holder this reservation protects. Different-host leases can't be assessed locally,
+ * so they stay reserved for the grace period too.
+ */
+function isLeaseReserved(lease) {
+  if (!lease || !lease.expiresAt || isLeaseValid(lease)) return false;
+  const sinceExpiry = Date.now() - new Date(lease.expiresAt).getTime();
+  if (!(sinceExpiry >= 0 && sinceExpiry < EXPIRED_GRACE_MS)) return false;
+  const sameHost = !lease.hostname || lease.hostname === os.hostname();
+  if (sameHost && typeof lease.bootId === 'number'
+      && Math.abs(getBootId() - lease.bootId) > BOOT_TOLERANCE_MS) {
+    return false; // machine rebooted since grant — holder is provably gone
+  }
+  return true;
+}
+
+/** Reserved for someone OTHER than this window (the case that must block a claim). */
+function isReservedForAnotherWindow(lease) {
+  if (!isLeaseReserved(lease)) return false;
+  const myWindowId = getWindowId();
+  return !(lease.windowId && myWindowId && lease.windowId === myWindowId);
+}
+
+/**
+ * Pick a slot for auto-assign checkin. Prefers genuinely free slots (never held,
+ * or expired past grace / provably dead). Falls back to the longest-expired
+ * reserved slot only when nothing else is free — better than refusing service.
+ */
 function getAvailableName(leases) {
   for (const name of VALID_NAMES) {
     const lease = leases[name];
-    if (!lease || !isLeaseValid(lease)) return name;
+    if (!lease || (!isLeaseValid(lease) && !isReservedForAnotherWindow(lease))) return name;
   }
-  return null;
+  // Everything is occupied or reserved — take the reserved slot that expired longest ago
+  let fallback = null;
+  for (const name of VALID_NAMES) {
+    const lease = leases[name];
+    if (lease && !isLeaseValid(lease)) {
+      if (!fallback || new Date(lease.expiresAt) < new Date(leases[fallback].expiresAt)) {
+        fallback = name;
+      }
+    }
+  }
+  return fallback;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -374,6 +567,9 @@ function gcExpiredLeases(state) {
   for (const name of VALID_NAMES) {
     const lease = state.leases[name];
     if (!lease) continue;
+    // Keep reserved leases: the holder may be idle, not gone, and the lease data
+    // (windowId, expiresAt) IS the reservation. Cleared once grace lapses.
+    if (isLeaseReserved(lease)) continue;
     if (!isLeaseValid(lease)) {
       cleared.push(`${name} (expired ${formatTime(lease.expiresAt)})`);
 
@@ -494,7 +690,25 @@ async function cmdCheckin() {
     let name;
     if (requestedName) {
       const existingLease = state.leases[requestedName];
-      if (existingLease && isLeaseValid(existingLease)) {
+      if (existingLease && !isLeaseValid(existingLease) && isReservedForAnotherWindow(existingLease)) {
+        // Expired but RESERVED for a possibly-idle window that isn't us.
+        if (FLAG_FORCE && FLAG_HUMAN_OK) {
+          addLog(state, 'system', 'ADMIN', 'system',
+            `Force-claimed reserved slot ${requestedName} from idle holder ${existingLease.sessionId} [human-authorised]`);
+          state.leases[requestedName] = null;
+          name = requestedName;
+        } else {
+          result = {
+            ok: false,
+            reason: 'name-reserved',
+            requestedName,
+            holder: existingLease,
+            holders: Object.fromEntries(VALID_NAMES.map(n => [n, state.leases[n]]))
+          };
+          t.set(docRef, state);
+          return;
+        }
+      } else if (existingLease && isLeaseValid(existingLease)) {
         if (FLAG_FORCE && FLAG_HUMAN_OK) {
           // --name Bill --force --human-ok: evict current holder and claim the slot
           // HUMAN AUTHORISATION REQUIRED: Claude instances must never supply --human-ok autonomously
@@ -593,6 +807,7 @@ async function cmdCheckin() {
       name,                       // self-describing (used by liveness checks)
       hostname: os.hostname(),    // same-machine scoping for reclaim safety
       bootId: getBootId(),        // detects "lease from a dead boot" → reclaimable
+      windowId: getWindowId(),    // Claude window UUID — reservation ownership + self-reclaim
       ownerPid: process.ppid || process.pid  // diagnostic: owning process
     };
 
@@ -629,7 +844,23 @@ async function cmdCheckin() {
       console.error('Options:');
       console.error(`  1. Wait for the permit to expire (max 5 min)`);
       console.error(`  2. Force-evict (HUMAN ONLY): node claude-sync.js checkin --name ${rn} --force --human-ok`);
-      console.error(`  3. Use next available slot: node claude-sync.js checkin`);
+      console.error(`  3. Use next available slot: node claude-sync.js checkin --any`);
+    } else if (reason === 'name-reserved') {
+      const rn = result.requestedName;
+      const hl = result.holder;
+      const reservedUntil = new Date(new Date(hl.expiresAt).getTime() + EXPIRED_GRACE_MS);
+      console.error(`CHECKIN REJECTED — ${rn.toUpperCase()} SLOT IS RESERVED`);
+      console.error('='.repeat(60));
+      console.error(`  ${rn}'s permit expired ${formatTime(hl.expiresAt)}, but its holder may just be`);
+      console.error(`  IDLE, not gone (idle windows cannot renew). The slot is reserved for`);
+      console.error(`  its return until ${formatTime(reservedUntil.toISOString())}.`);
+      console.error(`  Last holder session: ${hl.sessionId}`);
+      console.error('');
+      console.error('Options:');
+      console.error(`  1. Use next available slot: node claude-sync.js checkin --any   ← usually right`);
+      console.error(`  2. Wait for the reservation to lapse`);
+      console.error(`  3. Override (HUMAN ONLY, if the holder is truly gone):`);
+      console.error(`     node claude-sync.js checkin --name ${rn} --force --human-ok`);
     } else {
       console.error('CHECKIN REJECTED — ALL PERMITS OCCUPIED');
       console.error('='.repeat(60));
@@ -653,8 +884,13 @@ async function cmdCheckin() {
 
   const { sessionId, name, branch: checkinBranch, expiresAt } = result;
 
-  // Save to convenience file (single-instance fallback)
+  // Record identity everywhere this window will look for it:
+  //  - session map (per-window, authoritative inside Claude Code)
+  //  - convenience file (non-Claude terminals / single instance)
+  //  - identity files (statusline display)
+  saveSessionMapEntry(getWindowId(), sessionId, name);
   saveSessionId(sessionId);
+  writeIdentityFiles(name);
 
   // Establish liveness heartbeat immediately so the slot reads as alive at once
   touchHeartbeat(name);
@@ -673,15 +909,19 @@ async function cmdCheckin() {
   console.log(`  MANDATORY  : All responses MUST start with  ${name.toLowerCase()}>`);
   console.log('');
   console.log(dashes);
-  console.log('  ⚡ PERMIT MANAGEMENT — run once in THIS terminal:');
+  console.log('  ⚡ PERMIT MANAGEMENT');
   console.log(dashes);
-  console.log(`  PowerShell:  $env:CLAUDE_SESSION_ID = "${sessionId}"`);
-  console.log(`  CMD:         set CLAUDE_SESSION_ID=${sessionId}`);
-  console.log('');
-  console.log('  Why: Without this, the auto-renewal hook cannot identify your');
-  console.log('  instance in a multi-agent setup. Your permit will expire after');
-  console.log('  5 minutes unless you set this OR manually run:');
-  console.log(`    node claude-sync.js ping --session ${sessionId}`);
+  if (getWindowId()) {
+    console.log('  Multi-window identity is AUTOMATIC: this checkin is mapped to your');
+    console.log(`  Claude window (${getWindowId().slice(0, 8)}…) — the renewal hook renews the`);
+    console.log('  right permit without any env var. If your permit expires while idle,');
+    console.log('  the next hook fire re-acquires your name automatically.');
+  } else {
+    console.log('  No Claude window detected (plain terminal). For multi-instance use,');
+    console.log('  set the session env var so renewals target this instance:');
+    console.log(`  PowerShell:  $env:CLAUDE_SESSION_ID = "${sessionId}"`);
+    console.log(`  CMD:         set CLAUDE_SESSION_ID=${sessionId}`);
+  }
   console.log('');
   console.log(dashes);
   console.log('  Quick reference:');
@@ -700,6 +940,71 @@ async function cmdCheckin() {
 // ─────────────────────────────────────────────────────────────────────────────
 // COMMAND: renew — Extend permit by 5 minutes
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Wake recovery: this window's permit expired while it was idle (idle windows
+ * cannot renew — the hook only fires on tool use). Re-acquire its previous name;
+ * the slot was reserved for it. If the name was genuinely taken (live holder or
+ * lapsed reservation claimed by someone else), take the next free slot instead.
+ * Returns { ok, name, sessionId, renamed } or { ok: false }.
+ */
+async function attemptReacquire(previousName) {
+  const branch = getCurrentBranch();
+  const myWindowId = getWindowId();
+  let result = null;
+
+  await db.runTransaction(async (t) => {
+    result = null;
+    const docRef = getDocRef();
+    const doc = await t.get(docRef);
+    const state = readState(doc);
+
+    gcExpiredLeases(state); // clears dead/lapsed leases, keeps reservations
+
+    let name = null;
+    const lease = state.leases[previousName];
+    if (!lease || !isLeaseValid(lease)) {
+      // Free, or expired: our own reservation (windowId match) — or anyone's dead
+      // lease — is claimable. Only a reservation for a DIFFERENT window blocks us.
+      if (!(lease && isReservedForAnotherWindow(lease))) name = previousName;
+    }
+    if (!name) name = getAvailableName(state.leases);
+    if (!name) {
+      result = { ok: false };
+      t.set(docRef, state);
+      return;
+    }
+
+    const sessionId = `session-${Date.now()}`;
+    const now = new Date();
+    state.leases[name] = {
+      sessionId,
+      grantedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + LEASE_TTL_MS).toISOString(),
+      lastRenewedAt: now.toISOString(),
+      branch,
+      name,
+      hostname: os.hostname(),
+      bootId: getBootId(),
+      windowId: myWindowId,
+      ownerPid: process.ppid || process.pid
+    };
+    addLog(state, sessionId, name, branch,
+      name === previousName
+        ? `${name} re-acquired permit after idle expiry`
+        : `${name} acquired permit (was ${previousName}; old slot taken during idle)`);
+    t.set(docRef, state);
+    result = { ok: true, name, sessionId, renamed: name !== previousName };
+  });
+
+  if (result && result.ok) {
+    saveSessionMapEntry(myWindowId, result.sessionId, result.name);
+    saveSessionId(result.sessionId);
+    writeIdentityFiles(result.name);
+    touchHeartbeat(result.name);
+  }
+  return result || { ok: false };
+}
 
 async function cmdRenew() {
   const sessionId = getMySessionId();
@@ -759,10 +1064,32 @@ async function cmdRenew() {
   if (!result || !result.ok) {
     const reason = result?.reason;
     if (FLAG_AUTO) {
-      // Never block the hook — warn to stderr and exit 0
       if (reason === 'no-lease') {
-        process.stderr.write(`[claude-sync] WARN: No valid permit for session ${sessionId}. Run checkin.\n`);
+        // WAKE RECOVERY — permit expired while this window was idle. Its slot is
+        // reserved for it (windowId match), so re-acquire the previous name; if
+        // that name was truly taken, grab the next free slot and tell the agent.
+        const windowId = getWindowId();
+        const mapEntry = windowId ? getSessionMapEntry(windowId) : null;
+        if (mapEntry && mapEntry.name) {
+          const re = await attemptReacquire(mapEntry.name);
+          if (re.ok && !re.renamed) {
+            process.stdout.write(
+              `[claude-sync] Permit expired while idle — automatically re-acquired ${re.name} `
+              + `(new session ${re.sessionId}). Keep prefixing responses with ${re.name.toLowerCase()}>.\n`);
+          } else if (re.ok && re.renamed) {
+            process.stdout.write(
+              `[claude-sync] ⚠️ IDENTITY CHANGED: your permit expired while idle and the name `
+              + `"${mapEntry.name}" was taken by another instance. YOU ARE NOW ${re.name.toUpperCase()} `
+              + `(session ${re.sessionId}). Prefix ALL further responses with ${re.name.toLowerCase()}> `
+              + `and tell the user about the rename.\n`);
+          } else {
+            process.stderr.write(`[claude-sync] WARN: Permit expired and no slot available to re-acquire. Run checkin.\n`);
+          }
+        } else {
+          process.stderr.write(`[claude-sync] WARN: No valid permit for session ${sessionId}. Run checkin.\n`);
+        }
       }
+      // Never block the hook
       process.exit(0);
     }
     if (reason === 'no-lease') {
@@ -891,7 +1218,7 @@ async function cmdCheckout() {
     state.leases[myName] = null;
     clearHeartbeat(myName);
     t.set(docRef, state);
-    result = { ok: true, name: myName, releasedFiles };
+    result = { ok: true, name: myName, sessionId: myLease.sessionId, releasedFiles };
   });
 
   if (!result || !result.ok) {
@@ -903,7 +1230,15 @@ async function cmdCheckout() {
     process.exit(1);
   }
 
-  deleteSessionId();
+  // Clean up local identity records — but only the ones that point at the
+  // checked-out session, so checking out a NAMED peer never wipes our own.
+  deleteSessionId(result.sessionId);
+  const windowId = getWindowId();
+  const mapEntry = windowId ? getSessionMapEntry(windowId) : null;
+  if (mapEntry && mapEntry.sessionId === result.sessionId) {
+    deleteSessionMapEntry(windowId);
+    clearIdentityFileForWindow();
+  }
 
   console.log('');
   console.log('='.repeat(60));
@@ -1041,7 +1376,12 @@ async function cmdStatus() {
     if (!lease) {
       console.log(`  ${name}: ◯ available`);
     } else if (!isLeaseValid(lease)) {
-      console.log(`  ${name}: ✗ EXPIRED — will clear on next checkin`);
+      if (isLeaseReserved(lease)) {
+        const until = new Date(new Date(lease.expiresAt).getTime() + EXPIRED_GRACE_MS);
+        console.log(`  ${name}: ◌ idle-reserved — holder may return (reserved until ${formatTime(until.toISOString())})`);
+      } else {
+        console.log(`  ${name}: ✗ EXPIRED — will clear on next checkin`);
+      }
     } else {
       const rem = getLeaseTimeRemaining(lease);
       console.log(`  ${name}: ● ${formatMs(rem)} remaining on ${lease.branch}${marker}`);
@@ -1075,7 +1415,12 @@ async function cmdRead() {
     if (!lease) {
       console.log(`  ${name}: ◯ available`);
     } else if (!isLeaseValid(lease)) {
-      console.log(`  ${name}: ✗ EXPIRED (${formatTime(lease.expiresAt)})`);
+      if (isLeaseReserved(lease)) {
+        const until = new Date(new Date(lease.expiresAt).getTime() + EXPIRED_GRACE_MS);
+        console.log(`  ${name}: ◌ idle-reserved (expired ${formatTime(lease.expiresAt)}, held for return until ${formatTime(until.toISOString())})`);
+      } else {
+        console.log(`  ${name}: ✗ EXPIRED (${formatTime(lease.expiresAt)})`);
+      }
     } else {
       const rem = getLeaseTimeRemaining(lease);
       console.log(`  ${name}: ● active${marker}`);
@@ -1403,12 +1748,15 @@ async function main() {
       case 'gc':        await cmdGc(); break;
       case 'watchdog':  await cmdWatchdog(); break;
       default:
-        console.log('claude-sync.js v2.0 — DHCP-style permit coordination');
+        console.log('claude-sync.js v2.2 — DHCP-style permit coordination');
         console.log('');
         console.log('Model: Bill (1st) → Bob (2nd) → Ben (3rd). Max 3. 5-min TTL permits.');
+        console.log('Multi-window identity is automatic inside Claude Code (per-window session map).');
+        console.log('Recently-expired slots stay RESERVED 30 min for their (possibly idle) holder.');
         console.log('');
         console.log('Commands:');
         console.log('  checkin [--name Bill|Bob|Ben]         - Acquire permit (auto-assigns if no --name)');
+        console.log('  checkin --any                         - Next free slot, ignore CLAUDE_IDENTITY env');
         console.log('  checkin --name Bill --force --human-ok - Evict current Bill and claim (HUMAN ONLY)');
         console.log('  checkout [--session ID]               - Surrender your permit');
         console.log('  checkout --force [Name]               - Admin: force-clear one or all permits');
@@ -1428,7 +1776,7 @@ async function main() {
         console.log('  "UserPromptSubmit": [{"hooks": [{"type": "command",');
         console.log('    "command": "node .../claude-sync.js renew --auto"}]}]');
         console.log('');
-        console.log('Per-terminal (run once after checkin):');
+        console.log('Per-terminal env var (only needed OUTSIDE Claude Code windows):');
         console.log('  PowerShell: $env:CLAUDE_SESSION_ID = "session-XXXXXXXXXX"');
         break;
     }

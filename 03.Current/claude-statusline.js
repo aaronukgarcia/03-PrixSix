@@ -16,12 +16,17 @@ process.stdin.on('end', () => {
     model = data.model?.display_name || 'Claude';
     dir = path.basename(data.workspace?.current_dir || '');
 
-    // Read identity from project .claude/.identity
+    // Read identity: per-window file first (multi-window safe — the shared
+    // .identity is last-checkin-wins and can show ANOTHER window's name),
+    // then the legacy shared file as fallback.
     const projectDir = data.workspace?.project_dir || __dirname;
-    const identityPath = path.join(projectDir, '.claude', '.identity');
-    try {
-      name = fs.readFileSync(identityPath, 'utf-8').trim();
-    } catch {}
+    const dotClaude = path.join(projectDir, '.claude');
+    const candidates = [];
+    if (data.session_id) candidates.push(path.join(dotClaude, `.identity-${data.session_id}`));
+    candidates.push(path.join(dotClaude, '.identity'));
+    for (const p of candidates) {
+      try { name = fs.readFileSync(p, 'utf-8').trim(); break; } catch {}
+    }
   } catch {}
 
   process.stdout.write(`${name}> [${model}] ${dir}`);

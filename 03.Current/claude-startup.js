@@ -1,5 +1,11 @@
 // claude-startup.js — SessionStart hook script
 // Runs checkin, validates identity, writes identity file, outputs confirmation for Claude
+//
+// v2.2: reads the Claude window's session_id from the hook stdin JSON and passes it
+// to claude-sync as CLAUDE_CODE_SESSION_ID, so the checkin is mapped to THIS window
+// (per-window identity — no manual $env:CLAUDE_SESSION_ID needed). Fallback checkins
+// use --any: the launcher sets CLAUDE_IDENTITY=Bill in every window, and without
+// --any a "plain" checkin silently re-requests Bill and loops into the same rejection.
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -8,13 +14,17 @@ const projectRoot = __dirname;
 const identityPath = path.join(projectRoot, '.claude', '.identity');
 const VALID_NAMES = ['bob', 'bill', 'ben'];
 
+/** Claude window UUID — resolved from hook stdin JSON before main logic runs. */
+let windowId = process.env.CLAUDE_CODE_SESSION_ID || '';
+
 /** Run a checkin command, returning { output, error, stderr } */
 function tryCheckin(cmd) {
   try {
     const output = execSync(cmd, {
       cwd: projectRoot,
       encoding: 'utf-8',
-      timeout: 10000,
+      timeout: 15000,
+      env: { ...process.env, CLAUDE_CODE_SESSION_ID: windowId },
     });
     return { output, error: null, stderr: '' };
   } catch (err) {
@@ -37,9 +47,11 @@ function isAllFull(stderr) {
     || stderr.includes('ALL PERMITS OCCUPIED');
 }
 
-/** True if stderr indicates a specific named slot is occupied */
+/** True if stderr indicates a specific named slot is occupied or reserved for
+ *  another window's possibly-idle holder — either way, take a different slot. */
 function isNameOccupied(stderr) {
-  return stderr.includes('SLOT IS OCCUPIED') || stderr.includes('name-occupied');
+  return stderr.includes('SLOT IS OCCUPIED') || stderr.includes('name-occupied')
+    || stderr.includes('SLOT IS RESERVED') || stderr.includes('name-reserved');
 }
 
 /**
@@ -88,7 +100,7 @@ function emitDeferredCheckin(maxTTLMs, stderrSnippet) {
   console.log(`YOU HAVE NO IDENTITY YET. Do not prefix responses until checkin succeeds.`);
   console.log(``);
   console.log(`ACTION: As your VERY FIRST action, run this command (slots will have expired by then):`);
-  console.log(`  node claude-sync.js checkin`);
+  console.log(`  node claude-sync.js checkin --any`);
   console.log(``);
   console.log(`IF that still fails (race condition), you may force-evict with user authorisation:`);
   console.log(`  node claude-sync.js checkin --name Bob --force --human-ok`);
@@ -136,6 +148,8 @@ function handleAllFull(stderr) {
 
 // ─── Main Logic ───────────────────────────────────────────────────────────────
 
+function runStartup() {
+
 const requestedIdentity = process.env.CLAUDE_IDENTITY || null;
 
 if (requestedIdentity) {
@@ -147,11 +161,12 @@ if (requestedIdentity) {
     emitSuccess(parseName(first.output));
 
   } else if (isNameOccupied(first.stderr)) {
-    // Requested slot is taken — fall back to any available slot
-    console.log(`WARNING: ${requestedIdentity} slot is OCCUPIED by another live session.`);
+    // Requested slot is taken (live holder) or reserved (idle holder may return)
+    // — fall back to the next genuinely free slot
+    console.log(`WARNING: ${requestedIdentity} slot is OCCUPIED or RESERVED by another session.`);
     console.log(`Falling back to next available slot (Bob or Ben)...`);
 
-    const second = tryCheckin('node claude-sync.js checkin');
+    const second = tryCheckin('node claude-sync.js checkin --any');
 
     if (second.output && parseName(second.output)) {
       const assigned = parseName(second.output);
@@ -193,4 +208,27 @@ if (requestedIdentity) {
   } else {
     emitTechnicalFailure((result.error && result.error.message) || 'Unknown error');
   }
+}
+
+}
+
+// ─── Entry: resolve this window's ID from the hook stdin JSON, then run ───────
+
+if (process.stdin.isTTY) {
+  runStartup();  // manual run — no hook payload
+} else {
+  let input = '';
+  let started = false;
+  const start = () => { if (!started) { started = true; runStartup(); } };
+  process.stdin.setEncoding('utf-8');
+  process.stdin.on('data', chunk => { input += chunk; });
+  process.stdin.on('end', () => {
+    try {
+      const data = JSON.parse(input);
+      if (data.session_id) windowId = data.session_id;
+    } catch { /* env fallback stands */ }
+    start();
+  });
+  // Never let a stuck pipe block the session from starting
+  setTimeout(start, 3000).unref();
 }

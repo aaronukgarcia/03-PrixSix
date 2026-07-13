@@ -1,6 +1,6 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-02-24 (claude-sync v2.0 — DHCP permit model)
+> **Last updated:** 2026-07-13 (claude-sync v2.2 — per-window identity, reserved slots, wake recovery)
 > **Current production version:** Check `package.json` and verify at https://prix6.win/about
 > **Read this entire file at the start of every session.**
 
@@ -29,9 +29,10 @@ node claude-sync.js checkin --name Bill      # primary window — that's it, you
 # (checkin output shows the path — golden-rules-reminder.md)
 ```
 
-> **No env var needed for single-agent use.** The hook reads `.claude-session-key` automatically.
-> The `$env:CLAUDE_SESSION_ID` step is only required when Bob or Ben are running simultaneously
-> in separate terminals — set it then to prevent the hooks from cross-renewing each other's permits.
+> **No env var needed at all inside Claude Code (claude-sync v2.2).** Every window's checkin is
+> automatically mapped to its own `CLAUDE_CODE_SESSION_ID` in `.claude-session-map.json`, so the
+> renewal hook always renews the right permit — even with Bill, Bob and Ben running simultaneously.
+> `$env:CLAUDE_SESSION_ID` is only needed in plain terminals outside Claude Code (it still wins if set).
 
 **If wrong instance grabbed your name — HUMAN MUST RUN THIS, not Claude:**
 ```powershell
@@ -41,11 +42,11 @@ node claude-sync.js checkin --name Bill --force --human-ok   # evict impostor, c
 
 > 🔁 **Crash/reboot auto-recovery (claude-sync v2.1).** If your previous session **crashed or the machine rebooted** without checking out, you no longer need `--force`. A plain `checkin --name Bill` now **auto-reclaims** your own name from the dead holder — proven dead via boot-id mismatch (reboot) or a stale local heartbeat (crash). A *genuinely live* holder keeps a fresh heartbeat and is never reclaimed, so eviction of a live peer still requires the human-only `--force --human-ok`. "If you were Bill and you crashed, you come back as Bill."
 
-**Multi-agent only (Bob/Ben also running):**
-```powershell
-# After checkin, paste the session ID line shown in the checkin output:
-$env:CLAUDE_SESSION_ID = "session-XXXXXXXXXX"
-```
+> 🛡️ **Idle protection & wake recovery (claude-sync v2.2, 2026-07-13).** The renewal hook only fires on tool use, so an **idle** window's permit expires at TTL. Two safeguards now cover this:
+> 1. **Reserved slots** — a permit that expired < 30 min ago (same OS boot) stays *reserved* for its holder. Another window asking for that name is rejected ("SLOT IS RESERVED") and should run `checkin --any` for the next free slot. A reboot voids reservations; a human can override with `--force --human-ok`.
+> 2. **Wake recovery** — when the idle window becomes active again, its next hook fire automatically re-acquires its old name (or, if the name was genuinely taken, takes the next free slot and prints a loud **IDENTITY CHANGED** notice — obey it and switch your prefix).
+>
+> Don't trust the `← YOU` marker or an "I am Bill" assumption after any anomaly — `node claude-sync.js status` shows what your *window* actually holds.
 
 ---
 
@@ -95,13 +96,9 @@ Permits expire after 5 minutes unless auto-renewed. The `PostToolUse` hook handl
 > node claude-sync.js checkin --name Bill --force  # evict whoever holds Bill and take it
 > ```
 
-**Step 2 (CRITICAL — run once in your terminal):**
-
-Copy the `$env:CLAUDE_SESSION_ID` line from the checkin output and run it:
-```powershell
-$env:CLAUDE_SESSION_ID = "session-XXXXXXXXXX"   # exact value shown in your checkin output
-```
-Without this, the auto-renewal hook cannot identify your instance and your permit will expire every 5 minutes in multi-agent setups.
+**Step 2:** Nothing — per-window identity is automatic (v2.2). Your checkin is keyed to this
+window's `CLAUDE_CODE_SESSION_ID`; the renewal hook renews the correct permit in any
+multi-agent setup. (`$env:CLAUDE_SESSION_ID` is only for plain terminals outside Claude Code.)
 
 **Step 3:** Complete these checks:
 1. Run `git status` and confirm your branch
@@ -139,7 +136,7 @@ If you need to check your assignment: `node claude-sync.js read`
 
 ### Permit Auto-Renewal — Handled by hook
 
-Permits have a **5-minute TTL**. The `PostToolUse` hook (`claude-ping-check.js`) automatically calls `renew --auto` every 2 minutes, renewing only when < 2.5 minutes remain. **You do not need to manually ping** — but you must have set `$env:CLAUDE_SESSION_ID` (Step 2 above) for the hook to renew the correct instance.
+Permits have a **5-minute TTL**. The `PostToolUse` hook (`claude-ping-check.js`) automatically calls `renew --auto` every 2 minutes, renewing only when < 3.5 minutes remain. **You do not need to manually ping** — the hook identifies your window automatically via `CLAUDE_CODE_SESSION_ID` (v2.2). If your permit expires while you were idle, the same hook re-acquires your name on your next action (wake recovery) — watch for a `[claude-sync]` notice and obey any IDENTITY CHANGED instruction in it.
 
 To manually check your permit status at any time:
 ```bash
@@ -175,6 +172,7 @@ bob> Goodnight! Bob checked out. Session ended.
 | Command | When to use |
 |---------|-------------|
 | `node claude-sync.js checkin` | Start of session — auto-assigns Bill/Bob/Ben |
+| `node claude-sync.js checkin --any` | Next free slot, ignoring `CLAUDE_IDENTITY` — use after a REJECTED/RESERVED response |
 | `node claude-sync.js checkin --name Bill` | Claim a specific slot by name |
 | `node claude-sync.js checkin --name Bill --force` | Evict impostor and claim slot |
 | `node claude-sync.js checkout --session ID` | End of session |
