@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-20",
   "commits": [
     {
+      "id": "47395f0",
+      "date": "2026-07-20",
+      "version": "3.7.0",
+      "author": "aaron garcia",
+      "message": "feat: Billceleration — autonomous AI team with split-brain self-roast (v3.7.0)",
+      "major": true
+    },
+    {
       "id": "a519a3e",
       "date": "2026-07-20",
       "version": "3.6.0",

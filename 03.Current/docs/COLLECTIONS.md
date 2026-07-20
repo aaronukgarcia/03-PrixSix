@@ -364,3 +364,17 @@ Previously stored computed per-race scores. Now scores are calculated in real-ti
 **Writers:** `/api/invites/create` (create/refresh), `/api/auth/signup` + `/api/auth/complete-oauth-profile` (consume/revert via `lib/invites.ts`)
 
 **Readers:** `/signup` server component (validate), the two signup gates (validate+consume). All via Admin SDK — `firestore.rules` denies all client access.
+
+---
+
+## `billceleration_log`
+
+**Purpose:** Permanent pick/rationale history for the Billceleration autonomous AI team (v3.7.0) — every picker decision (daily + final slots) with picks, public rationale, private self-doubt, fallback usage and correlation ID. Feeds nothing critical at runtime; exists for season-review posts, /rca trails, and auditability of the AI's decisions.
+
+**Doc ID:** auto-generated
+
+**Fields:** `raceId` (Title-Case with -GP/-Sprint suffix), `mode` (`daily`/`final`), `session` (`gp`/`sprint`), `picks` (string[6] driver ids), `rationale`, `selfDoubt`, `fallbackUsed` (null | `wdc-top6` | `previous-own`), `correlationId`, `at` (serverTimestamp)
+
+**Writers:** `/api/cron/billceleration` exclusively (Admin SDK)
+
+**Readers:** none at runtime (splitbrain roast reads `admin_configuration/billcelerationState.lastPick` instead). `firestore.rules` denies all client access.

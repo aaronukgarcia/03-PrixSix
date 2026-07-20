@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.7.1 — 2026-07-20
+
+### Billceleration go-live fix + rollout artefacts
+
+- **Fix:** `mintBotIdToken` now sends `Referer: https://prix6.win/` on the Identity Toolkit exchange — the web API key is HTTP-referrer-restricted, so server-side token minting got 403 without it (browser sign-ins never hit this). Found and fixed during the supervised first submission.
+- Rollout artefacts committed: `check-bot-standings.ts`, `supervised-first-submission.ts`, `docs/COLLECTIONS.md` entry for `billceleration_log`.
+- Go-live record: bot provisioned (P37, 12 pts, −5 penalty applied), disclosure announced to the group, first real submission (Hungarian GP) delivered with the splitbrain roast, schedule enabled.
+
 ## v3.7.0 — 2026-07-20
 
 ### Billceleration — the autonomous AI team

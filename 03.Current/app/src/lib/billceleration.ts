@@ -56,7 +56,10 @@ export async function getBotConfig(db: AdminFirestore): Promise<BotConfig | null
   }
 }
 
-// GUID: LIB_BILLCELERATION-002-v01
+// GUID: LIB_BILLCELERATION-002-v02
+// @CHANGE (v3.7.1): send Referer: https://prix6.win/ on the Identity Toolkit exchange — the
+//   web API key is HTTP-referrer-restricted, so server-side calls without a referer get 403
+//   (found during the supervised first run; browser flows never hit this).
 // [Intent] Mint a Firebase ID token for the bot uid: Admin SDK createCustomToken (the App
 //          Hosting SA already holds Service Account Token Creator — same as the login flow),
 //          then exchange via the Identity Toolkit signInWithCustomToken REST endpoint using
@@ -71,11 +74,14 @@ export async function mintBotIdToken(uid: string): Promise<string> {
   const customToken = await getAuth().createCustomToken(uid);
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!apiKey) throw new Error('NEXT_PUBLIC_FIREBASE_API_KEY not available in runtime');
+  // The web API key is HTTP-referrer-restricted (verified 2026-07-20: no referer → 403,
+  // prix6.win referer → request processed). Server-side callers must present the app's own
+  // origin as the referer — same key, same project, our own domain.
   const resp = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Referer: 'https://prix6.win/' },
       body: JSON.stringify({ token: customToken, returnSecureToken: true }),
       signal: AbortSignal.timeout(10000),
     }
