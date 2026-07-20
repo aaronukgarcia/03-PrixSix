@@ -27,6 +27,8 @@ import { wakeWhatsAppWorker } from '@/lib/whatsapp-wake';
 import { getRaceByName } from '@/lib/race-schedule-server';
 import { generateCheekyComment } from '@/ai/flows/cheeky-bill';
 import { buildCheekyBillContext } from '@/lib/cheeky-bill-context';
+import { getBotConfig } from '@/lib/billceleration';
+import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -344,7 +346,12 @@ export async function POST(request: NextRequest) {
       })();
     }
 
-    // GUID: API_SUBMIT_PREDICTION-009-v04
+    // GUID: API_SUBMIT_PREDICTION-009-v05
+    // @CHANGE (v3.7.0): splitbrain self-roast for the Billceleration bot — when the submitting
+    //   user IS the bot (getBotConfig, 10-min cache), the mode roll is skipped and the roast is
+    //   forced to 'splitbrain', quoting the picker's own rationale from
+    //   admin_configuration/billcelerationState.lastPick (only if raceId matches and the pick is
+    //   < 10 min old — stale/mismatched degrades to a rationale-less splitbrain roast).
     // @CHANGE (v3.6.0): three roast modes — each submission rolls Math.random() for standard /
     //   jackdee / news (~1/3 each, no persistence: decorative path, ~20 players, matches the
     //   existing random-fallback precedent). The roll happens BEFORE the context fetch so the
@@ -388,8 +395,25 @@ export async function POST(request: NextRequest) {
           // Roast mode roll — before the context fetch so news-mode external calls (OpenF1 +
           // RSS) only happen on ~1/3 of submissions.
           const roll = Math.random();
-          let roastMode: 'standard' | 'jackdee' | 'news' =
+          let roastMode: 'standard' | 'jackdee' | 'news' | 'splitbrain' =
             roll < 1 / 3 ? 'jackdee' : roll < 2 / 3 ? 'news' : 'standard';
+          // Billceleration self-submission → forced splitbrain self-roast, quoting the picker's
+          // own rationale when the state doc's lastPick matches this race and is fresh (<10 min).
+          let rationaleFacts = '';
+          const botCfg = await getBotConfig(db);
+          if (botCfg?.uid && userId === botCfg.uid) {
+            roastMode = 'splitbrain';
+            try {
+              const lastPick = (await db.collection('admin_configuration').doc('billcelerationState').get()).data()?.lastPick;
+              const pickAtMs = lastPick?.at && typeof lastPick.at.toMillis === 'function' ? lastPick.at.toMillis() : 0;
+              if (lastPick?.raceId === normalizedRaceId && Date.now() - pickAtMs < 10 * 60 * 1000) {
+                const rationale = sanitizeForPrompt(String(lastPick.rationale || ''), 300);
+                const selfDoubt = sanitizeForPrompt(String(lastPick.selfDoubt || ''), 200);
+                rationaleFacts = [rationale && `My public reasoning was - ${rationale}`, selfDoubt && `My private worry was - ${selfDoubt}`]
+                  .filter(Boolean).join('\n');
+              }
+            } catch { /* rationale-less splitbrain is fine */ }
+          }
           const banterContext = await buildCheekyBillContext(db, {
             userId,
             teamId,
@@ -409,6 +433,7 @@ export async function POST(request: NextRequest) {
             formFacts: banterContext.formFacts,
             mode: roastMode,
             newsFacts: banterContext.newsFacts,
+            rationaleFacts,
           });
         } catch (cheekyErr: any) {
           console.error('[submit-prediction] Error generating cheeky Bill comment (non-fatal):', cheekyErr.message);

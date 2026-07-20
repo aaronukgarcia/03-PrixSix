@@ -1,6 +1,10 @@
 'use server';
 
-// GUID: AI_CHEEKY_BILL-000-v04
+// GUID: AI_CHEEKY_BILL-000-v05
+// @CHANGE (v3.7.0): fourth mode 'splitbrain' — Bill roasting HIS OWN AI team Billceleration's
+//   submission: the team-principal half just locked the picks in, the Jack Dee half gets the
+//   microphone. New optional rationaleFacts input carries the picker's own rationale/selfDoubt
+//   so the roast can quote the delusion verbatim. All absolute guardrails unchanged.
 // @CHANGE (v3.6.0): three roast modes — 'standard' (unchanged), 'jackdee' (harsher deadpan
 //   personal dig at the SUBMITTER, Aaron-approved "fully personal"; protected-traits +
 //   no-profanity guardrails stay absolute) and 'news' (weaves ONE fresh trackside/news fact
@@ -33,8 +37,9 @@ const CheekyBillInputSchema = z.object({
   standingsFacts: z.string().optional().describe('Factual summary of this team\'s championship position. May be empty.'),
   previousSubmissionFacts: z.string().optional().describe('Deterministic comparison vs the team\'s previous submission (identical / shuffled / new faces). May be empty.'),
   formFacts: z.string().optional().describe('Picks\' real WDC positions plus outsider / table-copy flags. May be empty.'),
-  mode: z.enum(['standard', 'jackdee', 'news']).optional().describe('Roast mode: standard pub banter (default), jackdee deadpan personal dig, or news-correlated.'),
+  mode: z.enum(['standard', 'jackdee', 'news', 'splitbrain']).optional().describe('Roast mode: standard pub banter (default), jackdee deadpan personal dig, news-correlated, or splitbrain self-roast of Bill\'s own AI team.'),
   newsFacts: z.string().optional().describe('Fresh trackside/news context lines (news mode only). May be empty.'),
+  rationaleFacts: z.string().optional().describe('The bot picker\'s own rationale + self-doubt (splitbrain mode only). May be empty.'),
 });
 export type CheekyBillInput = z.infer<typeof CheekyBillInputSchema>;
 
@@ -57,8 +62,9 @@ export async function generateCheekyComment(input: CheekyBillInput): Promise<str
 
     // Mode resolution: news mode without any news facts degrades to standard (the call site
     // already does this, but the flow must be safe when invoked directly, e.g. from scripts).
-    const mode: 'standard' | 'jackdee' | 'news' =
+    const mode: 'standard' | 'jackdee' | 'news' | 'splitbrain' =
       input.mode === 'jackdee' ? 'jackdee'
+      : input.mode === 'splitbrain' ? 'splitbrain'
       : input.mode === 'news' && input.newsFacts ? 'news'
       : 'standard';
 
@@ -99,6 +105,24 @@ pleased about anything. Praise is banned.`;
 - "Hamilton bins it in Q3 and ninety seconds later you've got him down in P6, the ink's still wet on the panic..bill"
 - "red flag out and suddenly everyone's a strategist — shame it's still six wrong names..Bill"`;
 
+    const splitBrainPersona = `You are "Bill", and this submission came from YOUR OWN AI team, Billceleration —
+the ambitious team-principal half of your brain just locked these picks in, and now the withering
+Jack Dee half of your brain gets the microphone. Roast YOURSELF: your own picks, your own quoted
+reasoning, your own delusion. First person only — the group must hear a man at war with himself.
+Deadpan, unimpressed, zero exclamation. Praise is banned, even for yourself. Especially for yourself.`;
+
+    const splitBrainExamples = `Style examples (match this energy, don't copy verbatim):
+- "what was I thinking, too much juice on Hulkenberg, the other half of my brain needs supervising..bill"
+- "I'm following the pack because we're all sheep, baa, see you in mid-table..Bill"
+- "'bold strategic differential' I told myself — it's Stroll in P5, I need a lie down...bill"
+- "beaten to these picks by my own robot, and honestly the robot's embarrassed too..Bill"
+- "half of me calls this data-driven, the other half has met the first half...bill"`;
+
+    const rationaleBlock = mode === 'splitbrain' && input.rationaleFacts ? `
+
+MY OWN REASONING AT THE TIME (verbatim — quote and mock it):
+${input.rationaleFacts}` : '';
+
     const newsBlock = mode === 'news' ? `
 
 FRESH TRACKSIDE / NEWS CONTEXT (verified, with timestamps where shown):
@@ -115,6 +139,10 @@ not listed above.` : '';
       ? `- Aim the insult at the submitter personally — their effort, their habits, their judgement, their
   team name — as well as the picks. Never mock race, religion, disability, or any protected
   characteristic. No profanity.`
+      : mode === 'splitbrain'
+      ? `- Aim every insult at YOURSELF — your own picks, your own judgement, and especially your own
+  quoted reasoning if it appears above. Never mock any other team or person. Never mock race,
+  religion, disability, or any protected characteristic. No profanity.`
       : `- Aim every insult at their PICKS and their F1 judgement. Never mock race, religion, disability,
   or anything about the person beyond their laughable predictions. No profanity.`;
 
@@ -125,18 +153,21 @@ not listed above.` : '';
   and drop the rest.`
       : `- ONE short sentence only. Sharp beats long.`;
 
+    const persona = mode === 'jackdee' ? jackDeePersona : mode === 'splitbrain' ? splitBrainPersona : standardPersona;
+    const examples = mode === 'jackdee' ? jackDeeExamples : mode === 'splitbrain' ? splitBrainExamples : standardExamples;
+
     const response = await ai.generate({
-      prompt: `${mode === 'jackdee' ? jackDeePersona : standardPersona}
+      prompt: `${persona}
 
 Team Name: "${teamName}"
 ${raceName ? `Race being predicted: ${raceName}` : ''}
-Their top-6 prediction (P1 first):
+${mode === 'splitbrain' ? 'My own top-6 prediction (P1 first):' : 'Their top-6 prediction (P1 first):'}
 ${input.driverList}
 
 VERIFIED FACTS you may weaponise (do NOT invent stats beyond these):
-${factLines || '(no race data available yet — roast the picks on merit alone)'}${newsBlock}
+${factLines || '(no race data available yet — roast the picks on merit alone)'}${newsBlock}${rationaleBlock}
 
-${mode === 'jackdee' ? jackDeeExamples : standardExamples}${mode === 'news' ? `\n\n${newsExamples}` : ''}
+${examples}${mode === 'news' ? `\n\n${newsExamples}` : ''}
 
 Rules:
 ${lengthRule}
@@ -147,7 +178,9 @@ ${lengthRule}
   planning on winning are you"). Outsider pick = mock the blind hope, quoting the real position.
   Championship-table copy = mock the total absence of imagination.${mode === 'news' ? `
   EXCEPTION: in this message a genuine news correlation beats even the situational priority —
-  the fresh-incident dig lands hardest of all.` : ''}
+  the fresh-incident dig lands hardest of all.` : ''}${mode === 'splitbrain' ? `
+  EXCEPTION: if MY OWN REASONING appears above, mocking a phrase from it verbatim beats even the
+  situational priority — nothing lands harder than a man quoting his own delusion back at himself.` : ''}
 ${aimRule}
 - If the VERIFIED FACTS give you a driver's last-race position or the team's championship rank,
   use it — a factually accurate dig lands hardest ("you do know X only managed P5 last weekend",

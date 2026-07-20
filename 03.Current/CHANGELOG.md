@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.7.0 — 2026-07-20
+
+### Billceleration — the autonomous AI team
+
+A new team joins the league: **Billceleration**, run entirely by AI with zero ongoing human input.
+
+- **Full competitor, late-joiner rules**: provisioned via `applyLateJoinerHandicap` (last place's completed-race points, −5 penalty) — same treatment as any human late joiner.
+- **Cadence**: one submission at **06:55 Europe/London on hot-news days** (Sun/Thu/Fri/Sat, in-season race weeks) plus a **fresh final decision in the last hour before qualifying closes**. New `billcelerationTick` Cloud Function (15-min grid, `:55` lands the daily slot exactly) → `/api/cron/billceleration`, which owns all slot/dedup logic with a transactional claim.
+- **The picker**: Gemini (structured output, thinking disabled) as the ambitious team-principal half of Bill's brain. Inputs: **every rival's current submissions** (full access — disclosed to the group in the join announcement), real WDC form (Jolpica), latest headlines (Autosport), live trackside race-control facts (OpenF1), venue weather. Picks validated against the F1Drivers roster with a feedback retry and deterministic fallbacks (form-book top-6 → previous own picks → skip).
+- **Split-brain self-roast**: the bot submits through the real `/api/submit-prediction` route with a minted ID token, so every deadline gate and the WhatsApp pipeline fire as normal — except Bill's take is forced to the new `splitbrain` mode, quoting the picker's own rationale back at itself ("what was I thinking, too much juice", "following the pack because we're all sheep").
+- **Ops**: kill switch at `admin_configuration/billceleration.enabled`; GR#17 status heartbeat every tick (`billcelerationStatus`, health-check CHECK 11, 2h bound); full pick/rationale history in `billceleration_log` (client access denied in rules); provisioning + sandbox test scripts (`provision-billceleration.ts`, `test-billceleration.ts --dry|--roast|--token`).
+
 ## v3.6.0 — 2026-07-20
 
 ### Cheeky Bill three-mode roasts: Jack Dee mode + news-correlated mode

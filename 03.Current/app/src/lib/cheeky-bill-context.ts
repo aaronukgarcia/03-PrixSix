@@ -193,7 +193,9 @@ async function buildPreviousSubmissionFacts(
   return `SUBMISSION HISTORY: ${newFaces} change${newFaces === 1 ? '' : 's'} from their previous submission (${prevRace}).`;
 }
 
-// GUID: LIB_CHEEKY_BILL_CONTEXT-005-v01
+// GUID: LIB_CHEEKY_BILL_CONTEXT-005-v02
+// @CHANGE (v3.7.0): exported for the Billceleration picker (real form input + deterministic
+//   WDC-top-6 fallback picks). Behaviour unchanged.
 // [Intent] Fetch the REAL full F1 drivers' championship from Jolpica (api.jolpi.ca — the same
 //          free, keyless Ergast successor the hot-news bulletin uses, GR#3) and cache it for
 //          6 hours module-level. Maps Jolpica familyName → Prix Six driver id by
@@ -204,7 +206,7 @@ async function buildPreviousSubmissionFacts(
 const FORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 let formCache: { at: number; byId: Map<string, { rank: number; points: number }> } | null = null;
 
-async function fetchRealWdcByDriverId(): Promise<Map<string, { rank: number; points: number }> | null> {
+export async function fetchRealWdcByDriverId(): Promise<Map<string, { rank: number; points: number }> | null> {
   try {
     if (formCache && Date.now() - formCache.at < FORM_CACHE_TTL_MS) return formCache.byId;
     const resp = await fetch('https://api.jolpi.ca/ergast/f1/current/driverstandings/?limit=30', {
@@ -318,7 +320,9 @@ async function openF1Get<T>(path: string): Promise<T | null> {
   }
 }
 
-// GUID: LIB_CHEEKY_BILL_CONTEXT-007-v01
+// GUID: LIB_CHEEKY_BILL_CONTEXT-007-v02
+// @CHANGE (v3.7.0): exported for the Billceleration picker (freshest trackside input on the
+//   final-call slot). Behaviour unchanged.
 // [Intent] "Trackside news" ammunition for the news-correlated roast mode: OpenF1 race_control
 //          messages from a LIVE or just-ended session (the lowest-latency incident source —
 //          crashes, offs, flags, within minutes) plus Autosport RSS headlines as background.
@@ -340,7 +344,7 @@ let sessionCache: { at: number; session: { session_name?: string; location?: str
 let raceControlCache: { at: number; messages: { date?: string; message?: string }[] } | null = null;
 let headlinesCache: { at: number; headlines: string[] } | null = null;
 
-async function buildTracksideNewsFacts(predictions: string[]): Promise<string> {
+export async function buildTracksideNewsFacts(predictions: string[]): Promise<string> {
   try {
     const now = Date.now();
 

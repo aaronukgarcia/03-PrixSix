@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-20",
   "commits": [
     {
+      "id": "a519a3e",
+      "date": "2026-07-20",
+      "version": "3.6.0",
+      "author": "aaron garcia",
+      "message": "feat: Cheeky Bill three-mode roasts — Jack Dee mode + news-correlated mode (v3.6.0)",
+      "major": true
+    },
+    {
       "id": "63a90e5",
       "date": "2026-07-13",
       "version": "3.5.2",

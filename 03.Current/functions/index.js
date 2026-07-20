@@ -2623,6 +2623,55 @@ exports.whatsAppScheduledTick = onSchedule(
   }
 );
 
+// GUID: BACKUP_FUNCTIONS-043-v01
+/**
+ * billcelerationTick
+ *
+ * [Intent] Scheduler trigger for the Billceleration autonomous AI team (v3.7.0). Fires at
+ *          :10 :25 :40 :55 every hour Europe/London — the :55 tick lands exactly on the
+ *          06:55 daily submission slot (5 min before the 07:00 hot-news post), and the 15-min
+ *          grid gives the final-call slot a 0-15 min margin before qualifying closes. ALL
+ *          decision logic (hot-news day mask, season gate, slot windows, dedup, AI picking,
+ *          submission) lives in /api/cron/billceleration inside App Hosting where Vertex ADC
+ *          works — this function is just the trigger, same pattern as whatsAppScheduledTick.
+ * [Inbound Trigger] Cloud Scheduler cron: 10,25,40,55 * * * * Europe/London.
+ * [Downstream Impact] Calls the route with the CRON_SECRET bearer token. The route writes
+ *          admin_configuration/billcelerationStatus every run (GR#17, /health-check CHECK 11,
+ *          maxAgeH 2) and, on submission slots, predictions for team Billceleration via the
+ *          real /api/submit-prediction route. Kill switch: admin_configuration/billceleration
+ *          .enabled — no redeploy needed to stop the bot.
+ */
+exports.billcelerationTick = onSchedule(
+  {
+    schedule: "10,25,40,55 * * * *",
+    timeZone: "Europe/London",
+    region: REGION,
+    timeoutSeconds: 120,
+    memory: "256MiB",
+    retryCount: 0,
+    secrets: ["CRON_SECRET"],
+  },
+  async () => {
+    const correlationId = generateCorrelationId("bill");
+    const secret = (process.env.CRON_SECRET || "").replace(/^﻿/, "");
+    const appUrl = process.env.APP_URL || "https://prix6.win";
+    if (!secret) {
+      console.error(JSON.stringify({ severity: "ERROR", message: "BILLCELERATION_MISSING_SECRET", correlationId }));
+      return;
+    }
+    try {
+      const resp = await fetch(`${appUrl}/api/cron/billceleration`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${secret}`, "Content-Type": "application/json" },
+      });
+      const body = await resp.json().catch(() => ({}));
+      console.log(JSON.stringify({ severity: resp.ok ? "INFO" : "ERROR", message: resp.ok ? "BILLCELERATION_OK" : "BILLCELERATION_HTTP_ERROR", correlationId, status: resp.status, state: body.state ?? null }));
+    } catch (err) {
+      console.error(JSON.stringify({ severity: "ERROR", message: "BILLCELERATION_FAILED", correlationId, error: err.message || String(err) }));
+    }
+  }
+);
+
 // GUID: BACKUP_FUNCTIONS-042-v01
 /**
  * whatsAppQueueWatchdog

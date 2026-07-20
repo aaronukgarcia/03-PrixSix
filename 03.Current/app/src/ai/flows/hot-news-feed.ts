@@ -244,15 +244,18 @@ async function fetchOpenF1Weather(): Promise<{ trackTemp: number; rainfall: numb
     }
 }
 
-// GUID: HOT_NEWS_FLOW-010-v01
+// GUID: HOT_NEWS_FLOW-010-v02
+// @CHANGE (v3.7.0): exported so the Billceleration picker flow reuses the same pre-formatted
+//   championship block (GR#3 — one Jolpica standings renderer).
 // [Intent] Fetch REAL current-season F1 championship data — driver standings (top 6), constructor
 //          standings (top 5) and the last race podium — from Jolpica-F1 (api.jolpi.ca, the free,
 //          no-key Ergast-compatible successor). This grounds the bulletin in ACTUAL 2026 form
 //          instead of the model's stale training knowledge (which e.g. wrongly had Verstappen
 //          leading in RB20/MCL38 cars). Returns a pre-formatted prompt block, or null on any failure.
 // [Inbound Trigger] hotNewsFeedFlow() builds the prompt's CURRENT CHAMPIONSHIP section from this.
+//                   Also called by ai/flows/billceleration-picker.ts (v3.7.0).
 // [Downstream Impact] Accurate driver/team storylines; null => prompt falls back to evergreen angles.
-async function fetchF1Standings(): Promise<string | null> {
+export async function fetchF1Standings(): Promise<string | null> {
     try {
         const BASE = 'https://api.jolpi.ca/ergast/f1/current';
         const j = async (path: string) => {
@@ -317,6 +320,25 @@ export async function fetchF1Headlines(): Promise<string[]> {
         return items;
     } catch {
         return [];
+    }
+}
+
+// GUID: HOT_NEWS_FLOW-013-v01
+// [Intent] One-line venue weather summary for a race location, for prompts that need weather
+//          context without the full bulletin machinery (Billceleration picker, v3.7.0). Wraps
+//          the private VENUE_COORDS + fetchOpenMeteoWeather so those stay module-private.
+// [Inbound Trigger] ai/flows/billceleration-picker.ts input gathering.
+// [Downstream Impact] Returns '' when the venue is unknown or Open-Meteo fails — callers treat
+//          weather as optional context (decorative-degrade, same as every fetcher here).
+export async function getVenueWeatherLine(location: string): Promise<string> {
+    try {
+        const coords = VENUE_COORDS[location];
+        if (!coords) return '';
+        const w = await fetchOpenMeteoWeather(coords[0], coords[1]);
+        if (!w) return '';
+        return `${location}: ${w.weatherDesc}, ${w.temp}C now (max ${w.maxTemp}C), wind ${w.wind} km/h, rain chance ${w.rainChance}%, weekend rain total ${w.weekendRain}mm.`;
+    } catch {
+        return '';
     }
 }
 

@@ -422,6 +422,17 @@ service cloud.firestore {
       allow read, write: if false; // Server-side only via Admin SDK
     }
 
+    // GUID: BILLCELERATION_LOG_RULES-001-v01
+    // [Intent] Deny all client access to billceleration_log — the AI team's pick/rationale
+    //          history (v3.7.0). Written exclusively by the /api/cron/billceleration route via
+    //          Admin SDK. Rationale text feeds the splitbrain roast and future season-review
+    //          posts; clients have no reason to read it and must never write it.
+    // [Inbound Trigger] Any client attempt to read or write billceleration_log documents.
+    // [Downstream Impact] All legitimate access is server-side (Admin SDK bypasses rules).
+    match /billceleration_log/{entryId} {
+      allow read, write: if false; // Server-side only via Admin SDK
+    }
+
     // GUID: INVITES_RULES-001-v01
     // [Intent] Friend-invite tokens (SEC-SIGNUP-001 signup-gate bypass). Doc ID IS the
     //          secret token, so any client read would leak live invite links — admins

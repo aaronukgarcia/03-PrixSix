@@ -271,6 +271,7 @@ Full documentation for each module is in `docs/module-reference.md`.
 | 14 | WhatsApp Integration | `api/whatsapp-proxy/route.ts` | `users` (R) |
 | 15 | Pit Wall | `(app)/pit-wall/PitWallClient.tsx`, `api/pit-wall/live-data/route.ts` | None (OpenF1 + RainViewer, no Firestore) |
 | 16 | Pre-Race Showreel | `(app)/pit-wall/_hooks/usePreRaceMode.ts`, `_hooks/useHistoricalReplay.ts`, `api/pit-wall/historical-sessions/route.ts`, `api/pit-wall/historical-replay/route.ts` | None (OpenF1 2025 historical telemetry, no Firestore) |
+| 17 | Billceleration (AI team) | `lib/billceleration.ts`, `ai/flows/billceleration-picker.ts`, `api/cron/billceleration/route.ts`, `functions/index.js` (billcelerationTick) | `admin_configuration` (billceleration/State/Status), `billceleration_log`, `users/{bot}/predictions` |
 
 ---
 ## Git Discipline
