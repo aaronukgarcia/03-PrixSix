@@ -433,6 +433,17 @@ service cloud.firestore {
       allow read, write: if false; // Server-side only via Admin SDK
     }
 
+    // GUID: ROAST_TASKS_RULES-001-v01
+    // [Intent] Deny all client access to roast_tasks — the durable hand-off queue between
+    //          /api/submit-prediction and the roast pipeline (BUG-ROAST-001 fix, v3.7.2).
+    //          Written by the submit route, consumed by roastTaskTrigger → the internal roast
+    //          route, all via Admin SDK. A client writing here could forge WhatsApp messages.
+    // [Inbound Trigger] Any client attempt to read or write roast_tasks documents.
+    // [Downstream Impact] All legitimate access is server-side (Admin SDK bypasses rules).
+    match /roast_tasks/{taskId} {
+      allow read, write: if false; // Server-side only via Admin SDK
+    }
+
     // GUID: INVITES_RULES-001-v01
     // [Intent] Friend-invite tokens (SEC-SIGNUP-001 signup-gate bypass). Doc ID IS the
     //          secret token, so any client read would leak live invite links — admins

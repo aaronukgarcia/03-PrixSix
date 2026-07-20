@@ -23,12 +23,7 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { generateRaceId, generateRaceIdLowercase } from '@/lib/normalize-race-id';
-import { wakeWhatsAppWorker } from '@/lib/whatsapp-wake';
 import { getRaceByName } from '@/lib/race-schedule-server';
-import { generateCheekyComment } from '@/ai/flows/cheeky-bill';
-import { buildCheekyBillContext } from '@/lib/cheeky-bill-context';
-import { getBotConfig } from '@/lib/billceleration';
-import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -298,10 +293,15 @@ export async function POST(request: NextRequest) {
     // Commit all writes atomically
     await batch.commit();
 
-    // GUID: API_SUBMIT_PREDICTION-008
-    // [Intent] Fire-and-forget clone rule engine. After the primary submission commits, check if any
+    // GUID: API_SUBMIT_PREDICTION-008-v02
+    // @CHANGE (v3.7.2): AWAITED before the response (was fire-and-forget). BUG-ROAST-001 showed
+    //   Cloud Run throttles CPU to ~zero once the response is sent, so post-response background
+    //   work can freeze mid-await and silently never complete. The clone engine is fast pure
+    //   Firestore work (~100-300ms) — awaiting it guarantees clone writes at negligible latency
+    //   cost. Errors remain non-fatal (submission already committed).
+    // [Intent] Clone rule engine. After the primary submission commits, check if any
     //          active prediction_clone_rules exist for this user. If so, write inverted predictions to
-    //          each destination team. Never blocks the user's response — all errors are non-fatal.
+    //          each destination team. All errors are non-fatal.
     //          Only fires for primary team submissions (teamId === userId), not secondary teams.
     // [Inbound Trigger] After batch.commit() — every successful prediction submission by a primary team.
     // [Downstream Impact] Writes inverted prediction docs to destination users' predictions subcollections.
@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
     //                     Errors logged to console only — never surfaced to the submitting user.
     const isPrimaryTeam = teamId === userId;
     if (isPrimaryTeam) {
-      (async () => {
+      await (async () => {
         try {
           const rulesSnap = await db.collection('prediction_clone_rules')
             .where('sourceUserId', '==', userId)
@@ -346,112 +346,33 @@ export async function POST(request: NextRequest) {
       })();
     }
 
-    // GUID: API_SUBMIT_PREDICTION-009-v05
-    // @CHANGE (v3.7.0): splitbrain self-roast for the Billceleration bot — when the submitting
-    //   user IS the bot (getBotConfig, 10-min cache), the mode roll is skipped and the roast is
-    //   forced to 'splitbrain', quoting the picker's own rationale from
-    //   admin_configuration/billcelerationState.lastPick (only if raceId matches and the pick is
-    //   < 10 min old — stale/mismatched degrades to a rationale-less splitbrain roast).
-    // @CHANGE (v3.6.0): three roast modes — each submission rolls Math.random() for standard /
-    //   jackdee / news (~1/3 each, no persistence: decorative path, ~20 players, matches the
-    //   existing random-fallback precedent). The roll happens BEFORE the context fetch so the
-    //   external OpenF1/RSS news endpoints are only hit on news-mode submissions; news degrades
-    //   to standard when no relevant news is found. NOTE (preserved, deliberate): this block
-    //   still writes whatsapp_queue directly with the hardcoded prod group — it does NOT route
-    //   through sendWhatsAppAlert gating (masterEnabled/testMode do not apply here).
-    // @CHANGE (v3.4.14): situational roasts — the banter context builder now also receives
-    //   userId + normalizedRaceId + the submitted picks so it can compare against the team's
-    //   previous submission and against the real WDC form book (Jolpica). Two new fact fields
-    //   passed through to generateCheekyComment.
-    // @CHANGE (v3.4.13): Cheeky Bill roast upgrade — fetch factual banter context (last completed
-    //   race top 6 + this team's championship position, via LIB_CHEEKY_BILL_CONTEXT with its
-    //   10-min cache) and pass it to generateCheekyComment so the roast can quote real data.
-    //   Context fetch is best-effort inside the same non-fatal block.
-    // [Intent] Fire-and-forget WhatsApp group notification when a prediction is submitted.
-    //          Sends team name and picked six drivers to the Prix6.Win group via whatsapp_queue.
-    //          Never blocks the user's response — all errors are non-fatal.
+    // GUID: API_SUBMIT_PREDICTION-009-v06
+    // @CHANGE (v3.7.2): BUG-ROAST-001 fix — the roast/WhatsApp pipeline no longer runs as a
+    //   post-response orphan (Cloud Run throttles CPU after the response; LREG's roast froze
+    //   mid-await and was silently abandoned, 2026-07-20). The route now AWAITS a single fast
+    //   write of a roast_tasks doc (~50ms, durable) BEFORE responding; the roastTaskTrigger
+    //   Cloud Function fires on create and POSTs /api/internal/roast-submission, which runs the
+    //   full pipeline (mode roll, banter context, Gemini, whatsapp_queue, worker wake) inside a
+    //   real request with full CPU. All roast logic moved to API_ROAST_SUBMISSION-000.
+    // [Intent] Durable hand-off of the WhatsApp roast notification for every successful
+    //          submission. Failure to enqueue is non-fatal (submission already committed).
     // [Inbound Trigger] After batch.commit() — every successful prediction submission.
-    // [Downstream Impact] Writes a PENDING doc to whatsapp_queue. The WhatsApp worker picks it up
-    //                     and sends it to the group. Cloned predictions (isCloned) are excluded.
-    (async () => {
+    // [Downstream Impact] roast_tasks doc → roastTaskTrigger function →
+    //          /api/internal/roast-submission → whatsapp_queue → worker → Prix6.Win group.
+    await (async () => {
       try {
-        const driverNames: Record<string, string> = {
-          verstappen: 'Verstappen', hadjar: 'Hadjar', leclerc: 'Leclerc', hamilton: 'Hamilton',
-          norris: 'Norris', piastri: 'Piastri', russell: 'Russell', antonelli: 'Antonelli',
-          alonso: 'Alonso', stroll: 'Stroll', gasly: 'Gasly', colapinto: 'Colapinto',
-          albon: 'Albon', sainz: 'Sainz', lawson: 'Lawson', lindblad: 'Lindblad',
-          hulkenberg: 'Hulkenberg', bortoleto: 'Bortoleto', ocon: 'Ocon', bearman: 'Bearman',
-          perez: 'Perez', bottas: 'Bottas',
-        };
-        const driverList = predictions
-          .map((id: string, i: number) => `${i + 1}. ${driverNames[id] || id}`)
-          .join('\n');
-
-        // Generate Bill's roast of this submission (non-blocking). The banter context supplies
-        // VERIFIED facts (last-race top 6, team's championship rank) so the insult can quote real
-        // data; buildCheekyBillContext never throws — it degrades to empty facts.
-        let cheekyLine = "";
-        try {
-          // Roast mode roll — before the context fetch so news-mode external calls (OpenF1 +
-          // RSS) only happen on ~1/3 of submissions.
-          const roll = Math.random();
-          let roastMode: 'standard' | 'jackdee' | 'news' | 'splitbrain' =
-            roll < 1 / 3 ? 'jackdee' : roll < 2 / 3 ? 'news' : 'standard';
-          // Billceleration self-submission → forced splitbrain self-roast, quoting the picker's
-          // own rationale when the state doc's lastPick matches this race and is fresh (<10 min).
-          let rationaleFacts = '';
-          const botCfg = await getBotConfig(db);
-          if (botCfg?.uid && userId === botCfg.uid) {
-            roastMode = 'splitbrain';
-            try {
-              const lastPick = (await db.collection('admin_configuration').doc('billcelerationState').get()).data()?.lastPick;
-              const pickAtMs = lastPick?.at && typeof lastPick.at.toMillis === 'function' ? lastPick.at.toMillis() : 0;
-              if (lastPick?.raceId === normalizedRaceId && Date.now() - pickAtMs < 10 * 60 * 1000) {
-                const rationale = sanitizeForPrompt(String(lastPick.rationale || ''), 300);
-                const selfDoubt = sanitizeForPrompt(String(lastPick.selfDoubt || ''), 200);
-                rationaleFacts = [rationale && `My public reasoning was - ${rationale}`, selfDoubt && `My private worry was - ${selfDoubt}`]
-                  .filter(Boolean).join('\n');
-              }
-            } catch { /* rationale-less splitbrain is fine */ }
-          }
-          const banterContext = await buildCheekyBillContext(db, {
-            userId,
-            teamId,
-            raceId: normalizedRaceId,
-            predictions,
-            includeTracksideNews: roastMode === 'news',
-          });
-          // Nothing newsworthy found (no live session, no headline naming a pick) → standard.
-          if (roastMode === 'news' && !banterContext.newsFacts) roastMode = 'standard';
-          cheekyLine = await generateCheekyComment({
-            teamName,
-            driverList,
-            raceName,
-            lastRaceFacts: banterContext.lastRaceFacts,
-            standingsFacts: banterContext.standingsFacts,
-            previousSubmissionFacts: banterContext.previousSubmissionFacts,
-            formFacts: banterContext.formFacts,
-            mode: roastMode,
-            newsFacts: banterContext.newsFacts,
-            rationaleFacts,
-          });
-        } catch (cheekyErr: any) {
-          console.error('[submit-prediction] Error generating cheeky Bill comment (non-fatal):', cheekyErr.message);
-        }
-
-        const msg = `🏎️ *${teamName}* submitted picks for ${raceName}:\n\n${driverList}${cheekyLine ? `\n\n_${cheekyLine}_` : ""}`;
-        await db.collection('whatsapp_queue').add({
-          groupName: 'Prix6.Win',
-          message: msg,
+        await db.collection('roast_tasks').add({
+          userId,
+          teamId,
+          teamName,
+          raceId: normalizedRaceId,
+          raceName,
+          predictions,
           status: 'PENDING',
           createdAt: FieldValue.serverTimestamp(),
-          retryCount: 0,
         });
-        // Wake the scale-to-zero worker so the message delivers immediately instead of sitting
-        // PENDING until the worker happens to wake (the Kwik Fitties stranding bug). Best-effort.
-        await wakeWhatsAppWorker();
-      } catch (waErr: any) {
-        console.error('[submit-prediction] WhatsApp notification error (non-fatal):', waErr.message);
+      } catch (taskErr: any) {
+        console.error('[submit-prediction] roast task enqueue error (non-fatal):', taskErr.message);
       }
     })();
 

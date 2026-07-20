@@ -18,6 +18,7 @@
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
@@ -1623,6 +1624,12 @@ exports.processEmailQueue = onSchedule(
     timeoutSeconds: 120,
     memory: "256MiB",
     retryCount: 0,
+    // @FIX (v3.7.2, BUG-EMAIL-002): the secrets binding was missing (unlike every other cron
+    // function), so process.env.CRON_SECRET was always undefined and the function fail-safed
+    // with PROCESS_EMAIL_QUEUE_MISSING_SECRET every 15 minutes — the email queue was never
+    // drained by this function. The header comment always documented the requirement; the
+    // config never fulfilled it.
+    secrets: ["CRON_SECRET"],
   },
   async () => {
     const correlationId = generateCorrelationId("eq");
@@ -2619,6 +2626,54 @@ exports.whatsAppScheduledTick = onSchedule(
       console.log(JSON.stringify({ severity: resp.ok ? "INFO" : "ERROR", message: resp.ok ? "WA_SCHEDULED_OK" : "WA_SCHEDULED_HTTP_ERROR", correlationId, status: resp.status, actions: body.actions ?? null }));
     } catch (err) {
       console.error(JSON.stringify({ severity: "ERROR", message: "WA_SCHEDULED_FAILED", correlationId, error: err.message || String(err) }));
+    }
+  }
+);
+
+// GUID: BACKUP_FUNCTIONS-044-v01
+/**
+ * roastTaskTrigger
+ *
+ * [Intent] BUG-ROAST-001 fix (v3.7.2): fires on every roast_tasks document create (written by
+ *          /api/submit-prediction just before its response) and POSTs the taskId to
+ *          /api/internal/roast-submission, where the Cheeky Bill roast pipeline runs inside a
+ *          real request with full CPU. Replaces the post-response fire-and-forget that Cloud
+ *          Run CPU throttling could freeze and silently abandon (LREG's lost notification).
+ * [Inbound Trigger] Firestore onDocumentCreated roast_tasks/{taskId}. Create-only — merge
+ *          re-submissions each add a NEW task doc, so every submission still roasts exactly
+ *          once; the route's PENDING→PROCESSING transaction makes duplicate triggers no-ops.
+ * [Downstream Impact] The route writes whatsapp_queue + wakes the worker and marks the task
+ *          DONE/ERROR. retry:false — a failed task stays visible as status ERROR rather than
+ *          retry-spamming the group.
+ */
+exports.roastTaskTrigger = onDocumentCreated(
+  {
+    document: "roast_tasks/{taskId}",
+    region: REGION,
+    timeoutSeconds: 120,
+    memory: "256MiB",
+    retry: false,
+    secrets: ["CRON_SECRET"],
+  },
+  async (event) => {
+    const correlationId = generateCorrelationId("roast");
+    const taskId = event.params.taskId;
+    const secret = (process.env.CRON_SECRET || "").replace(/^﻿/, "");
+    const appUrl = process.env.APP_URL || "https://prix6.win";
+    if (!secret) {
+      console.error(JSON.stringify({ severity: "ERROR", message: "ROAST_TRIGGER_MISSING_SECRET", correlationId, taskId }));
+      return;
+    }
+    try {
+      const resp = await fetch(`${appUrl}/api/internal/roast-submission`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${secret}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId }),
+      });
+      const body = await resp.json().catch(() => ({}));
+      console.log(JSON.stringify({ severity: resp.ok ? "INFO" : "ERROR", message: resp.ok ? "ROAST_TRIGGER_OK" : "ROAST_TRIGGER_HTTP_ERROR", correlationId, taskId, status: resp.status, queueDocId: body.queueDocId ?? null }));
+    } catch (err) {
+      console.error(JSON.stringify({ severity: "ERROR", message: "ROAST_TRIGGER_FAILED", correlationId, taskId, error: err.message || String(err) }));
     }
   }
 );

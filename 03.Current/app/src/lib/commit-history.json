@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-20",
   "commits": [
     {
+      "id": "3655f7f",
+      "date": "2026-07-20",
+      "version": "3.7.1",
+      "author": "aaron garcia",
+      "message": "fix: Billceleration server-side token mint blocked by referrer-restricted API key (v3.7.1)",
+      "major": false
+    },
+    {
       "id": "47395f0",
       "date": "2026-07-20",
       "version": "3.7.0",

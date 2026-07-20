@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.7.2 — 2026-07-20
+
+### BUG-ROAST-001: lost submission notifications + BUG-EMAIL-002: dead email cron
+
+**BUG-ROAST-001 (Aaron's report: LREG's submission produced no WhatsApp message).** Root cause: the roast/notification pipeline ran as a fire-and-forget block *after* the HTTP response, and Cloud Run throttles CPU to near-zero once a response completes — on a quiet instance the half-finished pipeline froze mid-await and was silently abandoned (no queue doc, no error; request logs proved both submissions returned 200 on the same instance and only the second, which had live CPU from its own request window, delivered). Fix: `/api/submit-prediction` now awaits one fast, durable `roast_tasks` doc write before responding; the new `roastTaskTrigger` Cloud Function fires on create and POSTs the new `/api/internal/roast-submission` route, which runs the entire pipeline (mode roll, splitbrain detection, banter context, Gemini, `whatsapp_queue`, worker wake) inside a real request with full CPU. Task docs carry `PENDING → PROCESSING → DONE/ERROR` status so failures are visible, and duplicate triggers no-op transactionally. The clone-rule engine (same latent orphan risk, but fast pure-Firestore work) is now simply awaited before the response. Bonus: the roast route's driver list derives from `F1Drivers` (replaces a hardcoded name map).
+
+**BUG-EMAIL-002.** `processEmailQueue` had no `secrets: ["CRON_SECRET"]` binding (every other cron function has one; this function's own header comment documented the requirement) — so it fail-safed with `PROCESS_EMAIL_QUEUE_MISSING_SECRET` every 15 minutes and never drained the email queue. Binding added. Queue backlog at fix time: 2 stale docs from March.
+
 ## v3.7.1 — 2026-07-20
 
 ### Billceleration go-live fix + rollout artefacts

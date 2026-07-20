@@ -378,3 +378,17 @@ Previously stored computed per-race scores. Now scores are calculated in real-ti
 **Writers:** `/api/cron/billceleration` exclusively (Admin SDK)
 
 **Readers:** none at runtime (splitbrain roast reads `admin_configuration/billcelerationState.lastPick` instead). `firestore.rules` denies all client access.
+
+---
+
+## `roast_tasks`
+
+**Purpose:** Durable hand-off queue for the Cheeky Bill submission roast (BUG-ROAST-001 fix, v3.7.2). `/api/submit-prediction` awaits one fast doc write before responding; the `roastTaskTrigger` Cloud Function fires on create and POSTs `/api/internal/roast-submission`, which runs the AI roast + WhatsApp enqueue inside a real request (full CPU — immune to Cloud Run post-response throttling).
+
+**Doc ID:** auto-generated
+
+**Fields:** `userId`, `teamId`, `teamName`, `raceId` (Title-Case), `raceName`, `predictions` (string[6]), `status` (`PENDING` → `PROCESSING` → `DONE`/`ERROR`), `createdAt`, `processingAt?`, `doneAt?`, `queueDocId?`, `error?`, `erroredAt?`
+
+**Writers:** `/api/submit-prediction` (create), `/api/internal/roast-submission` (status transitions) — Admin SDK only
+
+**Readers:** `roastTaskTrigger` (event payload), `/api/internal/roast-submission`. `firestore.rules` denies all client access. Tasks stuck in `ERROR` are visible for manual audit/replay.
