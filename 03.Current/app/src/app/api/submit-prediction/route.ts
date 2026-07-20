@@ -344,7 +344,14 @@ export async function POST(request: NextRequest) {
       })();
     }
 
-    // GUID: API_SUBMIT_PREDICTION-009-v03
+    // GUID: API_SUBMIT_PREDICTION-009-v04
+    // @CHANGE (v3.6.0): three roast modes — each submission rolls Math.random() for standard /
+    //   jackdee / news (~1/3 each, no persistence: decorative path, ~20 players, matches the
+    //   existing random-fallback precedent). The roll happens BEFORE the context fetch so the
+    //   external OpenF1/RSS news endpoints are only hit on news-mode submissions; news degrades
+    //   to standard when no relevant news is found. NOTE (preserved, deliberate): this block
+    //   still writes whatsapp_queue directly with the hardcoded prod group — it does NOT route
+    //   through sendWhatsAppAlert gating (masterEnabled/testMode do not apply here).
     // @CHANGE (v3.4.14): situational roasts — the banter context builder now also receives
     //   userId + normalizedRaceId + the submitted picks so it can compare against the team's
     //   previous submission and against the real WDC form book (Jolpica). Two new fact fields
@@ -378,12 +385,20 @@ export async function POST(request: NextRequest) {
         // data; buildCheekyBillContext never throws — it degrades to empty facts.
         let cheekyLine = "";
         try {
+          // Roast mode roll — before the context fetch so news-mode external calls (OpenF1 +
+          // RSS) only happen on ~1/3 of submissions.
+          const roll = Math.random();
+          let roastMode: 'standard' | 'jackdee' | 'news' =
+            roll < 1 / 3 ? 'jackdee' : roll < 2 / 3 ? 'news' : 'standard';
           const banterContext = await buildCheekyBillContext(db, {
             userId,
             teamId,
             raceId: normalizedRaceId,
             predictions,
+            includeTracksideNews: roastMode === 'news',
           });
+          // Nothing newsworthy found (no live session, no headline naming a pick) → standard.
+          if (roastMode === 'news' && !banterContext.newsFacts) roastMode = 'standard';
           cheekyLine = await generateCheekyComment({
             teamName,
             driverList,
@@ -392,6 +407,8 @@ export async function POST(request: NextRequest) {
             standingsFacts: banterContext.standingsFacts,
             previousSubmissionFacts: banterContext.previousSubmissionFacts,
             formFacts: banterContext.formFacts,
+            mode: roastMode,
+            newsFacts: banterContext.newsFacts,
           });
         } catch (cheekyErr: any) {
           console.error('[submit-prediction] Error generating cheeky Bill comment (non-fatal):', cheekyErr.message);

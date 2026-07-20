@@ -1,7 +1,9 @@
 // ── CONTRACT ──────────────────────────────────────────────────────
 // Reads:       race_results (all), collectionGroup(predictions) via cumulative-standings,
 //              users (team names), standings_adjustments, users/{uid}/predictions (one user),
-//              api.jolpi.ca (external, cached 6h) for real WDC standings
+//              api.jolpi.ca (external, cached 6h) for real WDC standings,
+//              api.openf1.org (external, cached 60-90s) + Autosport RSS (external, cached 10min)
+//              — only when includeTracksideNews is requested (news roast mode)
 // Writes:      none — pure compute
 // Errors:      none surfaced — decorative feature, every failure degrades to empty facts
 // Idempotent:  yes
@@ -13,7 +15,11 @@
 //              fire-and-forget block runs, the same-race doc has already been
 //              overwritten by the new submission (merge write in GUID-006).
 // ──────────────────────────────────────────────────────────────────
-// GUID: LIB_CHEEKY_BILL_CONTEXT-000-v02
+// GUID: LIB_CHEEKY_BILL_CONTEXT-000-v03
+// @CHANGE (v3.6.0): news-correlated roast mode — buildTracksideNewsFacts combines OpenF1
+//   race_control messages (live/recent session only, the low-latency "trackside news" source)
+//   with Autosport RSS headlines (reused from HOT_NEWS_FLOW-011). Opt-in via
+//   includeTracksideNews on the builder input; output gains newsFacts.
 // @CHANGE (v3.4.14): situational awareness — adds previous-submission comparison facts
 //   (identical / same-six-shuffled / wholesale changes vs the team's last cross-race
 //   submission) and real-world form facts (picks' actual WDC positions via Jolpica,
@@ -41,6 +47,9 @@ import { normalizeRaceIdForComparison, generateRaceId } from '@/lib/normalize-ra
 import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 import { RaceSchedule, F1Drivers } from '@/lib/data';
 import type { getFirebaseAdmin } from '@/lib/firebase-admin';
+import { getCachedToken, setCachedToken } from '@/lib/pit-wall-cache';
+import { getSecret } from '@/lib/secrets-manager';
+import { fetchF1Headlines } from '@/ai/flows/hot-news-feed';
 
 type AdminFirestore = Awaited<ReturnType<typeof getFirebaseAdmin>>['db'];
 
@@ -53,6 +62,9 @@ export interface CheekyBillContextInput {
   raceId: string;
   /** The six driver IDs just submitted, P1 first. */
   predictions: string[];
+  /** When true (news roast mode only), also fetch OpenF1 race_control + RSS headline facts.
+   *  Off by default so 2/3 of submissions never touch the external news endpoints. */
+  includeTracksideNews?: boolean;
 }
 
 export interface CheekyBillContext {
@@ -68,6 +80,9 @@ export interface CheekyBillContext {
   /** Real WDC positions of their picks + outsider / table-copy flags from Jolpica.
    *  Empty string if the standings feed is unavailable. */
   formFacts: string;
+  /** Fresh trackside (OpenF1 race_control) + news-headline context for the news roast mode.
+   *  Always '' unless includeTracksideNews was requested AND something relevant was found. */
+  newsFacts: string;
 }
 
 // GUID: LIB_CHEEKY_BILL_CONTEXT-001-v01
@@ -260,7 +275,142 @@ async function buildFormFacts(predictions: string[]): Promise<string> {
   return lines.join('\n');
 }
 
-// GUID: LIB_CHEEKY_BILL_CONTEXT-003-v02
+// GUID: LIB_CHEEKY_BILL_CONTEXT-008-v01
+// [Intent] Minimal authenticated OpenF1 GET for the news roast mode. Reuses the SHARED token
+//          cache in pit-wall-cache (getCachedToken/setCachedToken) and the same
+//          openf1-username/openf1-password secrets as the Pit Wall, so no duplicate token
+//          round-trips — but keeps its own small fetch (5s timeout) rather than refactoring
+//          the latency-critical pit-wall route (known duplication, BOW: openf1-client consolidation).
+// [Inbound Trigger] buildTracksideNewsFacts, only when a submission rolls news mode.
+// [Downstream Impact] Returns null on ANY failure (missing secrets, timeout, non-2xx, bad JSON)
+//                     — news facts degrade to '', never blocking the roast.
+const OPENF1_BASE = 'https://api.openf1.org/v1';
+const OPENF1_TOKEN_URL = 'https://api.openf1.org/token';
+
+async function openF1Get<T>(path: string): Promise<T | null> {
+  try {
+    const cached = getCachedToken();
+    let token = cached && cached.expiresAt > Date.now() ? cached.token : null;
+    if (!token) {
+      const username = await getSecret('openf1-username', { envVarName: 'OPENF1_USERNAME' });
+      const password = await getSecret('openf1-password', { envVarName: 'OPENF1_PASSWORD' });
+      const res = await fetch(OPENF1_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ username, password, grant_type: 'password' }).toString(),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data?.access_token) return null;
+      const freshToken = data.access_token as string;
+      setCachedToken({ token: freshToken, expiresAt: Date.now() + ((data.expires_in ?? 300) - 60) * 1000 });
+      token = freshToken;
+    }
+    const res = await fetch(`${OPENF1_BASE}${path}`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+// GUID: LIB_CHEEKY_BILL_CONTEXT-007-v01
+// [Intent] "Trackside news" ammunition for the news-correlated roast mode: OpenF1 race_control
+//          messages from a LIVE or just-ended session (the lowest-latency incident source —
+//          crashes, offs, flags, within minutes) plus Autosport RSS headlines as background.
+//          Deterministic eligibility gate: returns non-empty ONLY when there are fresh
+//          race_control messages OR a headline names one of the six picked drivers — otherwise
+//          '' and the caller degrades the roast to standard mode. All external text passes
+//          through sanitizeForPrompt; timestamp/venue framing is built OUTSIDE the sanitised
+//          payload (the sanitiser's allowlist strips ':' and '[]').
+// [Inbound Trigger] buildCheekyBillContext when includeTracksideNews is set (~1/3 of submissions).
+// [Downstream Impact] Interpolated into the news-mode prompt block in ai/flows/cheeky-bill.ts.
+//                     Stale-session gotcha: /sessions?session_key=latest returns the LAST session
+//                     even days later — the date_end + 2h gate below is mandatory or Bill would
+//                     "correlate" a submission with week-old FP1 messages.
+const SESSION_CACHE_TTL_MS = 90 * 1000;
+const RACE_CONTROL_CACHE_TTL_MS = 60 * 1000;
+const HEADLINES_CACHE_TTL_MS = 10 * 60 * 1000;
+const RACE_CONTROL_FRESH_WINDOW_MS = 45 * 60 * 1000;
+let sessionCache: { at: number; session: { session_name?: string; location?: string; date_start?: string; date_end?: string } | null } | null = null;
+let raceControlCache: { at: number; messages: { date?: string; message?: string }[] } | null = null;
+let headlinesCache: { at: number; headlines: string[] } | null = null;
+
+async function buildTracksideNewsFacts(predictions: string[]): Promise<string> {
+  try {
+    const now = Date.now();
+
+    // 1. Session gate — is a session live or ended < 2h ago?
+    if (!sessionCache || now - sessionCache.at > SESSION_CACHE_TTL_MS) {
+      const sessions = await openF1Get<any[]>('/sessions?session_key=latest');
+      sessionCache = { at: now, session: Array.isArray(sessions) && sessions.length ? sessions[0] : null };
+    }
+    const session = sessionCache.session;
+    const start = session?.date_start ? new Date(session.date_start).getTime() : NaN;
+    const end = session?.date_end ? new Date(session.date_end).getTime() : NaN;
+    const sessionRelevant = Number.isFinite(start) && Number.isFinite(end)
+      && now >= start && now <= end + 2 * 60 * 60 * 1000;
+
+    // 2. Race control messages (only worth fetching when the session gate passes).
+    const tracksideLines: string[] = [];
+    if (sessionRelevant) {
+      if (!raceControlCache || now - raceControlCache.at > RACE_CONTROL_CACHE_TTL_MS) {
+        const msgs = await openF1Get<any[]>('/race_control?session_key=latest');
+        raceControlCache = { at: now, messages: Array.isArray(msgs) ? msgs : [] };
+      }
+      const fresh = raceControlCache.messages
+        .filter((m) => {
+          const t = m.date ? new Date(m.date).getTime() : NaN;
+          return Number.isFinite(t) && now - t <= RACE_CONTROL_FRESH_WINDOW_MS;
+        })
+        .slice(-8);
+      const sessionLabel = `${sanitizeForPrompt(session?.session_name || 'Session', 40)} at ${sanitizeForPrompt(session?.location || 'the circuit', 40)}`;
+      const liveness = now <= end ? 'LIVE NOW' : 'just finished';
+      for (const m of fresh) {
+        const ageMin = Math.max(0, Math.round((now - new Date(m.date!).getTime()) / 60000));
+        const text = sanitizeForPrompt(m.message || '', 160);
+        if (text) tracksideLines.push(`[${ageMin} min ago] ${text}`);
+      }
+      if (tracksideLines.length) {
+        tracksideLines.unshift(`TRACKSIDE (${sessionLabel}, ${liveness}):`);
+      }
+    }
+
+    // 3. Background headlines (already sanitised inside fetchF1Headlines — GR#3, one parser).
+    if (!headlinesCache || now - headlinesCache.at > HEADLINES_CACHE_TTL_MS) {
+      headlinesCache = { at: now, headlines: await fetchF1Headlines() };
+    }
+    const headlines = headlinesCache.headlines;
+
+    // 4. Deterministic eligibility gate (GR#15 — surnames derive from F1Drivers, not a list here).
+    const pickedSurnames = predictions
+      .map((id) => F1Drivers.find((d) => d.id === id)?.name.toLowerCase())
+      .filter(Boolean) as string[];
+    const headlineMentionsPick = headlines.some((h) => {
+      const lower = h.toLowerCase();
+      return pickedSurnames.some((s) => lower.includes(s));
+    });
+    const hasTrackside = tracksideLines.length > 0;
+    if (!hasTrackside && !headlineMentionsPick) return '';
+
+    const parts: string[] = [];
+    if (hasTrackside) parts.push(tracksideLines.join('\n'));
+    if (headlines.length) parts.push(`NEWS HEADLINES:\n${headlines.map((h) => `- ${h}`).join('\n')}`);
+    return parts.join('\n');
+  } catch (err: any) {
+    console.error('[cheeky-bill-context] trackside news facts failed (non-fatal):', err?.message || err);
+    return '';
+  }
+}
+
+// GUID: LIB_CHEEKY_BILL_CONTEXT-003-v03
+// @CHANGE (v3.6.0): optional includeTracksideNews on the input — when set, also builds newsFacts
+//   (OpenF1 race_control + RSS headlines via GUID-007) in the same concurrent batch. Output
+//   always carries newsFacts ('' unless requested and relevant).
 // @CHANGE (v3.4.14): input widened to { userId, teamId, raceId, predictions }; now also builds
 //   previous-submission comparison facts and real-WDC form facts (both best-effort, in parallel
 //   with the cached aggregate).
@@ -273,17 +423,21 @@ async function buildFormFacts(predictions: string[]): Promise<string> {
 // [Downstream Impact] Any field may be '' — generateCheekyComment handles missing facts by
 //          roasting with whatever remains.
 export async function buildCheekyBillContext(db: AdminFirestore, input: CheekyBillContextInput): Promise<CheekyBillContext> {
-  const empty: CheekyBillContext = { lastRaceFacts: '', standingsFacts: '', previousSubmissionFacts: '', formFacts: '' };
+  const empty: CheekyBillContext = { lastRaceFacts: '', standingsFacts: '', previousSubmissionFacts: '', formFacts: '', newsFacts: '' };
   try {
-    // The two per-submission builders are independent of the cached aggregate — run everything
+    // The per-submission builders are independent of the cached aggregate — run everything
     // concurrently. Each sub-builder degrades to '' on its own failure.
-    const [previousSubmissionFacts, formFacts] = await Promise.all([
+    const [previousSubmissionFacts, formFacts, newsFacts] = await Promise.all([
       buildPreviousSubmissionFacts(db, input).catch((err: any) => {
         console.error('[cheeky-bill-context] previous-submission facts failed (non-fatal):', err?.message || err);
         return '';
       }),
       buildFormFacts(input.predictions).catch((err: any) => {
         console.error('[cheeky-bill-context] form facts failed (non-fatal):', err?.message || err);
+        return '';
+      }),
+      (input.includeTracksideNews ? buildTracksideNewsFacts(input.predictions) : Promise.resolve('')).catch((err: any) => {
+        console.error('[cheeky-bill-context] trackside news facts failed (non-fatal):', err?.message || err);
         return '';
       }),
       (async () => {
@@ -308,7 +462,7 @@ export async function buildCheekyBillContext(db: AdminFirestore, input: CheekyBi
       standingsFacts = `This team is currently P${mine.rank} of ${cache!.standings.length} in the fantasy championship with ${mine.totalPoints} points${leaderNote}.`;
     }
 
-    return { lastRaceFacts: cache!.lastRaceFacts, standingsFacts, previousSubmissionFacts, formFacts };
+    return { lastRaceFacts: cache!.lastRaceFacts, standingsFacts, previousSubmissionFacts, formFacts, newsFacts };
   } catch (err: any) {
     // Decorative path — degrade to statless roast, never block or bubble up.
     console.error('[cheeky-bill-context] Failed to build banter context (non-fatal):', err?.message || err);

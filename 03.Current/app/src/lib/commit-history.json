@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-13",
+  "lastUpdated": "2026-07-20",
   "commits": [
+    {
+      "id": "63a90e5",
+      "date": "2026-07-13",
+      "version": "3.5.2",
+      "author": "aaron garcia",
+      "message": "feat: Bill's take on the weekly standings post + adjustments SSOT fix (v3.5.2)",
+      "major": true
+    },
     {
       "id": "8dc5871",
       "date": "2026-07-13",

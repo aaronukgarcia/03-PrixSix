@@ -286,9 +286,12 @@ async function fetchF1Standings(): Promise<string | null> {
     }
 }
 
-// GUID: HOT_NEWS_FLOW-011-v01
+// GUID: HOT_NEWS_FLOW-011-v02
+// @CHANGE (v3.6.0): exported so LIB_CHEEKY_BILL_CONTEXT can reuse the same sanitised headline
+//   feed for the news-correlated roast mode (GR#3 — one RSS parser, one sanitisation point).
+//   Export is legal under 'use server' because the function is async.
 // [Intent] Fetch current real-world F1 news headlines from Autosport RSS to provide varied up-to-date context.
-async function fetchF1Headlines(): Promise<string[]> {
+export async function fetchF1Headlines(): Promise<string[]> {
     try {
         const resp = await fetch('https://www.autosport.com/rss/feed/f1', {
             signal: AbortSignal.timeout(6000)

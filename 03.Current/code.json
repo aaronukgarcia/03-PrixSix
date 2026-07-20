@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-07-13",
-  "total_guids": 2186,
+  "total_guids": 2189,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -78281,7 +78281,7 @@
     },
     {
       "guid": "LIB_VERSION-000",
-      "version": 43,
+      "version": 44,
       "logic_category": "ORCHESTRATION",
       "description": "Single source of truth for the application version number displayed in the UI.",
       "dependencies": [],
@@ -78293,11 +78293,11 @@
         "calls": []
       },
       "created": "2026-01-19T16:21:56Z",
-      "lastUpdated": "2026-07-13T13:14:16.921Z"
+      "lastUpdated": "2026-07-20T00:00:00.000000Z"
     },
     {
       "guid": "LIB_VERSION-001",
-      "version": 43,
+      "version": 44,
       "logic_category": "VALIDATION",
       "description": "Export the current application version string for UI display and build verification.",
       "dependencies": [],
@@ -78310,7 +78310,7 @@
         "calls": []
       },
       "created": "2026-01-19T16:21:56Z",
-      "lastUpdated": "2026-07-13T13:14:16.921Z"
+      "lastUpdated": "2026-07-20T00:00:00.000000Z"
     },
     {
       "guid": "PAGE_ABOUT-000",
@@ -119392,9 +119392,9 @@
     },
     {
       "guid": "API_SUBMIT_PREDICTION-009",
-      "version": 3,
+      "version": 4,
       "logic_category": "ROUTE",
-      "description": "Fire-and-forget WhatsApp group notification on prediction submission. v3 (v3.4.14): context builder now receives userId+raceId+picks for submission-history and real-WDC form facts. v2 (v3.4.13): fetches Cheeky Bill banter context and passes it to generateCheekyComment. All errors non-fatal.",
+      "description": "Fire-and-forget WhatsApp notification on prediction submission. v04: rolls Math.random() roast mode (standard/jackdee/news ~1/3 each) BEFORE the context fetch so OpenF1/RSS news endpoints are only hit on news-mode submissions; news degrades to standard when no relevant facts found. Still writes whatsapp_queue directly with hardcoded prod group (deliberately NOT routed through sendWhatsAppAlert gating).",
       "dependencies": [
         "AI_CHEEKY_BILL-000",
         "LIB_CHEEKY_BILL_CONTEXT-003"
@@ -119407,7 +119407,7 @@
         "calls": []
       },
       "created": "2026-06-12T00:00:00Z",
-      "lastUpdated": "2026-07-13T00:00:00.000000Z",
+      "lastUpdated": "2026-07-20T00:00:00.000000Z",
       "autoRegistered": true
     },
     {
@@ -120792,9 +120792,9 @@
     },
     {
       "guid": "AI_CHEEKY_BILL-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "AI_GENERATION",
-      "description": "Genkit flow (generateCheekyComment) generating a derogatory tongue-in-cheek roast of an F1 prediction submission, signed off by Bill. v3 (v3.4.14): situational awareness — previousSubmissionFacts + formFacts optional inputs with situational-priority roast instructions. v2 (v3.4.13): player-requested tone shift to full pub-roast with few-shot examples; accepts verified banter facts (last-race top 6, championship rank) and is forbidden from inventing stats; team name sanitised via sanitizeForPrompt before interpolation (GR#11). Backdated registration — v1 (v3.4.10) was never added to code.json.",
+      "description": "generateCheekyComment(input): Genkit/Vertex roast of a prediction submission. v04 adds three roast modes — standard (unchanged pub banter), jackdee (deadpan withering personal dig at the submitter; protected-traits + no-profanity guardrails absolute) and news (weaves exactly ONE fresh trackside/news fact from newsFacts and mocks the correlation; degrades to standard when newsFacts empty). One prompt skeleton with per-mode persona/rules/example blocks; mode chosen at call site.",
       "dependencies": [
         "LIB_SANITIZE_PROMPT-001"
       ],
@@ -120811,13 +120811,13 @@
         ]
       },
       "created": "2026-07-13T00:00:00.000000Z",
-      "lastUpdated": "2026-07-13T00:00:00.000000Z"
+      "lastUpdated": "2026-07-20T00:00:00.000000Z"
     },
     {
       "guid": "LIB_CHEEKY_BILL_CONTEXT-000",
-      "version": 2,
+      "version": 3,
       "logic_category": "DATA_AGGREGATION",
-      "description": "Module header: assembles factual banter ammunition for the Cheeky Bill roast — last completed race official top 6 and submitting team championship position — from the cumulative-standings SSOT helpers (GR#3). Decorative feature: every failure degrades to empty facts, never throws. v2 (v3.4.14): adds previous-submission comparison and real-WDC form facts (Jolpica, 6h cache).",
+      "description": "Module header: factual banter ammunition for Cheeky Bill roasts. v03 adds the news-correlated mode sources — OpenF1 race_control (live/recent session) + Autosport RSS headlines, opt-in via includeTracksideNews.",
       "dependencies": [
         "LIB_CUMULATIVE_STANDINGS-004",
         "LIB_CUMULATIVE_STANDINGS-005",
@@ -120835,7 +120835,7 @@
         "calls": []
       },
       "created": "2026-07-13T00:00:00.000000Z",
-      "lastUpdated": "2026-07-13T00:00:00.000000Z"
+      "lastUpdated": "2026-07-20T00:00:00.000000Z"
     },
     {
       "guid": "LIB_CHEEKY_BILL_CONTEXT-001",
@@ -120878,9 +120878,9 @@
     },
     {
       "guid": "LIB_CHEEKY_BILL_CONTEXT-003",
-      "version": 2,
+      "version": 3,
       "logic_category": "ORCHESTRATION",
-      "description": "buildCheekyBillContext(db, {userId, teamId, raceId, predictions}): full banter context — cached last-race facts, team championship rank line, previous-submission comparison, real-WDC form flags. Sub-builders run concurrently and degrade to empty strings individually; whole function never throws (console.error only).",
+      "description": "buildCheekyBillContext(db, {userId, teamId, raceId, predictions, includeTracksideNews?}): full banter context — cached last-race facts, team championship rank line, previous-submission comparison, real-WDC form flags, and (v03, opt-in) trackside news facts. Sub-builders run concurrently and degrade to empty strings individually; whole function never throws (console.error only).",
       "dependencies": [
         "LIB_CHEEKY_BILL_CONTEXT-001",
         "LIB_CHEEKY_BILL_CONTEXT-002",
@@ -120890,7 +120890,8 @@
         "LIB_CUMULATIVE_STANDINGS-008",
         "LIB_CHEEKY_BILL_CONTEXT-004",
         "LIB_CHEEKY_BILL_CONTEXT-005",
-        "LIB_CHEEKY_BILL_CONTEXT-006"
+        "LIB_CHEEKY_BILL_CONTEXT-006",
+        "LIB_CHEEKY_BILL_CONTEXT-007"
       ],
       "location": {
         "filePath": "app/src/lib/cheeky-bill-context.ts",
@@ -120911,7 +120912,7 @@
         ]
       },
       "created": "2026-07-13T00:00:00.000000Z",
-      "lastUpdated": "2026-07-13T00:00:00.000000Z"
+      "lastUpdated": "2026-07-20T00:00:00.000000Z"
     },
     {
       "guid": "LIB_SANITIZE_PROMPT-000",
@@ -121789,6 +121790,76 @@
       },
       "created": "2026-07-13T18:53:34.994Z",
       "lastUpdated": "2026-07-13T18:53:34.994Z"
+    },
+    {
+      "guid": "LIB_CHEEKY_BILL_CONTEXT-007",
+      "version": 1,
+      "logic_category": "INTEGRATION",
+      "description": "buildTracksideNewsFacts(predictions): \"trackside news\" ammunition for the news roast mode. OpenF1 race_control messages from a LIVE or just-ended session (date_end + 2h gate — mandatory, session_key=latest returns stale sessions) rendered with relative ages, plus Autosport RSS headlines. Deterministic eligibility gate: non-empty ONLY when fresh race_control messages exist or a headline names a picked driver (surnames derived from F1Drivers, GR#15). All external text through sanitizeForPrompt (GR#11); framing built outside the sanitised payload. Caches: session 90s, race_control 60s, headlines 10min. Degrades to empty string, never throws.",
+      "dependencies": [
+        "LIB_CHEEKY_BILL_CONTEXT-008",
+        "HOT_NEWS_FLOW-011",
+        "LIB_SANITIZE_PROMPT-001"
+      ],
+      "location": {
+        "filePath": "app/src/lib/cheeky-bill-context.ts",
+        "functionName": "buildTracksideNewsFacts"
+      },
+      "callChain": {
+        "calledBy": [
+          "LIB_CHEEKY_BILL_CONTEXT-003"
+        ],
+        "calls": [
+          "LIB_CHEEKY_BILL_CONTEXT-008",
+          "HOT_NEWS_FLOW-011",
+          "LIB_SANITIZE_PROMPT-001"
+        ]
+      },
+      "created": "2026-07-20T00:00:00.000000Z",
+      "lastUpdated": "2026-07-20T00:00:00.000000Z"
+    },
+    {
+      "guid": "LIB_CHEEKY_BILL_CONTEXT-008",
+      "version": 1,
+      "logic_category": "INTEGRATION",
+      "description": "openF1Get<T>(path): minimal authenticated OpenF1 GET for the news roast mode, 5s timeout. Reuses the SHARED pit-wall-cache token store (getCachedToken/setCachedToken) and openf1-username/openf1-password secrets — no duplicate token round-trips. Returns null on ANY failure (missing secrets, timeout, non-2xx, bad JSON). Known accepted duplication of OpenF1 fetch logic (4th copy) — BOW: consolidate into lib/openf1-client.ts.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheeky-bill-context.ts",
+        "functionName": "openF1Get"
+      },
+      "callChain": {
+        "calledBy": [
+          "LIB_CHEEKY_BILL_CONTEXT-007"
+        ],
+        "calls": []
+      },
+      "created": "2026-07-20T00:00:00.000000Z",
+      "lastUpdated": "2026-07-20T00:00:00.000000Z"
+    },
+    {
+      "guid": "HOT_NEWS_FLOW-011",
+      "version": 2,
+      "logic_category": "INTEGRATION",
+      "description": "fetchF1Headlines(): Autosport RSS F1 headlines (max 5), CDATA-aware regex parse, every headline sanitised via sanitizeForPrompt (cyber.md F5 — output is auto-broadcast to WhatsApp). v02: exported so LIB_CHEEKY_BILL_CONTEXT-007 reuses the same parser + sanitisation point (GR#3). Returns [] on any failure.",
+      "dependencies": [
+        "LIB_SANITIZE_PROMPT-001"
+      ],
+      "location": {
+        "filePath": "app/src/ai/flows/hot-news-feed.ts",
+        "functionName": "fetchF1Headlines"
+      },
+      "callChain": {
+        "calledBy": [
+          "HOT_NEWS_FLOW-008",
+          "LIB_CHEEKY_BILL_CONTEXT-007"
+        ],
+        "calls": [
+          "LIB_SANITIZE_PROMPT-001"
+        ]
+      },
+      "created": "2026-07-20T00:00:00.000000Z",
+      "lastUpdated": "2026-07-20T00:00:00.000000Z"
     }
   ],
   "firestoreCollections": {
@@ -122547,7 +122618,7 @@
       }
     }
   },
-  "last_updated": "2026-06-15T00:00:00Z",
+  "last_updated": "2026-07-20",
   "lessons": [
     {
       "id": "WA-HEALTH-PUBLIC",
