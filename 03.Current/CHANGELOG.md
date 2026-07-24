@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.8.1 — 2026-07-24
+
+### Cheeky Bill device tracking
+
+Sandbox testing of v3.8.0 showed the comedy-device roulette landing the same structure (picks-voice) twice in four roasts — the anti-repetition block covers wording, not delivery structure. Now each history entry also records which device the roulette assigned (`device` key, null for free choice), `generateCheekyComment` returns `{ comment, device }`, and the roulette excludes the last 3 recently used devices before rolling. All four call sites updated (`roast-submission` route + three sandbox scripts).
+
 ## v3.8.0 — 2026-07-24
 
 ### Cheeky Bill anti-sameness overhaul

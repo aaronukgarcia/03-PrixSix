@@ -81,7 +81,8 @@ NEWS HEADLINES:
       }
     }
 
-    const line = await generateCheekyComment({
+    // v3.8.1: generateCheekyComment returns { comment, device }.
+    const { comment: line } = await generateCheekyComment({
       teamName,
       driverList,
       raceName: 'Sandbox Test Race',

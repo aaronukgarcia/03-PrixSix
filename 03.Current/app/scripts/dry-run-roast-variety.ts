@@ -34,11 +34,13 @@ const input = {
 };
 
 (async () => {
+  const usedDevices: string[] = [];
   for (let i = 0; i < 4; i++) {
     const mode = i < 2 ? 'standard' : 'jackdee';
-    const out = await generateCheekyComment({ ...input, mode: mode as 'standard' | 'jackdee' });
-    console.log(`--- run ${i + 1} (${mode}) ---`);
-    console.log(out);
+    const out = await generateCheekyComment({ ...input, mode: mode as 'standard' | 'jackdee', recentDevices: usedDevices.slice(-3) });
+    if (out.device) usedDevices.push(out.device);
+    console.log(`--- run ${i + 1} (${mode}) [device: ${out.device || 'free choice'}] ---`);
+    console.log(out.comment);
     console.log();
   }
 })().catch((e) => { console.error(e); process.exit(1); });

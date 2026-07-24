@@ -1,4 +1,7 @@
-// GUID: API_ROAST_SUBMISSION-000-v02
+// GUID: API_ROAST_SUBMISSION-000-v03
+// @CHANGE (v3.8.1): device tracking — history fetch now also returns the last ~3 comedy-device
+//   keys (excluded from the roulette in the flow) and the chosen device is persisted with the
+//   roast line, so the same delivery structure can't land on consecutive roasts.
 // @CHANGE (v3.8.0): anti-sameness — fetches Bill's last ~10 roast lines
 //   (LIB_CHEEKY_BILL_HISTORY) and passes them to generateCheekyComment as anti-repetition
 //   context; records each freshly generated line back to the rolling history doc BEFORE
@@ -25,7 +28,7 @@ import { timingSafeEqual } from 'crypto';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { generateCheekyComment } from '@/ai/flows/cheeky-bill';
 import { buildCheekyBillContext } from '@/lib/cheeky-bill-context';
-import { getRecentRoastLines, recordRoastLine } from '@/lib/cheeky-bill-history';
+import { getRecentRoastHistory, recordRoastLine } from '@/lib/cheeky-bill-history';
 import { getBotConfig } from '@/lib/billceleration';
 import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 import { wakeWhatsAppWorker } from '@/lib/whatsapp-wake';
@@ -114,9 +117,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
       // Nothing newsworthy found (no live session, no headline naming a pick) → standard.
       if (roastMode === 'news' && !banterContext.newsFacts) roastMode = 'standard';
-      // Anti-sameness (v3.8.0): feed Bill his own recent material so he stops repeating it.
-      const recentRoasts = (await getRecentRoastLines(db)).join('\n');
-      cheekyLine = await generateCheekyComment({
+      // Anti-sameness (v3.8.0/v3.8.1): feed Bill his own recent material + recent devices so
+      // he repeats neither his gags nor his delivery structures.
+      const roastHistory = await getRecentRoastHistory(db);
+      const roast = await generateCheekyComment({
         teamName,
         driverList,
         raceName,
@@ -127,10 +131,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         mode: roastMode,
         newsFacts: banterContext.newsFacts,
         rationaleFacts,
-        recentRoasts,
+        recentRoasts: roastHistory.lines.join('\n'),
+        recentDevices: roastHistory.devices,
       });
+      cheekyLine = roast.comment;
       // Awaited (not fire-and-forget) — post-response work dies under Cloud Run CPU throttle.
-      if (cheekyLine) await recordRoastLine(db, cheekyLine, teamName);
+      if (cheekyLine) await recordRoastLine(db, cheekyLine, teamName, roast.device);
     } catch (cheekyErr: any) {
       // Decorative — a roast-less notification still goes out.
       console.error('[roast-submission] Error generating cheeky Bill comment (non-fatal):', cheekyErr?.message);

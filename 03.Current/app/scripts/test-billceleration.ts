@@ -129,7 +129,8 @@ function validatePicks(picks: string[]): string | null {
       `My public reasoning was - ${sanitizeForPrompt(out.rationale, 300)}`,
       `My private worry was - ${sanitizeForPrompt(out.selfDoubt, 200)}`,
     ].join('\n');
-    const line = await generateCheekyComment({
+    // v3.8.1: generateCheekyComment returns { comment, device }.
+    const { comment: line } = await generateCheekyComment({
       teamName: 'Billceleration',
       driverList,
       raceName: race.name,

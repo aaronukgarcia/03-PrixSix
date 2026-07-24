@@ -1,6 +1,11 @@
 'use server';
 
-// GUID: AI_CHEEKY_BILL-000-v06
+// GUID: AI_CHEEKY_BILL-000-v07
+// @CHANGE (v3.8.1): device tracking — the comedy-device roulette now (a) excludes the caller's
+//   recentDevices (last ~3 device keys from history) so the same structure can't land on
+//   consecutive roasts (sandbox testing: picks-voice hit twice in four), and (b) reports the
+//   chosen device key in the new return shape { comment, device } so the route can persist it
+//   to LIB_CHEEKY_BILL_HISTORY. Callers updated; device null = free-choice roast.
 // @CHANGE (v3.8.0): anti-sameness overhaul — (1) new optional recentRoasts input: Bill's last
 //   ~10 posted roast lines (LIB_CHEEKY_BILL_HISTORY) are injected as a "stale material — do not
 //   reuse" block; (2) style examples become POOLS sampled per call (3-4 shown, Fisher-Yates)
@@ -49,15 +54,17 @@ const CheekyBillInputSchema = z.object({
   newsFacts: z.string().optional().describe('Fresh trackside/news context lines (news mode only). May be empty.'),
   rationaleFacts: z.string().optional().describe('The bot picker\'s own rationale + self-doubt (splitbrain mode only). May be empty.'),
   recentRoasts: z.string().optional().describe('Bill\'s last ~10 posted roast lines, newline-separated, newest first — injected as anti-repetition context. May be empty.'),
+  recentDevices: z.array(z.string()).optional().describe('Device keys of the last few device-assigned roasts — excluded from the roulette. May be empty.'),
 });
 export type CheekyBillInput = z.infer<typeof CheekyBillInputSchema>;
 
 const CheekyBillOutputSchema = z.object({
   comment: z.string().describe('A short, insulting, tongue-in-cheek F1 roast signed off by Bill.'),
+  device: z.string().nullable().describe('The comedy-device key the roulette assigned, or null for free choice / fallback.'),
 });
 export type CheekyBillOutput = z.infer<typeof CheekyBillOutputSchema>;
 
-export async function generateCheekyComment(input: CheekyBillInput): Promise<string> {
+export async function generateCheekyComment(input: CheekyBillInput): Promise<CheekyBillOutput> {
   try {
     // Team name is player-controlled text headed into an LLM prompt — sanitise it (GR#11).
     // driverList / facts are server-built from allowlisted driver names and SSOT standings, but the
@@ -169,21 +176,28 @@ Deadpan, unimpressed, zero exclamation. Praise is banned, even for yourself. Esp
     ];
     const splitBrainExamples = `Style examples (match this energy, don't copy verbatim):\n${sample(splitBrainPool, 3).map((e) => `- ${e}`).join('\n')}`;
 
-    // Comedy-device roulette (v3.8.0): ~70% of roasts are steered into ONE randomly chosen
-    // delivery device so the STRUCTURE varies, not just the vocabulary. The remaining ~30%
-    // get free choice. Devices never override the safety rules or the facts-only constraint.
-    const devicePool = [
-      `Deliver the roast as dry UNDERSTATEMENT — the mildest possible words carrying the harshest possible verdict.`,
-      `Build the roast around ONE absurd comparison — compare the submission to something uselessly mundane (garden furniture, a roundabout, a delayed bus).`,
-      `Deliver it as a mock TV-commentary call of the exact moment they hit submit.`,
-      `Write it as a one-line steward's verdict or formal rejection notice.`,
-      `Lead with what sounds like a compliment and let it collapse into the insult by the end of the sentence.`,
-      `Open mid-thought, as if you'd already given up halfway through reading their picks.`,
-      `Frame it as what the picks themselves would say if they could see who selected them.`,
-      `Deliver it as a deadpan read-out of one verified fact from above, letting the number do the insulting (only if a usable fact is listed).`,
+    // Comedy-device roulette (v3.8.0, device tracking v3.8.1): ~70% of roasts are steered
+    // into ONE randomly chosen delivery device so the STRUCTURE varies, not just the
+    // vocabulary. Devices used in the caller's recent history are excluded so the same
+    // structure can't land on consecutive roasts. The remaining ~30% get free choice.
+    // Devices never override the safety rules or the facts-only constraint.
+    const devicePool: { key: string; text: string }[] = [
+      { key: 'understatement', text: `Deliver the roast as dry UNDERSTATEMENT — the mildest possible words carrying the harshest possible verdict.` },
+      { key: 'absurd-comparison', text: `Build the roast around ONE absurd comparison — compare the submission to something uselessly mundane (garden furniture, a roundabout, a delayed bus).` },
+      { key: 'mock-commentary', text: `Deliver it as a mock TV-commentary call of the exact moment they hit submit.` },
+      { key: 'stewards-verdict', text: `Write it as a one-line steward's verdict or formal rejection notice.` },
+      { key: 'collapsing-compliment', text: `Lead with what sounds like a compliment and let it collapse into the insult by the end of the sentence.` },
+      { key: 'mid-thought', text: `Open mid-thought, as if you'd already given up halfway through reading their picks.` },
+      { key: 'picks-voice', text: `Frame it as what the picks themselves would say if they could see who selected them.` },
+      { key: 'fact-readout', text: `Deliver it as a deadpan read-out of one verified fact from above, letting the number do the insulting (only if a usable fact is listed).` },
     ];
-    const deviceLine = Math.random() < 0.7
-      ? `\n- TONIGHT'S DELIVERY: ${sample(devicePool, 1)[0]} (If this clashes with the situational priority or the facts available, drop it and roast freely.)`
+    const excluded = new Set(input.recentDevices || []);
+    const eligible = devicePool.filter((d) => !excluded.has(d.key));
+    const chosenDevice = Math.random() < 0.7
+      ? sample(eligible.length > 0 ? eligible : devicePool, 1)[0]
+      : null;
+    const deviceLine = chosenDevice
+      ? `\n- TONIGHT'S DELIVERY: ${chosenDevice.text} (If this clashes with the situational priority or the facts available, drop it and roast freely.)`
       : '';
 
     const rationaleBlock = mode === 'splitbrain' && input.rationaleFacts ? `
@@ -281,7 +295,7 @@ ${aimRule}
     });
 
     const comment = (response.text || "").trim();
-    return comment;
+    return { comment, device: chosenDevice ? chosenDevice.key : null };
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('Error generating cheeky Bill comment:', err);
@@ -294,7 +308,7 @@ ${aimRule}
       "bold of you to call this a prediction and not a cry for help..Bill",
       "Mystic Meg called, she wants no credit for this one..bill",
     ];
-    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    return { comment: fallbacks[Math.floor(Math.random() * fallbacks.length)], device: null };
   }
 }
 

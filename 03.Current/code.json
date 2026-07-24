@@ -78281,7 +78281,7 @@
   },
   {
    "guid": "LIB_VERSION-000",
-   "version": 48,
+   "version": 49,
    "logic_category": "ORCHESTRATION",
    "description": "Single source of truth for the application version number displayed in the UI.",
    "dependencies": [],
@@ -78293,11 +78293,11 @@
     "calls": []
    },
    "created": "2026-01-19T16:21:56Z",
-   "lastUpdated": "2026-07-24T00:00:00Z"
+   "lastUpdated": "2026-07-24T12:00:00Z"
   },
   {
    "guid": "LIB_VERSION-001",
-   "version": 48,
+   "version": 49,
    "logic_category": "VALIDATION",
    "description": "Export the current application version string for UI display and build verification.",
    "dependencies": [],
@@ -78310,7 +78310,7 @@
     "calls": []
    },
    "created": "2026-01-19T16:21:56Z",
-   "lastUpdated": "2026-07-24T00:00:00Z"
+   "lastUpdated": "2026-07-24T12:00:00Z"
   },
   {
    "guid": "PAGE_ABOUT-000",
@@ -120795,7 +120795,7 @@
   },
   {
    "guid": "AI_CHEEKY_BILL-000",
-   "version": 6,
+   "version": 7,
    "logic_category": "AI_GENERATION",
    "description": "generateCheekyComment(input): Genkit/Vertex roast of a prediction submission. Four modes: standard (pub banter), jackdee (deadpan personal), news (weaves one fresh trackside/news fact), and v05 splitbrain — Bill roasting HIS OWN AI team Billceleration, quoting the picker rationale passed via the new rationaleFacts input. One prompt skeleton with per-mode persona/rules/example blocks; protected-traits + no-profanity guardrails absolute in all modes.",
    "dependencies": [
@@ -120814,7 +120814,7 @@
     ]
    },
    "created": "2026-07-13T00:00:00.000000Z",
-   "lastUpdated": "2026-07-24T00:00:00Z"
+   "lastUpdated": "2026-07-24T12:00:00Z"
   },
   {
    "guid": "LIB_CHEEKY_BILL_CONTEXT-000",
@@ -122185,7 +122185,7 @@
   },
   {
    "guid": "API_ROAST_SUBMISSION-000",
-   "version": 2,
+   "version": 3,
    "logic_category": "ORCHESTRATION",
    "description": "Route header: /api/internal/roast-submission — the Cheeky Bill roast/WhatsApp pipeline moved out of submit-prediction into a real request with full CPU (BUG-ROAST-001, v3.7.2). CRON_SECRET auth; invoked per roast_tasks doc by roastTaskTrigger.",
    "dependencies": [
@@ -122200,7 +122200,7 @@
     "calls": []
    },
    "created": "2026-07-20T00:00:00.000000Z",
-   "lastUpdated": "2026-07-24T00:00:00Z"
+   "lastUpdated": "2026-07-24T12:00:00Z"
   },
   {
    "guid": "API_ROAST_SUBMISSION-001",
@@ -122263,7 +122263,7 @@
   },
   {
    "guid": "LIB_CHEEKY_BILL_HISTORY-000",
-   "version": 1,
+   "version": 2,
    "logic_category": "UTILITY",
    "description": "Anti-repetition memory for Cheeky Bill (v3.8.0): rolling window of the last 20 posted roast lines in admin_configuration/cheekyBillHistory. Latest 10 are injected into the roast prompt as stale-material context so consecutive roasts stop converging on the same gags. Decorative: every failure degrades to empty history.",
    "dependencies": [],
@@ -122275,12 +122275,12 @@
     "calls": []
    },
    "created": "2026-07-24T00:00:00Z",
-   "lastUpdated": "2026-07-24T00:00:00Z",
+   "lastUpdated": "2026-07-24T12:00:00Z",
    "autoRegistered": false
   },
   {
    "guid": "LIB_CHEEKY_BILL_HISTORY-001",
-   "version": 1,
+   "version": 2,
    "logic_category": "UTILITY",
    "description": "getRecentRoastLines: returns the newest PROMPT_WINDOW (10) roast lines for prompt injection. GR#16 shape-checks the stored array (non-empty strings only). Returns [] on any failure.",
    "dependencies": [],
@@ -122292,12 +122292,12 @@
     "calls": []
    },
    "created": "2026-07-24T00:00:00Z",
-   "lastUpdated": "2026-07-24T00:00:00Z",
+   "lastUpdated": "2026-07-24T12:00:00Z",
    "autoRegistered": false
   },
   {
    "guid": "LIB_CHEEKY_BILL_HISTORY-002",
-   "version": 1,
+   "version": 2,
    "logic_category": "UTILITY",
    "description": "recordRoastLine: transactional prepend of a freshly generated roast line, capped at MAX_STORED_LINES (20). Best-effort — awaited before the response (BUG-ROAST-001 rule) but never throws into the roast pipeline.",
    "dependencies": [],
@@ -122309,7 +122309,7 @@
     "calls": []
    },
    "created": "2026-07-24T00:00:00Z",
-   "lastUpdated": "2026-07-24T00:00:00Z",
+   "lastUpdated": "2026-07-24T12:00:00Z",
    "autoRegistered": false
   },
   {
@@ -123088,7 +123088,7 @@
    }
   }
  },
- "last_updated": "2026-07-24T00:00:00Z",
+ "last_updated": "2026-07-24T12:00:00Z",
  "lessons": [
   {
    "id": "WA-HEALTH-PUBLIC",
