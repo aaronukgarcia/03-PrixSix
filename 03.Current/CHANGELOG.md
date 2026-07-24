@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.8.0 — 2026-07-24
+
+### Cheeky Bill anti-sameness overhaul
+
+Aaron's report: Bill's takes on the WhatsApp submission messages had become samey — same gags (dartboard, Mystic Meg), same one-sentence cadence, every time. Root cause was architectural, in `ai/flows/cheeky-bill.ts`: the same 12 static style examples were sent on every call (LLMs anchor on examples, so they became templates), Bill had no memory of what he'd already said, the one-sentence + sign-off structure never varied, and generation ran at default temperature (highest-probability = most-repeated phrasings). Four coordinated fixes:
+
+- **Anti-repetition memory** (new `lib/cheeky-bill-history.ts`): a rolling window of Bill's last 20 posted roast lines in `admin_configuration/cheekyBillHistory` (transactional append; the `whatsapp_queue` copy is transport, not history — queue docs get purged). The roast route feeds the latest 10 into the prompt as a "stale material — do not reuse any opening, image, or punchline shape" block, and records each new line before responding (BUG-ROAST-001 rule: no post-response writes).
+- **Example pools, sampled per call**: standard grows 12 → 22, Jack Dee 5 → 10, splitbrain 5 → 8, news 2 → 4; each call shows a random 3–4 (Fisher-Yates) so the anchor examples differ every time.
+- **Comedy-device roulette**: ~70% of roasts are steered into one random delivery device — understatement, absurd comparison, mock TV-commentary, steward's verdict, collapsing compliment, mid-thought open, picks-turn-on-their-owner, deadpan fact read-out — so the *structure* varies, not just the vocabulary.
+- **Rhythm + temperature**: 1-in-3 non-news roasts may use a two-part setup + deadpan tag instead of the hard one-sentence rule; both Bill generate calls (submission roast + Monday weekly snark) now run at temperature 1.0.
+
+All safety guardrails unchanged: protected-traits ban, no profanity, facts-only quoting, sanitised interpolation, decorative degrade (history failures never block the WhatsApp message).
+
 ## v3.7.2 — 2026-07-20
 
 ### BUG-ROAST-001: lost submission notifications + BUG-EMAIL-002: dead email cron

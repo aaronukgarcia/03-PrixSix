@@ -1,4 +1,9 @@
-// GUID: API_ROAST_SUBMISSION-000-v01
+// GUID: API_ROAST_SUBMISSION-000-v02
+// @CHANGE (v3.8.0): anti-sameness — fetches Bill's last ~10 roast lines
+//   (LIB_CHEEKY_BILL_HISTORY) and passes them to generateCheekyComment as anti-repetition
+//   context; records each freshly generated line back to the rolling history doc BEFORE
+//   responding (Cloud Run post-response CPU throttle, BUG-ROAST-001 rule). Both steps are
+//   best-effort — history failure never blocks the WhatsApp message.
 // Auth:   CRON_SECRET bearer token (timing-safe) — caller is the roastTaskTrigger Cloud
 //         Function, same trust boundary as the cron routes.
 // [Intent] BUG-ROAST-001 fix (v3.7.2): the Cheeky Bill roast/WhatsApp pipeline, moved out of
@@ -20,6 +25,7 @@ import { timingSafeEqual } from 'crypto';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { generateCheekyComment } from '@/ai/flows/cheeky-bill';
 import { buildCheekyBillContext } from '@/lib/cheeky-bill-context';
+import { getRecentRoastLines, recordRoastLine } from '@/lib/cheeky-bill-history';
 import { getBotConfig } from '@/lib/billceleration';
 import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 import { wakeWhatsAppWorker } from '@/lib/whatsapp-wake';
@@ -108,6 +114,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
       // Nothing newsworthy found (no live session, no headline naming a pick) → standard.
       if (roastMode === 'news' && !banterContext.newsFacts) roastMode = 'standard';
+      // Anti-sameness (v3.8.0): feed Bill his own recent material so he stops repeating it.
+      const recentRoasts = (await getRecentRoastLines(db)).join('\n');
       cheekyLine = await generateCheekyComment({
         teamName,
         driverList,
@@ -119,7 +127,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         mode: roastMode,
         newsFacts: banterContext.newsFacts,
         rationaleFacts,
+        recentRoasts,
       });
+      // Awaited (not fire-and-forget) — post-response work dies under Cloud Run CPU throttle.
+      if (cheekyLine) await recordRoastLine(db, cheekyLine, teamName);
     } catch (cheekyErr: any) {
       // Decorative — a roast-less notification still goes out.
       console.error('[roast-submission] Error generating cheeky Bill comment (non-fatal):', cheekyErr?.message);

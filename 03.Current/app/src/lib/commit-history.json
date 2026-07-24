@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-20",
+  "lastUpdated": "2026-07-24",
   "commits": [
+    {
+      "id": "e9fe926",
+      "date": "2026-07-20",
+      "version": "3.7.2",
+      "author": "aaron garcia",
+      "message": "fix: BUG-ROAST-001 lost submission notifications + BUG-EMAIL-002 dead email cron (v3.7.2)",
+      "major": false
+    },
     {
       "id": "3655f7f",
       "date": "2026-07-20",
