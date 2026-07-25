@@ -14,7 +14,6 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [activeLights, setActiveLights] = useState(0);
 
   const handleSkip = useCallback(() => {
-    sessionStorage.setItem(SPLASH_SHOWN_KEY, "true");
     onComplete();
   }, [onComplete]);
 
@@ -60,7 +59,6 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     if (phase !== "exit") return;
 
     const timer = setTimeout(() => {
-      sessionStorage.setItem(SPLASH_SHOWN_KEY, "true");
       onComplete();
     }, 500);
     return () => clearTimeout(timer);
@@ -209,14 +207,30 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   );
 }
 
+// GUID: COMPONENT_SPLASH_SCREEN-000-v01
+// [Intent] Once-per-session splash gate. The session token is consumed the moment the splash is
+//          ARMED (not when the animation finishes) — if the user navigates away mid-animation or
+//          the host page suppresses the splash, it must not replay later in the same session.
+// [Inbound Trigger] Mounted by the (app) layout on first authenticated render.
+// [Downstream Impact] Layout renders <SplashScreen> while showSplash is true; handleComplete both
+//                     finishes the animation and disarms a suppressed-but-armed splash (admin entry).
 export function useSplashScreen() {
   const [showSplash, setShowSplash] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
 
   useEffect(() => {
-    // Check sessionStorage on mount
-    const hasShown = sessionStorage.getItem(SPLASH_SHOWN_KEY);
-    setShowSplash(!hasShown);
+    try {
+      const hasShown = sessionStorage.getItem(SPLASH_SHOWN_KEY);
+      if (!hasShown) {
+        // Consume the token up front: mid-splash navigation or admin-page suppression
+        // must not re-arm the splash for the rest of this session.
+        sessionStorage.setItem(SPLASH_SHOWN_KEY, "true");
+        setShowSplash(true);
+      }
+    } catch {
+      // Storage unavailable (e.g. private mode with storage disabled): show nothing rather
+      // than risk replaying the splash on every navigation.
+    }
     setIsChecked(true);
   }, []);
 

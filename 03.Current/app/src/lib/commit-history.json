@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-24",
+  "lastUpdated": "2026-07-25",
   "commits": [
+    {
+      "id": "8671702",
+      "date": "2026-07-24",
+      "version": "3.8.1",
+      "author": "aaron garcia",
+      "message": "feat: Cheeky Bill device tracking — roulette excludes recent structures (v3.8.1)",
+      "major": true
+    },
     {
       "id": "d20e475",
       "date": "2026-07-24",

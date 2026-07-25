@@ -97912,9 +97912,9 @@
   },
   {
    "guid": "APP_LAYOUT-000",
-   "version": 3,
+   "version": 4,
    "logic_category": "ORCHESTRATION",
-   "description": "Authenticated app layout (wraps all /app routes). Enforces authentication, checks single-user mode, manages session heartbeat (5min intervals, 15min timeout), renders AppSidebar, displays verification/conversion/preseason banners. Wraps children in SessionProvider and LeagueProvider.",
+   "description": "Authenticated app layout (wraps all /app routes). Enforces authentication, checks single-user mode, manages session heartbeat (5min intervals, 15min timeout), renders AppSidebar, displays verification/conversion/preseason banners. Wraps children in SessionProvider and LeagueProvider. v4: disarms an armed-but-suppressed splash on admin pages so it cannot fire mid-session on the first navigation to a non-admin page (admin hot-link entry bug).",
    "dependencies": [
     "COMPONENT_APP_SIDEBAR-000",
     "COMPONENT_APP_SIDEBAR-001",
@@ -97937,7 +97937,8 @@
     "COMPONENT_CONVERSION_BANNER-000",
     "COMPONENT_CONVERSION_BANNER-001",
     "COMPONENT_CONVERSION_BANNER-002",
-    "COMPONENT_CONVERSION_BANNER-003"
+    "COMPONENT_CONVERSION_BANNER-003",
+    "COMPONENT_SPLASH_SCREEN-000"
    ],
    "location": {
     "filePath": "app/src/app/(app)/layout.tsx"
@@ -97960,7 +97961,7 @@
     ]
    },
    "created": "2026-01-18T19:25:01Z",
-   "lastUpdated": "2026-02-12T22:59:58Z"
+   "lastUpdated": "2026-07-25T16:00:00Z"
   },
   {
    "guid": "ROOT_ERROR-000",
@@ -107356,9 +107357,9 @@
   },
   {
    "guid": "PAGE_PREDICTIONS-011",
-   "version": 3,
+   "version": 4,
    "logic_category": "TRANSFORMATION",
-   "description": "Ensures selectedTeam is set once user data loads (handles initial mount race condition).",
+   "description": "Ensures selectedTeam is valid once user data loads (initial mount race condition, plus stale sessionStorage values that no longer match the user's teams). v4: selection is persisted to sessionStorage (prixsix_selected_team) so a reload keeps the selected team instead of snapping back to primary.",
    "dependencies": [],
    "location": {
     "filePath": "app/src/app/(app)/predictions/page.tsx",
@@ -107369,7 +107370,26 @@
     "calls": []
    },
    "created": "2026-03-03T19:10:12.267Z",
-   "lastUpdated": "2026-03-03T19:10:12.267Z"
+   "lastUpdated": "2026-07-25T16:00:00Z"
+  },
+  {
+   "guid": "COMPONENT_SPLASH_SCREEN-000",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "useSplashScreen once-per-session gate. Consumes the sessionStorage token (prixsix_splash_shown) the moment the splash is ARMED rather than when the animation completes, so mid-splash navigation or admin-page suppression cannot replay the splash later in the session.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/components/ui/SplashScreen.tsx",
+    "functionName": "useSplashScreen"
+   },
+   "callChain": {
+    "calledBy": [
+     "APP_LAYOUT-000"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-25T16:00:00Z",
+   "lastUpdated": "2026-07-25T16:00:00Z"
   },
   {
    "guid": "PAGE_PREDICTIONS-012",

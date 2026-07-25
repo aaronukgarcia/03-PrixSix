@@ -1,6 +1,12 @@
 # Changelog
 
-## v3.8.1 — 2026-07-24
+## v3.8.2 — 2026-07-25
+
+### Splash replay fix + team selector persistence
+
+**Splash fired mid-session after admin hot-link entry (Aaron's report).** The once-per-session flag was only written when the splash animation *finished* — but admin pages suppress the splash without finishing it, so a session that started on `/admin` (hot link) kept the splash armed and replayed it on the first click into a normal page. Two-part fix in `SplashScreen.tsx` + the app layout: the session token is now consumed the moment the splash is armed (mid-splash navigation can no longer re-arm it either), and the layout explicitly disarms an armed-but-suppressed splash on admin pages.
+
+**Team selector snapped back to primary on reload (Aaron's report from LREG/Time Team).** The predictions-page team selector was in-memory React state only. It now persists to sessionStorage (`prixsix_selected_team`) and restores on reload, validated against the user's actual teams with fallback to primary (covers team renames and user switches in the same tab).
 
 ### Cheeky Bill device tracking
 

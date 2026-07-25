@@ -64,10 +64,29 @@ import { generateRaceId, generateRaceIdLowercase } from "@/lib/normalize-race-id
 // [Inbound Trigger] Rendered by PredictionsPage wrapper component.
 // [Downstream Impact] Fetches race_results collection to find next unscored race. Loads user prediction
 //                     doc and previous predictions for carry-over. Passes data to PredictionEditor.
+// Persists the multi-team selector across reloads (sessionStorage is per-tab, so a reload
+// mid-submission stays on the team the player was working on instead of snapping to primary).
+const SELECTED_TEAM_KEY = "prixsix_selected_team";
+
 function PredictionsContent() {
   const { user, isUserLoading } = useAuth();
   const firestore = useFirestore();
-  const [selectedTeam, setSelectedTeam] = useState(user?.teamName);
+  const [selectedTeam, setSelectedTeam] = useState<string | undefined>(() => {
+    try {
+      return sessionStorage.getItem(SELECTED_TEAM_KEY) ?? user?.teamName;
+    } catch {
+      return user?.teamName; // SSR or storage unavailable — fall back to primary
+    }
+  });
+
+  const handleTeamChange = (teamName: string) => {
+    setSelectedTeam(teamName);
+    try {
+      sessionStorage.setItem(SELECTED_TEAM_KEY, teamName);
+    } catch {
+      // Storage unavailable — selection still works for this render, just won't survive reload
+    }
+  };
 
   // GUID: PAGE_PREDICTIONS-002-v03
   // [Intent] Real-time query for all race_results documents to determine which races are complete.
@@ -252,15 +271,17 @@ function PredictionsContent() {
 
   const userTeams = [user?.teamName, user?.secondaryTeamName].filter(Boolean) as string[];
 
-  // GUID: PAGE_PREDICTIONS-011-v03
-  // [Intent] Ensures selectedTeam is set once user data loads (handles initial mount race condition).
-  // [Inbound Trigger] user or selectedTeam changes.
-  // [Downstream Impact] Sets selectedTeam to user's primary team if not already set.
+  // GUID: PAGE_PREDICTIONS-011-v04
+  // [Intent] Ensures selectedTeam is valid once user data loads (handles initial mount race
+  //          condition AND a stale sessionStorage value that no longer matches the user's teams,
+  //          e.g. after a team rename or logging in as a different user in the same tab).
+  // [Inbound Trigger] user, selectedTeam, or userTeams changes.
+  // [Downstream Impact] Falls back to the user's primary team when unset or invalid.
   useEffect(() => {
-    if(user && !selectedTeam) {
+    if (user && (!selectedTeam || !userTeams.includes(selectedTeam))) {
       setSelectedTeam(user.teamName);
     }
-  }, [user, selectedTeam]);
+  }, [user, selectedTeam, userTeams]);
 
   // Don't block on allPredictions loading/error - it's only for carry-over which is optional
   const isLoading = isUserLoading || isResultsLoading || (predictionRef && isPredictionLoading);
@@ -311,7 +332,7 @@ function PredictionsContent() {
         {userTeams.length > 1 && (
             <div className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-muted-foreground"/>
-                <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                <Select value={selectedTeam} onValueChange={handleTeamChange}>
                     <SelectTrigger className="w-full sm:w-[220px]">
                         <SelectValue placeholder="Select a team" />
                     </SelectTrigger>

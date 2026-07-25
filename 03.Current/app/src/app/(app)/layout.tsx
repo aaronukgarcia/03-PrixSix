@@ -1,5 +1,5 @@
 
-// GUID: APP_LAYOUT-000-v03
+// GUID: APP_LAYOUT-000-v04
 "use client";
 
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -50,6 +50,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Skip splash screen for all admin pages (verification flow and admin panel)
   const skipSplash = pathname.startsWith('/admin');
+
+  // If the splash is armed but suppressed (session started on an admin page, e.g. via a hot
+  // link), disarm it — otherwise it fires mid-session on the first navigation to a normal page.
+  useEffect(() => {
+    if (isChecked && showSplash && skipSplash) {
+      handleComplete();
+    }
+  }, [isChecked, showSplash, skipSplash, handleComplete]);
 
   useEffect(() => {
     // Only redirect if loading is finished and there's no user AND no firebaseUser
