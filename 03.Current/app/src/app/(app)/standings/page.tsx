@@ -46,7 +46,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Customized, useYAxisScale, usePlotArea } from "recharts";
 // @SECURITY_FIX: GEMINI-AUDIT-058 — Import from client-safe registry (no internal metadata).
 import { CLIENT_ERRORS as ERRORS } from '@/lib/error-registry-client';
 import { generateClientCorrelationId } from '@/lib/error-codes';
@@ -77,6 +77,93 @@ function ranksFromPoints(point: Record<string, any>): Record<string, number> {
 // [Inbound Trigger] Rendered by Recharts on hover; receives the active payload for the hovered point.
 // [Downstream Impact] Pure presentational component. Reads item.value (rank) and item.payload[team]
 //   (cumulative points) from the payload. No side effects.
+// GUID: PAGE_STANDINGS-028-v01
+// [Intent] Right-hand label rail, replacing per-line endpoint labels. One slot per drawn team at
+//   the line's final rank: colour chip + "P<rank> <name>" in foreground ink (identity carried by
+//   chip + text, never colour alone). Slots are collision-free via two-pass dodging (sort by
+//   endpoint Y, push apart to a 14px minimum top-down, pull back inside the plot bottom-up); a
+//   thin leader line connects a displaced slot to its line endpoint. Uses the recharts v3 public
+//   hooks (useYAxisScale/usePlotArea) so slot positions come from the real Y scale — mounted via
+//   <Customized> inside the LineChart so the hooks have chart context.
+// [Inbound Trigger] Recharts render pass; re-renders when ranks/teams/narrow-viewport props change.
+// [Downstream Impact] Replaces the old label={} prop on each <Line> (coloured text, no collision
+//   handling — the "rainbow smudge" report of 2026-07-25). Returns null if scale/plot unavailable.
+function ChartLabelRail({ teams, ranks, colorFor, boldNames, isNarrow }: {
+  teams: string[];
+  ranks: Record<string, number>;
+  colorFor: (name: string) => string;
+  boldNames: Set<string>;
+  isNarrow: boolean;
+}) {
+  const yScale = useYAxisScale();
+  const plotArea = usePlotArea();
+  if (!yScale || !plotArea || teams.length === 0) return null;
+
+  const MIN_GAP = 14;
+  const topBound = plotArea.y + 5;
+  const bottomBound = plotArea.y + plotArea.height - 3;
+  const xEnd = plotArea.x + plotArea.width;
+
+  const slots = teams
+    .map((team) => ({ team, rank: ranks[team], lineY: 0, labelY: 0 }))
+    .filter((s) => typeof s.rank === 'number' && !Number.isNaN(s.rank))
+    .map((s) => {
+      const y = yScale(s.rank);
+      return { ...s, lineY: y ?? 0, labelY: y ?? 0 };
+    })
+    .filter((s) => typeof s.lineY === 'number' && !Number.isNaN(s.lineY))
+    .sort((a, b) => a.lineY - b.lineY);
+  if (slots.length === 0) return null;
+
+  // Dodge pass 1 (top-down): enforce minimum separation going down.
+  let prev = -Infinity;
+  for (const s of slots) {
+    s.labelY = Math.max(s.labelY, prev + MIN_GAP, topBound);
+    prev = s.labelY;
+  }
+  // Dodge pass 2 (bottom-up): pull any overflow back inside the plot.
+  let next = Infinity;
+  for (let i = slots.length - 1; i >= 0; i--) {
+    slots[i].labelY = Math.min(slots[i].labelY, next - MIN_GAP, bottomBound);
+    next = slots[i].labelY;
+  }
+
+  const maxChars = isNarrow ? 13 : 20;
+  return (
+    <g>
+      {slots.map((s) => {
+        const color = colorFor(s.team);
+        const name = s.team.length > maxChars ? `${s.team.slice(0, maxChars - 1)}…` : s.team;
+        const displaced = Math.abs(s.labelY - s.lineY) > 2;
+        return (
+          <g key={`rail-${s.team}`}>
+            {displaced && (
+              <path
+                d={`M${xEnd + 1},${s.lineY} L${xEnd + 10},${s.labelY}`}
+                stroke={color}
+                strokeWidth={1}
+                opacity={0.55}
+                fill="none"
+              />
+            )}
+            <rect x={xEnd + 12} y={s.labelY - 4} width={8} height={8} rx={2} fill={color} />
+            <text
+              x={xEnd + 24}
+              y={s.labelY + 3.5}
+              fontSize={isNarrow ? 10 : 11}
+              fontWeight={boldNames.has(s.team) ? 700 : 400}
+              fill="hsl(var(--foreground))"
+              textAnchor="start"
+            >
+              {`P${s.rank} ${name}`}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 function BumpChartTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: any }) {
   if (!active || !payload || payload.length === 0) return null;
   const rows = payload
@@ -767,14 +854,18 @@ export default function StandingsPage() {
     return { primary: user.id, secondary: user.secondaryTeamName ? `${user.id}-secondary` : null };
   }, [user]);
 
-  // GUID: PAGE_STANDINGS-017-v04
+  // GUID: PAGE_STANDINGS-017-v05
   // [Intent] Choose which team lines to render, by chartMode:
-  //   'top10'      → top 10 teams + user's team(s) if outside top 10.
+  //   'top10'      → the top 10 teams ONLY. v5: user's out-of-window teams are no longer injected —
+  //                  they stretched the auto-fit Y domain (GUID -027) to e.g. P1..P27, squashing the
+  //                  top-10 battle into a sliver and piling the end labels on top of each other.
+  //                  Out-of-window user teams get the "outside window" chip row instead (GUID -029),
+  //                  and My Position mode remains the dedicated view for them.
   //   'all'        → every team (zoom-out).
   //   'myPosition' → user's team + 5 above + 5 below in standings.
   // [Inbound Trigger] standings, chartMode, or userTeamIds changes.
   // [Downstream Impact] chartTeams array controls which Line components are rendered in the chart, and
-  //   feeds the auto-fit Y domain (GUID -027) and right-edge label gating.
+  //   feeds the auto-fit Y domain (GUID -027), the dynamic chart height (GUID -030) and the label rail.
   const chartTeams = useMemo(() => {
     if (standings.length === 0) return [];
 
@@ -784,19 +875,7 @@ export default function StandingsPage() {
     }
 
     if (chartMode === 'top10') {
-      // Top 10 + user's team(s) if outside top 10
-      const top10Names = standings.slice(0, 10).map(s => s.teamName);
-      const result = new Set(top10Names);
-      if (userTeamIds.primary) {
-        const primaryEntry = standings.find(s => s.userId === userTeamIds.primary);
-        if (primaryEntry) result.add(primaryEntry.teamName);
-      }
-      if (userTeamIds.secondary) {
-        const secondaryEntry = standings.find(s => s.userId === userTeamIds.secondary);
-        if (secondaryEntry) result.add(secondaryEntry.teamName);
-      }
-      // Return in standings order
-      return standings.filter(s => result.has(s.teamName)).map(s => s.teamName);
+      return standings.slice(0, 10).map(s => s.teamName);
     }
 
     // myPosition mode: user's team + 5 above + 5 below
@@ -862,15 +941,50 @@ export default function StandingsPage() {
     return [Math.max(1, min - 1), Math.min(fullMax, max + 1)];
   }, [displayData, chartTeams, standings.length]);
 
-  // Right-edge team labels: only when few enough lines to stay readable (not in all-teams zoom-out).
-  // Ranks guarantee each labelled endpoint sits on a distinct P-row, so labels don't overlap.
-  const chartLastIndex = displayData.length - 1;
-  const showRightLabels = chartTeams.length > 0 && chartTeams.length <= 12;
+  // GUID: PAGE_STANDINGS-029-v01
+  // [Intent] The current user's teams that are NOT drawn in the current chart mode (top10 only —
+  //   'all' shows everyone and 'myPosition' is centred on them). Rendered as a compact chip row
+  //   under the chart linking to My Position mode, replacing the old behaviour of injecting these
+  //   lines into the chart (which stretched the Y domain and made the top-10 labels unreadable).
+  // [Inbound Trigger] standings, chartMode, chartTeams, or userTeamIds changes.
+  // [Downstream Impact] Purely presentational chip row; clicking it switches chartMode.
+  const outsideUserTeams = useMemo(() => {
+    if (chartMode !== 'top10' || standings.length === 0) return [];
+    const drawn = new Set(chartTeams);
+    const mine = standings
+      .map((s, i) => ({ teamName: s.teamName, userId: s.userId, rank: i + 1 }))
+      .filter(s => (s.userId === userTeamIds.primary || s.userId === userTeamIds.secondary) && !drawn.has(s.teamName));
+    return mine;
+  }, [chartMode, standings, chartTeams, userTeamIds]);
+
+  // GUID: PAGE_STANDINGS-030-v01
+  // [Intent] Dynamic chart height — the F1-TV rule: a rank row's pixel height is fixed (24px), so
+  //   the chart grows with the number of rank rows shown instead of squashing them into a fixed
+  //   192px box. Clamped to [320, 640]px; at the 640 cap with all ~38 teams a row is ~16px, which
+  //   still exceeds the 14px label slot the rail's dodging enforces.
+  // [Inbound Trigger] yDomain changes (which already tracks teams + races shown).
+  // [Downstream Impact] Drives the chart container height and therefore rail label density.
+  const chartHeight = useMemo(() => {
+    const rows = Math.max(2, yDomain[1] - yDomain[0] + 1);
+    return Math.min(640, Math.max(320, rows * 24));
+  }, [yDomain]);
+
+  // Narrow-viewport flag: the label rail shrinks (width/font/truncation) on phones so the plot
+  // area keeps enough width for the race axis.
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const update = () => setIsNarrow(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  const railWidth = isNarrow ? 118 : 170;
 
   // GUID: PAGE_STANDINGS-018-v03
   // [Intent] Generate a deterministic HSL colour for each team name — ensures the same team always
   //   gets the same colour regardless of which race is selected.
-  // [Inbound Trigger] Called per team when rendering Line components in the chart.
+  // [Inbound Trigger] Called per team when rendering Line components in the chart and the label rail.
   // [Downstream Impact] Pure function — no side effects. Drives chart line stroke colour.
   const getStableTeamColor = useCallback((name: string): string => {
     let hash = 0;
@@ -880,6 +994,19 @@ export default function StandingsPage() {
     const hue = ((hash % 360) + 360) % 360;
     return `hsl(${hue}, 65%, 55%)`;
   }, []);
+
+  // Rail inputs: the final-point rank per team, and which team names belong to the current user.
+  const lastRanks = useMemo<Record<string, number>>(() => {
+    if (displayData.length === 0) return {};
+    return displayData[displayData.length - 1]?.__ranks || {};
+  }, [displayData]);
+  const myTeamNames = useMemo(() => {
+    return new Set(
+      standings
+        .filter(s => s.userId === userTeamIds.primary || s.userId === userTeamIds.secondary)
+        .map(s => s.teamName)
+    );
+  }, [standings, userTeamIds]);
 
   // GUID: PAGE_STANDINGS-019-v04
   // @REMOVED (bump-chart, v3.4.1): maxPoints memo deleted. The chart Y-axis now plots POSITION (rank
@@ -1062,9 +1189,12 @@ export default function StandingsPage() {
                 </Button>
               </div>
             </div>
-            <div className="w-full h-48">
+            {/* Dynamic height (GUID -030): fixed pixels per rank row, so the drawn battle always
+                has room — never a fixed box that squashes 27 rank rows into 192px. The right
+                margin reserves the label rail (GUID -028). */}
+            <div className="w-full" style={{ height: chartHeight }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart key={`chart-${selectedRaceIndex}-${chartMode}-${raceRange}`} data={displayData} margin={{ top: 5, right: showRightLabels ? 74 : 5, left: 0, bottom: 5 }}>
+                <LineChart key={`chart-${selectedRaceIndex}-${chartMode}-${raceRange}`} data={displayData} margin={{ top: 5, right: railWidth, left: 0, bottom: 5 }}>
                   <XAxis
                     dataKey="race"
                     tick={{ fontSize: 10 }}
@@ -1111,33 +1241,42 @@ export default function StandingsPage() {
                         opacity={bold ? 1 : 0.4}
                         isAnimationActive={false}
                         connectNulls
-                        // Right-edge label: the team's name at its final (latest-race) point, so the
-                        // "detail on the right" reads directly instead of via colour-guessing. Only when
-                        // few enough lines to stay legible (see showRightLabels).
-                        label={showRightLabels ? (p: any) => {
-                          if (!p || p.index !== chartLastIndex || typeof p.y !== 'number') return null;
-                          const label = teamName.length > 15 ? `${teamName.slice(0, 14)}…` : teamName;
-                          return (
-                            <text
-                              key={`lbl-${teamName}`}
-                              x={p.x + 6}
-                              y={p.y}
-                              dy={3}
-                              fontSize={9}
-                              fontWeight={bold ? 700 : 400}
-                              fill={teamColor}
-                              textAnchor="start"
-                            >
-                              {label}
-                            </text>
-                          );
-                        } : undefined}
                       />
                     );
                   })}
+                  {/* Label rail (GUID -028): collision-free, ink-coloured end labels with colour
+                      chips and leader lines — replaces the old per-line coloured labels. */}
+                  <Customized
+                    component={
+                      <ChartLabelRail
+                        teams={chartTeams}
+                        ranks={lastRanks}
+                        colorFor={getStableTeamColor}
+                        boldNames={myTeamNames}
+                        isNarrow={isNarrow}
+                      />
+                    }
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
+            {/* Outside-window chips (GUID -029): user's teams not drawn in Top 10 mode. */}
+            {outsideUserTeams.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setChartMode('myPosition')}
+                className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>Your teams outside the Top 10:</span>
+                {outsideUserTeams.map(t => (
+                  <span key={t.teamName} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-foreground">
+                    <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: getStableTeamColor(t.teamName) }} />
+                    {t.teamName} · P{t.rank}
+                  </span>
+                ))}
+                <span className="underline underline-offset-2">view My Position →</span>
+              </button>
+            )}
           </div>
         )}
 

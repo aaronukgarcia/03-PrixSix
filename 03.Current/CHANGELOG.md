@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.9.0 — 2026-07-25
+
+### Standings chart readability overhaul (F1-TV style)
+
+Aaron's report: Top-10 team names on the season-progression chart piled into an unreadable smudge. Root cause was threefold: a fixed 192px chart height; Top 10 mode silently injecting the viewer's own out-of-top-10 teams into the auto-fit Y domain (stretching P1..P11 out to P1..P27 and squashing the battle into a sliver); and per-line coloured endpoint labels with no collision handling. Redesign follows the F1 broadcast pattern:
+
+- **Dynamic height** — 24px per rank row shown, clamped 320–640px, so the drawn battle always has label-height room.
+- **Honest Top 10** — the domain fits the top 10 only; your own teams outside the window become a chip row under the chart ("Your teams outside the Top 10: … → view My Position") linking to My Position mode.
+- **Label rail** — a right-hand rail with one collision-free slot per team (two-pass dodging, leader lines when displaced): colour chip + "P<rank> Name" in foreground ink, full names (20 chars, 13 on phones), user's teams bold. Works in All-teams mode too (labels were previously hidden entirely above 12 lines). Built on recharts v3 public hooks (useYAxisScale/usePlotArea); mounting verified with a jsdom render test.
+- **Narrow viewports** get a slimmer rail (118px, 10px font).
+
 ## v3.8.3 — 2026-07-25
 
 ### Submissions page hid explicit submissions from late-created accounts

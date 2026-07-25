@@ -108074,9 +108074,9 @@
   },
   {
    "guid": "PAGE_STANDINGS-017",
-   "version": 3,
+   "version": 5,
    "logic_category": "TRANSFORMATION",
-   "description": "Filter chart lines to approximately 11 teams based on chartMode (top10 or myPosition). In top10 mode: top 10 teams + user's team(s) if outside top 10. In myPosition mode: user's team + 5 above + 5 below in standings.",
+   "description": "Filter chart lines by chartMode. v5: top10 mode is the top 10 ONLY — user's out-of-window teams are no longer injected (they stretched the auto-fit Y domain to e.g. P1..P27 and squashed the battle + labels); they surface via the outside-window chip row (PAGE_STANDINGS-029) instead. all mode: every team. myPosition: user's team + 5 above + 5 below.",
    "dependencies": [],
    "location": {
     "filePath": "app/src/app/(app)/standings/page.tsx",
@@ -108087,7 +108087,65 @@
     "calls": []
    },
    "created": "2026-03-03T19:10:12.267Z",
-   "lastUpdated": "2026-03-03T19:10:12.267Z"
+   "lastUpdated": "2026-07-25T18:50:00Z"
+  },
+  {
+   "guid": "PAGE_STANDINGS-028",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "ChartLabelRail — right-hand label rail replacing per-line endpoint labels. One collision-free slot per drawn team at its final rank (two-pass dodging, 14px minimum separation, leader lines when displaced); colour chip + P-number + name in foreground ink, never colour-alone identity. Uses recharts v3 public hooks (useYAxisScale/usePlotArea) mounted via Customized; verified by jsdom render test 2026-07-25.",
+   "dependencies": [
+    "PAGE_STANDINGS-017",
+    "PAGE_STANDINGS-018"
+   ],
+   "location": {
+    "filePath": "app/src/app/(app)/standings/page.tsx",
+    "functionName": "ChartLabelRail"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-07-25T18:50:00Z",
+   "lastUpdated": "2026-07-25T18:50:00Z"
+  },
+  {
+   "guid": "PAGE_STANDINGS-029",
+   "version": 1,
+   "logic_category": "TRANSFORMATION",
+   "description": "outsideUserTeams — the current user's teams not drawn in top10 chart mode, rendered as a chip row under the chart (name + rank + colour chip) linking to My Position mode. Replaces injecting those lines into the chart.",
+   "dependencies": [
+    "PAGE_STANDINGS-017"
+   ],
+   "location": {
+    "filePath": "app/src/app/(app)/standings/page.tsx",
+    "functionName": "outsideUserTeams"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-07-25T18:50:00Z",
+   "lastUpdated": "2026-07-25T18:50:00Z"
+  },
+  {
+   "guid": "PAGE_STANDINGS-030",
+   "version": 1,
+   "logic_category": "TRANSFORMATION",
+   "description": "chartHeight — dynamic chart height: 24px per rank row shown (from the auto-fit Y domain), clamped to [320, 640]px, so the drawn battle always has label-height room instead of a fixed 192px box. F1-TV fixed-row-height principle.",
+   "dependencies": [
+    "PAGE_STANDINGS-027"
+   ],
+   "location": {
+    "filePath": "app/src/app/(app)/standings/page.tsx",
+    "functionName": "chartHeight"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-07-25T18:50:00Z",
+   "lastUpdated": "2026-07-25T18:50:00Z"
   },
   {
    "guid": "PAGE_STANDINGS-018",

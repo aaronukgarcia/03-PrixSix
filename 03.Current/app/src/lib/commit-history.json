@@ -2,6 +2,22 @@
   "lastUpdated": "2026-07-25",
   "commits": [
     {
+      "id": "25e0ebc",
+      "date": "2026-07-25",
+      "version": "3.8.3",
+      "author": "aaron garcia",
+      "message": "fix: submissions page hid explicit submissions from accounts created after qualifying (v3.8.3)",
+      "major": false
+    },
+    {
+      "id": "de3f2db",
+      "date": "2026-07-25",
+      "version": "3.8.2",
+      "author": "aaron garcia",
+      "message": "fix: splash replay after admin hot-link entry + persist predictions team selector (v3.8.2)",
+      "major": false
+    },
+    {
       "id": "8671702",
       "date": "2026-07-24",
       "version": "3.8.1",
