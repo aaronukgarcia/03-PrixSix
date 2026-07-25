@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.8.3 — 2026-07-25
+
+### Submissions page hid explicit submissions from late-created accounts
+
+The submissions page skipped every team whose account was created after the selected race's qualifying time — including teams with a real, explicit prediction doc (surfaced by Fangio-F1's admin-entered proxy submission, whose account was created after the Hungarian GP cutoff). The skip now applies only to the carry-forward path, where it belongs (a team that didn't exist can't have a phantom carry-forward row); explicit submissions always display.
+
 ## v3.8.2 — 2026-07-25
 
 ### Splash replay fix + team selector persistence

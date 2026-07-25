@@ -93719,9 +93719,9 @@
   },
   {
    "guid": "PAGE_SUBMISSIONS-008",
-   "version": 4,
+   "version": 6,
    "logic_category": "ORCHESTRATION",
-   "description": "Fetches paginated submission data from the \"predictions\" collectionGroup filtered by raceId,",
+   "description": "Two-phase fetch resolving the effective prediction for every team (primary and secondary) for the selected race: explicit predictions via collectionGroup, then carry-forward lookups for teams without one. v6: the joined-after-qualifying skip applies only to the carry-forward path — explicit submissions always display, even when the account was created after qualifying (admin proxy entries).",
    "dependencies": [
     "LEAGUE_CONTEXT-000",
     "LIB_DATA-000",
@@ -93835,7 +93835,7 @@
     ]
    },
    "created": "2026-01-19T00:03:55Z",
-   "lastUpdated": "2026-02-12T23:56:09Z"
+   "lastUpdated": "2026-07-25T17:10:00Z"
   },
   {
    "guid": "PAGE_SUBMISSIONS-009",

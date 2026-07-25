@@ -164,9 +164,11 @@ export default function SubmissionsPage() {
     return formatDriverPredictions(predictions);
   };
 
-  // GUID: PAGE_SUBMISSIONS-008-v05
+  // GUID: PAGE_SUBMISSIONS-008-v06
   // [Intent] Two-phase fetch that resolves the effective prediction for every team (primary AND
-  //   secondary) for the selected race.
+  //   secondary) for the selected race. v6: the joined-after-qualifying skip applies only to the
+  //   carry-forward path — explicit submissions always display, even when the account was created
+  //   after qualifying (admin proxy entries).
   //   Phase 1 (parallel): fetches all users and all explicit predictions for this race.
   //     Explicit predictions are indexed by teamId (not userId) so primary and secondary teams
   //     are tracked independently — users with two teams get two separate rows.
@@ -225,9 +227,6 @@ export default function SubmissionsPage() {
         const uid = userDoc.id;
         const createdAt = userData.createdAt?.toDate?.() || null;
 
-        // Skip teams that joined after this race's qualifying — they had no valid window to submit
-        if (qualifyingTime && createdAt && createdAt > qualifyingTime) continue;
-
         // Build the list of teams for this user: always primary, secondary if it exists
         const userTeams: { teamId: string; teamName: string }[] = [
           { teamId: uid, teamName: userData.teamName },
@@ -248,6 +247,12 @@ export default function SubmissionsPage() {
               isCarryForward: false,
             });
           } else {
+            // Carry-forward only: skip teams that joined after this race's qualifying — they had
+            // no valid window to submit, so a carry-forward row would be a phantom. An EXPLICIT
+            // submission (branch above) always shows regardless of account age: admin-entered
+            // proxy submissions can legitimately predate the account (e.g. picks texted to the
+            // admin before the deadline by a player who signed up afterwards).
+            if (qualifyingTime && createdAt && createdAt > qualifyingTime) continue;
             missingUsers.push({ uid, teamId, teamName });
           }
         }
