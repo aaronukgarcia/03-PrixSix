@@ -108129,6 +108129,25 @@
    "lastUpdated": "2026-07-25T18:50:00Z"
   },
   {
+   "guid": "PAGE_STANDINGS-031",
+   "version": 1,
+   "logic_category": "TRANSFORMATION",
+   "description": "Two-line x-axis tick for the standings chart: race label (R9 Spr) with the circuit location (Spa) underneath in a fainter version of the same style. Locations from RaceSchedule.location via the data point's __loc; Spa-Francorchamps shortened to Spa; XAxis height raised to 38 to fit.",
+   "dependencies": [
+    "PAGE_STANDINGS-015"
+   ],
+   "location": {
+    "filePath": "app/src/app/(app)/standings/page.tsx",
+    "functionName": "renderXAxisTick"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-07-26T12:50:00Z",
+   "lastUpdated": "2026-07-26T12:50:00Z"
+  },
+  {
    "guid": "PAGE_STANDINGS-030",
    "version": 1,
    "logic_category": "TRANSFORMATION",

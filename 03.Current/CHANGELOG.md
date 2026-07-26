@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.10.1 — 2026-07-26
+
+### Standings chart: circuit locations under x-axis ticks
+
+Each race tick on the season-progression chart now shows the circuit location beneath the round label in a fainter version of the same style — "R9 Spr" over "Spa", "R8" over "Silverstone". Location comes from `RaceSchedule.location` ("Spa-Francorchamps" shortened to "Spa"); axis height raised to fit the second line.
+
 ## v3.10.0 — 2026-07-26
 
 ### Late-joiner active-floor rule (replaces "−5 below last place")

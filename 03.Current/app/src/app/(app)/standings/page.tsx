@@ -783,6 +783,8 @@ export default function StandingsPage() {
     const racesToShow = completedRaceWeekends.slice(0, selectedRaceIndex + 1);
 
     racesToShow.forEach((race, raceIndex) => {
+      // Circuit location for the two-line x-axis tick (e.g. "R9" over "Spa").
+      const loc = RaceSchedule.find(r => r.name === race.name)?.location ?? '';
       // For sprint weekends, add Sprint and GP as separate data points
       if (race.hasSprint && race.hasSprintScores) {
         // First: Add Sprint scores (compare normalised IDs)
@@ -802,6 +804,7 @@ export default function StandingsPage() {
         });
         sprintPoint.__ranks = ranksFromPoints(sprintPoint);
         sprintPoint.__weekendIdx = raceIndex;
+        sprintPoint.__loc = loc;
         data.push(sprintPoint);
 
         // Second: Add GP scores (compare normalised IDs)
@@ -820,6 +823,7 @@ export default function StandingsPage() {
         });
         gpPoint.__ranks = ranksFromPoints(gpPoint);
         gpPoint.__weekendIdx = raceIndex;
+        gpPoint.__loc = loc;
         data.push(gpPoint);
       } else {
         // Non-sprint weekend: just add GP scores (compare normalised IDs)
@@ -838,6 +842,7 @@ export default function StandingsPage() {
         });
         racePoint.__ranks = ranksFromPoints(racePoint);
         racePoint.__weekendIdx = raceIndex;
+        racePoint.__loc = loc;
         data.push(racePoint);
       }
     });
@@ -994,6 +999,30 @@ export default function StandingsPage() {
     const hue = ((hash % 360) + 360) % 360;
     return `hsl(${hue}, 65%, 55%)`;
   }, []);
+
+  // GUID: PAGE_STANDINGS-031-v01
+  // [Intent] Two-line x-axis tick: the race label ("R9 Spr") with the circuit location ("Spa")
+  //   underneath in a fainter version of the same style. Location comes from the data point's
+  //   __loc (RaceSchedule.location), looked up by tick value via this map.
+  // [Inbound Trigger] displayData changes; renderXAxisTick is called by Recharts per tick.
+  // [Downstream Impact] XAxis height raised to fit the second line.
+  const tickLocations = useMemo(() => {
+    const m = new Map<string, string>();
+    // "Spa-Francorchamps" -> "Spa"; all other locations are single words or short phrases.
+    displayData.forEach((p: any) => { if (p.race && p.__loc) m.set(p.race, String(p.__loc).split('-')[0]); });
+    return m;
+  }, [displayData]);
+
+  const renderXAxisTick = useCallback(({ x, y, payload }: any) => (
+    <g>
+      <text x={x} y={y + 10} textAnchor="middle" fontSize={10} fill="hsl(var(--muted-foreground))">
+        {payload?.value}
+      </text>
+      <text x={x} y={y + 21} textAnchor="middle" fontSize={9} fill="hsl(var(--muted-foreground))" opacity={0.6}>
+        {tickLocations.get(payload?.value) ?? ''}
+      </text>
+    </g>
+  ), [tickLocations]);
 
   // Rail inputs: the final-point rank per team, and which team names belong to the current user.
   const lastRanks = useMemo<Record<string, number>>(() => {
@@ -1197,7 +1226,8 @@ export default function StandingsPage() {
                 <LineChart key={`chart-${selectedRaceIndex}-${chartMode}-${raceRange}`} data={displayData} margin={{ top: 5, right: railWidth, left: 0, bottom: 5 }}>
                   <XAxis
                     dataKey="race"
-                    tick={{ fontSize: 10 }}
+                    tick={renderXAxisTick}
+                    height={38}
                     axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                     tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                   />
