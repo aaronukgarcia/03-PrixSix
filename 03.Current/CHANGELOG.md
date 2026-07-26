@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.13.1 — 2026-07-26
+
+### Replay smoothing + Wave 1 backend closeout
+
+**Replay interpolation (Aaron's report: very jerky at zoom 3).** Raw replay frames are only ~2–4Hz and the player snapped cars to each new frame — at high zoom those hops are many pixels. `useReplayPlayer` now lerps every car's x/y between the current and next frame on every 16ms tick (gaps >5s snap instead of gliding across red-flag holes); radio messages still trigger on frame advance only.
+
+**Wave 1 backend (DEP-SEC-002/003 artefacts in this commit):** functions deps updated (firebase-functions 7.3.0, 0 critical/0 high) with the new `cleanupRecoveryProject` Sunday function (7.3.0 hard-caps scheduled timeouts at 540s; the combined smoke run measured 544s, so cleanup is split out — verification now fits with margin) + `BACKUP_CLEANUP_FAILED` added to the functions error-codes mirror; whatsapp-worker 2.2.2 (baileys 6.7.23 critical advisory + sharp/libvips CVEs cleared, 25→8 vulns, 0 critical/high).
+
+Same-night ops (data-side, PITWALL-12 evidence): Hungarian GP replay first-ingest died on a Firestore deadline leaving the claim wedged on 'ingesting'; manual reset + re-ingest completed (158 chunks), then a stale `firestoreError` field blocked playback despite complete status — cleared manually. All three defects (staleness takeover, error-field lifecycle, connection-tied ingest) are specified in PITWALL-12.
+
 ## v3.13.0 — 2026-07-26
 
 ### DEP-SEC-001 (Wave 1): app dependency + vulnerability pass

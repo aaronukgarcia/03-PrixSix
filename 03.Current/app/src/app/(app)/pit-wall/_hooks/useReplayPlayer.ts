@@ -403,10 +403,25 @@ export function useReplayPlayer(
     }
 
     const frameIndex = lo;
-    if (frameIndex !== lastFrameIndexRef.current) {
-      lastFrameIndexRef.current = frameIndex;
+    {
       const frame    = frames[frameIndex];
       const driverMap = new Map(data.drivers.map(d => [d.driverNumber, d]));
+
+      // GUID: REPLAY_PLAYER_HOOK-017-v01
+      // [Intent] Per-tick position interpolation. Raw replay frames arrive at only ~2-4Hz, and
+      //          the previous code snapped cars to each new frame — at high zoom those discrete
+      //          hops were many pixels, making 60fps playback look very jerky (Aaron,
+      //          2026-07-26 Hungarian GP replay). Every 16ms tick now lerps each car's x/y
+      //          between the current frame and the next by playback time. Gaps >5s (red flags,
+      //          data holes) are NOT interpolated — cars snap rather than glide across the map.
+      const nextFrame = frames[Math.min(frameIndex + 1, frames.length - 1)];
+      const gapMs = nextFrame.virtualTimeMs - frame.virtualTimeMs;
+      const lerpT = gapMs > 0 && gapMs <= 5_000
+        ? Math.min(1, Math.max(0, (virtualMs - frame.virtualTimeMs) / gapMs))
+        : 0;
+      const nextPosByDriver = lerpT > 0
+        ? new Map(nextFrame.positions.map(p => [p.driverNumber, p]))
+        : null;
 
       // GUID: REPLAY_PLAYER_HOOK-015-v01
       // [Intent] Build driver states and detect frozen/broken GPS data.
@@ -424,6 +439,14 @@ export function useReplayPlayer(
           if (isBeyondFormation && (pos.speed === 0 || pos.speed == null) && (pos.currentLap === 0 || pos.currentLap == null)) {
             state.retired = true;
           }
+          // Smooth motion: lerp x/y toward this driver's position in the next frame.
+          if (nextPosByDriver && typeof pos.x === 'number' && typeof pos.y === 'number') {
+            const np = nextPosByDriver.get(pos.driverNumber);
+            if (np && typeof np.x === 'number' && typeof np.y === 'number') {
+              (state as any).x = pos.x + (np.x - pos.x) * lerpT;
+              (state as any).y = pos.y + (np.y - pos.y) * lerpT;
+            }
+          }
           return state;
         })
         .filter((d): d is ReplayDriverState => d !== null);
@@ -432,9 +455,13 @@ export function useReplayPlayer(
       setElapsedMs(virtualMs);
       setProgress(Math.min(1, virtualMs / data.durationMs));
 
-      // GUID: REPLAY_PLAYER_HOOK-007-v01
-      if (frame.radioMessages && frame.radioMessages.length > 0) {
-        setReplayRadioMessages(prev => [...frame.radioMessages!, ...prev]);
+      // GUID: REPLAY_PLAYER_HOOK-007-v02
+      // Radio messages still push only on frame ADVANCE (positions now update every tick).
+      if (frameIndex !== lastFrameIndexRef.current) {
+        lastFrameIndexRef.current = frameIndex;
+        if (frame.radioMessages && frame.radioMessages.length > 0) {
+          setReplayRadioMessages(prev => [...frame.radioMessages!, ...prev]);
+        }
       }
 
       // GUID: REPLAY_PLAYER_HOOK-016-v02

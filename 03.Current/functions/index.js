@@ -816,7 +816,11 @@ exports.runRecoveryTest = onSchedule(
     schedule: "0 4 * * 0",
     timeZone: "UTC",
     region: REGION,
-    timeoutSeconds: 900, // 15 minutes — the import LRO alone took ~5 min on the 660MB 2026-07-26 backup
+    // firebase-functions 7.3.0 enforces a HARD 540s cap on scheduled (event-handling) functions
+    // — 900s fails deploy analysis. The full run (import+verify+cleanup) measured 544s, so
+    // cleanup is split into its own scheduled function (cleanupRecoveryProject, 05:00 Sun);
+    // import+verify alone measured ~370-400s and fits 540 with margin.
+    timeoutSeconds: 540,
     // @FIX (v3.1.5): Bumped from 512MiB to 1024MiB after the 2026-03-22 OOMs.
     // @FIX (v3.12.2, BUG-SMOKE-001): Bumped again to 2GiB. The 2026-07-26 04:08 run died at
     //   ~800MB heap ("FATAL: JavaScript heap out of memory", signal 6) INSIDE the 1GiB limit —
@@ -1028,13 +1032,11 @@ exports.runRecoveryTest = onSchedule(
         })
       );
 
-      // GUID: BACKUP_FUNCTIONS-024-v04
-      // [Intent] Delete all data in the recovery project to avoid accumulating stale copies.
-      //          Runs LAST (after the status/history writes) — cleanup failures are logged but
-      //          must never cost us the recorded verification result.
-      // [Inbound Trigger] Smoke test verification passed and status recorded.
-      // [Downstream Impact] Recovery project Firestore is emptied via refs-only recursiveDelete.
-      await deleteAllCollections(recoveryDb);
+      // GUID: BACKUP_FUNCTIONS-024-v05
+      // [Intent] Cleanup moved OUT of this scheduled function (fb-functions 7.3.0 caps scheduled
+      //          timeouts at 540s and the combined run measured 544s). cleanupRecoveryProject
+      //          (05:00 Sun) empties the recovery project; the next import overwrites same-id
+      //          docs anyway, so a missed cleanup is storage cost, not correctness.
     } catch (err) {
       // GUID: BACKUP_FUNCTIONS-026-v03
       // [Intent] Record smoke test failure in backup_status/latest so the
@@ -1105,6 +1107,59 @@ exports.runRecoveryTest = onSchedule(
  *                     recovery project, verifies, cleans up, writes result
  *                     to backup_status/latest.
  */
+// GUID: BACKUP_FUNCTIONS-033-v01
+/**
+ * cleanupRecoveryProject — Sundays 05:00 UTC (one hour after runRecoveryTest).
+ *
+ * [Intent] Empty the recovery project after the weekly smoke test. Split from runRecoveryTest
+ *          because firebase-functions 7.3.0 caps scheduled timeouts at 540s and the combined
+ *          import+verify+cleanup run measured 544s (BUG-SMOKE-001 follow-up, 2026-07-26).
+ * [Inbound Trigger] Cloud Scheduler cron 0 5 * * 0.
+ * [Downstream Impact] Recovery project emptied via refs-only recursiveDelete. Writes
+ *          lastRecoveryCleanup* status fields (GR#17) and — per the GR#17 amendment — a
+ *          registry error to error_logs on failure.
+ */
+exports.cleanupRecoveryProject = onSchedule(
+  {
+    schedule: "0 5 * * 0",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 540,
+    memory: "1GiB",
+    retryCount: 0,
+  },
+  async () => {
+    const db = getFirestore();
+    const correlationId = generateCorrelationId("rcln");
+    try {
+      const recoveryDb = new FirestoreDataClient({ projectId: RECOVERY_PROJECT });
+      await deleteAllCollections(recoveryDb);
+      await writeStatus(db, {
+        lastRecoveryCleanupTimestamp: Timestamp.now(),
+        lastRecoveryCleanupStatus: "SUCCESS",
+        lastRecoveryCleanupError: null,
+        recoveryCleanupCorrelationId: correlationId,
+      });
+      console.log(JSON.stringify({ severity: "INFO", message: "RECOVERY_CLEANUP_COMPLETE", correlationId }));
+    } catch (err) {
+      console.error(JSON.stringify({ severity: "ERROR", message: "RECOVERY_CLEANUP_FAILED", correlationId, error: err.message || String(err) }));
+      await writeStatus(db, {
+        lastRecoveryCleanupTimestamp: Timestamp.now(),
+        lastRecoveryCleanupStatus: "FAILED",
+        lastRecoveryCleanupError: err.message || String(err),
+        recoveryCleanupCorrelationId: correlationId,
+      });
+      await writeErrorLog(db, {
+        code: ERROR_CODES.BACKUP_CLEANUP_FAILED.code,
+        message: `Recovery-project cleanup FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/cleanupRecoveryProject", trigger: "scheduled" },
+      });
+      throw err;
+    }
+  }
+);
+
 exports.manualSmokeTest = onCall(
   {
     region: REGION,
