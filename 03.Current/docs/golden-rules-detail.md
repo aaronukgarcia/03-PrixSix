@@ -862,6 +862,14 @@ For any scheduled Cloud Function whose status is shown in the admin dashboard:
 2. `/health-check` CHECK 11 must include that field with an expected max age (schedule + grace)
 3. The admin dashboard must display the timestamp prominently AND show a "stale" indicator if it's beyond expected
 4. If the function fails (OOM or otherwise), the failure path should ALSO write a heartbeat (e.g. via structured log) so monitoring can distinguish "ran and failed" from "didn't run"
+5. **AMENDMENT (Aaron, 2026-07-26 — BUG-SMOKE-001):** every health/monitoring FAILURE must ALSO
+   write a registry-coded entry to `error_logs` (the admin's single pane of glass). A status doc
+   or dashboard badge alone does not count — the smoke test was broken for 4 months because its
+   failures only touched `backup_status`. Functions-side helper: `writeErrorLog` in
+   `functions/index.js` (BACKUP_FUNCTIONS-032), shape-compatible with the app's `logError`.
+   Additionally, order matters: write the result status BEFORE any non-essential cleanup, so a
+   cleanup crash can never erase the record; and never page-delete Firestore with
+   `limit(N).get()` on fat collections — use refs-only `recursiveDelete`.
 
 ### Required pattern
 

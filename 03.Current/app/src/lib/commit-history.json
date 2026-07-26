@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-26",
   "commits": [
     {
+      "id": "63560ee",
+      "date": "2026-07-26",
+      "version": "3.12.2",
+      "author": "aaron garcia",
+      "message": "fix: BUG-SMOKE-001 restore smoke test OOM (refs-only cleanup, status-before-cleanup, 2GiB) + Graph probe trim + anchor email gitignore (v3.12.2)",
+      "major": false
+    },
+    {
       "id": "79416d7",
       "date": "2026-07-26",
       "version": "3.12.1",

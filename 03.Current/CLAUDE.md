@@ -72,7 +72,7 @@ These rules MUST be followed on every piece of code written and every response g
 | #14 | Memory Recall at Task Start — query Vestige before composing commits, replying to bug reports, or starting a new task type — not just at session start |
 | #15 | Validators Derive From Data — expected counts/values must come from data files (with comments) or runtime queries, never hardcoded constants that ossify |
 | #16 | Type-Safe Storage Boundaries — never trust TS types about Firestore data; coerce via `safeX()` helpers because `new Date(badInput)` returns Invalid Date instead of throwing |
-| #17 | Silent Failure Detection — every Cloud Function with a user-visible status field MUST have automated freshness monitoring; OOM/crash can hide for weeks otherwise |
+| #17 | Silent Failure Detection — every Cloud Function with a user-visible status field MUST have automated freshness monitoring; OOM/crash can hide for weeks otherwise. AMENDMENT (2026-07-26): every health/monitoring FAILURE must ALSO write a registry error to `error_logs` — status docs alone are invisible; error_logs is where we look |
 | #18 | Migration Dead-Code Audit — when eliminating a collection/field/feature, audit for orphaned readers/validators in the SAME commit, not later |
 | #19 | Cloud Functions Deploy Bundling — every commit changing `functions/` MUST end with `firebase deploy --only functions:...` bundling ALL pending function changes from prior commits |
 

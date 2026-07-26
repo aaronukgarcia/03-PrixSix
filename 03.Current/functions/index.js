@@ -143,6 +143,37 @@ async function writeStatus(db, fields) {
     .set({ ...fields, updatedAt: Timestamp.now() }, { merge: true });
 }
 
+// GUID: BACKUP_FUNCTIONS-032-v01
+/**
+ * writeErrorLog — Aaron's rule (2026-07-26): every health/monitoring FAILURE must land in the
+ * error_logs collection, because that is the single place the admin looks for errors. Dashboard
+ * status docs alone are not enough — the 4-month silent smoke-test outage (BUG-SMOKE-001) was
+ * invisible precisely because failures only wrote their own status doc.
+ *
+ * [Intent] Write a registry-shaped error_logs entry (same field shape as the app's logError in
+ *          lib/firebase-admin.ts: correlationId, error, stack, context, timestamp, createdAt)
+ *          with the PX code embedded in the error text (Golden Rule #7; the functions codebase
+ *          cannot import the TS registry, so codes are referenced by literal — keep in sync
+ *          with app/src/lib/error-codes.ts BACKUP_* block, PX-7001..7007).
+ * [Inbound Trigger] Catch paths of backup-family functions.
+ * [Downstream Impact] Failures surface on the admin errors panel and in /triage-errors.
+ *                     Never throws — a logging failure must not mask the original error.
+ */
+async function writeErrorLog(db, { code, message, correlationId, context }) {
+  try {
+    await db.collection("error_logs").add({
+      correlationId,
+      error: `[${code}] ${message}`,
+      stack: null,
+      context: context || {},
+      timestamp: Timestamp.now(),
+      createdAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("writeErrorLog failed (non-fatal):", e.message);
+  }
+}
+
 // ── performBackup (shared logic) ───────────────────────────────
 // GUID: BACKUP_FUNCTIONS-009-v04
 /**
@@ -380,6 +411,15 @@ async function performBackup(db, { trigger = "scheduled" } = {}) {
       lastBackupPath: null,
       lastBackupError: `${ERROR_CODES.BACKUP_EXPORT_FAILED.code} | ${err.message || String(err)} | ID: ${correlationId}`,
       backupCorrelationId: correlationId,
+    });
+
+    // Aaron's rule (2026-07-26): health failures ALWAYS land in error_logs — the admin's
+    // single pane of glass — never only in the feature's own status doc.
+    await writeErrorLog(db, {
+      code: ERROR_CODES.BACKUP_EXPORT_FAILED.code,
+      message: `Backup FAILED (${trigger}): ${err.message || String(err)}`,
+      correlationId,
+      context: { source: "functions/performBackup", trigger },
     });
 
     // GUID: BACKUP_FUNCTIONS-051-v03
@@ -1018,6 +1058,15 @@ exports.runRecoveryTest = onSchedule(
         smokeTestCorrelationId: correlationId,
       });
 
+      // Aaron's rule (2026-07-26): health failures ALWAYS land in error_logs (BUG-SMOKE-001
+      // was invisible for 4 months because failures only touched backup_status).
+      await writeErrorLog(db, {
+        code: "PX-7004",
+        message: `Backup smoke test FAILED (scheduled): ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/runRecoveryTest", trigger: "scheduled" },
+      });
+
       // GUID: BACKUP_FUNCTIONS-061-v03
       // [Intent] Write smoke test failure history entry for audit trail.
       // [Inbound Trigger] Smoke test failed (error caught above).
@@ -1188,6 +1237,14 @@ exports.manualSmokeTest = onCall(
         lastSmokeTestStatus: "FAILED",
         lastSmokeTestError: err.message || String(err),
         smokeTestCorrelationId: correlationId,
+      });
+
+      // Aaron's rule (2026-07-26): health failures ALWAYS land in error_logs.
+      await writeErrorLog(db, {
+        code: "PX-7004",
+        message: `Backup smoke test FAILED (manual): ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/manualSmokeTest", trigger: "manual" },
       });
 
       await db.collection(HISTORY_COLLECTION).doc(correlationId).set({

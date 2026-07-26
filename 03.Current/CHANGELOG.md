@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.12.3 — 2026-07-26
+
+### GR#17 amendment: health failures always write to error_logs
+
+Aaron's rule: `error_logs` is the single pane of glass — a failed health check that only writes its own status doc is invisible (exactly how BUG-SMOKE-001 hid for four months). New `writeErrorLog` helper in `functions/index.js` writes registry-shaped `error_logs` entries (`[PX-70xx]` + correlationId, same field shape as the app's `logError`), wired into the catch paths of `performBackup` (daily + manual), `runRecoveryTest`, and `manualSmokeTest`. Golden Rule #17 amended in CLAUDE.md + `docs/golden-rules-detail.md`; `/health-check` CHECK 11 now cross-checks every FAILED/stale status against `error_logs` and flags non-compliant functions (plus a weekly cadence note). HEALTH-ERRORS-001 (BOW, wave 2, high) tracks sweeping the remaining functions and probe endpoints.
+
 ## v3.12.2 — 2026-07-26
 
 ### BUG-SMOKE-001: backup restore smoke test silently OOM-killed + Graph probe false alarm
