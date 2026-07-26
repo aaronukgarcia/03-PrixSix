@@ -1,4 +1,4 @@
-// GUID: API_SEND_RESULTS_EMAIL-000-v05
+// GUID: API_SEND_RESULTS_EMAIL-000-v06
 // @SECURITY_FIX: Added HTML escaping for all user-controlled data to prevent XSS (EMAIL-005).
 // [Intent] API route that sends race results emails to all users who have opted in (or not opted out) of results notifications. Each email is personalised with the user's prediction, score, and current standings.
 // [Inbound Trigger] POST request from the admin scoring/results flow after a race has been scored.
@@ -15,8 +15,14 @@ import {
   computeRaceScores,
   aggregateStandings,
   buildTeamNamesMap,
+  readStandingsAdjustments,
   type CumulativeStanding,
 } from '@/lib/cumulative-standings';
+import {
+  buildChartImageContext,
+  renderMyPositionChartPng,
+  type ChartImageContext,
+} from '@/lib/standings-chart-image';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -124,12 +130,14 @@ async function recordSentEmailAdmin(
   }
 }
 
-// GUID: API_SEND_RESULTS_EMAIL-005-v03
+// GUID: API_SEND_RESULTS_EMAIL-005-v04
 // [Intent] Thin wrapper over the SSOT lib for cumulative standings. Delegates to
 //          @/lib/cumulative-standings so the email shows the same numbers the user
-//          sees on the /standings page. Caller wraps in try/catch so a compute
-//          failure degrades gracefully (email still ships without the standings table)
-//          rather than blocking the whole results email.
+//          sees on the /standings page. v4 BUGFIX: now includes standings_adjustments —
+//          previously the email's Season Standings table omitted late-joiner baselines
+//          (after the 2026-07-26 active-floor re-baseline that would have shown
+//          Fangio-F1 on 17 points instead of 168). Caller wraps in try/catch so a
+//          compute failure degrades gracefully (email still ships without the table).
 // [Inbound Trigger] Called once per POST request after team names are loaded.
 // [Downstream Impact] Returns [{rank, userId, teamName, totalPoints}] sorted by total
 //                     points desc with tie ranks. Throws TracedError on Firestore failure.
@@ -137,8 +145,11 @@ async function computeCumulativeStandings(
   db: Awaited<ReturnType<typeof getFirebaseAdmin>>['db'],
   teamNameByUid: Map<string, string>,
 ): Promise<CumulativeStanding[]> {
-  const { scores } = await computeRaceScores(db);
-  return aggregateStandings(scores, teamNameByUid);
+  const [{ scores }, adjustments] = await Promise.all([
+    computeRaceScores(db),
+    readStandingsAdjustments(db),
+  ]);
+  return aggregateStandings([...scores, ...adjustments], teamNameByUid);
 }
 
 // GUID: API_SEND_RESULTS_EMAIL-002-v03
@@ -225,6 +236,25 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    // GUID: API_SEND_RESULTS_EMAIL-006-v01
+    // [Intent] "Your position — last 3 rounds" chart context, built ONCE per batch (Aaron-approved
+    //          2026-07-26). Per-recipient PNGs are rendered from this and attached inline (cid).
+    //          Golden Rule #1: a context/render failure degrades gracefully — the email ships
+    //          without the image, and the failure is logged once per batch, never per recipient.
+    // [Inbound Trigger] Runs after standings compute, before the recipient loop.
+    // [Downstream Impact] chartCtx feeds renderMyPositionChartPng per user below.
+    let chartCtx: ChartImageContext | null = null;
+    try {
+      chartCtx = await buildChartImageContext(db);
+    } catch (err: any) {
+      const chartCorrelationId = generateCorrelationId();
+      logError({
+        correlationId: chartCorrelationId,
+        error: new Error(`Results-email chart context failed — emails will ship without the position chart: ${err?.message}`),
+        context: { route: '/api/send-results-email', action: 'buildChartImageContext' },
+      });
+    }
+
     const results: { email: string; success: boolean; error?: string }[] = [];
     // Count recipients skipped specifically because the GLOBAL daily cap was exhausted.
     // These are silent failures (the admin never learns their league didn't get the email)
@@ -246,6 +276,25 @@ export async function POST(request: NextRequest) {
       const userScore = scores.find(s => s.teamName === userTeamName);
       const userRank = standings.find(s => s.teamName === userTeamName);
 
+      // Per-user position chart (inline PNG). Render failure for one user never blocks their email.
+      let chartAttachment: { name: string; contentType: string; contentBytes: string; isInline: boolean; contentId: string } | undefined;
+      if (chartCtx) {
+        try {
+          const png = renderMyPositionChartPng(chartCtx, userDoc.id);
+          if (png) {
+            chartAttachment = {
+              name: 'my-position.png',
+              contentType: 'image/png',
+              contentBytes: png.toString('base64'),
+              isInline: true,
+              contentId: 'mypositionchart',
+            };
+          }
+        } catch {
+          // Degrade silently for this user — the batch-level context error path above covers logging.
+        }
+      }
+
       // Build the email HTML
       const emailHtml = buildResultsEmailHtml({
         teamName: userTeamName,
@@ -257,6 +306,7 @@ export async function POST(request: NextRequest) {
         standings,
         userRank: userRank?.rank,
         standingsError,
+        includePositionChart: !!chartAttachment,
       });
 
       // Send to each recipient
@@ -274,6 +324,7 @@ export async function POST(request: NextRequest) {
             toEmail: recipientEmail,
             subject: `Prix Six: ${raceName} Results - You scored ${userScore?.points ?? 0} points!`,
             htmlContent: emailHtml,
+            attachments: chartAttachment ? [chartAttachment] : undefined,
           });
 
           if (emailResult.success) {
@@ -378,8 +429,10 @@ function buildResultsEmailHtml(data: {
   standings: { rank: number; teamName: string; totalPoints: number }[];
   userRank?: number;
   standingsError?: { correlationId?: string; code?: string } | null;
+  /** When true, the inline "Your position — last 3 rounds" chart (cid:mypositionchart) is embedded. */
+  includePositionChart?: boolean;
 }): string {
-  const { teamName, raceName, officialResult, userPrediction, userPoints, allScores, standings, userRank, standingsError } = data;
+  const { teamName, raceName, officialResult, userPrediction, userPoints, allScores, standings, userRank, standingsError, includePositionChart } = data;
 
   // SECURITY: Escape all user-controlled content to prevent XSS (EMAIL-005 fix)
   const officialResultHtml = officialResult
@@ -445,6 +498,12 @@ function buildResultsEmailHtml(data: {
         ${scoresHtml}
       </tbody>
     </table>
+
+    ${includePositionChart ? `
+    <h3 style="color:#1a1a2e;border-bottom:2px solid #e63946;padding-bottom:5px;">Your Position — Last 3 Rounds</h3>
+    <a href="https://prix6.win/standings" style="display:block;margin-bottom:20px;">
+      <img src="cid:mypositionchart" alt="Your position over the last 3 rounds — view the interactive chart at prix6.win/standings" style="width:100%;max-width:560px;height:auto;border-radius:8px;display:block;" />
+    </a>` : ''}
 
     <h3 style="color:#1a1a2e;border-bottom:2px solid #e63946;padding-bottom:5px;">Season Standings</h3>
     ${standingsError

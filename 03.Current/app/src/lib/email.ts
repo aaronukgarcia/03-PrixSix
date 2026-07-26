@@ -409,24 +409,40 @@ export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: We
   }
 }
 
-// GUID: LIB_EMAIL-008-v03
-// [Intent] Type definition for generic email parameters (recipient, subject, HTML content) used by the general-purpose sendEmail function.
+// GUID: LIB_EMAIL-008-v04
+// [Intent] Type definitions for generic email parameters used by the general-purpose sendEmail
+//          function. v4: optional attachments (Graph fileAttachment shape) — used for the inline
+//          "Your position" chart PNG in results emails (cid-referenced via isInline+contentId).
 // [Inbound Trigger] Used as the parameter type of sendEmail.
 // [Downstream Impact] Changes here require updates to all callers of sendEmail.
+export interface EmailAttachment {
+  /** File name shown by mail clients (e.g. "my-position.png"). */
+  name: string;
+  /** MIME type (e.g. "image/png"). */
+  contentType: string;
+  /** Base64-encoded file content. */
+  contentBytes: string;
+  /** True for images referenced from the HTML via cid: — hides them from the attachment list. */
+  isInline?: boolean;
+  /** The cid referenced in the HTML (e.g. <img src="cid:mypositionchart">). */
+  contentId?: string;
+}
+
 interface GenericEmailParams {
   toEmail: string;
   subject: string;
   htmlContent: string;
+  attachments?: EmailAttachment[];
 }
 
-// GUID: LIB_EMAIL-009-v05
+// GUID: LIB_EMAIL-009-v06
 // @SECURITY_FIX: Error messages now sanitized to prevent credential exposure (EMAIL-003).
 // @SECURITY_FIX: Hardcoded admin email replaced with requireSenderEmail() (GEMINI-AUDIT-055).
 // @SECURITY_FIX: console.error calls gated behind NODE_ENV !== 'production' (GEMINI-AUDIT-056).
 // [Intent] Send a generic email with arbitrary HTML content via Microsoft Graph API. Appends a standard footer with tracking GUID and Prix Six branding. Logs success/failure to email_logs collection for admin audit.
 // [Inbound Trigger] Called by API routes or server actions that need to send non-welcome transactional emails (e.g., daily summaries, notifications).
 // [Downstream Impact] On success, the recipient receives the email. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004) and getAdminDb (LIB_EMAIL-001). Does not use rate limiting (unlike sendWelcomeEmail).
-export async function sendEmail({ toEmail, subject, htmlContent }: GenericEmailParams): Promise<SendEmailResult> {
+export async function sendEmail({ toEmail, subject, htmlContent, attachments }: GenericEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
   const senderEmail = requireSenderEmail();
 
@@ -446,7 +462,7 @@ ${htmlContent}
   try {
     const client = getGraphClient();
 
-    const message = {
+    const message: Record<string, unknown> = {
       subject,
       body: {
         contentType: "HTML",
@@ -460,6 +476,16 @@ ${htmlContent}
         }
       ]
     };
+    if (attachments && attachments.length > 0) {
+      message.attachments = attachments.map((a) => ({
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        name: a.name,
+        contentType: a.contentType,
+        contentBytes: a.contentBytes,
+        isInline: a.isInline ?? false,
+        ...(a.contentId ? { contentId: a.contentId } : {}),
+      }));
+    }
 
     await client.api(`/users/${senderEmail}/sendMail`).post({ message });
 

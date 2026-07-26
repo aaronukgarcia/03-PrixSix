@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-26",
   "commits": [
     {
+      "id": "b4cdf96",
+      "date": "2026-07-26",
+      "version": "3.10.1",
+      "author": "aaron garcia",
+      "message": "feat: circuit locations under standings chart x-axis ticks (v3.10.1)",
+      "major": true
+    },
+    {
       "id": "5439954",
       "date": "2026-07-26",
       "version": "3.10.0",

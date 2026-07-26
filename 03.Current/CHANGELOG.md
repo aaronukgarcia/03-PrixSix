@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.11.0 — 2026-07-26
+
+### Per-team position chart in results emails + standings-table adjustment fix
+
+**Position chart (Aaron-approved mockup).** Every post-race results email now embeds a personalised "Your position — last 3 rounds" chart: the recipient's team ±5 by rank as a dark F1-style bump chart (highlighted line, colour-chip label rail, same visual language and team colours as the /standings chart). New `lib/standings-chart-image.ts` builds league snapshots once per batch and renders one PNG per recipient (~60ms each) via new dependency `@resvg/resvg-js`; text uses bundled `public/fonts/Roboto-Regular.ttf` (OFL) because Cloud Run containers ship no fonts. Attached inline via Graph fileAttachment (cid) — `sendEmail` gains optional attachments. Chart failures degrade gracefully: the email ships without the image and the failure is logged once per batch.
+
+**BUGFIX:** the results email's Season Standings table was computed WITHOUT `standings_adjustments`, so late-joiner baselines were missing — after the active-floor re-baseline it would have shown Fangio-F1 on 17 points instead of 168. Now includes adjustments, matching the /standings page.
+
 ## v3.10.1 — 2026-07-26
 
 ### Standings chart: circuit locations under x-axis ticks

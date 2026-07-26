@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   // Next.js 16: Turbopack is default. Empty turbopack config signals intentional use.
   // The opentelemetry/instrumentation webpack workaround is not needed under Turbopack.
   turbopack: {},
+  // @resvg/resvg-js is a native (.node) addon — Turbopack cannot bundle it into ESM chunks.
+  // Loading it as a server external keeps the require() at runtime (results-email chart PNGs).
+  serverExternalPackages: ['@resvg/resvg-js'],
   // @SECURITY_FIX (cyber.md M-3): the app previously sent NO security headers (no CSP/HSTS/
   // X-Frame-Options/X-Content-Type-Options, and no middleware). Add a baseline set applied to every
   // route. HSTS pins HTTPS; frame-ancestors/X-Frame-Options block clickjacking; nosniff blocks MIME

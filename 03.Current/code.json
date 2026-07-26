@@ -108129,6 +108129,46 @@
    "lastUpdated": "2026-07-25T18:50:00Z"
   },
   {
+   "guid": "LIB_STANDINGS_CHART_IMAGE-000",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "Server-side 'Your position - last 3 rounds' chart image for results emails (Aaron-approved 2026-07-26). Two-phase: buildChartImageContext(db) loads scores/adjustments and snapshots cumulative standings after each of the last 4 completed GP weekends; renderMyPositionChartPng(ctx, userId) draws the team +/-5 window as an SVG bump chart and rasterises via @resvg/resvg-js with bundled public/fonts/Roboto-Regular.ttf (Cloud Run has no system fonts). Mirrors the /standings chart visual language incl. the PAGE_STANDINGS-018 colour hash.",
+   "dependencies": [
+    "PAGE_STANDINGS-018"
+   ],
+   "location": {
+    "filePath": "app/src/lib/standings-chart-image.ts"
+   },
+   "callChain": {
+    "calledBy": [
+     "API_SEND_RESULTS_EMAIL-006"
+    ],
+    "calls": []
+   },
+   "created": "2026-07-26T14:20:00Z",
+   "lastUpdated": "2026-07-26T14:20:00Z"
+  },
+  {
+   "guid": "API_SEND_RESULTS_EMAIL-006",
+   "version": 1,
+   "logic_category": "ORCHESTRATION",
+   "description": "Per-batch chart context + per-recipient inline PNG attachment (cid:mypositionchart) in the results email. Graceful degrade per Golden Rule #1: context failure logs once per batch and emails ship without the image; per-user render failure skips silently for that user only. Also v4 of -005 fixed the Season Standings table to include standings_adjustments.",
+   "dependencies": [
+    "LIB_STANDINGS_CHART_IMAGE-000"
+   ],
+   "location": {
+    "filePath": "app/src/app/api/send-results-email/route.ts"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": [
+     "LIB_STANDINGS_CHART_IMAGE-000"
+    ]
+   },
+   "created": "2026-07-26T14:20:00Z",
+   "lastUpdated": "2026-07-26T14:20:00Z"
+  },
+  {
    "guid": "PAGE_STANDINGS-031",
    "version": 1,
    "logic_category": "TRANSFORMATION",
