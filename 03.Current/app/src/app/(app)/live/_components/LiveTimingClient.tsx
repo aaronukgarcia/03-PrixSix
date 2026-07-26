@@ -299,10 +299,17 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
 
   // FP1 has started but stored Firestore data is from the previous race — OpenF1 lag.
   // Show a "waiting for session data" panel rather than the stale leaderboard.
+  // @BUGFIX (PUBCHAT-02, 2026-07-26): fp1Date is an ESTIMATE (quali − 24h, − 4h sprint). Real
+  // FP1 starts up to ~3h EARLIER than that estimate, so a genuinely-live FP1 session had
+  // dateStart < fp1Date and the old strict comparison hid the live leaderboard mid-session
+  // ("FP1 underway — waiting for timing data" while FP1 laps were on screen-worthy). Stored
+  // data now counts as current when its session started within 6h before the estimate.
   const isWaitingForNewSession = useMemo(() => {
     if (!fp1Label || !timingData?.session?.dateStart) return false;
+    const FP1_ESTIMATE_BUFFER_MS = 6 * 60 * 60 * 1000;
     const fp1AlreadyStarted = fp1Label.fp1Date <= new Date();
-    const storedDataPreDatesFP1 = new Date(timingData.session.dateStart) < fp1Label.fp1Date;
+    const storedDataPreDatesFP1 =
+      new Date(timingData.session.dateStart).getTime() < fp1Label.fp1Date.getTime() - FP1_ESTIMATE_BUFFER_MS;
     return fp1AlreadyStarted && storedDataPreDatesFP1;
   }, [timingData, fp1Label]);
 

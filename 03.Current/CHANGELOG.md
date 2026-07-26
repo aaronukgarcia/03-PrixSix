@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.12.0 — 2026-07-26
+
+### BOW blitz round 1 — top 7 findings from the 2026-07-26 cold audits
+
+- **PITWALL-01** — Showreel replay drew its GPS from OpenF1 `/position`, which carries race ORDER only (no x/y) — every car dropped by the track map's null filter, i.e. the "replay showed no cars" incident's failure mode, still live in the showreel path. GPS now comes from `/location` fetched in 15-minute windows with a streaming per-driver downsample; race order is merged from `/position` via a binary-search lookup.
+- **PITWALL-02** — A session only counted as "not live" after 48h, so Saturday's finished qualifying suppressed the pre-race showreel on every race day and rendered dead standings as LIVE. Liveness is now `date_end + 30min` (plus a not-yet-started guard); the 48h check remains only as a fallback when `date_end` is missing.
+- **PUBCHAT-01** — The admin Hot News OFF toggle did nothing: the dashboard never read `hotNewsFeedEnabled` and the hourly flow force-wrote it back to `true`. The flow now early-returns when disabled (no Gemini call, flag untouched) and the dashboard hides the card.
+- **PUBCHAT-02** — `isWaitingForNewSession` compared the stored session against an FP1 *estimate* (quali−24h) that is later than real FP1, hiding the live leaderboard during Friday running. Stored data now counts as current within a 6h buffer before the estimate.
+- **PUBCHAT-03** — Hot-news generation had no failure/empty guard; an empty Gemini response produced a header-only bulletin that the 7am publisher broadcast to WhatsApp. Failures and empty text now throw before any write, preserving the previous good bulletin.
+- **NEWBIE-09** — A late joiner's first Predictions view showed cloned strangers' picks as a locked "your submission". The closed-pit-lane alert now detects `_clonedFromLateJoinerHandicap` and explains the clone + names their first real race.
+- **NEWBIE-15** — The invite form's Google/Apple buttons silently did nothing for an email that already has a PIN account (`needsLinking` unhandled). Now shows clear guidance, plus a fail-visible fallback for any unrecognised result shape.
+
 ## v3.11.0 — 2026-07-26
 
 ### Per-team position chart in results emails + standings-table adjustment fix

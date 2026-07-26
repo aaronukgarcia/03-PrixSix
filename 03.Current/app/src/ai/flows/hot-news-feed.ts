@@ -31,7 +31,7 @@ import type { Race } from '@/lib/data';
 import { generateRaceIdLowercase } from '@/lib/normalize-race-id';
 import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 
-// GUID: HOT_NEWS_FLOW-001-v01
+// GUID: HOT_NEWS_FLOW-001-v02
 // [Intent] Output schema for the hot news feed — content string + metadata.
 // [Inbound Trigger] ai.defineFlow outputSchema, getHotNewsFeed return type.
 // [Downstream Impact] HotNewsFeed.tsx destructures newsFeed, lastUpdated, refreshCount.
@@ -39,6 +39,7 @@ const HotNewsFeedOutputSchema = z.object({
     newsFeed: z.string().describe('A concise summary of the latest F1 news, including weather, track conditions, and driver updates.'),
     lastUpdated: z.string().optional().describe('ISO timestamp of when the news was last updated.'),
     refreshCount: z.number().optional().describe('How many times the feed has been refreshed.'),
+    enabled: z.boolean().optional().describe('False when the admin has disabled the feed (PUBCHAT-01) — consumers should hide it.'),
 });
 export type HotNewsFeedOutput = z.infer<typeof HotNewsFeedOutputSchema>;
 
@@ -93,7 +94,7 @@ const defaultHotNews = {
     lastUpdated: null as any,
 };
 
-// GUID: HOT_NEWS_FLOW-004-v01
+// GUID: HOT_NEWS_FLOW-004-v02
 // [Intent] Read the current hot news bulletin from Firestore for display on the dashboard.
 //          Never triggers an AI call — reads only. AI generation happens via hotNewsFeedFlow.
 // [Inbound Trigger] HotNewsFeed.tsx server component on every dashboard load.
@@ -119,7 +120,9 @@ export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
             lastUpdated = data.lastUpdated.toDate().toISOString();
         }
 
-        return { newsFeed: content, lastUpdated, refreshCount };
+        // @BUGFIX (PUBCHAT-01): expose the admin toggle so the dashboard can actually hide the feed.
+        const enabled = data?.hotNewsFeedEnabled !== false;
+        return { newsFeed: content, lastUpdated, refreshCount, enabled };
     } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
             console.error('Error fetching hot news:', error);
@@ -457,14 +460,41 @@ FORMATTING — this is sent to WhatsApp, so use WhatsApp markup ONLY:
 - NEVER use double asterisks (**), markdown headers (#), or underscores. Double asterisks render as literal "**" in WhatsApp.
 - No preamble, no closing line — just the bullets.`;
 
-        const response = await ai.generate(prompt);
-        const newsFeed = response.text;
-
-        // Compute the next messageId — read current doc first.
-        // messageId starts at 17 (so first increment produces #0018 per user requirement).
+        // @BUGFIX (PUBCHAT-01, 2026-07-26): honor the admin toggle. Previously this flow never
+        // checked hotNewsFeedEnabled and force-wrote it back to true on every run, so the admin
+        // OFF switch was silently undone within the hour. Disabled → return the existing bulletin
+        // untouched (no Gemini call, no counter bump, flag left alone).
         const { db } = await getFirebaseAdmin();
         const hotNewsRef = db.collection('app-settings').doc('hot-news');
         const currentDoc = await hotNewsRef.get();
+        if (currentDoc.exists && currentDoc.data()?.hotNewsFeedEnabled === false) {
+            const d = currentDoc.data()!;
+            return {
+                newsFeed: d.content ?? '',
+                lastUpdated: d.lastUpdated?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+                refreshCount: typeof d.refreshCount === 'number' ? d.refreshCount : 0,
+                enabled: false,
+            };
+        }
+
+        // @BUGFIX (PUBCHAT-03, 2026-07-26): generation failures and empty responses previously
+        // flowed straight into the Firestore write — an empty Gemini response (known 2.5-flash
+        // failure mode, cf. PX-3101) produced a header-only bulletin that the 7am publisher then
+        // broadcast to the league WhatsApp group. Now: throw on failure/empty so NOTHING is
+        // written (no counter bump, no publish) and the previous good bulletin survives.
+        let newsFeed: string;
+        try {
+            const response = await ai.generate(prompt);
+            newsFeed = (response.text ?? '').trim();
+        } catch (err: any) {
+            throw new Error(`Hot-news generation failed — keeping previous bulletin: ${err?.message ?? err}`);
+        }
+        if (!newsFeed) {
+            throw new Error('Hot-news generation returned EMPTY text — keeping previous bulletin (no write, no publish)');
+        }
+
+        // Compute the next messageId from the already-read doc.
+        // messageId starts at 17 (so first increment produces #0018 per user requirement).
         const currentMessageId = currentDoc.data()?.messageId;
         const nextMessageId = Math.max(
             (typeof currentMessageId === 'number' ? currentMessageId : 17) + 1,
@@ -480,7 +510,7 @@ FORMATTING — this is sent to WhatsApp, so use WhatsApp markup ONLY:
                 content: newsFeedWithId,
                 lastUpdated: Timestamp.now(),
                 refreshCount: FieldValue.increment(1),
-                hotNewsFeedEnabled: true,
+                // PUBCHAT-01: hotNewsFeedEnabled is ADMIN-owned — never overwritten here.
                 messageId: nextMessageId,
             },
             { merge: true }

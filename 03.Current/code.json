@@ -88817,7 +88817,7 @@
   },
   {
    "guid": "PAGE_PREDICTIONS-015",
-   "version": 1,
+   "version": 2,
    "logic_category": "PRESENTATION",
    "description": "VIRGIN-007: 'Qualifying has started' tooltip in the Pit Lane Closed alert. Renders an inline Info icon via Radix UI Tooltip next to 'Qualifying' to explain to new users that qualifying is the time-trial session determining grid positions.",
    "dependencies": [
@@ -103614,7 +103614,7 @@
   },
   {
    "guid": "HOT_NEWS_FLOW-001",
-   "version": 1,
+   "version": 2,
    "logic_category": "VALIDATION",
    "description": "Zod output schema for hot news feed — newsFeed string, optional lastUpdated ISO timestamp, optional refreshCount.",
    "dependencies": [],
@@ -103671,7 +103671,7 @@
   },
   {
    "guid": "HOT_NEWS_FLOW-004",
-   "version": 1,
+   "version": 2,
    "logic_category": "DATA_ACCESS",
    "description": "getHotNewsFeed() — reads app-settings/hot-news from Firestore via Admin SDK; returns content, lastUpdated, and refreshCount for the dashboard component.",
    "dependencies": [],
@@ -104450,7 +104450,7 @@
   },
   {
    "guid": "DASHBOARD_HOT_NEWS_FEED-000",
-   "version": 1,
+   "version": 2,
    "logic_category": "UI",
    "description": "Server component fetching AI-generated Hot News Feed content and rendering it as a card with timestamp and refresh counter; also exports HotNewsFeedSkeleton for Suspense boundaries.",
    "dependencies": [],
@@ -109774,7 +109774,7 @@
   },
   {
    "guid": "COMPONENT_LIVE_TIMING_CLIENT-005",
-   "version": 1,
+   "version": 2,
    "logic_category": "ORCHESTRATION",
    "description": "Detect between-race-weekends state — stored timing data from completed session (>6h since start) AND next race qualifying still in future. When true, show next-race countdown panel instead of stale lap data.",
    "dependencies": [],
@@ -113238,7 +113238,7 @@
   },
   {
    "guid": "API_PIT_WALL_HISTORICAL_REPLAY-000",
-   "version": 1,
+   "version": 2,
    "logic_category": "DATA_ACCESS",
    "description": "File-level header for historical-replay API — fetches and downsamples position telemetry for showreel playback.",
    "location": {
@@ -113277,7 +113277,7 @@
   },
   {
    "guid": "API_PIT_WALL_HISTORICAL_REPLAY-002",
-   "version": 1,
+   "version": 2,
    "logic_category": "TRANSFORMATION",
    "description": "downsamplePositions — reduces OpenF1 position data from ~360k records to ~2.4k (1 sample per 5s per driver).",
    "location": {
@@ -113296,7 +113296,7 @@
   },
   {
    "guid": "API_PIT_WALL_HISTORICAL_REPLAY-003",
-   "version": 1,
+   "version": 2,
    "logic_category": "TRANSFORMATION",
    "description": "buildReplayFrames — groups downsampled positions into ReplayFrame objects with virtualTimeMs offsets from session start.",
    "location": {
@@ -119209,7 +119209,7 @@
   },
   {
    "guid": "API_PIT_WALL_HISTORICAL_REPLAY-008",
-   "version": 1,
+   "version": 2,
    "logic_category": "ROUTE",
    "description": "Showreel (downsampled) path — kept for backward compat with useHistoricalReplay. Fetches drivers + positions + session from OpenF1, downsamples to 5s intervals, returns JSON (not NDJSON). Used when mode=showreel query param is set.",
    "dependencies": [],
@@ -121581,7 +121581,7 @@
   },
   {
    "guid": "COMPONENT_INVITE_SIGNUP-005",
-   "version": 1,
+   "version": 2,
    "logic_category": "SECURITY",
    "description": "handleOAuth — stashes invite token in sessionStorage then runs shared provider OAuth; new users auto-route to /complete-profile.",
    "dependencies": [],

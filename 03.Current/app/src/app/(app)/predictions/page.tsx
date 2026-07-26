@@ -182,6 +182,12 @@ function PredictionsContent() {
 
   const { data: predictionData, isLoading: isPredictionLoading } = useDoc(predictionRef);
 
+  // @BUGFIX (NEWBIE-09, 2026-07-26): a late joiner's prediction doc for an already-locked race
+  // is a CLONE written by the handicap engine — not picks they chose. Without this flag the
+  // closed-pit-lane alert told a brand-new player "you can view your submission below" over a
+  // locked grid full of another team's drivers.
+  const isClonedSubmission = Boolean((predictionData as any)?._clonedFromLateJoinerHandicap);
+
   // GUID: PAGE_PREDICTIONS-007-v03
   // [Intent] Query to fetch recent predictions for the selected team, used for carry-over logic
   //          when no prediction exists for the current race.
@@ -352,9 +358,17 @@ function PredictionsContent() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Pit Lane Closed!</AlertTitle>
-          {/* GUID: PAGE_PREDICTIONS-015-v01 — @UX(VIRGIN-007): Qualifying tooltip in closed alert */}
+          {/* GUID: PAGE_PREDICTIONS-015-v02 — @UX(VIRGIN-007): Qualifying tooltip in closed alert */}
           <AlertDescription>
-            {closureReason === 'results'
+            {isClonedSubmission
+              ? <>
+                  You joined mid-season, so the picks below were <strong>cloned for you</strong>
+                  {user?.lateJoinerInfo?.clonedFromTeamName ? <> from <strong>{user.lateJoinerInfo.clonedFromTeamName}</strong></> : null}
+                  {" "}as your starting baseline — you didn&apos;t choose them. Your first race on your own
+                  picks is the <strong>{user?.lateJoinerInfo?.nextRaceName ?? 'next race'}</strong>; predictions
+                  for it open here once this race weekend wraps up.
+                </>
+              : closureReason === 'results'
               ? 'Race results have been entered. Predictions are now locked. You can view your submission below.'
               : closureReason === 'admin'
               ? 'The race administrator has closed the pit lane. Predictions are locked until further notice — the pit lane reopens after the race. You can view your submission below.'

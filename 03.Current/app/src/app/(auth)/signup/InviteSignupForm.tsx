@@ -112,7 +112,7 @@ export function InviteSignupForm({ inviteToken, invitedEmail, inviterTeamName }:
     }
   }
 
-  // GUID: COMPONENT_INVITE_SIGNUP-005-v01
+  // GUID: COMPONENT_INVITE_SIGNUP-005-v02
   // [Intent] OAuth join paths — stash the invite token for /complete-profile, then run the
   //          shared provider sign-in. New users are auto-routed to /complete-profile by the
   //          auth provider's onAuthStateChanged handler.
@@ -127,8 +127,19 @@ export function InviteSignupForm({ inviteToken, invitedEmail, inviterTeamName }:
       const result = await providerFn();
       if (result.success) {
         router.push("/dashboard");
+      } else if ((result as any).needsLinking) {
+        // @BUGFIX (NEWBIE-15, 2026-07-26): an invited person whose email already has a PIN
+        // account previously got NO feedback here (only success/message were handled) — the
+        // button spun and nothing happened. Mirror the login page's needsLinking handling.
+        setError(
+          "An account with this email already exists. Sign in on the login page with your PIN — you can link Google/Apple to your account afterwards from your profile."
+        );
       } else if (result.message) {
         setError(result.message);
+      } else {
+        // Fail-visible: never leave the click silent, whatever shape the result takes.
+        const cid = generateClientCorrelationId();
+        setError(`${CLIENT_ERRORS.AUTH_OAUTH_PROVIDER_ERROR.message} [${CLIENT_ERRORS.AUTH_OAUTH_PROVIDER_ERROR.code}] (Ref: ${cid})`);
       }
     } catch (e: unknown) {
       if (process.env.NODE_ENV !== "production") console.error("[InviteSignupForm] OAuth catch:", e);

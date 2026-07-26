@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-26",
   "commits": [
     {
+      "id": "7108a94",
+      "date": "2026-07-26",
+      "version": "3.11.0",
+      "author": "aaron garcia",
+      "message": "feat: per-team position chart in results emails + standings-adjustments email fix (v3.11.0)",
+      "major": true
+    },
+    {
       "id": "b4cdf96",
       "date": "2026-07-26",
       "version": "3.10.1",

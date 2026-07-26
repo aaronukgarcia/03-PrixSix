@@ -1,4 +1,4 @@
-// GUID: DASHBOARD_HOT_NEWS_FEED-000-v01
+// GUID: DASHBOARD_HOT_NEWS_FEED-000-v02
 // [Intent] Server component that fetches the latest AI-generated Hot News Feed content from getHotNewsFeed() and renders it as a card with timestamp and refresh counter; also exports HotNewsFeedSkeleton for Suspense boundaries.
 // [Inbound Trigger] Rendered by the dashboard page inside a React Suspense boundary; re-fetches on each page load (no client-side caching).
 // [Downstream Impact] Displays the Vertex AI-generated paddock news to all players; refresh counter shown as subtle four-digit ID.
@@ -20,7 +20,11 @@ function formatNewsTimestamp(isoString?: string) {
 }
 
 export async function HotNewsFeed() {
-    const { newsFeed, lastUpdated, refreshCount } = await getHotNewsFeed();
+    const { newsFeed, lastUpdated, refreshCount, enabled } = await getHotNewsFeed();
+
+    // @BUGFIX (PUBCHAT-01, 2026-07-26): the admin's Hot News OFF toggle previously had no
+    // effect on this card — it rendered regardless. Disabled → render nothing.
+    if (enabled === false) return null;
 
     return (
         <Card>

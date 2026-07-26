@@ -1,4 +1,4 @@
-// GUID: API_PIT_WALL_HISTORICAL_REPLAY-000-v02
+// GUID: API_PIT_WALL_HISTORICAL_REPLAY-000-v03
 // [Intent] Firestore-first replay route with full-fidelity ingest on cache miss.
 //          v02: Checks Firestore for pre-ingested chunks. If 'complete', returns redirect
 //               to replay-chunks API. If 'none', triggers full ingest pipeline that
@@ -103,43 +103,108 @@ function isRestrictedResponse(text: string): boolean {
 // Showreel path (downsampled, backward compat)
 // ---------------------------------------------------------------------------
 
-interface RawPosition {
+// GUID: API_PIT_WALL_HISTORICAL_REPLAY-002-v02
+// @BUGFIX (PITWALL-01, 2026-07-26): the showreel previously read x/y from /position, which
+//   carries only race ORDER (position, driver_number, date) — no coordinates. Every frame had
+//   x=undefined, the track map's null-filter dropped all cars, and the replay showed an empty
+//   track (the 2026-03-24 incident's failure mode). GPS now comes from /location, fetched in
+//   time windows like REPLAY_INGEST-006 (full-session /location trips OpenF1's too-much-data
+//   guard), downsampled per driver per DOWNSAMPLE_INTERVAL_MS as chunks stream in so memory
+//   stays bounded. Race order is merged from /position via buildRaceOrderLookup.
+interface RawLocationPoint {
   driver_number: number;
   date: string;
   x: number;
   y: number;
-  z: number;
-  position: number;
 }
 
-// GUID: API_PIT_WALL_HISTORICAL_REPLAY-002-v01
-function downsamplePositions(raw: RawPosition[]): RawPosition[] {
-  const byDriver = new Map<number, RawPosition[]>();
-  for (const p of raw) {
-    const list = byDriver.get(p.driver_number) ?? [];
-    list.push(p);
-    byDriver.set(p.driver_number, list);
-  }
-
-  const result: RawPosition[] = [];
-  for (const [, positions] of byDriver) {
-    positions.sort((a, b) => a.date.localeCompare(b.date));
-    let windowStart = -Infinity;
-    for (const pos of positions) {
-      const ts = new Date(pos.date).getTime();
-      if (ts - windowStart >= DOWNSAMPLE_INTERVAL_MS) {
-        result.push(pos);
-        windowStart = ts;
+/** Streaming per-driver downsampler — keeps one point per driver per DOWNSAMPLE_INTERVAL_MS across chunks. */
+function makeLocationDownsampler(out: RawLocationPoint[]) {
+  const windowStart = new Map<number, number>();
+  return (chunk: any[]) => {
+    for (const p of chunk) {
+      if (typeof p?.x !== 'number' || typeof p?.y !== 'number' || !p?.date || typeof p?.driver_number !== 'number') continue;
+      const ts = new Date(p.date).getTime();
+      const ws = windowStart.get(p.driver_number) ?? -Infinity;
+      if (ts - ws >= DOWNSAMPLE_INTERVAL_MS) {
+        out.push({ driver_number: p.driver_number, date: p.date, x: p.x, y: p.y });
+        windowStart.set(p.driver_number, ts);
       }
     }
-  }
-  return result;
+  };
 }
 
-// GUID: API_PIT_WALL_HISTORICAL_REPLAY-003-v01
-function buildReplayFrames(positions: RawPosition[], sessionStartMs: number): ReplayFrame[] {
-  if (positions.length === 0) return [];
-  const sorted = [...positions].sort((a, b) => a.date.localeCompare(b.date));
+/** 15-minute /location windows: a 2h race is 8 chunks — comfortably under the LB's 60s response window. */
+const LOCATION_CHUNK_MINUTES = 15;
+
+async function fetchLocationDownsampled(
+  sessionKey: number,
+  token: string | null,
+  dateStart: string,
+  dateEnd: string,
+): Promise<RawLocationPoint[]> {
+  const out: RawLocationPoint[] = [];
+  const consume = makeLocationDownsampler(out);
+  const end = new Date(dateEnd);
+  let cursor = new Date(dateStart);
+  while (cursor < end) {
+    const next = new Date(Math.min(cursor.getTime() + LOCATION_CHUNK_MINUTES * 60_000, end.getTime() + 60_000));
+    const from = cursor.toISOString().replace('.000Z', '').replace('Z', '');
+    const to = next.toISOString().replace('.000Z', '').replace('Z', '');
+    const { ok, text } = await openF1FetchRaw(
+      `/location?session_key=${sessionKey}&date%3E=${encodeURIComponent(from)}&date%3C=${encodeURIComponent(to)}`,
+      token,
+    );
+    if (ok) {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) consume(parsed);
+      } catch { /* skip malformed chunk — other chunks still render */ }
+    }
+    cursor = next;
+    // Polite spacing between chunks (OpenF1 rate limits); short enough to stay under LB timeout.
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return out;
+}
+
+// GUID: API_PIT_WALL_HISTORICAL_REPLAY-012-v01
+// [Intent] Race-order lookup from /position rows (sparse: one row per position CHANGE). For a
+//          given driver and timestamp, returns the latest known race position at-or-before that
+//          moment (binary search over the driver's sorted change list).
+// [Inbound Trigger] Built once per showreel request; queried per frame position.
+// [Downstream Impact] Fills ReplayFrame.positions[].position so the replay leaderboard is real.
+function buildRaceOrderLookup(rawPositions: any[]): (driver: number, ms: number) => number | null {
+  const byDriver = new Map<number, { ms: number; position: number }[]>();
+  for (const p of Array.isArray(rawPositions) ? rawPositions : []) {
+    if (!p?.date || typeof p?.position !== 'number' || typeof p?.driver_number !== 'number') continue;
+    const list = byDriver.get(p.driver_number) ?? [];
+    list.push({ ms: new Date(p.date).getTime(), position: p.position });
+    byDriver.set(p.driver_number, list);
+  }
+  for (const list of byDriver.values()) list.sort((a, b) => a.ms - b.ms);
+  return (driver, ms) => {
+    const list = byDriver.get(driver);
+    if (!list || list.length === 0) return null;
+    let lo = 0, hi = list.length - 1, ans = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (list[mid].ms <= ms) { ans = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    return ans >= 0 ? list[ans].position : list[0].position;
+  };
+}
+
+// GUID: API_PIT_WALL_HISTORICAL_REPLAY-003-v02
+// [Intent] Group downsampled GPS points into ReplayFrames, merging race order per point from
+//          the /position lookup. v02: input is RawLocationPoint (real x/y) + order lookup.
+function buildReplayFrames(
+  points: RawLocationPoint[],
+  sessionStartMs: number,
+  raceOrderAt: (driver: number, ms: number) => number | null,
+): ReplayFrame[] {
+  if (points.length === 0) return [];
+  const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
   const frames: ReplayFrame[] = [];
   let i = 0;
 
@@ -159,7 +224,7 @@ function buildReplayFrames(positions: RawPosition[], sessionStartMs: number): Re
         driverNumber: sorted[i].driver_number,
         x: sorted[i].x,
         y: sorted[i].y,
-        position: sorted[i].position,
+        position: raceOrderAt(sorted[i].driver_number, posMs) ?? 0,
       });
       i++;
     }
@@ -169,7 +234,7 @@ function buildReplayFrames(positions: RawPosition[], sessionStartMs: number): Re
   return frames;
 }
 
-// GUID: API_PIT_WALL_HISTORICAL_REPLAY-008-v01
+// GUID: API_PIT_WALL_HISTORICAL_REPLAY-008-v02
 // [Intent] Showreel (downsampled) path — kept for backward compat with useHistoricalReplay.
 //          Fetches drivers + positions + session from OpenF1, downsamples to 5s intervals,
 //          returns JSON (not NDJSON). Used when mode=showreel query param is set.
@@ -217,7 +282,7 @@ async function handleShowreelPath(
     );
   }
 
-  let rawDrivers: any[], rawPositions: RawPosition[], rawSessions: any[];
+  let rawDrivers: any[], rawPositions: any[], rawSessions: any[];
   try {
     rawDrivers = JSON.parse(driversText);
     rawPositions = JSON.parse(positionsText);
@@ -237,9 +302,17 @@ async function handleShowreelPath(
   }
 
   const sessionMeta = Array.isArray(rawSessions) && rawSessions.length > 0 ? rawSessions[0] : null;
-  const sessionStartMs = sessionMeta?.date_start ? new Date(sessionMeta.date_start).getTime() : 0;
-  const downsampled = downsamplePositions(rawPositions);
-  const frames = buildReplayFrames(downsampled, sessionStartMs);
+  if (!sessionMeta?.date_start || !sessionMeta?.date_end) {
+    return NextResponse.json(
+      { error: 'Session has no date range — cannot window GPS fetch', code: ERRORS.PIT_WALL_HISTORICAL_REPLAY_FAILED.code, correlationId },
+      { status: 502 },
+    );
+  }
+  const sessionStartMs = new Date(sessionMeta.date_start).getTime();
+  // PITWALL-01 fix: GPS from /location (time-windowed), race order merged from /position.
+  const gpsPoints = await fetchLocationDownsampled(sessionKey, token, sessionMeta.date_start, sessionMeta.date_end);
+  const raceOrderAt = buildRaceOrderLookup(rawPositions);
+  const frames = buildReplayFrames(gpsPoints, sessionStartMs, raceOrderAt);
   const drivers: HistoricalDriver[] = (Array.isArray(rawDrivers) ? rawDrivers : []).map((d: any) => ({
     driverNumber: d.driver_number,
     driverCode: d.name_acronym ?? '',

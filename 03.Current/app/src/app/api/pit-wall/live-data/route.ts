@@ -1,4 +1,4 @@
-// GUID: API_PIT_WALL_LIVE_DATA-000-v01
+// GUID: API_PIT_WALL_LIVE_DATA-000-v02
 // [Intent] Pit Wall live data aggregation endpoint. Fans out to multiple OpenF1
 //          endpoints in parallel, merges results into a single DriverRaceState[]
 //          response. Any authenticated user (not admin-only) can call this.
@@ -474,12 +474,24 @@ async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDat
   const circuitCoords = circuitKey ? (CIRCUIT_COORDS[circuitKey] ?? null) : null;
   const totalLaps: number | null = session?.total_laps ?? null;
 
-  // Stale session detection — if OpenF1 returns a session >48h old, it's stale.
-  // Return idle response with correct upcoming race info from RaceSchedule.
+  // Session-over detection — @BUGFIX (PITWALL-02, 2026-07-26): OpenF1's `latest` keeps
+  // returning the previous session until the next one exists, and the old test only called it
+  // stale after 48h. On every race day Saturday's finished qualifying therefore still counted
+  // as "live" — suppressing the pre-race showreel (its whole purpose) and rendering the
+  // finished session's standings as LIVE over an empty track. A session is now considered over
+  // once we're past its date_end plus a 30-minute buffer, and not-yet-live if its date_start
+  // is still >10 minutes away (pre-created sessions). The 48h age check remains only as a
+  // fallback when date_end is missing from the payload.
+  const SESSION_END_BUFFER_MS = 30 * 60 * 1000;
+  const SESSION_PRESTART_BUFFER_MS = 10 * 60 * 1000;
   const STALE_THRESHOLD_MS = 48 * 60 * 60 * 1000;
   const sessionDateStart = session?.date_start ? new Date(session.date_start).getTime() : 0;
-  const isStaleSession = sessionKey && sessionDateStart > 0 &&
-    (Date.now() - sessionDateStart) > STALE_THRESHOLD_MS;
+  const sessionDateEnd = session?.date_end ? new Date(session.date_end).getTime() : 0;
+  const isStaleSession = !!sessionKey && (
+    (sessionDateEnd > 0 && Date.now() > sessionDateEnd + SESSION_END_BUFFER_MS) ||
+    (sessionDateStart > 0 && sessionDateStart > Date.now() + SESSION_PRESTART_BUFFER_MS) ||
+    (sessionDateEnd === 0 && sessionDateStart > 0 && (Date.now() - sessionDateStart) > STALE_THRESHOLD_MS)
+  );
 
   if (!sessionKey || isStaleSession) {
     // Find the next expected race from the schedule
