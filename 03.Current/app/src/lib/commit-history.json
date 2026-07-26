@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-26",
   "commits": [
     {
+      "id": "7218f8d",
+      "date": "2026-07-26",
+      "version": "3.12.4",
+      "author": "aaron garcia",
+      "message": "fix: email chart tied-rank labels no longer overprint — two-pass dodging ported to PNG rail (v3.12.4)",
+      "major": false
+    },
+    {
       "id": "5935cc4",
       "date": "2026-07-26",
       "version": "3.12.3",

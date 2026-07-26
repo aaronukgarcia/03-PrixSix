@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.13.0 — 2026-07-26
+
+### DEP-SEC-001 (Wave 1): app dependency + vulnerability pass
+
+Safe-range `npm update` across the app: next 16.2.12, react/react-dom 19.2.8, firebase 12.16, the full radix family, recharts 3.10.1, framer-motion, tailwind 4.3.3, postcss, date-fns 4.4 and friends — plus the genkit family moved TOGETHER (genkit + @genkit-ai/google-genai + @genkit-ai/next + genkit-cli → 1.40.1, per the PX-3101 coupling rule) and `npm audit fix`. Vulnerabilities 83 → 74 with **0 critical and 0 low remaining** (was 1 critical); the remaining moderates/highs are next's bundled sharp (next is at latest — upstream fix pending) and the genkit-cli dev-tooling chain that never ships to the prod runtime. AI regression on genkit 1.40 passed (`ai.generate` round-trip). Local build green.
+
 ## v3.12.4 — 2026-07-26
 
 ### Email chart: tied-rank labels no longer overprint
