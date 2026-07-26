@@ -53395,7 +53395,7 @@
   },
   {
    "guid": "BACKUP_FUNCTIONS-024",
-   "version": 3,
+   "version": 4,
    "logic_category": "ORCHESTRATION",
    "description": "Post-verification cleanup: deletes all data in the recovery project Firestore. Non-fatal â€” cleanup failure is logged but does not fail the smoke test because the primary goal (verification) has already succeeded.",
    "dependencies": [],
@@ -53415,7 +53415,7 @@
   },
   {
    "guid": "BACKUP_FUNCTIONS-025",
-   "version": 3,
+   "version": 4,
    "logic_category": "ORCHESTRATION",
    "description": "Writes SUCCESS smoke test status to backup_status/latest and emits SMOKE_TEST_COMPLETE structured log with verification results.",
    "dependencies": [],
@@ -53455,7 +53455,7 @@
   },
   {
    "guid": "BACKUP_FUNCTIONS-030",
-   "version": 3,
+   "version": 4,
    "logic_category": "ORCHESTRATION",
    "description": "deleteAllCollections: enumerates all top-level collections in recovery Firestore and batch-deletes every document. Errors are caught and logged (non-fatal by design â€” next import overwrites anyway).",
    "dependencies": [],
@@ -53475,7 +53475,7 @@
   },
   {
    "guid": "BACKUP_FUNCTIONS-031",
-   "version": 3,
+   "version": 4,
    "logic_category": "ORCHESTRATION",
    "description": "deleteCollection: batch-deletes all documents in a single collection using batches of 500 (Firestore maximum). Loops until collection is empty. Does not recurse into subcollections.",
    "dependencies": [],
@@ -53637,7 +53637,7 @@
   },
   {
    "guid": "BACKUP_FUNCTIONS-060",
-   "version": 3,
+   "version": 4,
    "logic_category": "ORCHESTRATION",
    "description": "Write smoke test history entry so admins can see all past smoke test runs alongside backups in the history table.",
    "dependencies": [],
@@ -102326,7 +102326,7 @@
   },
   {
    "guid": "API_ADMIN_EMAIL_HEALTH-000",
-   "version": 2,
+   "version": 3,
    "logic_category": "VALIDATION",
    "description": "Module header for /api/admin/email/health endpoint. Health check for the Microsoft Graph API / email interface. Admin-only (Firebase Auth token + isAdmin verified). Makes a lightweight test call to Microsoft Graph to verify credentials are valid and connectivity is good.",
    "dependencies": [

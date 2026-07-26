@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-26",
   "commits": [
     {
+      "id": "79416d7",
+      "date": "2026-07-26",
+      "version": "3.12.1",
+      "author": "aaron garcia",
+      "message": "feat: phase-aware Pit Lane Status card — race underway / awaiting FIA results copy (v3.12.1)",
+      "major": true
+    },
+    {
       "id": "391c058",
       "date": "2026-07-26",
       "version": "3.12.0",

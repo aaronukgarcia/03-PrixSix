@@ -776,12 +776,15 @@ exports.runRecoveryTest = onSchedule(
     schedule: "0 4 * * 0",
     timeZone: "UTC",
     region: REGION,
-    timeoutSeconds: 540, // 9 minutes
-    // @FIX (v3.1.5): Bumped from 512MiB to 1024MiB. The function was OOMing every Sunday
-    //   since 2026-03-22 with "Memory limit of 512 MiB exceeded with 514 MiB used" — the
-    //   Firestore export+import workload grew slightly past the limit. Restoring the smoke
-    //   test means the dashboard's "Last smoke test" indicator stops being stale.
-    memory: "1GiB",
+    timeoutSeconds: 900, // 15 minutes — the import LRO alone took ~5 min on the 660MB 2026-07-26 backup
+    // @FIX (v3.1.5): Bumped from 512MiB to 1024MiB after the 2026-03-22 OOMs.
+    // @FIX (v3.12.2, BUG-SMOKE-001): Bumped again to 2GiB. The 2026-07-26 04:08 run died at
+    //   ~800MB heap ("FATAL: JavaScript heap out of memory", signal 6) INSIDE the 1GiB limit —
+    //   the real hog was deleteCollection downloading full document contents (replay_chunks docs
+    //   are ~1MB each; limit(500).get() = ~500MB per batch). Root fix is the refs-only
+    //   recursiveDelete in deleteAllCollections; 2GiB is headroom so backup growth never silently
+    //   kills the test again. Success status is now also written BEFORE cleanup.
+    memory: "2GiB",
     retryCount: 0,
   },
   async () => {
@@ -930,17 +933,12 @@ exports.runRecoveryTest = onSchedule(
         console.warn('Storage verification failed (non-critical):', storageError.message);
       }
 
-      // GUID: BACKUP_FUNCTIONS-024-v03
-      // [Intent] Delete all data in the recovery project to avoid accumulating
-      //          stale copies. The recovery project is purely ephemeral — it
-      //          should be empty between smoke test runs.
-      // [Inbound Trigger] Smoke test verification passed.
-      // [Downstream Impact] Recovery project Firestore is emptied. Cleanup
-      //                     failures are logged but do NOT fail the smoke test
-      //                     (see deleteAllCollections error handling).
-      await deleteAllCollections(recoveryDb);
-
-      // GUID: BACKUP_FUNCTIONS-025-v04
+      // GUID: BACKUP_FUNCTIONS-025-v05
+      // @FIX (v3.12.2, BUG-SMOKE-001): SUCCESS is recorded BEFORE recovery-project cleanup.
+      //   Cleanup is non-fatal by design, but it previously ran first — so when it OOM'd the
+      //   whole process (2026-07-26), a PASSED verification left no trace at all and
+      //   backup_status stayed frozen at 2026-03-22. Verification result now survives any
+      //   cleanup crash.
       // [Intent] Write smoke test success to backup_status/latest so the
       //          admin dashboard Smoke Test card shows a green badge.
       //          Includes verification results for Firestore, Auth, and Storage.
@@ -989,6 +987,14 @@ exports.runRecoveryTest = onSchedule(
           timestamp: new Date().toISOString(),
         })
       );
+
+      // GUID: BACKUP_FUNCTIONS-024-v04
+      // [Intent] Delete all data in the recovery project to avoid accumulating stale copies.
+      //          Runs LAST (after the status/history writes) — cleanup failures are logged but
+      //          must never cost us the recorded verification result.
+      // [Inbound Trigger] Smoke test verification passed and status recorded.
+      // [Downstream Impact] Recovery project Firestore is emptied via refs-only recursiveDelete.
+      await deleteAllCollections(recoveryDb);
     } catch (err) {
       // GUID: BACKUP_FUNCTIONS-026-v03
       // [Intent] Record smoke test failure in backup_status/latest so the
@@ -1053,8 +1059,11 @@ exports.runRecoveryTest = onSchedule(
 exports.manualSmokeTest = onCall(
   {
     region: REGION,
-    timeoutSeconds: 540,
-    memory: "512MiB",
+    timeoutSeconds: 900,
+    // @FIX (v3.12.2, BUG-SMOKE-001): was 512MiB — this function NEVER received the v3.1.5 bump,
+    // so Aaron's manual trigger on 2026-07-25/26 OOM'd at 516MiB ("Memory limit of 512 MiB
+    // exceeded") with no status write. Same 2GiB + refs-only cleanup as runRecoveryTest.
+    memory: "2GiB",
   },
   async (request) => {
     if (!request.auth) {
@@ -1127,8 +1136,8 @@ exports.manualSmokeTest = onCall(
         );
       }
 
-      await deleteAllCollections(recoveryDb);
-
+      // @FIX (v3.12.2, BUG-SMOKE-001): status/history recorded BEFORE cleanup (see
+      // runRecoveryTest BACKUP_FUNCTIONS-025-v05) — a cleanup crash must not erase the result.
       await writeStatus(db, {
         lastSmokeTestTimestamp: Timestamp.now(),
         lastSmokeTestStatus: "SUCCESS",
@@ -1159,6 +1168,9 @@ exports.manualSmokeTest = onCall(
           timestamp: new Date().toISOString(),
         })
       );
+
+      // Cleanup last — a cleanup crash must not erase the recorded result (BUG-SMOKE-001).
+      await deleteAllCollections(recoveryDb);
 
       return { success: true, correlationId };
     } catch (err) {
@@ -1474,7 +1486,13 @@ async function deleteAllCollections(firestoreClient) {
   try {
     const collections = await firestoreClient.listCollections();
     for (const collRef of collections) {
-      await deleteCollection(firestoreClient, collRef);
+      // @FIX (v3.12.2, BUG-SMOKE-001): recursiveDelete streams document REFS via BulkWriter
+      // and never materialises field data. The old deleteCollection paged with
+      // limit(500).get(), which DOWNLOADS full document contents — on the imported
+      // replay_chunks collection (~1MB/doc) that meant ~500MB per batch and killed the
+      // process with a heap OOM before any status write (2026-07-26 04:08 incident).
+      // Bonus: recursiveDelete also clears subcollections the old loop never touched.
+      await firestoreClient.recursiveDelete(collRef);
     }
   } catch (err) {
     // [AUDIT_NOTE: Non-fatal by design. If cleanup fails, the next smoke test
@@ -1484,36 +1502,12 @@ async function deleteAllCollections(firestoreClient) {
   }
 }
 
-// GUID: BACKUP_FUNCTIONS-031-v03
-/**
- * deleteCollection
- *
- * [Intent] Batch-delete all documents in a single Firestore collection.
- *          Uses batches of 500 (Firestore maximum batch size) to stay within
- *          API limits. Loops until the collection is empty.
- * [Inbound Trigger] Called by deleteAllCollections for each top-level collection.
- * [Downstream Impact] Deletes documents in the recovery project only. Does NOT
- *                     recurse into subcollections — recovery smoke test only
- *                     verifies top-level data.
- *
- * @param {FirestoreClient} firestoreClient - Recovery project Firestore client.
- * @param {CollectionReference} collRef - Reference to the collection to delete.
- */
-async function deleteCollection(firestoreClient, collRef) {
-  const batchSize = 500;
-  const query = collRef.limit(batchSize);
-
-  while (true) {
-    const snapshot = await query.get();
-    if (snapshot.empty) break;
-
-    const batch = firestoreClient.batch();
-    for (const doc of snapshot.docs) {
-      batch.delete(doc.ref);
-    }
-    await batch.commit();
-  }
-}
+// GUID: BACKUP_FUNCTIONS-031-v04
+// @REMOVED (v3.12.2, BUG-SMOKE-001): deleteCollection deleted. Its limit(500).get() paging
+//   downloaded FULL document contents per batch (~500MB on imported replay_chunks) and caused
+//   the 2026-07-26 heap OOM that silently killed the smoke test. Sole caller
+//   deleteAllCollections now uses firestoreClient.recursiveDelete (refs-only BulkWriter).
+//   Dead-code audit per Golden Rule #18 — no other callers existed.
 
 // ── Admin Hot Link Token Cleanup ───────────────────────────────
 

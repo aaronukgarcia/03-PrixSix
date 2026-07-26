@@ -1,4 +1,4 @@
-// GUID: API_ADMIN_EMAIL_HEALTH-000-v03
+// GUID: API_ADMIN_EMAIL_HEALTH-000-v04
 // [Intent] Health check endpoint for Email/Graph API interface. Returns connectivity status
 //          by making a lightweight test call to Microsoft Graph API.
 // [Inbound Trigger] GET request from InterfaceHealthMonitor component (auto-refresh every 30s).
@@ -45,11 +45,15 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Check if Graph API credentials are configured
-        const clientId = process.env.GRAPH_CLIENT_ID;
-        const clientSecret = process.env.GRAPH_CLIENT_SECRET;
-        const tenantId = process.env.GRAPH_TENANT_ID;
-        const senderEmail = process.env.GRAPH_SENDER_EMAIL;
+        // Check if Graph API credentials are configured.
+        // @BUGFIX (2026-07-26): values are TRIMMED, matching requireSenderEmail() in lib/email.ts.
+        // The probe previously used the raw env value — a trailing newline/space in the stored
+        // secret became %0A inside the /users/{email} URL and Graph answered HTTP 400, showing
+        // "Degraded" on the health panel while actual sending (which trims) was 49/49 healthy.
+        const clientId = process.env.GRAPH_CLIENT_ID?.trim();
+        const clientSecret = process.env.GRAPH_CLIENT_SECRET?.trim();
+        const tenantId = process.env.GRAPH_TENANT_ID?.trim();
+        const senderEmail = process.env.GRAPH_SENDER_EMAIL?.trim();
 
         if (!clientId || !clientSecret || !tenantId || !senderEmail) {
             return NextResponse.json({

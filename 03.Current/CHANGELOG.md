@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.12.2 — 2026-07-26
+
+### BUG-SMOKE-001: backup restore smoke test silently OOM-killed + Graph probe false alarm
+
+**Smoke test (Aaron's report: last night's restore test never completed — major concern).** The weekly restore test had been dying since March with zero trace. Root cause chain: (1) recovery-project cleanup paged deletes with `limit(500).get()`, which downloads FULL document contents — the imported `replay_chunks` docs (~1MB each) meant ~500MB per batch and a fatal heap OOM (2026-07-26 04:08 log: signal 6 at ~800MB inside the 1GiB limit); (2) the OOM killed the process before the status write, so `backup_status` froze at 2026-03-22 with no FAILED record — the silent-OOM signature; (3) `manualSmokeTest` never received the v3.1.5 memory bump and died even earlier at its 512MiB limit (04:47 log) — why Aaron's manual trigger vanished without trace. Fixes: cleanup now uses refs-only `recursiveDelete` (BulkWriter, no field data, also clears subcollections); SUCCESS status/history is written BEFORE cleanup so verification results survive any cleanup crash; both functions bumped to 2GiB / 900s; dead `deleteCollection` removed (GR#18). Both functions redeployed. Note: verification itself passed at 04:06 (heartbeat + users + Auth 57 users + Storage all verified) — backups themselves are restorable.
+
+**Graph "Degraded" badge**: probe-only false alarm. The health probe used the untrimmed `GRAPH_SENDER_EMAIL` env value — trailing whitespace/newline in the stored secret becomes `%0A` in the `/users/{email}` URL and Graph answers HTTP 400. Actual sending trims (49/49 emails sent in the last 7 days). Probe now trims all four Graph env values.
+
 ## v3.12.1 — 2026-07-26
 
 ### Phase-aware Pit Lane Status card

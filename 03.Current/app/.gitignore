@@ -67,8 +67,10 @@ node_modules/
 .env.local
 .env*.local
 
-# Test files with secrets
-email/
+# Test files with secrets — anchored to the app root only. The old unanchored "email/"
+# matched EVERY directory named email, including src/app/api/admin/email/, silently
+# blocking git add on real source (discovered 2026-07-26 while fixing the Graph probe).
+/email/
 
 # Service account keys
 **/service-account*.json
