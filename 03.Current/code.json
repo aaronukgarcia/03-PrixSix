@@ -108129,6 +108129,22 @@
    "lastUpdated": "2026-07-25T18:50:00Z"
   },
   {
+   "guid": "COMPONENT_DASHBOARD_CLIENT-010",
+   "version": 1,
+   "logic_category": "TRANSFORMATION",
+   "description": "Phase-aware Pit Lane Status locked card: preRace (quali-lock copy) / raceUnderway (~3h from lights out) / awaitingResults (race done, results pending — explains the pit lane re-opens for the next race once FIA results are published and scored, usually within 24h). Copy only; server-side lock enforcement unchanged.",
+   "dependencies": [],
+   "location": {
+    "filePath": "app/src/app/(app)/dashboard/_components/DashboardClient.tsx"
+   },
+   "callChain": {
+    "calledBy": [],
+    "calls": []
+   },
+   "created": "2026-07-26T16:40:00Z",
+   "lastUpdated": "2026-07-26T16:40:00Z"
+  },
+  {
    "guid": "LIB_STANDINGS_CHART_IMAGE-000",
    "version": 1,
    "logic_category": "ORCHESTRATION",

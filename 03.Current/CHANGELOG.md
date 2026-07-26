@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.12.1 — 2026-07-26
+
+### Phase-aware Pit Lane Status card
+
+The dashboard's amber locked card previously froze at the quali-lock message all weekend. It now tracks the phase: before the race it keeps the "Locked / closed at / locked for Quali · GP" copy; during the race (~3h window from lights out) it shows "Race under way — predictions stay locked until the results are in"; after the race it shows "Awaiting official results — the pit lane re-opens for the {next race} once the FIA results are published and scored, usually within 24 hours of the chequered flag". Copy only — lock enforcement unchanged.
+
 ## v3.12.0 — 2026-07-26
 
 ### BOW blitz round 1 — top 7 findings from the 2026-07-26 cold audits

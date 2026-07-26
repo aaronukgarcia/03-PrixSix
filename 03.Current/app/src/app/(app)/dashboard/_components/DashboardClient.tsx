@@ -10,7 +10,7 @@
 "use client";
 
 import { useAuth, useFirestore, useDoc } from "@/firebase";
-import type { Race } from "@/lib/data";
+import { RaceSchedule, type Race } from "@/lib/data";
 import { generateRaceId } from "@/lib/normalize-race-id";
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -341,7 +341,26 @@ export function DashboardClient({
                 )}
               </AlertDescription>
             </Alert>
-          ) : (
+          ) : (() => {
+            // GUID: COMPONENT_DASHBOARD_CLIENT-010-v01
+            // [Intent] Phase-aware locked card (Aaron, 2026-07-26): the amber copy tracks where
+            //          the weekend actually is instead of freezing at the quali-lock message.
+            //            preRace         → locked for Quali · GP (original copy)
+            //            raceUnderway    → race started, within its ~3h window
+            //            awaitingResults → race finished; nextRace stays the current GP until
+            //                              results are entered, so this phase exactly covers the
+            //                              "closed for the race, re-opens for the next one once
+            //                              the FIA results are published" gap.
+            // [Inbound Trigger] Re-evaluated every render (the 1s countdown tick keeps it live).
+            // [Downstream Impact] Copy only — lock enforcement is server-side and unchanged.
+            const RACE_DURATION_MS = 3 * 60 * 60 * 1000;
+            const raceStartMs = new Date(nextRace.raceTime).getTime();
+            const nowMs = Date.now();
+            const phase = nowMs >= raceStartMs + RACE_DURATION_MS ? 'awaitingResults'
+              : nowMs >= raceStartMs ? 'raceUnderway'
+              : 'preRace';
+            const followingRace = RaceSchedule.find(r => new Date(r.raceTime).getTime() > raceStartMs) ?? null;
+            return (
             <div className="rounded-lg border-2 border-amber-500/70 bg-amber-500/10 p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="shrink-0 rounded-full bg-amber-500 p-2">
@@ -349,9 +368,13 @@ export function DashboardClient({
                 </div>
                 <div>
                   <div className="font-bold text-amber-400 text-base leading-tight">
-                    {nextRace.name} — Locked
+                    {phase === 'awaitingResults'
+                      ? `${nextRace.name} — Awaiting official results`
+                      : phase === 'raceUnderway'
+                      ? `${nextRace.name} — Race under way`
+                      : `${nextRace.name} — Locked`}
                   </div>
-                  {pitLaneClosedAt && (
+                  {phase === 'preRace' && pitLaneClosedAt && (
                     <div className="text-xs text-amber-300/80 mt-0.5">
                       Closed at{' '}
                       <span className="font-semibold">
@@ -363,16 +386,30 @@ export function DashboardClient({
                   )}
                 </div>
               </div>
-              {lockedSessions && (
+              {phase === 'preRace' && lockedSessions && (
                 <p className="text-sm text-amber-200/80 mb-2">
                   Now locked for: <span className="font-medium text-amber-300">{lockedSessions}</span>
                 </p>
               )}
-              <p className="text-sm font-bold text-amber-400">
-                All predictions are locked in — good luck! 🏁
-              </p>
+              {phase === 'awaitingResults' ? (
+                <p className="text-sm text-amber-200/80">
+                  The race has finished. The pit lane re-opens for the{' '}
+                  <span className="font-medium text-amber-300">{followingRace?.name ?? 'next race'}</span>{' '}
+                  once the FIA results are published and scored — usually within 24 hours of the
+                  chequered flag. 🏁
+                </p>
+              ) : phase === 'raceUnderway' ? (
+                <p className="text-sm font-bold text-amber-400">
+                  Lights out! Predictions stay locked until the results are in. 🏁
+                </p>
+              ) : (
+                <p className="text-sm font-bold text-amber-400">
+                  All predictions are locked in — good luck! 🏁
+                </p>
+              )}
             </div>
-          )}
+            );
+          })()}
         </CardContent>
       </Card>
     </>
