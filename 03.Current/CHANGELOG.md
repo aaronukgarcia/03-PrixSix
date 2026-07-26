@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.10.0 — 2026-07-26
+
+### Late-joiner active-floor rule (replaces "−5 below last place")
+
+Aaron's rule change: late joiners were entering 5 points below dormant husk accounts (and, worse, the old flow computed "last place" without standings adjustments — Fangio-F1 anchored to Billceleration's raw 17 scored points instead of its adjusted 164). New rule in `lib/late-joiner.ts`: a newcomer clones the lowest-placed **active** team (manual submission in the last 3 completed race weekends; dormant teams ignored; fully-adjusted totals) and enters exactly **1 point behind them**. Rules page and welcome screen copy updated; `lateJoinerInfo` gains `startingTotal`/`adjustmentPoints`.
+
+**Retro re-baseline applied (data, chronological, audited):** all five prior late joiners recalculated under the rule via `scripts/rebaseline-late-joiners.ts` — Geepers AI −5→+8 (their self-played Spanish GP points are preserved on top of the floor anchor), Hamilton's heros and Must Be The Water −5→−1, Billceleration 147→151, Fangio-F1 −5→151 (now 168, one behind Checo yourself, tied with the bot). Five `ADMIN_REBASELINE_LATE_JOINER` audit entries with originals for reversibility. Billceleration is henceforth a normal competitor — no more cellar pinning.
+
 ## v3.9.0 — 2026-07-25
 
 ### Standings chart readability overhaul (F1-TV style)

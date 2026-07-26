@@ -37,7 +37,7 @@ export default function WelcomePage() {
   }, [user, isUserLoading, router]);
 
   const info = user?.lateJoinerInfo;
-  const penalty = info?.penalty ?? -5;
+  const penalty = info?.penalty ?? -1;
   const clonedCount = info?.clonedCount ?? 0;
   const clonedFrom = info?.clonedFromTeamName ?? "the last-place team";
   const nextRace = info?.nextRaceName ?? "the next race";
@@ -100,17 +100,17 @@ export default function WelcomePage() {
             <li className="flex items-start gap-3">
               <Trophy className="h-5 w-5 text-primary flex-shrink-0" />
               <span>
-                For every race already completed, your scores have been <strong>cloned from the team
-                currently in last place</strong> ({clonedFrom}{clonedCount ? `, ${clonedCount} prior races` : ""}).
-                So you start level with the back of the grid rather than on zero.
+                For every race already completed, your scores have been <strong>cloned from the
+                lowest-placed active team</strong> ({clonedFrom}{clonedCount ? `, ${clonedCount} prior races` : ""}).
+                So you start level with the back of the live competition rather than on zero.
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600/10 text-red-600 text-xs font-bold flex-shrink-0">−5</span>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600/10 text-red-600 text-xs font-bold flex-shrink-0">{penalty}</span>
               <span>
-                A one-time <strong className="text-red-600">{penalty} point late-joining penalty</strong> has
-                been applied, so you begin <strong>5 points behind last place</strong> as you head into your
-                first race. Good luck — it's yours to climb from here!
+                A one-time <strong className="text-red-600">{penalty} point adjustment</strong> has been
+                applied, so you begin <strong>1 point behind the lowest active team</strong> as you head
+                into your first race. Good luck — it's yours to climb from here!
               </span>
             </li>
           </ul>
@@ -133,7 +133,7 @@ export default function WelcomePage() {
             />
             <label htmlFor="ack" className="text-sm font-medium leading-snug cursor-pointer">
               I have read and understood how my team was set up and how scoring works (including the
-              one-time −5 late-joining penalty).
+              one-time late-joining adjustment).
             </label>
           </div>
 

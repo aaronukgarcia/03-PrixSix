@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-25",
+  "lastUpdated": "2026-07-26",
   "commits": [
+    {
+      "id": "2526de6",
+      "date": "2026-07-25",
+      "version": "3.9.0",
+      "author": "aaron garcia",
+      "message": "feat: standings chart readability overhaul — dynamic height, honest Top 10 domain, collision-free label rail (v3.9.0)",
+      "major": true
+    },
     {
       "id": "25e0ebc",
       "date": "2026-07-25",

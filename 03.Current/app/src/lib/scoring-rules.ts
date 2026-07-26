@@ -1,4 +1,4 @@
-// GUID: LIB_SCORING_RULES-000-v03
+// GUID: LIB_SCORING_RULES-000-v04
 // [Intent] Single source of truth for all Prix Six scoring constants, rule descriptions,
 // and gameplay rules. Centralises point values and rule text so every consumer
 // (rules page, scoring engine, consistency checker) reads from one place.
@@ -49,8 +49,8 @@ export const SCORING_POINTS = {
   /** Bonus points if all 6 predicted drivers finish in the top 6 (any position) */
   bonusAll6: 10,
 
-  /** One-time penalty applied to late joiners: they start 5 points behind the last-place team */
-  lateJoinerPenalty: -5,
+  /** Late joiners enter this many points behind the lowest ACTIVE team (active-floor rule, 2026-07-26) */
+  lateJoinerPenalty: -1,
 } as const;
 
 // GUID: LIB_SCORING_RULES-002-v03
@@ -104,7 +104,7 @@ export function calculateDriverPoints(predictedPosition: number, actualPosition:
   }
 }
 
-// GUID: LIB_SCORING_RULES-004-v03
+// GUID: LIB_SCORING_RULES-004-v04
 // [Intent] Provide human-readable rule descriptions for display on the rules page.
 // Each entry pairs a point value with a title and prose explanation so the UI can
 // render the scoring table without hardcoded strings.
@@ -153,8 +153,8 @@ export const SCORING_RULES = [
   {
     points: SCORING_POINTS.lateJoinerPenalty,
     pointsDisplay: `${SCORING_POINTS.lateJoinerPenalty}`,
-    title: 'Late Joiner Penalty',
-    description: 'A one-time penalty applied to any team that joins after the season has started. Late joiners begin 5 points behind the current last-place team.',
+    title: 'Late Joiner Entry',
+    description: 'A one-time adjustment applied to any team that joins after the season has started. Late joiners begin 1 point behind the lowest-placed ACTIVE team (a team that has submitted its own picks in the last 3 races) — dormant teams are ignored.',
   },
 ] as const;
 
@@ -185,7 +185,7 @@ export const GAMEPLAY_RULES = [
   },
   {
     title: 'Late Joiners',
-    description: 'Any team who joins after the season starts will begin in last place, 5 points behind the current last-place team.',
+    description: 'Any team who joins after the season starts will begin 1 point behind the lowest-placed active team (one that has submitted its own picks in the last 3 races). Dormant teams are ignored, so newcomers join the back of the live competition.',
   },
 ] as const;
 

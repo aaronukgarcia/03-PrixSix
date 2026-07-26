@@ -120689,7 +120689,7 @@
   },
   {
    "guid": "LIB_LATE_JOINER-000",
-   "version": 1,
+   "version": 2,
    "logic_category": "ORCHESTRATION",
    "description": "Single source of truth for the late-joiner handicap mechanic: clone the current last-place team prior-race predictions into a new mid-season team, apply a one-time -5 penalty, set lateJoiner flags driving the welcome screen, and audit creation + every cloned submission. Used by /api/auth/signup.",
    "dependencies": [],
