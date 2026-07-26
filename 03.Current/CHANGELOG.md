@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.12.4 — 2026-07-26
+
+### Email chart: tied-rank labels no longer overprint
+
+Aaron's screenshot from the Hungarian GP results email showed rail labels crashing into each other wherever two teams are TIED on rank/points (P29 ×2, P36 ×2) — tied ranks share a y-coordinate and the email renderer had no collision handling. Ported the web ChartLabelRail's two-pass dodging (sort by line y, push apart to a minimum gap, pull back inside the plot, leader line when displaced) into `lib/standings-chart-image.ts`; ties now stack cleanly. Verified with a regenerated LREG chart spanning both tie clusters.
+
 ## v3.12.3 — 2026-07-26
 
 ### GR#17 amendment: health failures always write to error_logs

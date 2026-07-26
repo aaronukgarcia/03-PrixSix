@@ -108163,7 +108163,7 @@
   },
   {
    "guid": "LIB_STANDINGS_CHART_IMAGE-000",
-   "version": 1,
+   "version": 2,
    "logic_category": "ORCHESTRATION",
    "description": "Server-side 'Your position - last 3 rounds' chart image for results emails (Aaron-approved 2026-07-26). Two-phase: buildChartImageContext(db) loads scores/adjustments and snapshots cumulative standings after each of the last 4 completed GP weekends; renderMyPositionChartPng(ctx, userId) draws the team +/-5 window as an SVG bump chart and rasterises via @resvg/resvg-js with bundled public/fonts/Roboto-Regular.ttf (Cloud Run has no system fonts). Mirrors the /standings chart visual language incl. the PAGE_STANDINGS-018 colour hash.",
    "dependencies": [

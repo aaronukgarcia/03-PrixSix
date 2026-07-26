@@ -103,7 +103,7 @@ export async function buildChartImageContext(db: AdminFirestore): Promise<ChartI
   return { snapshots, finalOrdered, raceTitle };
 }
 
-// GUID: LIB_STANDINGS_CHART_IMAGE-003-v01
+// GUID: LIB_STANDINGS_CHART_IMAGE-003-v02
 // [Intent] Render one team's "My Position — last 3 rounds" PNG: the team ±5 window by final
 //          rank, team line highlighted with a white halo, others dimmed, right label rail with
 //          colour chips ("P26 LREG · 208"), circuit-dark styling. Returns null if the team has
@@ -165,12 +165,34 @@ export function renderMyPositionChartPng(ctx: ChartImageContext, targetUserId: s
     svg += `<polyline points="${pts}" fill="none" stroke="${teamColor(t.teamName)}" stroke-width="${(me ? 3 : 1.6) * S}" opacity="${me ? 1 : 0.55}" stroke-linecap="round" stroke-linejoin="round"/>`;
   });
 
-  windowTeams.forEach((t) => {
-    const y = yFor(t.rank);
+  // Rail labels with two-pass collision dodging — TIED ranks (e.g. two teams on P36 · 183)
+  // share the same y and previously overprinted into an unreadable smudge (Aaron's 2026-07-26
+  // email screenshot). Same algorithm as the web ChartLabelRail: sort by line y, push apart
+  // top-down to a minimum gap, pull back inside the plot bottom-up, leader line when displaced.
+  const MIN_GAP = 13 * S;
+  const slots = windowTeams
+    .map((t) => ({ t, lineY: yFor(t.rank), labelY: yFor(t.rank) }))
+    .sort((a, b) => a.lineY - b.lineY || a.t.teamName.localeCompare(b.t.teamName));
+  let prevY = -Infinity;
+  for (const s of slots) {
+    s.labelY = Math.max(s.labelY, prevY + MIN_GAP, topPad + 4 * S);
+    prevY = s.labelY;
+  }
+  let nextY = Infinity;
+  for (let i = slots.length - 1; i >= 0; i--) {
+    slots[i].labelY = Math.min(slots[i].labelY, nextY - MIN_GAP, topPad + plotH - 2 * S);
+    nextY = slots[i].labelY;
+  }
+  const xEnd = leftW + plotW;
+  slots.forEach(({ t, lineY, labelY }) => {
     const me = t.userId === targetUserId;
     const nm = t.teamName.length > 20 ? `${t.teamName.slice(0, 19)}…` : t.teamName;
-    svg += `<rect x="${leftW + plotW + 12 * S}" y="${y - 4 * S}" width="${8 * S}" height="${8 * S}" rx="${2 * S}" fill="${teamColor(t.teamName)}"/>`;
-    svg += `<text x="${leftW + plotW + 26 * S}" y="${y + 3.5 * S}" font-family="Roboto" font-size="${10 * S}" font-weight="${me ? 700 : 400}" fill="${me ? '#ffffff' : '#c9cdd3'}">P${t.rank} ${esc(nm)} · ${t.pts}</text>`;
+    const color = teamColor(t.teamName);
+    if (Math.abs(labelY - lineY) > 2 * S) {
+      svg += `<path d="M${xEnd + 1 * S},${lineY} L${xEnd + 10 * S},${labelY}" stroke="${color}" stroke-width="${1 * S}" opacity="0.55" fill="none"/>`;
+    }
+    svg += `<rect x="${xEnd + 12 * S}" y="${labelY - 4 * S}" width="${8 * S}" height="${8 * S}" rx="${2 * S}" fill="${color}"/>`;
+    svg += `<text x="${xEnd + 26 * S}" y="${labelY + 3.5 * S}" font-family="Roboto" font-size="${10 * S}" font-weight="${me ? 700 : 400}" fill="${me ? '#ffffff' : '#c9cdd3'}">P${t.rank} ${esc(nm)} · ${t.pts}</text>`;
   });
 
   svg += `<text x="${leftW}" y="${H - 12 * S}" font-family="Roboto" font-size="${9 * S}" fill="#6b7280">prix6.win/standings — tap for the full interactive chart</text>`;
