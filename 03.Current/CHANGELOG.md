@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.19.0 — 2026-07-27
+
+### FEAT-TROPHY-001: podium trophies on the standings table
+
+Every podium finish a team has earned now shows as a row of trophy icons beside its name on Standings, between the team name and the Old Overall column. Gold, silver and bronze follow the existing podium palette; icons sit oldest-first, left to right. Each one is a hot link to the race it came from — hovering says "2nd for Spa" or "1st for Silverstone Sprint", clicking opens that race's result via the same `/results?race=<Title-Case>` deep link the GP and Sprint score buttons already use.
+
+Icons are sized at `1em`, i.e. the height of a capital M, so a long strip stays inline and stays proportional if the table font ever changes; the team-name cell was already `flex-wrap`, so a wide strip wraps under the name rather than squeezing the score columns. Placing the strip in the team-name cell rather than a new column also keeps it visible on phones, where the neighbouring Old Overall column is hidden.
+
+No backend change was needed. `/api/standings` already returns per-race, per-team points, so the whole feature is one client-side memo over data the page had already loaded.
+
+Four rules govern which trophies appear, each of which is a way this could have gone quietly wrong: only sessions up to and including the **selected** weekend count (the table is a time machine — an earlier round must not show trophies won later); the synthetic `late-joiner-penalty` / `late-joiner-handicap` rows are excluded so an adjustment is never ranked as a race; a **zero-point session awards nothing**, and a team scoring zero never gets a trophy even if that placed it third; and URL ids are resolved through `completedRaceWeekends` rather than string-munged from the normalised lowercase score ids.
+
+Sprints count as their own session, so a sprint weekend can yield two trophies — hence "Sprint" in the tooltip. Ties follow the same competition-ranking rule as every other table in the app: equal points share the place and the next place is skipped. Verified against live data: 15 scored sessions produce 50 trophies, correctly including a three-way tie for gold at Spa (no silver or bronze awarded) and Suzuka's two golds followed by two bronzes.
+
+**GR#3 cleanup shipped alongside:** `RankBadge` in `standings/page.tsx` and `RaceRankBadge` in `results-utils.tsx` were already byte-identical copies of the same podium renderer. Rather than add a third, both now delegate to a new `lib/podium.tsx`, which also owns the tie-ranking helper so trophy places provably match the standings tables instead of re-deriving the rule.
+
 ## v3.18.3 — 2026-07-27
 
 ### BUG-BOT-EMAIL-001: the Billceleration bot was being sent player email

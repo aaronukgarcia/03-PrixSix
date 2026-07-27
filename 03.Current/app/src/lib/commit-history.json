@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-27",
   "commits": [
     {
+      "id": "21a228c",
+      "date": "2026-07-27",
+      "version": "3.18.3",
+      "author": "aaron garcia",
+      "message": "fix: BUG-BOT-EMAIL-001 — the Billceleration bot must never be sent player email (v3.18.3)",
+      "major": false
+    },
+    {
       "id": "7c31a7c",
       "date": "2026-07-27",
       "version": "3.18.2",

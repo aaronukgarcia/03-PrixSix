@@ -15,6 +15,7 @@ import { calculateDriverPoints, SCORING_POINTS } from "@/lib/scoring-rules";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal } from "lucide-react";
 import { generateRaceId } from "@/lib/normalize-race-id";
+import { PodiumBadge } from "@/lib/podium";
 
 // GUID: LIB_RESULTS_UTILS-001-v01
 // [Intent] Score type enum for colour-coded display — maps position difference to grade (A=exact, E=miss).
@@ -236,32 +237,9 @@ export function getBaseRaceId(eventId: string): string {
     return eventId.replace(/-GP$/i, '');
 }
 
-// GUID: LIB_RESULTS_UTILS-016-v01
+// GUID: LIB_RESULTS_UTILS-016-v02
+// @REFACTOR(FEAT-TROPHY-001, v3.19.0): body removed — this was byte-identical to RankBadge in
+//   standings/page.tsx. Both now delegate to the single PodiumBadge in lib/podium.tsx (GR#3).
+//   The RaceRankBadge name is kept as the public export so results/page.tsx is unchanged.
 // [Intent] Race rank badge component for 1st, 2nd, 3rd place finishers. Pure presentational.
-export const RaceRankBadge = ({ rank }: { rank: number }) => {
-    if (rank === 1) {
-        return (
-            <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700">
-                <Trophy className="h-3 w-3 mr-0.5" />
-                1st
-            </Badge>
-        );
-    }
-    if (rank === 2) {
-        return (
-            <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
-                <Medal className="h-3 w-3 mr-0.5" />
-                2nd
-            </Badge>
-        );
-    }
-    if (rank === 3) {
-        return (
-            <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700">
-                <Medal className="h-3 w-3 mr-0.5" />
-                3rd
-            </Badge>
-        );
-    }
-    return null;
-};
+export const RaceRankBadge = PodiumBadge;

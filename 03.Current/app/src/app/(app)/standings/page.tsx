@@ -44,6 +44,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule } from "@/lib/data";
 import { generateRaceId, normalizeRaceIdForComparison } from "@/lib/normalize-race-id";
+import { PodiumBadge, PodiumIcon, podiumLabel, assignCompetitionPlaces, type PodiumPlace } from "@/lib/podium";
 import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -219,36 +220,56 @@ const RankChangeIndicator = ({ change }: { change: number }) => {
   return <ArrowDown className="h-4 w-4 text-red-500" />;
 };
 
-// GUID: PAGE_STANDINGS-002-v03
+// GUID: PAGE_STANDINGS-002-v04
+// @REFACTOR(FEAT-TROPHY-001, v3.19.0): body removed — this was byte-identical to RaceRankBadge in
+//   lib/results-utils.tsx. Both now delegate to the single PodiumBadge in lib/podium.tsx (GR#3).
 // [Intent] Badge for top-3 ranked teams — gold for 1st, silver for 2nd, bronze for 3rd.
 // [Inbound Trigger] Rendered next to the team name in the standings table for ranks 1-3.
 // [Downstream Impact] Pure presentational component — no side effects.
-const RankBadge = ({ rank }: { rank: number }) => {
-  if (rank === 1) {
-    return (
-      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700">
-        <Trophy className="h-3 w-3 mr-0.5" />
-        1st
-      </Badge>
-    );
-  }
-  if (rank === 2) {
-    return (
-      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
-        <Medal className="h-3 w-3 mr-0.5" />
-        2nd
-      </Badge>
-    );
-  }
-  if (rank === 3) {
-    return (
-      <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700">
-        <Medal className="h-3 w-3 mr-0.5" />
-        3rd
-      </Badge>
-    );
-  }
-  return null;
+const RankBadge = PodiumBadge;
+
+// GUID: PAGE_STANDINGS-035-v01
+// [Intent] FEAT-TROPHY-001 — the strip of podium trophies a team has won this season, rendered to
+//   the right of the team name. Oldest on the left. Each icon is its own hot link to that race's
+//   result, mirroring the existing GP/Sprint score buttons, and carries a hover title such as
+//   "2nd for Spa" or "1st for Silverstone Sprint".
+// [Inbound Trigger] Rendered per standings row with the team's entry from trophiesByTeam.
+// [Downstream Impact] Calls navigateToResults (PAGE_STANDINGS-022) — same /results?race=<Title-Case>
+//   deep link the score buttons use. Renders nothing when a team has no trophies.
+//
+// Sizing/layout notes: icons are 1em (the height of a capital M) rather than a fixed pixel size, so
+// a dozen of them fit inline and stay proportional if the table font ever changes. The parent span
+// is already flex-wrap, so a long strip wraps under the team name instead of squeezing the score
+// columns. The native `title` attribute matches this page's existing tooltip convention (there is
+// no TooltipProvider mounted here); aria-label repeats it because `title` is not reliably announced
+// by screen readers and does not appear at all on touch devices.
+const TrophyStrip = ({
+  trophies,
+  onSelect,
+}: {
+  trophies: { place: PodiumPlace; urlRaceId: string; label: string }[] | undefined;
+  onSelect: (raceId: string) => void;
+}) => {
+  if (!trophies || trophies.length === 0) return null;
+  return (
+    <span className="ml-2 inline-flex flex-wrap items-center gap-0.5 align-middle">
+      {trophies.map((trophy, i) => {
+        const description = `${podiumLabel(trophy.place)} for ${trophy.label}`;
+        return (
+          <button
+            key={`${trophy.urlRaceId}-${i}`}
+            type="button"
+            onClick={() => onSelect(trophy.urlRaceId)}
+            title={description}
+            aria-label={`${description} — view result`}
+            className="inline-flex cursor-pointer items-center rounded-sm p-0 leading-none transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <PodiumIcon place={trophy.place} />
+          </button>
+        );
+      })}
+    </span>
+  );
 };
 
 // GUID: PAGE_STANDINGS-003-v03
@@ -757,6 +778,86 @@ export default function StandingsPage() {
 
     return { gpWinners, sprintWinners };
   }, [standings]);
+
+  // GUID: PAGE_STANDINGS-034-v01
+  // [Intent] FEAT-TROPHY-001 — every podium finish (1st/2nd/3rd) a team has earned in any scored
+  //   session up to and including the selected race weekend, as a per-team chronological list.
+  //   Each trophy carries the Title-Case raceId needed to deep-link to that race's result.
+  // [Inbound Trigger] filteredScores, completedRaceWeekends or selectedRaceIndex changes.
+  // [Downstream Impact] Drives the trophy strip in the team-name cell. Pure client-side compute —
+  //   the per-race points are already in filteredScores, so this needs no API or Firestore change.
+  //
+  // Four rules that are easy to get wrong, each deliberate:
+  //  1. UP TO THE SELECTED WEEKEND ONLY. The standings table is a time machine (you can view the
+  //     table as it stood at any past weekend), so counting the whole season would show trophies
+  //     that had not been won yet when viewing an earlier round.
+  //  2. SYNTHETIC ROWS EXCLUDED. Late-joiner adjustments ride through filteredScores as fake
+  //     raceIds ('late-joiner-penalty' / 'late-joiner-handicap'); ranking them would invent a race.
+  //  3. ZERO-POINT SESSIONS AWARD NOTHING (Aaron, 2026-07-27). If nobody scored, sorting still
+  //     produces a "winner"; a team that scored 0 never gets a trophy even if that placed them 3rd.
+  //     Matches the existing maxGpPoints > 0 guard in raceWinners above.
+  //  4. URL IDS COME FROM completedRaceWeekends, never from string-munging score.raceId. Scores
+  //     carry normalised lowercase ids; /results needs the Title-Case form. See the warning block
+  //     in lib/normalize-race-id.ts.
+  const trophiesByTeam = useMemo(() => {
+    const byTeam = new Map<string, { place: PodiumPlace; urlRaceId: string; label: string }[]>();
+    if (completedRaceWeekends.length === 0 || selectedRaceIndex < 0) return byTeam;
+
+    // Sessions in season order, earliest first, sprint before GP within a weekend. Rule 1 slices
+    // at the selected weekend. Each entry maps the normalised key (matching score.raceId) to the
+    // Title-Case id used for the URL (rule 4) and to a human label for the tooltip.
+    const sessions: { key: string; urlRaceId: string; label: string }[] = [];
+    completedRaceWeekends.slice(0, selectedRaceIndex + 1).forEach(race => {
+      // "Spa-Francorchamps" -> "Spa"; matches the chart's x-axis convention (PAGE_STANDINGS-031).
+      const location = RaceSchedule.find(r => r.name === race.name)?.location;
+      const circuit = location ? String(location).split('-')[0] : race.name;
+      if (race.sprintRaceId && race.hasSprintScores) {
+        sessions.push({
+          key: normalizeRaceIdForComparison(race.sprintRaceId),
+          urlRaceId: race.sprintRaceId,
+          label: `${circuit} Sprint`,
+        });
+      }
+      if (race.hasGpScores) {
+        sessions.push({
+          key: normalizeRaceIdForComparison(race.gpRaceId),
+          urlRaceId: race.gpRaceId,
+          label: circuit,
+        });
+      }
+    });
+
+    // Bucket the already-loaded per-race scores by session (rule 2 drops the synthetic rows,
+    // because their raceIds are not in the session map).
+    const scoresBySession = new Map<string, { userId: string; totalPoints: number }[]>();
+    filteredScores.forEach(score => {
+      if (!sessions.some(s => s.key === score.raceId)) return;
+      const bucket = scoresBySession.get(score.raceId) ?? [];
+      bucket.push({ userId: score.userId, totalPoints: score.totalPoints });
+      scoresBySession.set(score.raceId, bucket);
+    });
+
+    // Walk sessions in chronological order so each team's trophies come out oldest-first (left to
+    // right in the strip). assignCompetitionPlaces owns the tie rule: equal points share a place
+    // and the next place is skipped, matching cumulative-standings.ts:308-316.
+    sessions.forEach(session => {
+      const entries = scoresBySession.get(session.key);
+      if (!entries || entries.length === 0) return;
+      assignCompetitionPlaces(entries).forEach(entry => {
+        if (entry.place > 3) return;
+        if (entry.totalPoints <= 0) return; // rule 3
+        const list = byTeam.get(entry.userId) ?? [];
+        list.push({
+          place: entry.place as PodiumPlace,
+          urlRaceId: session.urlRaceId,
+          label: session.label,
+        });
+        byTeam.set(entry.userId, list);
+      });
+    });
+
+    return byTeam;
+  }, [filteredScores, completedRaceWeekends, selectedRaceIndex]);
 
   // GUID: PAGE_STANDINGS-015-v06
   // @FEATURE (zoom, v3.4.4): each point also carries `__weekendIdx` (pre-season Start = -1) so the
@@ -1507,6 +1608,7 @@ export default function StandingsPage() {
                       {team.teamName === DEFENDING_CHAMPION_TEAM && <DefendingChampionBadge />}
                       {team.teamName}
                       <RankBadge rank={team.rank} />
+                      <TrophyStrip trophies={trophiesByTeam.get(team.userId)} onSelect={navigateToResults} />
                     </span>
                     {/* @UX(NEWBIE-18): explanatory tooltip on the late-joiner annotation */}
                     {team.penalty < 0 && (
