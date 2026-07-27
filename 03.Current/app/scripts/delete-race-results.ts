@@ -6,7 +6,7 @@
 //
 // Part of backup/restore validation cycle
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { runSafetyChecks } from './_safety-checks';
 
@@ -29,19 +29,19 @@ async function deleteRaceResults() {
     await runSafetyChecks('DELETE ALL RACE RESULTS (race_results collection)');
   }
 
-  console.log('\n🗑️  DELETE ALL RACE RESULTS');
-  console.log(`Mode: ${DRY_RUN ? '⚠️  DRY RUN' : '🔴 LIVE DELETE'}\n`);
+  console.log('\nðŸ—‘ï¸  DELETE ALL RACE RESULTS');
+  console.log(`Mode: ${DRY_RUN ? 'âš ï¸  DRY RUN' : 'ðŸ”´ LIVE DELETE'}\n`);
 
   const snapshot = await db.collection('race_results').get();
-  console.log(`📊 Found ${snapshot.size} race_results documents\n`);
+  console.log(`ðŸ“Š Found ${snapshot.size} race_results documents\n`);
 
   if (snapshot.size === 0) {
-    console.log('✅ No race_results to delete!\n');
+    console.log('âœ… No race_results to delete!\n');
     return;
   }
 
   if (DRY_RUN) {
-    console.log('📋 Would delete:');
+    console.log('ðŸ“‹ Would delete:');
     snapshot.docs.slice(0, 10).forEach(doc => {
       const data = doc.data();
       console.log(`  - ${doc.id}: ${data.raceName} (${data.raceId})`);
@@ -49,19 +49,19 @@ async function deleteRaceResults() {
     if (snapshot.size > 10) {
       console.log(`  ... and ${snapshot.size - 10} more`);
     }
-    console.log(`\n⚠️  DRY RUN - Would delete ${snapshot.size} documents`);
+    console.log(`\nâš ï¸  DRY RUN - Would delete ${snapshot.size} documents`);
     console.log('   Run with --live to delete.\n');
     return;
   }
 
-  console.log('🔴 DELETING race_results...');
+  console.log('ðŸ”´ DELETING race_results...');
   const batch = db.batch();
   snapshot.docs.forEach(doc => {
     batch.delete(doc.ref);
   });
 
   await batch.commit();
-  console.log(`✅ Deleted ${snapshot.size} race_results!\n`);
+  console.log(`âœ… Deleted ${snapshot.size} race_results!\n`);
 }
 
 deleteRaceResults()

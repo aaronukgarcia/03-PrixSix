@@ -1,11 +1,13 @@
-const admin = require('firebase-admin');
+// firebase-admin 14: legacy namespace removed — use modular entry points.
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 const serviceAccount = require('../../service-account.json');
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+initializeApp({
+  credential: cert(serviceAccount)
 });
 
-const db = admin.firestore();
+const db = getFirestore();
 
 async function checkErrorLog() {
   const correlationId = process.argv[2];

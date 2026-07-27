@@ -7,7 +7,7 @@
  * Run with: npx ts-node --project tsconfig.scripts.json scripts/fix-backfilled-predictions.ts
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 // Initialize Firebase Admin

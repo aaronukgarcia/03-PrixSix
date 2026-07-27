@@ -6,7 +6,7 @@
 // [Downstream Impact] Updates email_logs collection with masked PINs. Prevents credential exposure.
 //                     Creates backup before modification for rollback capability.
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -30,7 +30,7 @@ function initializeFirebase(): admin.firestore.Firestore {
   const serviceAccountPath = path.join(__dirname, '../../service-account.json');
 
   if (!fs.existsSync(serviceAccountPath)) {
-    console.error('❌ ERROR: service-account.json not found');
+    console.error('âŒ ERROR: service-account.json not found');
     console.error(`   Expected location: ${serviceAccountPath}`);
     process.exit(1);
   }
@@ -48,10 +48,10 @@ function initializeFirebase(): admin.firestore.Firestore {
 // [Intent] Mask a PIN value using the same logic as maskPin() in utils.ts.
 //          Returns fixed-length masking string to prevent length-based disclosure.
 // [Inbound Trigger] Called for each PIN value that needs masking.
-// [Downstream Impact] Replaces plaintext PINs with '••••••' for security.
+// [Downstream Impact] Replaces plaintext PINs with 'â€¢â€¢â€¢â€¢â€¢â€¢' for security.
 function maskPin(pin: string | undefined): string {
-  if (!pin) return '••••••';
-  return '••••••';
+  if (!pin) return 'â€¢â€¢â€¢â€¢â€¢â€¢';
+  return 'â€¢â€¢â€¢â€¢â€¢â€¢';
 }
 
 // GUID: SCRIPT_MIGRATE_MASK_PINS-004-v01
@@ -62,10 +62,10 @@ function isPlaintextPin(pin: any): boolean {
   if (!pin || typeof pin !== 'string') return false;
 
   // Already masked if it's exactly 6 bullet characters
-  if (pin === '••••••') return false;
+  if (pin === 'â€¢â€¢â€¢â€¢â€¢â€¢') return false;
 
   // Already masked if it contains bullet characters
-  if (pin.includes('•')) return false;
+  if (pin.includes('â€¢')) return false;
 
   // Already masked if it's all asterisks
   if (/^\*+$/.test(pin)) return false;
@@ -87,7 +87,7 @@ function prepareDirectories(): string {
 
   if (CONFIG.createBackup && !fs.existsSync(backupPath)) {
     fs.mkdirSync(backupPath, { recursive: true });
-    console.log(`📁 Created backup directory: ${backupPath}`);
+    console.log(`ðŸ“ Created backup directory: ${backupPath}`);
   }
 
   const logDir = path.dirname(CONFIG.logFile);
@@ -125,7 +125,7 @@ async function scanEmailLogs(db: admin.firestore.Firestore): Promise<{
   needsMigration: number;
   documents: Array<{ id: string; data: any }>;
 }> {
-  log('🔍 Scanning email_logs collection...');
+  log('ðŸ” Scanning email_logs collection...');
 
   const snapshot = await db.collection('email_logs').get();
   const total = snapshot.size;
@@ -172,7 +172,7 @@ async function scanEmailLogs(db: admin.firestore.Firestore): Promise<{
 // [Downstream Impact] Saves original data for rollback if needed.
 function createBackup(documents: Array<{ id: string; data: any }>, backupPath: string): void {
   if (!CONFIG.createBackup) {
-    log('⚠️  Backup creation disabled in config');
+    log('âš ï¸  Backup creation disabled in config');
     return;
   }
 
@@ -185,7 +185,7 @@ function createBackup(documents: Array<{ id: string; data: any }>, backupPath: s
   };
 
   fs.writeFileSync(backupFile, JSON.stringify(backupData, null, 2));
-  log(`💾 Backup created: ${backupFile}`);
+  log(`ðŸ’¾ Backup created: ${backupFile}`);
   log(`   Documents backed up: ${documents.length}`);
 }
 
@@ -199,7 +199,7 @@ async function migrateDocuments(
   documents: Array<{ id: string; data: any }>
 ): Promise<{ updated: number; errors: number }> {
   if (CONFIG.dryRun) {
-    log('🔬 DRY RUN MODE - No documents will be modified');
+    log('ðŸ”¬ DRY RUN MODE - No documents will be modified');
 
     // Show sample of what would be updated
     const samples = documents.slice(0, 5);
@@ -219,7 +219,7 @@ async function migrateDocuments(
     return { updated: 0, errors: 0 };
   }
 
-  log('🔄 Starting migration (LIVE MODE)...');
+  log('ðŸ”„ Starting migration (LIVE MODE)...');
 
   let updated = 0;
   let errors = 0;
@@ -242,10 +242,10 @@ async function migrateDocuments(
     try {
       await batch.commit();
       updated += batchDocs.length;
-      log(`   ✅ Batch ${Math.floor(i / CONFIG.batchSize) + 1}: Updated ${batchDocs.length} documents`);
+      log(`   âœ… Batch ${Math.floor(i / CONFIG.batchSize) + 1}: Updated ${batchDocs.length} documents`);
     } catch (err: any) {
       errors += batchDocs.length;
-      log(`   ❌ Batch ${Math.floor(i / CONFIG.batchSize) + 1} FAILED: ${err.message}`);
+      log(`   âŒ Batch ${Math.floor(i / CONFIG.batchSize) + 1} FAILED: ${err.message}`);
     }
   }
 
@@ -257,7 +257,7 @@ async function migrateDocuments(
 // [Inbound Trigger] Called after migration completes.
 // [Downstream Impact] Confirms all PINs are masked, reports any failures.
 async function verifyMigration(db: admin.firestore.Firestore): Promise<boolean> {
-  log('\n🔎 Verifying migration...');
+  log('\nðŸ”Ž Verifying migration...');
 
   const snapshot = await db.collection('email_logs').get();
   let remainingPlaintext = 0;
@@ -272,10 +272,10 @@ async function verifyMigration(db: admin.firestore.Firestore): Promise<boolean> 
   });
 
   if (remainingPlaintext === 0) {
-    log('   ✅ SUCCESS: All PINs are masked');
+    log('   âœ… SUCCESS: All PINs are masked');
     return true;
   } else {
-    log(`   ❌ FAILURE: ${remainingPlaintext} documents still have plaintext PINs`);
+    log(`   âŒ FAILURE: ${remainingPlaintext} documents still have plaintext PINs`);
     log(`   Failed document IDs: ${failures.join(', ')}`);
     return false;
   }
@@ -294,7 +294,7 @@ function generateReport(stats: {
   verified: boolean;
 }): void {
   log('\n' + '='.repeat(70));
-  log('📊 MIGRATION SUMMARY REPORT');
+  log('ðŸ“Š MIGRATION SUMMARY REPORT');
   log('='.repeat(70));
   log(`Email Logs Total:           ${stats.total}`);
   log(`Documents with PIN field:   ${stats.withPins}`);
@@ -306,11 +306,11 @@ function generateReport(stats: {
   } else {
     log(`\nDocuments updated:          ${stats.updated}`);
     log(`Errors:                     ${stats.errors}`);
-    log(`Verification:               ${stats.verified ? '✅ PASSED' : '❌ FAILED'}`);
+    log(`Verification:               ${stats.verified ? 'âœ… PASSED' : 'âŒ FAILED'}`);
   }
 
   log('\n' + '='.repeat(70));
-  log('📋 NEXT STEPS');
+  log('ðŸ“‹ NEXT STEPS');
   log('='.repeat(70));
 
   if (CONFIG.dryRun) {
@@ -319,7 +319,7 @@ function generateReport(stats: {
     log('3. If satisfied, set CONFIG.dryRun = false');
     log('4. Re-run the script to perform actual migration');
   } else if (stats.verified) {
-    log('✅ Phase 1B COMPLETE - All PINs masked successfully');
+    log('âœ… Phase 1B COMPLETE - All PINs masked successfully');
     log('\nProceed to Phase 1C:');
     log('1. Review backup files for exposed credentials');
     log('2. Identify any secrets that need rotation');
@@ -327,7 +327,7 @@ function generateReport(stats: {
     log('4. Rotate service account credentials');
     log('5. Document credential rotation in security audit log');
   } else {
-    log('⚠️  Migration completed with errors');
+    log('âš ï¸  Migration completed with errors');
     log('1. Review error logs above');
     log('2. Check failed document IDs');
     log('3. Manually verify/fix failures');
@@ -347,7 +347,7 @@ function generateReport(stats: {
 // [Inbound Trigger] Script entry point.
 // [Downstream Impact] Executes complete migration workflow with safety checks.
 async function main(): Promise<void> {
-  log('🚀 EMAIL-006 Phase 1B Migration Script');
+  log('ðŸš€ EMAIL-006 Phase 1B Migration Script');
   log('   Script: migrate-mask-pins.ts');
   log(`   Mode: ${CONFIG.dryRun ? 'DRY RUN' : 'LIVE'}`);
   log(`   Backup: ${CONFIG.createBackup ? 'ENABLED' : 'DISABLED'}`);
@@ -356,7 +356,7 @@ async function main(): Promise<void> {
   try {
     // Initialize Firebase
     const db = initializeFirebase();
-    log('✅ Firebase initialized\n');
+    log('âœ… Firebase initialized\n');
 
     // Prepare directories
     const backupPath = prepareDirectories();
@@ -365,7 +365,7 @@ async function main(): Promise<void> {
     const scanResults = await scanEmailLogs(db);
 
     if (scanResults.needsMigration === 0) {
-      log('\n✅ No documents need migration - all PINs are already masked');
+      log('\nâœ… No documents need migration - all PINs are already masked');
       log('   Phase 1B is already complete!\n');
       return;
     }
@@ -395,7 +395,7 @@ async function main(): Promise<void> {
     });
 
   } catch (error: any) {
-    log(`\n❌ FATAL ERROR: ${error.message}`);
+    log(`\nâŒ FATAL ERROR: ${error.message}`);
     log(`   Stack: ${error.stack}`);
     process.exit(1);
   }

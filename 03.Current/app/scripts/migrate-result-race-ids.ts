@@ -8,7 +8,7 @@
  * This script updates the raceId field to match the document ID format (Title-Case with hyphens).
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
@@ -66,15 +66,15 @@ async function migrateResultRaceIds() {
     if (!DRY_RUN && updatedCount > 0) {
       console.log(`\nCommitting batch update...`);
       await batch.commit();
-      console.log(`✓ Successfully updated ${updatedCount} race result documents`);
+      console.log(`âœ“ Successfully updated ${updatedCount} race result documents`);
     } else if (DRY_RUN && updatedCount > 0) {
-      console.log(`\n⚠ DRY RUN - No changes written. Run with --live to apply changes.`);
+      console.log(`\nâš  DRY RUN - No changes written. Run with --live to apply changes.`);
     } else {
-      console.log(`\n✓ No updates needed - all race results already in correct format`);
+      console.log(`\nâœ“ No updates needed - all race results already in correct format`);
     }
 
   } catch (error) {
-    console.error('\n❌ Migration failed:', error);
+    console.error('\nâŒ Migration failed:', error);
     throw error;
   }
 }

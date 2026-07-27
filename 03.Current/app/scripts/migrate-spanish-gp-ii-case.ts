@@ -8,7 +8,7 @@
  *           This maintains Golden Rule #3: Single Source of Truth
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
@@ -32,7 +32,7 @@ async function migrateSpanishGPII() {
     console.log(`Found ${predictionsSnapshot.size} predictions with incorrect case\n`);
 
     if (predictionsSnapshot.empty) {
-      console.log('✓ No predictions need updating');
+      console.log('âœ“ No predictions need updating');
       return;
     }
 
@@ -60,13 +60,13 @@ async function migrateSpanishGPII() {
     if (!DRY_RUN && count > 0) {
       console.log(`\nCommitting batch update...`);
       await batch.commit();
-      console.log(`✓ Successfully updated ${count} predictions`);
+      console.log(`âœ“ Successfully updated ${count} predictions`);
     } else if (DRY_RUN && count > 0) {
-      console.log(`\n⚠ DRY RUN - No changes written. Run with --live to apply changes.`);
+      console.log(`\nâš  DRY RUN - No changes written. Run with --live to apply changes.`);
     }
 
   } catch (error) {
-    console.error('\n❌ Migration failed:', error);
+    console.error('\nâŒ Migration failed:', error);
     throw error;
   }
 }

@@ -2,7 +2,7 @@
  * Check data consistency - drivers, races, teams casing
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
@@ -91,14 +91,14 @@ async function checkDataConsistency() {
     console.log('  Race ID issues:');
     submissionRaceIssues.forEach((count, issue) => console.log(`    ${issue} (${count} docs)`));
   } else {
-    console.log('  ✓ All raceIds valid');
+    console.log('  âœ“ All raceIds valid');
   }
 
   if (submissionDriverIssues.size > 0) {
     console.log('  Driver issues:');
     submissionDriverIssues.forEach((count, issue) => console.log(`    ${issue} (${count} docs)`));
   } else {
-    console.log('  ✓ All drivers valid (lowercase)');
+    console.log('  âœ“ All drivers valid (lowercase)');
   }
 
   // 2. Check users/*/predictions subcollections
@@ -160,14 +160,14 @@ async function checkDataConsistency() {
     console.log('  Race ID issues:');
     predRaceIssues.forEach((count, issue) => console.log(`    ${issue} (${count} docs)`));
   } else {
-    console.log('  ✓ All raceIds valid');
+    console.log('  âœ“ All raceIds valid');
   }
 
   if (predDriverIssues.size > 0) {
     console.log('  Driver issues:');
     predDriverIssues.forEach((count, issue) => console.log(`    ${issue} (${count} docs)`));
   } else {
-    console.log('  ✓ All drivers valid (lowercase)');
+    console.log('  âœ“ All drivers valid (lowercase)');
   }
 
   // 3. Check race_results
@@ -207,14 +207,14 @@ async function checkDataConsistency() {
     console.log('  Doc ID issues:');
     resultDocIdIssues.forEach(issue => console.log(`    ${issue}`));
   } else {
-    console.log('  ✓ All doc IDs lowercase');
+    console.log('  âœ“ All doc IDs lowercase');
   }
 
   if (resultDriverIssues.size > 0) {
     console.log('  Driver issues:');
     resultDriverIssues.forEach((count, issue) => console.log(`    ${issue} (${count} docs)`));
   } else {
-    console.log('  ✓ All drivers valid (lowercase)');
+    console.log('  âœ“ All drivers valid (lowercase)');
   }
 
   // 4. Check scores
@@ -238,7 +238,7 @@ async function checkDataConsistency() {
     console.log('  Race ID issues:');
     scoreRaceIssues.forEach((count, issue) => console.log(`    ${issue} (${count} docs)`));
   } else {
-    console.log('  ✓ All raceIds valid');
+    console.log('  âœ“ All raceIds valid');
   }
 
   // Summary
@@ -250,9 +250,9 @@ async function checkDataConsistency() {
     scoreRaceIssues.size;
 
   if (totalIssues === 0) {
-    console.log('✓ All data is consistent - no casing issues found');
+    console.log('âœ“ All data is consistent - no casing issues found');
   } else {
-    console.log(`✗ Found ${totalIssues} types of issues`);
+    console.log(`âœ— Found ${totalIssues} types of issues`);
   }
 }
 

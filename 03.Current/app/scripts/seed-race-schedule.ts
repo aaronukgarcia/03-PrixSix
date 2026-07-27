@@ -20,7 +20,7 @@
  * Run with: npx ts-node --project tsconfig.scripts.json scripts/seed-race-schedule.ts
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { RaceSchedule } from '../src/lib/data';
 
@@ -42,15 +42,15 @@ function normalizeRaceName(name: string): string {
 }
 
 async function seedRaceSchedule() {
-  console.log('\n🏁 Seeding race_schedule collection from RaceSchedule...\n');
-  console.log('═'.repeat(70));
+  console.log('\nðŸ Seeding race_schedule collection from RaceSchedule...\n');
+  console.log('â•'.repeat(70));
 
   const collectionRef = db.collection('race_schedule');
 
   // Check if collection already has data
   const existingDocs = await collectionRef.limit(1).get();
   if (!existingDocs.empty) {
-    console.log('\n⚠️  WARNING: race_schedule collection already contains data!');
+    console.log('\nâš ï¸  WARNING: race_schedule collection already contains data!');
     console.log('   This will OVERWRITE existing race schedule documents.\n');
 
     // Could add confirmation prompt here if needed
@@ -58,7 +58,7 @@ async function seedRaceSchedule() {
 
   console.log(`\nSource: RaceSchedule from app/src/lib/data.ts`);
   console.log(`Total races to seed: ${RaceSchedule.length}\n`);
-  console.log('─'.repeat(70));
+  console.log('â”€'.repeat(70));
 
   const batch = db.batch();
   let seededCount = 0;
@@ -87,25 +87,25 @@ async function seedRaceSchedule() {
     batch.set(docRef, scheduleData);
     seededCount++;
 
-    console.log(`  ✓ R${index + 1}: ${race.name} (${docId})`);
+    console.log(`  âœ“ R${index + 1}: ${race.name} (${docId})`);
     if (race.hasSprint) {
-      console.log(`     └─ Sprint weekend`);
+      console.log(`     â””â”€ Sprint weekend`);
     }
   });
 
   // Commit batch
   await batch.commit();
 
-  console.log('\n' + '═'.repeat(70));
-  console.log(`✅ Successfully seeded ${seededCount} races to race_schedule collection`);
-  console.log('\n📊 Collection: race_schedule');
+  console.log('\n' + 'â•'.repeat(70));
+  console.log(`âœ… Successfully seeded ${seededCount} races to race_schedule collection`);
+  console.log('\nðŸ“Š Collection: race_schedule');
   console.log('   Admin-only writable (Firestore rules)');
   console.log('   Server-side source of truth for race timing');
-  console.log('\n🔒 Security: GEMINI-AUDIT-052 resolved');
+  console.log('\nðŸ”’ Security: GEMINI-AUDIT-052 resolved');
   console.log('   - Client cannot tamper with displayed deadlines');
   console.log('   - Server validates against trusted Firestore source');
   console.log('   - Admin can update schedule without code deploy');
-  console.log('═'.repeat(70) + '\n');
+  console.log('â•'.repeat(70) + '\n');
 }
 
 // Run the script
@@ -115,6 +115,6 @@ seedRaceSchedule()
     process.exit(0);
   })
   .catch((error) => {
-    console.error('\n❌ Script failed with error:', error);
+    console.error('\nâŒ Script failed with error:', error);
     process.exit(1);
   });

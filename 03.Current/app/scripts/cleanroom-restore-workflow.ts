@@ -8,7 +8,7 @@
  * 5. Clean up cleanroom database
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { v1 } from '@google-cloud/firestore';
 
@@ -27,8 +27,8 @@ const CLEANROOM_DB_ID = 'cleanroom-restore';
 
 async function cleanroomRestoreWorkflow() {
   try {
-    console.log('\n🧪 CLEAN ROOM RESTORE WORKFLOW');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE EXECUTION'}\n`);
+    console.log('\nðŸ§ª CLEAN ROOM RESTORE WORKFLOW');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE EXECUTION'}\n`);
 
     const firestoreAdmin = new v1.FirestoreAdminClient({
       projectId: PROJECT_ID,
@@ -39,7 +39,7 @@ async function cleanroomRestoreWorkflow() {
     const cleanroomDbName = `${parent}/databases/${CLEANROOM_DB_ID}`;
     const productionDbName = `${parent}/databases/(default)`;
 
-    console.log('📋 Workflow Plan:');
+    console.log('ðŸ“‹ Workflow Plan:');
     console.log(`  1. Create cleanroom database: ${CLEANROOM_DB_ID}`);
     console.log(`  2. Import full backup to cleanroom`);
     console.log(`  3. Extract race_results from cleanroom`);
@@ -47,7 +47,7 @@ async function cleanroomRestoreWorkflow() {
     console.log(`  5. Delete cleanroom database\n`);
 
     if (DRY_RUN) {
-      console.log('⚠️  DRY RUN - Steps that would be executed:\n');
+      console.log('âš ï¸  DRY RUN - Steps that would be executed:\n');
 
       console.log('STEP 1: Create cleanroom database');
       console.log(`  gcloud firestore databases create ${CLEANROOM_DB_ID} \\`);
@@ -74,7 +74,7 @@ async function cleanroomRestoreWorkflow() {
     }
 
     // LIVE EXECUTION
-    console.log('🟢 STEP 1: Creating cleanroom database...\n');
+    console.log('ðŸŸ¢ STEP 1: Creating cleanroom database...\n');
 
     try {
       const [createOp] = await firestoreAdmin.createDatabase({
@@ -87,19 +87,19 @@ async function cleanroomRestoreWorkflow() {
         }
       });
 
-      console.log('  ⏳ Waiting for database creation...');
+      console.log('  â³ Waiting for database creation...');
       const [cleanroomDb] = await createOp.promise();
-      console.log(`  ✓ Cleanroom database created: ${cleanroomDb.name}\n`);
+      console.log(`  âœ“ Cleanroom database created: ${cleanroomDb.name}\n`);
 
     } catch (err: any) {
       if (err.message?.includes('already exists')) {
-        console.log(`  ⚠️  Cleanroom database already exists, using existing one\n`);
+        console.log(`  âš ï¸  Cleanroom database already exists, using existing one\n`);
       } else {
         throw err;
       }
     }
 
-    console.log('🟢 STEP 2: Importing full backup to cleanroom...\n');
+    console.log('ðŸŸ¢ STEP 2: Importing full backup to cleanroom...\n');
     console.log(`  Source: ${BACKUP_PATH}`);
     console.log(`  Target: ${cleanroomDbName}\n`);
 
@@ -108,14 +108,14 @@ async function cleanroomRestoreWorkflow() {
       inputUriPrefix: BACKUP_PATH,
     });
 
-    console.log('  ⏳ Import operation started...');
+    console.log('  â³ Import operation started...');
     console.log(`  Operation: ${importOp.name}`);
     console.log('  This may take 2-5 minutes for full database...\n');
 
     const [importResult] = await importOp.promise();
-    console.log('  ✓ Import complete!\n');
+    console.log('  âœ“ Import complete!\n');
 
-    console.log('🟢 STEP 3 & 4: Extracting and copying race_results...\n');
+    console.log('ðŸŸ¢ STEP 3 & 4: Extracting and copying race_results...\n');
 
     // Initialize Firestore instances for both databases
     const cleanroomDb = admin.firestore();
@@ -125,22 +125,22 @@ async function cleanroomRestoreWorkflow() {
     // productionDb uses (default) database
 
     // Get all race_results from cleanroom
-    console.log('  📥 Reading race_results from cleanroom...');
+    console.log('  ðŸ“¥ Reading race_results from cleanroom...');
     const cleanroomResults = await cleanroomDb.collection('race_results').get();
-    console.log(`  ✓ Found ${cleanroomResults.size} race_results documents\n`);
+    console.log(`  âœ“ Found ${cleanroomResults.size} race_results documents\n`);
 
     if (cleanroomResults.size === 0) {
-      console.log('  ⚠️  No race_results found in cleanroom backup.');
+      console.log('  âš ï¸  No race_results found in cleanroom backup.');
       console.log('     The backup may not contain race_results data.\n');
     } else {
-      console.log('  📝 Sample documents:');
+      console.log('  ðŸ“ Sample documents:');
       cleanroomResults.docs.slice(0, 3).forEach(doc => {
         const data = doc.data();
         console.log(`     - ${doc.id}: raceId=${data.raceId || 'unknown'}`);
       });
       console.log('');
 
-      console.log('  📤 Copying to production database...');
+      console.log('  ðŸ“¤ Copying to production database...');
       const batch = productionDb.batch();
       let count = 0;
 
@@ -160,32 +160,32 @@ async function cleanroomRestoreWorkflow() {
         await batch.commit();
       }
 
-      console.log(`  ✓ Copied ${cleanroomResults.size} race_results to production\n`);
+      console.log(`  âœ“ Copied ${cleanroomResults.size} race_results to production\n`);
     }
 
-    console.log('🟢 STEP 5: Cleaning up cleanroom database...\n');
+    console.log('ðŸŸ¢ STEP 5: Cleaning up cleanroom database...\n');
 
     const [deleteOp] = await firestoreAdmin.deleteDatabase({
       name: cleanroomDbName
     });
 
-    console.log('  ⏳ Deleting cleanroom database...');
+    console.log('  â³ Deleting cleanroom database...');
     await deleteOp.promise();
-    console.log('  ✓ Cleanroom database deleted\n');
+    console.log('  âœ“ Cleanroom database deleted\n');
 
-    console.log('✅ WORKFLOW COMPLETE!\n');
+    console.log('âœ… WORKFLOW COMPLETE!\n');
 
     // Verify production
-    console.log('📊 Final Verification:');
+    console.log('ðŸ“Š Final Verification:');
     const verifySnapshot = await productionDb.collection('race_results').get();
     console.log(`  Production race_results: ${verifySnapshot.size} documents\n`);
 
   } catch (error: any) {
-    console.error('\n❌ Workflow failed:', error.message);
+    console.error('\nâŒ Workflow failed:', error.message);
     if (error.details) {
       console.error('Details:', error.details);
     }
-    console.error('\n⚠️  If cleanroom database exists, clean up manually:');
+    console.error('\nâš ï¸  If cleanroom database exists, clean up manually:');
     console.error(`   gcloud firestore databases delete ${CLEANROOM_DB_ID} --project=${PROJECT_ID}`);
     throw error;
   }

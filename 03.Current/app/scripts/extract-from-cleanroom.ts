@@ -2,7 +2,7 @@
  * Extract race_results from cleanroom and copy to production
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
@@ -29,19 +29,19 @@ const DRY_RUN = process.argv.includes('--dry-run') || !process.argv.includes('--
 
 async function extractFromCleanroom() {
   try {
-    console.log('\n📤 EXTRACT FROM CLEANROOM');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE COPY'}\n`);
+    console.log('\nðŸ“¤ EXTRACT FROM CLEANROOM');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE COPY'}\n`);
 
-    console.log('📥 Reading race_results from cleanroom database...');
+    console.log('ðŸ“¥ Reading race_results from cleanroom database...');
     const cleanroomSnapshot = await cleanroomDb.collection('race_results').get();
-    console.log(`✓ Found ${cleanroomSnapshot.size} race_results documents\n`);
+    console.log(`âœ“ Found ${cleanroomSnapshot.size} race_results documents\n`);
 
     if (cleanroomSnapshot.size === 0) {
-      console.log('⚠️  No race_results found in cleanroom backup.');
+      console.log('âš ï¸  No race_results found in cleanroom backup.');
       return;
     }
 
-    console.log('📄 Sample documents:');
+    console.log('ðŸ“„ Sample documents:');
     cleanroomSnapshot.docs.slice(0, 5).forEach(doc => {
       const data = doc.data();
       console.log(`  - ${doc.id}: raceId=${data.raceId || 'unknown'}`);
@@ -49,12 +49,12 @@ async function extractFromCleanroom() {
     console.log('');
 
     if (DRY_RUN) {
-      console.log('⚠️  DRY RUN - Would copy these documents to production.');
+      console.log('âš ï¸  DRY RUN - Would copy these documents to production.');
       console.log('   Run with --live to execute.\n');
       return;
     }
 
-    console.log('📤 Copying to production database...');
+    console.log('ðŸ“¤ Copying to production database...');
     const batch = productionDb.batch();
     let count = 0;
 
@@ -74,17 +74,17 @@ async function extractFromCleanroom() {
       await batch.commit();
     }
 
-    console.log(`✓ Copied ${cleanroomSnapshot.size} race_results to production\n`);
+    console.log(`âœ“ Copied ${cleanroomSnapshot.size} race_results to production\n`);
 
     // Verify
-    console.log('📊 Verification:');
+    console.log('ðŸ“Š Verification:');
     const productionSnapshot = await productionDb.collection('race_results').get();
     console.log(`  Production race_results: ${productionSnapshot.size} documents\n`);
 
-    console.log('✅ EXTRACTION COMPLETE!\n');
+    console.log('âœ… EXTRACTION COMPLETE!\n');
 
   } catch (error: any) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\nâŒ Error:', error.message);
     throw error;
   } finally {
     await cleanroomApp.delete();

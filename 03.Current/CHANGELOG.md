@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.17.0 — 2026-07-27
+
+### firebase-admin 14 across all three packages (DEP-MAJ-001/002 — the final majors)
+
+firebase-admin 13 → 14.2.0 in app, functions, and whatsapp-worker in one coherent change, plus @google-cloud/firestore 7 → 8.7.0 in functions (firebase-functions 7.3.0 already accepts admin 14). Breaking surface handled: admin 14 removes the legacy namespace (`admin.credential`, `admin.firestore()`, `admin.apps`…) and requires Node ≥22 — production code needed exactly one type fix (send-hot-news-email); the ~48 ops scripts keep working via a new `scripts/_admin-compat.ts` shim; worker `firebase-config.ts` rewritten modular. Verified: app build + tsc clean, functions `require()` loads all 18 exports, worker tsc clean, and a live read-only Firestore smoke on 14.2.0 (Timestamp semantics intact). Known follow-up: the repo-root helper `node_modules` (claude-sync tooling) still pins admin 13 — isolated, untouched by design.
+
 ## v3.16.0 — 2026-07-27
 
 ### Zero TypeScript errors + admin delete confirmation + lucide 1.x

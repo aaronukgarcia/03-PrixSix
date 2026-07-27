@@ -2,7 +2,7 @@
  * Debug score lookup issues
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
@@ -73,11 +73,11 @@ async function debugScores() {
     const matchByUser = scoreData.find(s => s.userId === sub.userId);
 
     if (!matchByOduser && !matchByUser) {
-      console.log(`  ✗ NO MATCH: ${sub.teamName} (oduserId=${sub.oduserId}, userId=${sub.userId})`);
+      console.log(`  âœ— NO MATCH: ${sub.teamName} (oduserId=${sub.oduserId}, userId=${sub.userId})`);
     } else if (!matchByOduser && matchByUser) {
       console.log(`  ! PARTIAL: ${sub.teamName} - matches by userId but not oduserId`);
     } else {
-      console.log(`  ✓ ${sub.teamName}: ${matchByOduser?.points} pts`);
+      console.log(`  âœ“ ${sub.teamName}: ${matchByOduser?.points} pts`);
     }
   }
 }

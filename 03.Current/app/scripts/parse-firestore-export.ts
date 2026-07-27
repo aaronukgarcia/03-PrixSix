@@ -4,7 +4,7 @@
  * Uses Datastore Entity protobuf format to properly decode export files
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -30,13 +30,13 @@ const BUCKET_NAME = 'prix6-backups';
 
 async function parseFirestoreExport() {
   try {
-    console.log('\n🔬 PARSE FIRESTORE EXPORT: Using Datastore Protobuf Format');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE RESTORE'}\n`);
+    console.log('\nðŸ”¬ PARSE FIRESTORE EXPORT: Using Datastore Protobuf Format');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE RESTORE'}\n`);
 
     const bucket = storage.bucket(BUCKET_NAME);
 
     // Download metadata file first
-    console.log('📥 Downloading export metadata...');
+    console.log('ðŸ“¥ Downloading export metadata...');
     const metadataFile = bucket.file(`${BACKUP_PATH}/all_namespaces_all_kinds.export_metadata`);
     const tempDir = path.join(os.tmpdir(), 'firestore-parse');
     if (!fs.existsSync(tempDir)) {
@@ -45,42 +45,42 @@ async function parseFirestoreExport() {
 
     const metadataPath = path.join(tempDir, 'metadata');
     await metadataFile.download({ destination: metadataPath });
-    console.log('✓ Metadata downloaded\n');
+    console.log('âœ“ Metadata downloaded\n');
 
     // Try using leveled/protobuf libraries to parse
-    console.log('📦 Checking for required parsing libraries...');
+    console.log('ðŸ“¦ Checking for required parsing libraries...');
 
     try {
       // Try to use protobufjs to parse
       const protobuf = require('protobufjs');
-      console.log('  ✓ protobufjs available\n');
+      console.log('  âœ“ protobufjs available\n');
 
-      console.log('⚠️  To properly decode Firestore exports, we need:');
+      console.log('âš ï¸  To properly decode Firestore exports, we need:');
       console.log('  1. google/datastore/v1/entity.proto definitions');
       console.log('  2. LevelDB SSTable reader');
       console.log('  3. Protobuf Message decoder\n');
 
-      console.log('💡 RECOMMENDED: Use Google Cloud\'s official tools');
+      console.log('ðŸ’¡ RECOMMENDED: Use Google Cloud\'s official tools');
       console.log('   The export format is intentionally complex to ensure');
       console.log('   data integrity and consistency.\n');
 
     } catch (err) {
-      console.log('  ❌ protobufjs not installed');
+      console.log('  âŒ protobufjs not installed');
       console.log('  Install with: npm install protobufjs\n');
     }
 
-    console.log('🔍 ANALYSIS: Firestore Export Format');
+    console.log('ðŸ” ANALYSIS: Firestore Export Format');
     console.log('  - Format: LevelDB SSTable + Protocol Buffers');
     console.log('  - Schema: google.datastore.v1.Entity');
     console.log('  - Complexity: High (requires exact proto definitions)');
     console.log('  - Collections: Mixed together in all_kinds export\n');
 
-    console.log('📊 BACKUP STATUS:');
+    console.log('ðŸ“Š BACKUP STATUS:');
     console.log(`  Location: gs://${BUCKET_NAME}/${BACKUP_PATH}`);
     console.log(`  Type: all_kinds (all collections mixed)`);
     console.log(`  Files: 60 output files\n`);
 
-    console.log('⚙️  THREE PATHS FORWARD:\n');
+    console.log('âš™ï¸  THREE PATHS FORWARD:\n');
 
     console.log('  OPTION A: Import Full Backup + Delete Unwanted');
     console.log('    Pros: Simple, fast, guaranteed to work');
@@ -108,18 +108,18 @@ async function parseFirestoreExport() {
     console.log('      - Map Datastore entities to Firestore documents');
     console.log('      - Handle all data types correctly\n');
 
-    console.log('🎯 RECOMMENDATION: Option A');
+    console.log('ðŸŽ¯ RECOMMENDATION: Option A');
     console.log('   Most practical for 30 race_results documents.');
     console.log('   Total time: ~2-3 minutes (import + delete).\n');
 
     // Clean up
-    console.log('🧹 Cleaning up...');
+    console.log('ðŸ§¹ Cleaning up...');
     fs.unlinkSync(metadataPath);
     fs.rmdirSync(tempDir);
-    console.log('✓ Done\n');
+    console.log('âœ“ Done\n');
 
   } catch (error: any) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\nâŒ Error:', error.message);
     throw error;
   }
 }

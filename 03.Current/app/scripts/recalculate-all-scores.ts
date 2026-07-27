@@ -14,7 +14,7 @@
 //
 // Run with: npx ts-node --project tsconfig.scripts.json scripts/recalculate-all-scores.ts
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { runSafetyChecks } from './_safety-checks';
 

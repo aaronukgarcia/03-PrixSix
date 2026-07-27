@@ -1,5 +1,5 @@
 // GUID: SCRIPTS_VERIFY_ADMIN-000-v03
-// ⚠️  LOCAL DEVELOPMENT TOOL ONLY — DO NOT DEPLOY OR RUN IN CI/CD ⚠️
+// âš ï¸  LOCAL DEVELOPMENT TOOL ONLY â€” DO NOT DEPLOY OR RUN IN CI/CD âš ï¸
 // This script resets the hardcoded admin account PIN using ADMIN_PIN from .env.local.
 // Running this in staging or production would constitute a backdoor: anyone with access
 // to the ADMIN_PIN environment variable could take over the admin account silently.
@@ -13,29 +13,29 @@
  * Verify and fix admin account
  * Run: npx ts-node --project tsconfig.scripts.json scripts/verify-admin.ts --local-only
  *
- * ⚠️  LOCAL DEVELOPMENT ONLY — This script MUST NOT run in production or CI/CD.
+ * âš ï¸  LOCAL DEVELOPMENT ONLY â€” This script MUST NOT run in production or CI/CD.
  *     It force-resets the admin account password, creating a backdoor if misused.
  *     Pass --local-only explicitly to confirm local intent.
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
 // GUID: SCRIPTS_VERIFY_ADMIN-001-v03
 // [Intent] Hard guard: abort immediately if not in a local development context.
 //          Prevents accidental or malicious execution in staging/production/CI/CD environments.
-// [Inbound Trigger] Script startup — evaluated before any Firebase initialisation or env var reads.
+// [Inbound Trigger] Script startup â€” evaluated before any Firebase initialisation or env var reads.
 // [Downstream Impact] process.exit(1) if NODE_ENV is not explicitly 'development' OR the --local-only
 //                     flag is absent. Both conditions must be satisfied simultaneously. The NODE_ENV
-//                     check deliberately excludes undefined/unset — CI/CD environments that do not set
+//                     check deliberately excludes undefined/unset â€” CI/CD environments that do not set
 //                     NODE_ENV would otherwise pass the guard.
 const hasLocalOnlyFlag = process.argv.includes('--local-only');
 const isDevEnv = process.env.NODE_ENV === 'development';
 
 if (!hasLocalOnlyFlag || !isDevEnv) {
   console.error('');
-  console.error('❌ BLOCKED: verify-admin.ts is a local development tool only.');
+  console.error('âŒ BLOCKED: verify-admin.ts is a local development tool only.');
   console.error('   It MUST NOT run in production, staging, or CI/CD environments.');
   console.error('');
   if (!hasLocalOnlyFlag) {
@@ -43,7 +43,7 @@ if (!hasLocalOnlyFlag || !isDevEnv) {
     console.error('   Pass this flag explicitly to confirm you are running locally.');
   }
   if (!isDevEnv) {
-    console.error(`   NODE_ENV is "${process.env.NODE_ENV ?? 'unset'}" — must be explicitly "development".`);
+    console.error(`   NODE_ENV is "${process.env.NODE_ENV ?? 'unset'}" â€” must be explicitly "development".`);
   }
   console.error('');
   console.error('   Correct usage (local only):');
@@ -58,7 +58,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 // Initialize Firebase Admin
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 if (!serviceAccountPath) {
-  console.error('❌ GOOGLE_APPLICATION_CREDENTIALS not set in .env.local');
+  console.error('âŒ GOOGLE_APPLICATION_CREDENTIALS not set in .env.local');
   process.exit(1);
 }
 
@@ -75,21 +75,21 @@ const ADMIN_EMAIL = 'aaron@garcia.ltd';
 const ADMIN_PIN = process.env.ADMIN_PIN || (() => { throw new Error('ADMIN_PIN environment variable required'); })();
 
 async function verifyAndFixAdmin() {
-  console.log('🔍 Checking admin account:', ADMIN_EMAIL);
+  console.log('ðŸ” Checking admin account:', ADMIN_EMAIL);
   console.log('');
 
   // Step 1: Check if user exists in Firebase Auth
   let authUser: admin.auth.UserRecord | null = null;
   try {
     authUser = await auth.getUserByEmail(ADMIN_EMAIL);
-    console.log('✅ Firebase Auth user found');
+    console.log('âœ… Firebase Auth user found');
     console.log('   UID:', authUser.uid);
     console.log('   Email:', authUser.email);
     console.log('   Email verified:', authUser.emailVerified);
     console.log('   Disabled:', authUser.disabled);
   } catch (error: any) {
     if (error.code === 'auth/user-not-found') {
-      console.log('❌ User NOT found in Firebase Auth');
+      console.log('âŒ User NOT found in Firebase Auth');
       console.log('   Creating new auth user...');
 
       authUser = await auth.createUser({
@@ -97,23 +97,23 @@ async function verifyAndFixAdmin() {
         password: ADMIN_PIN,
         emailVerified: true,
       });
-      console.log('✅ Created auth user with UID:', authUser.uid);
+      console.log('âœ… Created auth user with UID:', authUser.uid);
     } else {
-      console.error('❌ Error checking auth user:', error);
+      console.error('âŒ Error checking auth user:', error);
       process.exit(1);
     }
   }
 
   // Step 2: Check Firestore user document
   console.log('');
-  console.log('🔍 Checking Firestore user document...');
+  console.log('ðŸ” Checking Firestore user document...');
 
   const userDocRef = db.collection('users').doc(authUser.uid);
   const userDoc = await userDocRef.get();
 
   if (userDoc.exists) {
     const userData = userDoc.data();
-    console.log('✅ Firestore user document found');
+    console.log('âœ… Firestore user document found');
     console.log('   Team Name:', userData?.teamName);
     console.log('   isAdmin:', userData?.isAdmin);
     console.log('   Email:', userData?.email);
@@ -125,26 +125,26 @@ async function verifyAndFixAdmin() {
 
     if (!userData?.isAdmin) {
       console.log('');
-      console.log('⚠️  isAdmin is not true, fixing...');
+      console.log('âš ï¸  isAdmin is not true, fixing...');
       updates.isAdmin = true;
     }
 
     if ((userData?.badLoginAttempts || 0) > 0) {
-      console.log('⚠️  Bad login attempts detected, resetting...');
+      console.log('âš ï¸  Bad login attempts detected, resetting...');
       updates.badLoginAttempts = 0;
     }
 
     if (userData?.mustChangePin) {
-      console.log('⚠️  mustChangePin is true, clearing...');
+      console.log('âš ï¸  mustChangePin is true, clearing...');
       updates.mustChangePin = false;
     }
 
     if (Object.keys(updates).length > 0) {
       await userDocRef.update(updates);
-      console.log('✅ Applied fixes:', updates);
+      console.log('âœ… Applied fixes:', updates);
     }
   } else {
-    console.log('❌ Firestore user document NOT found');
+    console.log('âŒ Firestore user document NOT found');
     console.log('   Creating new user document...');
 
     await userDocRef.set({
@@ -155,30 +155,30 @@ async function verifyAndFixAdmin() {
       mustChangePin: false,
       badLoginAttempts: 0,
     });
-    console.log('✅ Created Firestore user document');
+    console.log('âœ… Created Firestore user document');
   }
 
   // Step 3: Reset PIN in Firebase Auth
   console.log('');
-  console.log('🔑 Resetting PIN...');
+  console.log('ðŸ”‘ Resetting PIN...');
 
   await auth.updateUser(authUser.uid, {
     password: ADMIN_PIN,
     disabled: false,
   });
-  console.log('✅ PIN has been reset');
+  console.log('âœ… PIN has been reset');
 
   // Step 4: Create presence document if missing
   const presenceRef = db.collection('presence').doc(authUser.uid);
   const presenceDoc = await presenceRef.get();
   if (!presenceDoc.exists) {
     await presenceRef.set({ online: false, sessions: [] });
-    console.log('✅ Created presence document');
+    console.log('âœ… Created presence document');
   }
 
   console.log('');
   console.log('========================================');
-  console.log('✅ Admin account verified and fixed!');
+  console.log('âœ… Admin account verified and fixed!');
   console.log('');
   console.log('   Email:', ADMIN_EMAIL);
   console.log('   PIN: [set from ADMIN_PIN env var]');
@@ -188,6 +188,6 @@ async function verifyAndFixAdmin() {
 verifyAndFixAdmin()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error('❌ Script failed:', error);
+    console.error('âŒ Script failed:', error);
     process.exit(1);
   });

@@ -4,7 +4,7 @@
  * Uses protobufjs to decode Datastore Entity format from export files
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -157,22 +157,22 @@ function convertValueToFirestore(value: any): any {
 
 async function decodeAndRestore() {
   try {
-    console.log('\n🔓 DECODE & RESTORE: Race Results from Protobuf Export');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE RESTORE'}\n`);
+    console.log('\nðŸ”“ DECODE & RESTORE: Race Results from Protobuf Export');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE RESTORE'}\n`);
 
     // Load protobuf definitions
-    console.log('📦 Loading protobuf schema...');
+    console.log('ðŸ“¦ Loading protobuf schema...');
     const root = protobuf.Root.fromJSON(entityProtoJson);
     const EntityType = root.lookupType('google.datastore.v1.Entity');
-    console.log('✓ Schema loaded\n');
+    console.log('âœ“ Schema loaded\n');
 
     const bucket = storage.bucket(BUCKET_NAME);
 
     // List all output files
-    console.log('📂 Listing backup export files...');
+    console.log('ðŸ“‚ Listing backup export files...');
     const [files] = await bucket.getFiles({ prefix: BACKUP_PATH });
     const outputFiles = files.filter(f => f.name.includes('output-')).sort();
-    console.log(`✓ Found ${outputFiles.length} export files\n`);
+    console.log(`âœ“ Found ${outputFiles.length} export files\n`);
 
     // Create temp directory
     const tempDir = path.join(os.tmpdir(), 'firestore-decode');
@@ -184,7 +184,7 @@ async function decodeAndRestore() {
     const kindsFound = new Set<string>();
     let totalEntities = 0;
 
-    console.log('📥 Downloading and decoding export files...');
+    console.log('ðŸ“¥ Downloading and decoding export files...');
     console.log('   (This may take a few minutes for 60 files)\n');
 
     for (let i = 0; i < outputFiles.length; i++) {
@@ -260,7 +260,7 @@ async function decodeAndRestore() {
                 }
 
                 raceResults.push({ id: docId, data });
-                console.log(`    ✓ Found race_results/${docId}`);
+                console.log(`    âœ“ Found race_results/${docId}`);
               }
             }
           } catch (decodeErr) {
@@ -276,33 +276,33 @@ async function decodeAndRestore() {
       fs.unlinkSync(localPath);
     }
 
-    console.log(`\n📊 Extraction Complete:`);
+    console.log(`\nðŸ“Š Extraction Complete:`);
     console.log(`  Total entities decoded: ${totalEntities}`);
     console.log(`  Unique collections found: ${kindsFound.size}`);
     console.log(`  Collections: ${Array.from(kindsFound).sort().join(', ')}`);
     console.log(`  race_results documents found: ${raceResults.length}\n`);
 
     if (raceResults.length === 0) {
-      console.log('⚠️  No race_results documents found in backup.');
+      console.log('âš ï¸  No race_results documents found in backup.');
       console.log('   The backup may not contain race_results data.\n');
       return;
     }
 
     // Show sample
-    console.log('📄 Sample documents:');
+    console.log('ðŸ“„ Sample documents:');
     raceResults.slice(0, 3).forEach(doc => {
       console.log(`  - ${doc.id}: ${JSON.stringify(doc.data).substring(0, 100)}...`);
     });
     console.log('');
 
     if (DRY_RUN) {
-      console.log('⚠️  DRY RUN - Would restore these documents to Firestore.');
+      console.log('âš ï¸  DRY RUN - Would restore these documents to Firestore.');
       console.log('   Run with --live to execute.\n');
       return;
     }
 
     // LIVE RESTORE
-    console.log('🟢 Restoring to Firestore...\n');
+    console.log('ðŸŸ¢ Restoring to Firestore...\n');
 
     const batch = db.batch();
     let count = 0;
@@ -324,20 +324,20 @@ async function decodeAndRestore() {
       await batch.commit();
     }
 
-    console.log(`\n✅ Restore complete! ${raceResults.length} race_results documents restored.\n`);
+    console.log(`\nâœ… Restore complete! ${raceResults.length} race_results documents restored.\n`);
 
     // Verify
     const verifySnapshot = await db.collection('race_results').get();
-    console.log(`📊 Verification:`);
+    console.log(`ðŸ“Š Verification:`);
     console.log(`  race_results collection: ${verifySnapshot.size} documents\n`);
 
     // Clean up
-    console.log('🧹 Cleaning up...');
-    fs.rmdirSync(tempDir, { recursive: true });
-    console.log('✓ Done\n');
+    console.log('ðŸ§¹ Cleaning up...');
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    console.log('âœ“ Done\n');
 
   } catch (error: any) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\nâŒ Error:', error.message);
     if (error.stack) {
       console.error(error.stack);
     }

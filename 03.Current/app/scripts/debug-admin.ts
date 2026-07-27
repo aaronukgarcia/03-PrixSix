@@ -3,7 +3,7 @@
  * Run: npx ts-node --project tsconfig.scripts.json scripts/debug-admin.ts
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
@@ -11,7 +11,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 if (!serviceAccountPath) {
-  console.error('❌ GOOGLE_APPLICATION_CREDENTIALS not set');
+  console.error('âŒ GOOGLE_APPLICATION_CREDENTIALS not set');
   process.exit(1);
 }
 
@@ -27,7 +27,7 @@ const auth = admin.auth();
 const ADMIN_EMAIL = 'aaron@garcia.ltd';
 
 async function debugAdmin() {
-  console.log('🔍 Debugging admin account:', ADMIN_EMAIL);
+  console.log('ðŸ” Debugging admin account:', ADMIN_EMAIL);
   console.log('');
 
   // Get Auth user
@@ -40,7 +40,7 @@ async function debugAdmin() {
     console.log('Disabled:', authUser.disabled);
     console.log('');
   } catch (e) {
-    console.log('❌ Auth user not found');
+    console.log('âŒ Auth user not found');
     return;
   }
 

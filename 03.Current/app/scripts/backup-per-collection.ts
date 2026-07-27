@@ -5,7 +5,7 @@
  * Runs sequentially to avoid overwhelming the Firestore export API.
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { v1 } from '@google-cloud/firestore';
 
@@ -35,8 +35,8 @@ const COLLECTIONS_TO_BACKUP = [
 
 async function backupPerCollection() {
   try {
-    console.log('\n💾 PER-COLLECTION BACKUP');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE BACKUP'}\n`);
+    console.log('\nðŸ’¾ PER-COLLECTION BACKUP');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE BACKUP'}\n`);
 
     const firestoreAdmin = new v1.FirestoreAdminClient({
       projectId: PROJECT_ID,
@@ -47,7 +47,7 @@ async function backupPerCollection() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0] + 'T' +
                       new Date().toISOString().replace(/[:.]/g, '').split('T')[1].substring(0, 6);
 
-    console.log('📋 Backup Plan:');
+    console.log('ðŸ“‹ Backup Plan:');
     console.log(`  Project: ${PROJECT_ID}`);
     console.log(`  Database: (default)`);
     console.log(`  Bucket: gs://${BUCKET_NAME}`);
@@ -55,7 +55,7 @@ async function backupPerCollection() {
     console.log(`  Collections: ${COLLECTIONS_TO_BACKUP.length}\n`);
 
     // Check collection sizes first
-    console.log('📊 Collection Sizes:');
+    console.log('ðŸ“Š Collection Sizes:');
     const collectionSizes: Record<string, number> = {};
 
     for (const collectionId of COLLECTIONS_TO_BACKUP) {
@@ -67,7 +67,7 @@ async function backupPerCollection() {
     console.log('');
 
     if (DRY_RUN) {
-      console.log('⚠️  DRY RUN - Backups that would be created:\n');
+      console.log('âš ï¸  DRY RUN - Backups that would be created:\n');
 
       for (const collectionId of COLLECTIONS_TO_BACKUP) {
         const outputPath = `gs://${BUCKET_NAME}/${timestamp}/${collectionId}`;
@@ -83,7 +83,7 @@ async function backupPerCollection() {
     }
 
     // LIVE BACKUP
-    console.log('🟢 Starting sequential backups...\n');
+    console.log('ðŸŸ¢ Starting sequential backups...\n');
 
     const backupResults: Array<{
       collection: string;
@@ -100,7 +100,7 @@ async function backupPerCollection() {
       console.log(`${progress} Backing up ${collectionId}...`);
 
       if (collectionSizes[collectionId] === 0) {
-        console.log(`  ⚠️  Skipping (empty collection)\n`);
+        console.log(`  âš ï¸  Skipping (empty collection)\n`);
         backupResults.push({
           collection: collectionId,
           status: 'skipped',
@@ -118,12 +118,12 @@ async function backupPerCollection() {
           outputUriPrefix
         });
 
-        console.log(`  ⏳ Export operation started: ${operation.name}`);
+        console.log(`  â³ Export operation started: ${operation.name}`);
         console.log(`     Waiting for completion...`);
 
         const [response] = await operation.promise();
 
-        console.log(`  ✓ Export complete!`);
+        console.log(`  âœ“ Export complete!`);
         console.log(`     Output: ${outputUriPrefix}\n`);
 
         backupResults.push({
@@ -134,7 +134,7 @@ async function backupPerCollection() {
         });
 
       } catch (error: any) {
-        console.error(`  ❌ Export failed: ${error.message}\n`);
+        console.error(`  âŒ Export failed: ${error.message}\n`);
         backupResults.push({
           collection: collectionId,
           status: 'failed',
@@ -145,15 +145,15 @@ async function backupPerCollection() {
     }
 
     // Summary
-    console.log('📊 BACKUP SUMMARY\n');
+    console.log('ðŸ“Š BACKUP SUMMARY\n');
 
     const successful = backupResults.filter(r => r.status === 'success');
     const failed = backupResults.filter(r => r.status === 'failed');
     const skipped = backupResults.filter(r => r.status === 'skipped');
 
-    console.log(`  ✓ Successful: ${successful.length}`);
-    console.log(`  ❌ Failed: ${failed.length}`);
-    console.log(`  ⚠️  Skipped: ${skipped.length}\n`);
+    console.log(`  âœ“ Successful: ${successful.length}`);
+    console.log(`  âŒ Failed: ${failed.length}`);
+    console.log(`  âš ï¸  Skipped: ${skipped.length}\n`);
 
     if (successful.length > 0) {
       console.log('  Successful backups:');
@@ -172,7 +172,7 @@ async function backupPerCollection() {
     }
 
     // Update backup_status collection
-    console.log('📝 Updating backup status...');
+    console.log('ðŸ“ Updating backup status...');
 
     const backupStatusRef = db.collection('backup_status').doc('latest_per_collection');
     await backupStatusRef.set({
@@ -185,17 +185,17 @@ async function backupPerCollection() {
       skippedCount: skipped.length
     });
 
-    console.log('✓ Backup status updated\n');
+    console.log('âœ“ Backup status updated\n');
 
-    console.log('✅ PER-COLLECTION BACKUP COMPLETE!\n');
+    console.log('âœ… PER-COLLECTION BACKUP COMPLETE!\n');
 
-    console.log('💡 To restore a specific collection:');
+    console.log('ðŸ’¡ To restore a specific collection:');
     console.log(`   gcloud firestore import gs://${BUCKET_NAME}/${timestamp}/<collection_name> \\`);
     console.log(`     --collection-ids=<collection_name> \\`);
     console.log(`     --project=${PROJECT_ID}\n`);
 
   } catch (error: any) {
-    console.error('\n❌ Backup failed:', error.message);
+    console.error('\nâŒ Backup failed:', error.message);
     if (error.details) {
       console.error('Details:', error.details);
     }

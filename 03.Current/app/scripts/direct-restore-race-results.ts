@@ -8,7 +8,7 @@
  * 4. Manually recreates them using Admin SDK
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -31,14 +31,14 @@ const DRY_RUN = process.argv.includes('--dry-run') || !process.argv.includes('--
 
 async function directRestoreRaceResults() {
   try {
-    console.log('\n🔄 DIRECT RESTORE: Downloading and parsing export files');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE RESTORE'}\n`);
+    console.log('\nðŸ”„ DIRECT RESTORE: Downloading and parsing export files');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE RESTORE'}\n`);
 
     const bucket = storage.bucket('prix6-backups');
     const prefix = '2026-02-13T115410/firestore/all_namespaces/all_kinds/';
 
     // Download metadata file
-    console.log('📥 Downloading export metadata...');
+    console.log('ðŸ“¥ Downloading export metadata...');
     const metadataFile = bucket.file(`${prefix}all_namespaces_all_kinds.export_metadata`);
     const tempDir = os.tmpdir();
     const metadataPath = path.join(tempDir, 'export_metadata.json');
@@ -46,33 +46,33 @@ async function directRestoreRaceResults() {
     await metadataFile.download({ destination: metadataPath });
     const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
 
-    console.log(`✓ Metadata downloaded`);
+    console.log(`âœ“ Metadata downloaded`);
     console.log(`  Output files: ${metadata.outputUriPrefix || 'unknown'}\n`);
 
     // List all output files
-    console.log('📂 Listing output files...');
+    console.log('ðŸ“‚ Listing output files...');
     const [files] = await bucket.getFiles({ prefix });
     const outputFiles = files.filter(f => f.name.includes('output-'));
-    console.log(`✓ Found ${outputFiles.length} output files\n`);
+    console.log(`âœ“ Found ${outputFiles.length} output files\n`);
 
     if (DRY_RUN) {
-      console.log('⚠️  DRY RUN - Would download and parse:');
+      console.log('âš ï¸  DRY RUN - Would download and parse:');
       console.log(`  ${outputFiles.length} export files`);
       console.log(`  Extract race_results documents`);
       console.log(`  Recreate in Firestore\n`);
-      console.log('⚠️  NOTE: Export files are in protobuf format.');
+      console.log('âš ï¸  NOTE: Export files are in protobuf format.');
       console.log('      Full parsing requires @google-cloud/firestore protos.');
       console.log('      Simpler approach: Use gcloud with proper permissions.\n');
       return;
     }
 
-    console.log('❌ LIMITATION: Protobuf parsing is complex.');
+    console.log('âŒ LIMITATION: Protobuf parsing is complex.');
     console.log('   The export files use Firestore\'s internal protobuf format.');
     console.log('   We need either:');
     console.log('   1. Grant import permissions to service account');
     console.log('   2. Use gcloud CLI with user account that has permissions\n');
 
-    console.log('💡 RECOMMENDED: Add this IAM role to your service account:');
+    console.log('ðŸ’¡ RECOMMENDED: Add this IAM role to your service account:');
     console.log('   roles/datastore.importExportAdmin\n');
     console.log('   Or run this command:');
     console.log('   gcloud projects add-iam-policy-binding prix6 \\');
@@ -80,7 +80,7 @@ async function directRestoreRaceResults() {
     console.log('     --role="roles/datastore.importExportAdmin"');
 
   } catch (error: any) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\nâŒ Error:', error.message);
     throw error;
   }
 }

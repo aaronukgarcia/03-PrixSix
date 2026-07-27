@@ -2,8 +2,8 @@
  * One-off: post the ENRICHED British GP results message to the WhatsApp group.
  * -----------------------------------------------------------------------------
  * The original resultsPublished alert for the British GP (Bill#98815) was the old bare
- * "results are in" line with no actual content. This posts the new concise summary — podium,
- * round-winning team + congrats, and Championship top 5 — using the SAME shared builder the
+ * "results are in" line with no actual content. This posts the new concise summary â€” podium,
+ * round-winning team + congrats, and Championship top 5 â€” using the SAME shared builder the
  * v3.4.9 scoring route now uses (whatsapp-results-message.ts), so it matches future races.
  *
  * Championship standings are reconstructed here with a faithful port of computeRaceScores
@@ -16,7 +16,7 @@
  * Run (post): npx tsx scripts/post-british-gp-whatsapp.ts --execute
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
@@ -85,7 +85,7 @@ async function main() {
   const earliestByTeam = new Map<string, number>();
   teamPredictionsByRace.forEach((races, tid) => { let e = Number.POSITIVE_INFINITY; races.forEach(({ timestamp }) => { if (timestamp > 0 && timestamp < e) e = timestamp; }); earliestByTeam.set(tid, Number.isFinite(e) ? e : 0); });
 
-  // Score a single (result, team) → points, breakdown-less. Faithful port of computeRaceScores.
+  // Score a single (result, team) â†’ points, breakdown-less. Faithful port of computeRaceScores.
   const scoreTeamForRace = (normResultId: string, actualResults: string[], teamId: string, races: Map<string, { predictions: string[]; timestamp: number }>): number | null => {
     let preds: string[] | null = null; let carried = false;
     if (races.has(normResultId)) preds = races.get(normResultId)!.predictions;
@@ -111,7 +111,7 @@ async function main() {
   let rank = 1, prev = -1;
   const championship = sorted.map((e, i) => { if (e.totalPoints !== prev) { rank = i + 1; prev = e.totalPoints; } return { rank, teamName: e.teamName, totalPoints: e.totalPoints }; });
 
-  // 3) British GP specifics — podium + round winner(s)
+  // 3) British GP specifics â€” podium + round winner(s)
   const gp = raceResultsMap.get(RESULT_DOC_ID); if (!gp) throw new Error(`race_results/${RESULT_DOC_ID} missing`);
   const podium = gp.slice(0, 3).map(nameOf);
   const normGp = normalizeRaceIdForComparison(RESULT_DOC_ID);
@@ -146,12 +146,12 @@ async function main() {
     const sig = `sha256=${crypto.createHmac('sha256', secret).update('process-queue').digest('hex')}`;
     try {
       const res = await fetch(`${url}/process-queue`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': sig }, signal: AbortSignal.timeout(8000) });
-      console.log('[EXECUTE] Woke worker /process-queue →', res.status);
+      console.log('[EXECUTE] Woke worker /process-queue â†’', res.status);
     } catch (e: any) { console.log('[EXECUTE] Wake ping failed (worker will drain PENDING on its own):', e?.message); }
   } else {
-    console.log('[EXECUTE] No WHATSAPP_APP_SECRET — worker will drain PENDING on its next poll.');
+    console.log('[EXECUTE] No WHATSAPP_APP_SECRET â€” worker will drain PENDING on its next poll.');
   }
-  console.log('\n✅ Done. Check the group for the message (Bill#<n> suffix).');
+  console.log('\nâœ… Done. Check the group for the message (Bill#<n> suffix).');
 }
 
 main().then(() => process.exit(0)).catch(e => { console.error('FAILED:', e); process.exit(1); });

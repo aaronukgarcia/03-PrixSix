@@ -1,4 +1,4 @@
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
@@ -15,15 +15,15 @@ async function check() {
   const sc = await db.collection('scores').count().get();
   const pr = await db.collection('predictions').count().get();
 
-  console.log('\n📊 Current Database State:');
+  console.log('\nðŸ“Š Current Database State:');
   console.log(`  race_results: ${rr.data().count} documents`);
   console.log(`  scores: ${sc.data().count} documents`);
   console.log(`  predictions: ${pr.data().count} documents\n`);
 
   if (sc.data().count === 0) {
-    console.log('⚠️  ISSUE: Standings page requires scores to display data.');
+    console.log('âš ï¸  ISSUE: Standings page requires scores to display data.');
     console.log('   You have race_results but no scores.\n');
-    console.log('💡 OPTIONS:');
+    console.log('ðŸ’¡ OPTIONS:');
     console.log('   1. Restore scores from backup (also in cleanroom)');
     console.log('   2. Recalculate scores from race_results + predictions\n');
   }

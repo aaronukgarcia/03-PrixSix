@@ -5,13 +5,13 @@
  *   npx ts-node --project tsconfig.scripts.json scripts/count-teams.ts
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 // Initialize Firebase Admin using GOOGLE_APPLICATION_CREDENTIALS
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 if (!serviceAccountPath) {
-  console.error('❌ GOOGLE_APPLICATION_CREDENTIALS not set');
+  console.error('âŒ GOOGLE_APPLICATION_CREDENTIALS not set');
   console.error('Run: $env:GOOGLE_APPLICATION_CREDENTIALS = ".\\service-account.json"');
   process.exit(1);
 }

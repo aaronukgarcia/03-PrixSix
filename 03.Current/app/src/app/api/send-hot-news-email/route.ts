@@ -82,7 +82,8 @@ interface HotNewsEmailRequest {
   alsoWhatsApp?: boolean; // when true, also enqueue the hot news to the configured WhatsApp group
 }
 
-// GUID: API_SEND_HOT_NEWS_EMAIL-002B-v01
+// GUID: API_SEND_HOT_NEWS_EMAIL-002B-v02
+// [v02] firebase-admin 14: legacy namespace removed — FieldValue type now imported from 'firebase-admin/firestore'.
 // [Intent] When the admin ticks "also send to WhatsApp", enqueue the hot-news content to the
 //          configured WhatsApp target group (admin_configuration/whatsapp_alerts.targetGroup). The
 //          whatsapp_queue collection is server-write-only, so this must run with the Admin SDK.
@@ -91,7 +92,7 @@ interface HotNewsEmailRequest {
 //                     status object surfaced in the API response; never throws (best-effort).
 async function maybeQueueHotNewsWhatsApp(
   db: FirebaseFirestore.Firestore,
-  FieldValue: typeof import('firebase-admin').firestore.FieldValue,
+  FieldValue: typeof import('firebase-admin/firestore').FieldValue,
   content: string,
   alsoWhatsApp: boolean | undefined
 ): Promise<{ queued: boolean; group?: string; reason?: string } | null> {

@@ -2,7 +2,7 @@
  * Check what collections exist in the backup
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
@@ -18,7 +18,7 @@ cleanroomDb.settings({ databaseId: 'cleanroom-restore-2' });
 
 async function checkBackup() {
   try {
-    console.log('\n📊 Checking collections in backup (cleanroom database):\n');
+    console.log('\nðŸ“Š Checking collections in backup (cleanroom database):\n');
 
     const collections = ['race_results', 'scores', 'predictions', 'users', 'leagues'];
 

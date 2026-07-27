@@ -4,7 +4,7 @@
  * Reads the Firestore export files from GCS and recreates race_results documents
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { Storage } from '@google-cloud/storage';
 
@@ -24,13 +24,13 @@ const BUCKET_NAME = 'prix6-backups';
 
 async function manualRestoreRaceResults() {
   try {
-    console.log('\n🔄 MANUAL RESTORE: Race Results from Backup Export');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE RESTORE'}\n`);
+    console.log('\nðŸ”„ MANUAL RESTORE: Race Results from Backup Export');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE RESTORE'}\n`);
 
     const bucket = storage.bucket(BUCKET_NAME);
 
     // List files in the backup directory
-    console.log(`📂 Listing backup files in ${BACKUP_PATH}/...\n`);
+    console.log(`ðŸ“‚ Listing backup files in ${BACKUP_PATH}/...\n`);
     const [files] = await bucket.getFiles({ prefix: `${BACKUP_PATH}/` });
 
     console.log(`Found ${files.length} files in backup`);
@@ -48,7 +48,7 @@ async function manualRestoreRaceResults() {
     });
 
     if (raceResultsFiles.length === 0) {
-      console.log('\n⚠️  No race_results export files found in backup.');
+      console.log('\nâš ï¸  No race_results export files found in backup.');
       console.log('    The backup may not contain race_results data,');
       console.log('    or the export format is different than expected.');
       return;
@@ -57,29 +57,29 @@ async function manualRestoreRaceResults() {
     // Download and parse export metadata
     const metadataFile = raceResultsFiles.find(f => f.name.endsWith('.export_metadata'));
     if (metadataFile) {
-      console.log(`\n📄 Reading metadata: ${metadataFile.name}`);
+      console.log(`\nðŸ“„ Reading metadata: ${metadataFile.name}`);
       const [metadata] = await metadataFile.download();
       console.log(metadata.toString().substring(0, 500));
     }
 
     if (DRY_RUN) {
-      console.log('\n⚠️  DRY RUN - File reading successful.');
+      console.log('\nâš ï¸  DRY RUN - File reading successful.');
       console.log('    Run with --live to restore documents.');
       return;
     }
 
-    console.log('\n⚠️  LIVE restore not yet implemented.');
+    console.log('\nâš ï¸  LIVE restore not yet implemented.');
     console.log('    The export files are in Firestore\'s internal format.');
     console.log('    We need to use the official import API.\n');
 
-    console.log('💡 RECOMMENDED APPROACH:');
+    console.log('ðŸ’¡ RECOMMENDED APPROACH:');
     console.log('   Use Firebase CLI with service account:\n');
     console.log(`   firebase firestore:import ${BACKUP_PATH} \\`);
     console.log(`     --collection-ids race_results \\`);
     console.log(`     --project prix6`);
 
   } catch (error) {
-    console.error('\n❌ Error:', error);
+    console.error('\nâŒ Error:', error);
     throw error;
   }
 }

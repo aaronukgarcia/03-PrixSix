@@ -5,7 +5,7 @@
  * and writes them to Firestore one by one
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -37,16 +37,16 @@ interface EntityProto {
 
 async function extractRaceResults() {
   try {
-    console.log('\n🔍 MANUAL EXTRACTION: Race Results from Backup');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE RESTORE'}\n`);
+    console.log('\nðŸ” MANUAL EXTRACTION: Race Results from Backup');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE RESTORE'}\n`);
 
     const bucket = storage.bucket(BUCKET_NAME);
 
     // List all output files
-    console.log('📂 Listing backup export files...');
+    console.log('ðŸ“‚ Listing backup export files...');
     const [files] = await bucket.getFiles({ prefix: BACKUP_PATH });
     const outputFiles = files.filter(f => f.name.includes('output-'));
-    console.log(`✓ Found ${outputFiles.length} export files\n`);
+    console.log(`âœ“ Found ${outputFiles.length} export files\n`);
 
     // Create temp directory for downloads
     const tempDir = path.join(os.tmpdir(), 'firestore-extract');
@@ -54,7 +54,7 @@ async function extractRaceResults() {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    console.log('📥 Downloading export files...');
+    console.log('ðŸ“¥ Downloading export files...');
     const downloadedFiles: string[] = [];
 
     for (const file of outputFiles.slice(0, 5)) { // Start with first 5 files
@@ -65,10 +65,10 @@ async function extractRaceResults() {
       await file.download({ destination: localPath });
       downloadedFiles.push(localPath);
     }
-    console.log(`✓ Downloaded ${downloadedFiles.length} files\n`);
+    console.log(`âœ“ Downloaded ${downloadedFiles.length} files\n`);
 
     // Try to parse using Firestore export format
-    console.log('🔬 Attempting to parse export files...');
+    console.log('ðŸ”¬ Attempting to parse export files...');
 
     // Firestore exports use LevelDB format with protobuf encoding
     // We need to use the Datastore protobuf definitions
@@ -135,18 +135,18 @@ async function extractRaceResults() {
         console.log(`    Processed ${recordCount} records from this file`);
 
       } catch (err: any) {
-        console.log(`    ⚠️  Could not parse file: ${err.message}`);
+        console.log(`    âš ï¸  Could not parse file: ${err.message}`);
       }
     }
 
-    console.log(`\n📊 Summary:`);
+    console.log(`\nðŸ“Š Summary:`);
     console.log(`  Total export files scanned: ${downloadedFiles.length}`);
     console.log(`  Potential race_results documents found: ${raceResultsFound}\n`);
 
     if (raceResultsFound === 0) {
-      console.log('⚠️  No race_results documents detected in scanned files.');
+      console.log('âš ï¸  No race_results documents detected in scanned files.');
       console.log('   The protobuf parsing approach is complex.\n');
-      console.log('💡 ALTERNATIVE APPROACH:');
+      console.log('ðŸ’¡ ALTERNATIVE APPROACH:');
       console.log('   Since the backup has all data mixed together,');
       console.log('   the most reliable way is to:');
       console.log('   1. Import the full backup');
@@ -156,24 +156,24 @@ async function extractRaceResults() {
     }
 
     if (DRY_RUN) {
-      console.log('⚠️  DRY RUN - Would attempt to decode and restore documents.');
+      console.log('âš ï¸  DRY RUN - Would attempt to decode and restore documents.');
       console.log('   Run with --live to execute.\n');
       return;
     }
 
-    console.log('⚠️  LIVE mode not fully implemented yet.');
+    console.log('âš ï¸  LIVE mode not fully implemented yet.');
     console.log('   Protobuf decoding requires exact schema definitions.\n');
 
     // Clean up temp files
-    console.log('🧹 Cleaning up temp files...');
+    console.log('ðŸ§¹ Cleaning up temp files...');
     for (const file of downloadedFiles) {
       fs.unlinkSync(file);
     }
     fs.rmdirSync(tempDir);
-    console.log('✓ Cleanup complete\n');
+    console.log('âœ“ Cleanup complete\n');
 
   } catch (error: any) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\nâŒ Error:', error.message);
     if (error.stack) {
       console.error('Stack:', error.stack);
     }

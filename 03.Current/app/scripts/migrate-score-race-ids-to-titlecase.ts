@@ -1,5 +1,5 @@
 /**
- * Migration script to fix score raceId format: lowercase → Title-Case
+ * Migration script to fix score raceId format: lowercase â†’ Title-Case
  *
  * PROBLEM: Legacy scores have lowercase race IDs (e.g., "abu-dhabi-grand-prix-gp")
  *          but race results and predictions use Title-Case (e.g., "Abu-Dhabi-Grand-Prix-GP")
@@ -8,14 +8,14 @@
  *         because Title-Case lookup fails against lowercase data
  *
  * SOLUTION: Convert all score race IDs to Title-Case to match canonical format
- *           This maintains Golden Rule #3: Single Source of Truth (RaceSchedule → Title-Case)
+ *           This maintains Golden Rule #3: Single Source of Truth (RaceSchedule â†’ Title-Case)
  *
  * Usage:
  *   DRY RUN: npx ts-node --project tsconfig.scripts.json scripts/migrate-score-race-ids-to-titlecase.ts --dry-run
  *   LIVE:    npx ts-node --project tsconfig.scripts.json scripts/migrate-score-race-ids-to-titlecase.ts --live
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
@@ -29,8 +29,8 @@ const DRY_RUN = process.argv.includes('--dry-run') || !process.argv.includes('--
 /**
  * Convert lowercase race ID to Title-Case
  * Examples:
- *   "abu-dhabi-grand-prix-gp" → "Abu-Dhabi-Grand-Prix-GP"
- *   "british-grand-prix-sprint" → "British-Grand-Prix-Sprint"
+ *   "abu-dhabi-grand-prix-gp" â†’ "Abu-Dhabi-Grand-Prix-GP"
+ *   "british-grand-prix-sprint" â†’ "British-Grand-Prix-Sprint"
  */
 function toTitleCase(raceId: string): string {
   return raceId
@@ -65,7 +65,7 @@ async function migrateScoreRaceIds() {
       const oldRaceId = data.raceId;
 
       if (!oldRaceId) {
-        console.log(`  ⚠ Score ${doc.id} has no raceId - skipping`);
+        console.log(`  âš  Score ${doc.id} has no raceId - skipping`);
         skipped++;
         return;
       }
@@ -88,7 +88,7 @@ async function migrateScoreRaceIds() {
     console.log('');
 
     if (updates.length === 0) {
-      console.log('✓ No scores need updating');
+      console.log('âœ“ No scores need updating');
       return;
     }
 
@@ -96,12 +96,12 @@ async function migrateScoreRaceIds() {
     console.log(`Sample updates (showing first 5):`);
     updates.slice(0, 5).forEach(({ docId, oldRaceId, newRaceId }) => {
       console.log(`  ${docId}`);
-      console.log(`    "${oldRaceId}" → "${newRaceId}"`);
+      console.log(`    "${oldRaceId}" â†’ "${newRaceId}"`);
     });
     console.log('');
 
     if (DRY_RUN) {
-      console.log(`⚠ DRY RUN - No changes written. Run with --live to apply changes.`);
+      console.log(`âš  DRY RUN - No changes written. Run with --live to apply changes.`);
       console.log(`\\nTotal scores to update: ${updates.length}`);
       return;
     }
@@ -126,10 +126,10 @@ async function migrateScoreRaceIds() {
       console.log(`  Processed ${processed}/${updates.length} scores...`);
     }
 
-    console.log(`\\n✓ Successfully updated ${updates.length} scores to Title-Case`);
+    console.log(`\\nâœ“ Successfully updated ${updates.length} scores to Title-Case`);
 
   } catch (error) {
-    console.error('\\n❌ Migration failed:', error);
+    console.error('\\nâŒ Migration failed:', error);
     throw error;
   }
 }

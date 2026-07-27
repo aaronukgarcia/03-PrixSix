@@ -3,7 +3,7 @@
  * Part of backup/restore validation cycle
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
@@ -22,7 +22,7 @@ interface TestResult {
 }
 
 async function runSmokeTest(): Promise<TestResult[]> {
-  console.log('\n🔥 SMOKE TEST\n');
+  console.log('\nðŸ”¥ SMOKE TEST\n');
   const results: TestResult[] = [];
 
   // Test 1: Check race_results collection
@@ -35,14 +35,14 @@ async function runSmokeTest(): Promise<TestResult[]> {
       name: 'race_results count',
       passed,
       message: passed
-        ? `✓ Found expected 30 race_results`
-        : `✗ Expected 30 race_results, found ${count}`
+        ? `âœ“ Found expected 30 race_results`
+        : `âœ— Expected 30 race_results, found ${count}`
     });
   } catch (err: any) {
     results.push({
       name: 'race_results count',
       passed: false,
-      message: `✗ Error: ${err.message}`
+      message: `âœ— Error: ${err.message}`
     });
   }
 
@@ -54,7 +54,7 @@ async function runSmokeTest(): Promise<TestResult[]> {
       results.push({
         name: 'read race_result',
         passed: false,
-        message: '✗ No race_results found to read'
+        message: 'âœ— No race_results found to read'
       });
     } else {
       const doc = snapshot.docs[0];
@@ -64,15 +64,15 @@ async function runSmokeTest(): Promise<TestResult[]> {
         name: 'read race_result',
         passed: hasRequiredFields,
         message: hasRequiredFields
-          ? `✓ Successfully read ${data.raceId}`
-          : '✗ Race result missing required fields'
+          ? `âœ“ Successfully read ${data.raceId}`
+          : 'âœ— Race result missing required fields'
       });
     }
   } catch (err: any) {
     results.push({
       name: 'read race_result',
       passed: false,
-      message: `✗ Error: ${err.message}`
+      message: `âœ— Error: ${err.message}`
     });
   }
 
@@ -86,14 +86,14 @@ async function runSmokeTest(): Promise<TestResult[]> {
       name: 'scores count',
       passed,
       message: passed
-        ? `✓ Found expected 690 scores`
-        : `✗ Expected 690 scores, found ${count}`
+        ? `âœ“ Found expected 690 scores`
+        : `âœ— Expected 690 scores, found ${count}`
     });
   } catch (err: any) {
     results.push({
       name: 'scores count',
       passed: false,
-      message: `✗ Error: ${err.message}`
+      message: `âœ— Error: ${err.message}`
     });
   }
 
@@ -105,7 +105,7 @@ async function runSmokeTest(): Promise<TestResult[]> {
       results.push({
         name: 'read score',
         passed: false,
-        message: '✗ No scores found to read'
+        message: 'âœ— No scores found to read'
       });
     } else {
       const doc = snapshot.docs[0];
@@ -115,15 +115,15 @@ async function runSmokeTest(): Promise<TestResult[]> {
         name: 'read score',
         passed: hasRequiredFields,
         message: hasRequiredFields
-          ? `✓ Successfully read score for ${data.raceId}`
-          : '✗ Score missing required fields'
+          ? `âœ“ Successfully read score for ${data.raceId}`
+          : 'âœ— Score missing required fields'
       });
     }
   } catch (err: any) {
     results.push({
       name: 'read score',
       passed: false,
-      message: `✗ Error: ${err.message}`
+      message: `âœ— Error: ${err.message}`
     });
   }
 
@@ -137,14 +137,14 @@ async function runSmokeTest(): Promise<TestResult[]> {
       name: 'users count',
       passed,
       message: passed
-        ? `✓ Found ${count} users`
-        : '✗ No users found'
+        ? `âœ“ Found ${count} users`
+        : 'âœ— No users found'
     });
   } catch (err: any) {
     results.push({
       name: 'users count',
       passed: false,
-      message: `✗ Error: ${err.message}`
+      message: `âœ— Error: ${err.message}`
     });
   }
 
@@ -186,14 +186,14 @@ async function runSmokeTest(): Promise<TestResult[]> {
       name: 'race ID format',
       passed: allTitleCase,
       message: allTitleCase
-        ? '✓ All race IDs in Title-Case format'
-        : '✗ Some race IDs not in Title-Case format'
+        ? 'âœ“ All race IDs in Title-Case format'
+        : 'âœ— Some race IDs not in Title-Case format'
     });
   } catch (err: any) {
     results.push({
       name: 'race ID format',
       passed: false,
-      message: `✗ Error: ${err.message}`
+      message: `âœ— Error: ${err.message}`
     });
   }
 
@@ -203,14 +203,14 @@ async function runSmokeTest(): Promise<TestResult[]> {
 async function main() {
   const results = await runSmokeTest();
 
-  console.log('\n📊 SMOKE TEST RESULTS\n');
-  console.log('═'.repeat(60));
+  console.log('\nðŸ“Š SMOKE TEST RESULTS\n');
+  console.log('â•'.repeat(60));
 
   results.forEach(result => {
-    console.log(`${result.passed ? '✓' : '✗'} ${result.name.padEnd(25)} ${result.message}`);
+    console.log(`${result.passed ? 'âœ“' : 'âœ—'} ${result.name.padEnd(25)} ${result.message}`);
   });
 
-  console.log('═'.repeat(60));
+  console.log('â•'.repeat(60));
 
   const passed = results.filter(r => r.passed).length;
   const failed = results.filter(r => !r.passed).length;
@@ -220,10 +220,10 @@ async function main() {
   console.log(`Failed: ${failed}`);
 
   if (failed === 0) {
-    console.log('\n✅ ALL SMOKE TESTS PASSED!\n');
+    console.log('\nâœ… ALL SMOKE TESTS PASSED!\n');
     process.exit(0);
   } else {
-    console.log('\n❌ SOME SMOKE TESTS FAILED!\n');
+    console.log('\nâŒ SOME SMOKE TESTS FAILED!\n');
     process.exit(1);
   }
 }

@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-27",
   "commits": [
     {
+      "id": "362767a",
+      "date": "2026-07-27",
+      "version": "3.16.0",
+      "author": "aaron garcia",
+      "message": "feat: zero tsc errors (incl. AI-analysis recent-form grounding bug), admin delete confirmation dialog, lucide 1.27 (v3.16.0)",
+      "major": true
+    },
+    {
       "id": "a627b5e",
       "date": "2026-07-27",
       "version": "3.15.1",

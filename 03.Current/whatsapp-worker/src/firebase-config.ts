@@ -1,5 +1,9 @@
-// GUID: FIREBASE_CONFIG_WORKER-000-v03
-import * as admin from 'firebase-admin';
+// GUID: FIREBASE_CONFIG_WORKER-000-v04
+// [v04] firebase-admin 14: legacy namespace API removed — migrated to modular entry points
+//       (firebase-admin/app, /firestore, /storage). Behaviour unchanged.
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore as adminGetFirestore, Firestore } from 'firebase-admin/firestore';
+import { getStorage as adminGetStorage, Storage } from 'firebase-admin/storage';
 import * as path from 'path';
 
 // Initialize Firebase Admin
@@ -32,13 +36,13 @@ export function initializeFirebase(): void {
       throw new Error(`FIREBASE_SERVICE_ACCOUNT is missing required fields: ${missingFields.join(', ')}`);
     }
 
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    initializeApp({
+      credential: cert(serviceAccount),
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.appspot.com`,
     });
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     // Use default credentials
-    admin.initializeApp({
+    initializeApp({
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     });
   } else {
@@ -49,8 +53,8 @@ export function initializeFirebase(): void {
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const serviceAccount = require(serviceAccountPath);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    initializeApp({
+      credential: cert(serviceAccount),
       storageBucket: `${serviceAccount.project_id}.appspot.com`,
     });
   }
@@ -59,5 +63,5 @@ export function initializeFirebase(): void {
   console.log('✅ Firebase Admin initialized');
 }
 
-export const getFirestore = () => admin.firestore();
-export const getStorage = () => admin.storage();
+export const getFirestore = (): Firestore => adminGetFirestore();
+export const getStorage = (): Storage => adminGetStorage();

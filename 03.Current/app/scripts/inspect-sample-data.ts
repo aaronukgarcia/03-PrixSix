@@ -2,7 +2,7 @@
  * Inspect sample data to debug smoke test failures
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccount = require(path.resolve(__dirname, '../../service-account.json'));
@@ -15,11 +15,11 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 async function inspectData() {
-  console.log('\n🔍 INSPECTING SAMPLE DATA\n');
+  console.log('\nðŸ” INSPECTING SAMPLE DATA\n');
 
   // Inspect race_result
-  console.log('📊 Sample race_result:');
-  console.log('═'.repeat(60));
+  console.log('ðŸ“Š Sample race_result:');
+  console.log('â•'.repeat(60));
   const raceResultSnapshot = await db.collection('race_results').limit(1).get();
   if (!raceResultSnapshot.empty) {
     const doc = raceResultSnapshot.docs[0];
@@ -30,8 +30,8 @@ async function inspectData() {
     console.log('No race_results found');
   }
 
-  console.log('\n📊 Sample score:');
-  console.log('═'.repeat(60));
+  console.log('\nðŸ“Š Sample score:');
+  console.log('â•'.repeat(60));
   const scoreSnapshot = await db.collection('scores').limit(1).get();
   if (!scoreSnapshot.empty) {
     const doc = scoreSnapshot.docs[0];

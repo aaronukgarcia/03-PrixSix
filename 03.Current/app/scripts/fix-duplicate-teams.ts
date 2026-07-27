@@ -3,7 +3,7 @@
  * Run with: npx ts-node --project tsconfig.scripts.json scripts/fix-duplicate-teams.ts
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 // Automotive-themed names for duplicates
@@ -42,7 +42,7 @@ async function main() {
 
   const db = admin.firestore();
 
-  console.log('🔍 Scanning for duplicate team names...\n');
+  console.log('ðŸ” Scanning for duplicate team names...\n');
 
   // Fetch all users
   const usersSnapshot = await db.collection('users').get();
@@ -79,11 +79,11 @@ async function main() {
   });
 
   if (duplicates.length === 0) {
-    console.log('✅ No duplicate team names found!');
+    console.log('âœ… No duplicate team names found!');
     process.exit(0);
   }
 
-  console.log(`⚠️  Found ${duplicates.length} duplicate team name(s):\n`);
+  console.log(`âš ï¸  Found ${duplicates.length} duplicate team name(s):\n`);
 
   let autoNameIndex = 0;
   const updates: { id: string; oldName: string; newName: string; email: string }[] = [];
@@ -95,7 +95,7 @@ async function main() {
     for (let i = 0; i < usersWithName.length; i++) {
       const user = usersWithName[i];
       if (i === 0) {
-        console.log(`  ✓ ${user.email} - KEEP as "${user.teamName}"`);
+        console.log(`  âœ“ ${user.email} - KEEP as "${user.teamName}"`);
       } else {
         const newName = automotiveNames[autoNameIndex % automotiveNames.length];
         autoNameIndex++;
@@ -105,7 +105,7 @@ async function main() {
           newName,
           email: user.email,
         });
-        console.log(`  → ${user.email} - RENAME to "${newName}"`);
+        console.log(`  â†’ ${user.email} - RENAME to "${newName}"`);
       }
     }
     console.log('');
@@ -117,7 +117,7 @@ async function main() {
   }
 
   // Prompt for confirmation (in non-interactive mode, just proceed)
-  console.log(`\n📝 About to rename ${updates.length} team(s)...\n`);
+  console.log(`\nðŸ“ About to rename ${updates.length} team(s)...\n`);
 
   // Apply updates
   const batch = db.batch();
@@ -125,15 +125,15 @@ async function main() {
   for (const update of updates) {
     const userRef = db.collection('users').doc(update.id);
     batch.update(userRef, { teamName: update.newName });
-    console.log(`  Updating ${update.email}: "${update.oldName}" → "${update.newName}"`);
+    console.log(`  Updating ${update.email}: "${update.oldName}" â†’ "${update.newName}"`);
   }
 
   await batch.commit();
 
-  console.log('\n✅ All duplicates have been renamed!');
+  console.log('\nâœ… All duplicates have been renamed!');
   console.log('\nSummary of changes:');
   for (const update of updates) {
-    console.log(`  - ${update.email}: "${update.oldName}" → "${update.newName}"`);
+    console.log(`  - ${update.email}: "${update.oldName}" â†’ "${update.newName}"`);
   }
 
   process.exit(0);

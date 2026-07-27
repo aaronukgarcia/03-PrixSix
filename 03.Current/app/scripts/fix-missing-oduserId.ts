@@ -2,7 +2,7 @@
  * Fix missing oduserId in prediction_submissions
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
@@ -43,7 +43,7 @@ async function fixMissingOduserId() {
     }
   }
 
-  console.log(`\n✓ Fixed ${fixed} documents`);
+  console.log(`\nâœ“ Fixed ${fixed} documents`);
   console.log(`  Already OK: ${alreadyOk}`);
 }
 

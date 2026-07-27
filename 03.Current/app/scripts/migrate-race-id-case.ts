@@ -7,7 +7,7 @@
 // [Downstream Impact] Updates predictions collection with Title-Case race IDs. Improves consistency
 //                     and resolves Consistency Checker warnings. Now blocked on production.
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { generateRaceId } from '../src/lib/normalize-race-id';

@@ -5,7 +5,7 @@
  * and recreates documents using Admin SDK
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { Storage } from '@google-cloud/storage';
 import { v1 } from '@google-cloud/firestore';
@@ -24,11 +24,11 @@ const BACKUP_PATH = '2026-02-13T115410/firestore';
 
 async function parseAndRestoreRaceResults() {
   try {
-    console.log('\n🔄 PARSE & RESTORE: Race Results from Backup');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : '🟢 LIVE RESTORE'}\n`);
+    console.log('\nðŸ”„ PARSE & RESTORE: Race Results from Backup');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'ðŸŸ¢ LIVE RESTORE'}\n`);
 
     // Try using Firestore Admin Client with service account credentials
-    console.log('📋 Using Firestore Admin API with service account...\n');
+    console.log('ðŸ“‹ Using Firestore Admin API with service account...\n');
 
     const firestoreAdmin = new v1.FirestoreAdminClient({
       projectId: 'studio-6033436327-281b1',
@@ -44,7 +44,7 @@ async function parseAndRestoreRaceResults() {
     console.log(`Collections: race_results only\n`);
 
     if (DRY_RUN) {
-      console.log('⚠️  DRY RUN - Would import with these settings:');
+      console.log('âš ï¸  DRY RUN - Would import with these settings:');
       console.log(`  - Source: ${inputUriPrefix}`);
       console.log(`  - Target: ${databaseName}`);
       console.log(`  - Collection filter: race_results`);
@@ -54,7 +54,7 @@ async function parseAndRestoreRaceResults() {
     }
 
     // LIVE IMPORT
-    console.log('🟢 Starting import operation...\n');
+    console.log('ðŸŸ¢ Starting import operation...\n');
 
     const [operation] = await firestoreAdmin.importDocuments({
       name: databaseName,
@@ -62,19 +62,19 @@ async function parseAndRestoreRaceResults() {
       collectionIds: ['race_results'], // Only import race_results
     });
 
-    console.log('⏳ Import operation started...');
+    console.log('â³ Import operation started...');
     console.log(`   Operation name: ${operation.name}\n`);
 
     // Wait for operation to complete
     console.log('   Waiting for completion (this may take 1-2 minutes)...\n');
     const [response] = await operation.promise();
 
-    console.log('✅ Import operation completed!');
+    console.log('âœ… Import operation completed!');
     console.log(`   Response: ${JSON.stringify(response, null, 2)}\n`);
 
     // Verify what was restored
     const raceResultsSnapshot = await db.collection('race_results').get();
-    console.log(`📊 Verification:`);
+    console.log(`ðŸ“Š Verification:`);
     console.log(`   race_results: ${raceResultsSnapshot.size} documents restored\n`);
 
     if (raceResultsSnapshot.size > 0) {
@@ -85,10 +85,10 @@ async function parseAndRestoreRaceResults() {
       });
     }
 
-    console.log('\n🎉 Restore complete!');
+    console.log('\nðŸŽ‰ Restore complete!');
 
   } catch (error: any) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\nâŒ Error:', error.message);
     if (error.details) {
       console.error('   Details:', error.details);
     }

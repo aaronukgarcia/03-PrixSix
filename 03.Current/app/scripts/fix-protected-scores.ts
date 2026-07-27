@@ -3,7 +3,7 @@
  * Also fix driver casing in user predictions subcollection
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;

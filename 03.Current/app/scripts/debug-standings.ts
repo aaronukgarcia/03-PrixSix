@@ -1,4 +1,4 @@
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { generateRaceId } from '../src/lib/normalize-race-id';
 import { RaceSchedule } from '../src/lib/data';
@@ -13,7 +13,7 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 async function debugStandings() {
-  console.log('\n🔍 STANDINGS DEBUG\n');
+  console.log('\nðŸ” STANDINGS DEBUG\n');
 
   // Get actual race IDs from scores
   const scoresSnapshot = await db.collection('scores').get();
@@ -26,7 +26,7 @@ async function debugStandings() {
     }
   });
 
-  console.log(`📊 Found ${scoresSnapshot.size} scores with ${raceIdsInScores.size} unique race IDs\n`);
+  console.log(`ðŸ“Š Found ${scoresSnapshot.size} scores with ${raceIdsInScores.size} unique race IDs\n`);
   console.log('Actual raceIds in scores:', Array.from(raceIdsInScores).sort().slice(0, 10), '...\n');
 
   // Check what standings page expects
@@ -46,7 +46,7 @@ async function debugStandings() {
       matchCount++;
     } else {
       mismatchCount++;
-      console.log(`  ❌ ${race.name}`);
+      console.log(`  âŒ ${race.name}`);
       console.log(`     Expected GP: ${gpRaceId}`);
       console.log(`     Has scores: NO`);
 
@@ -60,14 +60,14 @@ async function debugStandings() {
     }
   });
 
-  console.log(`\n📊 Summary:`);
+  console.log(`\nðŸ“Š Summary:`);
   console.log(`  Matches: ${matchCount}`);
   console.log(`  Mismatches: ${mismatchCount}\n`);
 
   if (mismatchCount === 0) {
-    console.log('✅ All race IDs match! Standings should work.\n');
+    console.log('âœ… All race IDs match! Standings should work.\n');
   } else {
-    console.log('⚠️  Race ID mismatch detected. This is why standings are empty.\n');
+    console.log('âš ï¸  Race ID mismatch detected. This is why standings are empty.\n');
   }
 }
 

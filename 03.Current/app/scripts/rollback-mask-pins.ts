@@ -5,7 +5,7 @@
 // [Inbound Trigger] Run manually via: npx ts-node --project tsconfig.scripts.json scripts/rollback-mask-pins.ts
 // [Downstream Impact] Restores email_logs documents to pre-migration state from backup JSON file.
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
@@ -28,7 +28,7 @@ function initializeFirebase(): admin.firestore.Firestore {
   const serviceAccountPath = path.join(__dirname, '../../service-account.json');
 
   if (!fs.existsSync(serviceAccountPath)) {
-    console.error('❌ ERROR: service-account.json not found');
+    console.error('âŒ ERROR: service-account.json not found');
     process.exit(1);
   }
 
@@ -47,7 +47,7 @@ function initializeFirebase(): admin.firestore.Firestore {
 // [Downstream Impact] Returns path to backup JSON file.
 function findLatestBackup(): string | null {
   if (!fs.existsSync(CONFIG.backupDir)) {
-    console.error(`❌ Backup directory not found: ${CONFIG.backupDir}`);
+    console.error(`âŒ Backup directory not found: ${CONFIG.backupDir}`);
     return null;
   }
 
@@ -57,7 +57,7 @@ function findLatestBackup(): string | null {
     .reverse();
 
   if (backupDirs.length === 0) {
-    console.error('❌ No backup directories found');
+    console.error('âŒ No backup directories found');
     return null;
   }
 
@@ -65,7 +65,7 @@ function findLatestBackup(): string | null {
   const backupFile = path.join(CONFIG.backupDir, latestBackupDir, 'email-logs-plaintext-pins.json');
 
   if (!fs.existsSync(backupFile)) {
-    console.error(`❌ Backup file not found: ${backupFile}`);
+    console.error(`âŒ Backup file not found: ${backupFile}`);
     return null;
   }
 
@@ -77,7 +77,7 @@ function findLatestBackup(): string | null {
 // [Inbound Trigger] After finding backup file.
 // [Downstream Impact] Returns array of documents to restore.
 function loadBackup(backupPath: string): Array<{ id: string; data: any }> {
-  console.log(`📂 Loading backup from: ${backupPath}`);
+  console.log(`ðŸ“‚ Loading backup from: ${backupPath}`);
 
   const backupContent = fs.readFileSync(backupPath, 'utf8');
   const backup = JSON.parse(backupContent);
@@ -101,7 +101,7 @@ async function confirmRollback(): Promise<boolean> {
 
   return new Promise((resolve) => {
     rl.question(
-      '\n⚠️  WARNING: This will restore PLAINTEXT PINs to Firestore!\n' +
+      '\nâš ï¸  WARNING: This will restore PLAINTEXT PINs to Firestore!\n' +
       '   Type "YES" to confirm rollback: ',
       (answer) => {
         rl.close();
@@ -121,7 +121,7 @@ async function rollbackDocuments(
   documents: Array<{ id: string; data: any }>
 ): Promise<{ restored: number; errors: number }> {
   if (CONFIG.dryRun) {
-    console.log('🔬 DRY RUN MODE - No documents will be modified\n');
+    console.log('ðŸ”¬ DRY RUN MODE - No documents will be modified\n');
 
     const samples = documents.slice(0, 3);
     samples.forEach((doc, i) => {
@@ -139,7 +139,7 @@ async function rollbackDocuments(
     return { restored: 0, errors: 0 };
   }
 
-  console.log('🔄 Starting rollback (LIVE MODE)...\n');
+  console.log('ðŸ”„ Starting rollback (LIVE MODE)...\n');
 
   let restored = 0;
   let errors = 0;
@@ -163,10 +163,10 @@ async function rollbackDocuments(
     try {
       await batch.commit();
       restored += batchDocs.length;
-      console.log(`   ✅ Batch ${Math.floor(i / CONFIG.batchSize) + 1}: Restored ${batchDocs.length} documents`);
+      console.log(`   âœ… Batch ${Math.floor(i / CONFIG.batchSize) + 1}: Restored ${batchDocs.length} documents`);
     } catch (err: any) {
       errors += batchDocs.length;
-      console.log(`   ❌ Batch ${Math.floor(i / CONFIG.batchSize) + 1} FAILED: ${err.message}`);
+      console.log(`   âŒ Batch ${Math.floor(i / CONFIG.batchSize) + 1} FAILED: ${err.message}`);
     }
   }
 
@@ -178,14 +178,14 @@ async function rollbackDocuments(
 // [Inbound Trigger] Script entry point.
 // [Downstream Impact] Executes complete rollback workflow.
 async function main(): Promise<void> {
-  console.log('🔙 EMAIL-006 Phase 1B Rollback Script');
-  console.log(`   Mode: ${CONFIG.dryRun ? 'DRY RUN' : '⚠️  LIVE'}`);
+  console.log('ðŸ”™ EMAIL-006 Phase 1B Rollback Script');
+  console.log(`   Mode: ${CONFIG.dryRun ? 'DRY RUN' : 'âš ï¸  LIVE'}`);
   console.log('');
 
   // Find backup
   const backupPath = findLatestBackup();
   if (!backupPath) {
-    console.error('\n❌ Cannot proceed without backup file');
+    console.error('\nâŒ Cannot proceed without backup file');
     process.exit(1);
   }
 
@@ -193,7 +193,7 @@ async function main(): Promise<void> {
   const documents = loadBackup(backupPath);
 
   if (documents.length === 0) {
-    console.log('\n✅ No documents to rollback');
+    console.log('\nâœ… No documents to rollback');
     return;
   }
 
@@ -201,21 +201,21 @@ async function main(): Promise<void> {
   if (!CONFIG.dryRun) {
     const confirmed = await confirmRollback();
     if (!confirmed) {
-      console.log('\n❌ Rollback cancelled by user');
+      console.log('\nâŒ Rollback cancelled by user');
       return;
     }
   }
 
   // Initialize Firebase
   const db = initializeFirebase();
-  console.log('✅ Firebase initialized\n');
+  console.log('âœ… Firebase initialized\n');
 
   // Execute rollback
   const result = await rollbackDocuments(db, documents);
 
   // Report results
   console.log('\n' + '='.repeat(70));
-  console.log('📊 ROLLBACK SUMMARY');
+  console.log('ðŸ“Š ROLLBACK SUMMARY');
   console.log('='.repeat(70));
 
   if (CONFIG.dryRun) {
@@ -228,10 +228,10 @@ async function main(): Promise<void> {
   } else {
     console.log(`Documents restored: ${result.restored}`);
     console.log(`Errors: ${result.errors}`);
-    console.log(`Status: ${result.errors === 0 ? '✅ SUCCESS' : '⚠️  PARTIAL'}`);
+    console.log(`Status: ${result.errors === 0 ? 'âœ… SUCCESS' : 'âš ï¸  PARTIAL'}`);
 
     if (result.errors === 0) {
-      console.log('\n⚠️  WARNING: Plaintext PINs are now back in email_logs!');
+      console.log('\nâš ï¸  WARNING: Plaintext PINs are now back in email_logs!');
       console.log('   You should now:');
       console.log('   1. Investigate what went wrong with the migration');
       console.log('   2. Fix the issue');

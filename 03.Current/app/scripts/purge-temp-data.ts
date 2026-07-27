@@ -9,7 +9,7 @@
 //   $env:GOOGLE_APPLICATION_CREDENTIALS = ".\service-account.json"
 //   npx ts-node --project tsconfig.scripts.json scripts/purge-temp-data.ts
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { runSafetyChecks } from './_safety-checks';
 

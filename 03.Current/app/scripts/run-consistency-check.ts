@@ -8,7 +8,7 @@
  *   npx ts-node --project tsconfig.scripts.json scripts/run-consistency-check.ts
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import {
   checkUsers,
@@ -167,7 +167,7 @@ async function runConsistencyCheck(): Promise<ConsistencyCheckSummary> {
 
     return summary;
   } catch (error) {
-    console.error('\n❌ Consistency check failed:', error);
+    console.error('\nâŒ Consistency check failed:', error);
     throw error;
   }
 }
@@ -179,9 +179,9 @@ function displayResults(summary: ConsistencyCheckSummary) {
   console.log(`Correlation ID: ${summary.correlationId}`);
   console.log(`Timestamp: ${summary.timestamp.toISOString()}`);
   console.log(`Total Checks: ${summary.totalChecks}`);
-  console.log(`✓ Passed: ${summary.passed}`);
-  console.log(`⚠ Warnings: ${summary.warnings}`);
-  console.log(`✗ Errors: ${summary.errors}`);
+  console.log(`âœ“ Passed: ${summary.passed}`);
+  console.log(`âš  Warnings: ${summary.warnings}`);
+  console.log(`âœ— Errors: ${summary.errors}`);
   console.log('='.repeat(70));
 
   // Summary table
@@ -192,7 +192,7 @@ function displayResults(summary: ConsistencyCheckSummary) {
   console.log('-'.repeat(70));
 
   for (const result of summary.results) {
-    const statusSymbol = result.status === 'pass' ? '✓' : result.status === 'warning' ? '⚠' : '✗';
+    const statusSymbol = result.status === 'pass' ? 'âœ“' : result.status === 'warning' ? 'âš ' : 'âœ—';
     console.log(
       `${result.category.padEnd(20)} ${String(result.total).padStart(8)} ${String(result.valid).padStart(8)} ${String(result.issues.length).padStart(8)} ${(statusSymbol + ' ' + result.status.toUpperCase()).padStart(10)}`
     );
@@ -231,7 +231,7 @@ function displayResults(summary: ConsistencyCheckSummary) {
         console.log('-'.repeat(70));
 
         for (const issue of result.issues) {
-          const severitySymbol = issue.severity === 'info' ? 'ℹ' : issue.severity === 'warning' ? '⚠' : '✗';
+          const severitySymbol = issue.severity === 'info' ? 'â„¹' : issue.severity === 'warning' ? 'âš ' : 'âœ—';
           console.log(`  ${severitySymbol} [${issue.severity.toUpperCase()}] ${issue.entity}`);
           if (issue.field) {
             console.log(`    Field: ${issue.field}`);
@@ -246,7 +246,7 @@ function displayResults(summary: ConsistencyCheckSummary) {
     }
     console.log('='.repeat(70));
   } else {
-    console.log('\n✓ ALL CHECKS PASSED - No issues found!');
+    console.log('\nâœ“ ALL CHECKS PASSED - No issues found!');
   }
 }
 
@@ -262,20 +262,20 @@ runConsistencyCheck()
     console.log('NEXT STEPS');
     console.log('='.repeat(70));
     if (hasErrors) {
-      console.log('✗ ERRORS DETECTED - Fix errors before proceeding');
+      console.log('âœ— ERRORS DETECTED - Fix errors before proceeding');
       console.log('  Review the detailed issues above and fix at root level');
       console.log('  Golden Rule #3: Single Source of Truth - fix data, not validators');
     } else if (hasWarnings) {
-      console.log('⚠ WARNINGS DETECTED - Review and fix if necessary');
+      console.log('âš  WARNINGS DETECTED - Review and fix if necessary');
       console.log('  Warnings may be informational or require data cleanup');
     } else {
-      console.log('✓ ALL CHECKS PASSED - Database is consistent!');
+      console.log('âœ“ ALL CHECKS PASSED - Database is consistent!');
     }
     console.log('='.repeat(70) + '\n');
 
     process.exit(hasErrors ? 1 : 0);
   })
   .catch(error => {
-    console.error('\n❌ Fatal error during consistency check:', error);
+    console.error('\nâŒ Fatal error during consistency check:', error);
     process.exit(1);
   });

@@ -22,7 +22,7 @@
 //   DRY RUN: npx ts-node --project tsconfig.scripts.json scripts/reset-season-delete-results.ts --dry-run
 //   LIVE:    npx ts-node --project tsconfig.scripts.json scripts/reset-season-delete-results.ts --live
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { runSafetyChecks } from './_safety-checks';
 
@@ -36,8 +36,8 @@ const DRY_RUN = process.argv.includes('--dry-run') || !process.argv.includes('--
 
 async function resetSeason() {
   try {
-    console.log('\n🔥 SEASON RESET - DELETE ALL RESULTS, SCORES, AND AUDIT LOGS 🔥');
-    console.log(`Mode: ${DRY_RUN ? 'DRY RUN (--dry-run)' : '🔴 LIVE DELETION (--live)'}\n`);
+    console.log('\nðŸ”¥ SEASON RESET - DELETE ALL RESULTS, SCORES, AND AUDIT LOGS ðŸ”¥');
+    console.log(`Mode: ${DRY_RUN ? 'DRY RUN (--dry-run)' : 'ðŸ”´ LIVE DELETION (--live)'}\n`);
 
     // GUID: SCRIPTS_RESET_SEASON-001-v02
     // [Intent] Safety checks - prevent production execution (unless DRY_RUN mode).
@@ -59,7 +59,7 @@ async function resetSeason() {
     const stats: Record<string, number> = {};
 
     // Count documents in each collection
-    console.log('📊 Analyzing collections...\n');
+    console.log('ðŸ“Š Analyzing collections...\n');
     for (const collection of collections) {
       const snapshot = await collection.ref.get();
       stats[collection.name] = snapshot.size;
@@ -70,26 +70,26 @@ async function resetSeason() {
     console.log(`\n  TOTAL TO DELETE: ${totalDocs} documents\n`);
 
     if (totalDocs === 0) {
-      console.log('✓ No documents to delete - collections are already empty');
+      console.log('âœ“ No documents to delete - collections are already empty');
       return;
     }
 
     if (DRY_RUN) {
-      console.log('⚠️  DRY RUN - No changes made. Run with --live to delete.');
+      console.log('âš ï¸  DRY RUN - No changes made. Run with --live to delete.');
       return;
     }
 
     // LIVE DELETION
-    console.log('🔥 Starting deletion...\n');
+    console.log('ðŸ”¥ Starting deletion...\n');
 
     for (const collection of collections) {
       const count = stats[collection.name];
       if (count === 0) {
-        console.log(`  ✓ ${collection.name}: already empty`);
+        console.log(`  âœ“ ${collection.name}: already empty`);
         continue;
       }
 
-      console.log(`  🔥 Deleting ${collection.name} (${count} docs)...`);
+      console.log(`  ðŸ”¥ Deleting ${collection.name} (${count} docs)...`);
 
       // Delete in batches of 500
       const BATCH_SIZE = 500;
@@ -109,21 +109,21 @@ async function resetSeason() {
         }
       }
 
-      console.log(`  ✅ ${collection.name}: ${deleted} documents deleted\n`);
+      console.log(`  âœ… ${collection.name}: ${deleted} documents deleted\n`);
     }
 
-    console.log('═'.repeat(70));
-    console.log('✅ SEASON RESET COMPLETE');
-    console.log('═'.repeat(70));
+    console.log('â•'.repeat(70));
+    console.log('âœ… SEASON RESET COMPLETE');
+    console.log('â•'.repeat(70));
     console.log(`\nDeleted ${totalDocs} documents across 3 collections`);
     console.log('\nPreserved:');
-    console.log('  ✓ Users');
-    console.log('  ✓ Predictions');
-    console.log('  ✓ Leagues');
-    console.log('\nThe app is now at the start of the season! 🏁\n');
+    console.log('  âœ“ Users');
+    console.log('  âœ“ Predictions');
+    console.log('  âœ“ Leagues');
+    console.log('\nThe app is now at the start of the season! ðŸ\n');
 
   } catch (error) {
-    console.error('\n❌ Reset failed:', error);
+    console.error('\nâŒ Reset failed:', error);
     throw error;
   }
 }

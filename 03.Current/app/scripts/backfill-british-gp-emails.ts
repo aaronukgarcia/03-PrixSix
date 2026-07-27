@@ -1,7 +1,7 @@
 /**
  * Backfill: British Grand Prix (main GP) results emails
  * ------------------------------------------------------
- * WHY: On 2026-07-05 the British GP was a SPRINT weekend — two results postings the same day.
+ * WHY: On 2026-07-05 the British GP was a SPRINT weekend â€” two results postings the same day.
  *      The Sprint batch (12:45) sent 30 emails and hit the old DAILY_GLOBAL_LIMIT of 30. When the
  *      main GP was posted at 21:09, canSendEmailAdmin saw totalSent(30) >= 30 and blocked EVERY
  *      recipient, so the entire GP results email batch was silently suppressed (0 sent).
@@ -22,7 +22,7 @@
  * Run (send):     npx tsx scripts/backfill-british-gp-emails.ts --execute
  */
 
-import * as admin from 'firebase-admin';
+import * as admin from './_admin-compat';
 import * as path from 'path';
 import { SCORING_POINTS, calculateDriverPoints } from '../src/lib/scoring-rules';
 import { F1Drivers, RaceSchedule } from '../src/lib/data';
@@ -44,7 +44,7 @@ const db = admin.firestore();
 const driverName = (id: string): string => F1Drivers.find(d => d.id === id)?.name || id;
 
 async function main() {
-  console.log(`\n=== Backfill British GP results email (${EXECUTE ? 'EXECUTE — WILL SEND' : 'DRY RUN'}) ===\n`);
+  console.log(`\n=== Backfill British GP results email (${EXECUTE ? 'EXECUTE â€” WILL SEND' : 'DRY RUN'}) ===\n`);
 
   // 1) Official result for the GP
   const rr = await db.collection('race_results').doc(RESULT_DOC_ID).get();
@@ -55,7 +55,7 @@ async function main() {
   const normResultId = normalizeRaceIdForComparison(RESULT_DOC_ID);
   console.log('Official result:', officialResult.map((n, i) => `P${i + 1} ${n}`).join('  '));
 
-  // 2) userMap (primary + secondary team names) — mirrors calculate-scores
+  // 2) userMap (primary + secondary team names) â€” mirrors calculate-scores
   const usersSnap = await db.collection('users').get();
   const userMap = new Map<string, string>();
   usersSnap.forEach(doc => {
@@ -144,7 +144,7 @@ async function main() {
   const optedIn = usersSnap.docs.filter(d => (d.data() as any).emailPreferences?.resultsNotifications !== false);
   console.log(`\nTeams scored for GP: ${scores.length}`);
   console.log(`Opted-in users (endpoint will email these): ${optedIn.length}`);
-  console.log('\nScored table (teamName — points):');
+  console.log('\nScored table (teamName â€” points):');
   scores.forEach(s => console.log(`  ${String(s.points).padStart(4)}  ${s.teamName}`));
 
   const payload = { raceId: RACE_ID, raceName: RACE_NAME, officialResult, scores, standings: [] };
@@ -167,9 +167,9 @@ async function main() {
   console.log('HTTP', res.status);
   console.log('Response:', JSON.stringify(json, null, 2));
   if (json?.globalLimitReached) {
-    console.log(`\n⚠️  Daily cap still blocked ${json.suppressedCount} recipient(s). Re-run tomorrow or after the cap-raise deploy.`);
+    console.log(`\nâš ï¸  Daily cap still blocked ${json.suppressedCount} recipient(s). Re-run tomorrow or after the cap-raise deploy.`);
   } else {
-    console.log(`\n✅ Backfill sent. ${json?.message ?? ''}`);
+    console.log(`\nâœ… Backfill sent. ${json?.message ?? ''}`);
   }
 }
 
