@@ -1,7 +1,11 @@
-// GUID: API_PIT_WALL_LIVE_DATA-000-v02
+// GUID: API_PIT_WALL_LIVE_DATA-000-v03
 // [Intent] Pit Wall live data aggregation endpoint. Fans out to multiple OpenF1
 //          endpoints in parallel, merges results into a single DriverRaceState[]
 //          response. Any authenticated user (not admin-only) can call this.
+//          v03: Wave 2 fixes — PITWALL-05 (detail tier fetches /stints and carries real
+//          tyre data + hasDrs/inPit; core tier no longer fakes onNewTyres/tyreLapAge from
+//          its stubbed lap count) and PITWALL-08 (total OpenF1 failure returns PX-3301
+//          with correlationId instead of the idle "no session" response).
 // [Inbound Trigger] Polled by usePitWallData hook at user-configured intervals (2-60s).
 // [Downstream Impact] Returns PitWallLiveDataResponse — the single source of truth
 //          for all Pit Wall live data. Partial failures return what data is available.
@@ -209,10 +213,14 @@ async function handleDetailRequest(
   return res;
 }
 
-// GUID: API_PIT_WALL_LIVE_DATA-022-v01
+// GUID: API_PIT_WALL_LIVE_DATA-022-v02
 // [Intent] Extracted detail-tier OpenF1 fetch logic for promise coalescing.
 //          Fetches laps, car_data, team_radio + session/driver metadata,
 //          builds PitWallDetailResponse, and populates the detail cache.
+//          v02 (@BUGFIX PITWALL-05, 2026-07-26): also fetches /stints so tyre compound/age/
+//          pit-count/onNewTyres are computed against the detail tier's REAL lap counts —
+//          the core tier stubs /laps (lapNum=0), which made its tyre values placeholders.
+//          Adds hasDrs/inPit from car_data (core stubs car_data, so they were always false).
 async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetailResponse> {
   // GUID: API_PIT_WALL_LIVE_DATA-025-v01
   // [Intent] 30-second time window for /laps and /car_data (same rationale as core tier).
@@ -221,13 +229,16 @@ async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetai
   const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
   const detailDateSuffix = `&date>${encodeURIComponent(thirtySecondsAgo)}`;
 
-  const [lapsRaw, carDataRaw, teamRadioRaw, sessionsRaw, driversRaw] = await Promise.all([
+  const [lapsRaw, carDataRaw, teamRadioRaw, sessionsRaw, driversRaw, stintsRaw] = await Promise.all([
     openF1Fetch<any[]>('/laps?session_key=latest', token),  // unbounded — cumulative stats (best lap, sectors, lap count) need full history; ~1400 records max (20 drivers × 70 laps)
     openF1Fetch<any[]>(`/car_data?session_key=latest${detailDateSuffix}`, token),
     openF1Fetch<any[]>('/team_radio?session_key=latest', token),
     // Need session + driver info for radio messages and sessionKey for cache invalidation
     openF1Fetch<any[]>('/sessions?session_key=latest', token),
     openF1Fetch<any[]>('/drivers?session_key=latest', token),
+    // @BUGFIX (PITWALL-05): stints needed here — tyre age requires stints × REAL lap count,
+    // and the detail tier is the only tier with real lap counts. Small endpoint, unbounded.
+    openF1Fetch<any[]>('/stints?session_key=latest', token),
   ]);
 
   const sessionKey: number | null = sessionsRaw?.[0]?.session_key ?? null;
@@ -272,9 +283,12 @@ async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetai
   // Latest car data per driver
   const latestCarData = latestPerDriver(carDataRaw ?? []);
 
-  // Stints — needed for tyre age with lap count
+  // @BUGFIX (PITWALL-05, 2026-07-26): latest stint per driver (highest stint_number wins).
+  // Previously this map was left empty with a "refined by core" comment — but the core tier's
+  // refinement was itself broken (lapNum stubbed to 0), so tyre data never became real.
   const latestStints = new Map<number, any>();
-  // (We don't fetch stints here — they're in core. TyreLapAge will be refined on next core poll.)
+  (stintsRaw ?? []).sort((a: any, b: any) => (b.stint_number ?? 0) - (a.stint_number ?? 0))
+    .forEach((s: any) => { if (!latestStints.has(s.driver_number)) latestStints.set(s.driver_number, s); });
 
   const sectorStatus = (actual: number | null | undefined, driverBest: number | undefined, sessionBest: number): SectorStatus => {
     if (!actual) return null;
@@ -295,13 +309,14 @@ async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetai
     }
   }
 
-  // Build DriverDetail[] for all drivers with lap data
-  const allDriverNumbers = new Set<number>([...lapCounts.keys(), ...latestCarData.keys()]);
+  // Build DriverDetail[] for all drivers with lap, car, or stint data
+  const allDriverNumbers = new Set<number>([...lapCounts.keys(), ...latestCarData.keys(), ...latestStints.keys()]);
   const driverDetail: DriverDetail[] = [];
   allDriverNumbers.forEach(dn => {
     const lastLap = lastLaps.get(dn);
     const lapNum = lapCounts.get(dn) ?? 0;
     const car = latestCarData.get(dn);
+    const stint = latestStints.get(dn);
     const sectorLap = lastSectorLaps.get(dn) ?? lastLap;
     const s1 = sectorLap?.duration_sector_1 ?? null;
     const s2 = sectorLap?.duration_sector_2 ?? null;
@@ -318,10 +333,23 @@ async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetai
         s2Status: sectorStatus(s2, driverBestS2.get(dn), bestS2),
         s3Status: sectorStatus(s3, driverBestS3.get(dn), bestS3),
       },
-      tyreCompound: 'UNKNOWN', // refined by core (stints endpoint)
-      tyreLapAge: 0,           // refined by core
-      pitStopCount: 0,         // refined by core
-      onNewTyres: false,       // refined by core
+      // @BUGFIX (PITWALL-05, 2026-07-26): real tyre data computed here (stints × real lapNum).
+      // null = no data in this response → MERGE_DETAIL keeps the core-tier value.
+      tyreCompound: stint ? parseTyreCompound(stint.compound) : null,
+      tyreLapAge: stint
+        ? (lapNum > 0
+            ? Math.max(0, (lapNum - (stint.lap_start ?? 0)) + (stint.tyre_age_at_start ?? 0))
+            : (stint.tyre_age_at_start ?? 0))
+        : null,
+      pitStopCount: stint
+        ? Math.max(0, (stintsRaw ?? []).filter((s: any) => s.driver_number === dn).length - 1)
+        : null,
+      onNewTyres: stint && lapNum > 0 ? (lapNum - (stint.lap_start ?? 0)) <= 1 : null,
+      // @BUGFIX (PITWALL-05): DRS/pit state from the detail tier's car_data — the core tier
+      // stubs car_data, so without these the UI showed hasDrs/inPit false all session.
+      // drs 10/12/14 = active; drs 8 = rough in-pit proxy (matches core-tier convention).
+      hasDrs: car ? (car.drs != null && [10, 12, 14].includes(car.drs)) : null,
+      inPit: car ? car.drs === 8 : null,
       speed: car?.speed ?? null,
       throttle: car?.throttle ?? null,
       brake: car?.brake != null ? car.brake > 0 : null,
@@ -424,6 +452,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
     res.headers.set('X-PW-Cache', source);
     return res;
+  } catch (err: any) {
+    // GUID: API_PIT_WALL_LIVE_DATA-026-v01
+    // @BUGFIX (PITWALL-08, 2026-07-26): total OpenF1 failure now surfaces as a registry error
+    // payload (PX-3301) with a correlationId instead of masquerading as the idle "no session"
+    // response. The client shows the error banner with code + correlationId, and the failure
+    // is logged to error_logs for the admin panel.
+    const traced = createTracedError(ERRORS.PIT_WALL_FETCH_FAILED, {
+      correlationId,
+      context: { tier, upstream: 'openf1', message: err?.message ?? 'unknown' },
+      cause: err instanceof Error ? err : undefined,
+    });
+    logTracedError(traced).catch(() => {}); // fire-and-forget — never block the response
+    return NextResponse.json(
+      { error: ERRORS.PIT_WALL_FETCH_FAILED.message, code: ERRORS.PIT_WALL_FETCH_FAILED.code, correlationId },
+      { status: 502 },
+    );
   } finally {
     untrackRequest();
   }
@@ -458,6 +502,16 @@ async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDat
     openF1Fetch<any[]>('/weather?session_key=latest', token),
     openF1Fetch<any[]>('/race_control?session_key=latest', token),
   ]);
+
+  // @BUGFIX (PITWALL-08, 2026-07-26): openF1Fetch returns null on fetch FAILURE and [] when
+  // an endpoint genuinely has no rows. sessionsRaw === null therefore means OpenF1 itself is
+  // unreachable — previously this fell through to the "no session" idle response, making a
+  // total upstream outage indistinguishable from a quiet between-races day (and caching the
+  // fake idle response for 60s). Throw instead so GET() returns a real registry error
+  // (PIT_WALL_FETCH_FAILED) with a correlationId, and nothing is cached.
+  if (sessionsRaw === null) {
+    throw new Error('OpenF1 /sessions fetch failed — upstream unreachable or returned non-JSON');
+  }
 
   // Slow endpoints moved to detail tier — stub as empty so driver builder compiles cleanly
   const lapsRaw: any[] = [];
@@ -685,9 +739,18 @@ async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDat
         s3Status: sectorStatus(s3, driverBestS3.get(dn), bestS3),
       },
       tyreCompound: parseTyreCompound(stint?.compound),
-      tyreLapAge: stint ? Math.max(0, (lapNum - (stint.lap_start ?? 0)) + (stint.tyre_age_at_start ?? 0)) : 0,
-      pitStopCount: (stintsRaw ?? []).filter((s: any) => s.driver_number === dn).length - 1,
-      onNewTyres: stint ? lapNum - (stint.lap_start ?? 0) <= 1 : false,
+      // @BUGFIX (PITWALL-05, 2026-07-26): /laps is stubbed in the core tier, so lapNum is
+      // always 0 here — the old formulas produced tyreLapAge≈0 and onNewTyres always true.
+      // Without a real lap count the best estimate is the stint's age-at-start; onNewTyres
+      // needs a real lap count and defaults false. Both are refined by the detail tier
+      // (which fetches /laps + /stints) via MERGE_DETAIL in usePitWallData.
+      tyreLapAge: stint
+        ? (lapNum > 0
+            ? Math.max(0, (lapNum - (stint.lap_start ?? 0)) + (stint.tyre_age_at_start ?? 0))
+            : (stint.tyre_age_at_start ?? 0))
+        : 0,
+      pitStopCount: Math.max(0, (stintsRaw ?? []).filter((s: any) => s.driver_number === dn).length - 1),
+      onNewTyres: stint && lapNum > 0 ? (lapNum - (stint.lap_start ?? 0)) <= 1 : false,
       inPit: car?.drs === 8, // rough proxy; OpenF1 doesn't have a direct inPit flag
       retired: false,
       hasDrs: car?.drs != null && [10, 12, 14].includes(car.drs),

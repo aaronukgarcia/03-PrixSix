@@ -145,10 +145,14 @@ export interface PitWallLiveDataResponse {
   cacheAgeMs?: number;
 }
 
-// GUID: PIT_WALL_TYPES-010-v01
+// GUID: PIT_WALL_TYPES-010-v02
 // [Intent] Per-driver enrichment returned by /api/pit-wall/live-data?tier=detail.
 //          Contains the slow-to-compute fields (lap times, sectors, car telemetry, tyres)
 //          that are merged into existing DriverRaceState[] after core data loads.
+//          v02 (@BUGFIX PITWALL-05, 2026-07-26): tyre fields are now nullable — null means
+//          "no stint/car data in this detail response; MERGE_DETAIL keeps the core value".
+//          Added hasDrs/inPit: the core tier stubs car_data, so without the detail tier
+//          carrying these they were permanently false in the UI.
 export interface DriverDetail {
   driverNumber: number;
   currentLap: number;
@@ -159,10 +163,12 @@ export interface DriverDetail {
     s1: number | null; s2: number | null; s3: number | null;
     s1Status: SectorStatus; s2Status: SectorStatus; s3Status: SectorStatus;
   };
-  tyreCompound: TyreCompound;
-  tyreLapAge: number;
-  pitStopCount: number;
-  onNewTyres: boolean;
+  tyreCompound: TyreCompound | null;
+  tyreLapAge: number | null;
+  pitStopCount: number | null;
+  onNewTyres: boolean | null;
+  hasDrs: boolean | null;
+  inPit: boolean | null;
   speed: number | null;
   throttle: number | null;
   brake: boolean | null;

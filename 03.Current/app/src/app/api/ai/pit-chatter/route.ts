@@ -27,8 +27,11 @@ interface ChatterDriver {
   laps: number;
 }
 
-// GUID: API_AI_PIT_CHATTER-002-v01
+// GUID: API_AI_PIT_CHATTER-002-v02
 // [Intent] Full request body shape.
+// @BUGFIX (PUBCHAT-12): added optional lastPersona — the persona name the client received on
+//   its previous generate. When present and valid, that persona is excluded from the random
+//   roll so "New take" never returns the same voice twice in a row.
 interface PitChatterRequest {
   session: {
     name: string;     // e.g. "Day 3"
@@ -36,6 +39,7 @@ interface PitChatterRequest {
     location: string; // e.g. "Bahrain"
   };
   drivers: ChatterDriver[];
+  lastPersona?: string; // persona name from the previous response (optional, client-supplied)
 }
 
 const RATE_LIMIT_MAX = 5;
@@ -130,8 +134,11 @@ ${persona.style}
 Write 120–160 words of pit-side chatter reacting to this exact leaderboard. Reference specific drivers, times, and tyres. No generic F1 waffle. Begin immediately — no intro, no sign-off.`;
 }
 
-// GUID: API_AI_PIT_CHATTER-006-v02
+// GUID: API_AI_PIT_CHATTER-006-v03
 // [Intent] POST handler — auth, rate limit, prompt build, AI call, response.
+//          v03 (PUBCHAT-12): empty AI text is now a FAILURE (registry error, 500) instead of a
+//          silent success with blank chatter, and the persona roll excludes the client-supplied
+//          lastPersona so consecutive takes alternate voices.
 // [Inbound Trigger] POST /api/ai/pit-chatter from LiveTimingClient.
 // [Downstream Impact] Calls Vertex AI (cost per request). Returns chatter text + persona.
 export async function POST(request: NextRequest) {
@@ -173,8 +180,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No timing data provided', correlationId }, { status: 400 });
     }
 
-    // Randomly pick a persona each request
-    const persona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)];
+    // @BUGFIX (PUBCHAT-12): exclude the client's previous persona from the roll so "New take"
+    // can't repeat the same voice back-to-back. Unknown/absent lastPersona → full pool.
+    const personaPool = PERSONAS.filter(p => p.name !== body.lastPersona);
+    const pool = personaPool.length > 0 ? personaPool : PERSONAS; // constraint: never an empty pool
+    const persona = pool[Math.floor(Math.random() * pool.length)];
     const prompt = buildPrompt(body, persona);
 
     let chatter: string;
@@ -185,13 +195,29 @@ export async function POST(request: NextRequest) {
         //   300-token budget on hidden reasoning and return empty chatter. Banter needs no reasoning.
         config: { maxOutputTokens: 300, temperature: 0.85, thinkingConfig: { thinkingBudget: 0 } },
       });
-      chatter = result.text.trim();
+      chatter = (result.text ?? '').trim();
     } catch (aiError: any) {
       const { db } = await getFirebaseAdmin();
       const traced = createTracedError(ERRORS.AI_GENERATION_FAILED, {
         correlationId,
         context: { route: '/api/ai/pit-chatter', action: 'ai.generate' },
         cause: aiError instanceof Error ? aiError : undefined,
+      });
+      await logTracedError(traced, db);
+      return NextResponse.json(
+        { success: false, error: ERRORS.AI_GENERATION_FAILED.message, errorCode: ERRORS.AI_GENERATION_FAILED.code, correlationId },
+        { status: 500 }
+      );
+    }
+
+    // @BUGFIX (PUBCHAT-12): an EMPTY response previously returned success:true with blank
+    // chatter — the client rendered an empty card and burned a rate-limit slot for nothing.
+    // Empty text is a known gemini-2.5-flash failure mode (PX-3101); treat it as a failure.
+    if (!chatter) {
+      const { db } = await getFirebaseAdmin();
+      const traced = createTracedError(ERRORS.AI_GENERATION_FAILED, {
+        correlationId,
+        context: { route: '/api/ai/pit-chatter', action: 'ai.generate-empty-text', persona: persona.name },
       });
       await logTracedError(traced, db);
       return NextResponse.json(

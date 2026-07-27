@@ -1,6 +1,6 @@
 'use server';
 
-// GUID: AI_TEAM_NAME_GENERATOR-000-v01
+// GUID: AI_TEAM_NAME_GENERATOR-000-v02
 // [Intent] Genkit flow (generateTeamNameFlow) that uses a Vertex AI prompt to generate a punny F1 team name based on an existing real team name — a utility flow for the team name selection feature.
 // [Inbound Trigger] Called via generateTeamName(input) — used by the team setup flow when players pick a team name.
 // [Downstream Impact] Returns a suggested punny team name string; the player's actual team name is stored separately in Firestore.
@@ -13,6 +13,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 
 const TeamNameInputSchema = z.object({
   existingTeamName: z.string().describe('An existing F1 team name to base a pun on.'),
@@ -46,7 +47,13 @@ const generateTeamNameFlow = ai.defineFlow(
     outputSchema: TeamNameOutputSchema,
   },
   async (input) => {
-    const { output } = await teamNamePrompt(input);
+    // @SECURITY_FIX (BOW 9w6BwGmAv7UXTwgaNVdk, OWASP LLM01, 2026-07-26): existingTeamName was
+    // interpolated into the prompt template raw — "Ignore previous instructions…" style input
+    // reached the model unsanitized. Same sanitizeForPrompt guard as the hot-news flow.
+    const { output } = await teamNamePrompt({
+      ...input,
+      existingTeamName: sanitizeForPrompt(input.existingTeamName),
+    });
     return output!;
   }
 );

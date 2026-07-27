@@ -184,8 +184,10 @@ export interface ReplayDriverState {
   lastUpdated: number;
 }
 
-// GUID: SHOWREEL_TYPES-010-v01
+// GUID: SHOWREEL_TYPES-010-v02
 // [Intent] Return type for usePreRaceMode hook.
+//          v02 (@BUGFIX PITWALL-03, 2026-07-26): added clearOnDemand — releases the
+//          user's on-demand pick so the scheduled showreel auto-advance resumes.
 export interface UsePreRaceModeReturn {
   mode: PreRaceModeState;
   schedule: ShowreelSchedule | null;
@@ -194,5 +196,6 @@ export interface UsePreRaceModeReturn {
   minutesToRaceStart: number;       // Minutes until next real race
   isShowreel: boolean;              // true when in SHOWREEL_PLAYING or SHOWREEL_BETWEEN
   onRaceSelect: (session: HistoricalSession) => void; // on-demand race selector
+  clearOnDemand: () => void;        // release the on-demand pick → scheduled showreel resumes
   onDemandSession: HistoricalSession | null;          // user-selected on-demand session
 }

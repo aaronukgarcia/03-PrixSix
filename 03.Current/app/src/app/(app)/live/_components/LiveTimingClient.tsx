@@ -1,6 +1,6 @@
 "use client";
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v06
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v07
 // [Intent] Client component for the /live (PubChat) page. Shows the ThePaddockPubChat
 //          widget with Leaderboard, Team Lens, Comparison, and Chatter tabs, plus
 //          auto-refresh every 2 minutes.
@@ -11,6 +11,8 @@
 // [Downstream Impact] Reads and displays app-settings/pub-chat-timing. Calls
 //                     /api/live/refresh-timing to trigger OpenF1 fetch when stale.
 // @FIX(v05) Added Chatter tab with AI-generated pit-side commentary.
+// @FIX(v07) PUBCHAT-08 (single FP1 offset source), PUBCHAT-12 (lastPersona sent to chatter API),
+//           PUBCHAT-14 (missing timing doc renders the between-races panel, not empty tabs).
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -27,10 +29,25 @@ import type { PubChatTimingData } from "@/firebase/firestore/settings";
 import { getOfficialTeams } from "@/firebase/firestore/official-teams";
 import type { OfficialTeam } from "@/firebase/firestore/official-teams";
 import { findNextRace, RaceSchedule } from "@/lib/data";
+import type { Race } from "@/lib/data";
 
 // Auto-refresh interval: re-check every 2 minutes
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 const DEFAULT_TEAM = 'Williams';
+
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-008-v01
+// @BUGFIX (PUBCHAT-08): the FP1 offset was duplicated with DIVERGING values — 24h in
+// getNextTracksideLabel vs 25h in getUpcomingSessions — so the header hint and the session
+// schedule could show FP1 an hour apart. Single source of truth below, used by both.
+// Constraint: these are ESTIMATES (real FP1 slots vary ±~1.5h by venue); consumers that
+// compare against them must keep a tolerance buffer (see isWaitingForNewSession, PUBCHAT-02).
+const FP1_OFFSET_HOURS_NORMAL = 25; // FP1 ≈ 25h before Saturday qualifying (Fri ~13:30 vs Sat ~15:00 local)
+const FP1_OFFSET_HOURS_SPRINT = 4;  // sprint weekends: FP1 ≈ 4h before Sprint Qualifying (same day)
+
+function getEstimatedFp1Date(race: Race): Date {
+  const offsetHours = race.hasSprint ? FP1_OFFSET_HOURS_SPRINT : FP1_OFFSET_HOURS_NORMAL;
+  return new Date(new Date(race.qualifyingTime).getTime() - offsetHours * 60 * 60 * 1000);
+}
 
 type ViewTab = 'leaderboard' | 'team-lens' | 'comparison' | 'chatter';
 
@@ -44,22 +61,20 @@ interface LiveTimingClientProps {
   initialTimingData: PubChatTimingData | null;
 }
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-003-v03
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-003-v04
 // [Intent] Derive the next expected FP1 session label from the race schedule.
-//          FP1 is approximately 1 day before qualifying for normal weekends, or 4h before
-//          Sprint Qualifying on sprint weekends (only 1 practice session on sprint weekends).
+//          FP1 estimate comes from the shared getEstimatedFp1Date helper (PUBCHAT-08):
+//          ~25h before qualifying on normal weekends, ~4h before Sprint Qualifying on
+//          sprint weekends (only 1 practice session on sprint weekends).
 // [Inbound Trigger] Called inline in the render pass of LiveTimingClient.
 // [Downstream Impact] Used to render "Next expected: [location] FP1 · [day]" hint
 //          and the between-races "PubChat next opens at" panel.
+// @BUGFIX (PUBCHAT-08): previously computed its own 24h offset while getUpcomingSessions
+//          used 25h — the two UI surfaces disagreed by an hour. Now both use getEstimatedFp1Date.
 function getNextTracksideLabel(): { location: string; raceName: string; dayLabel: string; fp1Date: Date; isSprint: boolean } | null {
   const next = findNextRace();
   if (!next) return null;
-  // For sprint weekends, qualifyingTime = Sprint Qualifying (Thursday).
-  // FP1 is on the same day, ~4 hours earlier — NOT 2 days before.
-  // For normal weekends, qualifyingTime = Saturday qualifying; FP1 is Friday (1 day before).
-  const fp1Date = new Date(
-    new Date(next.qualifyingTime).getTime() - (next.hasSprint ? 4 : 24) * 60 * 60 * 1000
-  );
+  const fp1Date = getEstimatedFp1Date(next);
   const dayLabel = fp1Date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   return { location: next.location, raceName: next.name, dayLabel, fp1Date, isSprint: next.hasSprint };
 }
@@ -80,11 +95,13 @@ interface UpcomingSession {
   isSprint: boolean;  // true = this session belongs to a sprint weekend
 }
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-007-v01
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-007-v02
 // [Intent] Build a list of the next N upcoming F1 sessions by expanding the race schedule into
 //          individual sessions. Normal weekends expand to FP1/FP2/FP3/Q/GP; sprint weekends to
 //          FP1/SQ/S/Q/GP. Filters to future sessions only, returns the first `count`.
 //          Practice session times are estimated offsets from qualifying; exact times are from data.ts.
+// @BUGFIX (PUBCHAT-08): FP1 time now comes from the shared getEstimatedFp1Date helper —
+//          previously this used 25h while getNextTracksideLabel used 24h.
 // [Inbound Trigger] Called during render of the between-races and waiting-for-session panels.
 // [Downstream Impact] Reads RaceSchedule from data.ts — if schedule changes, this output updates automatically.
 function getUpcomingSessions(count: number = 5): UpcomingSession[] {
@@ -97,15 +114,15 @@ function getUpcomingSessions(count: number = 5): UpcomingSession[] {
 
     if (race.hasSprint && race.sprintTime) {
       const st = new Date(race.sprintTime);
-      // Sprint weekend: FP1 (~4h before SQ) · SQ (locks picks) · S · Q (approx ~4h after S) · GP
-      sessions.push({ label: 'FP1', raceName: race.name, location: race.location, time: new Date(qt.getTime() - 4 * 60 * 60 * 1000),  approx: true,  locksPicks: false, isSprint: true });
+      // Sprint weekend: FP1 (~4h before SQ, shared estimate) · SQ (locks picks) · S · Q (approx ~4h after S) · GP
+      sessions.push({ label: 'FP1', raceName: race.name, location: race.location, time: getEstimatedFp1Date(race),                    approx: true,  locksPicks: false, isSprint: true });
       sessions.push({ label: 'SQ',  raceName: race.name, location: race.location, time: qt,                                             approx: false, locksPicks: true,  isSprint: true });
       sessions.push({ label: 'S',   raceName: race.name, location: race.location, time: st,                                             approx: false, locksPicks: false, isSprint: true });
       sessions.push({ label: 'Q',   raceName: race.name, location: race.location, time: new Date(st.getTime() + 4 * 60 * 60 * 1000),   approx: true,  locksPicks: false, isSprint: true });
       sessions.push({ label: 'GP',  raceName: race.name, location: race.location, time: rt,                                             approx: false, locksPicks: false, isSprint: true });
     } else {
-      // Normal weekend: FP1 (~25h before Q) · FP2 (~19h) · FP3 (~3h) · Q (locks picks) · GP
-      sessions.push({ label: 'FP1', raceName: race.name, location: race.location, time: new Date(qt.getTime() - 25 * 60 * 60 * 1000),  approx: true,  locksPicks: false, isSprint: false });
+      // Normal weekend: FP1 (~25h before Q, shared estimate) · FP2 (~19h) · FP3 (~3h) · Q (locks picks) · GP
+      sessions.push({ label: 'FP1', raceName: race.name, location: race.location, time: getEstimatedFp1Date(race),                     approx: true,  locksPicks: false, isSprint: false });
       sessions.push({ label: 'FP2', raceName: race.name, location: race.location, time: new Date(qt.getTime() - 19 * 60 * 60 * 1000),  approx: true,  locksPicks: false, isSprint: false });
       sessions.push({ label: 'FP3', raceName: race.name, location: race.location, time: new Date(qt.getTime() - 3 * 60 * 60 * 1000),   approx: true,  locksPicks: false, isSprint: false });
       sessions.push({ label: 'Q',   raceName: race.name, location: race.location, time: qt,                                             approx: false, locksPicks: true,  isSprint: false });
@@ -192,9 +209,11 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
     }
   }, [db]);
 
-  // GUID: COMPONENT_LIVE_TIMING_CLIENT-004-v01
+  // GUID: COMPONENT_LIVE_TIMING_CLIENT-004-v02
   // [Intent] POST current timing snapshot to /api/ai/pit-chatter and store the
   //          returned commentary in state. Rate-limited server-side (5/hour).
+  //          v02 (PUBCHAT-12): sends lastPersona (the persona of the currently displayed
+  //          chatter) so the server excludes it from the roll — "New take" alternates voices.
   // [Inbound Trigger] User clicks "Generate Chatter" or "New Take" button.
   // [Downstream Impact] Calls Vertex AI (Gemini). Chatter lives in component state only.
   const generateChatter = useCallback(async () => {
@@ -219,6 +238,8 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
           tyre: d.tyreCompound ?? null,
           laps: d.laps,
         })),
+        // @BUGFIX (PUBCHAT-12): tell the server which persona we just heard from.
+        lastPersona: chatter?.persona,
       };
       const res = await fetch('/api/ai/pit-chatter', {
         method: 'POST',
@@ -238,7 +259,7 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
     } finally {
       setIsGeneratingChatter(false);
     }
-  }, [timingData]);
+  }, [timingData, chatter]);
 
   // Trigger on mount
   useEffect(() => {
@@ -269,7 +290,7 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
   // Sorted team names for the selector
   const teamNames = officialTeams.map(t => t.teamName).sort();
 
-  // GUID: COMPONENT_LIVE_TIMING_CLIENT-005-v02
+  // GUID: COMPONENT_LIVE_TIMING_CLIENT-005-v03
   // [Intent] Detect "between race weekends" state — the stored timing data is from a
   //          completed session (>6h since start) AND the next race qualifying is still
   //          in the future AND FP1 hasn't started yet. When true, show a next-race
@@ -283,7 +304,12 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
   const nextRace = findNextRace();
   const fp1Label = getNextTracksideLabel();
   const isBetweenRaces = useMemo(() => {
-    if (!timingData?.session?.dateStart || !nextRace) return false;
+    // @BUGFIX (PUBCHAT-14): a missing/null pub-chat-timing doc previously made this false,
+    // so the page rendered the leaderboard tabs with NO data — four empty tabs. With no
+    // stored session to show, the between-races "PubChat next opens at" panel is the only
+    // useful render whenever a next race exists (there is nothing live to fall back to).
+    if (!timingData?.session?.dateStart) return !!nextRace;
+    if (!nextRace) return false;
     const hoursSinceSessionStart =
       (Date.now() - new Date(timingData.session.dateStart).getTime()) / (1000 * 60 * 60);
     const nextQualifyingInFuture = new Date(nextRace.qualifyingTime) > new Date();

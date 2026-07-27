@@ -38,10 +38,13 @@ const COUNTDOWN_WINDOW_MINUTES = 5;
 // Main hook
 // ---------------------------------------------------------------------------
 
-// GUID: PRE_RACE_MODE_HOOK-001-v01
+// GUID: PRE_RACE_MODE_HOOK-001-v02
 // [Intent] State machine hook determining the current Pit Wall operating mode.
 //          Transitions: IDLE → SHOWREEL_QUEUED → SHOWREEL_PLAYING ↔ SHOWREEL_BETWEEN → COUNTDOWN → LIVE.
 //          Handles schedule fetching, item advancement, and on-demand session overrides.
+//          v02 (@BUGFIX PITWALL-03, 2026-07-26): exposes clearOnDemand so the consumer can
+//          release an on-demand pick when its replay completes — the ticker's auto-advance
+//          guard keys off onDemandRef, so clearing it resumes the scheduled showreel.
 // [Inbound Trigger] Called once by PitWallClient; re-evaluates on every ticker tick.
 // [Downstream Impact] mode drives which data source and UI layer PitWallClient renders.
 export function usePreRaceMode(
@@ -229,7 +232,9 @@ export function usePreRaceMode(
           }
         }
 
-        // On-demand session takes priority — no auto-advance
+        // On-demand session takes priority — no auto-advance while it plays.
+        // @BUGFIX (PITWALL-03, 2026-07-26): auto-advance resumes as soon as the pick is
+        // cleared via clearOnDemand (called by PitWallClient on replay completion).
         if (onDemandRef.current) return;
 
         if (currentMode === 'SHOWREEL_PLAYING') {
@@ -288,6 +293,14 @@ export function usePreRaceMode(
     setMode('SHOWREEL_PLAYING');
   }, []);
 
+  // @BUGFIX (PITWALL-03, 2026-07-26): clearing the on-demand pick lets the ticker's
+  // auto-advance guard (onDemandRef check above) pass again, so the scheduled showreel
+  // resumes on the next tick — including advancing past any item whose wall slot expired
+  // while the on-demand replay was playing.
+  const clearOnDemand = useCallback(() => {
+    setOnDemandSession(null);
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Derived values
   // ---------------------------------------------------------------------------
@@ -311,6 +324,7 @@ export function usePreRaceMode(
     minutesToRaceStart,
     isShowreel,
     onRaceSelect,
+    clearOnDemand,
     onDemandSession,
   };
 }

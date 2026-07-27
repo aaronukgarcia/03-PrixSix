@@ -514,10 +514,13 @@ async function writeChunk(
 // Main ingest function
 // ---------------------------------------------------------------------------
 
-// GUID: REPLAY_INGEST-014-v01
+// GUID: REPLAY_INGEST-014-v02
 // [Intent] Full ingest pipeline: fetch all OpenF1 data, build frames, stream to client,
 //          write chunks to Firestore, write meta doc, update session doc.
 //          Called by historical-replay route on Firestore miss.
+//          v02 (PITWALL-12): dead-ingest heartbeat takeover in the claim transaction,
+//          already-ingested short-circuit (replay_meta vs replay_chunks count), and the
+//          failure path never overwrites a completed session doc.
 export async function ingestReplaySession(
   sessionKey: number,
   callbacks: IngestCallbacks,
@@ -526,21 +529,43 @@ export async function ingestReplaySession(
   const sessionDocRef = db.collection('replay_sessions').doc(String(sessionKey));
 
   try {
-    // GUID: REPLAY_INGEST-020-v01
+    // GUID: REPLAY_INGEST-020-v02
     // [Intent] Atomically claim the ingest slot using a Firestore transaction.
-    //          Only one request can transition firestoreStatus from 'none' (or 'failed')
-    //          to 'ingesting'. Concurrent requests see the status has already changed and
-    //          bail out, preventing duplicate chunk writes.
+    //          Only one request can transition firestoreStatus to 'ingesting'. Concurrent
+    //          requests see the status has already changed and bail out, preventing
+    //          duplicate chunk writes.
+    //          v02 (@BUGFIX PITWALL-12, 2026-07-26): dead-ingest takeover. A worker killed
+    //          mid-ingest (load-balancer SIGKILL, OOM) left firestoreStatus='ingesting'
+    //          forever, and this claim rejected every retry — the read-side stale-lock
+    //          recovery in getSessionFirestoreStatus only helps callers that go through it.
+    //          The claim itself now takes over when the ingest heartbeat
+    //          (firestoreIngestUpdatedAt, written on every endpoint ping; falling back to
+    //          firestoreIngestStartedAt) is older than STALE_LOCK_TIMEOUT_MS (5 min).
+    //          A live ingest heartbeats far more often than that and is never taken over.
+    const tsToMillis = (v: any): number =>
+      typeof v?.toMillis === 'function' ? v.toMillis() : (v?._seconds ? v._seconds * 1000 : 0);
     const claimedIngest = await db.runTransaction(async (txn) => {
       const snap = await txn.get(sessionDocRef);
-      const currentStatus = snap.exists ? (snap.data()?.firestoreStatus as FirestoreStatus) ?? 'none' : 'none';
-      if (currentStatus !== 'none' && currentStatus !== 'failed') {
-        return false; // another request is already ingesting or complete
+      const docData = snap.exists ? (snap.data() ?? {}) : {};
+      const currentStatus = (docData.firestoreStatus as FirestoreStatus) ?? 'none';
+      if (currentStatus === 'complete') {
+        return false; // data already fully ingested — nothing to claim
+      }
+      if (currentStatus === 'ingesting') {
+        const heartbeatMs = tsToMillis(docData.firestoreIngestUpdatedAt)
+          || tsToMillis(docData.firestoreIngestStartedAt);
+        const ageMs = heartbeatMs > 0 ? Date.now() - heartbeatMs : Infinity;
+        if (ageMs <= STALE_LOCK_TIMEOUT_MS) {
+          return false; // genuinely live ingest — never take over
+        }
+        // Heartbeat stale → previous worker is dead. Fall through and take over the claim.
       }
       txn.set(sessionDocRef, {
         firestoreStatus: 'ingesting' as FirestoreStatus,
         firestoreError: null,
         firestoreIngestStartedAt: FieldValue.serverTimestamp(),
+        // Seed the heartbeat at claim time so a takeover decision always has a baseline.
+        firestoreIngestUpdatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
       return true;
     });
@@ -549,6 +574,44 @@ export async function ingestReplaySession(
       // Another request is handling ingest — exit gracefully
       callbacks.onError('Ingest already in progress or complete');
       return;
+    }
+
+    // GUID: REPLAY_INGEST-023-v01
+    // [Intent] Short-circuit when the data already exists in full.
+    // @BUGFIX (PITWALL-12, 2026-07-26): if a previous ingest wrote every chunk + the meta doc
+    //          but died (or errored) before finalising the session doc, all the data is
+    //          already in Firestore — re-running ~90s of rate-limited OpenF1 fetches is
+    //          wasted work. When replay_meta declares totalChunks and replay_chunks already
+    //          holds at least that many for this session, mark the session complete
+    //          (explicitly clearing any stale firestoreError) and skip the re-ingest.
+    const existingMeta = await loadReplayMeta(sessionKey);
+    if (existingMeta && existingMeta.totalChunks > 0) {
+      const countSnap = await db.collection('replay_chunks')
+        .where('sessionKey', '==', sessionKey)
+        .count()
+        .get();
+      const existingChunks = countSnap.data().count;
+      if (existingChunks >= existingMeta.totalChunks) {
+        await sessionDocRef.set({
+          firestoreStatus: 'complete' as FirestoreStatus,
+          firestoreChunkCount: existingMeta.totalChunks,
+          firestoreTotalFrames: existingMeta.totalFrames,
+          firestoreIngestedAt: FieldValue.serverTimestamp(),
+          firestoreError: null, // a stale error string must never survive a completed session
+          cacheVersion: REPLAY_CACHE_VERSION,
+        }, { merge: true });
+        callbacks.onMeta({
+          sessionKey,
+          sessionName: existingMeta.sessionName,
+          meetingName: existingMeta.meetingName,
+          durationMs: existingMeta.durationMs,
+          totalLaps: existingMeta.totalLaps,
+          drivers: existingMeta.drivers,
+          samplingIntervalMs: 500, // ~2Hz full fidelity — same as a fresh ingest
+        });
+        callbacks.onComplete({ totalFrames: existingMeta.totalFrames, totalChunks: existingMeta.totalChunks });
+        return;
+      }
     }
 
     // 1. Fetch session metadata
@@ -752,6 +815,9 @@ export async function ingestReplaySession(
       firestoreChunkCount: totalChunks,
       firestoreTotalFrames: frames.length,
       firestoreIngestedAt: FieldValue.serverTimestamp(),
+      // @BUGFIX (PITWALL-12, 2026-07-26): firestoreError MUST be explicitly nulled on
+      // completion — a stale error string from a prior failed attempt blocked playback of a
+      // fully-ingested session (2026-07-25 incident). Kept explicit; do not remove.
       firestoreError: null,
       cacheVersion: REPLAY_CACHE_VERSION,
     }, { merge: true });
@@ -760,11 +826,19 @@ export async function ingestReplaySession(
 
   } catch (err: any) {
     const errorMsg = err instanceof Error ? err.message : 'Unknown ingest error';
-    // Mark as failed
-    await sessionDocRef.set({
-      firestoreStatus: 'failed' as FirestoreStatus,
-      firestoreError: errorMsg,
-    }, { merge: true }).catch(() => {});
+    // Mark as failed.
+    // @BUGFIX (PITWALL-12, 2026-07-26): never clobber a COMPLETED session with 'failed'.
+    // A late/losing writer marking failed after the winner completed left a stale
+    // firestoreError on a fully-ingested session, blocking playback. Transactional check:
+    // if the doc already says 'complete', leave it untouched.
+    await db.runTransaction(async (txn) => {
+      const snap = await txn.get(sessionDocRef);
+      if (snap.exists && snap.data()?.firestoreStatus === 'complete') return;
+      txn.set(sessionDocRef, {
+        firestoreStatus: 'failed' as FirestoreStatus,
+        firestoreError: errorMsg,
+      }, { merge: true });
+    }).catch(() => {});
     callbacks.onError(errorMsg);
     throw err;
   }

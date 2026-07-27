@@ -1,4 +1,4 @@
-// GUID: COMPONENT_APP_SIDEBAR-000-v06
+// GUID: COMPONENT_APP_SIDEBAR-000-v07
 // [Intent] Main application sidebar component providing navigation links, admin panel access,
 // user profile display, and logout functionality. Renders within the ShadCN Sidebar layout.
 // [Inbound Trigger] Rendered by the authenticated app layout on every page within the (app) route group.
@@ -6,10 +6,14 @@
 // all users' navigation. Logout handler updates presence and triggers auth state teardown.
 // @FIX(v04) Replaced flat "Results" menu item with a collapsible sub-menu containing
 // "Race Results" (/results) and "My Results" (/my-results).
+// @UX(NEWBIE-01/-03/-07, v07) Newbie-experience renames: "PubChat"→"Live Timing" (route stays /live),
+// "Audit"→"My Activity" (route stays /audit). "Getting Started" is pinned to the TOP of the nav
+// while the onboarding checklist is incomplete (read from the same localStorage key the
+// /onboarding page writes) and drops back to the bottom group once complete.
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Sidebar,
   SidebarHeader,
@@ -59,34 +63,61 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 
-// GUID: COMPONENT_APP_SIDEBAR-001-v07
+// GUID: COMPONENT_APP_SIDEBAR-001-v08
 // [Intent] Menu items rendered ABOVE the Results collapsible group.
 // @FIX(v07) Added Pit Wall (/pit-wall) after PubChat — live race data module.
+// @UX(NEWBIE-01, v08) "PubChat" renamed to "Live Timing" — the route (/live) and the page
+// component already called it Live Timing; the nav was the odd one out for newcomers.
 const menuItemsTop = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
   { href: "/schedule",    label: "Schedule",      icon: Calendar },
   { href: "/predictions", label: "Predictions",   icon: Rocket },
   { href: "/standings",   label: "Standings",     icon: Trophy },
-  { href: "/live",        label: "PubChat",        icon: Radio },
+  { href: "/live",        label: "Live Timing",    icon: Radio },
   { href: "/pit-wall",    label: "Pit Wall",       icon: TowerControl },
 ];
 
-// GUID: COMPONENT_APP_SIDEBAR-001B-v06
+// GUID: COMPONENT_APP_SIDEBAR-001B-v07
 // [Intent] Menu items rendered BELOW the Results collapsible group.
 // @FIX(v05) Added "Getting Started" link to surface onboarding permanently in navigation.
 // Renamed "About" to "Help" with HelpCircle icon for clearer discoverability.
 // @FIX(v06) Added "Invite a Friend" (/invite) — members send single-use signup invites
 //           (SEC-SIGNUP-001 friend-invite system).
+// @UX(NEWBIE-03, v07) "Audit" renamed to "My Activity" — "Audit" read like a compliance tool
+// to new users; the page shows the user's own account activity. Route stays /audit.
+// @UX(NEWBIE-07, v07) "Getting Started" moved out of this constant — see onboardingItem below;
+// it is pinned to the top of the nav while onboarding is incomplete.
 const menuItemsBottom = [
-  { href: "/onboarding", label: "Getting Started", icon: BookOpen },
   { href: "/invite", label: "Invite a Friend", icon: UserPlus },
   { href: "/submissions", label: "Submissions", icon: FileCheck },
-  { href: "/audit", label: "Audit", icon: History },
+  { href: "/audit", label: "My Activity", icon: History },
   { href: "/teams", label: "Teams", icon: Users },
   { href: "/leagues", label: "Leagues", icon: Users2 },
   { href: "/rules", label: "Rules", icon: ScrollText },
   { href: "/about", label: "Help", icon: HelpCircle },
 ];
+
+// GUID: COMPONENT_APP_SIDEBAR-005-v01
+// @UX(NEWBIE-07) The "Getting Started" nav item, rendered at the TOP of the menu while the
+// onboarding checklist is incomplete, and in the bottom group once complete.
+// CONSTRAINT: ONBOARDING_PROGRESS_KEY and the flag names MUST stay in sync with
+// PAGE_ONBOARDING-001/-002 in app/(app)/onboarding/page.tsx — that page owns the schema.
+// Missing/corrupt localStorage counts as "incomplete" (safe default: surface the checklist).
+const onboardingItem = { href: "/onboarding", label: "Getting Started", icon: BookOpen };
+const ONBOARDING_PROGRESS_KEY = "prix-six-onboarding-progress";
+const ONBOARDING_FLAGS = ["emailVerified", "gameLearned", "predictionMade", "paddockExplored", "gridJoined"] as const;
+
+function readOnboardingComplete(): boolean {
+  try {
+    const stored = localStorage.getItem(ONBOARDING_PROGRESS_KEY);
+    if (!stored) return false;
+    const parsed = JSON.parse(stored);
+    return ONBOARDING_FLAGS.every((flag) => parsed?.[flag] === true);
+  } catch {
+    // Corrupt localStorage — treat as incomplete rather than hiding the checklist (fail-visible).
+    return false;
+  }
+}
 
 // GUID: COMPONENT_APP_SIDEBAR-002-v04
 export function AppSidebar() {

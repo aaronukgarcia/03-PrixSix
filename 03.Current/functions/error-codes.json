@@ -14,5 +14,57 @@
   "BACKUP_CLEANUP_FAILED": {
     "code": "PX-7006",
     "message": "Backup cleanup failed"
+  },
+  "BACKUP_RETENTION_FAILED": {
+    "code": "PX-7009",
+    "message": "Backup retention purge failed"
+  },
+  "EMAIL_QUEUE_CRON_FAILED": {
+    "code": "PX-3005",
+    "message": "Email queue processing cron failed"
+  },
+  "HOT_NEWS_REFRESH_FAILED": {
+    "code": "PX-3103",
+    "message": "Hot news refresh failed"
+  },
+  "SESSION_TIMES_SYNC_FAILED": {
+    "code": "PX-3204",
+    "message": "Session times sync failed"
+  },
+  "PIT_WALL_REPLAY_INGEST_FAILED": {
+    "code": "PX-3313",
+    "message": "Failed to ingest replay session into Firestore"
+  },
+  "WHATSAPP_PUBLISH_FAILED": {
+    "code": "PX-3401",
+    "message": "WhatsApp hot news publish failed"
+  },
+  "WHATSAPP_SCHEDULED_TICK_FAILED": {
+    "code": "PX-3402",
+    "message": "WhatsApp scheduled alerts tick failed"
+  },
+  "WHATSAPP_QUEUE_WATCHDOG_FAILED": {
+    "code": "PX-3403",
+    "message": "WhatsApp queue watchdog failed"
+  },
+  "ROAST_TRIGGER_FAILED": {
+    "code": "PX-3404",
+    "message": "Roast task trigger failed"
+  },
+  "BILLCELERATION_TICK_FAILED": {
+    "code": "PX-3405",
+    "message": "Billceleration tick failed"
+  },
+  "CRON_SECRET_MISSING": {
+    "code": "PX-3406",
+    "message": "Cron secret missing from function configuration"
+  },
+  "LOGON_EXPIRY_FAILED": {
+    "code": "PX-6006",
+    "message": "Failed to expire stale session"
+  },
+  "ADMIN_TOKEN_CLEANUP_FAILED": {
+    "code": "PX-6007",
+    "message": "Expired admin token cleanup failed"
   }
 }

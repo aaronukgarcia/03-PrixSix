@@ -1,4 +1,4 @@
-// GUID: PIT_WALL_DATA_HOOK-000-v03
+// GUID: PIT_WALL_DATA_HOOK-000-v04
 // [Intent] Master polling hook for all Pit Wall live data. Fetches from
 //          /api/pit-wall/live-data on a configurable interval and exposes
 //          the merged DriverRaceState[], race control messages, and weather.
@@ -7,6 +7,9 @@
 //          v03: BUG-PW-005 — replaced setInterval with recursive setTimeout
 //               so the next poll only schedules AFTER the current fetch completes,
 //               preventing request stacking when the backend is slow.
+//          v04: Wave 2 fixes — PITWALL-05 (MERGE_DETAIL patches tyre + hasDrs/inPit fields),
+//               PITWALL-07 (visibility handler clears pending timer before rescheduling),
+//               PITWALL-08 (server registry code + correlationId propagated to FETCH_ERROR).
 // [Inbound Trigger] Called once by PitWallClient with the current settings.
 // [Downstream Impact] All live data in the Pit Wall flows from this hook.
 
@@ -97,11 +100,15 @@ const initialState: PitWallDataState = {
   lastUpdated: null,
 };
 
-// GUID: PIT_WALL_DATA_HOOK-004-v02
+// GUID: PIT_WALL_DATA_HOOK-004-v03
 // [Intent] Reducer that applies fetch outcomes atomically — no partial state updates.
 //          v02: Added MERGE_DETAIL — enriches existing drivers[] with lap times,
 //               car telemetry, and radio from the slow detail tier without
 //               replacing core fields. Ignored if sessionKey doesn't match.
+//          v03 (@BUGFIX PITWALL-05): MERGE_DETAIL now also patches tyreCompound/tyreLapAge/
+//               pitStopCount/onNewTyres/hasDrs/inPit. The core tier stubs /laps and /car_data,
+//               so these were placeholder values (tyreLapAge≈0, onNewTyres true, hasDrs/inPit
+//               false) that MERGE_DETAIL previously never corrected — they stuck all session.
 function pitWallDataReducer(state: PitWallDataState, action: PitWallDataAction): PitWallDataState {
   switch (action.type) {
     case 'SET_LOADING':
@@ -153,6 +160,14 @@ function pitWallDataReducer(state: PitWallDataState, action: PitWallDataAction):
             throttle:     detail.throttle     ?? d.throttle,
             brake:        detail.brake        ?? d.brake,
             gear:         detail.gear         ?? d.gear,
+            // @BUGFIX (PITWALL-05, 2026-07-26): null = detail response had no stint/car data
+            // for this driver — keep the core-tier value rather than blanking it.
+            tyreCompound: detail.tyreCompound ?? d.tyreCompound,
+            tyreLapAge:   detail.tyreLapAge   ?? d.tyreLapAge,
+            pitStopCount: detail.pitStopCount ?? d.pitStopCount,
+            onNewTyres:   detail.onNewTyres   ?? d.onNewTyres,
+            hasDrs:       detail.hasDrs       ?? d.hasDrs,
+            inPit:        detail.inPit        ?? d.inPit,
           };
         }),
       };
@@ -181,8 +196,17 @@ async function fetchCoreDataText(firebaseUser: User): Promise<string> {
     cache: 'no-store',
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error || `HTTP ${res.status}`);
+    const body: any = await res.json().catch(() => ({}));
+    // @BUGFIX (PITWALL-08, 2026-07-26): carry the server's registry code + correlationId
+    // through so the error banner shows the real code (e.g. PX-3301 = OpenF1 outage) with
+    // the SERVER's correlationId — matching the error_logs entry — instead of a generic
+    // client NETWORK_ERROR with an unrelated client-minted correlationId.
+    const err = new Error(body?.error || `HTTP ${res.status}`) as Error & {
+      serverCode?: string; serverCorrelationId?: string;
+    };
+    if (typeof body?.code === 'string') err.serverCode = body.code;
+    if (typeof body?.correlationId === 'string') err.serverCorrelationId = body.correlationId;
+    throw err;
   }
   return res.text();
 }
@@ -284,11 +308,12 @@ export function usePitWallData(
       .then(rawText => parseJson(rawText))
       .then(data => dispatch({ type: 'FETCH_SUCCESS', payload: data }))
       .catch((err: any) => {
-        const cid = generateClientCorrelationId();
+        // @BUGFIX (PITWALL-08, 2026-07-26): prefer the server's code/correlationId when present.
+        const cid = err?.serverCorrelationId ?? generateClientCorrelationId();
         dispatch({
           type: 'FETCH_ERROR',
           error: err?.message || CLIENT_ERRORS.NETWORK_ERROR.message,
-          errorCode: CLIENT_ERRORS.NETWORK_ERROR.code,
+          errorCode: err?.serverCode ?? CLIENT_ERRORS.NETWORK_ERROR.code,
           correlationId: cid,
         });
       });
@@ -350,6 +375,15 @@ export function usePitWallData(
         if (intervalRef.current) clearTimeout(intervalRef.current);
         intervalRef.current = null;
       } else {
+        // @BUGFIX (PITWALL-07, 2026-07-26): clear any pending timer BEFORE scheduling.
+        // Focus flapping (visible events firing while a timer is still pending — e.g. bfcache
+        // restores or OS wake quirks) previously spawned a second recursive-setTimeout loop
+        // here; the orphaned timer id in intervalRef could no longer be cleared, and each
+        // flap doubled the polling rate against OpenF1.
+        if (intervalRef.current) {
+          clearTimeout(intervalRef.current);
+          intervalRef.current = null;
+        }
         fetchData();
         scheduleNext();
       }

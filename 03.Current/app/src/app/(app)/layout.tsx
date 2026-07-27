@@ -1,5 +1,5 @@
 
-// GUID: APP_LAYOUT-000-v04
+// GUID: APP_LAYOUT-000-v05
 "use client";
 
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -62,9 +62,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Only redirect if loading is finished and there's no user AND no firebaseUser
     // (firebaseUser exists briefly before user doc is fetched)
+    //
+    // @BUGFIX UX-LOGIN-FLASH-001: during sidebar navigation the Firebase provider can briefly
+    // report (isUserLoading=false, user=null, firebaseUser=null) while auth re-hydrates
+    // (onAuthStateChanged tears down and re-emits — see FIREBASE_PROVIDER-008 audit note).
+    // The old code pushed /login IMMEDIATELY on that transient state; the login page then saw
+    // the re-resolved session and bounced straight back — a momentary login-prompt flash.
+    // Fix: only redirect if the fully-logged-out state PERSISTS for 800 ms. The effect's
+    // cleanup cancels the timer the moment auth resolves (user/firebaseUser becomes non-null
+    // or loading restarts), so transient blips never navigate. Genuinely logged-out users
+    // still redirect — just 800 ms later — and the render below returns null in the interim,
+    // so no protected content is ever shown. No security weakening: the redirect condition
+    // itself is unchanged.
     if (!isUserLoading && !user && !firebaseUser) {
-      router.push("/login");
-      return;
+      const loginRedirectTimer = setTimeout(() => {
+        router.push("/login");
+      }, 800);
+      return () => clearTimeout(loginRedirectTimer);
     }
     // New OAuth users should be on /complete-profile, not app pages
     if (!isUserLoading && isNewOAuthUser && firebaseUser && !user) {

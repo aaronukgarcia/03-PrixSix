@@ -1,7 +1,10 @@
-// GUID: DASHBOARD_HOT_NEWS_FEED-000-v02
-// [Intent] Server component that fetches the latest AI-generated Hot News Feed content from getHotNewsFeed() and renders it as a card with timestamp and refresh counter; also exports HotNewsFeedSkeleton for Suspense boundaries.
+// GUID: DASHBOARD_HOT_NEWS_FEED-000-v03
+// [Intent] Server component that fetches the latest AI-generated Hot News Feed content from getHotNewsFeed() and renders it as a card with timestamp and bulletin id; also exports HotNewsFeedSkeleton for Suspense boundaries.
 // [Inbound Trigger] Rendered by the dashboard page inside a React Suspense boundary; re-fetches on each page load (no client-side caching).
-// [Downstream Impact] Displays the Vertex AI-generated paddock news to all players; refresh counter shown as subtle four-digit ID.
+// [Downstream Impact] Displays the Vertex AI-generated paddock news to all players; bulletin id shown as subtle four-digit ID.
+// @BUGFIX (PUBCHAT-05): the footer id previously rendered refreshCount while the content body
+// embeds #messageId — two diverging id sequences for one bulletin. The footer now renders the
+// SAME messageId the doc stores (the single id source); refreshCount is no longer displayed.
 import { getHotNewsFeed } from "@/ai/flows/hot-news-feed";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, Clock } from "lucide-react";
@@ -20,7 +23,7 @@ function formatNewsTimestamp(isoString?: string) {
 }
 
 export async function HotNewsFeed() {
-    const { newsFeed, lastUpdated, refreshCount, enabled } = await getHotNewsFeed();
+    const { newsFeed, lastUpdated, messageId, enabled } = await getHotNewsFeed();
 
     // @BUGFIX (PUBCHAT-01, 2026-07-26): the admin's Hot News OFF toggle previously had no
     // effect on this card — it rendered regardless. Disabled → render nothing.
@@ -45,9 +48,11 @@ export async function HotNewsFeed() {
             </CardHeader>
             <CardContent>
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">{newsFeed}</p>
-                {refreshCount !== undefined && (
+                {/* @BUGFIX (PUBCHAT-05): render messageId (the id stored in the doc and embedded
+                    in the content) — NOT refreshCount, which is a separate diverging counter. */}
+                {messageId !== undefined && (
                     <p className="mt-3 text-right text-[10px] text-muted-foreground/40 font-mono select-none">
-                        #{String(refreshCount).padStart(4, '0')}
+                        #{String(messageId).padStart(4, '0')}
                     </p>
                 )}
             </CardContent>

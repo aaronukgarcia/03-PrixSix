@@ -2,6 +2,22 @@
   "lastUpdated": "2026-07-26",
   "commits": [
     {
+      "id": "abc52c5",
+      "date": "2026-07-26",
+      "version": "3.13.2",
+      "author": "aaron garcia",
+      "message": "chore: worker WORKER_VERSION 2.2.2 — health endpoint now proves deployments (v3.13.2)",
+      "major": false
+    },
+    {
+      "id": "b97263d",
+      "date": "2026-07-26",
+      "version": "3.13.1",
+      "author": "aaron garcia",
+      "message": "feat: replay per-tick position interpolation (jerky zoom fix) + Wave 1 backend deps — functions 7.3.0 w/ cleanup split, worker 2.2.2 baileys/sharp CVEs (v3.13.1)",
+      "major": true
+    },
+    {
       "id": "86727d5",
       "date": "2026-07-26",
       "version": "3.13.0",

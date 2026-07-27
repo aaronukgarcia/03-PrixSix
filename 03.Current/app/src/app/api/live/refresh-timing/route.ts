@@ -18,10 +18,11 @@
 //   - fetchedBy is set to 'auto' (not the user's UID)
 // =============================================================================
 
-// GUID: API_LIVE_REFRESH_TIMING-000-v01
+// GUID: API_LIVE_REFRESH_TIMING-000-v02
 // [Intent] Module-level constants, token cache, and helpers for the live timing
 //          auto-refresh endpoint. Mirrors the admin route's timeout/parse helpers
 //          but targets session_key=latest rather than a specific session.
+//          v02 (PUBCHAT-13): added REFRESH_CLAIM_TTL_MS for the transactional rate gate.
 // [Inbound Trigger] Loaded once by Next.js on first request to this route.
 // [Downstream Impact] FETCH_TIMEOUT_MS controls all outbound HTTP call timeouts.
 //                     cachedToken is shared across warm requests on the same instance.
@@ -40,6 +41,12 @@ const FETCH_TIMEOUT_MS = 10_000;
 
 // Rate gate: do not hit OpenF1 if data is fresher than this.
 const RATE_GATE_MS = 15 * 60 * 1000; // 15 minutes
+
+// @BUGFIX (PUBCHAT-13): TTL on the transactional refresh claim. A claim younger than this
+// means another request is mid-fetch — treat as fresh. Must exceed the worst-case OpenF1
+// fetch chain (5 sequential calls × 10s timeout = 50s) so a live fetch is never duplicated,
+// but stay short enough that a crashed fetch doesn't block refreshes for long.
+const REFRESH_CLAIM_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 // Module-level OAuth2 token cache (shared with warm requests on same instance).
 let cachedToken: { token: string; expiresAt: number } | null = null;
@@ -150,11 +157,11 @@ function formatLapDuration(seconds: number): string {
 
 
 // =============================================================================
-// GUID: API_LIVE_REFRESH_TIMING-005-v01
+// GUID: API_LIVE_REFRESH_TIMING-005-v02
 // [Intent] Main POST handler for the live timing auto-refresh endpoint.
 //          1. Verify Firebase Auth token (any signed-in user).
-//          2. Read app-settings/pub-chat-timing to check rate gate.
-//          3. If data is fresh (<15 min), return { fresh: true } immediately.
+//          2. Transactionally check the rate gate AND claim the refresh slot (PUBCHAT-13).
+//          3. If data is fresh (<15 min) or a refresh is in flight, return { fresh: true }.
 //          4. Acquire OpenF1 OAuth2 token.
 //          5. Fetch latest session metadata (session_key=latest).
 //          6. Fetch meeting metadata.
@@ -184,35 +191,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Step 2: Rate gate — check how old the current Firestore data is ───────
+    // ── Step 2: Rate gate — transactional check + claim ───────────────────────
+    // @BUGFIX (PUBCHAT-13): the gate was a plain read-then-act — two clients hitting the
+    // route in the same window both saw stale data and BOTH ran the full 5-call OpenF1
+    // fetch chain (double load + racing writes). Now a Firestore transaction atomically
+    // checks freshness AND stamps refreshClaimedAt; a concurrent caller sees the claim
+    // and returns { fresh: true } instead of double-fetching. The final full-document
+    // set() (no merge) in Step 10 drops the claim field; on a crashed fetch the claim
+    // simply expires after REFRESH_CLAIM_TTL_MS.
     const { db, FieldValue, Timestamp } = await getFirebaseAdmin();
 
     const timingDocRef = db.doc('app-settings/pub-chat-timing');
-    const timingSnap = await timingDocRef.get();
+    const gate = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(timingDocRef);
+      const now = Date.now();
 
-    if (timingSnap.exists) {
-      const data = timingSnap.data();
-      if (data?.fetchedAt) {
-        // fetchedAt is a Firestore Timestamp — convert to ms epoch
-        const fetchedAtMs: number =
-          typeof data.fetchedAt.toMillis === 'function'
-            ? data.fetchedAt.toMillis()
-            : data.fetchedAt._seconds * 1000;
+      if (snap.exists) {
+        const data = snap.data();
+        if (data?.fetchedAt) {
+          // fetchedAt is a Firestore Timestamp — convert to ms epoch
+          const fetchedAtMs: number =
+            typeof data.fetchedAt.toMillis === 'function'
+              ? data.fetchedAt.toMillis()
+              : data.fetchedAt._seconds * 1000;
 
-        const ageMs = Date.now() - fetchedAtMs;
-        if (ageMs < RATE_GATE_MS) {
-          console.log(
-            `[live/refresh-timing POST ${correlationId}] Data is fresh (${Math.round(ageMs / 1000)}s old) — skipping OpenF1 fetch.`,
-          );
-          return NextResponse.json({ success: true, fresh: true });
+          const ageMs = now - fetchedAtMs;
+          if (ageMs < RATE_GATE_MS) {
+            return { proceed: false as const, reason: `data fresh (${Math.round(ageMs / 1000)}s old)` };
+          }
         }
-        console.log(
-          `[live/refresh-timing POST ${correlationId}] Data is stale (${Math.round(ageMs / 1000)}s old) — refreshing.`,
-        );
+        // Another request is already mid-fetch — don't duplicate the OpenF1 chain.
+        const claimMs: number = data?.refreshClaimedAt?.toMillis?.() ?? 0;
+        if (now - claimMs < REFRESH_CLAIM_TTL_MS) {
+          return { proceed: false as const, reason: `refresh already in flight (claimed ${Math.round((now - claimMs) / 1000)}s ago)` };
+        }
       }
-    } else {
-      console.log(`[live/refresh-timing POST ${correlationId}] No existing timing data — fetching fresh.`);
+
+      // Claim the refresh slot atomically (merge keeps existing data intact).
+      tx.set(timingDocRef, { refreshClaimedAt: Timestamp.fromMillis(now) }, { merge: true });
+      return { proceed: true as const };
+    });
+
+    if (!gate.proceed) {
+      console.log(`[live/refresh-timing POST ${correlationId}] Gate closed — ${gate.reason}. Skipping OpenF1 fetch.`);
+      return NextResponse.json({ success: true, fresh: true });
     }
+    console.log(`[live/refresh-timing POST ${correlationId}] Gate open — claimed refresh, fetching from OpenF1.`);
 
     // ── Step 3: Acquire OpenF1 OAuth2 token ───────────────────────────────────
     const openf1Token = await getOpenF1Token();
@@ -415,23 +439,25 @@ export async function POST(request: NextRequest) {
         let stints: any[] = [];
         try { stints = JSON.parse(rawStints); } catch { /* non-fatal */ }
         if (Array.isArray(stints) && stints.length > 0) {
-          const latestCompoundMap = new Map<number, string>();
+          // @BUGFIX (PUBCHAT-13): precompute the latest stint per driver in ONE pass.
+          // The old code ran stints.find() inside the loop (O(n²)) and, worse, compared
+          // lap_start against the FIRST stint matching the stored compound — so a driver
+          // returning to an earlier compound could be tagged with the wrong tyre.
+          // Keeping the highest lap_start per driver is both correct and O(n).
+          const latestStintByDriver = new Map<number, { lapStart: number; compound: string }>();
           for (const s of stints) {
             const dNum = s.driver_number;
             const compound = (s.compound || '').toUpperCase();
             if (!dNum || !compound) continue;
-            const existing = latestCompoundMap.get(dNum);
-            if (
-              !existing ||
-              (s.lap_start || 0) >
-                (stints.find((x) => x.driver_number === dNum && x.compound === existing)?.lap_start || 0)
-            ) {
-              latestCompoundMap.set(dNum, compound);
+            const existing = latestStintByDriver.get(dNum);
+            // >= so a later array entry with the same lap_start (re-issued stint row) wins.
+            if (!existing || (s.lap_start || 0) >= existing.lapStart) {
+              latestStintByDriver.set(dNum, { lapStart: s.lap_start || 0, compound });
             }
           }
           for (const r of positionedResults) {
-            const compound = latestCompoundMap.get(r.driverNumber);
-            if (compound) (r as any).tyreCompound = compound;
+            const latest = latestStintByDriver.get(r.driverNumber);
+            if (latest) (r as any).tyreCompound = latest.compound;
           }
         }
       }

@@ -1,4 +1,4 @@
-// GUID: PIT_WALL_CLIENT-000-v05
+// GUID: PIT_WALL_CLIENT-000-v06
 // [Intent] Client-side orchestrator for the Pit Wall live race data module.
 //          Wires all hooks, manages layout (track map + FIA feed header, toolbar,
 //          race table, radio zoom panel), and enforces the dark F1 aesthetic.
@@ -11,6 +11,9 @@
 //               (⏮⏪⏸/▶⏩⏭ + speed selector). Replay overrides live data source.
 //          v05: Debounced localStorage circuit path saves (30s interval + visibilitychange
 //               + beforeunload). Session-adaptive polling lowered from 10s to 5s.
+//          v06: Wave 2 bug fixes — PITWALL-03 (on-demand race pick takes priority over the
+//               scheduled showreel item, auto-advance resumes after it) and PITWALL-06
+//               (nextRaceInfo re-derived on a 60s tick instead of frozen at load).
 // [Inbound Trigger] Rendered by page.tsx (server component) on every /pit-wall request.
 // [Downstream Impact] All Pit Wall state and data flow originates here.
 //                     Sub-components receive only the props they need — no prop drilling
@@ -233,8 +236,18 @@ export default function PitWallClient() {
     forceRefresh,
   } = usePitWallData(settings.updateIntervalSeconds, firebaseUser);
 
-  // Next race from schedule
-  const nextRaceInfo = useMemo(() => findNextRaceFromSchedule(), []);
+  // GUID: PIT_WALL_CLIENT-058-v01
+  // [Intent] Next race from schedule, re-derived every minute.
+  // @BUGFIX (PITWALL-06, 2026-07-26): nextRaceInfo was memoised with [] deps, freezing the
+  //   "next race" at page-load time. A tab left open across a session boundary kept counting
+  //   down to (and showing) a race that had already started or finished. A 60s tick re-derives
+  //   it so the countdown/showreel roll over to the next event without a reload.
+  const [scheduleTick, setScheduleTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setScheduleTick(t => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const nextRaceInfo = useMemo(() => findNextRaceFromSchedule(), [scheduleTick]);
 
   // GUID: PIT_WALL_CLIENT-018-v02
   // [Intent] Accumulated circuit path — GPS points from a SINGLE driver's sequential positions.
@@ -392,15 +405,22 @@ export default function PitWallClient() {
     nextRaceInfo?.location ?? null,
   );
 
-  // GUID: PIT_WALL_CLIENT-014-v01
+  // GUID: PIT_WALL_CLIENT-014-v02
   // [Intent] Historical replay hook — RAF playback of 2025 telemetry.
   //          Active when preRaceMode.isShowreel is true.
+  // @BUGFIX (PITWALL-03, 2026-07-26): the RaceSelector's on-demand pick was silently ignored —
+  //   currentItem?.session was listed first, so the scheduled item always won and the user's
+  //   pick never played. The on-demand session now takes priority (played uncompressed at 1.0
+  //   per SHOWREEL_TYPES-002), and on completion the pick is cleared so the scheduled showreel
+  //   auto-advance resumes.
   const historicalReplay = useHistoricalReplay(
-    preRaceMode.currentItem?.session ?? preRaceMode.onDemandSession ?? null,
-    preRaceMode.currentItem?.compressionFactor ?? 1.0,
+    preRaceMode.onDemandSession ?? preRaceMode.currentItem?.session ?? null,
+    preRaceMode.onDemandSession ? 1.0 : (preRaceMode.currentItem?.compressionFactor ?? 1.0),
     idToken,
     () => {
-      // Replay of current item completed — preRaceMode ticker will advance automatically
+      // On-demand replay finished — release the pick so the scheduled showreel resumes.
+      // Scheduled items need no action: the preRaceMode ticker advances them automatically.
+      if (preRaceMode.onDemandSession) preRaceMode.clearOnDemand();
     },
   );
 
@@ -755,12 +775,13 @@ export default function PitWallClient() {
     ? lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : null;
 
-  // Session display: in showreel mode, show historical race name instead of live session
+  // Session display: in showreel mode, show historical race name instead of live session.
+  // @BUGFIX (PITWALL-03, 2026-07-26): on-demand pick takes display priority over the schedule.
   const displayMeetingName = preRaceMode.isShowreel
-    ? (preRaceMode.currentItem?.session.meetingName ?? preRaceMode.onDemandSession?.meetingName ?? meetingName)
+    ? (preRaceMode.onDemandSession?.meetingName ?? preRaceMode.currentItem?.session.meetingName ?? meetingName)
     : meetingName;
   const displaySessionType = preRaceMode.isShowreel
-    ? (preRaceMode.currentItem?.session.sessionType ?? preRaceMode.onDemandSession?.sessionType ?? sessionType)
+    ? (preRaceMode.onDemandSession?.sessionType ?? preRaceMode.currentItem?.session.sessionType ?? sessionType)
     : sessionType;
 
   // GUID: PIT_WALL_CLIENT-030-v01
@@ -803,8 +824,9 @@ export default function PitWallClient() {
       {preRaceMode.isShowreel && (
         <PreRaceWarmupBanner
           currentRaceName={
-            `2025 ${preRaceMode.currentItem?.session.meetingName
-              ?? preRaceMode.onDemandSession?.meetingName
+            /* @BUGFIX (PITWALL-03, 2026-07-26): on-demand pick shown first */
+            `2025 ${preRaceMode.onDemandSession?.meetingName
+              ?? preRaceMode.currentItem?.session.meetingName
               ?? 'Race'}`
           }
           nextRaceName={nextRaceInfo?.name ?? 'Next Race'}
@@ -1008,7 +1030,8 @@ export default function PitWallClient() {
         {preRaceMode.isShowreel && preRaceMode.schedule && (
           <RaceSelector
             sessions={preRaceMode.schedule.items.map(i => i.session)}
-            currentSession={preRaceMode.currentItem?.session ?? preRaceMode.onDemandSession ?? null}
+            /* @BUGFIX (PITWALL-03, 2026-07-26): highlight the on-demand pick when active */
+            currentSession={preRaceMode.onDemandSession ?? preRaceMode.currentItem?.session ?? null}
             onSelectSession={preRaceMode.onRaceSelect}
           />
         )}

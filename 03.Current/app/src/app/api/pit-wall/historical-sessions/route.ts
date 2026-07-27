@@ -22,6 +22,29 @@ const SPRINT_DURATION_S = 1800; // 30 min default for Sprint
 
 const sessionCache = new Map<string, { data: HistoricalSession[]; expiresAt: number }>();
 
+// GUID: API_PIT_WALL_HISTORICAL_SESSIONS-004-v01
+// [Intent] Map RaceSchedule `location` values (lib/data.ts) to OpenF1 circuit_short_name.
+// @BUGFIX (PITWALL-04, 2026-07-26): the schedule's location string was passed straight through
+//   as OpenF1's circuit_short_name filter, but several 2026 locations don't match the 2025
+//   OpenF1 circuit names — the showreel silently found ZERO sessions for those rounds.
+//   Mismatches verified against live OpenF1 /sessions?year=2025 data on 2026-07-26:
+//     Barcelona → Catalunya, Budapest → Hungaroring, Sao Paulo → Interlagos,
+//     Monaco → Monte Carlo, Yas Marina → Yas Marina Circuit.
+//   All other schedule locations already match circuit_short_name exactly (Melbourne, Shanghai,
+//   Suzuka, Miami, Montreal, Spielberg, Silverstone, Spa-Francorchamps, Zandvoort, Monza, Baku,
+//   Singapore, Austin, Mexico City, Las Vegas, Lusail). Note: "Singapore" IS the 2025
+//   circuit_short_name — "Marina Bay" is only OpenF1's `location` field, so no mapping needed.
+//   Madrid (new 2026 circuit) has no 2025 equivalent; the raw fallback correctly yields an
+//   empty session list. Unknown values fall back to the raw location so future schedule
+//   entries degrade to "no sessions" rather than a crash.
+const LOCATION_TO_CIRCUIT_SHORT_NAME: Record<string, string> = {
+  'Barcelona': 'Catalunya',
+  'Budapest': 'Hungaroring',
+  'Sao Paulo': 'Interlagos',
+  'Monaco': 'Monte Carlo',
+  'Yas Marina': 'Yas Marina Circuit',
+};
+
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 // GUID: API_PIT_WALL_HISTORICAL_SESSIONS-002-v01
@@ -67,7 +90,9 @@ async function getOpenF1Token(): Promise<string | null> {
   }
 }
 
-// GUID: API_PIT_WALL_HISTORICAL_SESSIONS-001-v01
+// GUID: API_PIT_WALL_HISTORICAL_SESSIONS-001-v02
+// [Intent] v02 (@BUGFIX PITWALL-04): incoming circuit_short_name is normalised through
+//          LOCATION_TO_CIRCUIT_SHORT_NAME before querying OpenF1 (fallback: raw value).
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
   getFirebaseAdmin(); // ensure Admin SDK is initialised
@@ -83,7 +108,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { searchParams } = new URL(req.url);
   const circuitKeyRaw = searchParams.get('circuit_key');
-  const circuitShortName = searchParams.get('circuit_short_name');
+  // @BUGFIX (PITWALL-04, 2026-07-26): normalise schedule location → OpenF1 circuit_short_name.
+  const circuitShortNameRaw = searchParams.get('circuit_short_name');
+  const circuitShortName = circuitShortNameRaw
+    ? (LOCATION_TO_CIRCUIT_SHORT_NAME[circuitShortNameRaw] ?? circuitShortNameRaw)
+    : null;
 
   if (!circuitKeyRaw && !circuitShortName) {
     return NextResponse.json(

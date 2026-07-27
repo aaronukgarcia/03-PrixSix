@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.14.0 — 2026-07-26
+
+### Wave 2/3/4 mega-integration (multi-agent)
+
+**Pit Wall (PITWALL-03…08, 12):** RaceSelector picks now actually play (on-demand priority + auto-advance resume); circuit-name map fixed for Budapest/Barcelona/São Paulo/Monaco/Yas Marina (validated against live OpenF1 — Singapore never needed mapping); tyre age/compound/DRS/in-pit indicators computed properly through the detail tier and merged; next-race target re-derives every minute (no more frozen long-lived tabs); duplicate polling loop on visibility flapping fixed; total OpenF1 outage now returns a real 502 + correlationId instead of masquerading as a quiet day; replay ingest hardened — stale 'ingesting' claims (heartbeat >5min) can be taken over, completed sessions can never be clobbered to 'failed', and ingest short-circuits to complete when all chunks already exist.
+
+**PubChat (PUBCHAT-04…14):** single bulletin ID everywhere; finished races no longer targeted after +4h grace; one FP1-offset source; read failures show "temporarily unavailable" with a traced error instead of the warming-up mask; anti-repetition dedup actually strips the envelope and includes hourly content; transactional messageId; empty pit-chatter → registry error + no persona repeats; refresh-timing gate is transactional (no double-fetch) with O(n) stint mapping (fixing a wrong-compound bug); missing timing doc renders the between-races panel. Functions side: hot-news heartbeat doc on every run + off-season/race-week gate on the hourly cron.
+
+**Cross-cutting:** GR#17-amendment error_logs wiring swept across most Cloud Functions (writeErrorLog; remainder tracked in HEALTH-ERRORS-001); UX-LOGIN-FLASH-001 fixed (transient auth re-hydration no longer flashes the login page — 800ms persistence gate, no security change); prompt-injection hole in the team-name generator sanitized (OWASP LLM01, pre-audit critical); sidebar renames PubChat→Live Timing, Audit→My Activity (NEWBIE-01/-03).
+
+**Dependency majors (Wave 4 partial):** TypeScript 5.9→6.0.3 (7.x blocked: Next.js doesn't support its compiler API yet) + @types/node 20→26; react-day-picker 9→10 with calendar migration. zod 4, lucide 1.x, worker express-5 set, and firebase-admin 14 remain queued.
+
 ## v3.13.1 — 2026-07-26
 
 ### Replay smoothing + Wave 1 backend closeout

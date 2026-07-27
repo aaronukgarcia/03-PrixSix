@@ -24,21 +24,27 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getFirebaseAdmin } from '@/lib/firebase-admin';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { getFirebaseAdmin, generateCorrelationId } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
+import { createTracedError, logTracedError } from '@/lib/traced-error';
+import { ERRORS } from '@/lib/error-registry';
 import { RaceSchedule } from '@/lib/data';
 import type { Race } from '@/lib/data';
 import { generateRaceIdLowercase } from '@/lib/normalize-race-id';
 import { sanitizeForPrompt } from '@/lib/sanitize-prompt';
 
-// GUID: HOT_NEWS_FLOW-001-v02
+// GUID: HOT_NEWS_FLOW-001-v03
 // [Intent] Output schema for the hot news feed — content string + metadata.
 // [Inbound Trigger] ai.defineFlow outputSchema, getHotNewsFeed return type.
-// [Downstream Impact] HotNewsFeed.tsx destructures newsFeed, lastUpdated, refreshCount.
+// [Downstream Impact] HotNewsFeed.tsx destructures newsFeed, lastUpdated, messageId.
+// @BUGFIX (PUBCHAT-05): added messageId so the UI can display the SAME id that is embedded
+//   in the stored content (#NNNN). Previously the component rendered refreshCount as the
+//   bulletin id — two diverging id sequences for one bulletin.
 const HotNewsFeedOutputSchema = z.object({
     newsFeed: z.string().describe('A concise summary of the latest F1 news, including weather, track conditions, and driver updates.'),
     lastUpdated: z.string().optional().describe('ISO timestamp of when the news was last updated.'),
     refreshCount: z.number().optional().describe('How many times the feed has been refreshed.'),
+    messageId: z.number().optional().describe('The bulletin id (#NNNN) — matches the id embedded in the content (PUBCHAT-05).'),
     enabled: z.boolean().optional().describe('False when the admin has disabled the feed (PUBCHAT-01) — consumers should hide it.'),
 });
 export type HotNewsFeedOutput = z.infer<typeof HotNewsFeedOutputSchema>;
@@ -94,17 +100,18 @@ const defaultHotNews = {
     lastUpdated: null as any,
 };
 
-// GUID: HOT_NEWS_FLOW-004-v02
+// GUID: HOT_NEWS_FLOW-004-v03
 // [Intent] Read the current hot news bulletin from Firestore for display on the dashboard.
 //          Never triggers an AI call — reads only. AI generation happens via hotNewsFeedFlow.
 // [Inbound Trigger] HotNewsFeed.tsx server component on every dashboard load.
-// [Downstream Impact] Returns newsFeed content, lastUpdated timestamp, and refreshCount to the UI.
+// [Downstream Impact] Returns newsFeed content, lastUpdated timestamp, refreshCount and messageId to the UI.
 export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
     try {
         const { db } = await getFirebaseAdmin();
         const docSnap = await db.collection('app-settings').doc('hot-news').get();
 
         if (!docSnap.exists) {
+            // Genuine "not generated yet" state — the warming-up placeholder is correct here.
             if (process.env.NODE_ENV !== 'production') {
                 console.log('Hot news document not found, returning defaults.');
             }
@@ -114,6 +121,8 @@ export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
         const data = docSnap.data();
         const content = data?.content || defaultHotNews.content;
         const refreshCount = typeof data?.refreshCount === 'number' ? data.refreshCount : undefined;
+        // @BUGFIX (PUBCHAT-05): surface the stored messageId — the doc's single id source.
+        const messageId = typeof data?.messageId === 'number' ? data.messageId : undefined;
 
         let lastUpdated: string | undefined;
         if (data?.lastUpdated && typeof data.lastUpdated.toDate === 'function') {
@@ -122,37 +131,71 @@ export async function getHotNewsFeed(): Promise<HotNewsFeedOutput> {
 
         // @BUGFIX (PUBCHAT-01): expose the admin toggle so the dashboard can actually hide the feed.
         const enabled = data?.hotNewsFeedEnabled !== false;
-        return { newsFeed: content, lastUpdated, refreshCount, enabled };
+        return { newsFeed: content, lastUpdated, refreshCount, messageId, enabled };
     } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-            console.error('Error fetching hot news:', error);
+        // @BUGFIX (PUBCHAT-09): a READ FAILURE previously masqueraded as the "warming up"
+        // placeholder — indistinguishable from the legit not-yet-generated state, so outages
+        // hid for hours. Now: log a registry-sourced traced error (GR#1/#7) and return a
+        // DISTINCT "temporarily unavailable" message carrying code + correlationId.
+        const correlationId = generateCorrelationId();
+        try {
+            const { db } = await getFirebaseAdmin();
+            const traced = createTracedError(ERRORS.FIRESTORE_READ_FAILED, {
+                correlationId,
+                context: { function: 'getHotNewsFeed', doc: 'app-settings/hot-news' },
+                cause: error instanceof Error ? error : new Error(String(error)),
+            });
+            await logTracedError(traced, db);
+        } catch {
+            // Logging failure must not break the dashboard — the read failure itself may be
+            // a total Firestore outage, in which case the log write fails too.
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('Error fetching hot news (and logging failed):', error);
+            }
         }
-        return { newsFeed: defaultHotNews.content, lastUpdated: undefined, refreshCount: undefined };
+        return {
+            newsFeed: `Hot News is temporarily unavailable — please check back shortly. (${ERRORS.FIRESTORE_READ_FAILED.code} · ${correlationId})`,
+            lastUpdated: undefined,
+            refreshCount: undefined,
+        };
     }
 }
 
-// GUID: HOT_NEWS_FLOW-005-v02
+// GUID: HOT_NEWS_FLOW-005-v03
 // [Intent] Find the active race — the first unscored race — by checking race_results in Firestore.
 //          This mirrors the same "activeRace" logic used by the dashboard, ensuring the hot news
 //          bulletin targets the current race weekend even when qualifying has already passed
 //          (previously returned next race as soon as qualifying started — root cause of JP content
 //          appearing during the Chinese GP weekend).
 //          Falls back to time-based (raceTime > now) if Firestore is unavailable.
+// @BUGFIX (PUBCHAT-07): the unscored-first rule STUCK on a finished race until the admin
+//          entered results — bulletins kept previewing a race that had already run (sometimes
+//          for days). Now: if the first unscored race finished more than RESULTS_LAG_GRACE_MS
+//          ago, fall through to the time-based next race even though results aren't in yet.
 // [Inbound Trigger] hotNewsFeedFlow() at generation time.
 // [Downstream Impact] Determines which venue's weather is fetched and what race context
 //                     the AI prompt uses. Wrong race → irrelevant bulletin.
 async function getActiveRace(): Promise<Race> {
+    // Grace window after lights-out during which the just-run race is still "active"
+    // (post-race analysis window) even without results entered. 4h ≈ race duration + podium.
+    const RESULTS_LAG_GRACE_MS = 4 * 60 * 60 * 1000;
+    const now = new Date();
     try {
         const { db } = await getFirebaseAdmin();
         const resultsSnap = await db.collection('race_results').get();
         const resultIds = new Set(resultsSnap.docs.map(d => d.id.toLowerCase()));
-        for (const race of RaceSchedule) {
-            if (!resultIds.has(generateRaceIdLowercase(race.name, 'gp'))) return race;
+        const firstUnscored = RaceSchedule.find(
+            race => !resultIds.has(generateRaceIdLowercase(race.name, 'gp'))
+        );
+        if (firstUnscored) {
+            const raceOverBy = new Date(firstUnscored.raceTime).getTime() + RESULTS_LAG_GRACE_MS;
+            if (raceOverBy > now.getTime()) return firstUnscored;
+            // Race finished >4h ago with no results yet — don't stick on it; fall through
+            // to the time-based next race below (PUBCHAT-07).
         }
     } catch {
         // Firestore unavailable — fall back to time-based
     }
-    const now = new Date();
     return RaceSchedule.find(r => new Date(r.raceTime) > now) ?? RaceSchedule[RaceSchedule.length - 1];
 }
 
@@ -345,9 +388,26 @@ export async function getVenueWeatherLine(location: string): Promise<string> {
     }
 }
 
-// GUID: HOT_NEWS_FLOW-012-v01
+// GUID: HOT_NEWS_FLOW-012-v02
 // [Intent] Fetch the previous 10 daily bulletins from whatsapp_queue to avoid repeating stories/angles.
 //          Uses in-memory filtering over recent queue items to remain completely composite-index-free and safe.
+// @BUGFIX (PUBCHAT-10): the old cleanup regex required a literal \n\n\n which the daily message
+//          only contains when the countdown banner is ABSENT. The real shape (functions/index.js
+//          dailyHotNewsWhatsApp) is: header \n\n 🏁-line \n ⏱️-line \n\n content — so the strip
+//          silently no-opped and the header+banner were fed to the AI as "previous bulletin"
+//          content. Now stripDailyEnvelope matches the actual shape line-by-line.
+// [Inbound Trigger] hotNewsFeedFlow() input gathering (Promise.all).
+// [Downstream Impact] Cleaned bulletin bodies feed the anti-repetition prompt section.
+function stripDailyEnvelope(msg: string): string {
+    // 1. Drop the header line ("🏎️ *Prix Six Hot News*") plus its trailing newline(s).
+    let s = msg.replace(/^🏎️ \*Prix Six Hot News\*\s*\n+/, '');
+    // 2. Drop the optional 2-line countdown banner ("🏁 *Next:* ..." + "⏱️ ...") plus blank line.
+    s = s.replace(/^🏁 \*Next:\*[^\n]*\n⏱️[^\n]*\n+/, '');
+    // 3. Drop the trailing "#NNNN" messageId line — it's an id, not bulletin content.
+    s = s.replace(/\n#\d{4,}\s*$/, '');
+    return s.trim();
+}
+
 async function fetchPreviousBulletins(): Promise<string[]> {
     try {
         const { db } = await getFirebaseAdmin();
@@ -359,25 +419,25 @@ async function fetchPreviousBulletins(): Promise<string[]> {
             .map(doc => doc.data())
             .filter(data => data.source === 'hot-news-daily-7am')
             .slice(0, 10)
-            .map(data => {
-                const msg = data.message || "";
-                return msg.replace(/🏎️ \*Prix Six Hot News\*[\s\S]*?\n\n\n/, "").trim();
-            })
+            .map(data => stripDailyEnvelope(data.message || ""))
             .filter(Boolean);
     } catch {
         return [];
     }
 }
 
-// GUID: HOT_NEWS_FLOW-008-v05
+// GUID: HOT_NEWS_FLOW-008-v06
 // [Intent] Core AI generation flow — fetches weather, builds prompt, calls Gemini 2.0 Flash,
 //          writes result to Firestore with refreshCount increment and messageId suffix in text.
 //          v04: prompt reframed to lead on DRIVER/TEAM storylines for the forthcoming race
 //          (form, rivalries, championship stakes, circuit fit) with weather demoted to ≤1 bullet.
 //          v05: inject REAL current-season standings/results (fetchF1Standings → Jolpica) as ground
 //          truth so championship claims are accurate, not the model's stale training memory.
-//          v06: WhatsApp formatting — instruct single-asterisk bold (WhatsApp markup), never ** /
+//          WhatsApp formatting — instruct single-asterisk bold (WhatsApp markup), never ** /
 //          markdown headers, since the bulletin is broadcast to the WhatsApp group (** rendered literally).
+//          v06: PUBCHAT-10 (dedupe against the currently stored bulletin, not only daily WhatsApp
+//          posts) + PUBCHAT-11 (messageId assigned inside a Firestore transaction — no more
+//          read-then-write race between concurrent cron/admin refreshes).
 //          This is the function called by both the admin "Refresh Now" button and the hourly cron.
 // [Inbound Trigger] Admin panel server action or /api/cron/refresh-hot-news POST route.
 // [Downstream Impact] Writes app-settings/hot-news content (with #NNNN suffix) + refreshCount + messageId.
@@ -390,6 +450,26 @@ export const hotNewsFeedFlow = ai.defineFlow(
     },
     async () => {
         const now = new Date();
+
+        // @BUGFIX (PUBCHAT-01, 2026-07-26): honor the admin toggle. Previously this flow never
+        // checked hotNewsFeedEnabled and force-wrote it back to true on every run, so the admin
+        // OFF switch was silently undone within the hour. Disabled → return the existing bulletin
+        // untouched (no Gemini call, no counter bump, flag left alone). Read moved BEFORE the
+        // external fetches (v06) so a disabled feed also skips the weather/standings/RSS calls.
+        const { db } = await getFirebaseAdmin();
+        const hotNewsRef = db.collection('app-settings').doc('hot-news');
+        const currentDoc = await hotNewsRef.get();
+        if (currentDoc.exists && currentDoc.data()?.hotNewsFeedEnabled === false) {
+            const d = currentDoc.data()!;
+            return {
+                newsFeed: d.content ?? '',
+                lastUpdated: d.lastUpdated?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+                refreshCount: typeof d.refreshCount === 'number' ? d.refreshCount : 0,
+                messageId: typeof d.messageId === 'number' ? d.messageId : undefined,
+                enabled: false,
+            };
+        }
+
         const activeRace = await getActiveRace();
         const location = activeRace.location;
         const raceName = activeRace.name;
@@ -404,6 +484,15 @@ export const hotNewsFeedFlow = ai.defineFlow(
             fetchF1Headlines(),
             fetchPreviousBulletins(),
         ]);
+
+        // @BUGFIX (PUBCHAT-10): dedupe against the CURRENT app-settings/hot-news bulletin too,
+        // not only the daily WhatsApp posts — hourly refreshes only ever hit WhatsApp once a day,
+        // so back-to-back hourly bulletins could repeat each other verbatim. stripDailyEnvelope
+        // removes the trailing "#NNNN" id line (header/banner steps no-op on stored content).
+        const currentContent = stripDailyEnvelope(currentDoc.data()?.content ?? '');
+        if (currentContent && !prevBulletins.includes(currentContent)) {
+            prevBulletins.unshift(currentContent);
+        }
 
         // Real championship data (ground truth) or a fallback instruction if the feed is down.
         const f1Section = f1Data
@@ -460,23 +549,6 @@ FORMATTING — this is sent to WhatsApp, so use WhatsApp markup ONLY:
 - NEVER use double asterisks (**), markdown headers (#), or underscores. Double asterisks render as literal "**" in WhatsApp.
 - No preamble, no closing line — just the bullets.`;
 
-        // @BUGFIX (PUBCHAT-01, 2026-07-26): honor the admin toggle. Previously this flow never
-        // checked hotNewsFeedEnabled and force-wrote it back to true on every run, so the admin
-        // OFF switch was silently undone within the hour. Disabled → return the existing bulletin
-        // untouched (no Gemini call, no counter bump, flag left alone).
-        const { db } = await getFirebaseAdmin();
-        const hotNewsRef = db.collection('app-settings').doc('hot-news');
-        const currentDoc = await hotNewsRef.get();
-        if (currentDoc.exists && currentDoc.data()?.hotNewsFeedEnabled === false) {
-            const d = currentDoc.data()!;
-            return {
-                newsFeed: d.content ?? '',
-                lastUpdated: d.lastUpdated?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
-                refreshCount: typeof d.refreshCount === 'number' ? d.refreshCount : 0,
-                enabled: false,
-            };
-        }
-
         // @BUGFIX (PUBCHAT-03, 2026-07-26): generation failures and empty responses previously
         // flowed straight into the Firestore write — an empty Gemini response (known 2.5-flash
         // failure mode, cf. PX-3101) produced a header-only bulletin that the 7am publisher then
@@ -493,37 +565,43 @@ FORMATTING — this is sent to WhatsApp, so use WhatsApp markup ONLY:
             throw new Error('Hot-news generation returned EMPTY text — keeping previous bulletin (no write, no publish)');
         }
 
-        // Compute the next messageId from the already-read doc.
+        // @BUGFIX (PUBCHAT-11): messageId was previously READ from a doc snapshot taken before
+        // generation and WRITTEN after — two concurrent refreshes (hourly cron + admin "Refresh
+        // Now") could both read #0021 and both write #0022, duplicating an id. The read/compute/
+        // write now runs inside a Firestore transaction, so contention retries and every
+        // generation gets a unique, monotonic messageId. refreshCount is computed in the same
+        // transaction (replacing FieldValue.increment) so both counters advance atomically together.
         // messageId starts at 17 (so first increment produces #0018 per user requirement).
-        const currentMessageId = currentDoc.data()?.messageId;
-        const nextMessageId = Math.max(
-            (typeof currentMessageId === 'number' ? currentMessageId : 17) + 1,
-            18
-        );
+        const { nextMessageId, newRefreshCount } = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(hotNewsRef);
+            const d = snap.exists ? snap.data()! : {};
+            const nextMessageId = Math.max(
+                (typeof d.messageId === 'number' ? d.messageId : 17) + 1,
+                18
+            );
+            const newRefreshCount = (typeof d.refreshCount === 'number' ? d.refreshCount : 0) + 1;
+            tx.set(
+                hotNewsRef,
+                {
+                    // Append message ID suffix to the generated text (PUBCHAT-05: this is THE id).
+                    content: newsFeed + `\n#${String(nextMessageId).padStart(4, '0')}`,
+                    lastUpdated: Timestamp.now(),
+                    refreshCount: newRefreshCount,
+                    // PUBCHAT-01: hotNewsFeedEnabled is ADMIN-owned — never overwritten here.
+                    messageId: nextMessageId,
+                },
+                { merge: true }
+            );
+            return { nextMessageId, newRefreshCount };
+        });
 
-        // Append message ID suffix to the generated text
         const newsFeedWithId = newsFeed + `\n#${String(nextMessageId).padStart(4, '0')}`;
-
-        // Write to Firestore — increment refreshCount atomically, set messageId as plain number
-        await hotNewsRef.set(
-            {
-                content: newsFeedWithId,
-                lastUpdated: Timestamp.now(),
-                refreshCount: FieldValue.increment(1),
-                // PUBCHAT-01: hotNewsFeedEnabled is ADMIN-owned — never overwritten here.
-                messageId: nextMessageId,
-            },
-            { merge: true }
-        );
-
-        // Read back the current refreshCount for the response
-        const snap = await hotNewsRef.get();
-        const refreshCount = snap.data()?.refreshCount ?? 1;
 
         return {
             newsFeed: newsFeedWithId,
             lastUpdated: new Date().toISOString(),
-            refreshCount,
+            refreshCount: newRefreshCount,
+            messageId: nextMessageId,
         };
     }
 );

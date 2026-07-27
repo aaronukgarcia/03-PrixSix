@@ -679,8 +679,10 @@ export function useReplayPlayer(
       }).catch(() => {});
     };
 
-    // GUID: REPLAY_PLAYER_HOOK-012-v03
+    // GUID: REPLAY_PLAYER_HOOK-012-v04
     // [Intent] Choose loading path based on session metadata:
+    //   v04 (PITWALL-12): error display gated on firestoreStatus — firestoreError is only
+    //   treated as fatal when status==='failed', never when 'complete' (see onSnapshot below).
     //   1. firestoreStatus === 'complete' → chunk-load from Firestore (fast, durable)
     //   2. downloadUrl exists → legacy Firebase Storage download (existing sessions)
     //   3. No download URL + getAuthToken → trigger Cloud Function ingest (fire-and-forget),
@@ -763,6 +765,11 @@ export function useReplayPlayer(
                 );
               }
 
+              // @BUGFIX (PITWALL-12, 2026-07-26): firestoreError is ONLY fatal when the doc
+              // says firestoreStatus==='failed'. A completed session can still carry a stale
+              // error string from an earlier failed attempt (fixed server-side in
+              // replay-ingest.ts, but old docs may persist) — status 'complete' always wins
+              // and playback proceeds regardless of any firestoreError value.
               if (data.firestoreStatus === 'complete' && data.firestoreChunkCount > 0) {
                 unsub();
                 // Now load via chunks (Path 1) — scale progress to 70%–100%

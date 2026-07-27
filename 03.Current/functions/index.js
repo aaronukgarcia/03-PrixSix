@@ -143,7 +143,7 @@ async function writeStatus(db, fields) {
     .set({ ...fields, updatedAt: Timestamp.now() }, { merge: true });
 }
 
-// GUID: BACKUP_FUNCTIONS-032-v01
+// GUID: BACKUP_FUNCTIONS-032-v02
 /**
  * writeErrorLog — Aaron's rule (2026-07-26): every health/monitoring FAILURE must land in the
  * error_logs collection, because that is the single place the admin looks for errors. Dashboard
@@ -153,11 +153,14 @@ async function writeStatus(db, fields) {
  * [Intent] Write a registry-shaped error_logs entry (same field shape as the app's logError in
  *          lib/firebase-admin.ts: correlationId, error, stack, context, timestamp, createdAt)
  *          with the PX code embedded in the error text (Golden Rule #7; the functions codebase
- *          cannot import the TS registry, so codes are referenced by literal — keep in sync
- *          with app/src/lib/error-codes.ts BACKUP_* block, PX-7001..7007).
- * [Inbound Trigger] Catch paths of backup-family functions.
+ *          cannot import the TS registry, so codes live in the local mirror ./error-codes.json
+ *          — keep that file in sync with app/src/lib/error-codes.ts conventions).
+ * [Inbound Trigger] Catch/failure paths of EVERY exported function in this file
+ *          (@BUGFIX HEALTH-ERRORS-001: sweep extended beyond the backup family to all
+ *          scheduled/callable/triggered functions — GR#17 amendment).
  * [Downstream Impact] Failures surface on the admin errors panel and in /triage-errors.
  *                     Never throws — a logging failure must not mask the original error.
+ *                     Failure paths only — success paths must NOT write error_logs.
  */
 async function writeErrorLog(db, { code, message, correlationId, context }) {
   try {
@@ -172,6 +175,64 @@ async function writeErrorLog(db, { code, message, correlationId, context }) {
   } catch (e) {
     console.error("writeErrorLog failed (non-fatal):", e.message);
   }
+}
+
+// GUID: BACKUP_FUNCTIONS-083-v01
+/**
+ * buildSeasonAndBanner — shared season/race-week gate + next-session banner.
+ *
+ * @BUGFIX PUBCHAT-06: hoisted from a closure inside publishHotNewsToWhatsApp to module level
+ * (Golden Rule #3 SSOT) so refreshHotNews can reuse the SAME inSeason/isRaceWeek logic to skip
+ * hourly AI generation outside race weeks/season, instead of duplicating the schedule maths.
+ *
+ * [Intent] Compute season status + the "next session" banner from the race_schedule collection
+ *          (written by syncSessionTimes). inSeason = 14 days before first qualifying through
+ *          1 day after the final race. isRaceWeek = next session within 7 days.
+ * [Inbound Trigger] Called by publishHotNewsToWhatsApp (daily 07:00 publish gate) and
+ *                   refreshHotNews (hourly generation gate).
+ * [Downstream Impact] Reads race_schedule (R only). Gates WhatsApp publishing and hot-news AI
+ *                     generation — a bug here silences hot news in season or burns AI quota
+ *                     off-season.
+ *
+ * @param {FirebaseFirestore.Firestore} db - Admin Firestore instance.
+ * @returns {Promise<{ inSeason: boolean, isRaceWeek: boolean, banner: string|null }>}
+ */
+async function buildSeasonAndBanner(db) {
+  const now = Date.now();
+  const snap = await db.collection("race_schedule").get();
+  const events = []; // { t, location, label }
+  let seasonStart = Infinity, seasonEnd = -Infinity;
+  snap.forEach((d) => {
+    const x = d.data();
+    const loc = x.location || x.name || "the next round";
+    const q = x.qualifyingTime ? new Date(x.qualifyingTime).getTime() : null;
+    const sp = x.sprintTime ? new Date(x.sprintTime).getTime() : null;
+    const r = x.raceTime ? new Date(x.raceTime).getTime() : null;
+    if (q) { events.push({ t: q, location: loc, label: "Qualifying" }); seasonStart = Math.min(seasonStart, q); }
+    if (sp) events.push({ t: sp, location: loc, label: "Sprint" });
+    if (r) { events.push({ t: r, location: loc, label: "Race" }); seasonEnd = Math.max(seasonEnd, r); }
+  });
+  // In season from 14 days before the first qualifying through 1 day after the final race.
+  const inSeason = Number.isFinite(seasonStart) && Number.isFinite(seasonEnd) &&
+    now >= seasonStart - 14 * 864e5 && now <= seasonEnd + 864e5;
+  const upcoming = events.filter((e) => e.t > now).sort((a, b) => a.t - b.t)[0];
+
+  // Smart filter: only act on active race weeks. A race week is active if the next session
+  // is scheduled within the next 7 days (7 * 86,400,000 ms).
+  const isRaceWeek = Boolean(upcoming && (upcoming.t - now) < 7 * 864e5);
+
+  let banner = null;
+  if (upcoming) {
+    let mins = Math.max(0, Math.round((upcoming.t - now) / 60000));
+    const days = Math.floor(mins / 1440); mins -= days * 1440;
+    const hours = Math.floor(mins / 60); mins -= hours * 60;
+    const parts = [];
+    if (days) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+    parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+    parts.push(`${mins} min${mins === 1 ? "" : "s"}`);
+    banner = `🏁 *Next:* ${upcoming.location} ${upcoming.label}\n⏱️ ${parts.join(", ")}`;
+  }
+  return { inSeason, isRaceWeek, banner };
 }
 
 // ── performBackup (shared logic) ───────────────────────────────
@@ -502,6 +563,9 @@ exports.dailyBackup = onSchedule(
         })
       );
     } catch (err) {
+      // HEALTH-ERRORS-001 note: the error_logs entry for this failure is written inside
+      // performBackup's catch (PX-7002) before it re-throws — do NOT add a second
+      // writeErrorLog here or every backup failure would be double-logged.
       // Heartbeat on failure path — prevents Dead Man's Switch double-alert
       console.log(
         JSON.stringify({
@@ -568,6 +632,8 @@ exports.manualBackup = onCall(
       const { correlationId, gcsPrefix } = await performBackup(db, { trigger: "manual" });
       return { success: true, correlationId, backupPath: gcsPrefix };
     } catch (err) {
+      // HEALTH-ERRORS-001 note: the error_logs entry for this failure is written inside
+      // performBackup's catch (PX-7002) before it re-throws — no second writeErrorLog here.
       // @SECURITY_FIX (Wave 10): Log err.message only (not full error object).
       console.error(JSON.stringify({
         severity: "ERROR",
@@ -587,7 +653,9 @@ exports.manualBackup = onCall(
 );
 
 // ── listBackupHistory (backfill from GCS) ──────────────────────
-// GUID: BACKUP_FUNCTIONS-055-v06
+// GUID: BACKUP_FUNCTIONS-055-v07
+// @BUGFIX HEALTH-ERRORS-001: catch path now also writes a registry-shaped error_logs entry
+//   (PX-7008) alongside the backup_history failure record.
 /**
  * listBackupHistory — Callable Cloud Function (2nd-gen, Cloud Run)
  *
@@ -780,6 +848,14 @@ exports.listBackupHistory = onCall(
         startedAt: Timestamp.now(),
         completedAt: Timestamp.now(),
         error: err.message || String(err),
+      });
+
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.BACKUP_BACKFILL_FAILED.code,
+        message: `listBackupHistory FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/listBackupHistory" },
       });
 
       return {
@@ -1326,7 +1402,10 @@ exports.manualSmokeTest = onCall(
 );
 
 // ── applyBackupRetention ──────────────────────────────────────
-// GUID: BACKUP_FUNCTIONS-080-v01
+// GUID: BACKUP_FUNCTIONS-080-v02
+// @BUGFIX HEALTH-ERRORS-001: failure paths now write registry-shaped error_logs entries
+//   (PX-7009 BACKUP_RETENTION_FAILED) — both the fatal catch AND the partial case where
+//   individual purges failed (status PARTIAL previously only reached the status doc + logs).
 /**
  * applyBackupRetention — Scheduled Cloud Function (2nd-gen, Cloud Run)
  *
@@ -1470,6 +1549,18 @@ exports.applyBackupRetention = onSchedule(
         lastRetentionRunBytesPurged: bytesPurged,
         retentionCorrelationId: correlationId,
       });
+
+      // @BUGFIX HEALTH-ERRORS-001: a PARTIAL run (some purges failed) is a failure signal —
+      // surface it in error_logs once per run, not only in the status doc. Clean runs
+      // (errors === 0) must NOT write error_logs.
+      if (errors > 0) {
+        await writeErrorLog(db, {
+          code: ERROR_CODES.BACKUP_RETENTION_FAILED.code,
+          message: `applyBackupRetention PARTIAL: ${errors} purge failure(s) (kept=${kept}, purged=${purged})`,
+          correlationId,
+          context: { source: "functions/applyBackupRetention", kept, purged, errors, bytesPurged },
+        });
+      }
     } catch (err) {
       console.log(
         JSON.stringify({
@@ -1484,13 +1575,22 @@ exports.applyBackupRetention = onSchedule(
           timestamp: now.toISOString(),
         })
       );
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.BACKUP_RETENTION_FAILED.code,
+        message: `applyBackupRetention FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/applyBackupRetention", kept, purged, errors },
+      });
       throw err; // re-throw so Cloud Functions marks the invocation failed
     }
   }
 );
 
 // ── Session expiry ────────────────────────────────────────────
-// GUID: SESSION_FUNCTIONS-000-v03
+// GUID: SESSION_FUNCTIONS-000-v04
+// @BUGFIX HEALTH-ERRORS-001: catch path now writes a registry-shaped error_logs entry
+//   (PX-6006 LOGON_EXPIRY_FAILED) — previously the failure only reached Cloud Logging.
 /**
  * expireStaleLogons — Scheduled Cloud Function (2nd-gen, Cloud Run)
  *
@@ -1572,6 +1672,13 @@ exports.expireStaleLogons = onSchedule(
           timestamp: new Date().toISOString(),
         })
       );
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.LOGON_EXPIRY_FAILED.code,
+        message: `expireStaleLogons FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/expireStaleLogons" },
+      });
     }
   }
 );
@@ -1623,7 +1730,9 @@ async function deleteAllCollections(firestoreClient) {
 
 // ── Admin Hot Link Token Cleanup ───────────────────────────────
 
-// GUID: ADMIN_HOTLINK_CLEANUP-001-v03
+// GUID: ADMIN_HOTLINK_CLEANUP-001-v04
+// @BUGFIX HEALTH-ERRORS-001: catch path now writes a registry-shaped error_logs entry
+//   (PX-6007 ADMIN_TOKEN_CLEANUP_FAILED) before re-throwing.
 /**
  * cleanupExpiredAdminTokens
  *
@@ -1696,13 +1805,24 @@ exports.cleanupExpiredAdminTokens = onSchedule(
         severity: "ERROR",
       });
 
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.ADMIN_TOKEN_CLEANUP_FAILED.code,
+        message: `cleanupExpiredAdminTokens FAILED: ${error.message || String(error)}`,
+        correlationId,
+        context: { source: "functions/cleanupExpiredAdminTokens" },
+      });
+
       throw error;
     }
   }
 );
 
 // ── refreshHotNews ────────────────────────────────────────────
-// GUID: BACKUP_FUNCTIONS-071-v01
+// GUID: BACKUP_FUNCTIONS-071-v02
+// @BUGFIX HEALTH-ERRORS-001: failure paths (missing secret, HTTP error, network error) now
+//   write registry-shaped error_logs entries — BUG-EMAIL-002 (dead email cron) was invisible
+//   for weeks precisely because failures only reached Cloud Logging.
 /**
  * processEmailQueue — Scheduled Cloud Function (2nd-gen, Cloud Run)
  *
@@ -1738,6 +1858,7 @@ exports.processEmailQueue = onSchedule(
     secrets: ["CRON_SECRET"],
   },
   async () => {
+    const db = getFirestore();
     const correlationId = generateCorrelationId("eq");
     // Strip BOM (U+FEFF) — Secret Manager may prepend it on Windows-created secrets
     const secret = (process.env.CRON_SECRET || '').replace(/^\uFEFF/, '');
@@ -1750,6 +1871,13 @@ exports.processEmailQueue = onSchedule(
         correlationId,
         timestamp: new Date().toISOString(),
       }));
+      // @BUGFIX HEALTH-ERRORS-001: config failure must land in error_logs (BUG-EMAIL-002 class).
+      await writeErrorLog(db, {
+        code: ERROR_CODES.CRON_SECRET_MISSING.code,
+        message: "processEmailQueue: CRON_SECRET missing from function configuration",
+        correlationId,
+        context: { source: "functions/processEmailQueue" },
+      });
       return;
     }
 
@@ -1773,6 +1901,13 @@ exports.processEmailQueue = onSchedule(
           body,
           timestamp: new Date().toISOString(),
         }));
+        // @BUGFIX HEALTH-ERRORS-001: HTTP failure lands in error_logs.
+        await writeErrorLog(db, {
+          code: ERROR_CODES.EMAIL_QUEUE_CRON_FAILED.code,
+          message: `processEmailQueue: HTTP ${resp.status} from /api/cron/process-email-queue`,
+          correlationId,
+          context: { source: "functions/processEmailQueue", httpStatus: resp.status },
+        });
         return;
       }
 
@@ -1793,11 +1928,20 @@ exports.processEmailQueue = onSchedule(
         error: err.message || String(err),
         timestamp: new Date().toISOString(),
       }));
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.EMAIL_QUEUE_CRON_FAILED.code,
+        message: `processEmailQueue FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/processEmailQueue" },
+      });
     }
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-072-v01
+// GUID: BACKUP_FUNCTIONS-072-v02
+// @BUGFIX HEALTH-ERRORS-001: failure paths (missing secret, HTTP error, network error) now
+//   write registry-shaped error_logs entries (Aaron's rule / GR#17 amendment).
 /**
  * syncSessionTimes — Scheduled Cloud Function (2nd-gen, Cloud Run)
  *
@@ -1831,6 +1975,7 @@ exports.syncSessionTimes = onSchedule(
     secrets: ["CRON_SECRET"],
   },
   async () => {
+    const db = getFirestore();
     const correlationId = generateCorrelationId("sst");
     // Strip BOM (U+FEFF) — Secret Manager may prepend it on Windows-created secrets
     const secret = (process.env.CRON_SECRET || '').replace(/^\uFEFF/, '');
@@ -1843,6 +1988,13 @@ exports.syncSessionTimes = onSchedule(
         correlationId,
         timestamp: new Date().toISOString(),
       }));
+      // @BUGFIX HEALTH-ERRORS-001: config failure must land in error_logs.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.CRON_SECRET_MISSING.code,
+        message: "syncSessionTimes: CRON_SECRET missing from function configuration",
+        correlationId,
+        context: { source: "functions/syncSessionTimes" },
+      });
       return;
     }
 
@@ -1866,6 +2018,14 @@ exports.syncSessionTimes = onSchedule(
           body,
           timestamp: new Date().toISOString(),
         }));
+        // @BUGFIX HEALTH-ERRORS-001: HTTP failure lands in error_logs — a stale race_schedule
+        // silently reopens the Chinese-GP-class wrong-deadline hole.
+        await writeErrorLog(db, {
+          code: ERROR_CODES.SESSION_TIMES_SYNC_FAILED.code,
+          message: `syncSessionTimes: HTTP ${resp.status} from /api/cron/sync-session-times`,
+          correlationId,
+          context: { source: "functions/syncSessionTimes", httpStatus: resp.status },
+        });
         return;
       }
 
@@ -1886,11 +2046,18 @@ exports.syncSessionTimes = onSchedule(
         error: err.message || String(err),
         timestamp: new Date().toISOString(),
       }));
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.SESSION_TIMES_SYNC_FAILED.code,
+        message: `syncSessionTimes FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/syncSessionTimes" },
+      });
     }
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-070-v02
+// GUID: BACKUP_FUNCTIONS-070-v03
 /**
  * refreshHotNews — Scheduled Cloud Function (2nd-gen, Cloud Run)
  *
@@ -1899,12 +2066,23 @@ exports.syncSessionTimes = onSchedule(
  *          news bulletin using live weather data (Open-Meteo + OpenF1).
  *          All AI logic lives in the app — this function is a thin HTTP trigger.
  *
+ * @BUGFIX PUBCHAT-04: the hourly chain used to fail silently (Cloud Logging only). It now
+ *   writes a heartbeat/status doc app-settings/hotNewsRefreshStatus on EVERY run — success,
+ *   skip, and failure (with correlationId + error text) — the GR#17 freshness pattern, plus
+ *   an error_logs entry on failure (HEALTH-ERRORS-001).
+ * @BUGFIX PUBCHAT-06: previously ran hourly year-round. Now gated by the same
+ *   inSeason/isRaceWeek logic publishHotNewsToWhatsApp uses (shared buildSeasonAndBanner
+ *   helper, BACKUP_FUNCTIONS-083). Off-season / non-race-week runs skip AI generation but
+ *   STILL write the heartbeat with state 'skipped-offseason' so freshness monitoring stays
+ *   truthful.
+ *
  * [Inbound Trigger] Cloud Scheduler cron: "0 * * * *" (top of every hour, UTC).
  *
  * [Downstream Impact]
  *   - Calls /api/cron/refresh-hot-news which writes to app-settings/hot-news.
- *   - Dashboard HotNewsFeed component reads that document on next page load.
- *   - Failure is logged but does NOT throw (no retry — prevents billing spikes).
+ *   - Writes app-settings/hotNewsRefreshStatus every run (states: ok | skipped-offseason | error).
+ *   - Dashboard HotNewsFeed component reads app-settings/hot-news on next page load.
+ *   - Failure is logged + error_logs entry but does NOT throw (no retry — prevents billing spikes).
  *
  * Env vars required in Cloud Function config:
  *   CRON_SECRET — shared secret matching CRON_SECRET in App Hosting secrets
@@ -1921,10 +2099,20 @@ exports.refreshHotNews = onSchedule(
     secrets: ["CRON_SECRET"],
   },
   async () => {
+    const db = getFirestore();
     const correlationId = generateCorrelationId("news");
     // Strip BOM (U+FEFF) — Secret Manager may prepend it on Windows-created secrets
     const secret = (process.env.CRON_SECRET || '').replace(/^\uFEFF/, '');
     const appUrl = process.env.APP_URL || "https://prix6.win";
+
+    // Heartbeat writer (@BUGFIX PUBCHAT-04) — best-effort merge on EVERY exit path so
+    // freshness monitoring can detect a dead chain instead of a silent one.
+    const writeRefreshStatus = async (state, detail, extra = {}) => {
+      await db.collection("app-settings").doc("hotNewsRefreshStatus").set(
+        { lastRunAt: Timestamp.now(), state, detail: detail || null, correlationId, ...extra },
+        { merge: true }
+      ).catch((e) => console.error("hotNewsRefreshStatus write failed (non-fatal):", e.message));
+    };
 
     if (!secret) {
       console.error(JSON.stringify({
@@ -1933,10 +2121,34 @@ exports.refreshHotNews = onSchedule(
         correlationId,
         timestamp: new Date().toISOString(),
       }));
+      await writeRefreshStatus("error", "CRON_SECRET missing from function configuration");
+      // @BUGFIX HEALTH-ERRORS-001: config failure is a failure — surface it in error_logs.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.CRON_SECRET_MISSING.code,
+        message: "refreshHotNews: CRON_SECRET missing from function configuration",
+        correlationId,
+        context: { source: "functions/refreshHotNews" },
+      });
       return;
     }
 
     try {
+      // @BUGFIX PUBCHAT-06: skip AI generation outside the season / off race weeks — but still
+      // heartbeat so the status doc never goes stale-silent.
+      const { inSeason, isRaceWeek } = await buildSeasonAndBanner(db);
+      if (!inSeason || !isRaceWeek) {
+        const reason = !inSeason ? "Out of season" : "Not a race week";
+        await writeRefreshStatus("skipped-offseason", `${reason} — hot news generation skipped`);
+        console.log(JSON.stringify({
+          severity: "INFO",
+          message: "REFRESH_HOT_NEWS_SKIPPED_OFFSEASON",
+          correlationId,
+          reason,
+          timestamp: new Date().toISOString(),
+        }));
+        return;
+      }
+
       const resp = await fetch(`${appUrl}/api/cron/refresh-hot-news`, {
         method: "POST",
         headers: {
@@ -1956,9 +2168,18 @@ exports.refreshHotNews = onSchedule(
           body,
           timestamp: new Date().toISOString(),
         }));
+        await writeRefreshStatus("error", `HTTP ${resp.status} from /api/cron/refresh-hot-news`, { httpStatus: resp.status });
+        // @BUGFIX HEALTH-ERRORS-001 (PUBCHAT-04): HTTP failure lands in error_logs too.
+        await writeErrorLog(db, {
+          code: ERROR_CODES.HOT_NEWS_REFRESH_FAILED.code,
+          message: `refreshHotNews: HTTP ${resp.status} from /api/cron/refresh-hot-news`,
+          correlationId,
+          context: { source: "functions/refreshHotNews", httpStatus: resp.status },
+        });
         return;
       }
 
+      await writeRefreshStatus("ok", null, { refreshCount: body.refreshCount ?? null });
       console.log(JSON.stringify({
         severity: "INFO",
         message: "REFRESH_HOT_NEWS_OK",
@@ -1975,12 +2196,22 @@ exports.refreshHotNews = onSchedule(
         error: err.message || String(err),
         timestamp: new Date().toISOString(),
       }));
+      await writeRefreshStatus("error", err.message || String(err));
+      // @BUGFIX HEALTH-ERRORS-001 (PUBCHAT-04): failure lands in error_logs — Aaron's rule.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.HOT_NEWS_REFRESH_FAILED.code,
+        message: `refreshHotNews FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/refreshHotNews" },
+      });
     }
   }
 );
 
 // ── ingestReplaySession ────────────────────────────────────────
-// GUID: CLOUD_FUNCTIONS-INGEST-001-v01
+// GUID: CLOUD_FUNCTIONS-INGEST-001-v02
+// @BUGFIX HEALTH-ERRORS-001: catch path now writes a registry-shaped error_logs entry
+//   (PX-3313 PIT_WALL_REPLAY_INGEST_FAILED) alongside the replay_sessions failure status.
 /**
  * ingestReplaySession — Callable Cloud Function (2nd-gen, Cloud Run)
  *
@@ -2486,12 +2717,21 @@ exports.ingestReplaySession = onCall(
         timestamp: new Date().toISOString(),
       }));
 
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17
+      // amendment. Uses the existing app-registry code PX-3313 (PIT_WALL_REPLAY_INGEST_FAILED).
+      await writeErrorLog(db, {
+        code: ERROR_CODES.PIT_WALL_REPLAY_INGEST_FAILED.code,
+        message: `ingestReplaySession FAILED (session ${sessionKey}): ${err.message || String(err)}`,
+        correlationId: generateCorrelationId("ingest"),
+        context: { source: "functions/ingestReplaySession", sessionKey },
+      });
+
       throw new HttpsError("internal", `Ingest failed: ${err.message}`);
     }
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-040-v02
+// GUID: BACKUP_FUNCTIONS-040-v03
 /**
  * publishHotNewsToWhatsApp
  *
@@ -2562,47 +2802,11 @@ exports.publishHotNewsToWhatsApp = onSchedule(
       return ready;
     };
 
-    // Compute season status + the "next session" banner from the race_schedule collection
-    // (written by syncSessionTimes). Returns { inSeason, isRaceWeek, banner }. The banner mirrors the dashboard
-    // countdown ("Next: Spielberg Qualifying — 12 days, 1 hour, 53 minutes") computed as-of NOW
-    // (the 07:00 push time). inSeason gates the daily send so it only fires during the racing season.
-    const buildSeasonAndBanner = async () => {
-      const now = Date.now();
-      const snap = await db.collection("race_schedule").get();
-      const events = []; // { t, location, label }
-      let seasonStart = Infinity, seasonEnd = -Infinity;
-      snap.forEach((d) => {
-        const x = d.data();
-        const loc = x.location || x.name || "the next round";
-        const q = x.qualifyingTime ? new Date(x.qualifyingTime).getTime() : null;
-        const sp = x.sprintTime ? new Date(x.sprintTime).getTime() : null;
-        const r = x.raceTime ? new Date(x.raceTime).getTime() : null;
-        if (q) { events.push({ t: q, location: loc, label: "Qualifying" }); seasonStart = Math.min(seasonStart, q); }
-        if (sp) events.push({ t: sp, location: loc, label: "Sprint" });
-        if (r) { events.push({ t: r, location: loc, label: "Race" }); seasonEnd = Math.max(seasonEnd, r); }
-      });
-      // In season from 14 days before the first qualifying through 1 day after the final race.
-      const inSeason = Number.isFinite(seasonStart) && Number.isFinite(seasonEnd) &&
-        now >= seasonStart - 14 * 864e5 && now <= seasonEnd + 864e5;
-      const upcoming = events.filter((e) => e.t > now).sort((a, b) => a.t - b.t)[0];
-      
-      // Smart filter: only send on active race weeks. A race week is active if the next session
-      // is scheduled within the next 7 days (7 * 86,400,000 ms).
-      const isRaceWeek = upcoming && (upcoming.t - now) < 7 * 864e5;
-
-      let banner = null;
-      if (upcoming) {
-        let mins = Math.max(0, Math.round((upcoming.t - now) / 60000));
-        const days = Math.floor(mins / 1440); mins -= days * 1440;
-        const hours = Math.floor(mins / 60); mins -= hours * 60;
-        const parts = [];
-        if (days) parts.push(`${days} day${days === 1 ? "" : "s"}`);
-        parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
-        parts.push(`${mins} min${mins === 1 ? "" : "s"}`);
-        banner = `🏁 *Next:* ${upcoming.location} ${upcoming.label}\n⏱️ ${parts.join(", ")}`;
-      }
-      return { inSeason, isRaceWeek, banner };
-    };
+    // Season status + "next session" banner now come from the module-level buildSeasonAndBanner(db)
+    // helper (BACKUP_FUNCTIONS-083) — hoisted for reuse by refreshHotNews (@BUGFIX PUBCHAT-06, GR#3
+    // SSOT). The banner mirrors the dashboard countdown ("Next: Spielberg Qualifying — 12 days,
+    // 1 hour, 53 minutes") computed as-of NOW (the 07:00 push time). inSeason gates the daily send
+    // so it only fires during the racing season.
 
     // Post the message to Microsoft Teams via an Incoming Webhook / Power Automate URL, if configured.
     // TEAMS_WEBHOOK_URL is read from the environment; until it is set this is a graceful no-op so the
@@ -2650,7 +2854,7 @@ exports.publishHotNewsToWhatsApp = onSchedule(
       if (!targetGroup) { await writeStatus("skipped", "No target group configured"); return; }
 
       // Only push during the racing season and on race weeks (see buildSeasonAndBanner). Outside it, skip quietly.
-      const { inSeason, isRaceWeek, banner } = await buildSeasonAndBanner();
+      const { inSeason, isRaceWeek, banner } = await buildSeasonAndBanner(db);
       if (!inSeason) { await writeStatus("skipped", "Out of season — no daily hot news"); return; }
       if (!isRaceWeek) { await writeStatus("skipped", "Not a race week — no daily hot news"); return; }
 
@@ -2688,11 +2892,19 @@ exports.publishHotNewsToWhatsApp = onSchedule(
     } catch (err) {
       await writeStatus("error", err.message || String(err)).catch(() => {});
       console.error(JSON.stringify({ severity: "ERROR", message: "HOT_NEWS_WHATSAPP_FAILED", correlationId, error: err.message || String(err) }));
+      // @BUGFIX HEALTH-ERRORS-001: failure must also land in error_logs (Aaron's rule / GR#17
+      // amendment) — the status doc alone is not the admin's single pane of glass.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.WHATSAPP_PUBLISH_FAILED.code,
+        message: `publishHotNewsToWhatsApp FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/publishHotNewsToWhatsApp" },
+      });
     }
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-041-v01
+// GUID: BACKUP_FUNCTIONS-041-v02
 /**
  * whatsAppScheduledTick
  *
@@ -2716,11 +2928,19 @@ exports.whatsAppScheduledTick = onSchedule(
     secrets: ["CRON_SECRET"],
   },
   async () => {
+    const db = getFirestore();
     const correlationId = generateCorrelationId("wast");
     const secret = (process.env.CRON_SECRET || "").replace(/^﻿/, "");
     const appUrl = process.env.APP_URL || "https://prix6.win";
     if (!secret) {
       console.error(JSON.stringify({ severity: "ERROR", message: "WA_SCHEDULED_MISSING_SECRET", correlationId }));
+      // @BUGFIX HEALTH-ERRORS-001: config failure must land in error_logs.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.CRON_SECRET_MISSING.code,
+        message: "whatsAppScheduledTick: CRON_SECRET missing from function configuration",
+        correlationId,
+        context: { source: "functions/whatsAppScheduledTick" },
+      });
       return;
     }
     try {
@@ -2730,13 +2950,32 @@ exports.whatsAppScheduledTick = onSchedule(
       });
       const body = await resp.json().catch(() => ({}));
       console.log(JSON.stringify({ severity: resp.ok ? "INFO" : "ERROR", message: resp.ok ? "WA_SCHEDULED_OK" : "WA_SCHEDULED_HTTP_ERROR", correlationId, status: resp.status, actions: body.actions ?? null }));
+      if (!resp.ok) {
+        // @BUGFIX HEALTH-ERRORS-001: HTTP failure lands in error_logs — Aaron's rule / GR#17 amendment.
+        await writeErrorLog(db, {
+          code: ERROR_CODES.WHATSAPP_SCHEDULED_TICK_FAILED.code,
+          message: `whatsAppScheduledTick: HTTP ${resp.status} from /api/cron/whatsapp-scheduled`,
+          correlationId,
+          context: { source: "functions/whatsAppScheduledTick", httpStatus: resp.status },
+        });
+      }
     } catch (err) {
       console.error(JSON.stringify({ severity: "ERROR", message: "WA_SCHEDULED_FAILED", correlationId, error: err.message || String(err) }));
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.WHATSAPP_SCHEDULED_TICK_FAILED.code,
+        message: `whatsAppScheduledTick FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/whatsAppScheduledTick" },
+      });
     }
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-044-v01
+// GUID: BACKUP_FUNCTIONS-044-v02
+// @BUGFIX HEALTH-ERRORS-001: failure paths (missing secret, HTTP error, network error) now
+//   write registry-shaped error_logs entries — a lost roast is exactly the silent-failure
+//   class BUG-ROAST-001 was about.
 /**
  * roastTaskTrigger
  *
@@ -2762,12 +3001,20 @@ exports.roastTaskTrigger = onDocumentCreated(
     secrets: ["CRON_SECRET"],
   },
   async (event) => {
+    const db = getFirestore();
     const correlationId = generateCorrelationId("roast");
     const taskId = event.params.taskId;
     const secret = (process.env.CRON_SECRET || "").replace(/^﻿/, "");
     const appUrl = process.env.APP_URL || "https://prix6.win";
     if (!secret) {
       console.error(JSON.stringify({ severity: "ERROR", message: "ROAST_TRIGGER_MISSING_SECRET", correlationId, taskId }));
+      // @BUGFIX HEALTH-ERRORS-001: config failure must land in error_logs.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.CRON_SECRET_MISSING.code,
+        message: "roastTaskTrigger: CRON_SECRET missing from function configuration",
+        correlationId,
+        context: { source: "functions/roastTaskTrigger", taskId },
+      });
       return;
     }
     try {
@@ -2778,13 +3025,31 @@ exports.roastTaskTrigger = onDocumentCreated(
       });
       const body = await resp.json().catch(() => ({}));
       console.log(JSON.stringify({ severity: resp.ok ? "INFO" : "ERROR", message: resp.ok ? "ROAST_TRIGGER_OK" : "ROAST_TRIGGER_HTTP_ERROR", correlationId, taskId, status: resp.status, queueDocId: body.queueDocId ?? null }));
+      if (!resp.ok) {
+        // @BUGFIX HEALTH-ERRORS-001: HTTP failure lands in error_logs — Aaron's rule / GR#17 amendment.
+        await writeErrorLog(db, {
+          code: ERROR_CODES.ROAST_TRIGGER_FAILED.code,
+          message: `roastTaskTrigger: HTTP ${resp.status} from /api/internal/roast-submission (task ${taskId})`,
+          correlationId,
+          context: { source: "functions/roastTaskTrigger", taskId, httpStatus: resp.status },
+        });
+      }
     } catch (err) {
       console.error(JSON.stringify({ severity: "ERROR", message: "ROAST_TRIGGER_FAILED", correlationId, taskId, error: err.message || String(err) }));
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.ROAST_TRIGGER_FAILED.code,
+        message: `roastTaskTrigger FAILED (task ${taskId}): ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/roastTaskTrigger", taskId },
+      });
     }
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-043-v01
+// GUID: BACKUP_FUNCTIONS-043-v02
+// @BUGFIX HEALTH-ERRORS-001: failure paths (missing secret, HTTP error, network error) now
+//   write registry-shaped error_logs entries (Aaron's rule / GR#17 amendment).
 /**
  * billcelerationTick
  *
@@ -2813,11 +3078,19 @@ exports.billcelerationTick = onSchedule(
     secrets: ["CRON_SECRET"],
   },
   async () => {
+    const db = getFirestore();
     const correlationId = generateCorrelationId("bill");
     const secret = (process.env.CRON_SECRET || "").replace(/^﻿/, "");
     const appUrl = process.env.APP_URL || "https://prix6.win";
     if (!secret) {
       console.error(JSON.stringify({ severity: "ERROR", message: "BILLCELERATION_MISSING_SECRET", correlationId }));
+      // @BUGFIX HEALTH-ERRORS-001: config failure must land in error_logs.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.CRON_SECRET_MISSING.code,
+        message: "billcelerationTick: CRON_SECRET missing from function configuration",
+        correlationId,
+        context: { source: "functions/billcelerationTick" },
+      });
       return;
     }
     try {
@@ -2827,13 +3100,31 @@ exports.billcelerationTick = onSchedule(
       });
       const body = await resp.json().catch(() => ({}));
       console.log(JSON.stringify({ severity: resp.ok ? "INFO" : "ERROR", message: resp.ok ? "BILLCELERATION_OK" : "BILLCELERATION_HTTP_ERROR", correlationId, status: resp.status, state: body.state ?? null }));
+      if (!resp.ok) {
+        // @BUGFIX HEALTH-ERRORS-001: HTTP failure lands in error_logs — Aaron's rule / GR#17 amendment.
+        await writeErrorLog(db, {
+          code: ERROR_CODES.BILLCELERATION_TICK_FAILED.code,
+          message: `billcelerationTick: HTTP ${resp.status} from /api/cron/billceleration`,
+          correlationId,
+          context: { source: "functions/billcelerationTick", httpStatus: resp.status },
+        });
+      }
     } catch (err) {
       console.error(JSON.stringify({ severity: "ERROR", message: "BILLCELERATION_FAILED", correlationId, error: err.message || String(err) }));
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.BILLCELERATION_TICK_FAILED.code,
+        message: `billcelerationTick FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/billcelerationTick" },
+      });
     }
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-042-v01
+// GUID: BACKUP_FUNCTIONS-042-v02
+// @BUGFIX HEALTH-ERRORS-001: catch path now writes a registry-shaped error_logs entry
+//   (PX-3403) — the watchdog watching for silent failures must not itself fail silently.
 /**
  * whatsAppQueueWatchdog
  *
@@ -2948,6 +3239,13 @@ exports.whatsAppQueueWatchdog = onSchedule(
     } catch (err) {
       await writeStatus("error", err.message || String(err));
       console.error(JSON.stringify({ severity: "ERROR", message: "WA_QUEUE_WATCHDOG_FAILED", correlationId, error: err.message || String(err) }));
+      // @BUGFIX HEALTH-ERRORS-001: failure lands in error_logs — Aaron's rule / GR#17 amendment.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.WHATSAPP_QUEUE_WATCHDOG_FAILED.code,
+        message: `whatsAppQueueWatchdog FAILED: ${err.message || String(err)}`,
+        correlationId,
+        context: { source: "functions/whatsAppQueueWatchdog" },
+      });
     }
   }
 );
