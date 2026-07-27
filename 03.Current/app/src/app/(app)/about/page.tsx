@@ -1,8 +1,12 @@
 
-// GUID: PAGE_ABOUT-000-v03
+// GUID: PAGE_ABOUT-000-v04
 // [Intent] About page: public-facing informational page explaining Prix Six, F1 basics, scoring rules, and app features. Also manages the cinematic intro sequence for first-time visitors.
 // [Inbound Trigger] User navigates to /about route.
 // [Downstream Impact] Renders CinematicIntro on first visit; displays live team count and online user count from Firestore. Links to /about/dev, /predictions, /rules, /dashboard.
+// @DOC_FIX(NEWBIE-19, v04): The Teams feature blurb claimed other teams' predictions were only
+//   visible "once the deadline passes" — the Teams page has never gated on the deadline (it
+//   shows any team's picks for any selected race, including carry-forwards). Copy corrected to
+//   match the page's actual behaviour rather than promising secrecy the app doesn't provide.
 
 'use client';
 
@@ -510,8 +514,10 @@ const AboutPageClient = () => {
                             </div>
                             <div>
                                 <h4 className="font-medium">Teams</h4>
+                                {/* @DOC_FIX(NEWBIE-19): predictions are visible for any race —
+                                    the Teams page does not hide them until the deadline. */}
                                 <p className="text-sm text-muted-foreground">
-                                    Browse all teams in the league. See who else is playing and their current predictions (once the deadline passes).
+                                    Browse all teams in the league. See who else is playing and view any team&apos;s P1&ndash;P6 picks for any race &mdash; everyone&apos;s predictions are open to the league, so choose your own before peeking!
                                 </p>
                             </div>
                         </div>

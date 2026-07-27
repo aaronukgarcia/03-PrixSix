@@ -318,7 +318,9 @@ async function performBackup(db, { trigger = "scheduled" } = {}) {
       metadata: { correlationId },
     });
 
-    // GUID: BACKUP_FUNCTIONS-019-v01
+    // GUID: BACKUP_FUNCTIONS-019-v02
+    // @BUGFIX HEALTH-ERRORS-001 (v02): storage-failure catch now also writes a registry-shaped
+    //   error_logs entry (PX-7010) — previously only a backup_history WARNING doc.
     // [Intent] Back up Firebase Storage files (profile photos and other user-uploaded content).
     //          This backs up user-generated content that cannot be regenerated, unlike
     //          application code which is already versioned in Git.
@@ -388,6 +390,16 @@ async function performBackup(db, { trigger = "scheduled" } = {}) {
         error: storageError.message,
         correlationId,
         trigger,
+      });
+      // @BUGFIX HEALTH-ERRORS-001: a Storage backup failure means user-generated content
+      // (profile photos) was NOT backed up this run — a genuine failure signal even though
+      // the Firestore/Auth backup continues. Land it in error_logs (Aaron's rule / GR#17
+      // amendment), not only in the backup_history warning doc.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.BACKUP_STORAGE_BACKUP_FAILED.code,
+        message: `Firebase Storage backup FAILED (non-fatal, ${trigger}): ${storageError.message || String(storageError)}`,
+        correlationId,
+        context: { source: "functions/performBackup", trigger, phase: "storage-backup" },
       });
     }
 
@@ -995,7 +1007,8 @@ exports.runRecoveryTest = onSchedule(
         );
       }
 
-      // GUID: BACKUP_FUNCTIONS-023A-v01
+      // GUID: BACKUP_FUNCTIONS-023A-v02
+      // @BUGFIX HEALTH-ERRORS-001 (v02): verification-errored catch now writes error_logs (PX-7003).
       // [Intent] Verify Auth backup file exists and contains user records.
       //          Auth data is critical for account recovery — if backup exists
       //          but Auth JSON is missing, the backup is incomplete.
@@ -1022,9 +1035,20 @@ exports.runRecoveryTest = onSchedule(
         }
       } catch (authError) {
         console.warn('Auth verification failed (non-critical):', authError.message);
+        // @BUGFIX HEALTH-ERRORS-001: the verification step itself errored (download/parse
+        // failure) — the smoke test cannot vouch for the Auth backup. Non-fatal, but the
+        // failure must land in error_logs. NOTE: the benign exists=false path above (old
+        // backup format) does NOT log — this is the catch path only.
+        await writeErrorLog(db, {
+          code: ERROR_CODES.BACKUP_AUTH_EXPORT_FAILED.code,
+          message: `Smoke test Auth backup verification errored (non-fatal): ${authError.message || String(authError)}`,
+          correlationId,
+          context: { source: "functions/runRecoveryTest", phase: "auth-verification" },
+        });
       }
 
-      // GUID: BACKUP_FUNCTIONS-023B-v01
+      // GUID: BACKUP_FUNCTIONS-023B-v02
+      // @BUGFIX HEALTH-ERRORS-001 (v02): verification-errored catch now writes error_logs (PX-7010).
       // [Intent] Verify Storage backup exists and contains files.
       //          Storage files are user-generated content (profile photos) that
       //          cannot be regenerated — critical for complete recovery.
@@ -1051,6 +1075,15 @@ exports.runRecoveryTest = onSchedule(
         }
       } catch (storageError) {
         console.warn('Storage verification failed (non-critical):', storageError.message);
+        // @BUGFIX HEALTH-ERRORS-001: verification step errored — smoke test cannot vouch
+        // for the Storage backup. Non-fatal, but lands in error_logs (empty prefix above
+        // is benign and does NOT log).
+        await writeErrorLog(db, {
+          code: ERROR_CODES.BACKUP_STORAGE_BACKUP_FAILED.code,
+          message: `Smoke test Storage backup verification errored (non-fatal): ${storageError.message || String(storageError)}`,
+          correlationId,
+          context: { source: "functions/runRecoveryTest", phase: "storage-verification" },
+        });
       }
 
       // GUID: BACKUP_FUNCTIONS-025-v05
@@ -1139,7 +1172,8 @@ exports.runRecoveryTest = onSchedule(
       // Aaron's rule (2026-07-26): health failures ALWAYS land in error_logs (BUG-SMOKE-001
       // was invisible for 4 months because failures only touched backup_status).
       await writeErrorLog(db, {
-        code: "PX-7004",
+        // GR#7: registry-sourced (was a hardcoded "PX-7004" literal — same code, now from the mirror)
+        code: ERROR_CODES.BACKUP_SMOKE_TEST_FAILED.code,
         message: `Backup smoke test FAILED (scheduled): ${err.message || String(err)}`,
         correlationId,
         context: { source: "functions/runRecoveryTest", trigger: "scheduled" },
@@ -1372,7 +1406,8 @@ exports.manualSmokeTest = onCall(
 
       // Aaron's rule (2026-07-26): health failures ALWAYS land in error_logs.
       await writeErrorLog(db, {
-        code: "PX-7004",
+        // GR#7: registry-sourced (was a hardcoded "PX-7004" literal — same code, now from the mirror)
+        code: ERROR_CODES.BACKUP_SMOKE_TEST_FAILED.code,
         message: `Backup smoke test FAILED (manual): ${err.message || String(err)}`,
         correlationId,
         context: { source: "functions/manualSmokeTest", trigger: "manual" },
@@ -1685,7 +1720,10 @@ exports.expireStaleLogons = onSchedule(
 
 // ── Cleanup helpers ────────────────────────────────────────────
 
-// GUID: BACKUP_FUNCTIONS-030-v03
+// GUID: BACKUP_FUNCTIONS-030-v04
+// @BUGFIX HEALTH-ERRORS-001 (v04): the internal swallow now writes a registry-shaped error_logs
+//   entry (PX-7006) to the MAIN project — a cleanup failure previously left no trace and let
+//   cleanupRecoveryProject report SUCCESS. Still non-fatal by design.
 /**
  * deleteAllCollections
  *
@@ -1718,6 +1756,16 @@ async function deleteAllCollections(firestoreClient) {
     //  import will overwrite existing data anyway. Failing here would mask a
     //  successful verification result.]
     console.warn("Cleanup warning:", err.message);
+    // @BUGFIX HEALTH-ERRORS-001: this swallow previously meant cleanupRecoveryProject
+    // reported SUCCESS even when deletion failed — no trace anywhere. Still non-fatal,
+    // but the failure now lands in error_logs on the MAIN project (getFirestore() —
+    // NOT firestoreClient, which points at the recovery project).
+    await writeErrorLog(getFirestore(), {
+      code: ERROR_CODES.BACKUP_CLEANUP_FAILED.code,
+      message: `Recovery-project collection cleanup FAILED (non-fatal): ${err.message || String(err)}`,
+      correlationId: generateCorrelationId("rcln"),
+      context: { source: "functions/deleteAllCollections" },
+    });
   }
 }
 
@@ -3122,9 +3170,12 @@ exports.billcelerationTick = onSchedule(
   }
 );
 
-// GUID: BACKUP_FUNCTIONS-042-v02
+// GUID: BACKUP_FUNCTIONS-042-v03
 // @BUGFIX HEALTH-ERRORS-001: catch path now writes a registry-shaped error_logs entry
 //   (PX-3403) — the watchdog watching for silent failures must not itself fail silently.
+// @BUGFIX HEALTH-ERRORS-001 (v03): DETECTED unhealthy delivery (state "attention") now also
+//   lands in error_logs (PX-3407), logged once per ok→attention transition to avoid the
+//   96-entries/day spam a lingering failed24h count would otherwise cause.
 /**
  * whatsAppQueueWatchdog
  *
@@ -3170,6 +3221,16 @@ exports.whatsAppQueueWatchdog = onSchedule(
     };
 
     try {
+      // @BUGFIX HEALTH-ERRORS-001: read the PREVIOUS watchdog state before overwriting it.
+      // The error_logs entry below fires only on the TRANSITION into "attention" — a lingering
+      // failed24h count would otherwise re-log every 15-minute run (up to 96 entries/day per
+      // failed message) and drown /triage-errors. Status doc + audit_logs still record every run.
+      let prevState = null;
+      try {
+        const prevSnap = await statusRef.get();
+        prevState = prevSnap.exists ? (prevSnap.data().state || null) : null;
+      } catch (e) { /* best-effort — treat unknown as non-attention so a real fault still logs */ }
+
       // 1. STUCK PROCESSING — revert to PENDING so the worker re-sends.
       const processingSnap = await db.collection("whatsapp_queue").where("status", "==", "PROCESSING").get();
       let requeuedStuck = 0;
@@ -3223,6 +3284,20 @@ exports.whatsAppQueueWatchdog = onSchedule(
       });
 
       const state = (requeuedStuck > 0 || failed24h > 0) ? "attention" : "ok";
+
+      // @BUGFIX HEALTH-ERRORS-001: the watchdog DETECTING unhealthy delivery (stuck sends
+      // reverted, or FAILED messages in the last 24h) is itself a health failure signal —
+      // Aaron's rule says it must land in error_logs, not only in the status doc/audit trail.
+      // Logged once per ok→attention transition (see prevState comment above) to avoid spam.
+      if (state === "attention" && prevState !== "attention") {
+        await writeErrorLog(db, {
+          code: ERROR_CODES.WHATSAPP_DELIVERY_UNHEALTHY.code,
+          message: `whatsAppQueueWatchdog detected unhealthy WhatsApp delivery: requeuedStuck=${requeuedStuck} failed24h=${failed24h} stalePending=${stalePending}`,
+          correlationId,
+          context: { source: "functions/whatsAppQueueWatchdog", requeuedStuck, stalePending, failed24h, workerWoke: woke },
+        });
+      }
+
       if (requeuedStuck > 0 || stalePending > 0 || failed24h > 0) {
         await db.collection("audit_logs").add({
           userId: "system",

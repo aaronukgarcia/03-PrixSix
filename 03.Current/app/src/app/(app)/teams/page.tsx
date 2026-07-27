@@ -1,4 +1,6 @@
-// GUID: PAGE_TEAMS-000-v03
+// GUID: PAGE_TEAMS-000-v04
+// @UX(NEWBIE-24, v04) Copy fixes: "the other teams predictions" → "other teams' predictions"
+//   (missing apostrophe), and the dead-end empty states now tell the user what to do next.
 // [Intent] Teams page — displays all team predictions for a selected race in an expandable accordion.
 //   Users can browse every team's P1-P6 driver selections per race, with on-demand lazy loading of
 //   predictions and pagination of team lists. Supports league filtering via LeagueSelector.
@@ -449,8 +451,9 @@ export default function TeamsPage() {
         <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">
           Team Predictions
         </h1>
+        {/* @UX(NEWBIE-24): apostrophe fix + a fuller sentence */}
         <p className="text-muted-foreground">
-          View the other teams predictions
+          View the other teams&apos; predictions for any race.
         </p>
       </div>
 
@@ -562,12 +565,15 @@ export default function TeamsPage() {
                 {error}
               </div>
             ) : teams.length > 0 && filteredTeams.length === 0 ? (
+              // @UX(NEWBIE-24): actionable empty states — say what to do next, not just "none"
               <div className="text-center py-8 text-muted-foreground">
-                No teams in this league. Try selecting a different league.
+                No teams in this league yet. Switch the league selector to &quot;Global&quot; to see
+                everyone, or invite friends to join this league from the Leagues page.
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No teams found.
+                No teams found yet — you may be the first here! Check back once more players have
+                signed up, or refresh the page.
               </div>
             )}
           </Accordion>

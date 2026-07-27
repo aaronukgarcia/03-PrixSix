@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-26",
+  "lastUpdated": "2026-07-27",
   "commits": [
+    {
+      "id": "e36622e",
+      "date": "2026-07-27",
+      "version": "3.14.0",
+      "author": "aaron garcia",
+      "message": "feat: Wave 2/3/4 integration — Pit Wall + PubChat fix sets, GR#17 error_logs sweep, login-flash fix, LLM01 sanitization, sidebar renames, TS6 + day-picker 10 (v3.14.0)",
+      "major": true
+    },
     {
       "id": "abc52c5",
       "date": "2026-07-26",

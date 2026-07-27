@@ -1,4 +1,8 @@
-// GUID: COMPONENT_INVITE_SIGNUP-000-v01
+// GUID: COMPONENT_INVITE_SIGNUP-000-v02
+// @UX(NEWBIE-14, v02) Client-side weak-PIN mirror (see COMPONENT_INVITE_SIGNUP-006) — obvious
+//   PINs like 123456 are rejected before the form submits, matching the server's message.
+// @UX(NEWBIE-25, v02) Invited email field is readOnly — signup is bound to the token's email;
+//   editing it produced a signup/invite mismatch.
 // [Intent] Client-side invite signup form, rendered by /signup ONLY after the server has
 //          validated the invite token. Offers two join paths: (a) Google/Apple one-tap —
 //          the token is stashed in sessionStorage so /complete-profile can forward it to
@@ -44,16 +48,34 @@ import { CLIENT_ERRORS } from "@/lib/error-registry-client";
 // [Downstream Impact] Key name must match PAGE_COMPLETE_PROFILE's reader exactly.
 export const INVITE_TOKEN_STORAGE_KEY = "prix6InviteToken";
 
-// GUID: COMPONENT_INVITE_SIGNUP-002-v01
+// GUID: COMPONENT_INVITE_SIGNUP-006-v01
+// @UX(NEWBIE-14) Client-side mirror of the server's weak-PIN blacklist. Without it, "123456"
+//   only bounced AFTER a full form submit + server round-trip.
+// CONSTRAINT: this list MUST stay in sync with WEAK_PINS in app/src/app/api/auth/signup/route.ts
+//   (API_AUTH_SIGNUP — the server list is authoritative; this copy is a UX pre-check only).
+//   The rejection message below mirrors the server's 400 message verbatim.
+const WEAK_PINS = [
+  '123456', '654321', '111111', '222222', '333333', '444444',
+  '555555', '666666', '777777', '888888', '999999', '000000',
+  '123123', '121212', '112233', '001122', '102030', '112211',
+];
+
+// GUID: COMPONENT_INVITE_SIGNUP-002-v02
 // [Intent] Zod schema for the email/PIN join path — valid email, team name ≥ 3 chars
 //          (server enforces uniqueness), PIN exactly 6 digits entered twice.
 // [Inbound Trigger] Form submission via zodResolver.
 // [Downstream Impact] Mirrors /api/auth/signup validation so users rarely see server 400s.
+// @UX(NEWBIE-14, v02): weak-PIN refine added — instant feedback instead of a post-submit 400.
 const formSchema = z
   .object({
     email: z.string().email({ message: "Invalid email address." }),
     teamName: z.string().min(3, { message: "Team name must be at least 3 characters." }).max(50),
-    pin: z.string().regex(/^\d{6}$/, { message: "PIN must be exactly 6 digits." }),
+    pin: z
+      .string()
+      .regex(/^\d{6}$/, { message: "PIN must be exactly 6 digits." })
+      .refine((pin) => !WEAK_PINS.includes(pin), {
+        message: "This PIN is too easy to guess. Please choose a stronger one.",
+      }),
     confirmPin: z.string(),
   })
   .refine((data) => data.pin === data.confirmPin, {
@@ -203,6 +225,9 @@ export function InviteSignupForm({ inviteToken, invitedEmail, inviterTeamName }:
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* @UX(NEWBIE-25): the invite is tied to this exact email (token validation is
+                  server-side against the invited address) — an edited email would create a
+                  signup/invite mismatch. Field is readOnly, with copy explaining why. */}
               <FormField
                 control={form.control}
                 name="email"
@@ -210,8 +235,18 @@ export function InviteSignupForm({ inviteToken, invitedEmail, inviterTeamName }:
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" autoComplete="email" {...field} />
+                      <Input
+                        type="email"
+                        autoComplete="email"
+                        readOnly
+                        aria-readonly="true"
+                        className="bg-muted/50 text-muted-foreground cursor-not-allowed focus-visible:ring-0"
+                        {...field}
+                      />
                     </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Your invite is tied to this email address, so it can&apos;t be changed here.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

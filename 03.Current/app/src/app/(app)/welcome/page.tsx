@@ -1,4 +1,11 @@
-// GUID: PAGE_WELCOME-000-v01
+// GUID: PAGE_WELCOME-000-v02
+// @UX(NEWBIE-12, v02) When user.lateJoinerInfo is missing (handicap engine still running or it
+//   failed non-blockingly at signup), the specifics list is replaced by a soft "your team is
+//   still being set up" state instead of vague defaulted values ("the last-place team", "-1").
+// @UX(NEWBIE-08, v02) On confirm, a sessionStorage flag (WELCOME_ACK_FLAG) is set so the
+//   dashboard's WelcomeCTA suppresses itself on the immediately-following visit — a late joiner
+//   should not hit a third stacked welcome right after acknowledging this screen.
+//   CONSTRAINT: key must match the reader in dashboard/_components/WelcomeCTA.tsx.
 // [Intent] Mid-season welcome / acknowledgement screen shown to late joiners. Explains that they are
 //   joining after the season started, names their first upcoming race, explains that their prior-race
 //   submissions were cloned from the current last-place team and that a one-time -5 late-joining
@@ -21,6 +28,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Flag, Trophy, Loader2, BookOpen } from "lucide-react";
 import { generateClientCorrelationId } from "@/lib/error-codes";
 
+// @UX(NEWBIE-08): read + cleared by WelcomeCTA on the dashboard — suppresses the welcome card
+// on the visit that immediately follows this acknowledgement screen.
+const WELCOME_ACK_FLAG = "prix6-welcome-just-acknowledged";
+
 export default function WelcomePage() {
   const { user, firebaseUser, isUserLoading } = useAuth();
   const router = useRouter();
@@ -37,6 +48,9 @@ export default function WelcomePage() {
   }, [user, isUserLoading, router]);
 
   const info = user?.lateJoinerInfo;
+  // @UX(NEWBIE-12): infoMissing → the handicap engine hasn't (yet) written the specifics.
+  // Show a soft "being set up" state rather than confidently asserting defaulted values.
+  const infoMissing = !info;
   const penalty = info?.penalty ?? -1;
   const clonedCount = info?.clonedCount ?? 0;
   const clonedFrom = info?.clonedFromTeamName ?? "the last-place team";
@@ -58,6 +72,13 @@ export default function WelcomePage() {
         setError(`Could not save your acknowledgement. Please try again. (Ref: ${ref})`);
         setSubmitting(false);
         return;
+      }
+      // @UX(NEWBIE-08): flag the immediate post-acknowledgement dashboard visit so WelcomeCTA
+      // doesn't stack another welcome card straight after this welcome screen.
+      try {
+        sessionStorage.setItem(WELCOME_ACK_FLAG, "true");
+      } catch {
+        // Storage unavailable — worst case the CTA shows; purely cosmetic.
       }
       router.replace("/dashboard");
     } catch {
@@ -85,6 +106,19 @@ export default function WelcomePage() {
           <CardDescription>You're joining mid-season — here's how your team has been set up.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {/* @UX(NEWBIE-12): soft state while lateJoinerInfo is missing — no invented specifics */}
+          {infoMissing ? (
+            <div className="rounded-md border border-border bg-muted/40 p-4 text-sm space-y-2">
+              <p className="font-medium">Your team is still being set up.</p>
+              <p className="text-muted-foreground">
+                Because you're joining mid-season, we level the playing field: your starting score
+                is based on the current lowest-placed active team, minus a one-time 1-point
+                adjustment. The exact details will appear on your dashboard and the standings once
+                setup finishes — usually within a minute or two.
+              </p>
+            </div>
+          ) : (
+          <>
           <p className="text-sm">
             The season is already under way, so to keep things fair we've set your team up like this:
           </p>
@@ -114,6 +148,8 @@ export default function WelcomePage() {
               </span>
             </li>
           </ul>
+          </>
+          )}
 
           <div className="rounded-md border border-border bg-muted/40 p-3 text-sm flex items-start gap-3">
             <BookOpen className="h-5 w-5 text-primary flex-shrink-0" />

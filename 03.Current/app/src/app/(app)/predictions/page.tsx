@@ -1,4 +1,4 @@
-// GUID: PAGE_PREDICTIONS-000-v05
+// GUID: PAGE_PREDICTIONS-000-v06
 // [Intent] Predictions page — allows users to view, submit, and edit their driver predictions
 //          for the next open race. Supports multiple teams, prediction carry-over from previous
 //          races, and pit lane open/closed status based on qualifying time and race results.
@@ -7,6 +7,8 @@
 //                     Reads from Firestore: race_results, user predictions. Writes via PredictionEditor.
 // @FIX(v04) Added "How Scoring Works" contextual help link to surface /rules page where users need it most.
 // @UX(VIRGIN-007, v05): Added "Set your grid" and "Qualifying" F1 jargon tooltips for new user clarity.
+// @UX(NEWBIE-02, v06): "Pit Lane Closed" alert title paired with plain language ("Predictions
+//   Locked") so a newcomer knows immediately what the jargon means for them.
 //
 // ══════════════════════════════════════════════════════════════════
 // PIT LANE STATE MACHINE
@@ -357,8 +359,9 @@ function PredictionsContent() {
       {!isPitlaneOpen && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Pit Lane Closed!</AlertTitle>
-          {/* GUID: PAGE_PREDICTIONS-015-v02 — @UX(VIRGIN-007): Qualifying tooltip in closed alert */}
+          {/* @UX(NEWBIE-02): pit-lane jargon paired with plain language */}
+          <AlertTitle>Pit Lane Closed — Predictions Locked</AlertTitle>
+          {/* GUID: PAGE_PREDICTIONS-015-v03 — @UX(VIRGIN-007): Qualifying tooltip in closed alert */}
           <AlertDescription>
             {isClonedSubmission
               ? <>

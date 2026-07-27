@@ -7,6 +7,14 @@
     "code": "PX-7004",
     "message": "Backup smoke test failed"
   },
+  "BACKUP_AUTH_EXPORT_FAILED": {
+    "code": "PX-7003",
+    "message": "Auth data backup export failed"
+  },
+  "BACKUP_STORAGE_BACKUP_FAILED": {
+    "code": "PX-7010",
+    "message": "Firebase Storage backup failed"
+  },
   "BACKUP_BACKFILL_FAILED": {
     "code": "PX-7008",
     "message": "Backup history backfill failed"
@@ -58,6 +66,10 @@
   "CRON_SECRET_MISSING": {
     "code": "PX-3406",
     "message": "Cron secret missing from function configuration"
+  },
+  "WHATSAPP_DELIVERY_UNHEALTHY": {
+    "code": "PX-3407",
+    "message": "WhatsApp delivery unhealthy - stuck or failed queue messages detected"
   },
   "LOGON_EXPIRY_FAILED": {
     "code": "PX-6006",

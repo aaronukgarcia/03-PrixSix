@@ -1,11 +1,19 @@
-// GUID: COMPONENT_DASHBOARD_CLIENT-000-v04
+// GUID: COMPONENT_DASHBOARD_CLIENT-000-v05
 // [Intent] Client-side dashboard component providing real-time countdown to qualifying,
 //          deadline urgency warnings, smart pit lane status (open/closed with prediction check),
-//          a dismissible how-to-play welcome card for new users, and a compact stats row.
+//          and a compact stats row.
 // [Inbound Trigger] Rendered by PAGE_DASHBOARD-003 with nextRace prop.
 // [Downstream Impact] Reads user prediction from Firestore to show "Submit" vs "Edit" link.
 //                     Countdown timer updates every second. Deadline warnings at 24h/6h/1h.
-//                     Welcome card persists dismissal via localStorage. Stats row shows prediction status.
+//                     Stats row shows prediction status.
+// @UX(NEWBIE-08, v05) The dismissible how-to-play welcome card (VIRGIN-005) was REMOVED from this
+//   component — it stacked with WelcomeCTA as two welcome cards on a newcomer's first dashboard.
+//   Its content and its dismiss key ("prix6_welcome_seen") now live in WelcomeCTA (the single
+//   consolidated welcome card). Dead-code audit (GR#18): WELCOME_SEEN_KEY const, showWelcome
+//   state, and the card JSX removed here; the legacy key remains honoured by WelcomeCTA.
+// @UX(NEWBIE-02, v05) "Pit Lane" jargon paired with plain language ("predictions open/closed")
+//   in the status card so newcomers understand what the pit lane state means for them.
+// @UX(NEWBIE-05, v05) "Team Principal" glossed on first use in the dashboard heading.
 
 "use client";
 
@@ -13,10 +21,11 @@ import { useAuth, useFirestore, useDoc } from "@/firebase";
 import { RaceSchedule, type Race } from "@/lib/data";
 import { generateRaceId } from "@/lib/normalize-race-id";
 import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+// @UX(NEWBIE-08): CardDescription, HelpCircle, X imports removed with the welcome card (GR#18 dead-code audit)
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Clock, CheckCircle2, AlertCircle, Loader2, AlertTriangle, HelpCircle, X, Lock } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Loader2, AlertTriangle, Lock } from "lucide-react";
 import { doc } from "firebase/firestore";
 import Link from "next/link";
 
@@ -72,15 +81,13 @@ const calculateTimeLeft = (targetDate: string): TimeLeft | null => {
   return null;
 };
 
-// GUID: COMPONENT_DASHBOARD_CLIENT-008-v01
-// [Intent] localStorage key for persisting dismissal of the how-to-play welcome card (VIRGIN-005).
-// [Inbound Trigger] Read on mount by DashboardClient; written when user clicks "Got it".
-// [Downstream Impact] When set to "true", the welcome card is permanently hidden for that browser.
-// @SECURITY_WARNING: Client-only dismissal — acceptable for non-critical informational UI.
-//   See COMPONENT_WELCOME_CTA-001 for full warning on when this pattern is NOT acceptable.
-const WELCOME_SEEN_KEY = "prix6_welcome_seen";
+// GUID: COMPONENT_DASHBOARD_CLIENT-008-v02
+// @REMOVED (NEWBIE-08, v02): WELCOME_SEEN_KEY and the how-to-play welcome card moved to
+//   WelcomeCTA (COMPONENT_WELCOME_CTA-001) as part of the welcome-card consolidation.
+//   The "prix6_welcome_seen" localStorage key is still honoured there as a legacy dismiss key.
 
-// GUID: COMPONENT_DASHBOARD_CLIENT-004-v07
+// GUID: COMPONENT_DASHBOARD_CLIENT-004-v08
+// @UX(NEWBIE-08, v08) Welcome card removed — see COMPONENT_DASHBOARD_CLIENT-008-v02.
 // [Intent] Main client dashboard component — renders how-to-play welcome card (dismissible),
 //          compact stats row, countdown timer, deadline warnings, and pit lane status card.
 //          isPitlaneOpen is server-computed (admin override + clock logic) and passed as prop.
@@ -159,86 +166,21 @@ export function DashboardClient({
     return () => clearTimeout(timer);
   });
 
-  // GUID: COMPONENT_DASHBOARD_CLIENT-009-v01
-  // [Intent] Controls visibility of the how-to-play welcome card (VIRGIN-005).
-  //          Initialised from localStorage on mount to prevent flash of content for returning users.
-  //          Defaults to false (hidden) before hydration to avoid SSR mismatch.
-  // [Inbound Trigger] Component mounts; user clicks "Got it" dismiss button.
-  // [Downstream Impact] When false, the welcome card renders. When true, it is removed from the DOM.
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [welcomeChecked, setWelcomeChecked] = useState(false);
-
-  useEffect(() => {
-    const seen = localStorage.getItem(WELCOME_SEEN_KEY);
-    if (seen !== "true") {
-      setShowWelcome(true);
-    }
-    setWelcomeChecked(true);
-  }, []);
-
-  const handleDismissWelcome = () => {
-    localStorage.setItem(WELCOME_SEEN_KEY, "true");
-    setShowWelcome(false);
-  };
-
   return (
     <>
       <div className="space-y-1">
         <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">
           Welcome, Team Principal!
         </h1>
+        {/* @UX(NEWBIE-05): gloss "Team Principal" on first use — the dashboard heading is where
+            most newcomers meet the term. Pure copy, no behaviour change. */}
         <p className="text-muted-foreground">
-          You are leading <span className="font-semibold text-accent">{user?.teamName}</span> for the {nextRace.name}.
+          As Team Principal (the boss of the team), you are leading{" "}
+          <span className="font-semibold text-accent">{user?.teamName}</span> for the {nextRace.name}.
         </p>
       </div>
 
-      {/* GUID: COMPONENT_DASHBOARD_CLIENT-008 — How-to-play welcome card (VIRGIN-005) */}
-      {welcomeChecked && showWelcome && (
-        <Card className="relative border-primary/30 bg-primary/5">
-          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
-            <div className="flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 shrink-0 text-primary mt-0.5" />
-              <CardTitle className="text-base font-semibold leading-tight">
-                Welcome to Prix Six
-              </CardTitle>
-            </div>
-            <button
-              onClick={handleDismissWelcome}
-              aria-label="Dismiss welcome message"
-              className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </CardHeader>
-          <CardContent>
-            <CardDescription className="mb-3 text-sm">
-              Here is how to play:
-            </CardDescription>
-            <ol className="space-y-2 text-sm text-muted-foreground list-none">
-              <li className="flex items-start gap-2">
-                <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">1</span>
-                <span>Before each race, predict which 6 drivers will qualify P1&ndash;P6.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">2</span>
-                <span>Earn points when your predictions match the real qualifying results.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">3</span>
-                <span>Compete with friends in private leagues and climb the standings.</span>
-              </li>
-            </ol>
-            <div className="mt-4">
-              <button
-                onClick={handleDismissWelcome}
-                className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                Got it
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* @UX(NEWBIE-08): how-to-play welcome card removed — consolidated into WelcomeCTA */}
 
       {/* GUID: COMPONENT_DASHBOARD_CLIENT-009 — Compact stats row (VIRGIN-006) */}
       <div className="flex flex-wrap items-center gap-3">
@@ -310,9 +252,17 @@ export function DashboardClient({
       </Card>
 
       {/* Pit Lane Status Card */}
+      {/* @UX(NEWBIE-02): every "Pit Lane" state is paired with plain language — the card title
+          says what the pit lane IS (the prediction window) and the open state says what open
+          MEANS (predictions open). Copy only; lock enforcement is server-side and unchanged. */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Pit Lane Status</CardTitle>
+          <div>
+            <CardTitle className="text-sm font-medium">Pit Lane Status</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              The pit lane is your prediction window — open means you can submit or edit picks.
+            </p>
+          </div>
           {isPitlaneOpen ? (
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           ) : (
@@ -327,7 +277,7 @@ export function DashboardClient({
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
-              <AlertTitle className="font-bold">Open</AlertTitle>
+              <AlertTitle className="font-bold">Open — Predictions Open</AlertTitle>
               <AlertDescription>
                 {isPredictionLoading ? (
                   "Checking your predictions..."
@@ -368,11 +318,12 @@ export function DashboardClient({
                 </div>
                 <div>
                   <div className="font-bold text-amber-400 text-base leading-tight">
+                    {/* @UX(NEWBIE-02): "Locked" paired with plain language */}
                     {phase === 'awaitingResults'
                       ? `${nextRace.name} — Awaiting official results`
                       : phase === 'raceUnderway'
                       ? `${nextRace.name} — Race under way`
-                      : `${nextRace.name} — Locked`}
+                      : `${nextRace.name} — Locked (deadline passed)`}
                   </div>
                   {phase === 'preRace' && pitLaneClosedAt && (
                     <div className="text-xs text-amber-300/80 mt-0.5">

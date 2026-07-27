@@ -1,4 +1,10 @@
-// GUID: API_ADMIN_WHATSAPP_HEALTH-000-v02
+// GUID: API_ADMIN_WHATSAPP_HEALTH-000-v03
+// @BUGFIX HEALTH-ERRORS-001 (v03): every UNHEALTHY probe result (healthy:false — URL not
+//   configured, worker HTTP error, worker unreachable) now writes a registry-shaped error_logs
+//   entry via logError, awaited before the response. The amber "sleeping" cold-start state
+//   (healthy:null) is degraded-by-design and does NOT log; caller 401/403 do NOT log.
+//   NOTE: the app registry has no WhatsApp-specific key (PX-34xx live only in the functions
+//   mirror), so NETWORK_ERROR (PX-9002, "Server unreachable") is the closest GR#7 key here.
 // @SECURITY_FIX: Added isAdmin Firestore check to prevent non-admin users from probing internal WhatsApp worker URL and diagnostics (GEMINI-AUDIT-124).
 // [Intent] Health check endpoint for WhatsApp Worker interface. Returns connectivity status
 //          and basic diagnostics without making actual WhatsApp API calls. Admin-only.
@@ -6,7 +12,8 @@
 // [Downstream Impact] Read-only health check - no state changes. Returns worker URL reachability.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin } from '@/lib/firebase-admin';
+import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin, logError } from '@/lib/firebase-admin';
+import { ERRORS } from '@/lib/error-registry';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +52,17 @@ export async function GET(request: NextRequest) {
         // Check if WhatsApp worker URL is configured
         const workerUrl = process.env.WHATSAPP_WORKER_URL;
         if (!workerUrl) {
+            // HEALTH-ERRORS-001: unhealthy (config) — a lost env binding is exactly the
+            // BUG-EMAIL-002 silent-failure class. Registry error to error_logs, once per probe.
+            await logError({
+                correlationId,
+                error: new Error(`[${ERRORS.NETWORK_ERROR.code}] WhatsApp health probe: WHATSAPP_WORKER_URL not configured — worker unreachable by definition`),
+                context: {
+                    route: '/api/admin/whatsapp/health',
+                    action: 'health_probe',
+                    additionalInfo: { errorKey: ERRORS.NETWORK_ERROR.key, phase: 'config' },
+                },
+            });
             return NextResponse.json({
                 healthy: false,
                 error: 'WhatsApp worker URL not configured',
@@ -80,6 +98,16 @@ export async function GET(request: NextRequest) {
                     },
                 });
             } else {
+                // HEALTH-ERRORS-001: unhealthy (worker HTTP error) — registry error to error_logs.
+                await logError({
+                    correlationId,
+                    error: new Error(`[${ERRORS.NETWORK_ERROR.code}] WhatsApp health probe: worker returned HTTP ${res.status}`),
+                    context: {
+                        route: '/api/admin/whatsapp/health',
+                        action: 'health_probe',
+                        additionalInfo: { errorKey: ERRORS.NETWORK_ERROR.key, phase: 'worker-http', httpStatus: res.status },
+                    },
+                });
                 return NextResponse.json({
                     healthy: false,
                     error: `Worker returned HTTP ${res.status}`,
@@ -112,6 +140,17 @@ export async function GET(request: NextRequest) {
                     },
                 });
             }
+            // HEALTH-ERRORS-001: unhealthy (non-timeout network failure — DNS/TLS/refused).
+            // The timeout path above returned "sleeping" (degraded-by-design) WITHOUT logging.
+            await logError({
+                correlationId,
+                error: new Error(`[${ERRORS.NETWORK_ERROR.code}] WhatsApp health probe: worker unreachable: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`),
+                context: {
+                    route: '/api/admin/whatsapp/health',
+                    action: 'health_probe',
+                    additionalInfo: { errorKey: ERRORS.NETWORK_ERROR.key, phase: 'worker-network' },
+                },
+            });
             return NextResponse.json({
                 healthy: false,
                 error: fetchError instanceof Error ? fetchError.message : 'Worker unreachable',
@@ -123,6 +162,16 @@ export async function GET(request: NextRequest) {
         }
 
     } catch (error: any) {
+        // HEALTH-ERRORS-001: the probe itself crashed — monitoring is blind; registry error.
+        await logError({
+            correlationId,
+            error: new Error(`[${ERRORS.UNKNOWN_ERROR.code}] WhatsApp health probe crashed: ${error.message || String(error)}`),
+            context: {
+                route: '/api/admin/whatsapp/health',
+                action: 'health_probe',
+                additionalInfo: { errorKey: ERRORS.UNKNOWN_ERROR.key },
+            },
+        });
         return NextResponse.json(
             {
                 healthy: false,

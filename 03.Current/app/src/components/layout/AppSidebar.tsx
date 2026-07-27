@@ -1,4 +1,7 @@
-// GUID: COMPONENT_APP_SIDEBAR-000-v07
+// GUID: COMPONENT_APP_SIDEBAR-000-v08
+// @FIX(v08, NEWBIE-07) Completed the Getting Started pinning: v07 declared the onboardingItem
+// constant but never rendered it, leaving the link out of the nav entirely. Now rendered pinned
+// at the top while onboarding is incomplete, in the bottom group otherwise.
 // [Intent] Main application sidebar component providing navigation links, admin panel access,
 // user profile display, and logout functionality. Renders within the ShadCN Sidebar layout.
 // [Inbound Trigger] Rendered by the authenticated app layout on every page within the (app) route group.
@@ -97,12 +100,15 @@ const menuItemsBottom = [
   { href: "/about", label: "Help", icon: HelpCircle },
 ];
 
-// GUID: COMPONENT_APP_SIDEBAR-005-v01
+// GUID: COMPONENT_APP_SIDEBAR-005-v02
 // @UX(NEWBIE-07) The "Getting Started" nav item, rendered at the TOP of the menu while the
 // onboarding checklist is incomplete, and in the bottom group once complete.
 // CONSTRAINT: ONBOARDING_PROGRESS_KEY and the flag names MUST stay in sync with
 // PAGE_ONBOARDING-001/-002 in app/(app)/onboarding/page.tsx — that page owns the schema.
 // Missing/corrupt localStorage counts as "incomplete" (safe default: surface the checklist).
+// @FIX(v02, NEWBIE-07) v01 defined this item + reader but never rendered them — the component
+// still showed nothing for "Getting Started". Now wired into AppSidebar: localStorage is read
+// after mount (SSR-safe), and the item is pinned above menuItemsTop while incomplete.
 const onboardingItem = { href: "/onboarding", label: "Getting Started", icon: BookOpen };
 const ONBOARDING_PROGRESS_KEY = "prix-six-onboarding-progress";
 const ONBOARDING_FLAGS = ["emailVerified", "gameLearned", "predictionMade", "paddockExplored", "gridJoined"] as const;
@@ -119,12 +125,24 @@ function readOnboardingComplete(): boolean {
   }
 }
 
-// GUID: COMPONENT_APP_SIDEBAR-002-v04
+// GUID: COMPONENT_APP_SIDEBAR-002-v05
+// @UX(NEWBIE-07, v05) Renders the "Getting Started" item pinned at the top while onboarding is
+// incomplete (localStorage check, post-hydration), otherwise in the bottom group.
 export function AppSidebar() {
   const { user, firebaseUser, logout } = useAuth();
   const firestore = useFirestore();
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
+
+  // @UX(NEWBIE-07): null = not yet checked (SSR / pre-hydration) — render in the bottom group
+  // (stable legacy position, no hydration mismatch). After mount, incomplete onboarding pins
+  // the item to the top of the nav. Re-checked on route change so completing the last step
+  // moves it down without a full reload.
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  useEffect(() => {
+    setOnboardingComplete(readOnboardingComplete());
+  }, [pathname]);
+  const pinGettingStarted = onboardingComplete === false;
 
   const isResultsSection = pathname.startsWith("/results") || pathname.startsWith("/my-results");
 
@@ -168,6 +186,8 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
+          {/* @UX(NEWBIE-07): "Getting Started" pinned to the top while onboarding incomplete */}
+          {pinGettingStarted && renderMenuItem(onboardingItem)}
           {menuItemsTop.map(renderMenuItem)}
 
           {/* GUID: COMPONENT_APP_SIDEBAR-004-v04
@@ -215,6 +235,9 @@ export function AppSidebar() {
           </Collapsible>
 
           {menuItemsBottom.map(renderMenuItem)}
+          {/* @UX(NEWBIE-07): once onboarding is complete (or not yet checked), "Getting Started"
+              lives in its legacy bottom-group position */}
+          {!pinGettingStarted && renderMenuItem(onboardingItem)}
 
           {user?.isAdmin && (
              <SidebarMenuItem>

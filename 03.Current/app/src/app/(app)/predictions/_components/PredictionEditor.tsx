@@ -1,5 +1,8 @@
 
-// GUID: COMPONENT_PREDICTION_EDITOR-000-v06
+// GUID: COMPONENT_PREDICTION_EDITOR-000-v07
+// @UX(NEWBIE-22, v07): Touch/tap guidance — the pool description and grid tip now say explicitly
+//   that TAPPING works (tap a driver → next open slot; arrows reorder; X removes). dnd-kit
+//   drag remains available (TouchSensor, 200ms hold) but is no longer the only advertised path.
 // @SECURITY_FIX: GEMINI-AUDIT-035 — Removed raw error.message exposure in handleSubmit and gated console.error
 //   calls behind NODE_ENV !== 'production' in both handleSubmit and handleAnalysis.
 // @SECURITY_FIX: GEMINI-AUDIT-036 — Added validateWeights() guard in saveWeights to reject invalid weight
@@ -660,8 +663,10 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         </CardContent>
         {!isLocked && (
           <div className="px-6 pb-2">
+            {/* @UX(NEWBIE-22): say that tapping works — dragging is optional, not required */}
             <p className="text-xs text-muted-foreground italic">
-              Tip: drag a driver from the grid back to the pool to free up a slot
+              Tip: no need to drag — tap a driver to place them in the next open slot, use the
+              arrows to reorder, and the X to remove. (Dragging works too.)
             </p>
           </div>
         )}
@@ -728,7 +733,8 @@ export function PredictionEditor({ allDrivers, isLocked, initialPredictions, rac
         <Card className={cn(isLocked && "hidden")}>
             <CardHeader>
                 <CardTitle>Available Drivers</CardTitle>
-                <CardDescription>Click or drag a driver to add them to your grid. Looking for someone? Scroll down.</CardDescription>
+                {/* @UX(NEWBIE-22): "Tap" leads — primary interaction on touch devices */}
+                <CardDescription>Tap (or drag) a driver to add them to the next open slot in your grid. Looking for someone? Scroll down.</CardDescription>
             </CardHeader>
             <CardContent>
                 <DroppablePoolZone

@@ -1,4 +1,9 @@
-// GUID: DROPPABLE_GRID_SLOT-000-v03
+// GUID: DROPPABLE_GRID_SLOT-000-v04
+// @UX(NEWBIE-22, v04) Touch support: the reorder (↑/↓) and remove (X) controls were
+//   `opacity-0 group-hover:opacity-100` — invisible on touch devices, which have no hover, so
+//   phone users were forced into the error-prone long-press drag. They are now ALWAYS visible
+//   on devices without hover ([@media(hover:hover)] variant keeps the hover-reveal behaviour
+//   on mouse devices). Tap-to-place already works: pool taps add to the next open slot.
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
@@ -47,8 +52,9 @@ export function DroppableGridSlot({
       <div className="absolute top-1 left-2 font-bold text-muted-foreground text-sm">
         P{index + 1}
       </div>
+      {/* @UX(NEWBIE-22): controls visible by default; hover-reveal only where hover exists */}
       {!isLocked && driver && (
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity">
           <Button
             variant="ghost"
             size="icon"
@@ -75,7 +81,7 @@ export function DroppableGridSlot({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-1 right-1 h-6 w-6 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity"
               onClick={() => onRemove(index)}
             >
               <X className="h-3 w-3" />

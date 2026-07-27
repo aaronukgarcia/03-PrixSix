@@ -1,4 +1,4 @@
-// GUID: PAGE_LOGIN-000-v07
+// GUID: PAGE_LOGIN-000-v08
 // [Intent] Login page for Prix Six. Authenticates users via email + 6-digit PIN,
 //          displays version number, and redirects to dashboard on success.
 // [Inbound Trigger] User navigates to /login or root route (/ renders this page).
@@ -10,6 +10,9 @@
 //                    CLIENT_ERRORS generic messages + correlationId (login, Google, Apple paths).
 // @UX(MANICURE-AUDIT-001, v07): Moved version number outside the login card to a barely-visible
 //                    page footer to remove debug artifact appearance from the main card.
+// @UX(NEWBIE-13, v08): Friendly-first error surface — the [PX-####] code no longer sits inline in
+//                    the error sentence; it joins the Ref in the muted, smaller, selectable
+//                    support line. Errors remain registry-sourced (Golden Rule #7).
 
 "use client";
 
@@ -252,21 +255,31 @@ export default function LoginPage() {
                             )}
                         />
 
-                        {error && (
+                        {/* @UX(NEWBIE-13): friendly sentence first — the [PX-####] code joins the
+                            Ref in the muted selectable support line instead of sitting inline. */}
+                        {error && (() => {
+                            const pxCode = error.match(/\[PX-\d+\]/)?.[0] ?? null;
+                            const ref = error.match(/\(Ref:\s*([^)]+)\)/)?.[1] ?? null;
+                            const friendly = error
+                                .replace(/\s*\[PX-\d+\]/g, '')
+                                .replace(/\s*\(Ref:\s*[^)]+\)/g, '')
+                                .trim();
+                            return (
                             <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
                                 <div className="flex items-center gap-x-2">
                                     <Frown className="h-4 w-4 flex-shrink-0" />
-                                    <p>{error.includes('(Ref:') ? error.split('(Ref:')[0].trim() : error}</p>
+                                    <p>{friendly}</p>
                                 </div>
-                                {error.includes('(Ref:') && (
+                                {(pxCode || ref) && (
                                     <div className="mt-2 pt-2 border-t border-destructive/20">
-                                        <code className="text-xs select-all cursor-pointer bg-destructive/10 px-2 py-1 rounded">
-                                            {error.match(/\(Ref:\s*([^)]+)\)/)?.[1] || ''}
+                                        <code className="text-xs text-muted-foreground select-all cursor-pointer bg-destructive/10 px-2 py-1 rounded">
+                                            {[pxCode, ref].filter(Boolean).join(' · ')}
                                         </code>
                                     </div>
                                 )}
                             </div>
-                        )}
+                            );
+                        })()}
 
                         <Button type="submit" className="w-full" disabled={isSubmitting || isRedirecting}>
                             {isRedirecting ? "Welcome! Loading..." : isSubmitting ? "Signing In..." : "Sign In"}

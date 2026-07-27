@@ -1,4 +1,7 @@
-// GUID: PAGE_LEAGUES-000-v03
+// GUID: PAGE_LEAGUES-000-v04
+// @UX(NEWBIE-21, v04) Non-owner members of a private league now see a hint that the invite code
+//   lives with the league owner — previously they had no way to know how to bring a friend in
+//   (the code itself stays owner-only per FIRESTORE-003; this is copy, not a data change).
 // [Intent] Leagues listing page — displays all leagues the current user belongs to as cards,
 //   with dialogs to create a new league or join an existing one via invite code.
 //   Shows league metadata (member count, invite code, owner badge) and provides leave/delete actions.
@@ -442,6 +445,15 @@ export default function LeaguesPage() {
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
+                  )}
+
+                  {/* @UX(NEWBIE-21): non-owners can't see the invite code (FIRESTORE-003, by
+                      design) — tell them how inviting works instead of a silent dead end. */}
+                  {!isGlobal && !isOwner && (
+                    <p className="text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg">
+                      Want to invite someone to this league? Only the league owner can see the
+                      invite code — ask them to share it.
+                    </p>
                   )}
 
                   <div className="flex gap-2">

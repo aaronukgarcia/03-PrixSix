@@ -1,6 +1,10 @@
 "use client";
 
-// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v07
+// GUID: COMPONENT_LIVE_TIMING_CLIENT-000-v08
+// @UX(NEWBIE-20, v08) Between-races panel now states explicitly that Live Timing only populates
+//   on race weekends — a newcomer landing mid-week previously saw a countdown with no framing
+//   for why the page was "empty". The next-session details were already shown; the framing
+//   sentence is the addition.
 // [Intent] Client component for the /live (PubChat) page. Shows the ThePaddockPubChat
 //          widget with Leaderboard, Team Lens, Comparison, and Chatter tabs, plus
 //          auto-refresh every 2 minutes.
@@ -413,9 +417,14 @@ export default function LiveTimingClient({ initialTimingData }: LiveTimingClient
           const upcomingSessions = getUpcomingSessions(5);
           return (
             <div className="px-4 py-6 space-y-4">
+              {/* @UX(NEWBIE-20): explicit between-sessions framing — say WHY the page is quiet */}
+              <p className="text-xs text-muted-foreground text-center">
+                Live Timing fills with lap-by-lap data during race weekends — there&apos;s nothing to
+                show between sessions. Come back when the cars are on track!
+              </p>
               {/* Primary message — when does PubChat reopen */}
               <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-4 space-y-1 text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">PubChat next opens at</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Live Timing next opens at</p>
                 <p className="text-base font-bold">
                   {fp1 ? `${fp1.raceName} FP1` : `${nextRace.name} FP1`}
                   {fp1?.isSprint && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(Sprint Weekend)</span>}

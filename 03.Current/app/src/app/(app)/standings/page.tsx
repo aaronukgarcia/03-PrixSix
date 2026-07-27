@@ -1,4 +1,11 @@
-// GUID: PAGE_STANDINGS-000-v07
+// GUID: PAGE_STANDINGS-000-v08
+// @UX(NEWBIE-13, v08) Error surfaces render friendly-sentence-first; [PX code] + Ref demoted to
+//   a muted smaller selectable line (errors still sourced exclusively from the ERRORS registry).
+// @UX(NEWBIE-18, v08) Table Guide legend opens by default on a user's first visit (localStorage
+//   first-visit flag) so newer users see the key to this dense page; the late-joiner penalty
+//   annotation gets an explanatory native tooltip.
+// @UX(NEWBIE-23, v08) chartMode defaults to 'myPosition' on narrow screens (matchMedia in the
+//   useState initialiser) — the full top-10 bump chart is hard to parse as a first phone view.
 // [Intent] Season Standings page — displays cumulative league standings after each race weekend,
 //   with race-by-race selection, season progression chart, rank change indicators, and pagination.
 // [Inbound Trigger] Navigation to /standings route by authenticated user.
@@ -324,7 +331,8 @@ interface RaceWeekend {
 // [Downstream Impact] Controls how many standings rows are shown before "Load More".
 const PAGE_SIZE = 25;
 
-// GUID: PAGE_STANDINGS-010-v04
+// GUID: PAGE_STANDINGS-010-v05
+// @UX(NEWBIE-18/-23, v05): first-visit legend auto-open + narrow-screen 'myPosition' default.
 // [Intent] Main Standings page component — subscribes to scores in real-time, computes cumulative
 //   standings per race weekend, renders the progression chart and sortable standings table.
 //   Auto-focuses on latest race when new race results are added.
@@ -341,7 +349,15 @@ export default function StandingsPage() {
   //  - raceRange = which RACES on the x-axis: 'last3' (recent battle) | 'all' (whole season)
   // Default = the zoomed-in view (top 10 teams, last 3 races) where the meaningful current-order
   // detail lives; the user can zoom out on either axis independently.
-  const [chartMode, setChartMode] = useState<'top10' | 'all' | 'myPosition'>('top10'); // 7a3f1d2e — chart line filter toggle
+  // @UX(NEWBIE-23): on narrow screens the default is 'myPosition' — the top-10 bump chart is
+  // hard to parse on a phone as the first "how am I doing?" view. matchMedia runs in the lazy
+  // initialiser (client render only; SSR-safe via typeof window guard). No hydration-mismatch
+  // risk: the chart only renders after client-side data loading completes.
+  const [chartMode, setChartMode] = useState<'top10' | 'all' | 'myPosition'>(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+      ? 'myPosition'
+      : 'top10'
+  ); // 7a3f1d2e — chart line filter toggle
   const [raceRange, setRaceRange] = useState<'last3' | 'all'>('last3');
 
   const [allScores, setAllScores] = useState<ScoreData[]>([]);
@@ -354,6 +370,22 @@ export default function StandingsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+
+  // @UX(NEWBIE-18): open the Table Guide by default for users who haven't visited standings
+  // before (newer users need the key to this dense, jargon-heavy page). The first-visit flag
+  // is set immediately so returning users keep the collapsed default. Client-only informational
+  // preference — see COMPONENT_WELCOME_CTA-001 for when localStorage-only state is acceptable.
+  useEffect(() => {
+    try {
+      const LEGEND_SEEN_KEY = 'prix6-standings-legend-seen';
+      if (!localStorage.getItem(LEGEND_SEEN_KEY)) {
+        localStorage.setItem(LEGEND_SEEN_KEY, 'true');
+        setIsLegendOpen(true);
+      }
+    } catch {
+      // Storage unavailable — keep collapsed default (cosmetic only)
+    }
+  }, []);
 
   // Track previous completed race count for auto-focus on new races
   const prevCompletedCountRef = useRef<number>(0);
@@ -1310,7 +1342,9 @@ export default function StandingsPage() {
           </div>
         )}
 
-        {/* GUID: PAGE_STANDINGS-023-v01
+        {/* GUID: PAGE_STANDINGS-023-v02
+            @UX(NEWBIE-18, v02): defaults to OPEN on a user's first standings visit (see the
+              first-visit effect near the isLegendOpen state); collapsed thereafter.
             [Intent] Collapsible "Table Guide" legend explaining all visual indicators in the standings
               table: rank badges (gold/silver/bronze), rank change arrows, race winner badge, defending
               champion badge, and column definitions (Old Overall, New Overall, Sprint, Gap).
@@ -1474,8 +1508,12 @@ export default function StandingsPage() {
                       {team.teamName}
                       <RankBadge rank={team.rank} />
                     </span>
+                    {/* @UX(NEWBIE-18): explanatory tooltip on the late-joiner annotation */}
                     {team.penalty < 0 && (
-                      <span className="block text-xs font-medium text-red-600" title="One-time late-joining penalty">
+                      <span
+                        className="block text-xs font-medium text-red-600 cursor-help"
+                        title="This team joined mid-season. To keep things fair they start from the lowest-placed active team's score with a one-time adjustment so they begin 1 point behind it. Full details on the Rules page."
+                      >
                         {team.penalty} late-joining penalty
                       </span>
                     )}
@@ -1539,8 +1577,26 @@ export default function StandingsPage() {
               ))
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={showSprintColumn ? 7 : 6} className="text-center h-24 text-destructive">
-                  {error}
+                {/* @UX(NEWBIE-13): friendly sentence first; [PX code] + Ref on a muted,
+                    smaller, selectable support line. Registry-sourced errors unchanged (GR#7). */}
+                <TableCell colSpan={showSprintColumn ? 7 : 6} className="text-center h-24">
+                  {(() => {
+                    const techParts = [
+                      ...(error.match(/\[PX-\d+\]/g) ?? []),
+                      ...(error.match(/\(Ref:\s*[^)]+\)/g) ?? []),
+                    ];
+                    const friendly = error.replace(/\s*\[PX-\d+\]/g, '').replace(/\s*\(Ref:\s*[^)]+\)/g, '').trim();
+                    return (
+                      <div className="space-y-1">
+                        <p className="text-destructive">{friendly}</p>
+                        {techParts.length > 0 && (
+                          <p className="text-xs text-muted-foreground font-mono select-all cursor-text">
+                            {techParts.join(' ')}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </TableCell>
               </TableRow>
             ) : (

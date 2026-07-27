@@ -49,7 +49,12 @@
 //   for this fix pass.
 // =============================================================================
 
-// GUID: API_ADMIN_OPENF1_SESSIONS-000-v05
+// GUID: API_ADMIN_OPENF1_SESSIONS-000-v06
+// @BUGFIX HEALTH-ERRORS-001 (v06): the four OpenF1-failure returns (meetings/sessions ×
+//   timeout-or-network/HTTP-error) now write a registry-shaped error_logs entry (PX-3201) via
+//   logError, awaited before the response — this route doubles as the PubChat/OpenF1 health
+//   probe, and probe-detected outages previously reached only console logs (top-level catch
+//   was already logging). Caller 401/403 and success paths do NOT log.
 // FEAT-PC-001 (Section 4): Added validate=true mode — parallel /laps existence checks per session, returns hasData field.
 // @SECURITY_FIX: Replaced hardcoded ERROR_CODES.UNEXPECTED_ERROR fallback with ERROR_CODES.UNKNOWN_ERROR.code (GEMINI-AUDIT-009).
 // AUTHOR: gill — 2026-02-19
@@ -401,6 +406,17 @@ export async function GET(request: NextRequest) {
         if (process.env.NODE_ENV !== 'production') {
           console.error(`[openf1-sessions GET ${correlationId}] Meetings fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
         }
+        // HEALTH-ERRORS-001: this route is the PubChat/OpenF1 health probe — an unreachable
+        // OpenF1 API is an unhealthy dependency and must land in error_logs (once per call).
+        await logError({
+          correlationId,
+          error: new Error(`[${ERRORS.OPENF1_FETCH_FAILED.code}] OpenF1 meetings ${isTimeout ? `timed out after ${FETCH_TIMEOUT_MS / 1000}s` : `network error: ${fetchErr.message}`}`),
+          context: {
+            route: '/api/admin/openf1-sessions',
+            action: 'GET',
+            additionalInfo: { errorKey: ERRORS.OPENF1_FETCH_FAILED.key, phase: 'meetings-fetch', timeout: isTimeout },
+          },
+        });
         return NextResponse.json(
           {
             success: false,
@@ -416,6 +432,17 @@ export async function GET(request: NextRequest) {
 
       // Handle non-2xx HTTP status from OpenF1.
       if (!res.ok) {
+        // HEALTH-ERRORS-001: unhealthy dependency (OpenF1 HTTP error) — registry error to
+        // error_logs before either failure return below.
+        await logError({
+          correlationId,
+          error: new Error(`[${ERRORS.OPENF1_FETCH_FAILED.code}] OpenF1 meetings endpoint returned HTTP ${res.status}${res.status === 401 && !openf1Token ? ' (credentials not configured)' : ''}`),
+          context: {
+            route: '/api/admin/openf1-sessions',
+            action: 'GET',
+            additionalInfo: { errorKey: ERRORS.OPENF1_FETCH_FAILED.key, phase: 'meetings-http', httpStatus: res.status },
+          },
+        });
         // Special case: 401 with no token means credentials are not configured.
         if (res.status === 401 && !openf1Token) {
           // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
@@ -507,6 +534,16 @@ export async function GET(request: NextRequest) {
         if (process.env.NODE_ENV !== 'production') {
           console.error(`[openf1-sessions GET ${correlationId}] Sessions fetch ${isTimeout ? 'timed out' : 'failed'}:`, fetchErr);
         }
+        // HEALTH-ERRORS-001: unhealthy dependency (OpenF1 unreachable) — registry error.
+        await logError({
+          correlationId,
+          error: new Error(`[${ERRORS.OPENF1_FETCH_FAILED.code}] OpenF1 sessions ${isTimeout ? `timed out after ${FETCH_TIMEOUT_MS / 1000}s` : `network error: ${fetchErr.message}`}`),
+          context: {
+            route: '/api/admin/openf1-sessions',
+            action: 'GET',
+            additionalInfo: { errorKey: ERRORS.OPENF1_FETCH_FAILED.key, phase: 'sessions-fetch', timeout: isTimeout },
+          },
+        });
         return NextResponse.json(
           {
             success: false,
@@ -522,6 +559,16 @@ export async function GET(request: NextRequest) {
 
       // Handle non-2xx HTTP status.
       if (!res.ok) {
+        // HEALTH-ERRORS-001: unhealthy dependency (OpenF1 HTTP error) — registry error.
+        await logError({
+          correlationId,
+          error: new Error(`[${ERRORS.OPENF1_FETCH_FAILED.code}] OpenF1 sessions endpoint returned HTTP ${res.status}${res.status === 401 && !openf1Token ? ' (credentials not configured)' : ''}`),
+          context: {
+            route: '/api/admin/openf1-sessions',
+            action: 'GET',
+            additionalInfo: { errorKey: ERRORS.OPENF1_FETCH_FAILED.key, phase: 'sessions-http', httpStatus: res.status },
+          },
+        });
         if (res.status === 401 && !openf1Token) {
           // @SECURITY_FIX (Wave 11): Gated console.error behind NODE_ENV
           if (process.env.NODE_ENV !== 'production') {

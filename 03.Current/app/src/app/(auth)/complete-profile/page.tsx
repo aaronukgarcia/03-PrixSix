@@ -1,4 +1,9 @@
-// GUID: PAGE_COMPLETE_PROFILE-000-v03
+// GUID: PAGE_COMPLETE_PROFILE-000-v04
+// @UX(NEWBIE-16, v04) Success no longer relies SOLELY on the onAuthStateChanged listener to
+//   navigate — a ~1.5s fallback router.push('/dashboard') fires after the success toast, so a
+//   slow/missed listener tick can't strand the new user on this page.
+// @UX(NEWBIE-13, v04) Friendly-first error surface — [PX code] moved out of the sentence into
+//   the muted selectable support line alongside the Ref.
 // [Intent] Profile completion page for new OAuth users. After signing in with Google/Apple
 //          for the first time, the user lands here to enter their team name before they can
 //          access the main app. The Firebase Auth user already exists; this page creates the
@@ -146,7 +151,9 @@ export default function CompleteProfilePage() {
     }
   }
 
-  // GUID: PAGE_COMPLETE_PROFILE-006-v06
+  // GUID: PAGE_COMPLETE_PROFILE-006-v07
+  // @UX(NEWBIE-16, v07): success path now schedules a 1.5s fallback router.push('/dashboard')
+  //   instead of relying solely on the onAuthStateChanged listener.
   // @AUTH_FIX (BUG-OAUTH-PROFILE-401): The complete-oauth-profile endpoint calls verifyAuthToken()
   //   and returns 401 "Unauthorized" when no Bearer token is present. This page previously sent only
   //   a Content-Type header, so EVERY team-name submission (typed or suggested) failed with
@@ -197,7 +204,14 @@ export default function CompleteProfilePage() {
           duration: 5000,
         });
         // The onAuthStateChanged listener will detect the new Firestore doc
-        // and redirect to /dashboard automatically
+        // and redirect to /dashboard automatically.
+        // @UX(NEWBIE-16): fallback navigation — if the auth listener is slow or its tick is
+        // missed, the new user was stranded here on a dead success screen. Push to /dashboard
+        // after ~1.5s; if the listener already navigated first, this push is a harmless no-op.
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1500);
+        return;
       } else {
         setError(result.error || 'Failed to complete profile');
         const errorCodeMatch = result.error?.match(/\[PX-\d+\]/);
@@ -273,21 +287,31 @@ export default function CompleteProfilePage() {
                 )}
               />
 
-              {error && (
+              {/* @UX(NEWBIE-13): friendly sentence first — [PX-####] joins the Ref in the muted
+                  selectable support line instead of sitting inline in the sentence. */}
+              {error && (() => {
+                const pxCode = error.match(/\[PX-\d+\]/)?.[0] ?? null;
+                const ref = error.match(/\(Ref:\s*([^)]+)\)/)?.[1] ?? null;
+                const friendly = error
+                  .replace(/\s*\[PX-\d+\]/g, '')
+                  .replace(/\s*\(Ref:\s*[^)]+\)/g, '')
+                  .trim();
+                return (
                 <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
                   <div className="flex items-center gap-x-2">
                     <Frown className="h-4 w-4 flex-shrink-0" />
-                    <p>{error.includes('(Ref:') ? error.split('(Ref:')[0].trim() : error}</p>
+                    <p>{friendly}</p>
                   </div>
-                  {error.includes('(Ref:') && (
+                  {(pxCode || ref) && (
                     <div className="mt-2 pt-2 border-t border-destructive/20">
-                      <code className="text-xs select-all cursor-pointer bg-destructive/10 px-2 py-1 rounded">
-                        {error.match(/\(Ref:\s*([^)]+)\)/)?.[1] || ''}
+                      <code className="text-xs text-muted-foreground select-all cursor-pointer bg-destructive/10 px-2 py-1 rounded">
+                        {[pxCode, ref].filter(Boolean).join(' · ')}
                       </code>
                     </div>
                   )}
                 </div>
-              )}
+                );
+              })()}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (

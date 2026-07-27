@@ -1,4 +1,9 @@
-// GUID: PAGE_ONBOARDING-000-v06
+// GUID: PAGE_ONBOARDING-000-v07
+// @UX(NEWBIE-05/-06, v07) First-use glosses for "paddock"/"grid" flavour terms in the checklist
+//   copy, and the /about step renamed to match the sidebar's "Help" label (one name everywhere).
+// @BUGFIX(NEWBIE-10, v07) predictionMade auto-detect now EXCLUDES late-joiner clone docs
+//   (_clonedFromLateJoinerHandicap) — previously a late joiner's cloned submissions auto-ticked
+//   "Make a Prediction" before they had ever chosen a driver.
 // [Intent] Onboarding checklist page. Guides new users through five steps to get started:
 //          verify email, learn the game, make a prediction, explore the paddock, and join a league.
 //          Steps 1 & 3 auto-detect from auth/Firestore state; steps 2, 4, 5 are manual.
@@ -84,9 +89,11 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
   {
     id: "gameLearned",
     label: "Learn the Game",
-    description: "Visit the About page to understand how Prix Six works and how scoring is calculated.",
+    // @UX(NEWBIE-06): the sidebar labels /about as "Help" — use the same name here so the
+    // checklist step and the nav item are recognisably the same destination.
+    description: "Visit the Help page to understand how Prix Six works and how scoring is calculated.",
     icon: BookOpen,
-    links: [{ href: "/about", label: "About Prix Six" }],
+    links: [{ href: "/about", label: "Help" }],
     autoDetect: false,
   },
   {
@@ -100,7 +107,9 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
   {
     id: "paddockExplored",
     label: "Explore the Paddock",
-    description: "Check the standings, browse results, and view the full rules.",
+    // @UX(NEWBIE-05): gloss the F1 flavour term on first use — a newcomer shouldn't have to
+    // guess what "the paddock" means before ticking the step.
+    description: "The paddock is F1's behind-the-scenes hub — here it's the app's info pages. Check the standings, browse results, and view the full rules.",
     icon: Compass,
     links: [
       { href: "/rules", label: "Rules" },
@@ -112,7 +121,9 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
   {
     id: "gridJoined",
     label: "Join the Grid",
-    description: "Create or join a league to compete with friends and other racers.",
+    // @UX(NEWBIE-05): "the grid" = the race starting line-up — here it means the field of
+    // competing teams you join via a league.
+    description: "The grid is the starting line-up — here, it's the field of teams you race against. Create or join a league to compete with friends and other racers.",
     icon: Users,
     links: [{ href: "/leagues", label: "Browse Leagues" }],
     autoDetect: false,
@@ -165,15 +176,20 @@ export default function OnboardingPage() {
     }
   }, [isEmailVerified, hasLoaded]);
 
-  // GUID: PAGE_ONBOARDING-007
+  // GUID: PAGE_ONBOARDING-007-v02
   // [Intent] Query predictions subcollection to auto-detect if user has made any prediction.
+  // @BUGFIX(NEWBIE-10, v02): limit raised from 1 to 25 — with limit(1) a late joiner's FIRST doc
+  //   was almost always a handicap clone (_clonedFromLateJoinerHandicap), auto-ticking the step.
+  //   We now fetch a page and filter clones out below. CONSTRAINT: the flag name must stay in
+  //   sync with @/lib/late-joiner (the clone writer) — it stamps _clonedFromLateJoinerHandicap
+  //   on every cloned prediction doc. 25 covers a full season of prior-race clones.
   // [Inbound Trigger] Firestore and user availability.
-  // [Downstream Impact] If predictions exist, marks predictionMade as true in progress.
+  // [Downstream Impact] If any NON-CLONED prediction exists, marks predictionMade as true.
   const predictionsQuery = useMemo(() => {
     if (!firestore || !user) return null;
     const q = query(
       collection(firestore, "users", user.id, "predictions"),
-      limit(1)
+      limit(25)
     );
     (q as any).__memo = true;
     return q;
@@ -193,7 +209,13 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (!hasLoaded || !predictions) return;
-    if (predictions.length > 0) {
+    // @BUGFIX(NEWBIE-10): clone docs written by the late-joiner handicap engine are NOT
+    // predictions the user made — exclude them so the checklist step only ticks when the
+    // player has genuinely submitted their own picks.
+    const hasOwnPrediction = predictions.some(
+      (p: any) => !p?._clonedFromLateJoinerHandicap
+    );
+    if (hasOwnPrediction) {
       setProgress((prev) => {
         if (prev.predictionMade) return prev;
         const next = { ...prev, predictionMade: true };

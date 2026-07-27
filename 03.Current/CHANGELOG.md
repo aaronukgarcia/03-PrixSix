@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.15.0 — 2026-07-27
+
+### Wave 3/4 completion (multi-agent, round 2)
+
+**Newbie experience — all 21 remaining items (NEWBIE-02…25).** Plain-language pit-lane copy; sprint badges unified on submissions; F1 jargon glossed on first use; Help-page naming unified; Getting Started actually pinned to the nav while onboarding is incomplete (the earlier declaration was never rendered); ONE welcome card (dashboard's duplicate removed, suppressed right after /welcome acknowledgement); cloned late-joiner docs no longer auto-tick "Make a Prediction"; soft "being set up" state when handicap info is pending; friendly-first error surfaces on login/complete-profile/submissions/standings; client-side weak-PIN validation; complete-profile redirect fallback; submissions Auto/Manual legend; standings guide auto-opens on first visit + penalty tooltip; /about Teams copy corrected; between-sessions framing on Live Timing + Pit Wall; league non-owner invite hint; touch-visible grid controls (tap-first UX); mobile standings defaults to My Position; teams copy/empty-states; invited email locked read-only.
+
+**GR#17 error-logs completion (HEALTH-ERRORS-001 closed).** Function-by-function sweep finished across all 18 exports — including two deep finds: `deleteAllCollections` was swallowing recovery-cleanup failures entirely (cleanup could fail with zero trace while reporting SUCCESS — now PX-7006), and the WhatsApp watchdog's "attention" state (stuck/failed deliveries) never reached error_logs (now PX-3407, edge-triggered). Sub-catch gaps wired (Auth PX-7003, Storage PX-7010), hardcoded PX literals replaced with registry references (GR#7). All four admin health probes now log server-side on unhealthy, awaited pre-response. New codes: PX-7003 mirror, PX-7010, PX-3407.
+
+**Gitignore sweep (BUG-GITIGNORE-001 closed):** unanchored `logs`/`pids`/`coverage`/`send-bulk-temp.ts` were shadowing real source paths (proven: `src/app/api/admin/logs/**`) — all anchored with comments in both app and project gitignores.
+
+**Dependencies:** worker express 4→5, pino 9→10, dotenv 16→17 (zero source changes needed — DEP-MAJ-006; ships as worker 2.2.3). zod 4 formally BLOCKED: genkit 1.40 pins zod ^3 (recorded in DEP-MAJ-003).
+
+**Backlog triage (25 pre-audit items):** 12 closed with evidence (incl. 4 Pit Wall fixes shipped long ago, reset-pin rate limiting, version-guard, hooks). Live discoveries now precisely documented: OAuth-completion + add-secondary-team still use the dead pre-SSOT handicap path (late joiners via those routes get NO adjustment); signup is invite-enabled but completely unthrottled (promoted); tsc suppressed-error debt grew 3→9 incl. an arity bug in ai/analysis; admin results delete cascades without confirmation.
+
 ## v3.14.0 — 2026-07-26
 
 ### Wave 2/3/4 mega-integration (multi-agent)

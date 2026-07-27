@@ -1,4 +1,9 @@
-// GUID: API_ADMIN_EMAIL_HEALTH-000-v04
+// GUID: API_ADMIN_EMAIL_HEALTH-000-v05
+// @BUGFIX HEALTH-ERRORS-001 (v05): every UNHEALTHY probe result (healthy:false — config missing,
+//   token failure, Graph error, network error) now writes a registry-shaped error_logs entry via
+//   logError, awaited before the response (Cloud Run throttles CPU post-response). Degraded-only
+//   states and caller 401/403 do NOT log. GR#17 amendment — probe-detected outages must be
+//   visible in error_logs, the admin's single pane of glass.
 // [Intent] Health check endpoint for Email/Graph API interface. Returns connectivity status
 //          by making a lightweight test call to Microsoft Graph API.
 // [Inbound Trigger] GET request from InterfaceHealthMonitor component (auto-refresh every 30s).
@@ -9,7 +14,8 @@
 //           /users/{senderEmail} is the correct probe for app-only tokens and validates the exact sender account.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin } from '@/lib/firebase-admin';
+import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin, logError } from '@/lib/firebase-admin';
+import { ERRORS } from '@/lib/error-registry';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +62,16 @@ export async function GET(request: NextRequest) {
         const senderEmail = process.env.GRAPH_SENDER_EMAIL?.trim();
 
         if (!clientId || !clientSecret || !tenantId || !senderEmail) {
+            // HEALTH-ERRORS-001: unhealthy (config) — must land in error_logs, once per probe call.
+            await logError({
+                correlationId,
+                error: new Error(`[${ERRORS.EMAIL_CONFIG_MISSING.code}] Email health probe: Microsoft Graph credentials not configured`),
+                context: {
+                    route: '/api/admin/email/health',
+                    action: 'health_probe',
+                    additionalInfo: { errorKey: ERRORS.EMAIL_CONFIG_MISSING.key, hasClientId: !!clientId, hasClientSecret: !!clientSecret, hasTenantId: !!tenantId, hasSenderEmail: !!senderEmail },
+                },
+            });
             return NextResponse.json({
                 healthy: false,
                 error: 'Microsoft Graph API credentials not configured',
@@ -96,6 +112,17 @@ export async function GET(request: NextRequest) {
                     errorDetails = `HTTP ${tokenRes.status} - ${tokenRes.statusText}`;
                 }
 
+                // HEALTH-ERRORS-001: unhealthy (OAuth) — expired/wrong secret means NO email can
+                // send. Registry error to error_logs, once per probe call.
+                await logError({
+                    correlationId,
+                    error: new Error(`[${ERRORS.EMAIL_SEND_FAILED.code}] Email health probe: failed to get Graph access token (HTTP ${tokenRes.status}): ${errorDetails}`),
+                    context: {
+                        route: '/api/admin/email/health',
+                        action: 'health_probe',
+                        additionalInfo: { errorKey: ERRORS.EMAIL_SEND_FAILED.key, phase: 'oauth-token', httpStatus: tokenRes.status },
+                    },
+                });
                 return NextResponse.json({
                     healthy: false,
                     error: `Failed to get access token: HTTP ${tokenRes.status}`,
@@ -140,6 +167,16 @@ export async function GET(request: NextRequest) {
                 });
             } else {
                 const errorBody = await graphRes.json().catch(() => ({}));
+                // HEALTH-ERRORS-001: unhealthy (Graph API) — registry error to error_logs.
+                await logError({
+                    correlationId,
+                    error: new Error(`[${ERRORS.EMAIL_SEND_FAILED.code}] Email health probe: Graph API returned HTTP ${graphRes.status} (${errorBody?.error?.code ?? 'no error code'})`),
+                    context: {
+                        route: '/api/admin/email/health',
+                        action: 'health_probe',
+                        additionalInfo: { errorKey: ERRORS.EMAIL_SEND_FAILED.key, phase: 'graph-probe', httpStatus: graphRes.status },
+                    },
+                });
                 return NextResponse.json({
                     healthy: false,
                     error: `Graph API returned HTTP ${graphRes.status}`,
@@ -159,6 +196,16 @@ export async function GET(request: NextRequest) {
             }
 
         } catch (fetchError) {
+            // HEALTH-ERRORS-001: unhealthy (network/timeout reaching Microsoft) — registry error.
+            await logError({
+                correlationId,
+                error: new Error(`[${ERRORS.NETWORK_ERROR.code}] Email health probe: network error reaching Microsoft: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`),
+                context: {
+                    route: '/api/admin/email/health',
+                    action: 'health_probe',
+                    additionalInfo: { errorKey: ERRORS.NETWORK_ERROR.key, phase: 'network' },
+                },
+            });
             return NextResponse.json({
                 healthy: false,
                 error: fetchError instanceof Error ? fetchError.message : 'Network error',
@@ -169,6 +216,16 @@ export async function GET(request: NextRequest) {
         }
 
     } catch (error: any) {
+        // HEALTH-ERRORS-001: the probe itself crashed — monitoring is blind; registry error.
+        await logError({
+            correlationId,
+            error: new Error(`[${ERRORS.UNKNOWN_ERROR.code}] Email health probe crashed: ${error.message || String(error)}`),
+            context: {
+                route: '/api/admin/email/health',
+                action: 'health_probe',
+                additionalInfo: { errorKey: ERRORS.UNKNOWN_ERROR.key },
+            },
+        });
         return NextResponse.json(
             {
                 healthy: false,

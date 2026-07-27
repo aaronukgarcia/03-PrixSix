@@ -24,10 +24,13 @@ import { claimTeamName } from '@/lib/team-names';
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
 
-// GUID: API_AUTH_SIGNUP-001-v03
+// GUID: API_AUTH_SIGNUP-001-v04
 // [Intent] List of commonly guessable 6-digit PINs that are rejected during signup to enforce minimum credential strength.
 // [Inbound Trigger] Referenced by the PIN validation logic in the POST handler.
 // [Downstream Impact] Adding or removing entries changes which PINs are accepted. If this list is too aggressive, legitimate users may be blocked from signing up.
+// @UX(NEWBIE-14, v04) SYNC CONSTRAINT: this list is mirrored client-side in
+//   app/src/app/(auth)/signup/InviteSignupForm.tsx (COMPONENT_INVITE_SIGNUP-006) for instant
+//   pre-submit feedback. THIS server list is authoritative; edit BOTH lists together.
 // Weak PINs that should be rejected
 const WEAK_PINS = [
   '123456', '654321', '111111', '222222', '333333', '444444',
@@ -505,12 +508,17 @@ export async function POST(request: NextRequest) {
       warnings.push('League enrollment pending - you may not appear in standings immediately.');
     }
 
-    // GUID: API_AUTH_SIGNUP-014-v05
+    // GUID: API_AUTH_SIGNUP-014-v06
+    // @DOC_FIX (NEWBIE-11, v06): comment previously described the retired flat "-5 penalty" rule;
+    //   updated to the ACTIVE-FLOOR rule actually implemented in @/lib/late-joiner: the new team's
+    //   score is cloned from the current lowest-placed ACTIVE team, then a one-time -1 adjustment
+    //   is written so they start exactly 1 point behind that floor.
     // @BUG_FIX (v3.1.x): The previous implementation read the dead `scores` collection (post-SSOT-001
     //   the live standings come from race_results × predictions) so the handicap was both miscalculated
     //   AND never read by the standings page. The full late-joiner mechanic now lives in
-    //   @/lib/late-joiner: it clones the current last-place team's prior-race predictions into the new
-    //   team, writes a one-time -5 penalty to standings_adjustments (read by /api/standings), sets the
+    //   @/lib/late-joiner: it clones the current last-place ACTIVE team's prior-race predictions into
+    //   the new team, writes a one-time -1 active-floor adjustment to standings_adjustments (read by
+    //   /api/standings) so the newcomer starts 1 point behind the lowest active team, sets the
     //   lateJoiner flags that drive the welcome/acknowledgement screen, and writes an audit entry for
     //   the team creation AND for every cloned submission (full transparency).
     // [Inbound Trigger] Runs after global league enrolment.

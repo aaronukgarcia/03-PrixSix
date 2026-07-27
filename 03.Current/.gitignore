@@ -1,5 +1,8 @@
 # Logs
-logs
+# BUG-GITIGNORE-001: anchored — unanchored "logs" matched EVERY directory named logs,
+# silently shadowing real source (it was hiding e.g. any functions/logs/ or app source
+# dir named logs). Same class as the app/.gitignore "email/" bug fixed 2026-07-26.
+/logs
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -18,7 +21,8 @@ firebase-debug.*.log*
 # .firebaserc
 
 # Runtime data
-pids
+# BUG-GITIGNORE-001: anchored — see "/logs" note above.
+/pids
 *.pid
 *.seed
 *.pid.lock
@@ -27,7 +31,8 @@ pids
 lib-cov
 
 # Coverage directory used by tools like istanbul
-coverage
+# BUG-GITIGNORE-001: anchored — unanchored "coverage" shadowed any source dir named coverage.
+/coverage
 
 # nyc test coverage
 .nyc_output

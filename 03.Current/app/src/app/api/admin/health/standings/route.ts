@@ -8,7 +8,11 @@
 // Side-effects: none (read-only health probe)
 // Returns:     { status: 'healthy'|'degraded'|'down', ... diagnostic detail ... }
 // ──────────────────────────────────────────────────────────────────
-// GUID: API_ADMIN_HEALTH_STANDINGS-000-v01
+// GUID: API_ADMIN_HEALTH_STANDINGS-000-v02
+// @BUGFIX HEALTH-ERRORS-001 (v02): probe-detected faults now land in error_logs — 'degraded'
+//   (invariant violations, i.e. the all-zeros bug — a real data fault, not a slow response)
+//   logs PX-5010 once per probe call; 'down' logs PX-5008 only when the lib has NOT already
+//   logged it (TracedError carries .definition — see catch). 'healthy' never logs.
 // [Intent] Admin health probe for the cumulative standings calculation. Runs the same
 //          shared lib that produces the on-screen standings and the email standings
 //          table, validates the output against simple invariants, and returns a RAG
@@ -20,7 +24,7 @@
 // [Downstream Impact] Read-only — does not write to any collection.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin, generateCorrelationId, verifyAuthToken } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, verifyAuthToken, logError } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
 import {
   computeRaceScores,
@@ -164,6 +168,27 @@ export async function GET(request: NextRequest) {
 
     const status: HealthStatus = warnings.length === 0 ? 'healthy' : 'degraded';
 
+    // HEALTH-ERRORS-001: 'degraded' here means invariant violations (the all-zeros pattern) —
+    // a genuine data fault, not response-time degradation — so it must land in error_logs.
+    // Awaited before the response (Cloud Run throttles CPU post-response). Once per probe call.
+    if (status === 'degraded') {
+      await logError({
+        correlationId,
+        error: new Error(`[${ERRORS.STANDINGS_HEALTH_DEGRADED.code}] Standings health probe degraded: ${warnings.join(' | ')}`),
+        context: {
+          route: '/api/admin/health/standings',
+          action: 'health_probe',
+          additionalInfo: {
+            errorKey: ERRORS.STANDINGS_HEALTH_DEGRADED.key,
+            warnings,
+            raceResultsCount,
+            predictionsCount,
+            scoresCount: scores.length,
+          },
+        },
+      });
+    }
+
     return NextResponse.json({
       status,
       responseTimeMs,
@@ -177,7 +202,22 @@ export async function GET(request: NextRequest) {
       checkedAt: new Date().toISOString(),
     } as HealthResponse);
   } catch (err: any) {
-    // computeRaceScores already logged the error inside the lib (PX-5008). Just surface it.
+    // computeRaceScores already logged the error inside the lib (PX-5008) and re-threw a
+    // TracedError (which carries .definition). HEALTH-ERRORS-001: errors thrown BEFORE the
+    // lib runs (the count() queries) have no .definition and were previously never logged —
+    // log those here so a 'down' probe always leaves an error_logs entry, without
+    // double-logging the traced path.
+    if (!err?.definition) {
+      await logError({
+        correlationId,
+        error: err instanceof Error ? err : new Error(String(err)),
+        context: {
+          route: '/api/admin/health/standings',
+          action: 'health_probe',
+          additionalInfo: { errorKey: ERRORS.SCORE_STANDINGS_FAILED.key, phase: 'pre-compute' },
+        },
+      });
+    }
     const responseTimeMs = Math.round(performance.now() - startedAt);
     return NextResponse.json({
       status: 'down',

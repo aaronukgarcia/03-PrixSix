@@ -1,4 +1,10 @@
-// GUID: PAGE_SUBMISSIONS-000-v04
+// GUID: PAGE_SUBMISSIONS-000-v05
+// @UX(NEWBIE-04, v05) Race dropdown now renders sprint entries with the same visual scheme the
+//   Standings table uses (amber Zap + "Sprint") instead of the bare " - Sprint" text suffix.
+//   The underlying option VALUE keeps the " - Sprint" suffix — it is parsed by isSprintRace.
+// @UX(NEWBIE-13, v05) Errors render friendly-sentence-first; the [PX code] and Ref move to a
+//   muted, smaller, selectable support line underneath.
+// @UX(NEWBIE-17, v05) One-line legend explaining the Auto / Manual badges and carry-forward.
 // [Intent] Submissions page — displays effective predictions for ALL teams for a selected race,
 //   combining explicit (manual) submissions and carry-forward (auto) predictions for teams that
 //   did not submit for this specific race. Defaults to the first unscored race.
@@ -39,7 +45,7 @@ import {
 import { collection, collectionGroup, query, orderBy, where, limit, getDocs } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { FileCheck, CalendarClock, Loader2, ArrowUpDown, Clock, Users, RotateCcw, PenLine } from "lucide-react";
+import { FileCheck, CalendarClock, Loader2, ArrowUpDown, Clock, Users, RotateCcw, PenLine, Zap } from "lucide-react";
 import { LastUpdated } from "@/components/ui/last-updated";
 import { RaceSchedule, findNextRace, formatDriverPredictions } from "@/lib/data";
 import { Button } from "@/components/ui/button";
@@ -381,11 +387,27 @@ export default function SubmissionsPage() {
                     <SelectValue placeholder="Select a race" />
                   </SelectTrigger>
                   <SelectContent>
-                    {races.map((race) => (
-                      <SelectItem key={race} value={race} className={race === nextRaceName ? "text-green-600 font-semibold" : ""}>
-                        {race}
-                      </SelectItem>
-                    ))}
+                    {/* @UX(NEWBIE-04): consistent race/sprint labelling — sprint entries get the
+                        same amber Zap + "Sprint" treatment as the Standings table instead of a
+                        bare " - Sprint" suffix. CONSTRAINT: the option VALUE must keep the
+                        " - Sprint" suffix — isSprintRace/baseRaceName parse it. */}
+                    {races.map((race) => {
+                      const isSprintEntry = race.endsWith(' - Sprint');
+                      const displayBase = isSprintEntry ? race.replace(' - Sprint', '') : race;
+                      return (
+                        <SelectItem key={race} value={race} className={race === nextRaceName ? "text-green-600 font-semibold" : ""}>
+                          <span className="flex items-center gap-1.5">
+                            {displayBase}
+                            {isSprintEntry && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500 font-semibold">
+                                <Zap className="h-2.5 w-2.5" />
+                                Sprint
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 {isLoading && (
@@ -419,26 +441,49 @@ export default function SubmissionsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Error display */}
-          {error && (
-            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-              <p className="text-destructive text-sm select-all cursor-text">{error}</p>
-            </div>
-          )}
+          {/* @UX(NEWBIE-13): friendly sentence first; [PX code] + Ref demoted to a muted,
+              smaller, selectable support line. Error strings still come exclusively from the
+              ERRORS registry (Golden Rule #7) — this only changes how they are presented. */}
+          {error && (() => {
+            const techParts = [
+              ...(error.match(/\[PX-\d+\]/g) ?? []),
+              ...(error.match(/\(Ref:\s*[^)]+\)/g) ?? []),
+            ];
+            const friendly = error.replace(/\s*\[PX-\d+\]/g, '').replace(/\s*\(Ref:\s*[^)]+\)/g, '').trim();
+            return (
+              <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
+                <p className="text-destructive text-sm">{friendly}</p>
+                {techParts.length > 0 && (
+                  <p className="text-xs text-muted-foreground font-mono select-all cursor-text">
+                    {techParts.join(' ')}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Summary counts */}
           {!isLoading && !error && filteredSubmissions.length > 0 && (
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span>{filteredSubmissions.length} team{filteredSubmissions.length !== 1 ? 's' : ''}</span>
-              <span className="text-border">·</span>
-              <span className="flex items-center gap-1">
-                <PenLine className="h-3 w-3 text-green-600" />
-                {manualCount} manual
-              </span>
-              <span className="text-border">·</span>
-              <span className="flex items-center gap-1">
-                <RotateCcw className="h-3 w-3 text-amber-600" />
-                {autoCount} carry-forward
-              </span>
+            <div className="space-y-1">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>{filteredSubmissions.length} team{filteredSubmissions.length !== 1 ? 's' : ''}</span>
+                <span className="text-border">·</span>
+                <span className="flex items-center gap-1">
+                  <PenLine className="h-3 w-3 text-green-600" />
+                  {manualCount} manual
+                </span>
+                <span className="text-border">·</span>
+                <span className="flex items-center gap-1">
+                  <RotateCcw className="h-3 w-3 text-amber-600" />
+                  {autoCount} carry-forward
+                </span>
+              </div>
+              {/* @UX(NEWBIE-17): one-line legend for the Auto/Manual badges */}
+              <p className="text-xs text-muted-foreground/80">
+                <span className="font-medium text-green-600">Manual</span> = picks submitted for this
+                race · <span className="font-medium text-amber-600">Auto</span> = the team&apos;s most
+                recent picks, carried forward automatically because they didn&apos;t re-submit.
+              </p>
             </div>
           )}
 

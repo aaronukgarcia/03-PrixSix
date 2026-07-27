@@ -1,4 +1,4 @@
-// GUID: PIT_WALL_CLIENT-000-v06
+// GUID: PIT_WALL_CLIENT-000-v07
 // [Intent] Client-side orchestrator for the Pit Wall live race data module.
 //          Wires all hooks, manages layout (track map + FIA feed header, toolbar,
 //          race table, radio zoom panel), and enforces the dark F1 aesthetic.
@@ -14,6 +14,9 @@
 //          v06: Wave 2 bug fixes — PITWALL-03 (on-demand race pick takes priority over the
 //               scheduled showreel item, auto-advance resumes after it) and PITWALL-06
 //               (nextRaceInfo re-derived on a 60s tick instead of frozen at load).
+//          v07: @UX(NEWBIE-20) between-sessions notice strip (PIT_WALL_CLIENT-054) — frames
+//               the idle "Waiting for session data…" state: populates on race weekends, names
+//               the next session.
 // [Inbound Trigger] Rendered by page.tsx (server component) on every /pit-wall request.
 // [Downstream Impact] All Pit Wall state and data flow originates here.
 //                     Sub-components receive only the props they need — no prop drilling
@@ -1194,6 +1197,31 @@ export default function PitWallClient() {
       {/* ── LIVE PREDICTION SCORE BANNER ── */}
       {/* GUID: PIT_WALL_CLIENT-031-v01 */}
       {zoomLevel === 0 && <LiveScoreBanner score={liveScore} />}
+
+      {/* ── BETWEEN-SESSIONS NOTICE ── */}
+      {/* GUID: PIT_WALL_CLIENT-054-v01
+          @UX(NEWBIE-20) [Intent] When there is no live session, no showreel, and no replay, the
+          race table sits on "Waiting for session data…" indefinitely with zero framing — a
+          newcomer can't tell whether the page is broken or just idle. This strip says the Pit
+          Wall populates on race weekends and names the next session (nextRaceInfo re-derives on
+          the 60s scheduleTick, PITWALL-06). Copy only — no data flow or polling changes.
+          [Inbound Trigger] Rendered at zoom 0 whenever sessionKey is null outside showreel/replay.
+          [Downstream Impact] Pure display; the race table below still renders (kept for layout). */}
+      {zoomLevel === 0 && !sessionKey && !preRaceMode.isShowreel && !isReplayMode && (
+        <div className="shrink-0 flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 bg-slate-900/70 border-b border-slate-800 text-slate-400 text-xs">
+          <TowerControl className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+          <span>
+            No live session right now — the Pit Wall populates with live cars and timing on race
+            weekends.
+          </span>
+          {nextRaceInfo && (
+            <span className="text-slate-300 whitespace-nowrap">
+              Next: {nextRaceInfo.name} ·{' '}
+              {nextRaceInfo.raceStart.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── RACE TABLE (fills remaining height) ── */}
       {/* GUID: PIT_WALL_CLIENT-008-v02 */}
