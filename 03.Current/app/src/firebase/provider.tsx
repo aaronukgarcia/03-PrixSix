@@ -65,7 +65,9 @@ export interface AnalysisWeights {
   rowanHornblower: number; // Bernie Collins style pundit
 }
 
-// GUID: FIREBASE_PROVIDER-003-v03
+// GUID: FIREBASE_PROVIDER-003-v04
+// @FEATURE(INVITE-TREE-001, v04): added optional invitedBy referral-lineage field (stamped by
+//   both signup routes at invite consumption; absent = root/legacy user).
 // [Intent] Extended user profile interface combining Firebase Auth identity with Firestore profile data.
 // The `id` field is the Firebase Auth UID, which is also the Firestore document key in the `users` collection.
 // [Inbound Trigger] Populated on auth state change from the Firestore `users/{uid}` document.
@@ -100,6 +102,12 @@ export interface User {
     nextRaceName?: string;
     appliedAt?: any;
   };
+  invitedBy?: {
+    uid: string;        // Inviter's Firebase Auth UID (stable join key for the referral tree)
+    teamName: string;   // Inviter's team name snapshot at consumption time
+    tokenId: string;    // Consumed invites/{token} doc ID for audit cross-reference
+    at?: any;           // Consumption timestamp (Firestore Timestamp — coerce via safeX helpers)
+  }; // INVITE-TREE-001 referral lineage — absent = root/legacy user
 }
 
 // GUID: FIREBASE_PROVIDER-004-v03

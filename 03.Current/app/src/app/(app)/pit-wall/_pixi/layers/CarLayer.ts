@@ -1,7 +1,9 @@
-// GUID: PIXI_CAR_LAYER-000-v01
+// GUID: PIXI_CAR_LAYER-000-v02
 // [Intent] PixiJS v8 rendering layer — 22 pre-allocated car sprites with team-colour dots,
 //          glow halos, driver code labels, position badges (P1-P3), DRS indicators,
 //          pit ring overlays, and follow-mode highlight ring.
+//          v02: @FEAT (FEAT-PW-012) flashing RADIO badge below the car dot while a team
+//          radio message is active for that driver (GPS replay mode).
 // [Inbound Trigger] update() called every frame with interpolated driver positions.
 // [Downstream Impact] Pure rendering — no React state, no Firestore, no DOM.
 
@@ -27,6 +29,18 @@ const BADGE_TEXT_STYLE = new TextStyle({
   fill: 0x000000,
 });
 
+// GUID: PIXI_CAR_LAYER-009-v01
+// [Intent] @FEAT (FEAT-PW-012) RADIO badge style — small amber pill flashed below the
+//          car dot while that driver's team radio message is active during replay.
+const RADIO_TEXT_STYLE = new TextStyle({
+  fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace',
+  fontSize: 6,
+  fontWeight: 'bold',
+  fill: 0x000000,
+});
+const RADIO_BADGE_COLOUR = 0xffb84d; // warm amber — distinct from green DRS and orange pit ring
+const RADIO_FLASH_PERIOD_MS = 600;   // full alpha pulse cycle
+
 // GUID: PIXI_CAR_LAYER-001b-v01
 // [Intent] ATC-style minimal dots — smaller than v1 for a clean radar display look.
 //          3.5px dots with 5px glow halos, subtle presence without clutter.
@@ -50,6 +64,8 @@ interface CarSprite {
   drsLine: Graphics;
   pitRing: Graphics;
   followRing: Graphics;
+  /** @FEAT (FEAT-PW-012) flashing RADIO pill shown during active team radio in replay */
+  radioBadge: Container;
 }
 
 export class CarLayer {
@@ -134,9 +150,23 @@ export class CarLayer {
       badgeContainer.addChild(badgeCircle);
       badgeContainer.addChild(badgeText);
 
+      // GUID: PIXI_CAR_LAYER-010-v01
+      // [Intent] @FEAT (FEAT-PW-012) RADIO badge — pre-allocated amber pill + text,
+      //          hidden until update() flags this driver's radio as active.
+      const radioBadge = new Container();
+      radioBadge.visible = false;
+      const radioPill = new Graphics();
+      radioPill.roundRect(-11, -4, 22, 8, 3);
+      radioPill.fill({ color: RADIO_BADGE_COLOUR });
+      const radioText = new Text({ text: 'RADIO', style: RADIO_TEXT_STYLE });
+      radioText.anchor.set(0.5);
+      radioBadge.addChild(radioPill);
+      radioBadge.addChild(radioText);
+
       this.dotContainer.addChild(container);
       this.labelContainer.addChild(label);
       this.labelContainer.addChild(badgeContainer);
+      this.labelContainer.addChild(radioBadge);
 
       this.pool.push({
         container,
@@ -149,16 +179,20 @@ export class CarLayer {
         drsLine,
         pitRing,
         followRing,
+        radioBadge,
       });
     }
   }
 
-  // GUID: PIXI_CAR_LAYER-004-v03
+  // GUID: PIXI_CAR_LAYER-004-v04
   // [Intent] Per-frame update — assigns interpolated positions to pool slots, updates
   //          colours, labels, badges, DRS/pit/follow indicators, and alpha for retired cars.
   //          v03: Zoom 2 hyper-focus reworked — focus car is same dot size as others (no
   //               oversized circle). All nearby cars show labels+badges for context. Focus
   //               car distinguished only by a subtle cyan highlight ring and full alpha.
+  //          v04: @FEAT (FEAT-PW-012) radioActiveDrivers — drivers with a currently-active
+  //               team radio message flash an amber RADIO pill below their dot. Alpha pulses
+  //               on RADIO_FLASH_PERIOD_MS so the badge reads as "transmitting", not static.
   update(
     interpolated: InterpolatedPosition[],
     bounds: TrackBounds,
@@ -166,7 +200,12 @@ export class CarLayer {
     h: number,
     followDriver: number | null,
     focusDriverNumber: number | null = null,
+    radioActiveDrivers: ReadonlySet<number> | null = null,
   ): void {
+    const nowMs = Date.now();
+    // Shared pulse phase — all active badges flash in sync (cheap, single computation)
+    const radioPulseAlpha =
+      0.55 + 0.45 * Math.abs(Math.sin((nowMs % RADIO_FLASH_PERIOD_MS) / RADIO_FLASH_PERIOD_MS * Math.PI));
     // Sort by position descending so P1 renders on top
     const sorted = [...interpolated].sort((a, b) => b.position - a.position);
 
@@ -178,6 +217,7 @@ export class CarLayer {
         sprite.container.visible = false;
         sprite.label.visible = false;
         sprite.badge.visible = false;
+        sprite.radioBadge.visible = false;
         continue;
       }
 
@@ -249,6 +289,17 @@ export class CarLayer {
 
       // Follow-mode ring — only on focus car (subtle cyan highlight) or followed driver
       sprite.followRing.visible = isFollowed || isFocusCar;
+
+      // GUID: PIXI_CAR_LAYER-011-v01
+      // [Intent] @FEAT (FEAT-PW-012) RADIO badge — flash below the dot while this driver
+      //          has an active radio message. Positioned under the car so it never collides
+      //          with the code label (right), position badge (left), or DRS line (above).
+      const radioActive = radioActiveDrivers?.has(driver.driverNumber) ?? false;
+      sprite.radioBadge.visible = radioActive;
+      if (radioActive) {
+        sprite.radioBadge.position.set(px, py + DOT_RADIUS + 8);
+        sprite.radioBadge.alpha = driver.retired ? 0.25 : radioPulseAlpha;
+      }
     }
   }
 

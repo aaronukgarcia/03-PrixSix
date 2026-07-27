@@ -1,4 +1,4 @@
-// GUID: PIT_WALL_CLIENT-000-v07
+// GUID: PIT_WALL_CLIENT-000-v08
 // [Intent] Client-side orchestrator for the Pit Wall live race data module.
 //          Wires all hooks, manages layout (track map + FIA feed header, toolbar,
 //          race table, radio zoom panel), and enforces the dark F1 aesthetic.
@@ -17,6 +17,11 @@
 //          v07: @UX(NEWBIE-20) between-sessions notice strip (PIT_WALL_CLIENT-054) — frames
 //               the idle "Waiting for session data…" state: populates on race weekends, names
 //               the next session.
+//          v08: Wave 5 — @BUGFIX PITWALL-11 (scheduled replay finishing early now advances
+//               the showreel via advanceToNextItem instead of freezing on the last frame),
+//               @BUGFIX PITWALL-09 (showreel year labels derive from session data, not a
+//               hardcoded "2025"), @FEAT FEAT-PW-012 (radioActiveDrivers → RADIO badge on
+//               the track map during GPS replay).
 // [Inbound Trigger] Rendered by page.tsx (server component) on every /pit-wall request.
 // [Downstream Impact] All Pit Wall state and data flow originates here.
 //                     Sub-components receive only the props they need — no prop drilling
@@ -408,22 +413,30 @@ export default function PitWallClient() {
     nextRaceInfo?.location ?? null,
   );
 
-  // GUID: PIT_WALL_CLIENT-014-v02
-  // [Intent] Historical replay hook — RAF playback of 2025 telemetry.
+  // GUID: PIT_WALL_CLIENT-014-v03
+  // [Intent] Historical replay hook — RAF playback of previous-season telemetry.
   //          Active when preRaceMode.isShowreel is true.
   // @BUGFIX (PITWALL-03, 2026-07-26): the RaceSelector's on-demand pick was silently ignored —
   //   currentItem?.session was listed first, so the scheduled item always won and the user's
   //   pick never played. The on-demand session now takes priority (played uncompressed at 1.0
   //   per SHOWREEL_TYPES-002), and on completion the pick is cleared so the scheduled showreel
   //   auto-advance resumes.
+  // @BUGFIX (PITWALL-11, 2026-07-27): a SCHEDULED replay whose data ran out before its wall
+  //   slot ended used to freeze on the last frame until wallClockEnd (the ticker only advances
+  //   on wall time). onComplete now calls preRaceMode.advanceToNextItem for scheduled items,
+  //   so the showreel rolls straight to the next race the moment playback finishes.
   const historicalReplay = useHistoricalReplay(
     preRaceMode.onDemandSession ?? preRaceMode.currentItem?.session ?? null,
     preRaceMode.onDemandSession ? 1.0 : (preRaceMode.currentItem?.compressionFactor ?? 1.0),
     idToken,
     () => {
-      // On-demand replay finished — release the pick so the scheduled showreel resumes.
-      // Scheduled items need no action: the preRaceMode ticker advances them automatically.
-      if (preRaceMode.onDemandSession) preRaceMode.clearOnDemand();
+      if (preRaceMode.onDemandSession) {
+        // On-demand replay finished — release the pick so the scheduled showreel resumes.
+        preRaceMode.clearOnDemand();
+      } else if (preRaceMode.mode === 'SHOWREEL_PLAYING' && preRaceMode.currentItem) {
+        // Scheduled replay finished before its wall slot — advance instead of freezing.
+        preRaceMode.advanceToNextItem();
+      }
     },
   );
 
@@ -549,6 +562,33 @@ export default function PitWallClient() {
       lapNumber: rc.lapNumber,
     }));
   }, [isReplayMode, replayPlayer.replayRaceControl, selectedReplaySession?.dateStart]);
+
+  // GUID: PIT_WALL_CLIENT-059-v01
+  // [Intent] @FEAT (FEAT-PW-012, 2026-07-27) Active team-radio drivers for the track map
+  //          RADIO badge. In GPS replay mode, a driver is "transmitting" for
+  //          RADIO_BADGE_WINDOW_MS after the playhead passes a radio message timestamp —
+  //          the Pixi CarLayer flashes an amber RADIO pill under their comet.
+  //          Null outside replay mode (live radio timestamps lag the actual transmission
+  //          by OpenF1's processing delay, so a live "now transmitting" flash would lie).
+  const radioActiveDrivers = useMemo<number[] | null>(() => {
+    if (!isReplayMode || !replayPlayer.replayRadioMessages?.length) return null;
+    const sessionStartMs = selectedReplaySession?.dateStart
+      ? new Date(selectedReplaySession.dateStart).getTime()
+      : 0;
+    if (!sessionStartMs) return null;
+    const RADIO_BADGE_WINDOW_MS = 6_000;
+    const currentTimeMs = sessionStartMs + (replayPlayer.elapsedMs ?? 0);
+    const active = new Set<number>();
+    for (const m of replayPlayer.replayRadioMessages) {
+      const t = new Date(m.utcTimestamp).getTime();
+      if (!Number.isFinite(t)) continue; // malformed timestamp — skip, never crash the map
+      if (t <= currentTimeMs && t > currentTimeMs - RADIO_BADGE_WINDOW_MS) {
+        active.add(m.driverNumber);
+      }
+    }
+    return active.size > 0 ? Array.from(active) : null;
+  }, [isReplayMode, replayPlayer.replayRadioMessages, replayPlayer.elapsedMs,
+      selectedReplaySession?.dateStart]);
 
   // GUID: PIT_WALL_CLIENT-015-v03
   // [Intent] Select data source — priority: GPS replay > showreel > live.
@@ -828,9 +868,12 @@ export default function PitWallClient() {
         <PreRaceWarmupBanner
           currentRaceName={
             /* @BUGFIX (PITWALL-03, 2026-07-26): on-demand pick shown first */
-            `2025 ${preRaceMode.onDemandSession?.meetingName
+            /* @BUGFIX (PITWALL-09, 2026-07-27): year from session data, was hardcoded 2025 */
+            `${preRaceMode.onDemandSession?.year
+              ?? preRaceMode.currentItem?.session.year
+              ?? ''} ${preRaceMode.onDemandSession?.meetingName
               ?? preRaceMode.currentItem?.session.meetingName
-              ?? 'Race'}`
+              ?? 'Race'}`.trim()
           }
           nextRaceName={nextRaceInfo?.name ?? 'Next Race'}
           minutesToStart={preRaceMode.minutesToRaceStart}
@@ -886,6 +929,7 @@ export default function PitWallClient() {
             zoomLevel={zoomLevel}
             focusPosition={focusPosition}
             virtualTimeDeltaMs={virtualTimeDeltaMs}
+            radioActiveDrivers={radioActiveDrivers /* @FEAT (FEAT-PW-012) */}
             sessionKey={
               isReplayMode
                 ? `replay-${selectedReplaySession?.sessionKey ?? 'none'}`
@@ -933,6 +977,7 @@ export default function PitWallClient() {
               zoomLevel={zoomLevel}
               focusPosition={focusPosition}
               virtualTimeDeltaMs={virtualTimeDeltaMs}
+              radioActiveDrivers={radioActiveDrivers /* @FEAT (FEAT-PW-012) */}
               sessionKey={
                 isReplayMode
                   ? `replay-${selectedReplaySession?.sessionKey ?? 'none'}`
@@ -1005,7 +1050,10 @@ export default function PitWallClient() {
           </span>
           {displaySessionType && (
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 uppercase tracking-wider">
-              {preRaceMode.isShowreel ? '2025 REPLAY' : displaySessionType}
+              {/* @BUGFIX (PITWALL-09, 2026-07-27): replay year from session data, was hardcoded 2025 */}
+              {preRaceMode.isShowreel
+                ? `${preRaceMode.onDemandSession?.year ?? preRaceMode.currentItem?.session.year ?? ''} REPLAY`.trim()
+                : displaySessionType}
             </span>
           )}
         </div>

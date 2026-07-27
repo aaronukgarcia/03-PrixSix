@@ -22,8 +22,11 @@ service cloud.firestore {
     // fields, already permitted by existing rules). OAuth user doc creation happens via
     // Admin SDK (bypasses rules entirely).
     // @SECURITY_FIX: Added lastFailedLoginAt to prevent lockout bypass (GEMINI-AUDIT-012).
+    // @FEATURE(INVITE-TREE-001): Added invitedBy — referral lineage is stamped server-side at
+    // signup (Admin SDK, bypasses rules) and must be tamper-proof; owners must not rewrite
+    // their own ancestry. Deploy note: firebase deploy --only firestore:rules.
     function userNotChangingProtectedFields() {
-      let protectedFields = ['isAdmin', 'points', 'badLoginAttempts', 'lastFailedLoginAt', 'id', 'createdAt'];
+      let protectedFields = ['isAdmin', 'points', 'badLoginAttempts', 'lastFailedLoginAt', 'id', 'createdAt', 'invitedBy'];
       let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
       return !affectedKeys.hasAny(protectedFields);
     }

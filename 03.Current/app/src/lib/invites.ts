@@ -1,8 +1,11 @@
-// GUID: LIB_INVITES-000-v01
+// GUID: LIB_INVITES-000-v02
+// @FEATURE(INVITE-TREE-001, v02): added InvitedByStamp + buildInvitedByStamp() — the SSOT for
+//   the referral-lineage field stamped onto new user docs at invite consumption, powering the
+//   admin "who invited whom" genealogy tree.
 // [Intent] Single source of truth for the friend-invite system: token generation, invite
-//          validation, and single-use consumption. Invites live in the server-only
-//          `invites` collection (doc ID = 256-bit hex token). A valid pending invite is
-//          the ONLY bypass for the fail-closed signup gate (SEC-SIGNUP-001) while
+//          validation, single-use consumption, and referral-lineage stamping. Invites live in
+//          the server-only `invites` collection (doc ID = 256-bit hex token). A valid pending
+//          invite is the ONLY bypass for the fail-closed signup gate (SEC-SIGNUP-001) while
 //          admin_configuration/global.newUserSignupEnabled is false.
 // [Inbound Trigger] Imported by /api/invites/create (creation), /api/auth/signup and
 //                   /api/auth/complete-oauth-profile (validation + consumption), and the
@@ -42,6 +45,40 @@ export interface InviteDoc {
 export type InviteValidation =
   | { valid: true; token: string; invite: InviteDoc }
   | { valid: false; reason: 'malformed' | 'not_found' | 'expired' | 'used' };
+
+// GUID: LIB_INVITES-006-v01
+// [Intent] INVITE-TREE-001 referral lineage. InvitedByStamp is the shape of the `invitedBy`
+//          field written onto users/{uid} when an account is minted through an invite:
+//          { uid, teamName, tokenId, at } — the inviter's identity at consumption time plus
+//          the consumed token for audit cross-reference. Absent field = root/legacy user.
+// [Inbound Trigger] buildInvitedByStamp() is called by /api/auth/signup and
+//                   /api/auth/complete-oauth-profile alongside consumeInvite().
+// [Downstream Impact] Read by the admin Invites tab (ADMIN_INVITES_TREE) to render the
+//                     referral genealogy. teamName is a snapshot (inviter may later rename);
+//                     uid is the stable join key. Returns null when a (malformed/legacy)
+//                     invite doc lacks a creator uid — callers then skip stamping rather
+//                     than write a broken lineage node (GR#16: never trust stored shapes).
+export interface InvitedByStamp {
+  uid: string;
+  teamName: string;
+  tokenId: string;
+  at: Date;
+}
+
+export function buildInvitedByStamp(token: string, invite: InviteDoc): InvitedByStamp | null {
+  if (typeof invite.invitedByUid !== 'string' || invite.invitedByUid.length === 0) {
+    return null;
+  }
+  return {
+    uid: invite.invitedByUid,
+    teamName:
+      typeof invite.invitedByTeamName === 'string' && invite.invitedByTeamName.length > 0
+        ? invite.invitedByTeamName
+        : 'Unknown team',
+    tokenId: token,
+    at: new Date(),
+  };
+}
 
 // GUID: LIB_INVITES-002-v01
 // [Intent] Generate a cryptographically random 256-bit invite token (64 lowercase hex

@@ -168,7 +168,9 @@ export async function POST(request: NextRequest) {
     const batch = db.batch();
     let predictionsDeleted = 0;
 
-    // GUID: API_DELETE_SCORES-009-v02
+    // GUID: API_DELETE_SCORES-009-v03
+    // @CHANGE (CHORE-ADM-001): the audit event at the end of this batch now stores adminEmail
+    //   alongside userId for a human-readable trail (Garth incident 2026-03-15).
     // @SECURITY_FIX: Delete predictions in same batch (ADMINCOMP-023).
     // [Intent] Remove all user predictions for the race to prevent orphaned data.
     // [Inbound Trigger] Part of atomic batch delete operation.
@@ -185,9 +187,13 @@ export async function POST(request: NextRequest) {
     batch.delete(resultDocRef);
 
     // Log audit event
+    // @CHANGE (CHORE-ADM-001): audit event now stores adminEmail alongside userId so the trail is
+    //   human-readable without an admin.auth().getUsers() lookup (Garth incident 2026-03-15).
     const auditRef = db.collection('audit_logs').doc();
     batch.set(auditRef, {
       userId: verifiedUser.uid,
+      // CHORE-ADM-001: human-readable admin identity (email from the verified ID token; null if absent)
+      adminEmail: verifiedUser.email ?? null,
       action: 'RACE_RESULTS_DELETED',
       details: {
         raceId: resultDocId,

@@ -1,4 +1,8 @@
-// GUID: API_AUTH_COMPLETE_OAUTH-000-v05
+// GUID: API_AUTH_COMPLETE_OAUTH-000-v06
+// @FEATURE(INVITE-TREE-001, v06): invite consumption now stamps the new user doc with an
+//   invitedBy lineage field (inviter uid/teamName + tokenId), mirroring /api/auth/signup.
+//   A valid token is also consumed for lineage when the public gate happens to be open
+//   (never blocking in that case).
 // @AUTH_003_FIX: Fixed race condition using .create() instead of .set() (AUTH-003a).
 // @PERFORMANCE_FIX: Replaced full collection scan with indexed queries (AUTH-003b).
 // [Intent] Server-side API route that completes the profile for new OAuth users.
@@ -18,7 +22,7 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { internalAuthHeaders } from '@/lib/internal-auth';
-import { validateInvite, consumeInvite, revertInvite } from '@/lib/invites';
+import { validateInvite, consumeInvite, revertInvite, buildInvitedByStamp, type InvitedByStamp } from '@/lib/invites';
 import { applyLateJoinerHandicap } from '@/lib/late-joiner';
 import { claimTeamName, releaseTeamName } from '@/lib/team-names';
 
@@ -218,7 +222,11 @@ export async function POST(request: NextRequest) {
     }
     claimedTeamName = normalizedTeamName;
 
-    // GUID: API_AUTH_COMPLETE_OAUTH-008-v05
+    // GUID: API_AUTH_COMPLETE_OAUTH-008-v06
+    // @FEATURE(INVITE-TREE-001, v06): consumption now also captures the inviter's identity
+    //   as an InvitedByStamp for the referral tree, and a token arriving while the public
+    //   gate is OPEN is consumed for lineage too (failure there never blocks — the open
+    //   gate already authorised the signup). Fail-closed gate semantics are UNCHANGED.
     // @SECURITY_FIX(SEC-SIGNUP-001): Fail-closed signup gate, mirroring API_AUTH_SIGNUP-008-v05.
     //   Previous version read the non-existent admin_configuration/site_settings doc and
     //   proceeded on missing doc or read error (fail-open), so any Google sign-in could
@@ -239,8 +247,15 @@ export async function POST(request: NextRequest) {
     } catch (settingsError) {
       console.error('[Complete OAuth Profile] Could not check signup settings (failing closed):', settingsError);
     }
+    // INVITE-TREE-001: inviter identity captured at consumption, stamped onto the user doc below.
+    let invitedByStamp: InvitedByStamp | null = null;
     if (!signupEnabled) {
+      // @BUGFIX (BUG-SENTINEL-LEAK-001, 2026-07-27): the team_names sentinel is claimed ABOVE
+      // this gate — every refusal below must release it, or a refused signup permanently
+      // reserves the name. Release is best-effort (failure must not mask the 403).
       if (!inviteToken) {
+        await releaseTeamName(db, normalizedTeamName).catch(() => {});
+        claimedTeamName = null;
         return NextResponse.json(
           {
             success: false,
@@ -253,6 +268,8 @@ export async function POST(request: NextRequest) {
       }
       const inviteCheck = await validateInvite(db, inviteToken);
       if (!inviteCheck.valid) {
+        await releaseTeamName(db, normalizedTeamName).catch(() => {});
+        claimedTeamName = null;
         const expired = inviteCheck.reason === 'expired';
         return NextResponse.json(
           {
@@ -268,6 +285,8 @@ export async function POST(request: NextRequest) {
       }
       const consumed = await consumeInvite(db, inviteCheck.token, { uid, email: normalizedEmail });
       if (!consumed) {
+        await releaseTeamName(db, normalizedTeamName).catch(() => {});
+        claimedTeamName = null;
         return NextResponse.json(
           {
             success: false,
@@ -279,9 +298,24 @@ export async function POST(request: NextRequest) {
         );
       }
       consumedInviteToken = inviteCheck.token;
+      invitedByStamp = buildInvitedByStamp(inviteCheck.token, inviteCheck.invite);
+    } else if (inviteToken) {
+      // Gate is open but the signup arrived via an invite link — consume for lineage only.
+      // Any failure here must NOT block a signup the open gate already permits.
+      const inviteCheck = await validateInvite(db, inviteToken);
+      if (inviteCheck.valid) {
+        const consumed = await consumeInvite(db, inviteCheck.token, { uid, email: normalizedEmail });
+        if (consumed) {
+          consumedInviteToken = inviteCheck.token;
+          invitedByStamp = buildInvitedByStamp(inviteCheck.token, inviteCheck.invite);
+        }
+      }
     }
 
-    // GUID: API_AUTH_COMPLETE_OAUTH-009-v04
+    // GUID: API_AUTH_COMPLETE_OAUTH-009-v05
+    // @FEATURE(INVITE-TREE-001, v05): user doc now carries invitedBy (inviter uid/teamName +
+    //   consumed tokenId + timestamp) when the account was minted through an invite. Legacy
+    //   and root users simply lack the field — readers must treat absence as "root/unknown".
     // @PERFORMANCE_FIX: Added teamNameLower for indexed queries (AUTH-003b).
     // @AUTH_003_FIX: Changed .set() to .create() to prevent race condition (AUTH-003a).
     // [Intent] Create the Firestore user document and presence document atomically.
@@ -305,6 +339,11 @@ export async function POST(request: NextRequest) {
 
     if (photoUrl) {
       newUser.photoUrl = photoUrl;
+    }
+
+    // INVITE-TREE-001: referral lineage — absent for root/legacy users
+    if (invitedByStamp) {
+      newUser.invitedBy = invitedByStamp;
     }
 
     // Use .create() instead of .set() to prevent race condition

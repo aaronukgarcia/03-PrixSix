@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-27",
   "commits": [
     {
+      "id": "60a7616",
+      "date": "2026-07-27",
+      "version": "3.17.0",
+      "author": "aaron garcia",
+      "message": "feat: firebase-admin 14 + Firestore 8 across app/functions/worker — modular API, scripts compat shim, live-smoke verified (v3.17.0)",
+      "major": true
+    },
+    {
       "id": "362767a",
       "date": "2026-07-27",
       "version": "3.16.0",

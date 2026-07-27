@@ -1,4 +1,8 @@
-// GUID: API_AUTH_SIGNUP-000-v07
+// GUID: API_AUTH_SIGNUP-000-v08
+// @FEATURE(INVITE-TREE-001, v08): invite consumption now stamps the new user doc with an
+//   invitedBy lineage field (inviter uid/teamName + tokenId) so the admin panel can render
+//   the full referral genealogy. A valid token is also consumed for lineage when the public
+//   gate happens to be open (never blocking in that case).
 // @SECURITY_FIX: Added CSRF protection via Origin/Referer validation (GEMINI-005).
 // @SECURITY_FIX: GEMINI-AUDIT-112 — Replaced TOCTOU read-then-write team name check with atomic
 //   Firestore sentinel document transaction. Previous pattern let two concurrent signups both pass
@@ -18,7 +22,7 @@ import { internalAuthHeaders } from '@/lib/internal-auth';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { validateCsrfProtection } from '@/lib/csrf-protection';
 import { applyLateJoinerHandicap } from '@/lib/late-joiner';
-import { validateInvite, consumeInvite, revertInvite } from '@/lib/invites';
+import { validateInvite, consumeInvite, revertInvite, buildInvitedByStamp, type InvitedByStamp } from '@/lib/invites';
 import { claimTeamName } from '@/lib/team-names';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
@@ -185,19 +189,32 @@ export async function POST(request: NextRequest) {
       console.error('[Signup] Could not check signup settings (failing closed):', settingsError);
     }
 
-    // GUID: API_AUTH_SIGNUP-024-v01
+    // GUID: API_AUTH_SIGNUP-024-v02
+    // @FEATURE(INVITE-TREE-001, v02): validation now also captures the inviter's identity
+    //   as an InvitedByStamp for the referral tree, and a token arriving while the public
+    //   gate is OPEN is validated too (lineage-only — an invalid token never blocks an
+    //   open-gate signup). The fail-closed gate semantics are UNCHANGED: with the gate
+    //   closed, no valid token still means 403.
     // [Intent] Friend-invite bypass: when public signup is disabled, a valid pending
     //          unexpired invite token (from /api/invites/create) permits this one signup.
-    // [Inbound Trigger] Gate evaluation above found signupEnabled === false.
+    //          Whenever a valid token accompanies the request (gate open or closed), the
+    //          inviter's identity is captured to stamp users/{uid}.invitedBy.
+    // [Inbound Trigger] Gate evaluation above (both outcomes).
     // [Downstream Impact] Valid token → signup continues and the token is consumed
-    //                     (single-use transaction) before Auth user creation. Invalid →
-    //                     403 PX-2102 INVITE_INVALID; expired → 403 PX-2103 INVITE_EXPIRED.
+    //                     (single-use transaction) before Auth user creation. Invalid with
+    //                     gate closed → 403 PX-2102 INVITE_INVALID; expired → 403 PX-2103
+    //                     INVITE_EXPIRED. inviteRequired distinguishes gate-bypass consumption
+    //                     (failure = 403) from lineage-only consumption (failure = ignore).
     let inviteTokenToConsume: string | null = null;
+    let invitedByStamp: InvitedByStamp | null = null;
+    let inviteRequired = false;
     if (!signupEnabled) {
+      inviteRequired = true;
       if (inviteToken) {
         const inviteCheck = await validateInvite(db, inviteToken);
         if (inviteCheck.valid) {
           inviteTokenToConsume = inviteCheck.token;
+          invitedByStamp = buildInvitedByStamp(inviteCheck.token, inviteCheck.invite);
         } else {
           const expired = inviteCheck.reason === 'expired';
           return NextResponse.json(
@@ -222,6 +239,14 @@ export async function POST(request: NextRequest) {
           },
           { status: 403 }
         );
+      }
+    } else if (inviteToken) {
+      // Gate is open but the signup arrived via an invite link — capture lineage only.
+      // An invalid/expired/used token must NOT block a signup the open gate already permits.
+      const inviteCheck = await validateInvite(db, inviteToken);
+      if (inviteCheck.valid) {
+        inviteTokenToConsume = inviteCheck.token;
+        invitedByStamp = buildInvitedByStamp(inviteCheck.token, inviteCheck.invite);
       }
     }
 
@@ -324,27 +349,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GUID: API_AUTH_SIGNUP-025-v01
+    // GUID: API_AUTH_SIGNUP-025-v02
+    // @FEATURE(INVITE-TREE-001, v02): when the invite was lineage-only (gate open), losing
+    //   the consume race just drops the invitedBy stamp instead of failing the signup —
+    //   the open gate already authorised the account.
     // [Intent] Burn the friend-invite token (single-use, transactional) now that every
     //          pre-creation check has passed. Done BEFORE Auth user creation so two racing
     //          signups on the same token cannot both mint accounts; reverted on failure
     //          below so a transient error doesn't strand the invitee with a dead link.
     // [Inbound Trigger] inviteTokenToConsume was set by the gate (API_AUTH_SIGNUP-024).
-    // [Downstream Impact] Losing the consume race frees the team-name sentinel and returns
-    //                     403 PX-2102.
+    // [Downstream Impact] Losing the consume race when the invite authorised the signup
+    //                     (inviteRequired) frees the team-name sentinel and returns 403
+    //                     PX-2102; lineage-only consumption failure clears the stamp and
+    //                     continues.
     if (inviteTokenToConsume) {
       const consumed = await consumeInvite(db, inviteTokenToConsume, { email: normalizedEmail });
       if (!consumed) {
-        await teamNameSentinelRef.delete().catch(() => {});
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'This invite link is invalid or has already been used.',
-            errorCode: ERRORS.INVITE_INVALID.code,
-            correlationId,
-          },
-          { status: 403 }
-        );
+        if (inviteRequired) {
+          await teamNameSentinelRef.delete().catch(() => {});
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'This invite link is invalid or has already been used.',
+              errorCode: ERRORS.INVITE_INVALID.code,
+              correlationId,
+            },
+            { status: 403 }
+          );
+        }
+        inviteTokenToConsume = null;
+        invitedByStamp = null;
       }
     }
 
@@ -410,7 +444,10 @@ export async function POST(request: NextRequest) {
 
     const uid = userRecord.uid;
 
-    // GUID: API_AUTH_SIGNUP-012-v07
+    // GUID: API_AUTH_SIGNUP-012-v08
+    // @FEATURE(INVITE-TREE-001, v08): user doc now carries invitedBy (inviter uid/teamName +
+    //   consumed tokenId + timestamp) when the account was minted through an invite. Legacy
+    //   and root users simply lack the field — readers must treat absence as "root/unknown".
     // @PERFORMANCE_FIX: Added teamNameLower field for indexed queries (prevents getAllUsers() bottleneck).
     // @ATOMICITY_FIX: Wrapped critical Firestore writes in try/catch with Auth user rollback to prevent orphaned accounts.
     // @SECURITY_FIX: GEMINI-AUDIT-112 — Added teamNameSentinelRef cleanup on Firestore failure (before auth rollback).
@@ -431,6 +468,8 @@ export async function POST(request: NextRequest) {
         badLoginAttempts: 0,
         emailVerified: false,
         createdAt: FieldValue.serverTimestamp(),
+        // INVITE-TREE-001: referral lineage — absent for root/legacy users
+        ...(invitedByStamp ? { invitedBy: invitedByStamp } : {}),
       };
 
       await db.collection('users').doc(uid).set(newUser);

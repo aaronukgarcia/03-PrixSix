@@ -341,6 +341,8 @@ async function fetchDetailFromOpenF1(token: string | null): Promise<PitWallDetai
             ? Math.max(0, (lapNum - (stint.lap_start ?? 0)) + (stint.tyre_age_at_start ?? 0))
             : (stint.tyre_age_at_start ?? 0))
         : null,
+      // @BUGFIX (PITWALL-10, 2026-07-27): Math.max(0, …) clamp — a driver with stint records
+      // but an empty filter result (or exactly one stint) must never show -1 pit stops.
       pitStopCount: stint
         ? Math.max(0, (stintsRaw ?? []).filter((s: any) => s.driver_number === dn).length - 1)
         : null,
@@ -453,17 +455,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     res.headers.set('X-PW-Cache', source);
     return res;
   } catch (err: any) {
-    // GUID: API_PIT_WALL_LIVE_DATA-026-v01
+    // GUID: API_PIT_WALL_LIVE_DATA-026-v02
     // @BUGFIX (PITWALL-08, 2026-07-26): total OpenF1 failure now surfaces as a registry error
     // payload (PX-3301) with a correlationId instead of masquerading as the idle "no session"
     // response. The client shows the error banner with code + correlationId, and the failure
     // is logged to error_logs for the admin panel.
+    // @BUGFIX (2026-07-27, err_ms39dvf0): the log write was fire-and-forget BEFORE the 502
+    // returned — the BUG-ROAST-001 pattern: Cloud Run throttles CPU post-response, so the
+    // Firestore write froze and the 13:21-13:27 OpenF1-transient 502 burst left ZERO error_logs
+    // entries (violating the GR#17 amendment). Awaited now — ~50ms on an already-failed path.
     const traced = createTracedError(ERRORS.PIT_WALL_FETCH_FAILED, {
       correlationId,
       context: { tier, upstream: 'openf1', message: err?.message ?? 'unknown' },
       cause: err instanceof Error ? err : undefined,
     });
-    logTracedError(traced).catch(() => {}); // fire-and-forget — never block the response
+    await logTracedError(traced).catch(() => {}); // awaited: post-response writes die on Cloud Run
     return NextResponse.json(
       { error: ERRORS.PIT_WALL_FETCH_FAILED.message, code: ERRORS.PIT_WALL_FETCH_FAILED.code, correlationId },
       { status: 502 },
@@ -749,6 +755,8 @@ async function fetchCoreFromOpenF1(token: string | null): Promise<PitWallLiveDat
             ? Math.max(0, (lapNum - (stint.lap_start ?? 0)) + (stint.tyre_age_at_start ?? 0))
             : (stint.tyre_age_at_start ?? 0))
         : 0,
+      // @BUGFIX (PITWALL-10, 2026-07-27): Math.max(0, …) clamp — with ZERO stint records the
+      // raw formula (length - 1) evaluates to -1; clamp guarantees pit stops never go negative.
       pitStopCount: Math.max(0, (stintsRaw ?? []).filter((s: any) => s.driver_number === dn).length - 1),
       onNewTyres: stint && lapNum > 0 ? (lapNum - (stint.lap_start ?? 0)) <= 1 : false,
       inPit: car?.drs === 8, // rough proxy; OpenF1 doesn't have a direct inPit flag

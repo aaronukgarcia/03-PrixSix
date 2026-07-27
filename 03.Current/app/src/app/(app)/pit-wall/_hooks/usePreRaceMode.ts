@@ -38,13 +38,17 @@ const COUNTDOWN_WINDOW_MINUTES = 5;
 // Main hook
 // ---------------------------------------------------------------------------
 
-// GUID: PRE_RACE_MODE_HOOK-001-v02
+// GUID: PRE_RACE_MODE_HOOK-001-v03
 // [Intent] State machine hook determining the current Pit Wall operating mode.
 //          Transitions: IDLE → SHOWREEL_QUEUED → SHOWREEL_PLAYING ↔ SHOWREEL_BETWEEN → COUNTDOWN → LIVE.
 //          Handles schedule fetching, item advancement, and on-demand session overrides.
 //          v02 (@BUGFIX PITWALL-03, 2026-07-26): exposes clearOnDemand so the consumer can
 //          release an on-demand pick when its replay completes — the ticker's auto-advance
 //          guard keys off onDemandRef, so clearing it resumes the scheduled showreel.
+//          v03 (@BUGFIX PITWALL-11, 2026-07-27): exposes advanceToNextItem so PitWallClient
+//          can advance the showreel the moment a scheduled replay's DATA completes — the
+//          ticker only advances at wallClockEnd, which froze short replays on their last
+//          frame for the remainder of the wall slot.
 // [Inbound Trigger] Called once by PitWallClient; re-evaluates on every ticker tick.
 // [Downstream Impact] mode drives which data source and UI layer PitWallClient renders.
 export function usePreRaceMode(
@@ -325,6 +329,8 @@ export function usePreRaceMode(
     isShowreel,
     onRaceSelect,
     clearOnDemand,
+    // @BUGFIX (PITWALL-11, 2026-07-27): exposed for replay-complete early advance.
+    advanceToNextItem,
     onDemandSession,
   };
 }

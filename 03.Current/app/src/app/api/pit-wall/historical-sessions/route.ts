@@ -1,6 +1,8 @@
-// GUID: API_PIT_WALL_HISTORICAL_SESSIONS-000-v01
-// [Intent] Look up 2025 historical sessions from OpenF1 for a given circuit.
+// GUID: API_PIT_WALL_HISTORICAL_SESSIONS-000-v02
+// [Intent] Look up previous-season historical sessions from OpenF1 for a given circuit.
 //          Used by the Pre-Race Showreel to find races to replay before live sessions.
+//          v02 (@BUGFIX PITWALL-09): replay year is derived from the race schedule
+//          (season of the next race − 1) instead of a hardcoded 2025.
 // [Inbound Trigger] Called by usePreRaceMode when pre-race window opens (< 2 hours to race).
 // [Downstream Impact] Returns HistoricalSession[] — the showreel schedule is built from this data.
 
@@ -8,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin, verifyAuthToken, generateCorrelationId } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
 import { getSecret } from '@/lib/secrets-manager';
+import { RaceSchedule } from '@/lib/data';
 import type { HistoricalSession } from '@/app/(app)/pit-wall/_types/showreel.types';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +47,23 @@ const LOCATION_TO_CIRCUIT_SHORT_NAME: Record<string, string> = {
   'Monaco': 'Monte Carlo',
   'Yas Marina': 'Yas Marina Circuit',
 };
+
+// GUID: API_PIT_WALL_HISTORICAL_SESSIONS-005-v01
+// [Intent] Derive the replay season for the showreel.
+// @BUGFIX (PITWALL-09, 2026-07-27): year=2025 was hardcoded, so the showreel would keep
+//   querying 2025 sessions forever and silently find nothing relevant in later seasons.
+//   The showreel previews the NEXT race, so replays come from the season BEFORE that race:
+//   season of the next scheduled race (from RaceSchedule — GR#15, derived from data, not a
+//   hardcoded constant) minus 1. Falls back to the final schedule entry after season end,
+//   which still yields <current season − 1> — the last completed season with full telemetry.
+function getReplayYear(): number {
+  const now = new Date();
+  const nextRace =
+    RaceSchedule.find(r => new Date(r.raceTime) > now) ?? RaceSchedule[RaceSchedule.length - 1];
+  const seasonYear = new Date(nextRace.raceTime).getFullYear();
+  // Guard against a malformed raceTime producing NaN — degrade to wall-clock year.
+  return (Number.isFinite(seasonYear) ? seasonYear : new Date().getFullYear()) - 1;
+}
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
@@ -90,9 +110,12 @@ async function getOpenF1Token(): Promise<string | null> {
   }
 }
 
-// GUID: API_PIT_WALL_HISTORICAL_SESSIONS-001-v02
+// GUID: API_PIT_WALL_HISTORICAL_SESSIONS-001-v03
 // [Intent] v02 (@BUGFIX PITWALL-04): incoming circuit_short_name is normalised through
 //          LOCATION_TO_CIRCUIT_SHORT_NAME before querying OpenF1 (fallback: raw value).
+//          v03 (@BUGFIX PITWALL-09): replay year comes from getReplayYear() (schedule-derived)
+//          instead of hardcoded 2025; the cache key includes the year so a long-lived server
+//          process rolls over cleanly at a season boundary.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
   getFirebaseAdmin(); // ensure Admin SDK is initialised
@@ -129,8 +152,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Cache key based on the lookup parameter provided
-  const cacheKey = circuitKey != null ? String(circuitKey) : circuitShortName!;
+  // @BUGFIX (PITWALL-09): schedule-derived replay season (see API_PIT_WALL_HISTORICAL_SESSIONS-005)
+  const replayYear = getReplayYear();
+
+  // Cache key based on the lookup parameter provided + replay year (season rollover safety)
+  const cacheKey = `${replayYear}:${circuitKey != null ? String(circuitKey) : circuitShortName!}`;
   const cached = sessionCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return NextResponse.json({ sessions: cached.data, fetchedAt: Date.now() });
@@ -143,8 +169,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // proceed without token
   }
 
-  // Build OpenF1 URL
-  let openF1Url = `${OPENF1_BASE}/sessions?year=2025`;
+  // Build OpenF1 URL — @BUGFIX (PITWALL-09): year derived from schedule, not hardcoded
+  let openF1Url = `${OPENF1_BASE}/sessions?year=${replayYear}`;
   if (circuitKey != null) {
     openF1Url += `&circuit_key=${circuitKey}`;
   } else {
@@ -239,7 +265,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     circuitKey: s.circuit_key,
     circuitShortName: s.circuit_short_name,
     country: s.country_name,
-    year: 2025,
+    year: replayYear, // @BUGFIX (PITWALL-09): schedule-derived, was hardcoded 2025
     dateStart: s.date_start,
     dateEnd: s.date_end,
     durationSeconds: s.session_type === 'Sprint' ? SPRINT_DURATION_S : RACE_DURATION_S,

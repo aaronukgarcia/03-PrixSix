@@ -14,12 +14,14 @@ import { useRef, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { DriverRaceState, TrackBounds, CircuitPoint } from '../_types/pit-wall.types';
 
-// GUID: PIT_WALL_TRACK_MAP-001-v09
+// GUID: PIT_WALL_TRACK_MAP-001-v10
 // [Intent] Props interface — extends v07 with zoomLevel + focusPosition for the 3-tier
 //          zoom system. circuitLat and circuitLon kept for compatibility.
 //          v08: Added zoomLevel (0|1|2) and focusPosition for Zoom 2 hyper-focus mode.
 //          v09: Added virtualTimeDeltaMs for replay mode — passed through to PixiTrackApp
 //               so the impossible-travel filter uses virtual time instead of wall time.
+//          v10: @FEAT (FEAT-PW-012) added radioActiveDrivers — driver numbers with an
+//               active team radio message; the Pixi CarLayer flashes a RADIO badge.
 interface PitWallTrackMapProps {
   drivers: DriverRaceState[];
   updateIntervalMs: number;
@@ -43,6 +45,7 @@ interface PitWallTrackMapProps {
   virtualTimeDeltaMs?: number;
   sessionKey?: string | null;
   bloomEnabled?: boolean;
+  radioActiveDrivers?: number[] | null;
   className?: string;
 }
 
@@ -72,6 +75,7 @@ type PixiTrackAppInstance = {
     virtualTimeDeltaMs?: number;
     sessionKey?: string | null;
     bloomEnabled?: boolean;
+    radioActiveDrivers?: number[] | null;
   }) => void;
   destroy: () => void;
 };
@@ -105,6 +109,7 @@ export function PitWallTrackMap({
   virtualTimeDeltaMs,
   sessionKey,
   bloomEnabled,
+  radioActiveDrivers,
   className,
 }: PitWallTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -170,6 +175,7 @@ export function PitWallTrackMap({
       virtualTimeDeltaMs,
       sessionKey,
       bloomEnabled,
+      radioActiveDrivers, // @FEAT (FEAT-PW-012)
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -178,6 +184,7 @@ export function PitWallTrackMap({
     rainIntensity, sessionType, hasLiveSession, positionDataAvailable,
     nextRaceName, lastMeetingName, trailEnabled, trailTtlMs, sfLineX, sfLineY,
     zoomLevel, focusPosition, virtualTimeDeltaMs, sessionKey, bloomEnabled,
+    radioActiveDrivers,
   ]);
 
   return (

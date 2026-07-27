@@ -549,7 +549,9 @@ export async function POST(request: NextRequest) {
       console.log(`[Scoring] Creating ${carryForwardPredictionsCreated} carry-forward prediction documents`);
     }
 
-    // GUID: API_CALCULATE_SCORES-016-v03
+    // GUID: API_CALCULATE_SCORES-016-v04
+    // @CHANGE (CHORE-ADM-001): audit event now stores adminEmail alongside userId so the trail is
+    //   human-readable without an admin.auth().getUsers() lookup (Garth incident 2026-03-15).
     // [Intent] Writes the official race result document to the race_results collection, storing the top-6 finishing order. Also creates an audit log entry for the result submission.
     // [Inbound Trigger] After all score and carry-forward documents are prepared in the batch.
     // [Downstream Impact] The race_results document is used by submit-prediction to enforce pit-lane lockout (no predictions after results exist). The audit log provides an admin activity trail.
@@ -576,6 +578,8 @@ export async function POST(request: NextRequest) {
     const auditRef = db.collection('audit_logs').doc();
     batch.set(auditRef, {
       userId: verifiedUser.uid,
+      // CHORE-ADM-001: human-readable admin identity (email from the verified ID token; null if absent)
+      adminEmail: verifiedUser.email ?? null,
       action: 'RACE_RESULTS_SUBMITTED',
       details: {
         raceId: resultDocId,

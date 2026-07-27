@@ -184,10 +184,13 @@ export interface ReplayDriverState {
   lastUpdated: number;
 }
 
-// GUID: SHOWREEL_TYPES-010-v02
+// GUID: SHOWREEL_TYPES-010-v03
 // [Intent] Return type for usePreRaceMode hook.
 //          v02 (@BUGFIX PITWALL-03, 2026-07-26): added clearOnDemand — releases the
 //          user's on-demand pick so the scheduled showreel auto-advance resumes.
+//          v03 (@BUGFIX PITWALL-11, 2026-07-27): exposed advanceToNextItem — a scheduled
+//          replay that finishes before its wall slot now advances instead of freezing
+//          on its last frame until wallClockEnd.
 export interface UsePreRaceModeReturn {
   mode: PreRaceModeState;
   schedule: ShowreelSchedule | null;
@@ -197,5 +200,6 @@ export interface UsePreRaceModeReturn {
   isShowreel: boolean;              // true when in SHOWREEL_PLAYING or SHOWREEL_BETWEEN
   onRaceSelect: (session: HistoricalSession) => void; // on-demand race selector
   clearOnDemand: () => void;        // release the on-demand pick → scheduled showreel resumes
+  advanceToNextItem: () => void;    // skip to the next scheduled item (replay-complete path)
   onDemandSession: HistoricalSession | null;          // user-selected on-demand session
 }

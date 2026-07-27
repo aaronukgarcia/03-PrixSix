@@ -101,6 +101,11 @@ export class PixiTrackApp {
   //          Passed to TrackLayer.rebuild() for accurate S/F marker placement.
   private sfLineGps: { x: number; y: number } | null = null;
 
+  // GUID: PIXI_TRACK_APP-019-v01
+  // [Intent] @FEAT (FEAT-PW-012) Driver numbers with a currently-active team radio message
+  //          (GPS replay mode). Passed to CarLayer each frame to flash the RADIO badge.
+  private radioActiveDrivers: Set<number> | null = null;
+
   // GUID: PIXI_TRACK_APP-015-v01
   // [Intent] Session key tracking — when session changes (live→replay, replay→different session),
   //          all interpolation, trail, and direction state must be flushed so stale data from
@@ -185,7 +190,7 @@ export class PixiTrackApp {
     this.app.ticker.add(this.onTick, this);
   }
 
-  // GUID: PIXI_TRACK_APP-004-v03
+  // GUID: PIXI_TRACK_APP-004-v04
   // [Intent] Data ingress from React. Called on every prop change via the React useEffect
   //          in PitWallTrackMap. Pushes new driver data to the interpolation system and
   //          rebuilds track polyline/outline when the circuit path grows significantly.
@@ -193,6 +198,7 @@ export class PixiTrackApp {
   //          v02: Added zoomLevel + focusPosition for 3-tier zoom system.
   //          v03: Added virtualTimeDeltaMs for replay mode — passed to InterpolationSystem
   //               so the impossible-travel filter uses virtual time instead of wall time.
+  //          v04: @FEAT (FEAT-PW-012) added radioActiveDrivers for the RADIO badge flash.
   setData(opts: {
     drivers: DriverRaceState[];
     bounds: TrackBounds | null;
@@ -214,6 +220,8 @@ export class PixiTrackApp {
     virtualTimeDeltaMs?: number;
     sessionKey?: string | null;
     bloomEnabled?: boolean;
+    /** @FEAT (FEAT-PW-012) drivers with an active team radio message (replay mode) */
+    radioActiveDrivers?: number[] | null;
   }): void {
     // GUID: PIXI_TRACK_APP-016-v01
     // [Intent] Detect session change and flush all interpolation/trail/direction state.
@@ -306,6 +314,15 @@ export class PixiTrackApp {
     // S/F line GPS position (from API lap/location correlation)
     if (opts.sfLineX != null && opts.sfLineY != null) {
       this.sfLineGps = { x: opts.sfLineX, y: opts.sfLineY };
+    }
+
+    // @FEAT (FEAT-PW-012): active-radio driver set for the RADIO badge flash.
+    // undefined = prop not provided (preserve current); null/[] = clear.
+    if (opts.radioActiveDrivers !== undefined) {
+      this.radioActiveDrivers =
+        opts.radioActiveDrivers && opts.radioActiveDrivers.length > 0
+          ? new Set(opts.radioActiveDrivers)
+          : null;
     }
 
     // Rebuild track polyline/outline if circuit path grew significantly
@@ -480,8 +497,11 @@ export class PixiTrackApp {
           ?? null;
       }
 
-      // 6. Update cars
-      this.carLayer.update(interpolated, this.bounds, w, h, this.followDriver, focusDriverNumber);
+      // 6. Update cars — @FEAT (FEAT-PW-012): pass active-radio set for RADIO badge flash
+      this.carLayer.update(
+        interpolated, this.bounds, w, h, this.followDriver, focusDriverNumber,
+        this.radioActiveDrivers,
+      );
 
       // 7. Camera — in Zoom 2, always follow the focus driver (mandatory for chase-cam).
       //    In Zoom 0/1, follow if user selected a driver, else overview.

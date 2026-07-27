@@ -42,6 +42,103 @@ function ensureAudioUnlocked() {
   }
 }
 
+// GUID: RADIO_ZOOM_PANEL-009-v01
+// [Intent] @FEAT (FEAT-PW-013, 2026-07-27) Radio static audio cue — a short synthesised
+//          "squelch" (band-passed white-noise burst + tiny square-wave boop) played when
+//          the user starts a team radio message, and a brief click when it ends. Pure
+//          WebAudio synthesis — no audio asset to download, nothing autoplayed: the cue
+//          only fires inside the user's play-button click (gesture-safe on mobile).
+//          AudioContext is created lazily on first use and reused for the session.
+let radioCueCtx: AudioContext | null = null;
+
+function getRadioCueContext(): AudioContext | null {
+  try {
+    if (!radioCueCtx) {
+      const Ctor = window.AudioContext
+        ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) return null;
+      radioCueCtx = new Ctor();
+    }
+    if (radioCueCtx.state === 'suspended') void radioCueCtx.resume();
+    return radioCueCtx;
+  } catch {
+    return null; // WebAudio unavailable — cue is decorative, never block playback
+  }
+}
+
+// GUID: RADIO_ZOOM_PANEL-010-v01
+// [Intent] Play the open-squelch cue: ~150ms of band-passed noise fading out, overlaid
+//          with a very quiet 10ms square-wave blip. Gain kept low (≤0.05) — the cue sits
+//          under the actual radio recording, not over it.
+function playRadioStaticCue(): void {
+  try {
+    const ctx = getRadioCueContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Noise burst — 0.15s of white noise through a band-pass (radio-band feel)
+    const noiseLen = Math.max(1, Math.floor(ctx.sampleRate * 0.15));
+    const buffer = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 1800; // narrow "radio" band
+    bandpass.Q.value = 1.2;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.05, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    noise.connect(bandpass).connect(noiseGain).connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + 0.16);
+
+    // Tiny square-wave "boop" right at the front of the burst
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = 1200;
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0.02, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.connect(oscGain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.05);
+  } catch {
+    // Decorative only — swallow (no error-registry write for a missing beep)
+  }
+}
+
+// GUID: RADIO_ZOOM_PANEL-011-v01
+// [Intent] Play the close-squelch click when a message finishes — a single ~40ms
+//          filtered noise tick, quieter than the open cue.
+function playRadioEndClick(): void {
+  try {
+    const ctx = getRadioCueContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * 0.04));
+    const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 2400;
+    bandpass.Q.value = 2;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.03, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    noise.connect(bandpass).connect(gain).connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + 0.05);
+  } catch {
+    // Decorative only — swallow
+  }
+}
+
 // GUID: RADIO_ZOOM_PANEL-003-v01
 // [Intent] Format an ISO date string as HH:MM:SS local time for message timestamps.
 function formatTime(dateStr: string): string {
@@ -59,9 +156,11 @@ function formatTime(dateStr: string): string {
   }
 }
 
-// GUID: RADIO_ZOOM_PANEL-004-v01
+// GUID: RADIO_ZOOM_PANEL-004-v02
 // [Intent] iMessage-style audio waveform player with animated bars and progress bar.
 //          Inline sub-component — not exported.
+//          v02: @FEAT (FEAT-PW-013) radio squelch cues — static burst on play start,
+//          click on message end (see RADIO_ZOOM_PANEL-009/-010/-011).
 function AudioWaveformPlayer({
   url,
   messageId,
@@ -84,6 +183,9 @@ function AudioWaveformPlayer({
       audio.pause();
       setIsPlaying(false);
     } else {
+      // @FEAT (FEAT-PW-013, 2026-07-27): open-squelch static cue under the recording.
+      // Fired inside the click handler (user gesture) so mobile autoplay policy allows it.
+      playRadioStaticCue();
       audio
         .play()
         .then(() => {
@@ -106,6 +208,8 @@ function AudioWaveformPlayer({
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
     setProgress(0);
+    // @FEAT (FEAT-PW-013): close-squelch click — "message over".
+    playRadioEndClick();
   }, []);
 
   // Waveform bar heights — 5 bars, arbitrary proportions

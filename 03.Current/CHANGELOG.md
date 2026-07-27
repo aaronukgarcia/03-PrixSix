@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.18.0 — 2026-07-27
+
+### Backlog clearance wave: invite genealogy, Pit Wall features, security audit closed
+
+**Invite genealogy (INVITE-TREE-001):** every invite consumption now stamps `invitedBy` (inviter uid/team, token, time) on the new user via both signup paths — lineage even records when the gate is open (never blocking); field is server-side-only (firestore.rules `protectedFields` — **this release requires `firebase deploy --only firestore:rules`**); new admin "Referral Tree" tab renders the full referral forest. Ready before next-season signups.
+
+**Pit Wall:** replay year derived from the schedule (no 2025 hardcode, GR#15); replays auto-advance on completion; throttle/brake sparklines in the timing table (FEAT-PW-011); pulsing RADIO pills on cars during replays (FEAT-PW-012); WebAudio radio squelch on team-radio playback (FEAT-PW-013); render-containment documented (FEAT-PW-014). Circuit outline confirmed already shipped (BOW was stale). FEAT-PW-010/015/016/017 deferred with reasons.
+
+**Security:** CHORE-SEC-003 steps 2–4 executed — all 77 API routes + functions + worker audited, ZERO high-severity findings (one medium logged: SEC-AUDIT3-01 notify-pin-changed arbitrary recipient; one low: record-logon/logout missing registry errors); top-10 security test cases recorded. Sentinel leak fixed: OAuth gate-refusals now release the claimed team name (BUG-SENTINEL-LEAK-001). live-data's 502 error-log write was fire-and-forget post-response and died on Cloud Run CPU throttle (today's err_ms39dvf0 investigation) — now awaited.
+
+**Chores:** admin email stamped on results-submitted/deleted audit entries (CHORE-ADM-001); AI error-log pipeline verified end-to-end (BUG-AI-ERRORLOG-001 closed); rate-limiter coverage confirmed on all DOS routes (CHORE-ARCH-001 closed); dependency-alignment chore closed; fresh code.json audit counts recorded (43 undocumented GUIDs + one duplicate pair → follow-up batch).
+
 ## v3.17.0 — 2026-07-27
 
 ### firebase-admin 14 across all three packages (DEP-MAJ-001/002 — the final majors)

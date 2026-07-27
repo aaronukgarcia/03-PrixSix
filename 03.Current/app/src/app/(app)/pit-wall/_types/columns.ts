@@ -15,8 +15,10 @@ export interface ColumnDef {
   alwaysVisible?: boolean; // cannot be toggled off
 }
 
-// GUID: PIT_WALL_COLUMNS-001-v01
+// GUID: PIT_WALL_COLUMNS-001-v02
 // [Intent] Complete ordered list of all Pit Wall table columns.
+//          v02 (@FEAT FEAT-PW-011, 2026-07-27): 'throttle' widened 52→64px and re-described —
+//          the cell now renders a throttle/brake input sparkline instead of a single bar.
 export const PIT_WALL_COLUMNS: ColumnDef[] = [
   { key: 'position',  label: 'POS',    defaultVisible: true,  width: 44,  align: 'center', sortable: true,  alwaysVisible: true,  description: 'Current race position' },
   { key: 'driver',    label: 'DRIVER', defaultVisible: true,  width: 120, align: 'left',   sortable: false, alwaysVisible: true,  description: 'Driver code and team colour' },
@@ -33,7 +35,7 @@ export const PIT_WALL_COLUMNS: ColumnDef[] = [
   { key: 'lap',       label: 'LAP',    defaultVisible: true,  width: 44,  align: 'center', sortable: false, description: 'Current lap number' },
   { key: 'drs',       label: 'OT',     defaultVisible: false, width: 40,  align: 'center', sortable: false, description: 'Overtake Mode active/inactive (2026: replaces DRS)' },
   { key: 'speed',     label: 'SPD',    defaultVisible: false, width: 54,  align: 'right',  sortable: false, description: 'Current speed (km/h)' },
-  { key: 'throttle',  label: 'THR',    defaultVisible: false, width: 52,  align: 'right',  sortable: false, description: 'Throttle application (%)' },
+  { key: 'throttle',  label: 'THR',    defaultVisible: false, width: 64,  align: 'center', sortable: false, description: 'Throttle/brake input trace (green = throttle, red = brake)' },
   { key: 'pitstops',  label: 'PIT',    defaultVisible: false, width: 40,  align: 'center', sortable: true,  description: 'Number of pit stops made' },
 ];
 

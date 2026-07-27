@@ -1,4 +1,5 @@
-// GUID: PAGE_ADMIN-000-v04
+// GUID: PAGE_ADMIN-000-v05
+// @FEATURE(INVITE-TREE-001, v05): added the 21st tab — Invites (referral genealogy tree).
 // @SECURITY_FIX: Added NODE_ENV guard on console.error in requestAdminLink (GEMINI-AUDIT-080).
 //   In production, raw error messages are no longer exposed in browser DevTools or admin UI.
 // [Intent] Admin panel page — tabbed interface providing access to all league management tools.
@@ -14,7 +15,7 @@ import {
     Tabs,
     TabsContent,
   } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText, Activity, Lock, Radio } from 'lucide-react';
+import { ShieldCheck, Users, Trophy, SlidersHorizontal, Newspaper, Wifi, Mail, BookUser, ClipboardCheck, MessageSquare, Database, Bug, AlertTriangle, HardDrive, Beer, UsersRound, FileText, Activity, Lock, Radio, GitBranch } from 'lucide-react';
 import { HotNewsManager } from "./_components/HotNewsManager";
 import { SiteFunctionsManager } from "./_components/SiteFunctionsManager";
 import { TeamManager } from "./_components/TeamManager";
@@ -64,6 +65,11 @@ import { PitLaneAdmin } from "./_components/PitLaneAdmin";
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders Pit Wall health, replay data, circuit maps, and cache control.
 import { PitWallManager } from "./_components/PitWallManager";
+// GUID: PAGE_ADMIN-INVITES-001-v01
+// [Intent] Import InvitesManager for the 21st admin tab (INVITE-TREE-001 referral genealogy).
+// [Inbound Trigger] Admin page load.
+// [Downstream Impact] Renders the who-invited-whom referral tree in TabsContent value="invites".
+import { InvitesManager } from "./_components/InvitesManager";
 // GUID: PAGE_ADMIN-002-v03
 // [Intent] Import AttackMonitor component for security monitoring displayed above the tabs.
 // [Inbound Trigger] Admin page load.
@@ -347,17 +353,19 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
         );
     }
 
-    // GUID: PAGE_ADMIN-007-v04
+    // GUID: PAGE_ADMIN-007-v05
+    // @FEATURE(INVITE-TREE-001, v05): panel count 20 → 21 (Invites referral tree).
     // [Intent] Main admin panel render — AttackMonitor at top, then grouped tab navigation
-    //          covering all 20 management panels in 5 semantic groups. Controlled tabs with
+    //          covering all 21 management panels in 5 semantic groups. Controlled tabs with
     //          custom grouped button UI for cleaner UX at scale.
     // [Inbound Trigger] User is confirmed admin and auth loading is complete.
     // [Downstream Impact] Each tab renders its respective manager component. Several tabs receive
     //                     allUsers and isUserLoading props for user-related operations.
     const [activeTab, setActiveTab] = useState('functions');
 
-    // GUID: PAGE_ADMIN-008-v01
-    // [Intent] Tab group definitions — organises 20 tabs into 5 semantic groups with
+    // GUID: PAGE_ADMIN-008-v02
+    // @FEATURE(INVITE-TREE-001, v02): added the Invites tab (referral genealogy) to Race Ops.
+    // [Intent] Tab group definitions — organises 21 tabs into 5 semantic groups with
     //          consistent colour theming. Each group has a label, accent colour, and ordered items.
     const tabGroups = [
       { label: 'Race Ops', accent: 'amber', items: [
@@ -366,6 +374,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
         { value: 'pitlane', icon: Lock, label: 'Pit Lane' },
         { value: 'teams', icon: Users, label: 'Teams' },
         { value: 'leagues', icon: UsersRound, label: 'Leagues' },
+        { value: 'invites', icon: GitBranch, label: 'Invites' },
       ]},
       { label: 'Live', accent: 'cyan', items: [
         { value: 'pubchat', icon: Beer, label: 'PubChat' },
@@ -524,6 +533,16 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                 </TabsContent>
                 <TabsContent value="leagues">
                     <LeaguesManager allUsers={allUsers} isUserLoading={isUserLoading} />
+                </TabsContent>
+                {/* GUID: PAGE_ADMIN-INVITES-003-v01
+                    [Intent] Mount the InvitesManager (referral genealogy tree) when the Invites
+                             tab is active (INVITE-TREE-001).
+                    [Inbound Trigger] Tab button value="invites" selected (PAGE_ADMIN-008-v02).
+                    [Downstream Impact] InvitesManager builds the who-invited-whom forest from the
+                                        shared allUsers subscription (users.invitedBy lineage field);
+                                        read-only, no extra Firestore queries. */}
+                <TabsContent value="invites">
+                    <InvitesManager allUsers={allUsers} isUserLoading={isUserLoading} />
                 </TabsContent>
                 {/* GUID: PAGE_ADMIN-BOOKOFWORK-003-v01
                     [Intent] Mount the BookOfWorkManager when the Book of Work tab is active.

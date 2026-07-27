@@ -1,10 +1,12 @@
-// GUID: PIT_WALL_RACE_TABLE-000-v04
+// GUID: PIT_WALL_RACE_TABLE-000-v05
 // [Intent] Div-grid race data table with CSS position-change flashes.
 //          F1 broadcast style — rows snap instantly, green/red flash on position change.
 //          v03: Replaced Framer Motion spring animations with CSS keyframe flashes.
 //               Removed React.memo — 20 plain div rows are trivial to reconcile.
 //          v04: FEAT-PW-009 — fixed sector colour mapping to F1 convention
 //               (session_best = purple, personal_best = green). Pulse duration 0.8s.
+//          v05: @FEAT (FEAT-PW-011) throttle cell renders ThrottleBrakeSparkline (input
+//               history trace) instead of a single instantaneous throttle bar.
 // [Inbound Trigger] Rendered by PitWallClient as the primary race data view.
 // [Downstream Impact] Reads DriverRaceState[] and RadioMessage[]; writes nothing.
 //                     onRadioClick bubbles up to open RadioZoomPanel.
@@ -20,6 +22,7 @@ import { RollingLapTime } from './RollingLapTime';
 import { TyreBadge } from './TyreBadge';
 import { DeltaIndicator } from './DeltaIndicator';
 import { RadioIcon } from './RadioIcon';
+import { ThrottleBrakeSparkline } from './ThrottleBrakeSparkline';
 
 // GUID: PIT_WALL_RACE_TABLE-001-v02
 // [Intent] Props for the race table. v02: Added onDriverClick + followDriver for follow-mode camera.
@@ -292,16 +295,12 @@ function CellContent({
     }
 
     case 'throttle': {
-      const pct = driver.throttle ?? 0;
+      // @FEAT (FEAT-PW-011, 2026-07-27): simple instantaneous throttle bar replaced by a
+      // dual-trace canvas sparkline (green throttle line + red brake blocks) showing the
+      // driver's recent input history — see PW_THROTTLE_BRAKE_SPARKLINE-000.
       return (
-        <div className="flex items-center w-full h-full px-1">
-          <div className="w-full h-1.5 bg-slate-800 rounded overflow-hidden">
-            <div
-              className="h-full bg-green-500 rounded transition-all duration-300"
-              style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-              aria-label={`Throttle ${pct}%`}
-            />
-          </div>
+        <div className="flex items-center justify-center w-full h-full px-1">
+          <ThrottleBrakeSparkline throttle={driver.throttle} brake={driver.brake} />
         </div>
       );
     }
@@ -351,9 +350,15 @@ function SortIndicator({ colKey, sortKey }: { colKey: string; sortKey: string | 
   return <span className="text-blue-400 ml-0.5">↑</span>;
 }
 
-// GUID: PIT_WALL_RACE_TABLE-011-v03
+// GUID: PIT_WALL_RACE_TABLE-011-v04
 // [Intent] Plain div row with follow-mode highlight. Click anywhere on the row to
 //          toggle follow-mode camera in the track map. Orange ring when followed.
+//          v04: @FEAT (FEAT-PW-014, 2026-07-27) CSS containment on every row —
+//          `contain: 'content'` (layout + paint + style) isolates each row's repaints
+//          so per-row updates at high replay speeds can't trigger full-table reflow.
+//          Deliberately NOT `contain: 'strict'` as originally specced: strict adds SIZE
+//          containment, which makes an auto-height row compute to 0px and collapse —
+//          'content' delivers the intended repaint isolation without breaking layout.
 function DriverRow({
   driver,
   unreadCount,
