@@ -1,6 +1,6 @@
 {
   "name": "prixsix-whatsapp-worker",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "WhatsApp notification worker for Prix Six Fantasy F1 (Baileys)",
   "main": "dist/index.js",
   "scripts": {
