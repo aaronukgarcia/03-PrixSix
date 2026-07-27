@@ -8,7 +8,10 @@
 //                     (dailyBackup and runRecoveryTest). No writes to Firestore.
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+// @BUGFIX (CHORE-TSC-001, BOW aDvk0c9DhdllnxTp3qSp): `type JSX` added — React 19 types removed the
+//   global JSX namespace, so the bare `JSX.Element` annotation in the retention card (GUID -035)
+//   failed TS2503. Type-only import; no runtime change.
+import { useMemo, useState, useCallback, type JSX } from 'react';
 import { useDoc, useCollection, useFirestore, useAuth, useFunctions } from '@/firebase';
 import { doc, collection, query, orderBy } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -901,7 +904,9 @@ export function BackupHealthDashboard() {
       </Card>
     </div>
 
-    {/* GUID: BACKUP_DASHBOARD-035-v01
+    {/* GUID: BACKUP_DASHBOARD-035-v02
+        @BUGFIX (CHORE-TSC-001, BOW aDvk0c9DhdllnxTp3qSp): JSX.Element annotation now resolves via
+                 the explicit `type JSX` import from 'react' (React 19 removed the global namespace).
         [Intent] Retention status card — shows when the next applyBackupRetention cron
                  will fire (03:30 UTC daily) and a 3-state indicator of whether the
                  function is actually running. Green = healthy (heartbeat within 36h),

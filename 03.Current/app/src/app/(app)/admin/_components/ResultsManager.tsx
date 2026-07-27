@@ -1,4 +1,5 @@
-// GUID: ADMIN_RESULTS-000-v04
+// GUID: ADMIN_RESULTS-000-v05
+// @BUGFIX (FEAT-ADM-001): The results trash icon fired the cascade delete (result + scores + ALL predictions) directly with NO confirmation. It now opens a destructive-styled AlertDialog (GUID -024) that names the race and spells out the cascade before handleDelete runs.
 // @SECURITY_FIX: Replaced direct client-side collectionGroup('predictions') read in fetchSubmissionCount with server-side /api/admin/prediction-count call (GEMINI-AUDIT-027). The unbounded, unauthenticated client read has been removed. All Firestore reads now go through authenticated server-side routes.
 // [Intent] Admin component for entering official F1 race results and managing existing results. Provides a two-step wizard: race selection then driver picker for top-6 positions.
 // [Inbound Trigger] Rendered when admin navigates to the Results management tab in the admin panel.
@@ -93,6 +94,17 @@ export function ResultsManager() {
     // GUID: ADMIN_RESULTS-020-v01
     // [Intent] Tracks the admin's typed confirmation text — must match the race name before submit is enabled.
     const [confirmRaceName, setConfirmRaceName] = useState('');
+
+    // GUID: ADMIN_RESULTS-024-v01
+    // @BUGFIX (FEAT-ADM-001): Holds the race result awaiting delete confirmation. The trash icon
+    //          now sets this (opening the confirmation AlertDialog) instead of firing handleDelete
+    //          directly — the delete cascades to scores and ALL player predictions, so it must
+    //          never run on a single misclick.
+    // [Intent] Pending-delete state for the destructive delete-confirmation dialog.
+    // [Inbound Trigger] Set by the trash icon in the Entered Race Results table; cleared on
+    //          cancel, dialog dismiss, or confirm.
+    // [Downstream Impact] Non-null renders the delete AlertDialog; confirm passes it to handleDelete.
+    const [pendingDelete, setPendingDelete] = useState<RaceResult | null>(null);
 
     // GUID: ADMIN_RESULTS-022-v01
     // [Intent] FIA official classification PDF URL — pasted by admin, stored on the race_results doc,
@@ -359,10 +371,13 @@ export function ResultsManager() {
         }
     };
 
-    // GUID: ADMIN_RESULTS-018-v04
+    // GUID: ADMIN_RESULTS-018-v05
+    // @BUGFIX (FEAT-ADM-001): No longer wired directly to the trash icon — the icon now opens the
+    //          delete-confirmation AlertDialog (GUID -024/-025) and only its destructive confirm
+    //          button calls this. Function body unchanged.
     // @SECURITY_FIX: Now includes cascade deletion of predictions (ADMINCOMP-023).
     // [Intent] Delete a race result, its associated scores, and all user predictions via the server-side /api/delete-scores endpoint.
-    // [Inbound Trigger] Called when admin clicks the trash icon on an existing race result row.
+    // [Inbound Trigger] Called when admin confirms deletion in the destructive AlertDialog opened by the trash icon on an existing race result row.
     // [Downstream Impact] Removes race_results document, all associated score documents, and all prediction documents. Recalculates standings. This is destructive and cannot be undone.
     const handleDelete = async (result: RaceResult) => {
         if (!firestore || !user || !firebaseUser) return;
@@ -467,6 +482,50 @@ export function ResultsManager() {
                             disabled={confirmRaceName.trim().toLowerCase() !== (selectedRace?.replace(/ - (GP|Sprint)$/, '') ?? '').toLowerCase()}
                         >
                             Yes, Submit Results
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Delete Confirmation Dialog */}
+            {/* GUID: ADMIN_RESULTS-025-v01 */}
+            {/* @BUGFIX (FEAT-ADM-001): New guard — previously the trash icon cascade-deleted with no confirmation. */}
+            {/* [Intent] Destructive confirmation dialog naming the race and spelling out the full cascade */}
+            {/*          (result + scores + ALL player predictions) before handleDelete is allowed to run. */}
+            {/* [Inbound Trigger] Opens when pendingDelete is set by the trash icon in the results table. */}
+            {/* [Downstream Impact] Confirm calls handleDelete → /api/delete-scores cascade + standings recalc. */}
+            {/*          Cancel/dismiss clears pendingDelete with no side effects. */}
+            <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => {
+                if (!open) setPendingDelete(null);
+            }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete result for {pendingDelete?.raceId}?</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3">
+                                <p>
+                                    You are about to delete the entered result for{' '}
+                                    <span className="font-bold text-foreground">{pendingDelete?.raceId}</span>.
+                                </p>
+                                <p className="font-medium text-destructive">
+                                    This deletes the race result, all scores, and all player predictions
+                                    for this race — it cannot be undone.
+                                </p>
+                                <p>Standings will be recalculated without this race.</p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => {
+                                const target = pendingDelete;
+                                setPendingDelete(null);
+                                if (target) handleDelete(target);
+                            }}
+                        >
+                            Delete Result & All Predictions
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -805,10 +864,11 @@ export function ResultsManager() {
                                             {formatTimestamp(result.submittedAt)}
                                         </TableCell>
                                         <TableCell>
+                                            {/* @BUGFIX (FEAT-ADM-001): opens confirmation dialog instead of deleting directly */}
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => handleDelete(result)}
+                                                onClick={() => setPendingDelete(result)}
                                                 disabled={deletingId === result.id}
                                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                             >

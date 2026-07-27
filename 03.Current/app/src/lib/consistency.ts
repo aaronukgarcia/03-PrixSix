@@ -139,10 +139,16 @@ export interface UserData {
 
 // --- Prediction Interfaces ---
 
-// GUID: LIB_CONSISTENCY-009-v03
+// GUID: LIB_CONSISTENCY-009-v04
+// @BUGFIX (CHORE-TSC-001, BOW aDvk0c9DhdllnxTp3qSp): added the optional `submittedAt` field —
+//   the Score Type Breakdown (GUID -0xx, ~line 1850) already reads pred.submittedAt to pick the
+//   latest prediction per race and gate carry-forward, but the interface omitted it (TS2339).
+//   Typed `unknown` deliberately (GR#16): Firestore may hand back a Timestamp, ISO string, or
+//   millis depending on fetch path, and the consumer already coerces defensively via
+//   new Date(... as any) with a Number.isFinite guard. Type-only change; no runtime change.
 // [Intent] Lightweight representation of a prediction record for consistency validation.
-//   Contains the user/team reference, race reference, and the array of 6 predicted driver IDs.
-//   Supports both userId and teamId fields (legacy and current formats).
+//   Contains the user/team reference, race reference, the array of 6 predicted driver IDs,
+//   and the submission timestamp. Supports both userId and teamId fields (legacy and current formats).
 // [Inbound Trigger] Populated from Firestore 'predictions' collection in ConsistencyChecker.tsx
 //   and passed into checkPredictions(), checkScores(), and checkTeamCoverage().
 // [Downstream Impact] Changes to this interface affect prediction validation, score
@@ -154,6 +160,7 @@ export interface PredictionData {
   teamName?: string;
   raceId?: string;
   predictions?: string[];
+  submittedAt?: unknown;  // Firestore Timestamp | ISO string | millis — coerce via safe guards, never trust
 }
 
 // --- Race Result Interfaces ---

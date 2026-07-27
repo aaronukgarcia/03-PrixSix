@@ -136,7 +136,15 @@ an older grid you remember — treat every driver→team pairing shown as establ
 `;
 };
 
-// GUID: API_AI_ANALYSIS-014-v01
+// GUID: API_AI_ANALYSIS-014-v02
+// @BUGFIX (CHORE-TSC-001, BOW aDvk0c9DhdllnxTp3qSp): REAL runtime bug, not just a type error.
+//   generateRaceId(name) was called with ONE argument; its signature is (raceName, type: 'gp'|'sprint')
+//   and it returns `${base}-Sprint` for ANY type !== 'gp' — including undefined. So every completed
+//   race in the schedule normalised to "<race>-sprint", which can never match resultsByNorm (sprint
+//   docs are deliberately skipped when building it, and GP docs don't carry the -sprint suffix).
+//   Net effect: `completed` was ALWAYS empty and this function ALWAYS returned '' — the RECENT FORM
+//   grounding block never reached the AI prompt, silently (masked by the fail-open '' design), so
+//   analysis "driver form" commentary was running ungrounded. Fixed by passing 'gp' explicitly.
 // [Intent] Build an authoritative "recent form" block from the app's OWN race_results (the SSOT of
 //   actual F1 classifications) — the top-6 finishers of the most recent completed GP races this 2026
 //   season. Injected into the prompt so the model grounds "driver form / recent performance"
@@ -170,7 +178,8 @@ async function buildRecentFormBlock(db: FirebaseFirestore.Firestore, maxRaces = 
     const now = Date.now();
     const completed = schedule
       .filter((r) => r.raceTime && new Date(r.raceTime).getTime() <= now)
-      .map((r) => ({ name: r.name, norm: normalizeRaceIdForComparison(generateRaceId(r.name)) }))
+      // @BUGFIX (CHORE-TSC-001): 'gp' arg was missing — see GUID -014-v02 header above.
+      .map((r) => ({ name: r.name, norm: normalizeRaceIdForComparison(generateRaceId(r.name, 'gp')) }))
       .filter((r) => resultsByNorm.has(r.norm));
 
     const recent = completed.slice(-maxRaces);

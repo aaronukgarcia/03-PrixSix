@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-27",
   "commits": [
     {
+      "id": "a627b5e",
+      "date": "2026-07-27",
+      "version": "3.15.1",
+      "author": "aaron garcia",
+      "message": "fix: OAuth + secondary-team late joiners now get the active-floor handicap (dead pre-SSOT path removed); signup rate-limited per-IP (v3.15.1)",
+      "major": false
+    },
+    {
       "id": "d5b79b3",
       "date": "2026-07-27",
       "version": "3.15.0",

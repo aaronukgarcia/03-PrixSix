@@ -839,7 +839,13 @@ export default function PitWallClient() {
       )}
 
       {/* ── HEADER: Track Map + FIA Feed ── */}
-      {/* GUID: PIT_WALL_CLIENT-005-v03 */}
+      {/* GUID: PIT_WALL_CLIENT-005-v04 */}
+      {/* v04 @BUGFIX (CHORE-TSC-001, BOW aDvk0c9DhdllnxTp3qSp): `direction` → `orientation` on */}
+      {/*     PanelGroup — react-resizable-panels v4 renamed the prop; "horizontal" is also the */}
+      {/*     library default, so the rendered layout is unchanged (previously the unknown prop */}
+      {/*     was ignored and leaked to the DOM). Also removed the dead `zoomLevel === 2` check */}
+      {/*     on followDriver — this whole branch only renders when zoomLevel === 0 (TS2367); */}
+      {/*     the zoom 1/2 branch below already passes followDriver={null} explicitly. */}
       {/* v03: Resizable panels at Zoom 0 — drag handle between map and FIA feed. */}
       {/*      When zoomLevel >= 1, track map goes fullscreen (absolute inset-0 z-50). */}
       <div className={cn(
@@ -850,7 +856,7 @@ export default function PitWallClient() {
       )}>
         {/* Zoom 0: resizable horizontal split. Zoom 1/2: fullscreen track map */}
         {zoomLevel === 0 ? (
-          <PanelGroup direction="horizontal" style={{ height: headerHeight }}>
+          <PanelGroup orientation="horizontal" style={{ height: headerHeight }}>
             <Panel defaultSize={67} minSize={40}>
               <div className="w-full h-full">
           <PitWallTrackMap
@@ -873,7 +879,7 @@ export default function PitWallClient() {
             positionDataAvailable={positionDataAvailable || (isReplayMode && replayPlayer.replayDrivers.length > 0)}
             nextRaceName={nextRaceInfo?.name ?? null}
             lastMeetingName={meetingName}
-            followDriver={zoomLevel === 2 ? null : followDriver}
+            followDriver={followDriver /* zoomLevel is 0 in this branch; zoom 1/2 branch passes null */}
             trailEnabled={trailEnabled}
             trailTtlMs={trailTtlMs}
             bloomEnabled={bloomEnabled}

@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.16.0 — 2026-07-27
+
+### Zero TypeScript errors + admin delete confirmation + lucide 1.x
+
+**CHORE-TSC-001: `tsc --noEmit` now exits clean** — all 10 suppressed errors properly fixed, none suppressed. Highlights: react-resizable-panels v4 prop rename (`direction`→`orientation`); React 19 JSX-namespace import; @types/node-fetch added; and one **real runtime bug** — `generateRaceId` called without its type argument in the AI analysis route ID'd every race as a Sprint, so the "recent form" grounding block (actual top-6 finishers) has been silently empty since it shipped and form commentary ran ungrounded. Fixed with `'gp'`.
+
+**FEAT-ADM-001:** the admin results trash icon no longer deletes on a single click — a destructive-styled AlertDialog names the race and spells out the cascade (result + all scores + all player predictions, irreversible) before `handleDelete` can run.
+
+**DEP-MAJ-005:** lucide-react 0.577 → 1.27.0 — all 148 icons across 94 files verified against the new typings and runtime; 1.x keeps compat aliases, zero renames needed, zero audit delta.
+
 ## v3.15.1 — 2026-07-27
 
 ### Urgent triage fixes: OAuth/secondary late-joiner gap + signup throttling
