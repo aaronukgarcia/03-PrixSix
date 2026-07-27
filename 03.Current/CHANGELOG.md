@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.18.1 — 2026-07-27
+
+### SEC-AUDIT3-01: notify-pin-changed recipient locked to the caller
+
+The audit's one medium finding fixed: the "PIN changed" notification email accepted a body-supplied recipient — any authenticated member could aim the branded security warning at an arbitrary address. The recipient must now be one of the caller's own addresses (token email, primary, or verified secondary); mismatches 403 and log a registry error.
+
 ## v3.18.0 — 2026-07-27
 
 ### Backlog clearance wave: invite genealogy, Pit Wall features, security audit closed

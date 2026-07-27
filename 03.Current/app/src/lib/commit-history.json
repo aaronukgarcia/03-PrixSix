@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-27",
   "commits": [
     {
+      "id": "5e544ef",
+      "date": "2026-07-27",
+      "version": "3.18.0",
+      "author": "aaron garcia",
+      "message": "feat: invite genealogy + Pit Wall feature batch + security audit closed + sentinel/error-log fixes (v3.18.0)",
+      "major": true
+    },
+    {
       "id": "60a7616",
       "date": "2026-07-27",
       "version": "3.17.0",

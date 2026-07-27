@@ -13,8 +13,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getFirebaseAdmin, generateCorrelationId } from '@/lib/firebase-admin';
+import { getFirebaseAdmin, generateCorrelationId, logError } from '@/lib/firebase-admin';
 import { verifyAuthToken } from '@/lib/firebase-admin';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { sendEmail, escapeHtml } from '@/lib/email';
@@ -51,6 +52,30 @@ export async function POST(request: NextRequest) {
     }
 
     const { db, FieldValue } = await getFirebaseAdmin();
+
+    // @SECURITY_FIX (SEC-AUDIT3-01, 2026-07-27): the recipient was body-supplied and never
+    // checked against the caller — any authenticated member could aim the branded "your PIN
+    // changed / account may be compromised" email at an arbitrary address (same IDOR class as
+    // the fixed EMAIL-002). The recipient must be one of the CALLER's own addresses: token
+    // email, or their user doc's primary/verified-secondary email.
+    const callerDoc = await db.collection('users').doc(user.uid).get();
+    const callerData = callerDoc.data() ?? {};
+    const allowedRecipients = new Set(
+      [user.email, callerData.email, callerData.secondaryEmailVerified ? callerData.secondaryEmail : null]
+        .filter(Boolean)
+        .map((e: string) => e.toLowerCase())
+    );
+    if (!allowedRecipients.has(String(email).toLowerCase())) {
+      await logError({
+        correlationId,
+        error: new Error(`notify-pin-changed recipient mismatch: uid=${user.uid} attempted send to non-own address`),
+        context: { route: '/api/auth/notify-pin-changed', action: 'recipient-ownership-check' },
+      });
+      return NextResponse.json(
+        { success: false, error: 'Recipient must be your own account email', errorCode: ERROR_CODES.AUTH_PERMISSION_DENIED.code, correlationId },
+        { status: 403 }
+      );
+    }
 
     const subject = 'Your Prix Six PIN Has Changed';
     const htmlContent = `
