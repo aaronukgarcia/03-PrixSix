@@ -19,6 +19,7 @@ import { ERRORS } from '@/lib/error-registry';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { internalAuthHeaders } from '@/lib/internal-auth';
 import { validateInvite, consumeInvite, revertInvite } from '@/lib/invites';
+import { applyLateJoinerHandicap } from '@/lib/late-joiner';
 import { claimTeamName, releaseTeamName } from '@/lib/team-names';
 
 export const dynamic = 'force-dynamic';
@@ -362,51 +363,25 @@ export async function POST(request: NextRequest) {
       console.warn('[Complete OAuth Profile] Could not add user to global league:', leagueError.message);
     }
 
-    // GUID: API_AUTH_COMPLETE_OAUTH-011-v03
-    // [Intent] Apply late-joiner handicap if the season has already started.
+    // GUID: API_AUTH_COMPLETE_OAUTH-011-v04
+    // @BUGFIX (BUG-LATE-JOINER-HANDICAPS-001, 2026-07-27): this path still used the dead
+    //   pre-SSOT-001 mechanism — writing scores/late-joiner-handicap_{uid} docs that NOTHING
+    //   reads since the standings moved to computeRaceScores + standings_adjustments. An OAuth
+    //   late joiner therefore received NO effective handicap (and no cloned history). Now
+    //   delegates to the SSOT lib (active-floor rule, v3.10.0): clone lowest ACTIVE team +
+    //   adjustment landing them 1 point behind, full audit trail — identical to PIN signup.
     // [Inbound Trigger] After global league enrolment.
-    // [Downstream Impact] Creates a handicap score document if applicable.
+    // [Downstream Impact] Non-blocking: a handicap failure never blocks account creation
+    //   (mirrors api/auth/signup); failures are logged to error_logs per GR#17 amendment.
     try {
-      const scoresSnapshot = await db.collection('scores').get();
-      if (!scoresSnapshot.empty) {
-        const userTotals = new Map<string, number>();
-        scoresSnapshot.forEach((scoreDoc: any) => {
-          const scoreData = scoreDoc.data();
-          if (scoreData.isAdjustment) return;
-          const scoreUserId = scoreData.userId;
-          const points = scoreData.totalPoints || 0;
-          userTotals.set(scoreUserId, (userTotals.get(scoreUserId) || 0) + points);
-        });
-
-        if (userTotals.size > 0) {
-          const minScore = Math.min(...Array.from(userTotals.values()));
-          const handicapPoints = minScore - 5;
-
-          await db.collection('scores').doc(`late-joiner-handicap_${uid}`).set({
-            userId: uid,
-            raceId: 'late-joiner-handicap',
-            raceName: 'Late Joiner Handicap',
-            totalPoints: handicapPoints,
-            breakdown: `Late joiner starting points: ${minScore} (last place) - 5 = ${handicapPoints}`,
-            calculatedAt: FieldValue.serverTimestamp(),
-            isAdjustment: true,
-          });
-
-          await db.collection('audit_logs').add({
-            userId: uid,
-            action: 'LATE_JOINER_HANDICAP',
-            details: {
-              minScore,
-              handicapPoints,
-              reason: 'Season already in progress - starts 5 points behind last place',
-              signupMethod: 'oauth',
-            },
-            timestamp: FieldValue.serverTimestamp(),
-          });
-        }
-      }
+      await applyLateJoinerHandicap(db, uid, teamName.trim());
     } catch (handicapError: any) {
-      console.warn('[Complete OAuth Profile] Could not calculate late joiner handicap:', handicapError.message);
+      const handicapCorrelationId = generateCorrelationId();
+      await logError({
+        correlationId: handicapCorrelationId,
+        error: new Error(`Late-joiner handicap failed for OAuth signup uid=${uid}: ${handicapError?.message}`),
+        context: { route: '/api/auth/complete-oauth-profile', action: 'applyLateJoinerHandicap' },
+      });
     }
 
     // GUID: API_AUTH_COMPLETE_OAUTH-012-v03

@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-27",
   "commits": [
     {
+      "id": "d5b79b3",
+      "date": "2026-07-27",
+      "version": "3.15.0",
+      "author": "aaron garcia",
+      "message": "feat: Wave 3/4 completion — all 21 newbie UX items, GR#17 error-logs sweep finished + probe logging, gitignore anchoring, worker express5/pino10/dotenv17, backlog triage (v3.15.0)",
+      "major": true
+    },
+    {
       "id": "e36622e",
       "date": "2026-07-27",
       "version": "3.14.0",

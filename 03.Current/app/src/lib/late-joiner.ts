@@ -79,7 +79,13 @@ export async function applyLateJoinerHandicap(
   db: AdminFirestore,
   uid: string,
   teamName: string,
+  // @BUGFIX (BUG-LATE-JOINER-HANDICAPS-001, 2026-07-27): secondary-team support. Secondary
+  // teams score under teamId `${ownerUid}-secondary` but their prediction docs live in the
+  // OWNER's users/{ownerUid}/predictions subcollection, and they must NOT receive the
+  // lateJoiner welcome-screen flags (those belong to primary signups only).
+  opts: { ownerUid?: string; isSecondary?: boolean } = {},
 ): Promise<LateJoinerResult> {
+  const ownerUid = opts.ownerUid ?? uid;
   const { FieldValue } = await getFirebaseAdmin();
   const nowMs = Date.now();
 
@@ -159,9 +165,10 @@ export async function applyLateJoinerHandicap(
     if (!norm || !completedNormalised.has(norm)) return; // only completed/prior races
 
     const newDocId = `${uid}_${data.raceId}`;
-    const ref = db.collection('users').doc(uid).collection('predictions').doc(newDocId);
+    // Secondary teams: docs live under the OWNER's predictions subcollection, scored by teamId.
+    const ref = db.collection('users').doc(ownerUid).collection('predictions').doc(newDocId);
     batch.set(ref, {
-      userId: uid,
+      userId: ownerUid,
       teamId: uid,
       teamName,
       raceId: data.raceId,
@@ -197,6 +204,9 @@ export async function applyLateJoinerHandicap(
   const nextRaceName = getNextRaceName(nowMs);
 
   // 6. User-doc flags that drive the welcome/acknowledgement screen.
+  //    Secondary teams: SKIPPED — no phantom users/{teamId} doc, and the welcome flow
+  //    belongs to primary signups only (BUG-LATE-JOINER-HANDICAPS-001).
+  if (!opts.isSecondary)
   batch.set(db.collection('users').doc(uid), {
     lateJoiner: true,
     lateJoinerAcknowledged: false,

@@ -20,6 +20,7 @@ import { validateCsrfProtection } from '@/lib/csrf-protection';
 import { applyLateJoinerHandicap } from '@/lib/late-joiner';
 import { validateInvite, consumeInvite, revertInvite } from '@/lib/invites';
 import { claimTeamName } from '@/lib/team-names';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,19 @@ interface SignupRequest {
 // [Downstream Impact] On success: creates Firebase Auth user, Firestore user document, presence document, global league membership, optional late-joiner handicap score, audit log, and triggers welcome + verification emails. Returns customToken + uid for immediate client-side sign-in.
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
+
+  // GUID: API_AUTH_SIGNUP-023-v01
+  // @SECURITY_FIX (SEC-DOS-002, 2026-07-27): signup was re-enabled (invite-only, v3.5.0) but had
+  //   ZERO throttling — an attacker could hammer it to burn Firebase Auth quota / enumerate
+  //   invite tokens. Per-IP limiter matching the reset-pin pattern: 5 attempts / 15 min.
+  //   Legitimate use: a household signs up once; 5/15min is generous headroom.
+  const signupRl = checkRateLimit(`signup-ip:${getClientIp(request)}`, { limit: 5, windowMs: 15 * 60 * 1000 });
+  if (!signupRl.allowed) {
+    return NextResponse.json(
+      { success: false, error: ERRORS.RATE_LIMIT_EXCEEDED.message, errorCode: ERRORS.RATE_LIMIT_EXCEEDED.code, correlationId, retryAfterSeconds: signupRl.retryAfterSeconds },
+      { status: 429, headers: { 'Retry-After': String(signupRl.retryAfterSeconds ?? 900) } }
+    );
+  }
 
   // GUID: API_AUTH_SIGNUP-022-v01
   // @SECURITY_FIX: CSRF protection via Origin/Referer validation (GEMINI-005).

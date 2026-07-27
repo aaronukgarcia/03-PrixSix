@@ -10,6 +10,7 @@ import { createTracedError, logTracedError } from '@/lib/traced-error';
 import { ERRORS } from '@/lib/error-registry';
 import { getRaceSchedule } from '@/lib/race-schedule-server';
 import { claimTeamName, releaseTeamName } from '@/lib/team-names';
+import { applyLateJoinerHandicap } from '@/lib/late-joiner';
 
 // Force dynamic to skip static analysis at build time
 export const dynamic = 'force-dynamic';
@@ -253,57 +254,25 @@ export async function POST(request: NextRequest) {
       console.warn('[AddSecondaryTeam] Could not add to global league:', leagueError.message);
     }
 
-    // GUID: API_ADD_SECONDARY_TEAM-008-v03
-    // [Intent] Late-joiner handicap: if the season has already started (scores exist), the new secondary team starts 5 points behind the last-place team. This prevents new teams from having an unfair advantage by joining with zero points mid-season.
-    // [Inbound Trigger] After the secondary team is registered, only if the scores collection is non-empty.
-    // [Downstream Impact] Creates a synthetic score document (isAdjustment: true) in the scores collection. The scoring engine skips adjustment scores when recalculating base standings to avoid circular references. The audit log records the handicap calculation.
-    // LATE JOINER RULE: If season has started, secondary team starts 5 points behind last place
+    // GUID: API_ADD_SECONDARY_TEAM-008-v04
+    // @BUGFIX (BUG-LATE-JOINER-HANDICAPS-001, 2026-07-27): this path still wrote the dead
+    //   pre-SSOT-001 scores/late-joiner-handicap_* docs that nothing reads — a mid-season
+    //   secondary team received NO effective handicap. Now delegates to the SSOT lib
+    //   (active-floor rule, v3.10.0) in secondary mode: clones the lowest ACTIVE team's history
+    //   into the OWNER's predictions subcollection under teamId `${uid}-secondary`, writes the
+    //   standings adjustment landing the team 1 point behind the floor, full audit trail, and
+    //   no welcome-screen flags (primary signups only).
+    // [Inbound Trigger] After the secondary team is registered.
+    // [Downstream Impact] Non-blocking; failures logged to error_logs per GR#17 amendment.
     try {
-      const scoresSnapshot = await db.collection('scores').get();
-      if (!scoresSnapshot.empty) {
-        // Calculate total points per user, excluding adjustment scores
-        const userTotals = new Map<string, number>();
-        scoresSnapshot.forEach(scoreDoc => {
-          const scoreData = scoreDoc.data();
-          // Skip adjustment scores (late joiner handicaps) when calculating base standings
-          if (scoreData.isAdjustment) return;
-          const scoreUserId = scoreData.userId;
-          const points = scoreData.totalPoints || 0;
-          userTotals.set(scoreUserId, (userTotals.get(scoreUserId) || 0) + points);
-        });
-
-        // Only apply handicap if there are users with real race scores
-        if (userTotals.size > 0) {
-          const minScore = Math.min(...Array.from(userTotals.values()));
-          const handicapPoints = minScore - 5;
-
-          // Create a handicap score document - this represents starting points
-          await db.collection('scores').doc(`late-joiner-handicap_${secondaryTeamId}`).set({
-            userId: secondaryTeamId,
-            raceId: 'late-joiner-handicap',
-            raceName: 'Late Joiner Handicap',
-            totalPoints: handicapPoints,
-            breakdown: `Late joiner starting points: ${minScore} (last place) - 5 = ${handicapPoints}`,
-            calculatedAt: FieldValue.serverTimestamp(),
-            isAdjustment: true,
-          });
-
-          await db.collection('audit_logs').add({
-            userId: uid,
-            action: 'LATE_JOINER_HANDICAP_SECONDARY',
-            details: {
-              secondaryTeamId,
-              teamName: normalizedTeamName,
-              minScore,
-              handicapPoints,
-              reason: 'Secondary team added after season started'
-            },
-            timestamp: FieldValue.serverTimestamp(),
-          });
-        }
-      }
+      await applyLateJoinerHandicap(db, secondaryTeamId, normalizedTeamName, { ownerUid: uid, isSecondary: true });
     } catch (handicapError: any) {
-      console.warn('[AddSecondaryTeam] Could not calculate late joiner handicap:', handicapError.message);
+      const handicapCorrelationId = generateCorrelationId();
+      await logError({
+        correlationId: handicapCorrelationId,
+        error: new Error(`Late-joiner handicap failed for secondary team ${secondaryTeamId}: ${handicapError?.message}`),
+        context: { route: '/api/add-secondary-team', action: 'applyLateJoinerHandicap' },
+      });
     }
 
     // GUID: API_ADD_SECONDARY_TEAM-009-v03

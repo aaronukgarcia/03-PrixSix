@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.15.1 — 2026-07-27
+
+### Urgent triage fixes: OAuth/secondary late-joiner gap + signup throttling
+
+**BUG-LATE-JOINER-HANDICAPS-001.** OAuth profile completion and add-secondary-team still used the dead pre-SSOT-001 handicap mechanism (writing `scores/late-joiner-handicap_*` docs that nothing reads) — a mid-season joiner via either path received NO effective handicap. Both now delegate to the SSOT active-floor lib; `applyLateJoinerHandicap` gains secondary-team support (clones into the owner's predictions subcollection under the `-secondary` teamId, no phantom user doc, no welcome-screen flags). Failures log to error_logs per the GR#17 amendment. This also removes the last writers of the dead mechanism (closes BUG-SSOT-001-DEADCODE-AUDIT).
+
+**SEC-DOS-002.** `/api/auth/signup` was invite-enabled but completely unthrottled — now rate-limited per-IP (5/15min, the reset-pin pattern) with 429 + Retry-After.
+
 ## v3.15.0 — 2026-07-27
 
 ### Wave 3/4 completion (multi-agent, round 2)
