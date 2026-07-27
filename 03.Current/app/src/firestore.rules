@@ -25,8 +25,12 @@ service cloud.firestore {
     // @FEATURE(INVITE-TREE-001): Added invitedBy — referral lineage is stamped server-side at
     // signup (Admin SDK, bypasses rules) and must be tamper-proof; owners must not rewrite
     // their own ancestry. Deploy note: firebase deploy --only firestore:rules.
+    // @SECURITY_FIX(BUG-BOT-EMAIL-001): Added isBot. The flag became load-bearing in v3.18.3 —
+    // it now suppresses results/hot-news email AND removes the account from the WhatsApp
+    // "hasn't predicted yet" reminder. Left writable, any player could self-set isBot to dodge
+    // being named in the group. Bot accounts are provisioned via Admin SDK, which bypasses rules.
     function userNotChangingProtectedFields() {
-      let protectedFields = ['isAdmin', 'points', 'badLoginAttempts', 'lastFailedLoginAt', 'id', 'createdAt', 'invitedBy'];
+      let protectedFields = ['isAdmin', 'points', 'badLoginAttempts', 'lastFailedLoginAt', 'id', 'createdAt', 'invitedBy', 'isBot'];
       let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
       return !affectedKeys.hasAny(protectedFields);
     }
@@ -34,8 +38,9 @@ service cloud.firestore {
     // SECURITY: Validate user document structure on create
     function validUserCreate() {
       let data = request.resource.data;
-      // New users cannot set themselves as admin or set points
+      // New users cannot set themselves as admin, set points, or self-declare as a bot
       return data.get('isAdmin', false) == false
+          && data.get('isBot', false) == false
           && data.get('points', 0) == 0
           && data.get('badLoginAttempts', 0) == 0;
     }

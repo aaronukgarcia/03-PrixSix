@@ -210,6 +210,10 @@ export async function POST(request: NextRequest) {
     const usersSnapshot = await db.collection('users').get();
     const usersToNotify = usersSnapshot.docs.filter(doc => {
       const userData = doc.data();
+      // Bot accounts (Billceleration, module 17) hold a synthetic @prix6.win identity with no
+      // mailbox — this filter is opt-OUT by default, so without this check the bot is included
+      // and its results email bounces back to the sender. Observed 2026-07-26 (Hungarian GP).
+      if (userData.isBot === true) return false;
       // Default to true if no preference set
       return userData.emailPreferences?.resultsNotifications !== false;
     });

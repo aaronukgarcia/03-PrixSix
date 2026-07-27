@@ -156,7 +156,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 async function getNonPredictors(db: FirebaseFirestore.Firestore, race: { name: string }): Promise<string[]> {
   const usersSnap = await db.collection('users').get();
   const teams = new Map<string, string>(); // uid -> teamName
-  usersSnap.forEach(d => { const x = d.data(); if (x.teamName) teams.set(d.id, x.teamName); });
+  // Bot accounts (Billceleration, module 17) are never named in a player-facing reminder — the
+  // group is being nudged, and the bot is not a person who can be nudged. Same missing-isBot
+  // root cause as the results-email bounce fixed alongside this.
+  usersSnap.forEach(d => { const x = d.data(); if (x.teamName && x.isBot !== true) teams.set(d.id, x.teamName); });
 
   // A prediction doc lives at users/{uid}/predictions/{teamId}_{raceId}. Match by normalised race name.
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');

@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.18.3 — 2026-07-27
+
+### BUG-BOT-EMAIL-001: the Billceleration bot was being sent player email
+
+The Hungarian GP results email was delivered to `billceleration-bot@prix6.win` on 2026-07-26 — a synthetic identity address on a domain with no mailbox, so Graph accepted the send and the message bounced back to the sender. Root cause: `send-results-email` enumerates every user document and filters on `emailPreferences.resultsNotifications !== false`, which is opt-**out** by default, and the bot's doc had no preferences. No code anywhere read the `isBot` flag that the bot account has carried since it went live.
+
+Fixed at two layers. The bulk recipient lists in `send-results-email` and `send-hot-news-email` now exclude `isBot === true` — the hot-news list was safe only incidentally, being opt-**in**. As a backstop, a new `isNonDeliverableAddress()` guard (LIB_EMAIL-014) suppresses the `prix6.win` domain inside `sendEmail`/`sendWelcomeEmail`, covering the two paths the route filters can't reach: the `email_queue` drain and the admin "resend welcome email" action. Suppressed sends return success so one bot recipient cannot mark an entire broadcast as failed. Verified safe to block domain-wide: across 1060 `email_logs` records the bot is the only `prix6.win` recipient ever.
+
+Same root cause fixed in `cron/whatsapp-scheduled` — `getNonPredictors` would have named Billceleration in the group's "hasn't predicted yet" reminder had it ever missed a submission. The bot's user doc was also given explicit `emailPreferences: { resultsNotifications: false, newsFeed: false }` as immediate mitigation ahead of this deploy.
+
+**Security (GR#11, caught in this commit's review):** making `isBot` load-bearing turned a previously inert field into an incentive — it now suppresses email *and* removes an account from the group reminder, so a player could have self-set `isBot: true` to dodge being named. `isBot` is therefore added to `protectedFields` and to `validUserCreate` in `firestore.rules`. Bot provisioning goes through the Admin SDK, which bypasses rules. **This release requires `firebase deploy --only firestore:rules`** in addition to the App Hosting build.
+
 ## v3.18.1 — 2026-07-27
 
 ### SEC-AUDIT3-01: notify-pin-changed recipient locked to the caller

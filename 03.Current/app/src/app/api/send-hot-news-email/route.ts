@@ -296,6 +296,9 @@ export async function POST(request: NextRequest) {
     const usersSnapshot = await db.collection('users').get();
     const usersToNotify = usersSnapshot.docs.filter(doc => {
       const userData = doc.data();
+      // Bot accounts never receive email (see send-results-email). This list is opt-IN so the
+      // bot is spared incidentally today; the explicit check stops that from silently changing.
+      if (userData.isBot === true) return false;
       // Must explicitly have newsFeed set to true
       return userData.emailPreferences?.newsFeed === true;
     });

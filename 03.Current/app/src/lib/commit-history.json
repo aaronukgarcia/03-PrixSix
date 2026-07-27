@@ -2,6 +2,22 @@
   "lastUpdated": "2026-07-27",
   "commits": [
     {
+      "id": "7c31a7c",
+      "date": "2026-07-27",
+      "version": "3.18.2",
+      "author": "aaron garcia",
+      "message": "chore: worker 2.2.4 version files, newbie audit deliverable committed (v3.18.2)",
+      "major": false
+    },
+    {
+      "id": "f3d6232",
+      "date": "2026-07-27",
+      "version": "3.18.1",
+      "author": "aaron garcia",
+      "message": "fix: SEC-AUDIT3-01 — notify-pin-changed recipient must be the caller's own address (v3.18.1)",
+      "major": false
+    },
+    {
       "id": "5e544ef",
       "date": "2026-07-27",
       "version": "3.18.0",

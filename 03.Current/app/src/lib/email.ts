@@ -179,6 +179,8 @@ interface SendEmailResult {
   error?: string;
   queued?: boolean;
   queueReason?: string;
+  suppressed?: boolean;
+  suppressReason?: string;
 }
 
 // GUID: LIB_EMAIL-005a-v01
@@ -208,6 +210,25 @@ function sanitizeErrorMessage(error: any): string {
   return sanitized;
 }
 
+// GUID: LIB_EMAIL-014-v01
+// [Intent] Last-line guard against sending mail to synthetic, non-deliverable addresses. Bot
+//          accounts (Billceleration, module 17) are provisioned with an @prix6.win identity so
+//          they can hold a Firebase auth uid, but prix6.win has NO mailbox — Graph accepts the
+//          send and the message dead-letters / bounces back to the sender. Verified 2026-07-27:
+//          across 1060 email_logs the ONLY @prix6.win recipient is billceleration-bot, so this
+//          domain can be suppressed wholesale with no risk to real players.
+// [Inbound Trigger] Every sendEmail / sendWelcomeEmail call, before the Graph request.
+// [Downstream Impact] Returns a non-throwing suppressed result — bulk senders keep going and
+//          report the recipient as skipped rather than failing the whole broadcast. The route-
+//          level `isBot` filters are the primary fix; this is the belt-and-braces backstop so a
+//          future email path cannot reintroduce the bounce.
+export const NON_DELIVERABLE_EMAIL_DOMAINS = ['prix6.win'] as const;
+
+export function isNonDeliverableAddress(toEmail: string): boolean {
+  const domain = String(toEmail || '').trim().toLowerCase().split('@')[1];
+  return !!domain && NON_DELIVERABLE_EMAIL_DOMAINS.includes(domain as typeof NON_DELIVERABLE_EMAIL_DOMAINS[number]);
+}
+
 // GUID: LIB_EMAIL-006-v03
 // [Intent] Type definition for the parameters required to send a welcome email, including recipient, team name, PIN, and optional Firestore instance for rate-limit tracking.
 // [Inbound Trigger] Used as the parameter type of sendWelcomeEmail.
@@ -230,6 +251,13 @@ interface WelcomeEmailParams {
 // [Downstream Impact] On success, the user receives their PIN and login link. On rate-limit, the email is queued in email_queue collection. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004), canSendEmail/recordSentEmail/queueEmail from email-tracking, and getAdminDb (LIB_EMAIL-001).
 export async function sendWelcomeEmail({ toEmail, teamName, pin, firestore }: WelcomeEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
+
+  // Bot/synthetic recipients never reach Graph — see LIB_EMAIL-014. Also stops an admin
+  // "resend welcome email" aimed at the bot from mailing a PIN into a dead mailbox.
+  if (isNonDeliverableAddress(toEmail)) {
+    return { success: true, emailGuid, suppressed: true, suppressReason: 'non-deliverable bot address' };
+  }
+
   const senderEmail = requireSenderEmail();
   const subject = "Welcome to Prix Six - Your Account is Ready!";
   const emailType = "welcome";
@@ -444,6 +472,13 @@ interface GenericEmailParams {
 // [Downstream Impact] On success, the recipient receives the email. Always writes to email_logs for admin audit. Depends on getGraphClient (LIB_EMAIL-004) and getAdminDb (LIB_EMAIL-001). Does not use rate limiting (unlike sendWelcomeEmail).
 export async function sendEmail({ toEmail, subject, htmlContent, attachments }: GenericEmailParams): Promise<SendEmailResult> {
   const emailGuid = generateGuid();
+
+  // Bot/synthetic recipients never reach Graph — see LIB_EMAIL-014. Reported as success so a
+  // bulk broadcast is not marked failed by a recipient that was never meant to receive mail.
+  if (isNonDeliverableAddress(toEmail)) {
+    return { success: true, emailGuid, suppressed: true, suppressReason: 'non-deliverable bot address' };
+  }
+
   const senderEmail = requireSenderEmail();
 
   // Add email footer with GUID and build version
