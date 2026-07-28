@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.20.1 — 2026-07-28
+
+### BUG-TROPHY-404: the trophy artwork 404'd in production — artwork now generated in code
+
+v3.20.0 shipped 85 SVG files under `app/public` and every single one returned 404 in production, so the standings trophy strip rendered as a row of broken-image placeholders. Aaron's screenshot caught it within minutes of the deploy.
+
+The cause was not the new files. **This deployment does not serve Next.js static assets at all** — `/logo.svg` and `/diagnostic.js` have been 404ing since long before this feature, and `/robots.txt` only answers because Cloudflare serves it rather than the origin. Nothing in `public/` reaches users.
+
+Rather than fight the platform, the artwork moved into code: `lib/trophy-art.ts` draws each trophy and flag from a compact spec and returns an inline `data:` URI, memoised per circuit and place. That removes the static-file dependency entirely — nothing to deploy and nothing to 404 — and costs about 6&nbsp;KB of JavaScript instead of 305&nbsp;KB of files, since the drawings are generated rather than stored. `getTrophyImage` and `getFlagImage` are unchanged as the seam, so no renderer needed touching; if static serving is ever fixed they can go back to returning paths.
+
+The 85 unservable files were deleted rather than left in the tree. `checkTrophyAssets` no longer HEAD-requests URLs — there are none — and instead renders every circuit's artwork and verifies each produces a complete SVG data URI with a real host-nation flag spec, which catches the same class of fault (a circuit with no artwork) without a network round trip.
+
 ## v3.20.0 — 2026-07-28
 
 ### FEAT-TROPHY-002: unique per-circuit trophies, team pages, and links that go both ways

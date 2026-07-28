@@ -23,7 +23,7 @@ import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scorin
 import { normalizeRaceIdForComparison, generateRaceId } from './normalize-race-id';
 // @FEATURE(FEAT-TROPHY-002): trophy awards + artwork are validated by checkTrophies below.
 import { buildSeasonSessions, computeTrophies, trophyAnchorId, NON_RACE_SCORE_IDS, type TrophyScoreRow } from './trophies';
-import { hasCircuitAsset, allTrophyAssetUrls } from './trophy-assets';
+import { hasCircuitAsset, renderAllTrophyArt } from './trophy-assets';
 import { SYSTEM_OWNER_ID } from './types/league'; // RT4-A-obs: SSoT — SYSTEM_OWNER_ID defined once in types/league.ts
 
 // --- Types ---
@@ -2464,33 +2464,46 @@ export function checkTrophies(scores: ScoreData[]): CheckResult {
 // [Downstream Impact] A failure here means a visibly broken image in a trophy cabinet.
 export async function checkTrophyAssets(): Promise<CheckResult> {
   const issues: Issue[] = [];
-  const urls = allTrophyAssetUrls();
+  const rendered = renderAllTrophyArt();
   let ok = 0;
 
-  await Promise.all(urls.map(async (url) => {
-    try {
-      const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-      if (res.ok) { ok++; return; }
+  for (const art of rendered) {
+    if (!art.uri || !art.uri.startsWith('data:image/svg+xml')) {
       issues.push({
         severity: 'error',
-        entity: url,
-        field: 'asset',
-        message: `Trophy asset missing — HEAD ${url} returned HTTP ${res.status}`,
+        entity: art.id,
+        field: 'artwork',
+        message: `Trophy artwork failed to render for ${art.id} — expected an SVG data URI`,
       });
-    } catch (err: any) {
+      continue;
+    }
+    // A drawing that came out suspiciously short means the silhouette or gradient is missing.
+    if (art.uri.length < 400) {
       issues.push({
-        severity: 'error',
-        entity: url,
-        field: 'asset',
-        message: `Trophy asset unreachable — ${url}: ${err?.message ?? 'network error'}`,
+        severity: 'warning',
+        entity: art.id,
+        field: 'artwork',
+        message: `Trophy artwork for ${art.id} rendered but looks incomplete (${art.uri.length} chars)`,
       });
     }
-  }));
+    if (!art.flagOk) {
+      issues.push({
+        severity: 'warning',
+        entity: art.id,
+        field: 'flag',
+        message: `No flag spec for the host nation of ${art.id} — the tile would show another country's flag`,
+      });
+    }
+    ok++;
+  }
+
+  const hasErrors = issues.some(i => i.severity === 'error');
+  const hasWarnings = issues.some(i => i.severity === 'warning');
 
   return {
     category: 'trophies',
-    status: issues.length > 0 ? 'error' : 'pass',
-    total: urls.length,
+    status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
+    total: rendered.length,
     valid: ok,
     issues,
   };

@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-28",
   "commits": [
     {
+      "id": "bd0e488",
+      "date": "2026-07-28",
+      "version": "3.20.0",
+      "author": "aaron garcia",
+      "message": "feat: FEAT-TROPHY-002 — per-circuit trophies, team deep links, and a trophy consistency check (v3.20.0)",
+      "major": true
+    },
+    {
       "id": "b38dcec",
       "date": "2026-07-27",
       "version": "3.19.0",
