@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-28",
   "commits": [
     {
+      "id": "5a4a4ce",
+      "date": "2026-07-28",
+      "version": "3.20.1",
+      "author": "aaron garcia",
+      "message": "fix: BUG-TROPHY-404 — trophy artwork 404'd in production, now generated in code (v3.20.1)",
+      "major": false
+    },
+    {
       "id": "bd0e488",
       "date": "2026-07-28",
       "version": "3.20.0",

@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.20.2 — 2026-07-28
+
+### BUG-PUBLIC-404: the site logo has been broken in production the entire time
+
+Chasing the trophy 404s turned up something older. `components/Logo.tsx` rendered `src="/logo.svg"`, and Firebase App Hosting does not serve `app/public` over HTTP — so the Prix Six logo has been a broken image on the login page, the signup page, the About page and the sidebar for as long as that component has existed. Nobody reported it, which is its own lesson.
+
+Root cause confirmed rather than assumed. The App Hosting origin was tested directly (`prixsix--…--europe-west4.hosted.app`, bypassing Cloudflare): `/api/version` answers `3.20.1` while `/logo.svg` returns 404 from the same host, so this is not a CDN or DNS artefact. The files *are* deployed — the results-email chart reads `public/fonts/Roboto-Regular.ttf` off disk via `process.cwd()` and works in production — so `public/` reaches the container but is never served over HTTP. `next start` locally serves `/logo.svg` at 200, which is exactly why this never surfaced in development.
+
+The fix is to stop depending on that path: `logo.svg` moved to `src/assets/` and is now imported, so the bundler emits it under `/_next/static/media/`, which demonstrably *is* served — every script and stylesheet the app loads already comes from there. The static import also hands `next/image` the intrinsic dimensions for free.
+
+`public/` now holds only `robots.txt` (served by Cloudflare), `fonts/` (read from disk server-side, never over HTTP), and `diagnostic.js`, which nothing references and which cannot be fetched — a candidate for deletion.
+
 ## v3.20.1 — 2026-07-28
 
 ### BUG-TROPHY-404: the trophy artwork 404'd in production — artwork now generated in code
