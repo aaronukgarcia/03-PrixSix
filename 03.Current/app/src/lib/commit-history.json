@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-27",
+  "lastUpdated": "2026-07-28",
   "commits": [
+    {
+      "id": "b38dcec",
+      "date": "2026-07-27",
+      "version": "3.19.0",
+      "author": "aaron garcia",
+      "message": "feat: FEAT-TROPHY-001 — podium trophies on the standings table (v3.19.0)",
+      "major": true
+    },
     {
       "id": "21a228c",
       "date": "2026-07-27",

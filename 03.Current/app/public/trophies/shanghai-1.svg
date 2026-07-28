@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img">
+  <title>gold trophy — Shanghai</title>
+  <defs>
+    <linearGradient id="g-shanghai-1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFE9A3"/>
+      <stop offset="45%" stop-color="#E8B923"/>
+      <stop offset="100%" stop-color="#9A6F05"/>
+    </linearGradient>
+  </defs>
+  <!-- host-nation accent ring: the only per-country cue on the small render -->
+  <circle cx="50" cy="50" r="47" fill="none" stroke="#DE2910" stroke-width="4" opacity="0.55"/>
+  <g fill="url(#g-shanghai-1)" stroke="#9A6F05" stroke-width="1.5" stroke-linejoin="round">
+    <path d="M34 18 h32 l-4 22 a12 12 0 0 1 -24 0 z" />
+    <!-- handles -->
+    <path d="M30 24 q-10 2 -8 10 q2 6 8 5" fill="none" stroke="#9A6F05" stroke-width="3"/>
+    <path d="M70 24 q10 2 8 10 q-2 6 -8 5" fill="none" stroke="#9A6F05" stroke-width="3"/>
+    <!-- stem + base -->
+    <rect x="46" y="52" width="8" height="14" />
+    <rect x="36" y="66" width="28" height="6" rx="2" />
+    <rect x="30" y="72" width="40" height="12" rx="3" />
+  </g>
+  <text x="50" y="81" text-anchor="middle" font-family="Verdana,DejaVu Sans,sans-serif" font-size="9" font-weight="bold" fill="#9A6F05">SHANGHAI</text>
+  <text x="50" y="96" text-anchor="middle" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" font-weight="bold" fill="#E8B923">1st</text>
+</svg>

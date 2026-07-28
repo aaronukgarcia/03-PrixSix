@@ -56,6 +56,8 @@ import {
   checkScores,
   checkStandings,
   checkLeagues,
+  checkTrophies,
+  checkTrophyAssets,
   generateSummary,
   type CheckResult,
   type ConsistencyCheckSummary,
@@ -81,7 +83,7 @@ interface ConsistencyCheckerProps {
 // [Intent] Type alias for the sequential check phases, used to track progress through the validation pipeline.
 // [Inbound Trigger] Set sequentially as each check phase executes in runChecks.
 // [Downstream Impact] Drives the progress bar label and percentage display via phaseLabels and phaseProgress maps.
-type CheckPhase = 'idle' | 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues' | 'complete';
+type CheckPhase = 'idle' | 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues' | 'trophies' | 'complete';
 
 // GUID: ADMIN_CONSISTENCY-003-v03
 // [Intent] Human-readable labels for each check phase, displayed above the progress bar during a check run.
@@ -98,6 +100,7 @@ const phaseLabels: Record<CheckPhase, string> = {
   scores: 'Checking scores...',
   standings: 'Checking standings...',
   leagues: 'Checking leagues...',
+  trophies: 'Checking trophies and their links...',
   complete: 'Complete',
 };
 
@@ -115,7 +118,8 @@ const phaseProgress: Record<CheckPhase, number> = {
   results: 60,
   scores: 70,
   standings: 80,
-  leagues: 90,
+  leagues: 88,
+  trophies: 95,
   complete: 100,
 };
 
@@ -383,6 +387,17 @@ export function ConsistencyChecker({ allUsers, isUserLoading }: ConsistencyCheck
         };
       });
       results.push(checkLeagues(leagueData, userData));
+
+      // @FEATURE(FEAT-TROPHY-002): trophies. Two passes — checkTrophies validates the awards and
+      // every deep link they render (that each /results?race= target is a real scheduled session,
+      // that anchors are unique, that zero-point sessions awarded nothing, and that ties skipped
+      // the following place). Joint places are reported as info with the tied teams named, because
+      // a shared gold with no silver is correct competition ranking, not a fault. checkTrophyAssets
+      // then HEAD-requests every trophy and flag file so a missing image is caught here rather than
+      // appearing as a broken picture in someone's cabinet.
+      setCurrentPhase('trophies');
+      results.push(checkTrophies(scoreData));
+      results.push(await checkTrophyAssets());
 
       // Generate summary
       setCurrentPhase('complete');

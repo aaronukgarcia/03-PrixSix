@@ -44,7 +44,9 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaceSchedule } from "@/lib/data";
 import { generateRaceId, normalizeRaceIdForComparison } from "@/lib/normalize-race-id";
-import { PodiumBadge, PodiumIcon, podiumLabel, assignCompetitionPlaces, type PodiumPlace } from "@/lib/podium";
+import { PodiumBadge, podiumLabel } from "@/lib/podium";
+import { buildSeasonSessions, computeTrophies, type Trophy as TrophyAward } from "@/lib/trophies";
+import { getTrophyImage } from "@/lib/trophy-assets";
 import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Minus, ChevronDown, Loader2, ExternalLink, Zap, Flag, Trophy, Medal, Crown, Users, Crosshair, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -243,11 +245,15 @@ const RankBadge = PodiumBadge;
 // columns. The native `title` attribute matches this page's existing tooltip convention (there is
 // no TooltipProvider mounted here); aria-label repeats it because `title` is not reliably announced
 // by screen readers and does not appear at all on touch devices.
+// @FEATURE(FEAT-TROPHY-002, v3.20.0): the generic podium icon is replaced by the circuit's own
+//   trophy artwork (lib/trophy-assets). Same SVG file the Teams page renders at 64px — at 1em here
+//   it reads as a tiny distinct cup rather than a repeated generic medal. No flag at this size;
+//   the flag only appears on the large Teams tile where there is room for it.
 const TrophyStrip = ({
   trophies,
   onSelect,
 }: {
-  trophies: { place: PodiumPlace; urlRaceId: string; label: string }[] | undefined;
+  trophies: TrophyAward[] | undefined;
   onSelect: (raceId: string) => void;
 }) => {
   if (!trophies || trophies.length === 0) return null;
@@ -260,11 +266,17 @@ const TrophyStrip = ({
             key={`${trophy.urlRaceId}-${i}`}
             type="button"
             onClick={() => onSelect(trophy.urlRaceId)}
-            title={description}
-            aria-label={`${description} — view result`}
+            title={`${description} — ${trophy.points} pts`}
+            aria-label={`${description}, ${trophy.points} points — view result`}
             className="inline-flex cursor-pointer items-center rounded-sm p-0 leading-none transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
-            <PodiumIcon place={trophy.place} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={getTrophyImage(trophy.location, trophy.place)}
+              alt=""
+              aria-hidden="true"
+              className="h-[1em] w-[1em] shrink-0"
+            />
           </button>
         );
       })}
@@ -799,64 +811,20 @@ export default function StandingsPage() {
   //  4. URL IDS COME FROM completedRaceWeekends, never from string-munging score.raceId. Scores
   //     carry normalised lowercase ids; /results needs the Title-Case form. See the warning block
   //     in lib/normalize-race-id.ts.
+  // @REFACTOR(FEAT-TROPHY-002, v3.20.0): the session-building and ranking bodies moved to
+  //   lib/trophies.ts so the Teams page trophy cabinet computes identical awards from the same
+  //   rules. This memo now only decides SCOPE — which sessions the current view is allowed to see.
   const trophiesByTeam = useMemo(() => {
-    const byTeam = new Map<string, { place: PodiumPlace; urlRaceId: string; label: string }[]>();
-    if (completedRaceWeekends.length === 0 || selectedRaceIndex < 0) return byTeam;
+    if (completedRaceWeekends.length === 0 || selectedRaceIndex < 0) return new Map<string, TrophyAward[]>();
 
-    // Sessions in season order, earliest first, sprint before GP within a weekend. Rule 1 slices
-    // at the selected weekend. Each entry maps the normalised key (matching score.raceId) to the
-    // Title-Case id used for the URL (rule 4) and to a human label for the tooltip.
-    const sessions: { key: string; urlRaceId: string; label: string }[] = [];
+    // Rule 1: only sessions up to and including the selected weekend.
+    const allowed = new Set<string>();
     completedRaceWeekends.slice(0, selectedRaceIndex + 1).forEach(race => {
-      // "Spa-Francorchamps" -> "Spa"; matches the chart's x-axis convention (PAGE_STANDINGS-031).
-      const location = RaceSchedule.find(r => r.name === race.name)?.location;
-      const circuit = location ? String(location).split('-')[0] : race.name;
-      if (race.sprintRaceId && race.hasSprintScores) {
-        sessions.push({
-          key: normalizeRaceIdForComparison(race.sprintRaceId),
-          urlRaceId: race.sprintRaceId,
-          label: `${circuit} Sprint`,
-        });
-      }
-      if (race.hasGpScores) {
-        sessions.push({
-          key: normalizeRaceIdForComparison(race.gpRaceId),
-          urlRaceId: race.gpRaceId,
-          label: circuit,
-        });
-      }
+      if (race.sprintRaceId && race.hasSprintScores) allowed.add(normalizeRaceIdForComparison(race.sprintRaceId));
+      if (race.hasGpScores) allowed.add(normalizeRaceIdForComparison(race.gpRaceId));
     });
 
-    // Bucket the already-loaded per-race scores by session (rule 2 drops the synthetic rows,
-    // because their raceIds are not in the session map).
-    const scoresBySession = new Map<string, { userId: string; totalPoints: number }[]>();
-    filteredScores.forEach(score => {
-      if (!sessions.some(s => s.key === score.raceId)) return;
-      const bucket = scoresBySession.get(score.raceId) ?? [];
-      bucket.push({ userId: score.userId, totalPoints: score.totalPoints });
-      scoresBySession.set(score.raceId, bucket);
-    });
-
-    // Walk sessions in chronological order so each team's trophies come out oldest-first (left to
-    // right in the strip). assignCompetitionPlaces owns the tie rule: equal points share a place
-    // and the next place is skipped, matching cumulative-standings.ts:308-316.
-    sessions.forEach(session => {
-      const entries = scoresBySession.get(session.key);
-      if (!entries || entries.length === 0) return;
-      assignCompetitionPlaces(entries).forEach(entry => {
-        if (entry.place > 3) return;
-        if (entry.totalPoints <= 0) return; // rule 3
-        const list = byTeam.get(entry.userId) ?? [];
-        list.push({
-          place: entry.place as PodiumPlace,
-          urlRaceId: session.urlRaceId,
-          label: session.label,
-        });
-        byTeam.set(entry.userId, list);
-      });
-    });
-
-    return byTeam;
+    return computeTrophies(filteredScores, buildSeasonSessions(allowed));
   }, [filteredScores, completedRaceWeekends, selectedRaceIndex]);
 
   // GUID: PAGE_STANDINGS-015-v06
@@ -1206,6 +1174,20 @@ export default function StandingsPage() {
       : `/results?race=${raceId}`;
     router.push(url);
   };
+
+  // GUID: PAGE_STANDINGS-036-v01
+  // [Intent] FEAT-TROPHY-002 — open a team's page from its name in the standings table.
+  // [Inbound Trigger] User clicks a team name.
+  // [Downstream Impact] /teams reads `team` (the score-space id: uid, or `${uid}-secondary`) and
+  //   `race`. From Standings the race is ALWAYS the latest completed weekend (Aaron, 2026-07-27) —
+  //   unlike the Results page, which passes the race being viewed.
+  const navigateToTeam = useCallback((teamId: string) => {
+    const latest = completedRaceWeekends[completedRaceWeekends.length - 1];
+    const url = latest
+      ? `/teams?team=${encodeURIComponent(teamId)}&race=${latest.gpRaceId}`
+      : `/teams?team=${encodeURIComponent(teamId)}`;
+    router.push(url);
+  }, [completedRaceWeekends, router]);
 
   const selectedRace = completedRaceWeekends[selectedRaceIndex];
   const racesCompleted = selectedRaceIndex + 1;
@@ -1606,7 +1588,14 @@ export default function StandingsPage() {
                   <TableCell className="font-semibold">
                     <span className="flex items-center flex-wrap gap-y-1">
                       {team.teamName === DEFENDING_CHAMPION_TEAM && <DefendingChampionBadge />}
-                      {team.teamName}
+                      <button
+                        type="button"
+                        onClick={() => navigateToTeam(team.userId)}
+                        title={`View ${team.teamName}'s picks and trophies`}
+                        className="text-left underline-offset-2 hover:underline hover:text-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+                      >
+                        {team.teamName}
+                      </button>
                       <RankBadge rank={team.rank} />
                       <TrophyStrip trophies={trophiesByTeam.get(team.userId)} onSelect={navigateToResults} />
                     </span>

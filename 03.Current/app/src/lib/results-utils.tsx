@@ -68,6 +68,10 @@ export interface Score {
 export interface TeamResult {
     teamName: string;
     oduserId: string;
+    /** @FEATURE(FEAT-TROPHY-002): score-space team id — `uid` for a primary team, `${uid}-secondary`
+     *  for a secondary one. `oduserId` is the USER id and is shared by both of a player's teams, so
+     *  it cannot identify a team on its own; this is what the /teams deep link must carry. */
+    teamId: string;
     predictions: DriverPrediction[];
     totalPoints: number | null;
     hasScore: boolean;

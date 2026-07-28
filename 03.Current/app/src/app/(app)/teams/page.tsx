@@ -10,8 +10,13 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useFirestore } from "@/firebase";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { useFirestore, useAuth } from "@/firebase";
+import { podiumLabel } from "@/lib/podium";
+import { computeAllTrophies, trophyAnchorId, type Trophy as TrophyAward, type TrophyScoreRow } from "@/lib/trophies";
+import { getTrophyImage, getFlagImage, getCircuitAsset } from "@/lib/trophy-assets";
+import { normalizeRaceIdForComparison } from "@/lib/normalize-race-id";
 import { useLeague } from "@/contexts/league-context";
 import { LeagueSelector } from "@/components/league/LeagueSelector";
 import type { User } from "@/firebase/provider";
@@ -80,13 +85,120 @@ const PAGE_SIZE = 25;
 // [Inbound Trigger] Rendered by Next.js router when user visits /teams.
 // [Downstream Impact] Consumes useFirestore, useLeague, useSmartLoader hooks and RaceSchedule/F1Drivers data.
 //   UI changes here affect the primary team browsing experience for all users.
-export default function TeamsPage() {
+// GUID: PAGE_TEAMS-016-v01
+// [Intent] FEAT-TROPHY-002 — one large trophy tile: the circuit's own artwork, the host-nation flag
+//   beside the track name, and the points scored. The points figure is the hot link back to that
+//   race's result, closing the loop with the podium badge on the Results page that links here.
+// [Inbound Trigger] TrophyCabinet, one per award.
+// [Downstream Impact] Sized to match the driver portrait tile above it (64px art, same border and
+//   padding) so the cabinet reads as a continuation of the P1-P6 row rather than a separate widget.
+const TrophyTile = ({ trophy, highlighted }: { trophy: TrophyAward; highlighted: boolean }) => {
+  const asset = getCircuitAsset(trophy.location);
+  const description = `${podiumLabel(trophy.place)} for ${trophy.label}`;
+  return (
+    <div
+      id={trophyAnchorId(trophy.urlRaceId)}
+      className={`flex flex-col items-center gap-2 p-2 rounded-lg border bg-card-foreground/5 scroll-mt-24 transition-shadow ${
+        highlighted ? 'ring-2 ring-accent shadow-lg' : ''
+      }`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={getTrophyImage(trophy.location, trophy.place)} alt={description} className="w-16 h-16" />
+      <div className="flex items-center gap-1.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={getFlagImage(trophy.location)}
+          alt={asset.countryName}
+          title={asset.countryName}
+          className="w-6 h-4 rounded-[2px] border border-border/60"
+        />
+        <span className="text-sm font-semibold">{trophy.label}</span>
+      </div>
+      <a
+        href={`/results?race=${trophy.urlRaceId}`}
+        title={`View the ${trophy.raceName}${trophy.isSprint ? ' Sprint' : ''} result`}
+        className="text-xs font-mono font-bold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+      >
+        {trophy.points} pts
+      </a>
+    </div>
+  );
+};
+
+// GUID: PAGE_TEAMS-017-v01
+// [Intent] FEAT-TROPHY-002 — a team's full trophy cabinet, shown under their P1-P6 drivers. Season
+//   order, oldest first, matching the mini strip on Standings.
+// [Inbound Trigger] Rendered inside each team's accordion content.
+// [Downstream Impact] Renders nothing at all for a team with no podium finishes, so the accordion
+//   is unchanged for most of the grid.
+const TrophyCabinet = ({ trophies, highlightRaceId }: { trophies: TrophyAward[] | undefined; highlightRaceId: string | null }) => {
+  if (!trophies || trophies.length === 0) return null;
+  const golds = trophies.filter(t => t.place === 1).length;
+  const silvers = trophies.filter(t => t.place === 2).length;
+  const bronzes = trophies.filter(t => t.place === 3).length;
+  const summary = [
+    golds ? `${golds} × 1st` : null,
+    silvers ? `${silvers} × 2nd` : null,
+    bronzes ? `${bronzes} × 3rd` : null,
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <div className="pt-6 mt-6 border-t">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+        <h3 className="font-semibold text-lg">Trophy cabinet</h3>
+        <p className="text-xs text-muted-foreground font-mono">{summary}</p>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+        {trophies.map((trophy, i) => (
+          <TrophyTile
+            key={`${trophy.urlRaceId}-${i}`}
+            trophy={trophy}
+            highlighted={
+              !!highlightRaceId &&
+              normalizeRaceIdForComparison(trophy.urlRaceId) === normalizeRaceIdForComparison(highlightRaceId)
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+function TeamsPageContent() {
   const firestore = useFirestore();
+  const { firebaseUser } = useAuth();
   const { selectedLeague } = useLeague();
   const { startLoading, stopLoading } = useSmartLoader();
   const races = RaceSchedule.map((r) => r.name);
   const nextRace = findNextRace();
-  const [selectedRace, setSelectedRace] = useState<string>(nextRace.name);
+
+  // GUID: PAGE_TEAMS-018-v01
+  // [Intent] FEAT-TROPHY-002 deep link: ?team=<score-space team id>&race=<Title-Case race id>
+  //   &trophy=<Title-Case race id>. Standings and Results both link here — Standings always passes
+  //   the latest completed weekend, Results passes the race being viewed (Aaron, 2026-07-27).
+  // [Inbound Trigger] Arriving from a team name or a podium badge.
+  // [Downstream Impact] `race` preselects the weekend, `team` auto-opens the accordion (paging until
+  //   the team is loaded if necessary), `trophy` scrolls to and highlights one cabinet tile.
+  const searchParams = useSearchParams();
+  const teamParam = searchParams.get('team');
+  const raceParam = searchParams.get('race');
+  const trophyParam = searchParams.get('trophy');
+
+  // The `race` param is a Title-Case race id ("British-Grand-Prix-GP"); the race selector works in
+  // race NAMES. Resolve via RaceSchedule rather than string-munging the id — the sprint/GP suffix
+  // asymmetry documented in normalize-race-id.ts makes munging unsafe. A sprint id resolves to its
+  // weekend, because this page shows one prediction set per weekend.
+  const initialRaceFromParam = useMemo(() => {
+    if (!raceParam) return null;
+    const wanted = normalizeRaceIdForComparison(raceParam);
+    const match = RaceSchedule.find(r =>
+      normalizeRaceIdForComparison(generateRaceId(r.name, 'gp')) === wanted ||
+      (r.hasSprint && normalizeRaceIdForComparison(generateRaceId(r.name, 'sprint')) === wanted)
+    );
+    return match?.name ?? null;
+  }, [raceParam]);
+
+  const [selectedRace, setSelectedRace] = useState<string>(initialRaceFromParam ?? nextRace.name);
   const [defaultRaceLoaded, setDefaultRaceLoaded] = useState(true);
   const selectedRaceId = selectedRace?.replace(/\s+/g, '-') || '';
 
@@ -102,6 +214,37 @@ export default function TeamsPage() {
 
   // Track which accordion item is open
   const [openAccordion, setOpenAccordion] = useState<string | undefined>(undefined);
+
+  // GUID: PAGE_TEAMS-019-v01
+  // [Intent] FEAT-TROPHY-002 — season scores for the trophy cabinet. Reuses /api/standings, which
+  //   already returns granular per-race per-team points; no new endpoint was needed.
+  // [Inbound Trigger] Mount, once the signed-in user can mint a token.
+  // [Downstream Impact] Feeds computeAllTrophies. Failure is non-fatal and silent in the UI: the
+  //   page's core job is showing predictions, so a scores outage hides cabinets rather than
+  //   breaking the page. The error is still surfaced to the console for diagnosis.
+  const [trophyScores, setTrophyScores] = useState<TrophyScoreRow[]>([]);
+
+  useEffect(() => {
+    if (!firebaseUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await firebaseUser.getIdToken();
+        const res = await fetch('/api/standings', { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } });
+        const json = await res.json().catch(() => null);
+        if (!cancelled && res.ok && json?.success && Array.isArray(json.scores)) {
+          setTrophyScores(json.scores as TrophyScoreRow[]);
+        }
+      } catch (err: any) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[teams] trophy scores fetch failed (non-fatal):', err?.message || err);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [firebaseUser]);
+
+  const trophiesByTeam = useMemo(() => computeAllTrophies(trophyScores), [trophyScores]);
 
   // Cache for predictions by race
   const [predictionCache, setPredictionCache] = useState<Record<string, Record<string, (typeof F1Drivers[number] | null)[]>>>({});
@@ -445,6 +588,44 @@ export default function TeamsPage() {
     );
   }, [teams, selectedLeague]);
 
+  // GUID: PAGE_TEAMS-020-v01
+  // [Intent] FEAT-TROPHY-002 — honour ?team= by opening that team's accordion. Teams load 25 at a
+  //   time in alphabetical order, so a deep-linked team is often NOT in the first page; this keeps
+  //   paging until it appears or the list is exhausted, rather than silently doing nothing.
+  // [Inbound Trigger] Arriving from a team name on Standings or Results.
+  // [Downstream Impact] Fires handleAccordionChange so predictions lazy-load exactly as a click
+  //   would. Runs once per `team` param — the ref stops it fighting the user if they then close the
+  //   accordion, and stops it re-firing after the race-change effect clears state.
+  const deepLinkAppliedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!teamParam || isLoading) return;
+    if (deepLinkAppliedFor.current === teamParam) return;
+
+    // Score-space id: `uid` for a primary team, `${uid}-secondary` for a secondary one.
+    const match = filteredTeams.find(t => (t.isSecondary ? `${t.oduserId}-secondary` : t.oduserId) === teamParam);
+    if (match) {
+      deepLinkAppliedFor.current = teamParam;
+      handleAccordionChange(`${match.teamName}-${match.oduserId}`);
+      return;
+    }
+    if (hasMore && !isLoadingMore) loadMore();
+  }, [teamParam, filteredTeams, isLoading, isLoadingMore, hasMore, handleAccordionChange]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // GUID: PAGE_TEAMS-021-v01
+  // [Intent] FEAT-TROPHY-002 — honour ?trophy= by scrolling to that trophy once the cabinet has
+  //   actually rendered. This is what a podium badge on the Results page links to.
+  // [Inbound Trigger] Deep link carrying `trophy`, after the target team's predictions resolve.
+  // [Downstream Impact] Purely visual. Respects reduced-motion by letting the browser decide via
+  //   'smooth' only when the user has not asked otherwise.
+  useEffect(() => {
+    if (!trophyParam || !openAccordion) return;
+    const el = document.getElementById(trophyAnchorId(trophyParam));
+    if (!el) return;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+  }, [trophyParam, openAccordion, teams]);
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -528,7 +709,8 @@ export default function TeamsPage() {
                         Click to load predictions
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pt-4">
+                      <>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pt-4">
                         {team.predictions.map((driver, idx) => (
                           <div key={idx} className="flex flex-col items-center gap-2 p-2 rounded-lg border bg-card-foreground/5">
                             <div className="font-bold text-accent text-2xl">P{idx + 1}</div>
@@ -555,7 +737,12 @@ export default function TeamsPage() {
                             )}
                           </div>
                         ))}
-                      </div>
+                        </div>
+                        <TrophyCabinet
+                          trophies={trophiesByTeam.get(team.isSecondary ? `${team.oduserId}-secondary` : team.oduserId)}
+                          highlightRaceId={trophyParam}
+                        />
+                      </>
                     )}
                   </AccordionContent>
                 </AccordionItem>
@@ -597,5 +784,27 @@ export default function TeamsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// GUID: PAGE_TEAMS-022-v01
+// [Intent] FEAT-TROPHY-002 — useSearchParams requires a Suspense boundary in the App Router; without
+//   one the whole route opts out of static rendering and the build warns. Same pattern the Results
+//   page already uses for its own `race` param.
+// [Inbound Trigger] Next.js route render for /teams.
+// [Downstream Impact] The fallback matches the page's own loading shape so the deep link does not
+//   flash an empty screen while params resolve.
+export default function TeamsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-[400px] w-full" />
+        </div>
+      }
+    >
+      <TeamsPageContent />
+    </Suspense>
   );
 }

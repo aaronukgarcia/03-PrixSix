@@ -12,7 +12,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useFirestore } from "@/firebase";
 import { useLeague } from "@/contexts/league-context";
 import { LeagueSelector } from "@/components/league/LeagueSelector";
@@ -171,6 +171,21 @@ function ResultsContent() {
     const selectedEvent = allRaceEvents.find(e => e.id === selectedRaceId);
     const selectedRaceName = selectedEvent?.label || selectedRaceId;
     const hasSeasonStarted = pastEvents.length > 0;
+
+    // GUID: PAGE_RESULTS-036-v01
+    // [Intent] FEAT-TROPHY-002 — open a team on /teams from this results table. The race being
+    //   viewed travels with the link so the Teams page shows THIS race's picks rather than the
+    //   latest (Aaron, 2026-07-27). Passing `trophy` additionally scrolls to and highlights the
+    //   matching large trophy, which is how a podium badge links through to its trophy.
+    // [Inbound Trigger] Team-name button and podium badge in each results row.
+    // [Downstream Impact] /teams resolves `race` to a weekend and `trophy` to a cabinet anchor.
+    const router = useRouter();
+    const navigateToTeam = useCallback((teamId: string, trophyRaceId?: string) => {
+        const params = new URLSearchParams({ team: teamId });
+        if (selectedRaceId) params.set('race', selectedRaceId);
+        if (trophyRaceId) params.set('trophy', trophyRaceId);
+        router.push(`/teams?${params.toString()}`);
+    }, [router, selectedRaceId]);
 
     // Race result state
     const [raceResult, setRaceResult] = useState<RaceResult | null>(null);
@@ -494,6 +509,10 @@ function ResultsContent() {
             return {
                 teamName: data.teamName || "Unknown Team",
                 oduserId,
+                // @FEATURE(FEAT-TROPHY-002): carry the prediction doc's teamId so the team-name deep
+                // link can distinguish a player's secondary team from their primary. Falls back to
+                // the user id for legacy docs written before teamId existed.
+                teamId: data.teamId || oduserId,
                 predictions,
                 totalPoints: score?.totalPoints ?? null,
                 hasScore: !!score,
@@ -755,10 +774,33 @@ function ResultsContent() {
               ) : sortedTeams.length > 0 ? (
                 sortedTeams.map((team, index) => (
                     <TableRow key={`${team.teamName}-${team.oduserId}-${index}`}>
+                        {/* @FEATURE(FEAT-TROPHY-002): the team name opens that team on /teams showing
+                            THIS race's picks (Aaron, 2026-07-27 — from a race result show that
+                            race's picks; from Standings always the latest). A podium badge goes to
+                            the same place but deep-links to the matching large trophy. */}
                         <TableCell className="font-semibold">
                             <span className="flex items-center">
-                                {team.teamName}
-                                {team.rank && <RaceRankBadge rank={team.rank} />}
+                                <button
+                                    type="button"
+                                    onClick={() => navigateToTeam(team.teamId)}
+                                    title={`View ${team.teamName}'s picks and trophies`}
+                                    className="text-left underline-offset-2 hover:underline hover:text-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+                                >
+                                    {team.teamName}
+                                </button>
+                                {team.rank && team.rank <= 3 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => navigateToTeam(team.teamId, selectedRaceId)}
+                                        title={`View this trophy in ${team.teamName}'s cabinet`}
+                                        aria-label={`Position ${team.rank} — view this trophy in ${team.teamName}'s cabinet`}
+                                        className="cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    >
+                                        <RaceRankBadge rank={team.rank} />
+                                    </button>
+                                ) : (
+                                    team.rank && <RaceRankBadge rank={team.rank} />
+                                )}
                             </span>
                         </TableCell>
                         <TableCell className="text-xs font-mono">

@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.20.0 — 2026-07-28
+
+### FEAT-TROPHY-002: unique per-circuit trophies, team pages, and links that go both ways
+
+**The artwork.** Real F1 trophies are unique to each host city and change most years, so these are too. Every circuit has its own cup silhouette and host-nation accent ring with the track name engraved on the plinth; the podium place drives the metal. 66 trophies (22 circuits × gold/silver/bronze) plus 19 host flags, all self-hosted under `public/`. They are SVG rather than PNG deliberately: one file serves both the 1em icon on Standings and the 64px tile on Teams, the whole set is 305&nbsp;KB, and it stays sharp at any size. Flags are simplified drawings rather than emoji — emoji flags do not render on Windows Chrome, where most of the league plays.
+
+**Team names are now links.** On both Standings and Results, a team name opens that team on the Teams page with their accordion already expanded. Which race's picks you land on depends on where you came from: from a race result you see that race's picks, from Standings you always see the latest. Teams load 25 at a time alphabetically, so the deep link keeps paging until it finds the team rather than silently doing nothing when it is further down the list.
+
+**The trophy cabinet.** Under a team's P1–P6 drivers sits every trophy they have won, in season order, each tile sized to match a driver portrait and carrying the circuit artwork, the host flag, the track name and the points scored. The points figure is a hot link back to that race's result — and the loop closes the other way too: the 1st/2nd/3rd badge on the Results page links into the winning team's cabinet and scrolls to that exact trophy, highlighted.
+
+**New consistency check (category: trophies).** `checkTrophies` validates the awards and, more usefully, every link a trophy renders: that each `/results?race=` target resolves to a real scheduled session, that cabinet anchors are unique so a badge cannot scroll to the wrong trophy, that no zero-point session awarded anything, and that ties correctly skipped the following place. `checkTrophyAssets` then HEAD-requests all 85 asset files so a missing image is caught in the audit rather than appearing as a broken picture. **Joint places are reported as information, not faults** — Prix Six uses competition ranking, so a shared gold means no silver is awarded, and the check names the tied teams so an auditor can see it was deliberate. A tie that *failed* to skip is an error. Verified against live data: 50 trophies, zero errors, and all 11 joint places narrated correctly, including three-way ties for first at Barcelona, Silverstone and Spa.
+
+**Refactor:** the trophy calculation moved out of the standings component into `lib/trophies.ts`, so the Standings strip, the Teams cabinet and the consistency checker all award trophies from one implementation instead of three. The Results page now also carries `teamId` on each row — `oduserId` is the *user* id and is shared by both of a player's teams, so it could not identify a team on its own.
+
 ## v3.19.0 — 2026-07-27
 
 ### FEAT-TROPHY-001: podium trophies on the standings table

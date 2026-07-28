@@ -21,6 +21,9 @@
 import { F1Drivers, RaceSchedule, type Driver, type Race } from './data';
 import { SCORING_POINTS, SCORING_DERIVED, calculateDriverPoints } from './scoring-rules';
 import { normalizeRaceIdForComparison, generateRaceId } from './normalize-race-id';
+// @FEATURE(FEAT-TROPHY-002): trophy awards + artwork are validated by checkTrophies below.
+import { buildSeasonSessions, computeTrophies, trophyAnchorId, NON_RACE_SCORE_IDS, type TrophyScoreRow } from './trophies';
+import { hasCircuitAsset, allTrophyAssetUrls } from './trophy-assets';
 import { SYSTEM_OWNER_ID } from './types/league'; // RT4-A-obs: SSoT — SYSTEM_OWNER_ID defined once in types/league.ts
 
 // --- Types ---
@@ -29,7 +32,7 @@ import { SYSTEM_OWNER_ID } from './types/league'; // RT4-A-obs: SSoT — SYSTEM_
 // [Intent] Define the set of domain categories that consistency checks cover.
 // [Inbound Trigger] Used as discriminated union tags in CheckResult to identify which check produced a result.
 // [Downstream Impact] Adding a new category here requires a corresponding check function and UI handling in ConsistencyChecker.tsx.
-export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues';
+export type CheckCategory = 'users' | 'drivers' | 'races' | 'predictions' | 'team-coverage' | 'results' | 'scores' | 'standings' | 'leagues' | 'trophies';
 
 // GUID: LIB_CONSISTENCY-002-v04
 // [Intent] Severity levels for individual issues found during consistency checks.
@@ -2266,5 +2269,229 @@ export function generateSummary(results: CheckResult[]): ConsistencyCheckSummary
     passed,
     warnings,
     errors,
+  };
+}
+
+// GUID: LIB_CONSISTENCY-060-v01
+// [Intent] FEAT-TROPHY-002 — validate every trophy and, critically, every LINK a trophy renders.
+//   A trophy is only useful if its hot links resolve: the mini icon on Standings and the points
+//   figure on a Teams tile both deep-link to /results?race=<id>, and a podium badge on Results
+//   deep-links back to a Teams cabinet anchor. This check proves each of those targets exists
+//   rather than trusting that the string was built correctly.
+// [Inbound Trigger] ConsistencyChecker.tsx, from the same ScoreData it already loads.
+// [Downstream Impact] Adds a 'trophies' category to the audit. Errors mean a broken link is live.
+//
+// JOINT PLACES ARE EXPECTED, NOT AN ERROR. Prix Six uses competition ranking, so equal points share
+// a place and the next place is skipped: a three-way tie on the top score awards three golds and no
+// silver or bronze. That is correct behaviour, and this check reports it as INFO with the teams
+// named, so an auditor reading "joint 1st at Spa, no 2nd or 3rd awarded" can see it was deliberate.
+// What WOULD be wrong is a tie that failed to skip — two golds followed by a silver — and that is
+// reported as an error.
+export function checkTrophies(scores: ScoreData[]): CheckResult {
+  const issues: Issue[] = [];
+
+  // ScoreData fields are optional in this module (it validates raw Firestore shapes), so a row with
+  // a missing id or score is itself a finding rather than something to coerce past silently.
+  const rows: TrophyScoreRow[] = [];
+  for (const s of scores) {
+    if (typeof s.raceId !== 'string' || s.raceId === '') continue;
+    if (NON_RACE_SCORE_IDS.has(s.raceId)) continue;
+    if (typeof s.userId !== 'string' || s.userId === '' || typeof s.totalPoints !== 'number') {
+      issues.push({
+        severity: 'warning',
+        entity: s.userId ?? '(missing userId)',
+        field: 'score',
+        message: `Score row for "${s.raceId}" is malformed (userId or totalPoints missing) and was skipped for trophy calculation`,
+      });
+      continue;
+    }
+    rows.push({ userId: s.userId, raceId: s.raceId, totalPoints: s.totalPoints });
+  }
+
+  const raceIds = new Set(rows.map(r => r.raceId));
+  const sessions = buildSeasonSessions(raceIds);
+  const trophiesByTeam = computeTrophies(rows, sessions);
+  const allTrophies = [...trophiesByTeam.values()].flat();
+
+  // 1. Orphaned score rows — a raceId carrying points that matches no scheduled session. Such a
+  //    race can never award a trophy and nothing on the site can build a link to it.
+  const sessionKeys = new Set(sessions.map(s => s.key));
+  raceIds.forEach(raceId => {
+    if (!sessionKeys.has(raceId)) {
+      issues.push({
+        severity: 'warning',
+        entity: raceId,
+        field: 'raceId',
+        message: `Scores exist for "${raceId}" but it matches no race in RaceSchedule — no trophy can be awarded and no link can be built for it`,
+      });
+    }
+  });
+
+  // 2. Every trophy's outbound link target must resolve to a real scheduled session. This is the
+  //    /results?race=<urlRaceId> link behind the Standings icon and the Teams points figure.
+  const validUrlRaceIds = new Set<string>();
+  RaceSchedule.forEach(r => {
+    validUrlRaceIds.add(generateRaceId(r.name, 'gp'));
+    if (r.hasSprint) validUrlRaceIds.add(generateRaceId(r.name, 'sprint'));
+  });
+
+  // 3. Anchor ids must be unique per session, or a Results podium badge would scroll to the wrong
+  //    trophy in the Teams cabinet.
+  const anchorOwner = new Map<string, string>();
+
+  for (const [teamId, trophies] of trophiesByTeam.entries()) {
+    for (const trophy of trophies) {
+      if (!validUrlRaceIds.has(trophy.urlRaceId)) {
+        issues.push({
+          severity: 'error',
+          entity: teamId,
+          field: 'urlRaceId',
+          message: `Trophy link target "${trophy.urlRaceId}" (${trophy.label}) matches no scheduled race — the /results link would land on an unknown race`,
+          details: { place: trophy.place, label: trophy.label },
+        });
+      }
+      if (trophy.points <= 0) {
+        issues.push({
+          severity: 'error',
+          entity: teamId,
+          field: 'points',
+          message: `Trophy awarded for ${trophy.label} with ${trophy.points} points — a zero-point session must award nothing`,
+        });
+      }
+      if (!hasCircuitAsset(trophy.location)) {
+        issues.push({
+          severity: 'warning',
+          entity: trophy.label,
+          field: 'location',
+          message: `No trophy artwork for circuit "${trophy.location}" — falling back to a generic cup. Add a CIRCUITS row in lib/trophy-assets.ts and generate its SVGs`,
+        });
+      }
+      const anchor = trophyAnchorId(trophy.urlRaceId);
+      const owner = anchorOwner.get(anchor);
+      if (owner && owner !== trophy.urlRaceId) {
+        issues.push({
+          severity: 'error',
+          entity: anchor,
+          field: 'anchor',
+          message: `Trophy anchor "${anchor}" is produced by two different races ("${owner}" and "${trophy.urlRaceId}") — a podium badge would scroll to the wrong trophy`,
+        });
+      }
+      anchorOwner.set(anchor, trophy.urlRaceId);
+    }
+  }
+
+  // 4. Per-session podium shape, including the joint-place reporting.
+  const bySession = new Map<string, { place: number; teamId: string; points: number }[]>();
+  for (const [teamId, trophies] of trophiesByTeam.entries()) {
+    for (const t of trophies) {
+      const list = bySession.get(t.urlRaceId) ?? [];
+      list.push({ place: t.place, teamId, points: t.points });
+      bySession.set(t.urlRaceId, list);
+    }
+  }
+
+  const placeLabel = (p: number) => (p === 1 ? '1st' : p === 2 ? '2nd' : '3rd');
+
+  for (const session of sessions) {
+    const awarded = bySession.get(session.urlRaceId);
+    if (!awarded || awarded.length === 0) {
+      issues.push({
+        severity: 'info',
+        entity: session.label,
+        message: `No trophies awarded for ${session.label} — no team scored above zero`,
+      });
+      continue;
+    }
+
+    const counts = new Map<number, number>();
+    awarded.forEach(a => counts.set(a.place, (counts.get(a.place) ?? 0) + 1));
+    const orderedPlaces = [...counts.entries()].sort((a, b) => a[0] - b[0]);
+
+    // Joint places are expected — surface them, named, as information.
+    for (const [place, count] of orderedPlaces) {
+      if (count > 1) {
+        const tied = awarded.filter(a => a.place === place);
+        const skipped: string[] = [];
+        for (let p = place + 1; p < place + count && p <= 3; p++) {
+          if (!counts.has(p)) skipped.push(placeLabel(p));
+        }
+        issues.push({
+          severity: 'info',
+          entity: session.label,
+          field: 'joint-place',
+          message: `Joint ${placeLabel(place)} at ${session.label}: ${count} teams tied on ${tied[0].points} points${skipped.length ? `, so no ${skipped.join(' or ')} was awarded (competition ranking)` : ''}`,
+          details: { place, teams: tied.map(t => t.teamId) },
+        });
+      }
+    }
+
+    // Competition ranking must SKIP after a tie. Two golds followed by a silver means the tie rule
+    // was not applied, which would also put trophy counts at odds with the standings tables.
+    let expected = 1;
+    for (const [place, count] of orderedPlaces) {
+      if (place !== expected) {
+        issues.push({
+          severity: 'error',
+          entity: session.label,
+          field: 'place',
+          message: `Podium places at ${session.label} are not competition-ranked: expected the next place to be ${expected} but found ${placeLabel(place)}. Places following a tie must be skipped`,
+          details: { places: orderedPlaces.map(([p]) => p) },
+        });
+        break;
+      }
+      expected = place + count;
+    }
+  }
+
+  const hasErrors = issues.some(i => i.severity === 'error');
+  const hasWarnings = issues.some(i => i.severity === 'warning');
+
+  return {
+    category: 'trophies',
+    status: hasErrors ? 'error' : hasWarnings ? 'warning' : 'pass',
+    total: allTrophies.length,
+    valid: allTrophies.length - issues.filter(i => i.severity === 'error').length,
+    issues,
+  };
+}
+
+// GUID: LIB_CONSISTENCY-061-v01
+// [Intent] Prove every trophy and flag file the app can request actually exists, by HEAD-requesting
+//   each one. checkTrophies validates the DATA and the link targets; this validates the ASSETS.
+//   Kept separate and async because every other check in this module is a pure function — callers
+//   opt in to the network cost.
+// [Inbound Trigger] ConsistencyChecker.tsx, after checkTrophies.
+// [Downstream Impact] A failure here means a visibly broken image in a trophy cabinet.
+export async function checkTrophyAssets(): Promise<CheckResult> {
+  const issues: Issue[] = [];
+  const urls = allTrophyAssetUrls();
+  let ok = 0;
+
+  await Promise.all(urls.map(async (url) => {
+    try {
+      const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      if (res.ok) { ok++; return; }
+      issues.push({
+        severity: 'error',
+        entity: url,
+        field: 'asset',
+        message: `Trophy asset missing — HEAD ${url} returned HTTP ${res.status}`,
+      });
+    } catch (err: any) {
+      issues.push({
+        severity: 'error',
+        entity: url,
+        field: 'asset',
+        message: `Trophy asset unreachable — ${url}: ${err?.message ?? 'network error'}`,
+      });
+    }
+  }));
+
+  return {
+    category: 'trophies',
+    status: issues.length > 0 ? 'error' : 'pass',
+    total: urls.length,
+    valid: ok,
+    issues,
   };
 }
