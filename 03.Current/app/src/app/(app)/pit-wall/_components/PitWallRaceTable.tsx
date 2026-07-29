@@ -34,6 +34,8 @@ interface PitWallRaceTableProps {
   onRadioClick: (driverNumber: number) => void;
   onDriverClick?: (driverNumber: number) => void;
   followDriver?: number | null;
+  /** @FEAT (FEAT-PW-020): chaser driverNumbers currently in a battle — renders the ⚔ pip. */
+  battleDrivers?: Set<number>;
   sortKey: string | null;
   onSort: (key: string) => void;
   totalLaps: number | null;
@@ -92,12 +94,15 @@ function CellContent({
   unreadCount,
   onRadioClick,
   totalLaps,
+  inBattle,
 }: {
   columnKey: string;
   driver: DriverRaceState;
   unreadCount: number;
   onRadioClick: () => void;
   totalLaps: number | null;
+  /** @FEAT (FEAT-PW-020): chaser is within battle range of the car ahead — amber ⚔ pip. */
+  inBattle?: boolean;
 }) {
   switch (columnKey) {
     case 'position': {
@@ -137,6 +142,15 @@ function CellContent({
             {driver.driverCode}
           </span>
           {/* Status badges */}
+          {inBattle && !driver.inPit && !driver.retired && (
+            <span
+              className="text-[9px] text-amber-300 leading-tight shrink-0 animate-pulse"
+              title="In a battle with the car ahead"
+              aria-label="In a battle with the car ahead"
+            >
+              ⚔
+            </span>
+          )}
           {driver.inPit && !driver.retired && (
             <span className="text-[9px] bg-orange-900/60 text-orange-400 px-1 rounded leading-tight shrink-0">
               PIT
@@ -368,6 +382,7 @@ function DriverRow({
   onDriverClick,
   isFollowed,
   totalLaps,
+  inBattle,
 }: {
   driver: DriverRaceState;
   unreadCount: number;
@@ -377,6 +392,7 @@ function DriverRow({
   onDriverClick?: () => void;
   isFollowed?: boolean;
   totalLaps: number | null;
+  inBattle?: boolean;
 }) {
   return (
     <div
@@ -410,6 +426,7 @@ function DriverRow({
             unreadCount={unreadCount}
             onRadioClick={onRadioClick}
             totalLaps={totalLaps}
+            inBattle={inBattle}
           />
         </div>
       ))}
@@ -430,6 +447,7 @@ export function PitWallRaceTable({
   onRadioClick,
   onDriverClick,
   followDriver,
+  battleDrivers,
   sortKey,
   onSort,
   totalLaps,
@@ -529,6 +547,7 @@ export function PitWallRaceTable({
             onDriverClick={onDriverClick ? () => onDriverClick(driver.driverNumber) : undefined}
             isFollowed={followDriver === driver.driverNumber}
             totalLaps={totalLaps}
+            inBattle={battleDrivers?.has(driver.driverNumber) ?? false}
           />
         ))}
       </div>

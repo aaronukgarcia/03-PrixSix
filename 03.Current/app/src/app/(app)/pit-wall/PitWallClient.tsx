@@ -47,7 +47,8 @@ import { ZoomRaceOrder } from './_components/ZoomRaceOrder';
 import { FpsCounter } from './_components/FpsCounter';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { LiveScoreBanner } from './_components/LiveScoreBanner';
-import { FIARaceControlFeed } from './_components/FIARaceControlFeed';
+import { RaceEventTicker } from './_components/RaceEventTicker';
+import { useRaceEvents } from './_hooks/useRaceEvents';
 import { PitWallRaceTable } from './_components/PitWallRaceTable';
 import { RadioZoomPanel } from './_components/RadioZoomPanel';
 import { UpdateSpeedSlider } from './_components/UpdateSpeedSlider';
@@ -609,6 +610,24 @@ export default function PitWallClient() {
     return liveDrivers;
   }, [isReplayMode, replayPlayer.replayDrivers, preRaceMode.isShowreel, historicalReplay.replayDrivers, liveDrivers]);
 
+  // GUID: PIT_WALL_CLIENT-060-v01
+  // [Intent] FEAT-PW-020 Battle Engine — event detection over WHATEVER stream is being rendered
+  //          (live, replay or showreel), so events always agree with what is on screen. The
+  //          streamId resets all detection state across mode/session seams — entering a replay
+  //          must never read as forty overtakes. enrichedDrivers finally feeds positionChange
+  //          (the tower's ▲/▼ arrows existed since v2.x and could never fire); battleDrivers
+  //          drives the ⚔ pips; events drive the Race Story ticker.
+  const eventStreamId = isReplayMode
+    ? `replay-${selectedReplaySession?.sessionKey ?? 'none'}`
+    : preRaceMode.isShowreel
+      ? `showreel-${preRaceMode.currentItemIndex}`
+      : `live-${sessionKey ?? 'none'}`;
+  const {
+    events: raceEvents,
+    battleDrivers,
+    enrichedDrivers,
+  } = useRaceEvents(activeDrivers, circuitPath, sfLineX, sfLineY, eventStreamId);
+
   // GUID: PIT_WALL_CLIENT-053-v01
   // [Intent] Seed static circuit path for replay mode — when no live circuitKey is available,
   //          use the replay session's circuitKey to load from static circuits.json.
@@ -943,7 +962,14 @@ export default function PitWallClient() {
             <PanelResizeHandle className="w-[3px] bg-slate-800 hover:bg-cyan-600 transition-colors cursor-col-resize" />
             <Panel defaultSize={33} minSize={15}>
               <div className="w-full h-full min-w-0 min-h-0">
-                <FIARaceControlFeed messages={activeRaceControl} className="h-full" />
+                {/* @FEAT (FEAT-PW-020): FIA feed + detected events merged into one Race Story;
+                    clicking a detected event follows that driver on the track map. */}
+                <RaceEventTicker
+                  events={raceEvents}
+                  raceControl={activeRaceControl}
+                  onSelectDriver={handleDriverFollow}
+                  className="h-full"
+                />
               </div>
             </Panel>
           </PanelGroup>
@@ -1283,13 +1309,14 @@ export default function PitWallClient() {
       {zoomLevel === 0 && (
         <div className="flex-1 min-h-0 overflow-hidden">
           <PitWallRaceTable
-            drivers={activeDrivers}
+            drivers={enrichedDrivers /* @FEAT (FEAT-PW-020): positionChange fed at last */}
             radioMessages={activeRadioMessages}
             visibleColumns={settings.visibleColumns}
             radioState={radioState}
             onRadioClick={handleRadioClick}
             onDriverClick={handleDriverFollow}
             followDriver={followDriver}
+            battleDrivers={battleDrivers}
             sortKey={sortKey}
             onSort={handleSort}
             totalLaps={totalLaps}

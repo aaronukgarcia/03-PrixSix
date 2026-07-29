@@ -1,5 +1,23 @@
 # Changelog
 
+## v3.22.0 — 2026-07-29
+
+### FEAT-PW-020: the Battle Engine — the Pit Wall becomes an event radar
+
+The premise: OpenF1 lands seconds behind the track while TV streams run 30–60 seconds behind, and the TV director shows one event at a time chosen for the average viewer. The data contains every event. This release makes the Pit Wall surface them.
+
+**Race Story ticker.** The FIA race-control panel becomes a merged chronological feed: detected overtakes, battles forming, pit entries and exits, and fastest laps interleaved with the FIA messages. Every detected event is a button — clicking it flies the existing follow-mode camera to that car. "Battle brewing at T4" → tap → you're watching T4 before the TV cuts to it.
+
+**Overtake detection with corner attribution.** Position swaps between consecutive polls become "VER passed LEC into T4" events. Corner numbers are *derived from the traced circuit outline by curvature analysis* — no per-circuit table (GR#15), scale-free because OpenF1's GPS units are unspecified. Verified against the stored Hungarian GP replay: the algorithm derives exactly 14 corners for the Hungaroring, which has exactly 14 official turns.
+
+**Battle radar — the predictive half.** A car within 1.0s of the car ahead with the gap closing across four samples raises a "battle forming" event and an amber ⚔ pip on its timing-tower row. This watches all the gaps at once; the TV director doesn't.
+
+**The arrows finally work.** The tower's ▲/▼ position-change arrows and green/red row flashes have existed since v2.x and could never fire — `positionChange` was hard-coded to 0 in every data path. It is now fed in all three modes (live, replay, showreel).
+
+**Noise discipline, tuned against real data** (132 minutes of stored Hungarian GP replayed through the detector at 5s cadence): passes must persist to the next tick before an event fires (kills position flicker); cars seen in the pit lane are "pit-tainted" for 60s and their position changes are not overtakes; the opening laps raise no battle events (the grid is nose-to-tail by definition); battles have a 180s re-fire cooldown; battle-endings clear the pip but are not ticker rows. Net: a lively ~1.6 events/minute during a busy race, not spam.
+
+Detection runs on whatever stream is being rendered — live, replay or showreel — and resets across mode seams so entering a replay is never misread as forty overtakes.
+
 ## v3.21.0 — 2026-07-29
 
 ### BUG-LIVE-RSC-001: /live crashed for every visitor during Sunday's live session

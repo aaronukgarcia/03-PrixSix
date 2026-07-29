@@ -79,13 +79,15 @@ function formatMessageTime(dateStr: string): string {
   }
 }
 
-// GUID: FIA_RACE_CONTROL_FEED-005-v01
+// GUID: FIA_RACE_CONTROL_FEED-005-v02
 // [Intent] Single message row — flag border, icon, time, lap, message text, category badge.
+//          v02 (FEAT-PW-020): exported so RaceEventTicker renders FIA rows through this exact
+//          component instead of duplicating the flag styling (GR#3).
 interface MessageRowProps {
   message: RaceControlMessage;
 }
 
-function MessageRow({ message }: MessageRowProps) {
+export function MessageRow({ message }: MessageRowProps) {
   const flagKey = message.flag ?? 'DEFAULT';
   const config = FLAG_CONFIG[flagKey] ?? FLAG_CONFIG.DEFAULT;
 
