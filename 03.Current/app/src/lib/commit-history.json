@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-29",
   "commits": [
     {
+      "id": "fa61683",
+      "date": "2026-07-29",
+      "version": "3.22.0",
+      "author": "aaron garcia",
+      "message": "feat: FEAT-PW-020 — the Battle Engine: Pit Wall becomes an event radar (v3.22.0)",
+      "major": true
+    },
+    {
       "id": "a27f2aa",
       "date": "2026-07-29",
       "version": "3.21.0",

@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.23.0 — 2026-07-29
+
+### FEAT-PW-021: the TV-sync dial — own the offset instead of suffering it
+
+The Pit Wall's data leads a TV stream by 30–60 seconds, and that cuts both ways. **LIVE** (the default) keeps the head start — the pit-wall-engineer view, events before the broadcast shows them. **SYNC** is for the fan watching the telly as primary: a toolbar dial (−15s to −90s) buffers the live feed in a ring and plays the *entire* Pit Wall back at that offset — track map, timing tower, weather, team radio, your live prediction score, and the Battle Engine's event ticker all together — so the page matches the picture and nothing on it can spoil an overtake half a minute early.
+
+Detection latency rides the delay by design: in SYNC mode the "passed into T4" row appears when your TV shows the move, not before. The dial is deliberately session-only — a delay that survived a reload would read as "the Pit Wall is broken" days later, so a fresh page always comes back LIVE. At LIVE the hook is a pure pass-through with no timers; the buffer holds references to the per-poll arrays the app already had, so the memory cost is pointers, not copies.
+
 ## v3.22.0 — 2026-07-29
 
 ### FEAT-PW-020: the Battle Engine — the Pit Wall becomes an event radar

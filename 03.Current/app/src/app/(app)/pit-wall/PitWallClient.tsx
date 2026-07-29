@@ -49,6 +49,7 @@ import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'reac
 import { LiveScoreBanner } from './_components/LiveScoreBanner';
 import { RaceEventTicker } from './_components/RaceEventTicker';
 import { useRaceEvents } from './_hooks/useRaceEvents';
+import { useTvSyncDelay, TV_SYNC_MAX_SECONDS } from './_hooks/useTvSyncDelay';
 import { PitWallRaceTable } from './_components/PitWallRaceTable';
 import { RadioZoomPanel } from './_components/RadioZoomPanel';
 import { UpdateSpeedSlider } from './_components/UpdateSpeedSlider';
@@ -222,10 +223,10 @@ export default function PitWallClient() {
 
   // Live data polling
   const {
-    drivers: liveDrivers,
-    raceControl,
-    radioMessages,
-    weather,
+    drivers: rawLiveDrivers,
+    raceControl: rawRaceControl,
+    radioMessages: rawRadioMessages,
+    weather: rawWeather,
     sessionKey,
     sessionName,
     meetingName,
@@ -241,9 +242,30 @@ export default function PitWallClient() {
     error,
     errorCode,
     correlationId,
-    lastUpdated,
+    lastUpdated: rawLastUpdated,
     forceRefresh,
   } = usePitWallData(settings.updateIntervalSeconds, firebaseUser);
+
+  // GUID: PIT_WALL_CLIENT-061-v01
+  // [Intent] FEAT-PW-021 TV-sync delay dial. The data feed leads a TV stream by 30-60s; LEAD
+  //          mode (0s, default) keeps that head start, SYNC mode delays the WHOLE rendered feed
+  //          — map, tower, weather, radio, prediction score and Battle Engine events — so the
+  //          Pit Wall matches the user's telly instead of spoiling it. Session-only state:
+  //          deliberately not persisted, a reload always comes back LIVE.
+  const [tvSyncSeconds, setTvSyncSeconds] = useState(0);
+  const liveFeedSnapshot = useMemo(() => ({
+    drivers: rawLiveDrivers,
+    raceControl: rawRaceControl,
+    radioMessages: rawRadioMessages,
+    weather: rawWeather,
+    lastUpdated: rawLastUpdated,
+  }), [rawLiveDrivers, rawRaceControl, rawRadioMessages, rawWeather, rawLastUpdated]);
+  const tvFeed = useTvSyncDelay(liveFeedSnapshot, tvSyncSeconds);
+  const liveDrivers = tvFeed.drivers;
+  const raceControl = tvFeed.raceControl;
+  const radioMessages = tvFeed.radioMessages;
+  const weather = tvFeed.weather;
+  const lastUpdated = tvFeed.lastUpdated;
 
   // GUID: PIT_WALL_CLIENT-058-v01
   // [Intent] Next race from schedule, re-derived every minute.
@@ -1176,6 +1198,44 @@ export default function PitWallClient() {
                   title={`Custom refresh rate resets to 60s in ${intervalResetMinutes}m`}
                 >
                   ↺{intervalResetMinutes}m
+                </span>
+              )}
+            </div>
+          )}
+          {/* GUID: PIT_WALL_CLIENT-062-v01 */}
+          {/* [Intent] FEAT-PW-021 — the TV-sync dial. LIVE keeps the data's 30-60s head start
+              over the broadcast; a delay plays the whole Pit Wall back in sync with the user's
+              TV so nothing on this page spoils the picture. Pick the offset that matches your
+              stream (Sky/F1TV are typically 30-60s behind). */}
+          {!preRaceMode.isShowreel && !isReplayMode && (
+            <div className="flex items-center gap-1" title="Delay the Pit Wall to match your TV — LIVE keeps the head start over the broadcast">
+              <span className="text-[9px] text-slate-500 font-mono uppercase">TV sync</span>
+              <select
+                value={tvSyncSeconds}
+                onChange={e => setTvSyncSeconds(Number(e.target.value))}
+                className="bg-slate-800 border border-slate-700 rounded text-[10px] text-slate-300 font-mono px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                aria-label="TV sync delay"
+              >
+                <option value={0}>LIVE</option>
+                <option value={15}>-15s</option>
+                <option value={30}>-30s</option>
+                <option value={45}>-45s</option>
+                <option value={60}>-60s</option>
+                <option value={TV_SYNC_MAX_SECONDS}>-90s</option>
+              </select>
+              {tvSyncSeconds > 0 && (
+                <span
+                  className={cn(
+                    'text-[9px] font-mono tabular-nums whitespace-nowrap px-1 py-0.5 rounded',
+                    tvFeed.isBuffering
+                      ? 'text-amber-300 bg-amber-400/10 animate-pulse'
+                      : 'text-cyan-300 bg-cyan-400/10'
+                  )}
+                  title={tvFeed.isBuffering
+                    ? 'Buffering — the delay deepens as data arrives'
+                    : `Showing the race as it stood ${tvFeed.effectiveDelaySeconds}s ago`}
+                >
+                  {tvFeed.isBuffering ? 'BUFFERING' : `SYNC -${tvFeed.effectiveDelaySeconds}s`}
                 </span>
               )}
             </div>
