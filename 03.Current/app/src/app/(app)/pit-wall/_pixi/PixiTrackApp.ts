@@ -154,7 +154,13 @@ export class PixiTrackApp {
       powerPreference: 'high-performance',
     });
 
-    if (this.destroyed) return;
+    if (this.destroyed) {
+      // destroy() ran while app.init() was awaiting — it deferred teardown to us (BUG-WELCOME-001).
+      // The Application IS initialised at this point, so a full destroy is safe and required;
+      // returning without it leaks the WebGL context on every fast navigation away.
+      this.app.destroy(true, { children: true, texture: true });
+      return;
+    }
     container.appendChild(this.app.canvas);
 
     // Build scene graph (see PIXI_TRACK_APP-001-v02 for structure)
@@ -523,8 +529,19 @@ export class PixiTrackApp {
     }
   }
 
+  // GUID: PIXI_TRACK_APP-010-v02
+  // @BUGFIX (BUG-WELCOME-001, v3.23.1): destroy() assumed init() had finished. In Pixi v8,
+  //   app.ticker (and the renderer) are UNDEFINED until app.init() resolves — so unmounting
+  //   while init was still awaiting (fast navigation away, e.g. the late-joiner redirect
+  //   bouncing /pit-wall → /welcome) threw "Cannot read properties of undefined (reading
+  //   'remove')", which the PX-9001 boundary then surfaced on whatever route came next
+  //   (err_ms65icet_ea4b2d6f). Teardown now splits by readiness: not-ready sets the flag and
+  //   lets init()'s own guard do the deferred destroy the moment its await resolves — which
+  //   also fixes the OTHER half of the race, where the old guards returned silently and leaked
+  //   the freshly-created WebGL context.
   destroy(): void {
     this.destroyed = true;
+    if (!this.ready) return; // init() in flight — its post-await guard tears down the app
     this.app.ticker.remove(this.onTick, this);
     this.trailLayer.clear();
     this.trailSystem.clear();

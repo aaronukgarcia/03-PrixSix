@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.23.1 — 2026-07-29
+
+### BUG-WELCOME-001: the "/welcome crash" was actually the Pit Wall's unmount race
+
+The PX-9001 boundary caught "Cannot read properties of undefined (reading 'remove')" apparently on `/welcome` (ref `err_ms65icet_ea4b2d6f`). The welcome page is innocent — the route field simply names where the error boundary landed. The real fault: in Pixi v8, `app.ticker` and the renderer do not exist until `await app.init()` resolves, and `PixiTrackApp.destroy()` called `ticker.remove` unconditionally. Navigate away from the Pit Wall while the canvas was still initialising — exactly what the late-joiner redirect does when it bounces `/pit-wall` → `/welcome` — and the unmount crashed.
+
+The fix is two-sided because the race was. `destroy()` during init now only sets the flag and leaves teardown to `init()`'s own post-await guard — which previously `return`ed silently, meaning every fast navigation away also **leaked a WebGL context**; it now destroys the freshly-initialised Application properly. Any account state or plain quick back-button could trigger this, not just late joiners.
+
+Found while driving the Pit Wall replay headlessly as the Billceleration bot; captured by the v3.21.0 uncaught-error pipeline on its second day — the new plumbing paying for itself.
+
 ## v3.23.0 — 2026-07-29
 
 ### FEAT-PW-021: the TV-sync dial — own the offset instead of suffering it

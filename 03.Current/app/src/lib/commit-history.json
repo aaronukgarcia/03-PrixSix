@@ -2,6 +2,14 @@
   "lastUpdated": "2026-07-29",
   "commits": [
     {
+      "id": "21bcb56",
+      "date": "2026-07-29",
+      "version": "3.23.0",
+      "author": "aaron garcia",
+      "message": "feat: FEAT-PW-021 — TV-sync delay dial: own the broadcast offset (v3.23.0)",
+      "major": true
+    },
+    {
       "id": "fa61683",
       "date": "2026-07-29",
       "version": "3.22.0",
