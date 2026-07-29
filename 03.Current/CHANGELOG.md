@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.21.0 — 2026-07-29
+
+### BUG-LIVE-RSC-001: /live crashed for every visitor during Sunday's live session
+
+Error-log triage surfaced a burst of six PX-9001 `client_crash` docs on `/live` at 13:27 UTC on 27 July — multiple users, Server Components render error, message redacted by Next.js down to a digest (`3582422298`). The Cloud Run stderr logs held the truth: `Only plain objects … can be passed to Client Components`, with the offending payload showing `refreshClaimedAt: {_seconds: …}`.
+
+Root cause: the v02 fix on `live/page.tsx` stripped the one Admin SDK Timestamp field known at the time (`fetchedAt`) before crossing the server→client boundary. During live sessions, `/api/live/refresh-timing` merges a *second* Timestamp — `refreshClaimedAt`, its refresh-claim mutex stamp — into the same document. The moment that field existed, the RSC render threw for every `/live` visitor, and it self-healed only when the claim field cleared. Classic Golden Rule #16 violation: the code trusted the TypeScript interface over what Firestore actually holds.
+
+The fix strips **every** Timestamp-like value (duck-typed on `.toMillis`, so a bundler-duplicated Timestamp class can't dodge `instanceof`) rather than naming fields. None of them are needed client-side — the client re-reads Firestore on mount.
+
+### FEAT-ERR-SERVER-001: uncaught server errors now land in error_logs with full detail (PX-9003)
+
+The `/live` diagnosis above took a gcloud log trawl two days after the fact, because Next.js redacts RSC error messages in production and the real error existed only in Cloud Run stderr — exactly the "invisible" failure mode Golden Rule #17's amendment warns about. Now `app/src/instrumentation.ts` implements `onRequestError`, the only hook that receives *unredacted* server errors in production: every uncaught RSC render / server action / route handler / middleware error is written to `error_logs` as **PX-9003 SERVER_UNCAUGHT_ERROR** with full message, stack, route, and the same `digest` the client's redacted report carries — so one Firestore query on `digest` joins a user's crash report to the server truth. `logError` gained optional top-level `errorCode` and `digest` fields (omitted when absent; existing call sites unchanged). Node-runtime-gated, skips `NEXT_*` control-flow digests, and can never throw into the request path. Debug detail stays in `error_logs`, which is admin-only with deletes disabled.
+
 ## v3.20.2 — 2026-07-28
 
 ### BUG-PUBLIC-404: the site logo has been broken in production the entire time

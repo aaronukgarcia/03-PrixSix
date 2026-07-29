@@ -188,16 +188,23 @@ export const adminFirestore = new Proxy({} as FirebaseFirestore.Firestore, {
   },
 });
 
-// GUID: LIB_FIREBASE_ADMIN-005-v04
+// GUID: LIB_FIREBASE_ADMIN-005-v05
 // [Intent] Persists error details (message, stack trace, context, correlation ID) to the error_logs Firestore collection for centralised error tracking and debugging.
-// [Inbound Trigger] Called by API route catch blocks after generating a correlation ID (Golden Rule #1 compliance).
+// [Inbound Trigger] Called by API route catch blocks after generating a correlation ID (Golden Rule #1 compliance), and by instrumentation.ts onRequestError for uncaught server errors.
 // [Downstream Impact] Writes to error_logs collection used by admin error monitoring. Silently catches its own failures to avoid cascading errors. If this function fails, errors are only logged to console.
+// @FIX(v05) Optional top-level errorCode and digest fields. errorCode makes server-side
+//           docs triageable by code (previously only client docs carried it); digest is
+//           the join key linking a redacted client-side RSC error report to the full
+//           server-side record written by instrumentation.ts. Both omitted when absent
+//           so existing call sites and doc shapes are unchanged.
 /**
  * Log an error to Firestore with correlation ID and context
  */
 export async function logError(options: {
   correlationId: string;
   error: Error | string;
+  errorCode?: string;
+  digest?: string;
   context: {
     route?: string;
     action?: string;
@@ -216,6 +223,8 @@ export async function logError(options: {
 
     await db.collection('error_logs').add({
       correlationId: options.correlationId,
+      ...(options.errorCode ? { errorCode: options.errorCode } : {}),
+      ...(options.digest ? { digest: options.digest } : {}),
       error: errorMessage,
       stack: errorStack,
       context: options.context,

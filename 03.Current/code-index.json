@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-13",
-  "totalGuids": 2174,
-  "totalErrorCodes": 96,
+  "generated": "2026-07-29",
+  "totalGuids": 2272,
+  "totalErrorCodes": 97,
   "byErrorCode": {
     "PX-6004": {
       "guid": "FIREBASE_PROVIDER-061",
@@ -674,6 +674,13 @@
       "function": "POST",
       "message": "Invite link has expired",
       "recovery": "Ask the inviter to send a fresh invite — links live for 14 days."
+    },
+    "PX-9003": {
+      "guid": "INSTRUMENTATION-002",
+      "file": "app/src/instrumentation.ts",
+      "function": "onRequestError",
+      "message": "An unexpected server error occurred",
+      "recovery": "Query error_logs by the digest field to join the redacted client report to this full server record; the stack identifies the throw site. If digest-only client docs exist WITHOUT a matching PX-9003 doc, instrumentation.ts is not firing — check the deploy."
     }
   },
   "byTopic": {
@@ -1183,7 +1190,15 @@
       "API_ADMIN_WHATSAPP_QUEUE-001",
       "ADMIN_WHATSAPP-021b",
       "API_ADMIN_WHATSAPP_EOS-000",
-      "ADMIN_WHATSAPP-021c"
+      "ADMIN_WHATSAPP-021c",
+      "PAGE_ADMIN-INVITES-001",
+      "PAGE_ADMIN-INVITES-003",
+      "ADMIN_INVITES_TREE-000",
+      "ADMIN_INVITES_TREE-001",
+      "ADMIN_INVITES_TREE-002",
+      "ADMIN_INVITES_TREE-003",
+      "ADMIN_INVITES_TREE-004",
+      "ADMIN_INVITES_TREE-005"
     ],
     "audit": [
       "ADMIN_AUDIT-000",
@@ -1264,7 +1279,9 @@
       "LIB_CONSISTENCY-013B",
       "LIB_CONSISTENCY-027B",
       "ADMIN_CONSISTENCY-012",
-      "ADMIN_CONSISTENCY-013"
+      "ADMIN_CONSISTENCY-013",
+      "LIB_CONSISTENCY-060",
+      "LIB_CONSISTENCY-061"
     ],
     "results": [
       "ADMIN_CONSISTENCY-000",
@@ -1365,13 +1382,17 @@
       "PAGE_RESULTS-025A",
       "PAGE_RESULTS-025B",
       "PAGE_STANDINGS-011",
+      "API_SEND_RESULTS_EMAIL-006",
       "API_SUBMIT_PREDICTION-004B",
       "ADMIN_RESULTS-020",
       "ADMIN_RESULTS-021",
       "ADMIN_RESULTS-022",
       "ADMIN_RESULTS-023",
       "API_SEND_RESULTS_EMAIL-005",
-      "PAGE_RESULTS-025C"
+      "PAGE_RESULTS-025C",
+      "PAGE_STANDINGS-035",
+      "PAGE_TEAMS-016",
+      "PAGE_RESULTS-036"
     ],
     "email": [
       "ADMIN_EMAILLOG-000",
@@ -1462,6 +1483,7 @@
       "LIB_EMAIL-007",
       "LIB_EMAIL-008",
       "LIB_EMAIL-009",
+      "LIB_EMAIL-014",
       "LIB_EMAIL_TRACKING-000",
       "LIB_EMAIL_TRACKING-001",
       "LIB_EMAIL_TRACKING-002",
@@ -1503,6 +1525,7 @@
       "API_SEND_PROVIDER_LINKED_EMAIL-001A",
       "API_SEND_RESULTS_EMAIL-001C",
       "COMPONENT_EMAIL_BANNER-004",
+      "API_SEND_RESULTS_EMAIL-006",
       "CRON_EMAIL_QUEUE-000",
       "CRON_EMAIL_QUEUE-001",
       "CRON_EMAIL_QUEUE-002",
@@ -1692,6 +1715,7 @@
       "COMPONENT_FEEDBACK_LINK-000",
       "LIB_UTILS-002",
       "PAGE_LOGIN-007",
+      "PAGE_PREDICTIONS-011",
       "PAGE_PROFILE-009",
       "PAGE_PROFILE-013",
       "PAGE_PROFILE-017",
@@ -1718,8 +1742,11 @@
       "API_PIT_WALL_HISTORICAL_REPLAY-011",
       "REPLAY_INGEST-006",
       "REPLAY_INGEST-007",
+      "LIB_INVITES-000",
       "COMPONENT_INVITE_SIGNUP-002",
-      "COMPONENT_INVITE_SIGNUP-003"
+      "COMPONENT_INVITE_SIGNUP-003",
+      "HOT_NEWS_FLOW-013",
+      "LIB_INVITES-006"
     ],
     "feedback": [
       "ADMIN_FEEDBACK-000",
@@ -1891,6 +1918,11 @@
       "PAGE_STANDINGS-015",
       "PAGE_STANDINGS-016",
       "PAGE_STANDINGS-017",
+      "PAGE_STANDINGS-028",
+      "PAGE_STANDINGS-029",
+      "LIB_STANDINGS_CHART_IMAGE-000",
+      "PAGE_STANDINGS-031",
+      "PAGE_STANDINGS-030",
       "PAGE_STANDINGS-018",
       "PAGE_STANDINGS-019",
       "PAGE_STANDINGS-020",
@@ -1923,7 +1955,10 @@
       "LIB_CUMULATIVE_STANDINGS-005",
       "LIB_CUMULATIVE_STANDINGS-006",
       "LIB_CUMULATIVE_STANDINGS-007",
-      "LIB_CUMULATIVE_STANDINGS-008"
+      "LIB_CUMULATIVE_STANDINGS-008",
+      "PAGE_STANDINGS-034",
+      "PAGE_STANDINGS-035",
+      "PAGE_STANDINGS-036"
     ],
     "team": [
       "ADMIN_TEAM-000",
@@ -1996,7 +2031,21 @@
       "API_TEAM_NAME_SUGGESTIONS-003",
       "API_TEAM_NAME_SUGGESTIONS-004",
       "API_TEAM_NAME_SUGGESTIONS-005",
-      "API_TEAM_NAME_SUGGESTIONS-006"
+      "API_TEAM_NAME_SUGGESTIONS-006",
+      "LIB_TEAM_NAMES-000",
+      "LIB_TEAM_NAMES-001",
+      "LIB_TEAM_NAMES-002",
+      "LIB_TEAM_NAMES-003",
+      "LIB_TEAM_NAMES-004",
+      "SCRIPT_BACKFILL_TEAM_SENTINELS-000",
+      "API_ADD_SECONDARY_TEAM-012",
+      "PAGE_TEAMS-016",
+      "PAGE_TEAMS-017",
+      "PAGE_TEAMS-018",
+      "PAGE_TEAMS-019",
+      "PAGE_TEAMS-020",
+      "PAGE_TEAMS-021",
+      "PAGE_TEAMS-022"
     ],
     "whatsapp": [
       "ADMIN_WHATSAPP-000",
@@ -2054,6 +2103,47 @@
       "CRON_WHATSAPP_SCHEDULED-000",
       "API_ADMIN_WHATSAPP_EOS-000",
       "ADMIN_WHATSAPP-021c"
+    ],
+    "signup": [
+      "API_ADD_SECONDARY_TEAM-010",
+      "API_ADMIN_UPDATE_USER-006",
+      "API_AUTH_COMPLETE_OAUTH-000",
+      "API_AUTH_COMPLETE_OAUTH-008",
+      "API_AUTH_SIGNUP-001",
+      "API_AUTH_SIGNUP-003",
+      "API_AUTH_SIGNUP-004",
+      "API_AUTH_SIGNUP-008",
+      "API_AUTH_SIGNUP-010",
+      "API_AUTH_SIGNUP-011",
+      "API_AUTH_SIGNUP-015",
+      "API_AUTH_SIGNUP-017",
+      "FIREBASE_PROVIDER-004",
+      "FIREBASE_PROVIDER-010",
+      "LIB_TEAM_NAME_SUGGESTIONS-000",
+      "PAGE_COMPLETE_PROFILE-006",
+      "PAGE_SIGNUP-000",
+      "AUTH_ERROR-000",
+      "FIREBASE_PROVIDER-000",
+      "API_HEALTH-008",
+      "VALIDATION-EMAIL-001",
+      "TEAM_NAMES_RULES-001",
+      "PAGE_SIGNUP-000-v07",
+      "PAGE_SIGNUP-001",
+      "LIB_LATE_JOINER-000",
+      "API_AUTH_SIGNUP-024",
+      "LIB_INVITES-000",
+      "LIB_INVITES-004",
+      "API_INVITES_CREATE-000",
+      "COMPONENT_INVITE_SIGNUP-000",
+      "COMPONENT_INVITE_SIGNUP-003",
+      "COMPONENT_INVITE_SIGNUP-004",
+      "PAGE_INVITE-000",
+      "API_AUTH_SIGNUP-025",
+      "API_AUTH_SIGNUP-026",
+      "LIB_TEAM_NAMES-000",
+      "SCRIPT_BACKFILL_TEAM_SENTINELS-000",
+      "API_AUTH_COMPLETE_OAUTH-015",
+      "API_ADD_SECONDARY_TEAM-012"
     ],
     "prediction": [
       "API_ADMIN_PREDICTION_COUNT-000",
@@ -2203,7 +2293,8 @@
       "API_SEND_VERIFICATION_EMAIL-001-v03",
       "API_SEND_VERIFICATION_EMAIL-002-v06",
       "LIB_FIREBASE_ADMIN-000-v05",
-      "PAGE_ADMIN-HOTLINK"
+      "PAGE_ADMIN-HOTLINK",
+      "API_AUTH_SIGNUP-026"
     ],
     "login": [
       "API_AUTH_COMPLETE_OAUTH-000",
@@ -2310,7 +2401,9 @@
       "PAGE_LOGIN-009",
       "API_AUTH_ACK_LATE_JOINER-000",
       "API_AUTH_SIGNUP-024",
-      "API_AUTH_SIGNUP-025"
+      "API_AUTH_SIGNUP-025",
+      "API_AUTH_SIGNUP-026",
+      "API_AUTH_COMPLETE_OAUTH-015"
     ],
     "oauth": [
       "API_AUTH_COMPLETE_OAUTH-000",
@@ -2342,40 +2435,8 @@
       "SERVICE_AUTH_OAUTH-008",
       "SERVICE_AUTH_OAUTH-009",
       "SERVICE_AUTH_OAUTH-010",
-      "SERVICE_AUTH_OAUTH-011"
-    ],
-    "signup": [
-      "API_AUTH_COMPLETE_OAUTH-000",
-      "API_AUTH_COMPLETE_OAUTH-008",
-      "API_AUTH_SIGNUP-001",
-      "API_AUTH_SIGNUP-003",
-      "API_AUTH_SIGNUP-004",
-      "API_AUTH_SIGNUP-008",
-      "API_AUTH_SIGNUP-011",
-      "API_AUTH_SIGNUP-015",
-      "API_AUTH_SIGNUP-017",
-      "FIREBASE_PROVIDER-004",
-      "FIREBASE_PROVIDER-010",
-      "LIB_TEAM_NAME_SUGGESTIONS-000",
-      "PAGE_COMPLETE_PROFILE-006",
-      "PAGE_SIGNUP-000",
-      "AUTH_ERROR-000",
-      "FIREBASE_PROVIDER-000",
-      "API_HEALTH-008",
-      "VALIDATION-EMAIL-001",
-      "TEAM_NAMES_RULES-001",
-      "PAGE_SIGNUP-000-v07",
-      "PAGE_SIGNUP-001",
-      "LIB_LATE_JOINER-000",
-      "API_AUTH_SIGNUP-024",
-      "LIB_INVITES-000",
-      "LIB_INVITES-004",
-      "API_INVITES_CREATE-000",
-      "COMPONENT_INVITE_SIGNUP-000",
-      "COMPONENT_INVITE_SIGNUP-003",
-      "COMPONENT_INVITE_SIGNUP-004",
-      "PAGE_INVITE-000",
-      "API_AUTH_SIGNUP-025"
+      "SERVICE_AUTH_OAUTH-011",
+      "API_AUTH_COMPLETE_OAUTH-015"
     ],
     "auth": [
       "API_SEND_PROVIDER_LINKED_EMAIL-000",
@@ -2488,6 +2549,7 @@
       "BACKUP_FUNCTIONS-023B",
       "BACKUP_RULES-001",
       "BACKUP_RULES-002",
+      "BACKUP_FUNCTIONS-032",
       "BACKUP_FUNCTIONS-000-v03",
       "BACKUP_FUNCTIONS-001-v03",
       "BACKUP_FUNCTIONS-002-v05",
@@ -2503,7 +2565,9 @@
       "BACKUP_FUNCTIONS-042",
       "BACKUP_FUNCTIONS-080",
       "BACKUP_FUNCTIONS-081",
-      "BACKUP_FUNCTIONS-082"
+      "BACKUP_FUNCTIONS-082",
+      "BACKUP_FUNCTIONS-043",
+      "BACKUP_FUNCTIONS-044"
     ],
     "dashboard": [
       "BACKUP_DASHBOARD-000",
@@ -2544,6 +2608,7 @@
       "BACKUP_DASHBOARD-022",
       "BACKUP_DASHBOARD-023",
       "BACKUP_DASHBOARD-033",
+      "COMPONENT_DASHBOARD_CLIENT-010",
       "PAGE_DASHBOARD-004",
       "PAGE_DASHBOARD-005",
       "BACKUP_DASHBOARD-034-v01",
@@ -2576,7 +2641,8 @@
       "LIB_DATA-000",
       "LIB_DATA-008",
       "API_CALCULATE_SCORES-019",
-      "CRON_WHATSAPP_SCHEDULED-000"
+      "LIB_BILLCELERATION-000",
+      "CRON_BILLCELERATION-000"
     ],
     "sidebar": [
       "COMPONENT_APP_SIDEBAR-000",
@@ -4215,6 +4281,12 @@
       ],
       "errorCodes": []
     },
+    "COMPONENT_SPLASH_SCREEN": {
+      "files": [
+        "app/src/components/ui/SplashScreen.tsx"
+      ],
+      "errorCodes": []
+    },
     "PAGE_RESULTS-025A": {
       "files": [
         "app/src/app/(app)/results/page.tsx"
@@ -4224,6 +4296,12 @@
     "PAGE_RESULTS-025B": {
       "files": [
         "app/src/app/(app)/results/page.tsx"
+      ],
+      "errorCodes": []
+    },
+    "LIB_STANDINGS_CHART_IMAGE": {
+      "files": [
+        "app/src/lib/standings-chart-image.ts"
       ],
       "errorCodes": []
     },
@@ -5357,6 +5435,116 @@
         "app/src/firestore.rules"
       ],
       "errorCodes": []
+    },
+    "LIB_TEAM_NAMES": {
+      "files": [
+        "app/src/lib/team-names.ts"
+      ],
+      "errorCodes": []
+    },
+    "SCRIPT_BACKFILL_TEAM_SENTINELS": {
+      "files": [
+        "scripts/backfill-team-name-sentinels.js"
+      ],
+      "errorCodes": []
+    },
+    "SCRIPT_DRY_RUN_WEEKLY_SNARK": {
+      "files": [
+        "app/scripts/dry-run-weekly-snark.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_BILLCELERATION": {
+      "files": [
+        "app/src/lib/billceleration.ts"
+      ],
+      "errorCodes": []
+    },
+    "AI_BILLCELERATION_PICKER": {
+      "files": [
+        "app/src/ai/flows/billceleration-picker.ts"
+      ],
+      "errorCodes": []
+    },
+    "CRON_BILLCELERATION": {
+      "files": [
+        "app/src/app/api/cron/billceleration/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "BILLCELERATION_LOG_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "API_ROAST_SUBMISSION": {
+      "files": [
+        "app/src/app/api/internal/roast-submission/route.ts"
+      ],
+      "errorCodes": []
+    },
+    "ROAST_TASKS_RULES": {
+      "files": [
+        "app/src/firestore.rules"
+      ],
+      "errorCodes": []
+    },
+    "LIB_CHEEKY_BILL_HISTORY": {
+      "files": [
+        "app/src/lib/cheeky-bill-history.ts"
+      ],
+      "errorCodes": []
+    },
+    "SCRIPT_DRY_RUN_ROAST_VARIETY": {
+      "files": [
+        "app/scripts/dry-run-roast-variety.ts"
+      ],
+      "errorCodes": []
+    },
+    "PAGE_ADMIN-INVITES": {
+      "files": [
+        "app/src/app/(app)/admin/AdminPageClient.tsx"
+      ],
+      "errorCodes": []
+    },
+    "ADMIN_INVITES_TREE": {
+      "files": [
+        "app/src/app/(app)/admin/_components/InvitesManager.tsx"
+      ],
+      "errorCodes": []
+    },
+    "LIB_PODIUM": {
+      "files": [
+        "app/src/lib/podium.tsx"
+      ],
+      "errorCodes": []
+    },
+    "LIB_TROPHY_ASSETS": {
+      "files": [
+        "app/src/lib/trophy-assets.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_TROPHIES": {
+      "files": [
+        "app/src/lib/trophies.ts"
+      ],
+      "errorCodes": []
+    },
+    "LIB_TROPHY_ART": {
+      "files": [
+        "app/src/lib/trophy-art.ts"
+      ],
+      "errorCodes": []
+    },
+    "INSTRUMENTATION": {
+      "files": [
+        "app/src/instrumentation.ts"
+      ],
+      "errorCodes": [
+        "PX-9003"
+      ]
     }
   },
   "byFile": {
@@ -5377,7 +5565,9 @@
         "REPLAY_SESSIONS_RULES",
         "REPLAY_CHUNKS_RULES",
         "REPLAY_META_RULES",
-        "INVITES_RULES"
+        "INVITES_RULES",
+        "BILLCELERATION_LOG_RULES",
+        "ROAST_TASKS_RULES"
       ],
       "errorCodes": []
     },
@@ -5729,7 +5919,8 @@
         "PAGE_ADMIN-HEALTH",
         "PAGE_ADMIN-PITLANE",
         "PAGE_ADMIN-PITWALL",
-        "PAGE_ADMIN-HOTLINK"
+        "PAGE_ADMIN-HOTLINK",
+        "PAGE_ADMIN-INVITES"
       ],
       "errorCodes": []
     },
@@ -6782,6 +6973,18 @@
       ],
       "errorCodes": []
     },
+    "app/src/components/ui/SplashScreen.tsx": {
+      "modules": [
+        "COMPONENT_SPLASH_SCREEN"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/standings-chart-image.ts": {
+      "modules": [
+        "LIB_STANDINGS_CHART_IMAGE"
+      ],
+      "errorCodes": []
+    },
     "app/src/app/(app)/admin/_components/PitLaneAdmin.tsx": {
       "modules": [
         "ADMIN_PIT_LANE"
@@ -7265,6 +7468,98 @@
         "PAGE_INVITE"
       ],
       "errorCodes": []
+    },
+    "app/src/lib/team-names.ts": {
+      "modules": [
+        "LIB_TEAM_NAMES"
+      ],
+      "errorCodes": []
+    },
+    "scripts/backfill-team-name-sentinels.js": {
+      "modules": [
+        "SCRIPT_BACKFILL_TEAM_SENTINELS"
+      ],
+      "errorCodes": []
+    },
+    "app/scripts/dry-run-weekly-snark.ts": {
+      "modules": [
+        "SCRIPT_DRY_RUN_WEEKLY_SNARK"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/billceleration.ts": {
+      "modules": [
+        "LIB_BILLCELERATION"
+      ],
+      "errorCodes": []
+    },
+    "app/src/ai/flows/billceleration-picker.ts": {
+      "modules": [
+        "AI_BILLCELERATION_PICKER"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/cron/billceleration/route.ts": {
+      "modules": [
+        "CRON_BILLCELERATION"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/api/internal/roast-submission/route.ts": {
+      "modules": [
+        "API_ROAST_SUBMISSION"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/cheeky-bill-history.ts": {
+      "modules": [
+        "LIB_CHEEKY_BILL_HISTORY"
+      ],
+      "errorCodes": []
+    },
+    "app/scripts/dry-run-roast-variety.ts": {
+      "modules": [
+        "SCRIPT_DRY_RUN_ROAST_VARIETY"
+      ],
+      "errorCodes": []
+    },
+    "app/src/app/(app)/admin/_components/InvitesManager.tsx": {
+      "modules": [
+        "ADMIN_INVITES_TREE"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/podium.tsx": {
+      "modules": [
+        "LIB_PODIUM"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/trophy-assets.ts": {
+      "modules": [
+        "LIB_TROPHY_ASSETS"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/trophies.ts": {
+      "modules": [
+        "LIB_TROPHIES"
+      ],
+      "errorCodes": []
+    },
+    "app/src/lib/trophy-art.ts": {
+      "modules": [
+        "LIB_TROPHY_ART"
+      ],
+      "errorCodes": []
+    },
+    "app/src/instrumentation.ts": {
+      "modules": [
+        "INSTRUMENTATION"
+      ],
+      "errorCodes": [
+        "PX-9003"
+      ]
     }
   }
 }

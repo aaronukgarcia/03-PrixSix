@@ -18,25 +18,35 @@ export const metadata: Metadata = { title: 'PubChat | Prix Six' };
 // Force dynamic so the server-side Firestore read always gets fresh data.
 export const dynamic = 'force-dynamic';
 
-// GUID: PAGE_LIVE-001-v02
+// GUID: PAGE_LIVE-001-v03
 // [Intent] Server-side initial data fetch from app-settings/pub-chat-timing.
 //          Returns null if the document doesn't exist — client handles null gracefully.
 // [Inbound Trigger] Called once on each page request (server-side render).
 // [Downstream Impact] Prevents the loading spinner on first paint; client then
 //                     takes over polling. Errors are swallowed — null fallback.
 // @FIX(v02) Strip fetchedAt (Admin SDK Timestamp) before passing to Client Component.
-//           Firestore Timestamps are not JSON-serializable across the server/client
-//           boundary in Next.js App Router. fetchedAt is only used server-side for
-//           rate-gating; the client re-reads Firestore on mount and gets a live value.
+// @FIX(v03) BUG: v02 stripped only the ONE Timestamp field known at the time. During
+//           the 2026-07-27 live session, /api/live/refresh-timing merged a second
+//           Timestamp (refreshClaimedAt) into the doc and the RSC render crashed for
+//           every /live visitor (digest 3582422298, PX-9001 burst 13:27 UTC).
+//           Now strips EVERY Timestamp-like value (GR#16: never trust TS types about
+//           Firestore data) — duck-typed on .toMillis so a bundler-duplicated
+//           Timestamp class can't dodge an instanceof check. None of these fields are
+//           needed client-side: the client re-reads Firestore on mount.
 async function getInitialTimingData(): Promise<PubChatTimingData | null> {
   try {
     const { db } = await getFirebaseAdmin();
     const snap = await db.doc('app-settings/pub-chat-timing').get();
     if (!snap.exists) return null;
     const raw = snap.data()!;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { fetchedAt: _dropped, ...serializable } = raw;
-    return serializable as PubChatTimingData;
+    const serializable: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      // Drop any Admin SDK Timestamp (fetchedAt, refreshClaimedAt, future fields) —
+      // class instances cannot cross the Server→Client Component boundary.
+      if (value && typeof (value as { toMillis?: unknown }).toMillis === 'function') continue;
+      serializable[key] = value;
+    }
+    return serializable as unknown as PubChatTimingData;
   } catch {
     return null;
   }

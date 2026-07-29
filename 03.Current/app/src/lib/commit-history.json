@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-28",
+  "lastUpdated": "2026-07-29",
   "commits": [
+    {
+      "id": "80a1877",
+      "date": "2026-07-28",
+      "version": "3.20.2",
+      "author": "aaron garcia",
+      "message": "fix: BUG-PUBLIC-404 — the site logo has been broken in production the whole time (v3.20.2)",
+      "major": false
+    },
     {
       "id": "5a4a4ce",
       "date": "2026-07-28",
