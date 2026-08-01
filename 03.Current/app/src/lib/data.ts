@@ -187,7 +187,11 @@ export interface Race {
   trackTimezone: string; // IANA timezone identifier e.g. "Australia/Melbourne"
 }
 
-// GUID: LIB_DATA-008-v05
+// GUID: LIB_DATA-008-v06
+// @UPDATE(v3.24.0): Bahrain GP reinstated at Sepang, Malaysia (Oct 2-4) — F1/FIA announcement
+//   2026-07-28. Calendar 22 → 23 races. Race keeps official "Bahrain Grand Prix" title; session
+//   times provisional until FOM publishes (OpenF1 daily sync will correct race_schedule).
+//   The matching Firestore race_schedule doc (bahrain-grand-prix) was added in the same release.
 // @SECURITY_ACCEPTED_RISK (GEMINI-AUDIT-052): Race timing values in this array are shipped in the
 //   client bundle and are intentionally public. This is ACCEPTED RISK because:
 //   1. Server-side enforcement: /api/submit-prediction uses getRaceByName() from race-schedule-server.ts
@@ -217,7 +221,9 @@ export interface Race {
 //                     The Consistency Checker validates track reference integrity against this list.
 //                     Desync with Firestore race_schedule collection is a known risk (BOW: Cy4hqh5EXe53Ww2LkqLR).
 export const RaceSchedule: Race[] = [
-    // 2026 Official F1 Calendar (22 races — Bahrain & Saudi Arabia cancelled, no replacements)
+    // 2026 Official F1 Calendar (23 races — Bahrain & Saudi Arabia cancelled April rounds;
+    // Bahrain GP relocated to Sepang, Malaysia Oct 2-4 per F1/FIA announcement 2026-07-28.
+    // The relocated race keeps its official "Bahrain Grand Prix" title.)
     { name: "Australian Grand Prix",   location: "Melbourne",        raceTime: "2026-03-08T04:00:00Z", qualifyingTime: "2026-03-07T05:00:00Z", hasSprint: false, results: [], trackTimezone: "Australia/Melbourne" },
     { name: "Chinese Grand Prix",      location: "Shanghai",         raceTime: "2026-03-15T07:00:00Z", qualifyingTime: "2026-03-13T07:00:00Z", sprintTime: "2026-03-14T03:00:00Z", hasSprint: true,  results: [], trackTimezone: "Asia/Shanghai" },
     { name: "Japanese Grand Prix",     location: "Suzuka",           raceTime: "2026-03-29T05:00:00Z", qualifyingTime: "2026-03-28T06:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Tokyo" },
@@ -233,6 +239,10 @@ export const RaceSchedule: Race[] = [
     { name: "Italian Grand Prix",      location: "Monza",            raceTime: "2026-09-06T13:00:00Z", qualifyingTime: "2026-09-05T14:00:00Z", hasSprint: false, results: [], trackTimezone: "Europe/Rome" },
     { name: "Spanish Grand Prix II",   location: "Madrid",           raceTime: "2026-09-13T13:00:00Z", qualifyingTime: "2026-09-12T14:00:00Z", hasSprint: false, results: [], trackTimezone: "Europe/Madrid" },
     { name: "Azerbaijan Grand Prix",   location: "Baku",             raceTime: "2026-09-26T11:00:00Z", qualifyingTime: "2026-09-25T12:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Baku" },
+    // Times below are PROVISIONAL (15:00 local, matching historic Sepang slots) — FOM has not yet
+    // published session times. The daily syncSessionTimes cron overwrites race_schedule from OpenF1
+    // once inside its 30-day window; this static copy should be re-checked against OpenF1 then.
+    { name: "Bahrain Grand Prix",      location: "Sepang",           raceTime: "2026-10-04T07:00:00Z", qualifyingTime: "2026-10-03T07:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Kuala_Lumpur" },
     { name: "Singapore Grand Prix",    location: "Singapore",        raceTime: "2026-10-11T12:00:00Z", qualifyingTime: "2026-10-09T13:00:00Z", sprintTime: "2026-10-10T12:00:00Z", hasSprint: true,  results: [], trackTimezone: "Asia/Singapore" },
     { name: "United States Grand Prix",location: "Austin",           raceTime: "2026-10-25T19:00:00Z", qualifyingTime: "2026-10-24T20:00:00Z", hasSprint: false, results: [], trackTimezone: "America/Chicago" },
     { name: "Mexican Grand Prix",      location: "Mexico City",      raceTime: "2026-11-01T20:00:00Z", qualifyingTime: "2026-10-31T21:00:00Z", hasSprint: false, results: [], trackTimezone: "America/Mexico_City" },

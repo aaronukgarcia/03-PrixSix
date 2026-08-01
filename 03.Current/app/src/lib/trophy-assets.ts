@@ -39,10 +39,12 @@ export interface CircuitAsset {
   shape: number;
 }
 
-// GUID: LIB_TROPHY_ASSETS-001-v02
+// GUID: LIB_TROPHY_ASSETS-001-v03
 // [Intent] Circuit (RaceSchedule.location) -> artwork identity. One row per round on the calendar.
 //          Shapes are spread so consecutive rounds never share a silhouette, and the two Spanish
 //          rounds differ in shape despite sharing a flag.
+// @UPDATE(v3.24.0): Sepang added for the relocated Bahrain GP (Oct 2-4). Malaysia host-nation
+//          flag per Aaron 2026-08-01. Shape 2 sits between Baku (4) and Singapore (0).
 const CIRCUITS: Record<string, CircuitAsset> = {
   'Melbourne':          { slug: 'melbourne',   country: 'australia',   countryName: 'Australia',            shape: 0 },
   'Shanghai':           { slug: 'shanghai',    country: 'china',       countryName: 'China',                shape: 1 },
@@ -59,6 +61,7 @@ const CIRCUITS: Record<string, CircuitAsset> = {
   'Monza':              { slug: 'monza',       country: 'italy',       countryName: 'Italy',                shape: 2 },
   'Madrid':             { slug: 'madrid',      country: 'spain',       countryName: 'Spain',                shape: 3 },
   'Baku':               { slug: 'baku',        country: 'azerbaijan',  countryName: 'Azerbaijan',           shape: 4 },
+  'Sepang':             { slug: 'sepang',      country: 'malaysia',    countryName: 'Malaysia',             shape: 2 },
   'Singapore':          { slug: 'singapore',   country: 'singapore',   countryName: 'Singapore',            shape: 0 },
   'Austin':             { slug: 'austin',      country: 'usa',         countryName: 'United States',        shape: 1 },
   'Mexico City':        { slug: 'mexico-city', country: 'mexico',      countryName: 'Mexico',               shape: 2 },

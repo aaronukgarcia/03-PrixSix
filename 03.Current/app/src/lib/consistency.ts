@@ -656,10 +656,11 @@ export function checkDrivers(): CheckResult {
   };
 }
 
-// GUID: LIB_CONSISTENCY-021-v03
+// GUID: LIB_CONSISTENCY-021-v04
 // [Intent] Validate the static RaceSchedule array from data.ts for completeness and correctness.
 //   Checks required fields (name, qualifyingTime, raceTime, location), optional hasSprint,
-//   date format validity, chronological ordering, and expected count of 24 races.
+//   date format validity, chronological ordering, and expected count of 23 races
+//   (Bahrain GP reinstated at Sepang, v3.24.0).
 // [Inbound Trigger] Called by ConsistencyChecker.tsx during a full audit. Takes no
 //   parameters as it reads directly from the imported RaceSchedule constant.
 // [Downstream Impact] Race schedule validation ensures the reference data used by
@@ -771,12 +772,13 @@ export function checkRaces(): CheckResult {
 
   // @FIX (v3.1.3): The hardcoded "24 races" was wrong for the 2026 season.
   //   Bahrain and Saudi Arabia GPs were cancelled without replacements, so the
-  //   official 2026 calendar is 22 rounds (see comment in lib/data.ts:220).
-  //   Updated the expected count to match. Future seasons may need to adjust this
-  //   value — the tactical fix is to keep this in sync with the data; the strategic
-  //   fix would be to derive expected count from a constant in data.ts so the
-  //   check moves with the schedule automatically. Filed as a follow-up.
-  const EXPECTED_RACE_COUNT = 22;
+  //   official 2026 calendar became 22 rounds (see comment in lib/data.ts:220).
+  // @UPDATE (v3.24.0): Bahrain GP reinstated at Sepang (Oct 2-4) per F1/FIA
+  //   announcement 2026-07-28 — calendar is now 23 rounds. GR#15 note: this count
+  //   is deliberately NOT derived from RaceSchedule.length (that would make the
+  //   check vacuous); it is an independent restatement of the official calendar,
+  //   updated only when the FIA changes the calendar itself.
+  const EXPECTED_RACE_COUNT = 23;
   if (RaceSchedule.length !== EXPECTED_RACE_COUNT) {
     issues.push({
       severity: 'warning',

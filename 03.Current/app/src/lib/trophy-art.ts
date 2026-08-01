@@ -32,10 +32,13 @@ interface FlagSpec {
   overlay?: string;
 }
 
-// GUID: LIB_TROPHY_ART-001-v01
+// GUID: LIB_TROPHY_ART-001-v02
 // [Intent] Simplified host-nation flags. Deliberately NOT emoji flags — emoji flags do not render
 //          on Windows Chrome (they degrade to letter pairs), which is what most of the league uses.
 //          Recognisable rather than heraldically exact.
+// @UPDATE(v3.24.0): malaysia added for the relocated Bahrain GP at Sepang. Host-nation (Malaysia)
+//          flag chosen over the race-title (Bahrain) flag — Aaron's call 2026-08-01; the CIRCUITS
+//          table is per-circuit/host-nation by design.
 const FLAGS: Record<string, FlagSpec> = {
   australia:   { orientation: 'h', colours: ['#00008B'], overlay: 'union+stars' },
   china:       { orientation: 'h', colours: ['#DE2910'], overlay: 'cn-stars' },
@@ -54,6 +57,7 @@ const FLAGS: Record<string, FlagSpec> = {
   singapore:   { orientation: 'h', colours: ['#ED2939','#FFFFFF'], overlay: 'crescent-sm' },
   mexico:      { orientation: 'v', colours: ['#006847','#FFFFFF','#CE1126'], overlay: 'mx-emblem' },
   brazil:      { orientation: 'h', colours: ['#009C3B'], overlay: 'br-diamond' },
+  malaysia:    { orientation: 'h', colours: ['#CC0001','#FFFFFF','#CC0001','#FFFFFF','#CC0001','#FFFFFF','#CC0001'], overlay: 'my-canton' },
   qatar:       { orientation: 'v', colours: ['#FFFFFF','#8A1538'], weights: [1,2] },
   uae:         { orientation: 'h', colours: ['#00732F','#FFFFFF','#000000'], overlay: 'uae-bar' },
 };
@@ -114,6 +118,7 @@ function flagBody(spec: FlagSpec): string {
   if (ov === 'mx-emblem') parts.push('<circle cx="30" cy="20" r="6" fill="#8B5A2B" opacity="0.85"/>');
   if (ov === 'br-diamond') parts.push('<path d="M30 6 L54 20 L30 34 L6 20 z" fill="#FFDF00"/><circle cx="30" cy="20" r="8" fill="#002776"/>');
   if (ov === 'uae-bar') parts.push('<rect x="0" y="0" width="16" height="40" fill="#FF0000"/>');
+  if (ov === 'my-canton') parts.push('<rect x="0" y="0" width="26" height="21" fill="#010066"/><circle cx="11" cy="10.5" r="6.5" fill="#FFCC00"/><circle cx="14" cy="10.5" r="5.5" fill="#010066"/><circle cx="19" cy="10.5" r="2.5" fill="#FFCC00"/>');
 
   return parts.join('');
 }

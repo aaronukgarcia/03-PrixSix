@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.24.0 — 2026-08-01
+
+### FEAT-SCHED-001: the Bahrain Grand Prix returns — in Malaysia
+
+F1 and the FIA confirmed (2026-07-28) that the Bahrain GP, postponed when the Middle East rounds were cancelled in April, will run at **Sepang, Malaysia on October 2–4** — keeping its official "Bahrain Grand Prix" title, slotting between Baku and Singapore, and taking the season from 22 to 23 rounds. First F1 race at Sepang since 2017.
+
+The calendar lives in two places by design, and both changed together: the static `RaceSchedule` in `data.ts` (client UX) and the Firestore `race_schedule` collection (the server-side deadline gate). The Firestore side held a surprise: the collection still contained all 24 originally-seeded docs — the cancelled Sakhir Bahrain and the Saudi GP were never removed. So the stale `bahrain-grand-prix` doc was repointed in place (Sakhir/April → Sepang/October) via a targeted write, *not* a re-seed, keeping OpenF1-corrected times on every other doc intact; `round` was renumbered 1–23 chronologically (verified unread by any code first); the orphaned `saudi-arabian-grand-prix` doc is flagged for a deletion decision rather than silently removed. Session times are provisional (15:00 local, the historic Sepang slot) until FOM publishes; the daily `syncSessionTimes` cron will overwrite them from OpenF1 once inside its 30-day window — provided OpenF1 also titles the meeting "Bahrain Grand Prix", which we verify nearer the date.
+
+Supporting cast: the consistency checker now expects 23 races; Sepang gets its own trophy silhouette and a new hand-drawn Malaysia flag (host-nation over race-title flag, Aaron's call) in the trophy art; predictions, scoring and standings need nothing — they derive from the schedule.
+
+Watch item: Qatar (Nov 29) and Abu Dhabi (Dec 6) remain on the calendar but in doubt. No action until the FIA moves.
+
 ## v3.23.1 — 2026-07-29
 
 ### BUG-WELCOME-001: the "/welcome crash" was actually the Pit Wall's unmount race

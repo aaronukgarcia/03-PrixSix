@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-07-29",
+  "lastUpdated": "2026-08-01",
   "commits": [
+    {
+      "id": "7a00ae7",
+      "date": "2026-07-29",
+      "version": "3.23.1",
+      "author": "aaron garcia",
+      "message": "fix: BUG-WELCOME-001 — Pit Wall unmount race, not a welcome-page bug (v3.23.1)",
+      "major": false
+    },
     {
       "id": "21bcb56",
       "date": "2026-07-29",
