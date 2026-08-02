@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.25.0 — 2026-08-02
+
+### FEAT-BACKUP-OFFSITE-001: the backup that survives losing Google
+
+Until today every Prix Six backup lived inside the same Google account as production — the GCS exports, the `restore-feb23` copy, the recovery-test project. One compromised account and the data *and* all its backups vanish together. This release puts a copy outside the blast radius.
+
+A new Cloud Function, `offsiteBackupMirror` (03:00 UTC daily, an hour after `dailyBackup`), zips the latest export, encrypts it with AES-256-GCM, and uploads it to Azure Blob Storage (`garcialtdstorage/prix6-offsite-backups`) — a different vendor, a different identity provider, a different credential set. The SAS token the function holds can **create and write but not delete or list**, and the container has blob versioning, soft delete, and an Azure-side lifecycle policy (60-day retention, enforced where a stolen Google credential can't reach). The encryption key is escrowed in Azure Key Vault (`prixsix-secrets-vault`) so the backups stay decryptable even after a total Google loss — it also lives in GCP Secret Manager for the function, and belongs in Aaron's password manager as the third copy.
+
+Trust is earned, not declared: the restore drill (`app/scripts/restore-offsite-backup.js`, GR#12) rehearses the disaster for real — key from the Azure vault (not GCP), blob via an ad-hoc read SAS, GCM tag verification as the integrity proof, full expansion and file count. Run quarterly. The Backups admin tab gains an "Offsite Mirror (Azure)" card (Active / Failing / Stuck / Pending deploy), and `/health-check` CHECK 11 now watches `lastOffsiteMirrorTimestamp` (26h bound); failures land in `error_logs` as PX-7011 (GR#17).
+
+Also in this release's housekeeping orbit, though not in the app: five abandoned "Firebase app" studio projects were shut down after a full audit (data exported first), closing off stale PII and a stray billing attachment.
+
 ## v3.24.0 — 2026-08-01
 
 ### FEAT-SCHED-001: the Bahrain Grand Prix returns — in Malaysia

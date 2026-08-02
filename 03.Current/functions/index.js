@@ -3324,3 +3324,148 @@ exports.whatsAppQueueWatchdog = onSchedule(
     }
   }
 );
+
+// GUID: BACKUP_FUNCTIONS-090-v01
+/**
+ * offsiteBackupMirror — FEAT-BACKUP-OFFSITE-001
+ *
+ * [Intent] Daily 03:00 UTC: mirror the latest GCS backup (written by dailyBackup at 02:00)
+ *          to Azure Blob Storage as ONE AES-256-GCM-encrypted zip, placing a copy of the
+ *          league's data outside the Google trust domain entirely. A Google-account
+ *          compromise that purges Firestore AND gs://prix6-backups cannot touch these
+ *          blobs: the SAS in AZURE_BACKUP_SAS_URL is create+write only (no delete, no
+ *          list), and the container has blob versioning + soft delete, so even overwrites
+ *          preserve history. Retention is enforced AZURE-side by the storage account
+ *          lifecycle policy (prix6-offsite-retention: base blobs 60d, versions 30d) —
+ *          deliberately NOT by this function, which must never hold delete rights.
+ * [Inbound Trigger] Cloud Scheduler 03:00 UTC daily — after dailyBackup (02:00), before
+ *          applyBackupRetention (03:30) purges old GCS folders.
+ * [Downstream Impact] Writes prix6-{folder}.zip.enc to Azure container prix6-offsite-backups
+ *          (garcialtdstorage); merges lastOffsiteMirror* fields into backup_status/latest
+ *          (BackupHealthDashboard offsite row + /health-check CHECK 11 freshness, maxAge
+ *          26h); failures write PX-7011 to error_logs (GR#17 amendment 2026-07-26).
+ * [Security] Encryption key (BACKUP_ENCRYPTION_KEY, base64-encoded 32 bytes) is read from
+ *          GCP Secret Manager here and escrowed in Azure Key Vault
+ *          prixsix-secrets-vault/prix6-backup-encryption-key so backups stay decryptable
+ *          after a total Google loss. Blob layout: 12-byte IV || ciphertext || 16-byte GCM
+ *          tag. Restore drill: scripts/restore-offsite-backup.js (GR#12).
+ *          lastBackupPath is validated against gs://prix6-backups/ before use — same
+ *          SSRF-style path-injection guard as runRecoveryTest (Wave 10).
+ */
+exports.offsiteBackupMirror = onSchedule(
+  {
+    schedule: "0 3 * * *",
+    timeZone: "UTC",
+    region: REGION,
+    timeoutSeconds: 540,
+    memory: "512MiB",
+    retryCount: 0,
+    secrets: ["AZURE_BACKUP_SAS_URL", "BACKUP_ENCRYPTION_KEY"],
+  },
+  async () => {
+    const db = getFirestore();
+    const correlationId = generateCorrelationId("offsite");
+
+    // Lazy requires — only this function pays the archiver/@azure/storage-blob cold-start
+    // cost; every other function in this codebase deploys as its own Cloud Run service.
+    const archiver = require("archiver");
+    const { BlockBlobClient } = require("@azure/storage-blob");
+    const { PassThrough } = require("stream");
+
+    const fail = async (message, context) => {
+      console.error(JSON.stringify({ severity: "ERROR", message: "OFFSITE_MIRROR_FAILED", correlationId, error: message }));
+      await writeStatus(db, {
+        lastOffsiteMirrorTimestamp: Timestamp.now(),
+        lastOffsiteMirrorStatus: "FAILED",
+        lastOffsiteMirrorError: `${ERROR_CODES.BACKUP_OFFSITE_MIRROR_FAILED.code} | ${message} | ID: ${correlationId}`,
+        offsiteMirrorCorrelationId: correlationId,
+      });
+      // Aaron's rule (2026-07-26): health failures ALWAYS land in error_logs.
+      await writeErrorLog(db, {
+        code: ERROR_CODES.BACKUP_OFFSITE_MIRROR_FAILED.code,
+        message: `offsiteBackupMirror FAILED: ${message}`,
+        correlationId,
+        context: { source: "functions/offsiteBackupMirror", ...(context || {}) },
+      });
+    };
+
+    try {
+      // Strip BOM (U+FEFF) — Secret Manager may prepend it on Windows-created secrets.
+      const sasUrl = (process.env.AZURE_BACKUP_SAS_URL || "").replace(/^﻿/, "").trim();
+      const keyB64 = (process.env.BACKUP_ENCRYPTION_KEY || "").replace(/^﻿/, "").trim();
+      if (!sasUrl || !keyB64) {
+        await fail("AZURE_BACKUP_SAS_URL or BACKUP_ENCRYPTION_KEY missing from function configuration", {});
+        return;
+      }
+      const key = Buffer.from(keyB64, "base64");
+      if (key.length !== 32) {
+        await fail(`BACKUP_ENCRYPTION_KEY must decode to 32 bytes, got ${key.length}`, {});
+        return;
+      }
+
+      // Locate the backup to mirror. Path comes from Firestore — validate the bucket prefix
+      // before using it as a GCS read location (Wave 10 SSRF guard, mirrors runRecoveryTest).
+      const statusSnap = await db.collection(STATUS_COLLECTION).doc(STATUS_DOC).get();
+      const status = statusSnap.exists ? statusSnap.data() : {};
+      const backupPath = status.lastBackupPath;
+      if (!backupPath || !backupPath.startsWith(`gs://${BUCKET}/`)) {
+        await fail(`invalid or missing lastBackupPath: ${String(backupPath)}`, {});
+        return;
+      }
+      if (status.lastBackupStatus !== "SUCCESS") {
+        await fail(`lastBackupStatus is ${status.lastBackupStatus} — refusing to mirror a failed backup`, { backupPath });
+        return;
+      }
+      const folder = backupPath.slice(`gs://${BUCKET}/`.length).replace(/\/+$/, "");
+
+      const storage = new Storage();
+      const [files] = await storage.bucket(BUCKET).getFiles({ prefix: `${folder}/` });
+      if (!files.length) {
+        await fail(`no files under gs://${BUCKET}/${folder}/`, { folder });
+        return;
+      }
+
+      // zip → AES-256-GCM → Azure, fully streamed (backpressure via pipe; the only manual
+      // writes are the 12-byte IV up front and the 16-byte auth tag at the end).
+      const iv = crypto.randomBytes(12);
+      const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+      const out = new PassThrough();
+      out.write(iv);
+      let cipherBytes = 0;
+      cipher.on("data", (d) => { cipherBytes += d.length; });
+      cipher.pipe(out, { end: false });
+      cipher.on("end", () => out.end(cipher.getAuthTag()));
+
+      const archive = archiver("zip", { zlib: { level: 6 } });
+      archive.on("error", (e) => out.destroy(e));
+      archive.on("warning", (w) => console.warn(`archiver warning: ${w.message}`));
+      archive.pipe(cipher);
+      for (const file of files) {
+        archive.append(file.createReadStream(), { name: file.name });
+      }
+      archive.finalize(); // not awaited — must produce concurrently with the upload below
+
+      const blobName = `prix6-${folder}.zip.enc`;
+      const [containerUrl, sasQuery] = sasUrl.split("?");
+      const blobClient = new BlockBlobClient(`${containerUrl}/${encodeURIComponent(blobName)}?${sasQuery}`);
+      await blobClient.uploadStream(out, 4 * 1024 * 1024, 4, {
+        blobHTTPHeaders: { blobContentType: "application/octet-stream" },
+        metadata: { correlationid: correlationId, sourcepath: backupPath },
+      });
+      const totalBytes = 12 + cipherBytes + 16;
+
+      await writeStatus(db, {
+        lastOffsiteMirrorTimestamp: Timestamp.now(),
+        lastOffsiteMirrorStatus: "SUCCESS",
+        lastOffsiteMirrorError: null,
+        lastOffsiteBlobName: blobName,
+        lastOffsiteBytes: totalBytes,
+        lastOffsiteSourcePath: backupPath,
+        offsiteMirrorCorrelationId: correlationId,
+      });
+      console.log(JSON.stringify({ severity: "INFO", message: "OFFSITE_MIRROR_HEARTBEAT", correlationId, blobName, bytes: totalBytes, files: files.length }));
+    } catch (err) {
+      await fail(err.message || String(err), {});
+    }
+  }
+);

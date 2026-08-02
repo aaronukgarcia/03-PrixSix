@@ -55,7 +55,7 @@ import {
 import { createAppError, generateClientCorrelationId, formatErrorForDisplay } from '@/lib/error-codes';
 import { useToast } from '@/hooks/use-toast';
 
-// GUID: BACKUP_DASHBOARD-001-v03
+// GUID: BACKUP_DASHBOARD-001-v05
 // [Intent] Type definition mirroring the Firestore document shape written by
 //          Cloud Functions. All fields are optional because the doc may be
 //          partially populated (e.g. smoke test hasn't run yet) or missing
@@ -87,6 +87,23 @@ interface BackupStatus {
   lastRetentionRunErrors?: number;
   lastRetentionRunBytesPurged?: number;
   retentionCorrelationId?: string;
+  // @ADDED (v3.25.0, FEAT-BACKUP-OFFSITE-001): Written by offsiteBackupMirror (03:00 UTC daily) —
+  // the encrypted Azure Blob mirror that survives a total Google-account compromise. Absent until
+  // the function is deployed and has fired once.
+  lastOffsiteMirrorTimestamp?: { seconds: number; nanoseconds: number };
+  lastOffsiteMirrorStatus?: 'SUCCESS' | 'FAILED';
+  lastOffsiteMirrorError?: string | null;
+  lastOffsiteBlobName?: string;
+  lastOffsiteBytes?: number;
+  lastOffsiteSourcePath?: string;
+  offsiteMirrorCorrelationId?: string;
+  // @ADDED (v3.25.0): written by app/scripts/restore-offsite-backup.js — when the offsite
+  // restore path was last PROVEN (GR#12), not just when a blob was last written.
+  lastOffsiteDrillTimestamp?: { seconds: number; nanoseconds: number };
+  lastOffsiteDrillStatus?: 'PASSED' | 'FAILED';
+  lastOffsiteDrillBlob?: string | null;
+  lastOffsiteDrillFiles?: number | null;
+  lastOffsiteDrillError?: string | null;
   updatedAt?: { seconds: number; nanoseconds: number };
 }
 
@@ -1009,6 +1026,139 @@ export function BackupHealthDashboard() {
             >
               <Info className="h-3 w-3" />
               <AlertDescription>{stateExplain}</AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      );
+    })()}
+
+    {/* GUID: BACKUP_DASHBOARD-036-v02
+        [Intent] Offsite Mirror card (FEAT-BACKUP-OFFSITE-001, v3.25.0) — 4-state indicator for
+                 offsiteBackupMirror (03:00 UTC daily), the AES-256-GCM-encrypted Azure Blob copy
+                 that lives outside the Google trust domain. Green = mirrored within 26h,
+                 red Failing = fresh heartbeat but status FAILED (see error text / PX-7011),
+                 red Stuck = heartbeat stale >26h, amber = never run (pending deploy).
+        @UPDATE(v02): also shows the last restore DRILL result (lastOffsiteDrill* fields written
+                 by app/scripts/restore-offsite-backup.js) — a backup is only as real as its last
+                 proven restore (GR#12). Amber note when the drill is >100 days old (quarterly cadence).
+        [Inbound Trigger] Rendered between the Retention Schedule card and the Backup History table.
+        [Downstream Impact] Pure display — reads backup_status/latest fields only. */}
+    {(() => {
+      const now = new Date();
+      const lastMirrorTs = data?.lastOffsiteMirrorTimestamp?.seconds;
+      const lastMirror = lastMirrorTs ? new Date(lastMirrorTs * 1000) : null;
+      const mirrorAgeMs = lastMirror ? now.getTime() - lastMirror.getTime() : Infinity;
+      const MIRROR_STALE_MS = 26 * 60 * 60 * 1000; // 26 hours (daily 03:00 UTC + grace)
+
+      let mLabel: string;
+      let mClass: string;
+      let mIcon: JSX.Element;
+      let mExplain: string;
+      if (!lastMirror) {
+        mLabel = 'Pending deploy';
+        mClass = 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30';
+        mIcon = <AlertTriangle className="h-4 w-4 text-amber-600" />;
+        mExplain = 'Cloud Function offsiteBackupMirror is in code but has never run. Deploy with: firebase deploy --only functions:offsiteBackupMirror';
+      } else if (data?.lastOffsiteMirrorStatus === 'FAILED') {
+        mLabel = 'Failing';
+        mClass = 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30';
+        mIcon = <XCircle className="h-4 w-4 text-red-600" />;
+        mExplain = `Last attempt ${formatDistanceToNow(lastMirror, { addSuffix: true })} FAILED: ${data?.lastOffsiteMirrorError ?? 'see error_logs (PX-7011)'}`;
+      } else if (mirrorAgeMs > MIRROR_STALE_MS) {
+        mLabel = 'Stuck';
+        mClass = 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30';
+        mIcon = <XCircle className="h-4 w-4 text-red-600" />;
+        mExplain = `Last mirror ${formatDistanceToNow(lastMirror, { addSuffix: true })}. Expected daily at 03:00 UTC — investigate Cloud Function logs.`;
+      } else {
+        mLabel = 'Active';
+        mClass = 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30';
+        mIcon = <CheckCircle2 className="h-4 w-4 text-green-600" />;
+        mExplain = `Last mirror ${formatDistanceToNow(lastMirror, { addSuffix: true })}.`;
+      }
+
+      return (
+        <Card className="mt-4">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4 text-sky-500" />
+                Offsite Mirror (Azure)
+              </CardTitle>
+              <Badge variant="outline" className={`text-xs ${mClass}`}>
+                {mIcon}
+                <span className="ml-1">{mLabel}</span>
+              </Badge>
+            </div>
+            <CardDescription>
+              offsiteBackupMirror runs at 03:00 UTC daily — the latest backup, zipped and
+              AES-256-GCM encrypted, is copied to Azure Blob Storage outside the Google
+              account entirely. Decryption key: Azure Key Vault prixsix-secrets-vault.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Last mirrored blob</p>
+                {data?.lastOffsiteBlobName ? (
+                  <>
+                    <p className="font-mono break-all">{data.lastOffsiteBlobName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatBytes(data?.lastOffsiteBytes ?? 0)} encrypted
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Never</p>
+                )}
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Last run</p>
+                {lastMirror ? (
+                  <p className="font-mono">{format(lastMirror, 'yyyy-MM-dd HH:mm')} UTC</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Never</p>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <p className="text-muted-foreground text-xs">Last restore drill (GR#12)</p>
+                {(() => {
+                  const drillTs = data?.lastOffsiteDrillTimestamp?.seconds;
+                  const drill = drillTs ? new Date(drillTs * 1000) : null;
+                  if (!drill) {
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        Never run — node scripts/restore-offsite-backup.js (from app/)
+                      </p>
+                    );
+                  }
+                  const passed = data?.lastOffsiteDrillStatus === 'PASSED';
+                  const drillOld = now.getTime() - drill.getTime() > 100 * 24 * 60 * 60 * 1000;
+                  return (
+                    <>
+                      <p className={`font-mono ${passed ? '' : 'text-red-600 dark:text-red-400'}`}>
+                        {format(drill, 'yyyy-MM-dd HH:mm')} UTC — {data?.lastOffsiteDrillStatus}
+                        {passed && data?.lastOffsiteDrillFiles ? ` (${data.lastOffsiteDrillFiles} files verified)` : ''}
+                      </p>
+                      {!passed && (
+                        <p className="text-xs text-red-600 dark:text-red-400">
+                          {data?.lastOffsiteDrillError ?? 'see drill output'}
+                        </p>
+                      )}
+                      {passed && drillOld && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Drill is over a quarter old — re-run: node scripts/restore-offsite-backup.js
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+            <Alert
+              variant={mLabel === 'Active' ? 'default' : 'destructive'}
+              className="text-xs"
+            >
+              <Info className="h-3 w-3" />
+              <AlertDescription>{mExplain}</AlertDescription>
             </Alert>
           </CardContent>
         </Card>

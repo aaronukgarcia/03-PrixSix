@@ -1,6 +1,14 @@
 {
-  "lastUpdated": "2026-08-01",
+  "lastUpdated": "2026-08-02",
   "commits": [
+    {
+      "id": "ce14a44",
+      "date": "2026-08-01",
+      "version": "3.24.0",
+      "author": "aaron garcia",
+      "message": "feat: FEAT-SCHED-001 — Bahrain GP reinstated at Sepang, Malaysia Oct 2-4 (v3.24.0)",
+      "major": true
+    },
     {
       "id": "7a00ae7",
       "date": "2026-07-29",
