@@ -15,7 +15,7 @@ import { z } from 'zod';
 // ── Admin Hot Link Validation ──────────────────────────────────
 
 /**
- * GUID: VALIDATION-HOTLINK-001-v03
+ * GUID: VALIDATION_HOTLINK-001-v03
  *
  * [Intent] Validate Admin Hot Link token exchange requests. Ensures tokens
  *          are 64-character hex strings (crypto.randomBytes(32)) and emails
@@ -49,7 +49,7 @@ export type AdminHotLinkRequest = z.infer<typeof AdminHotLinkSchema>;
 // ── Admin Challenge Request Validation ─────────────────────────
 
 /**
- * GUID: VALIDATION-CHALLENGE-001-v03
+ * GUID: VALIDATION_CHALLENGE-001-v03
  *
  * [Intent] Validate admin challenge (magic link) generation requests. Currently
  *          only validates the request comes from an authenticated admin user.
@@ -70,7 +70,7 @@ export type AdminChallengeRequest = z.infer<typeof AdminChallengeRequestSchema>;
 // ── Email Validation ───────────────────────────────────────────
 
 /**
- * GUID: VALIDATION-EMAIL-001-v03
+ * GUID: VALIDATION_EMAIL-001-v03
  *
  * [Intent] Strict email validation to prevent injection attacks and ensure
  *          RFC 5322 compliance. Rejects emails with special characters that
@@ -92,7 +92,7 @@ export const EmailSchema = z.string()
 // ── Token Generation Helpers ───────────────────────────────────
 
 /**
- * GUID: VALIDATION-TOKEN-001-v03
+ * GUID: VALIDATION_TOKEN-001-v03
  *
  * [Intent] Generate cryptographically secure tokens using Node.js crypto module.
  *          Replaces Math.random() usage (LIB-002 vulnerability).
@@ -106,7 +106,7 @@ export function generateSecureToken(byteLength: number = 32): string {
 }
 
 /**
- * GUID: VALIDATION-TOKEN-002-v03
+ * GUID: VALIDATION_TOKEN-002-v03
  *
  * [Intent] Generate cryptographically secure correlation IDs for audit trail.
  *          Uses crypto.randomUUID() (RFC 4122 v4) instead of Math.random().
@@ -123,7 +123,7 @@ export function generateSecureCorrelationId(prefix: string = 'req'): string {
 // ── Rate Limiting Schemas ──────────────────────────────────────
 
 /**
- * GUID: VALIDATION-RATELIMIT-001-v03
+ * GUID: VALIDATION_RATELIMIT-001-v03
  *
  * [Intent] Define rate limit thresholds for admin operations to prevent
  *          abuse and DoS attacks on the admin challenge endpoint.

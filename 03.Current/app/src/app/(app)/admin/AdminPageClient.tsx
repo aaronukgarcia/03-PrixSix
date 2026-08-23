@@ -45,27 +45,27 @@ import { PubChatPanel } from "./_components/PubChatPanel";
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders leagues management UI in TabsContent value="leagues".
 import { LeaguesManager } from "./_components/LeaguesManager";
-// GUID: PAGE_ADMIN-BOOKOFWORK-001-v01
+// GUID: PAGE_ADMIN_BOOKOFWORK-001-v01
 // [Intent] Import BookOfWorkManager for the 17th admin tab.
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders centralized book of work management UI in TabsContent value="bookofwork".
 import { BookOfWorkManager } from "./_components/BookOfWorkManager";
-// GUID: PAGE_ADMIN-HEALTH-001-v01
+// GUID: PAGE_ADMIN_HEALTH-001-v01
 // [Intent] Import InterfaceHealthMonitor for the 18th admin tab (Health monitoring).
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders RAG health status for PubChat, WhatsApp, and Email interfaces.
 import { InterfaceHealthMonitor } from "./_components/InterfaceHealthMonitor";
-// GUID: PAGE_ADMIN-PITLANE-001-v01
+// GUID: PAGE_ADMIN_PITLANE-001-v01
 // [Intent] Import PitLaneAdmin for the 19th admin tab (Pit Lane override control).
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders pit lane status, dual-timezone countdowns, and override controls.
 import { PitLaneAdmin } from "./_components/PitLaneAdmin";
-// GUID: PAGE_ADMIN-PITWALL-001-v01
+// GUID: PAGE_ADMIN_PITWALL-001-v01
 // [Intent] Import PitWallManager for the 20th admin tab (Pit Wall ops dashboard).
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders Pit Wall health, replay data, circuit maps, and cache control.
 import { PitWallManager } from "./_components/PitWallManager";
-// GUID: PAGE_ADMIN-INVITES-001-v01
+// GUID: PAGE_ADMIN_INVITES-001-v01
 // [Intent] Import InvitesManager for the 21st admin tab (INVITE-TREE-001 referral genealogy).
 // [Inbound Trigger] Admin page load.
 // [Downstream Impact] Renders the who-invited-whom referral tree in TabsContent value="invites".
@@ -102,7 +102,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
     const router = useRouter();
     const firestore = useFirestore();
 
-    // GUID: PAGE_ADMIN-HOTLINK-001-v05
+    // GUID: PAGE_ADMIN_HOTLINK-001-v05
     // [Intent] Admin Hot Link verification state management. Receives initial verification
     //          status from server component (secure httpOnly cookie check) as prop.
     // [Inbound Trigger] initialVerified prop from server component wrapper.
@@ -150,7 +150,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
         }
     }, [user, isAuthLoading, router, firestore]);
 
-    // GUID: PAGE_ADMIN-HOTLINK-003-v04
+    // GUID: PAGE_ADMIN_HOTLINK-003-v04
     // @SECURITY_FIX: Added NODE_ENV guard on console.error — production no longer exposes raw
     //   error objects in browser DevTools. Also sanitizes errorMsg displayed in UI (GEMINI-AUDIT-080).
     // [Intent] Request admin hot link (magic link) from the server.
@@ -231,7 +231,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
         );
     }
 
-    // GUID: PAGE_ADMIN-HOTLINK-004-v03
+    // GUID: PAGE_ADMIN_HOTLINK-004-v03
     // [Intent] Admin Hot Link verification gate — shows "Verification Required" UI if admin
     //          user has not verified via magic link. Prevents ADMINCOMP-003 (client-side bypass).
     // [Inbound Trigger] User is admin but adminVerified cookie is not set.
@@ -338,7 +338,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
         );
     }
 
-    // GUID: PAGE_ADMIN-HOTLINK-005-v03
+    // GUID: PAGE_ADMIN_HOTLINK-005-v03
     // [Intent] Show loading state while adminVerified state is being determined.
     // [Inbound Trigger] adminVerified is null (cookie check in progress).
     // [Downstream Impact] Prevents flash of admin panel before verification check completes.
@@ -534,7 +534,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                 <TabsContent value="leagues">
                     <LeaguesManager allUsers={allUsers} isUserLoading={isUserLoading} />
                 </TabsContent>
-                {/* GUID: PAGE_ADMIN-INVITES-003-v01
+                {/* GUID: PAGE_ADMIN_INVITES-003-v01
                     [Intent] Mount the InvitesManager (referral genealogy tree) when the Invites
                              tab is active (INVITE-TREE-001).
                     [Inbound Trigger] Tab button value="invites" selected (PAGE_ADMIN-008-v02).
@@ -544,9 +544,9 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                 <TabsContent value="invites">
                     <InvitesManager allUsers={allUsers} isUserLoading={isUserLoading} />
                 </TabsContent>
-                {/* GUID: PAGE_ADMIN-BOOKOFWORK-003-v01
+                {/* GUID: PAGE_ADMIN_BOOKOFWORK-003-v01
                     [Intent] Mount the BookOfWorkManager when the Book of Work tab is active.
-                    [Inbound Trigger] TabsTrigger value="bookofwork" selected (PAGE_ADMIN-BOOKOFWORK-002).
+                    [Inbound Trigger] TabsTrigger value="bookofwork" selected (PAGE_ADMIN_BOOKOFWORK-002).
                     [Downstream Impact] BookOfWorkManager subscribes to book_of_work collection
                                         via onSnapshot (ADMIN_BOOKOFWORK-007) and renders centralized
                                         issue tracking interface consolidating security audits, UX findings,
@@ -554,15 +554,15 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                 <TabsContent value="bookofwork">
                     <BookOfWorkManager />
                 </TabsContent>
-                {/* GUID: PAGE_ADMIN-HEALTH-003-v01
+                {/* GUID: PAGE_ADMIN_HEALTH-003-v01
                     [Intent] Mount the InterfaceHealthMonitor when the Health tab is active.
-                    [Inbound Trigger] TabsTrigger value="health" selected (PAGE_ADMIN-HEALTH-002).
+                    [Inbound Trigger] TabsTrigger value="health" selected (PAGE_ADMIN_HEALTH-002).
                     [Downstream Impact] InterfaceHealthMonitor displays RAG health status for PubChat,
                                         WhatsApp, and Email interfaces (ADMIN_INTERFACE_HEALTH-001). */}
                 <TabsContent value="health">
                     <InterfaceHealthMonitor />
                 </TabsContent>
-                {/* GUID: PAGE_ADMIN-PITLANE-003-v01
+                {/* GUID: PAGE_ADMIN_PITLANE-003-v01
                     [Intent] Mount PitLaneAdmin when Pit Lane tab is active.
                     [Inbound Trigger] TabsTrigger value="pitlane" selected.
                     [Downstream Impact] PitLaneAdmin subscribes to app-settings/pit-lane and
@@ -570,7 +570,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                 <TabsContent value="pitlane">
                     <PitLaneAdmin />
                 </TabsContent>
-                {/* GUID: PAGE_ADMIN-PITWALL-003-v01
+                {/* GUID: PAGE_ADMIN_PITWALL-003-v01
                     [Intent] Mount PitWallManager when Pit Wall tab is active.
                     [Inbound Trigger] TabsTrigger value="pitwall" selected.
                     [Downstream Impact] PitWallManager subscribes to replay_sessions via onSnapshot,

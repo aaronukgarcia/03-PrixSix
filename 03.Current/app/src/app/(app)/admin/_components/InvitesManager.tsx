@@ -5,7 +5,7 @@
 //          invitedBy field ({ uid, teamName, tokenId, at }) links them to their inviter.
 //          Users without invitedBy (legacy/pre-feature accounts, open-gate signups) are roots.
 // [Inbound Trigger] Rendered within the admin panel when the "Invites" tab is selected
-//          (PAGE_ADMIN-INVITES-003). Receives allUsers + isUserLoading as props.
+//          (PAGE_ADMIN_INVITES-003). Receives allUsers + isUserLoading as props.
 // [Downstream Impact] Read-only — no Firestore queries or mutations of its own. Pending
 //          (not-yet-consumed) invites are NOT shown: the invites collection is server-only
 //          by design (client rules deny all access) and only consumed invites create users.
