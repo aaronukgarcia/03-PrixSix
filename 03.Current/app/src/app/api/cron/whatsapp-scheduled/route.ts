@@ -1,4 +1,15 @@
-// GUID: CRON_WHATSAPP_SCHEDULED-000-v03
+// GUID: CRON_WHATSAPP_SCHEDULED-000-v04
+// @FIX (v3.25.3, BUG-WA-SCHED-001): two silent failures in the per-race block.
+//          (1) Dedup state was keyed by `round`, which is not stable: the 2026-08-01 schedule
+//              renumber (cancelled races dropped) moved the Dutch GP onto the key the Belgian GP
+//              had already used and the Italian GP onto the Hungarian GP's key, so every deadline
+//              reminder for both weekends was skipped as "already sent". State is now keyed by the
+//              race_schedule document id (`spanish-grand-prix-ii`), which survives renumbering.
+//              Legacy numeric keys are left in place (harmless) — a renumber can no longer collide.
+//          (2) The race-start reminder never fired all season: `next` is chosen by qualifyingTime
+//              and only survives until deadline+2h, but lights-out is ~23h (sprint weekends ~46h)
+//              after the deadline, so by then `next` was already the FOLLOWING race. The reminder
+//              now picks its own race — the next raceTime still in the future.
 // @CHANGE (v3.5.2): weekly standings post gains "Bill's take" — two verified-facts roast lines
 //          (buildWeeklyStandingsFacts + generateWeeklyStandingsSnark), fire-safe so generation
 //          failure posts the plain table. buildStandingsText now includes standings_adjustments
@@ -72,13 +83,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .filter(r => r.qualifyingTime && new Date(r.qualifyingTime).getTime() > now - 2 * HOUR)
       .sort((a, b) => new Date(a.qualifyingTime).getTime() - new Date(b.qualifyingTime).getTime());
 
+    // Per-race dedup state, keyed by the race_schedule document id (stable across renumbering —
+    // see BUG-WA-SCHED-001 in the header). One shared object per race so the deadline block and
+    // the race-start block below never clobber each other's flags when they pick the same race.
+    const stateFor = (race: { id: string }): Record<string, boolean> => {
+      if (!races[race.id]) races[race.id] = {};
+      return races[race.id];
+    };
+    const fmt = (ms: number) => Math.round(ms / HOUR);
+
     const next = upcoming[0];
     if (next) {
-      const key = String(next.round);
-      const rstate = races[key] || {};
+      const rstate = stateFor(next);
       const deadline = new Date(next.qualifyingTime).getTime();
-      const raceStart = next.raceTime ? new Date(next.raceTime).getTime() : null;
-      const fmt = (ms: number) => Math.round(ms / HOUR);
 
       // 24h nudge — first tick inside the 24h window (but before the 2h window)
       if (!rstate.sent24 && now >= deadline - 24 * HOUR && now < deadline - 2 * HOUR) {
@@ -112,13 +129,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           rstate.sentLate = true; // everyone predicted — nothing to send, but mark done
         }
       }
-      // Race-start reminder (~1h before lights out)
-      if (raceStart && !rstate.sentRace && now >= raceStart - HOUR && now < raceStart) {
+    }
+
+    // ── Race-start reminder (~1h before lights out) ───────────────────────
+    // Chosen independently of `next`: by lights-out the deadline-based `next` has already moved on
+    // to the following race (BUG-WA-SCHED-001 #2), so pick the next race whose raceTime is still
+    // ahead. Window is [raceStart-1h, raceStart); the 30-min tick lands inside it once.
+    const nextRace = schedule
+      .filter(r => r.raceTime && new Date(r.raceTime).getTime() > now)
+      .sort((a, b) => new Date(a.raceTime).getTime() - new Date(b.raceTime).getTime())[0];
+    if (nextRace) {
+      const raceStart = new Date(nextRace.raceTime).getTime();
+      const rs = stateFor(nextRace);
+      if (!rs.sentRace && now >= raceStart - HOUR && now < raceStart) {
         const res = await sendWhatsAppAlert('raceReminder',
-          `🏁 *${next.name} starts in ~${fmt(raceStart - now)}h!* Good luck — may your six be perfect. 🍀`);
-        if (res.queued !== false) { rstate.sentRace = true; actions.push(`race:${next.name}`); }
+          `🏁 *${nextRace.name} starts in ~${fmt(raceStart - now)}h!* Good luck — may your six be perfect. 🍀`);
+        if (res.queued !== false) { rs.sentRace = true; actions.push(`race:${nextRace.name}`); }
       }
-      races[key] = rstate;
     }
 
     // ── Weekly standings (Monday 18:00–18:59 Europe/London, once per ISO week) ─

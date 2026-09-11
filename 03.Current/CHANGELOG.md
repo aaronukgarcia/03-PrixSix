@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.25.3 — 2026-09-11
+
+### BUG-WA-SCHED-001: two silent failures in the scheduled WhatsApp reminders
+
+Nobody in the group got a deadline reminder for the Dutch or Italian Grands Prix — no 24-hour nudge, no "still to predict" list, no two-hour last call, no pit-lane-closed notice — and the race-start reminder has never been sent all season. Both failures were silent: the cron ticked every 30 minutes and returned 200 with nothing to do.
+
+**Reminders keyed by round number.** The per-race "already sent" flags in `admin_configuration/whatsappScheduledState` were keyed by `round`. On 1 August the schedule was renumbered when the cancelled races were dropped (v3.24.0). The Dutch GP became round 12 and the Italian GP round 13 — the keys the Belgian and Hungarian GPs had already used in July — so every reminder for both weekends was skipped as a duplicate. State is now keyed by the `race_schedule` document id (`spanish-grand-prix-ii`), which survives renumbering. The old numeric keys are left in place; they can no longer collide with anything.
+
+**Race-start reminder chose the wrong race.** The reminder reused the race selected for deadline work, which is dropped two hours after qualifying. Lights-out is about 23 hours after the deadline (46 on a sprint weekend), so by the time the one-hour window opened the code was looking at the *following* Grand Prix, weeks away. The reminder now selects its own race: the next `raceTime` still ahead.
+
+Per Aaron: no catch-up messages for the missed weekends. The coming race (Spanish Grand Prix II, Madrid) already had its 24-hour nudge under the old key; that flag was carried to the new key by hand so it does not repeat. The two-hour, still-to-predict and pit-lane-closed notices fire Saturday, and the race-start reminder fires Sunday at 12:00 UTC — the first one this season.
 ## v3.25.2 — 2026-09-11
 
 ### SEC-WA-SECRET-ROT: WhatsApp HMAC secret rotation without an outage window

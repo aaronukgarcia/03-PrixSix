@@ -40600,9 +40600,9 @@
     },
     {
       "guid": "LIB_RACE_SCHEDULE_SERVER-001",
-      "version": 1,
+      "version": 2,
       "logic_category": "CONFIGURATION",
-      "description": "TypeScript interface for race schedule document from Firestore. Matches the structure seeded by seed-race-schedule.ts script.",
+      "description": "TypeScript interface for race schedule document from Firestore. v2 (v3.25.3) adds id = Firestore doc id (slug), the only race identity stable across a round renumber. Matches the structure seeded by seed-race-schedule.ts script.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/race-schedule-server.ts",
@@ -40613,7 +40613,7 @@
         "calls": []
       },
       "created": "2026-03-03T19:10:12.267Z",
-      "lastUpdated": "2026-03-03T19:10:12.267Z"
+      "lastUpdated": "2026-09-11T21:44:51.627Z"
     },
     {
       "guid": "LIB_RACE_SCHEDULE_SERVER-002",
@@ -40634,9 +40634,9 @@
     },
     {
       "guid": "LIB_RACE_SCHEDULE_SERVER-003",
-      "version": 1,
+      "version": 2,
       "logic_category": "ORCHESTRATION",
-      "description": "Fetch race schedule from Firestore race_schedule collection with in-memory caching. Returns races sorted by round number (chronological order). Cache expires after 1 hour.",
+      "description": "Fetch race schedule from Firestore race_schedule collection with in-memory caching. Returns races sorted by round number (chronological order); v2 (v3.25.3) carries doc.id on each entry. Cache expires after 1 hour.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/lib/race-schedule-server.ts",
@@ -40647,7 +40647,7 @@
         "calls": []
       },
       "created": "2026-03-03T19:10:12.267Z",
-      "lastUpdated": "2026-03-03T19:10:12.267Z"
+      "lastUpdated": "2026-09-11T21:44:51.627Z"
     },
     {
       "guid": "LIB_RACE_SCHEDULE_SERVER-004",
@@ -53998,9 +53998,9 @@
     },
     {
       "guid": "CRON_WHATSAPP_SCHEDULED-000",
-      "version": 3,
+      "version": 4,
       "logic_category": "ROUTE",
-      "description": "Time-driven WhatsApp alerts cron; v3 adds Bill take to the weekly standings post (fire-safe) and includes standings_adjustments in the table (GR#3 — was omitted vs site standings).",
+      "description": "Time-driven WhatsApp alerts cron; v4 (BUG-WA-SCHED-001, v3.25.3) keys per-race dedup state by race_schedule doc id instead of round (the 2026-08-01 renumber made Dutch/Italian reminders look already-sent) and picks the race-start reminder race by raceTime independently of the deadline race (reminder had never fired). v3 adds Bill take to the weekly standings post (fire-safe) and includes standings_adjustments in the table (GR#3).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/cron/whatsapp-scheduled/route.ts"
@@ -54010,7 +54010,7 @@
         "calls": []
       },
       "created": "2026-06-12T09:00:00Z",
-      "lastUpdated": "2026-07-13T18:53:34.994Z"
+      "lastUpdated": "2026-09-11T21:44:51.627Z"
     },
     {
       "guid": "API_ADMIN_WHATSAPP_EOS-000",

@@ -10,12 +10,17 @@
 
 import { getFirebaseAdmin } from './firebase-admin';
 
-// GUID: LIB_RACE_SCHEDULE_SERVER-001-v01
+// GUID: LIB_RACE_SCHEDULE_SERVER-001-v02
+// @FIX (v3.25.3, BUG-WA-SCHED-001): `id` (the race_schedule document id, e.g. "italian-grand-prix")
+//          exposed so callers can key per-race state by a STABLE identity. `round` is NOT stable —
+//          it was renumbered on 2026-08-01 when cancelled races were dropped, which made the
+//          scheduled-alert dedup treat the Dutch and Italian GPs as already-sent.
 // [Intent] TypeScript interface for race schedule document from Firestore.
 //          Matches the structure seeded by seed-race-schedule.ts script.
 // [Inbound Trigger] Used by getRaceSchedule() return type and internal caching.
 // [Downstream Impact] Any changes to Firestore schema require updating this interface.
 export interface RaceScheduleDoc {
+  id: string; // Firestore document id (slug) — the only identity that survives a renumber
   name: string;
   location: string;
   qualifyingTime: string; // UTC ISO string
@@ -36,7 +41,8 @@ let scheduleCache: RaceScheduleDoc[] | null = null;
 let cacheTimestamp: number | null = null;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-// GUID: LIB_RACE_SCHEDULE_SERVER-003-v01
+// GUID: LIB_RACE_SCHEDULE_SERVER-003-v02
+// @FIX (v3.25.3, BUG-WA-SCHED-001): each entry now carries the document id (see -001-v02).
 // @SECURITY_FIX: GEMINI-AUDIT-052 - Fetch race schedule from Firestore (trusted source).
 // [Intent] Fetch race schedule from Firestore race_schedule collection with in-memory caching.
 //          Returns races sorted by round number (chronological order). Cache expires after 1 hour.
@@ -71,6 +77,7 @@ export async function getRaceSchedule(): Promise<RaceScheduleDoc[]> {
   snapshot.forEach(doc => {
     const data = doc.data();
     schedule.push({
+      id: doc.id,
       name: data.name,
       location: data.location,
       qualifyingTime: data.qualifyingTime,
