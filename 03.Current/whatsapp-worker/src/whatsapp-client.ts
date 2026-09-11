@@ -1,9 +1,14 @@
-// GUID: WHATSAPP_CLIENT-000-v07
+// GUID: WHATSAPP_CLIENT-000-v08
 // [Intent] WhatsApp client wrapper using Baileys (WebSocket protocol, no Puppeteer/Chromium).
 //          Drop-in replacement for the whatsapp-web.js based client — same public interface.
 // [Inbound Trigger] Instantiated by index.ts at server startup.
 // [Downstream Impact] Provides sendMessage, sendToGroup, getStatus, getGroups, waitForStable for
 //                     queue-processor and Express endpoints. Logs status changes to Firestore.
+//
+// @COST_FIX (v08, COST-BLOB-001 — 2026-09-11): creds.update now calls azureStore.requestSync()
+//      (debounced, single-flight, incremental) instead of a full syncToBlob() per event. Combined with
+//      the 5-min timer doing the same full re-upload, the worker was issuing ~200k PutBlob/day
+//      (2.1M in 11 days, ~£24/month) for 552 auth files that rarely change. See AZURE_STORE-000-v05.
 //
 // @BUG_FIX (v07, self-inflicted rate-overlimit query storm — 2026-07-03): WhatsApp began returning
 // `rate-overlimit` on sends (7am Hot News + submission notices silently FAILED / needed retries), and
@@ -166,11 +171,10 @@ export class WhatsAppClient {
     // Credential updates — save locally and sync to Azure
     this.sock.ev.on('creds.update', async () => {
       await saveCreds();
-      // Fire-and-forget Azure sync on every creds update
+      // v08 (COST-BLOB-001): debounced incremental sync — creds.update bursts collapse into one
+      // upload of only the changed files, instead of a full re-upload of every auth file per event.
       if (this.azureStore) {
-        this.azureStore.syncToBlob().catch(err =>
-          console.error('☁️ Creds sync failed:', err.message)
-        );
+        this.azureStore.requestSync();
       }
     });
 

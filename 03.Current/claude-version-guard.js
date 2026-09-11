@@ -1,7 +1,9 @@
 /**
  * PreToolUse hook — Golden Rule #2 enforcement.
  * Blocks any `git commit` command unless BOTH package.json and version.ts
- * are staged (git added) in the current commit.
+ * are staged (git added) in the current commit — EXCEPT docs/tooling-only
+ * commits (docs/, *.md, .claude/, root claude-*.js), which are GR#2-exempt
+ * per Aaron 2026-07-29 and pass without a bump (see @FIX v3.1.11 below).
  *
  * Why: On 2026-03-24, 10 consecutive commits were pushed to main under the
  * same version number (2.5.6) because raw git commands bypassed the /commit
@@ -24,7 +26,11 @@ process.stdin.on('end', () => {
       process.exit(0);
     }
 
-    const data = JSON.parse(input);
+    // @FIX (v3.1.11): strip a leading BOM before parsing — a BOM-prefixed
+    //   stdin (e.g. piped from PowerShell) made JSON.parse throw, and the
+    //   fail-graceful catch turned that into a silent ALLOW. Harness stdin
+    //   is BOM-free, but a gate should not fail open over one invisible byte.
+    const data = JSON.parse(input.replace(/^\uFEFF/, ''));
     const command = data?.tool_input?.command ?? '';
 
     // @FIX (v3.1.10): The v3.1.9 word-boundary regex still fired on "git commit"
@@ -62,6 +68,30 @@ process.stdin.on('end', () => {
     } catch {
       // If git fails, don't block — might be outside repo
       process.exit(0);
+    }
+
+    // @FIX (v3.1.11): GR#2 exemption (Aaron, 2026-07-29) is now encoded in the
+    //   gate instead of living only in /commit GATE 1. Commits whose staged
+    //   files are ALL non-deployed paths (docs, markdown, .claude skills,
+    //   root claude-*.js tooling) require NO version bump — bumping for them
+    //   would advertise a phantom release on /about and burn a build. Before
+    //   this fix, such commits could only pass via
+    //   CLAUDE_DISABLE_VERSION_GUARD=1, which trained routine bypassing of
+    //   the gate — the exact decay mode that kills gates. Deployed code
+    //   (app/, functions/, firestore.rules, apphosting.yaml) still blocks.
+    //   Note: `git diff --cached --name-only` paths are repo-root-relative,
+    //   so files under the project dir arrive prefixed with `03.Current/`.
+    const stagedFiles = staged.split('\n').map(f => f.trim()).filter(Boolean);
+    const EXEMPT_PATTERNS = [
+      /^docs\//,               // documentation tree
+      /\.md$/i,                // markdown anywhere (CLAUDE.md, README, skills)
+      /^\.claude\//,           // skills / settings, if ever tracked
+      /^claude-[\w.-]+\.js$/,  // root coordination + hook tooling scripts
+      /^\.gitignore$/,
+    ];
+    const relPaths = stagedFiles.map(f => f.replace(/^03\.Current\//, ''));
+    if (relPaths.length > 0 && relPaths.every(f => EXEMPT_PATTERNS.some(rx => rx.test(f)))) {
+      process.exit(0); // docs/tooling-only commit — GR#2 exempt, no bump required
     }
 
     const hasPackageJson = staged.includes('package.json');

@@ -81,7 +81,7 @@ function emitSuccess(name) {
   console.log(`HOOKS: ACTIVE.`);
   console.log(``);
   console.log(`MANDATORY STARTUP SEQUENCE — DO ALL OF THESE BEFORE YOUR FIRST RESPONSE:`);
-  console.log(`1. Use the mcp__vestige__recall tool NOW with query "who am I, identity, session startup" to load memory.`);
+  console.log(`1. Use the mcp__vestige__search tool NOW with query "who am I, identity, session startup" to load memory.`);
   console.log(`2. Read CLAUDE.md for full Golden Rules.`);
   console.log(`3. Run 'node claude-sync.js read' to check coordination state.`);
   console.log(`4. Your first response to the user must confirm: identity, hooks status, Vestige status, and current version.`);

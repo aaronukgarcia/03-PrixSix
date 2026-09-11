@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.25.1 — 2026-09-11
+
+### COST-BLOB-001: the WhatsApp worker was paying £24 a month to re-upload files that hadn't changed
+
+A cost review of the Azure `garcia` resource group showed blob write operations on `garcialtdstorage` outspending everything else: 2.1 million PutBlob calls between September 1 and 11, climbing daily. The source was the WhatsApp worker's session persistence. Every 5 minutes, and again on every Baileys `creds.update` event, it re-uploaded the *entire* auth directory — 552 pre-key, session and sender-key files — regardless of whether anything had changed. Baileys also never prunes consumed pre-keys, so the file count (and the bill) grew every day.
+
+Worker 2.2.5 makes the sync incremental. The store keeps a SHA-256 map of what blob storage already holds (seeded when the session is restored at startup); a file is uploaded only when its hash differs, and a blob whose local file Baileys has deleted is pruned so the set stops growing. `creds.update` bursts are coalesced through a debounced, single-flight `requestSync()` instead of firing a full sync per event. The 5-minute timer stays as a safety net but now costs zero operations when nothing changed. Expected write volume: single digits per sync instead of 552.
+
+No app code changed; the version bump keeps the About page honest about which build is deployed alongside worker 2.2.5. Container image built via `az acr build` and rolled to `prixsix-whatsapp` the same evening.
+
 ## v3.25.0 — 2026-08-02
 
 ### FEAT-BACKUP-OFFSITE-001: the backup that survives losing Google

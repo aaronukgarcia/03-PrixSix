@@ -35169,9 +35169,9 @@
     },
     {
       "guid": "WHATSAPP_CLIENT-000",
-      "version": 6,
+      "version": 8,
       "logic_category": "ORCHESTRATION",
-      "description": "Baileys (WebSocket) WhatsApp client wrapper with Azure Blob session persistence, keep-alive pings, QR generation, disconnection recovery and group message sending. v05 adds waitForStable(): the connection is only treated as send-ready once continuously OPEN for >=15s AND a real query (groupFetchAllParticipating) succeeds — fixes the cold-start false-SENT. v06 (2026-06-26) fixes the SELF-INFLICTED connectionReplaced storm: connectSocket() now tears down the old socket (removeAllListeners + end) before creating a new one, and scheduleReconnect() is single-flight (only one reconnect ever pending) so the 'close' handler and keep-alive-fail handler can't spawn overlapping sockets that replace each other every ~10s. The flap was the worker fighting its own orphaned sockets, NOT an external device.",
+      "description": "Baileys (WebSocket) WhatsApp client wrapper with Azure Blob session persistence, keep-alive pings, QR generation, disconnection recovery and group message sending. v05 adds waitForStable(): the connection is only treated as send-ready once continuously OPEN for >=15s AND a real query (groupFetchAllParticipating) succeeds — fixes the cold-start false-SENT. v06 (2026-06-26) fixes the SELF-INFLICTED connectionReplaced storm: connectSocket() now tears down the old socket (removeAllListeners + end) before creating a new one, and scheduleReconnect() is single-flight (only one reconnect ever pending) so the 'close' handler and keep-alive-fail handler can't spawn overlapping sockets that replace each other every ~10s. The flap was the worker fighting its own orphaned sockets, NOT an external device. v08 (2026-09-11, COST-BLOB-001): creds.update handler calls azureStore.requestSync() (debounced incremental) instead of a full syncToBlob() per event.",
       "dependencies": [
         "AZURE_STORE-000",
         "FIREBASE_CONFIG_WORKER-000"
@@ -35184,7 +35184,7 @@
         "calls": []
       },
       "created": "2026-01-20T21:14:30Z",
-      "lastUpdated": "2026-01-26T01:56:48Z"
+      "lastUpdated": "2026-09-11T19:05:00Z"
     },
     {
       "guid": "FIREBASE_STORE-000",
@@ -35206,9 +35206,9 @@
     },
     {
       "guid": "AZURE_STORE-000",
-      "version": 3,
+      "version": 5,
       "logic_category": "PERSISTENCE",
-      "description": "Azure Blob Storage adapter for WhatsApp RemoteAuth session persistence. Uploads/downloads session.zip to Azure container for production deployments. Used when AZURE_STORAGE_CONNECTION_STRING is set.",
+      "description": "Azure Blob Storage adapter for Baileys auth state persistence (per-file blobs under baileys-auth/ in garcialtdstorage/whatsapp-session). Restores on startup, syncs on creds.update and every 5 min. v05 (2026-09-11, COST-BLOB-001): INCREMENTAL sync — SHA-256 map of blob contents (seeded on restore) skips unchanged files, blobs whose local file Baileys deleted are pruned, and requestSync() debounces creds.update bursts with a single-flight guard. v04 re-uploaded all 552 files on every tick/event: 2.1M PutBlob in 11 days (~£24/month). Expected after v05: a handful of writes per sync.",
       "dependencies": [],
       "location": {
         "filePath": "whatsapp-worker/src/azure-store.ts"
@@ -35218,7 +35218,7 @@
         "calls": []
       },
       "created": "2026-01-20T23:50:13Z",
-      "lastUpdated": "2026-02-10T16:08:00Z"
+      "lastUpdated": "2026-09-11T19:05:00Z"
     },
     {
       "guid": "QUEUE_PROCESSOR-000",
