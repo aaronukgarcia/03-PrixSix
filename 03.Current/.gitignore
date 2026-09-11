@@ -92,6 +92,7 @@ blackstart/
 *.api-key.txt
 .api-key.txt
 **/.api-key.txt
+**/.whatsapp-app-secret.txt
 
 # dataconnect generated files
 .dataconnect

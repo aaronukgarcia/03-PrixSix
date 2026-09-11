@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 // Worker version — bump on every worker change; surfaced on /health for post-deploy verification
 // (the container has no About page). Keep in sync with whatsapp-worker/package.json.
-const WORKER_VERSION = '2.2.5';
+const WORKER_VERSION = '2.2.6';
 
 // Add JSON body parser for webhook
 app.use(express.json());
@@ -19,9 +19,14 @@ app.use(express.json());
 let whatsappClient: WhatsAppClient;
 let queueProcessor: QueueProcessor;
 
-// GUID: WHATSAPP_WORKER-000-v01
+// GUID: WHATSAPP_WORKER-000-v02
 // [Intent] HMAC SHA-256 authentication middleware — verifies that incoming requests originate
 //          from the trusted Next.js proxy by checking the X-Hub-Signature-256 header.
+//          v02 (2026-09-11, SEC-WA-SECRET-ROT): zero-downtime secret rotation. If
+//          WHATSAPP_APP_SECRET_PREVIOUS is set, a signature made with it is ALSO accepted, so the
+//          worker can take the new secret first and the app / Cloud Functions can follow at their
+//          own rollout pace. Unset PREVIOUS once every caller is on the new secret (it is logged
+//          at WARN on every match so lingering callers are visible).
 //          The proxy signs the endpoint name (path without leading slash) with WHATSAPP_APP_SECRET.
 //          Uses timing-safe comparison (GR#11) to prevent oracle attacks.
 // [Inbound Trigger] Applied to all sensitive endpoints (/status, /qr, /ping, /process-queue, /trigger-test).
@@ -44,17 +49,28 @@ function verifyHmacSignature(req: Request, res: Response, next: Function) {
 
   // The proxy signs the endpoint name — path without leading slash (e.g. "status", "qr", "ping")
   const endpoint = req.path.slice(1);
-  const expected = `sha256=${crypto.createHmac('sha256', secret).update(endpoint).digest('hex')}`;
+  const sigBuf = Buffer.from(signature);
 
   // Timing-safe comparison to prevent length/timing oracle attacks (GR#11)
-  const sigBuf = Buffer.from(signature);
-  const expBuf = Buffer.from(expected);
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
-    res.status(401).json({ error: 'Unauthorized: Invalid signature' });
+  const matches = (key: string): boolean => {
+    const expBuf = Buffer.from(`sha256=${crypto.createHmac('sha256', key).update(endpoint).digest('hex')}`);
+    return sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+  };
+
+  if (matches(secret)) {
+    next();
     return;
   }
 
-  next();
+  // v02: rotation grace — accept the previous secret while callers migrate, but make it visible.
+  const previous = process.env.WHATSAPP_APP_SECRET_PREVIOUS;
+  if (previous && matches(previous)) {
+    console.warn(`[auth] Request to /${endpoint} signed with PREVIOUS secret — a caller has not rotated yet`);
+    next();
+    return;
+  }
+
+  res.status(401).json({ error: 'Unauthorized: Invalid signature' });
 }
 
 // Health check endpoint — intentionally PUBLIC (no auth)

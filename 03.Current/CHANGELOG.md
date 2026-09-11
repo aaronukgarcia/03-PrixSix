@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.25.2 — 2026-09-11
+
+### SEC-WA-SECRET-ROT: WhatsApp HMAC secret rotation without an outage window
+
+While checking a stale Vestige memory, the *current* WhatsApp proxy secret turned out to be stored in plaintext in three memory nodes (alongside other credentials from the February 2026 audit). Rotating it needs three consumers to move together: the worker (container env var), the app (App Hosting secret, picked up on the next rollout) and two Cloud Functions (secret bound at deploy). Previously that meant a 401 window between the first and last deploy.
+
+Worker 2.2.6 adds `WHATSAPP_APP_SECRET_PREVIOUS`: a signature made with the previous secret is still accepted, and every such match is logged at WARN so lingering callers are visible. Rotation order is now worker first (new + previous), then app and functions at their own pace, then unset PREVIOUS. Also gitignored the deploy script's `.whatsapp-app-secret.txt` file, which the ignore rules had missed.
+
 ## v3.25.1 — 2026-09-11
 
 ### COST-BLOB-001: the WhatsApp worker was paying £24 a month to re-upload files that hadn't changed

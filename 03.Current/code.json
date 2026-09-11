@@ -43312,9 +43312,9 @@
     },
     {
       "guid": "WHATSAPP_WORKER-000",
-      "version": 1,
+      "version": 2,
       "logic_category": "VALIDATION",
-      "description": "HMAC SHA-256 authentication middleware — verifies incoming requests originate from the trusted Next.js proxy via X-Hub-Signature-256 header. Uses timing-safe comparison (GR#11).",
+      "description": "HMAC SHA-256 authentication middleware — verifies incoming requests originate from the trusted Next.js proxy via X-Hub-Signature-256 header. Uses timing-safe comparison (GR#11). v02 (2026-09-11, SEC-WA-SECRET-ROT): zero-downtime rotation — a signature made with WHATSAPP_APP_SECRET_PREVIOUS is also accepted (logged at WARN per match) so the worker can take a new secret before the app/Cloud Functions roll. Unset PREVIOUS once all callers have rotated.",
       "dependencies": [],
       "location": {
         "filePath": "whatsapp-worker/src/index.ts",
@@ -43325,7 +43325,7 @@
         "calls": []
       },
       "created": "2026-03-03T19:11:13.183Z",
-      "lastUpdated": "2026-03-03T19:18:04.040Z"
+      "lastUpdated": "2026-09-11T19:40:00Z"
     },
     {
       "guid": "ADMIN_PIT_LANE-000",
