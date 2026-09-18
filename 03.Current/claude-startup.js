@@ -1,6 +1,12 @@
 // claude-startup.js — SessionStart hook script
 // Runs checkin, validates identity, writes identity file, outputs confirmation for Claude
 //
+// v2.3 (2026-09-18): source-aware. Claude Code fires SessionStart for startup, resume,
+// clear AND compact. On "compact" the window already holds a permit, so instead of a
+// fresh checkin we run wake-recovery renew + status and emit a POST-COMPACTION RESUME
+// block (identity, branch, mandatory re-read steps). This is the ONLY hook path whose
+// stdout is injected back into the model after compaction — PreCompact stdout is not.
+//
 // v2.2: reads the Claude window's session_id from the hook stdin JSON and passes it
 // to claude-sync as CLAUDE_CODE_SESSION_ID, so the checkin is mapped to THIS window
 // (per-window identity — no manual $env:CLAUDE_SESSION_ID needed). Fallback checkins
@@ -16,6 +22,8 @@ const VALID_NAMES = ['bob', 'bill', 'ben'];
 
 /** Claude window UUID — resolved from hook stdin JSON before main logic runs. */
 let windowId = process.env.CLAUDE_CODE_SESSION_ID || '';
+/** SessionStart source: startup | resume | clear | compact (from hook stdin JSON). */
+let startSource = 'startup';
 
 /** Run a checkin command, returning { output, error, stderr } */
 function tryCheckin(cmd) {
@@ -81,7 +89,7 @@ function emitSuccess(name) {
   console.log(`HOOKS: ACTIVE.`);
   console.log(``);
   console.log(`MANDATORY STARTUP SEQUENCE — DO ALL OF THESE BEFORE YOUR FIRST RESPONSE:`);
-  console.log(`1. Use the mcp__vestige__search tool NOW with query "who am I, identity, session startup" to load memory.`);
+  console.log(`1. Use the mcp__vestige__recall tool NOW with query "who am I, identity, session startup" to load memory.`);
   console.log(`2. Read CLAUDE.md for full Golden Rules.`);
   console.log(`3. Run 'node claude-sync.js read' to check coordination state.`);
   console.log(`4. Your first response to the user must confirm: identity, hooks status, Vestige status, and current version.`);
@@ -146,9 +154,48 @@ function handleAllFull(stderr) {
   }
 }
 
+/**
+ * Post-compaction resume. The permit is normally still live (or reserved for this
+ * window), so: renew --auto (performs wake recovery if it lapsed), then read status
+ * to learn which name THIS window holds. Returns true if identity was confirmed.
+ */
+function runCompactResume() {
+  const renew = tryCheckin('node claude-sync.js renew --auto');
+  const notice = (renew.output || '') + (renew.stderr || '');
+  const status = tryCheckin('node claude-sync.js status');
+  const m = (status.output || '').match(/^\s*Name\s*:\s*(\w+)\s*$/m);
+  const name = m ? m[1].toLowerCase() : null;
+  if (!name || !VALID_NAMES.includes(name)) return false;
+
+  let branch = '';
+  const bm = (status.output || '').match(/^\s*Branch\s*:\s*(\S+)/m);
+  if (bm) branch = bm[1];
+
+  fs.writeFileSync(identityPath, name, 'utf-8');
+  console.log(`=== POST-COMPACTION RESUME (${new Date().toISOString()}) ===`);
+  console.log(`IDENTITY: ${name}>  — conversation was compacted, NOT restarted. Your permit is intact.`);
+  console.log(`PREFIX EVERY RESPONSE with "${name}>". No exceptions (Golden Rule #4).`);
+  if (branch) console.log(`BRANCH: ${branch}`);
+  if (/IDENTITY CHANGED|re-acquired/.test(notice)) console.log(notice.trim());
+  console.log(``);
+  console.log(`MANDATORY AFTER COMPACTION (CLAUDE.md "Compacting / Context Recovery"):`);
+  console.log(`1. Re-read CLAUDE.md in full — the Golden Rules did not survive the summary.`);
+  console.log(`2. Run 'node claude-sync.js read' to check NO-TOUCH ZONES and other agents.`);
+  console.log(`3. Run 'git status' — confirm branch and uncommitted work before touching files.`);
+  console.log(`4. Use mcp__vestige__recall for the task you were mid-way through if the summary is thin.`);
+  console.log(`5. Tell the user you are caught up, with identity and version (app/package.json).`);
+  console.log(`Do NOT run a fresh checkin — you already hold ${name}. Do NOT change prefix.`);
+  return true;
+}
+
 // ─── Main Logic ───────────────────────────────────────────────────────────────
 
 function runStartup() {
+
+if (startSource === 'compact') {
+  if (runCompactResume()) return;
+  console.log('WARNING: post-compaction resume could not confirm a permit — falling back to full checkin.');
+}
 
 const requestedIdentity = process.env.CLAUDE_IDENTITY || null;
 
@@ -226,6 +273,7 @@ if (process.stdin.isTTY) {
     try {
       const data = JSON.parse(input);
       if (data.session_id) windowId = data.session_id;
+      if (data.source) startSource = String(data.source);
     } catch { /* env fallback stands */ }
     start();
   });

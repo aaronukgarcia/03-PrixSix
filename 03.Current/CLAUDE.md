@@ -509,6 +509,15 @@ When you compact the conversation, you **must**:
 2. Run `node claude-sync.js read` to check coordination state
 3. Inform the user you are caught up with the instructions
 
+> **Hook support (2026-09-18):** `claude-startup.js` is source-aware — on a `compact` SessionStart it
+> skips the fresh checkin, renews the existing permit, and re-injects a **POST-COMPACTION RESUME** block
+> (identity, branch, the steps above). Obey it. The PreCompact echo in `.claude/settings.json` is NOT
+> injected into the summary; only this SessionStart path is.
+>
+> **Compact timing:** `claude-ping-check.js` prints a `[claude-sync] CONTEXT …` nudge once the window
+> passes 75% (then every 25k tokens). When you see it, finish the current step, write any in-flight plan
+> to a file or Vestige, then ask the user to run `/compact` at that boundary. Never mid-edit.
+
 ---
 
 ## Contact / Decisions
