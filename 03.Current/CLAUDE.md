@@ -50,33 +50,25 @@ node claude-sync.js checkin --name Bill --force --human-ok   # evict impostor, c
 
 ---
 
-## ⚠️ GOLDEN RULES — INVIOLABLE, NON-NEGOTIABLE
+## ⚠️ GLOBAL GOLDEN RULES (GGR) — INVIOLABLE, NON-NEGOTIABLE
 
-These rules MUST be followed on every piece of code written and every response given. No exceptions. No shortcuts. Ever.
+**Since 2026-09-19 the rules are one set, identical in every project (Aaron's ruling), held in the `forge` registry and rendered here as `GGR.md`.** Read `GGR.md` in full at the start of every session; it replaces the 19-rule table that used to live here. Each rule is labelled `GGR<no>v<version>` and keeps developing: refine one from inside this project with `node E:\GoogleDrive\Tools\new\forge.js rule set <no> --summary "..." --note "why" --from prix6`, then re-render with `node E:\GoogleDrive\Tools\new\forge.js ggr --out GGR.md`. Never hand-edit `GGR.md`. Rules with an *applies when* clause (deploy bundling, determinism gate, codename) are dormant until the condition holds but are still the rule.
 
-| Rule | Summary |
-|------|---------|
-| #1 | Aggressive Error Trapping — log, type, correlation ID, selectable display |
-| #2 | Version Discipline — bump on every commit, verify after every push |
-| #3 | Single Source of Truth — no duplication without CC validation |
-| #4 | Identity Prefix — every response starts with `bob>` or `bill>` |
-| #5 | Verbose Confirmations — explicit, timestamped, version-numbered confirmations |
-| #6 | GUID Documentation — read comments before changing code, update GUID versions and code.json |
-| #7 | Registry-Sourced Errors — every error MUST be created from the error registry, no exceptions |
-| #8 | Prompt Identity Enforcement — "who" check, violation logging to Vestige memory, scorekeeping |
-| #9 | Shell Preference — Microsoft PowerShell first, then CMD, then bash if needed |
-| #10 | Dependency Update Discipline — check for updates on any dependency encountered during bug fixes or feature builds |
-| #11 | Pre-Commit Security Review — mandatory security threat modeling before every commit |
-| #12 | Dependency & Completeness Check — never mark complete until ALL dependents implemented; never feature without backup, never backup without restore test |
-| #13 | Complete All Identified Issues — when user lists N failures, fix ALL N; never "TODO" or "lower priority" them |
-| #14 | Memory Recall at Task Start — query Vestige before composing commits, replying to bug reports, or starting a new task type — not just at session start |
-| #15 | Validators Derive From Data — expected counts/values must come from data files (with comments) or runtime queries, never hardcoded constants that ossify |
-| #16 | Type-Safe Storage Boundaries — never trust TS types about Firestore data; coerce via `safeX()` helpers because `new Date(badInput)` returns Invalid Date instead of throwing |
-| #17 | Silent Failure Detection — every Cloud Function with a user-visible status field MUST have automated freshness monitoring; OOM/crash can hide for weeks otherwise. AMENDMENT (2026-07-26): every health/monitoring FAILURE must ALSO write a registry error to `error_logs` — status docs alone are invisible; error_logs is where we look |
-| #18 | Migration Dead-Code Audit — when eliminating a collection/field/feature, audit for orphaned readers/validators in the SAME commit, not later |
-| #19 | Cloud Functions Deploy Bundling — every commit changing `functions/` MUST end with `firebase deploy --only functions:...` bundling ALL pending function changes from prior commits |
+**Alias table — the old Prix Six GR numbers still appear in hook messages, skills, memory and commit history. Read them as:**
 
-> **Full implementation patterns, code templates, and compliance checklists:** `docs/golden-rules-detail.md`
+| Old | GGR | Old | GGR | Old | GGR |
+|-----|-----|-----|-----|-----|-----|
+| GR#1 error trapping | GGR1 | GR#8 identity enforcement | GGR7 | GR#15 validators from data | GGR30 |
+| GR#2 version discipline | GGR43 | GR#9 shell preference | GGR25 | GR#16 type-safe storage | GGR29 |
+| GR#3 SSOT | GGR6 | GR#10 dependency updates | GGR18 | GR#17 silent failures | GGR3 |
+| GR#4 identity prefix | GGR7 | GR#11 security review | GGR17 | GR#18 dead-code audit | GGR32 |
+| GR#5 verbose confirmations | GGR8 | GR#12 completeness | GGR11 + GGR35 | GR#19 deploy bundling | GGR45 |
+| GR#6 GUID documentation | GGR22 | GR#13 complete all N | GGR10 | | |
+| GR#7 registry errors | GGR5 | GR#14 memory recall | GGR9 | | |
+
+Binding here since the port and new to this project: **GGR15 nothing committed un-attacked**, **GGR12 no code left behind** (tree-reverting git commands banned), **GGR13 converge early**, **GGR14 verify against CI**, **GGR16 cost gate** (user-scope `cost_gate.py` hook + `/cost-gate` skill; never mint a token without Aaron's Authorise), **GGR44 local merge + push only, never a host-side merge** (the committer-email leak), **GGR62 launcher dry-run before handover**, **GGR63 nothing executes from a synced folder**, plus the AI-Rules ERR/REL/DATA/SEC families and the BIAS_GUARD assessment rules.
+
+> **Full implementation patterns, code templates, and compliance checklists:** `docs/golden-rules-detail.md` (still numbered by the old GR#; use the alias table).
 
 ## 🚨 MANDATORY: Session Coordination Protocol
 
