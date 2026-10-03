@@ -1,6 +1,6 @@
 # CLAUDE.md - Prix Six Project Brief
 
-> **Last updated:** 2026-07-13 (claude-sync v2.2 — per-window identity, reserved slots, wake recovery)
+> **Last updated:** 2026-10-03 (paths moved to E:\git\prix6; branch strategy matches practice — no `develop`; build check via Cloud Build europe-west4; BT/EE block note)
 > **Current production version:** Check `package.json` and verify at https://prix6.win/about
 > **Read this entire file at the start of every session.**
 
@@ -11,8 +11,8 @@
 **Every Claude Code window must be launched from the project directory:**
 
 ```powershell
-cd E:\GoogleDrive\Papers-PrixSix.Current
-claude --add-dir E:\GoogleDrive\Tools\Memory\source
+cd E:\git\prix6\03.Current
+claude --add-dir E:\AI\Memory\source
 ```
 
 > The `--add-dir` flag loads the Memory `CLAUDE.md` (MCPs, environment info).
@@ -200,8 +200,9 @@ A fantasy Formula 1 league application built on Firebase. Approximately 20 playe
 - **NPM:** `C:\Program Files\nodejs\npm.cmd`
 - **gcloud CLI:** `"C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd"`
 - **Azure CLI:** `"C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"`
-- **Project root:** `E:\GoogleDrive\Papers\03-PrixSix\03.Current`
-- **Firebase service account:** `E:\GoogleDrive\Papers\03-PrixSix\03.Current\service-account.json`
+- **Project root:** `E:\git\prix6\03.Current` (the git repo root is one level up, `E:\git\prix6`)
+- **Firebase service account:** `E:\git\prix6\03.Current\service-account.json`
+- **Temp / scratch:** `E:\git\prix6\03.Current\temp` (git-ignored) — nothing is written outside the project (GGR66)
 - **Firebase Project ID:** `studio-6033436327-281b1`
 
 **Note:** gcloud and Azure CLI are NOT in PATH. Use the full paths above when running these commands.
@@ -225,7 +226,7 @@ The following MCP servers are configured globally in `C:\Users\aarongarcia\.clau
 
 **Tokens Required:** GitHub MCP needs API token set in `~/.claude.json` env vars. Firebase MCP uses existing `GOOGLE_APPLICATION_CREDENTIALS`. Azure and MS 365 MCPs have configured credentials.
 
-**MCP Install Location:** `E:\GoogleDrive\Tools\MCP\\` (with local npm installs for offline fallback)
+**MCP Install Location:** per-server paths are recorded in `C:\Users\aarongarcia\.claude.json` (e.g. `E:\AI\utils\ms-365`). The old `E:\GoogleDrive\Tools\MCP` folder no longer exists.
 
 **MCP Config:** User-level MCP configuration is in `C:\Users\aarongarcia\.claude.json` (NOT `.claude\.mcp.json` which is for Claude Desktop only). All servers are configured using `claude mcp add` or `claude mcp add-json` for user-level availability across all Claude Code sessions.
 
@@ -272,19 +273,20 @@ Full documentation for each module is in `docs/module-reference.md`.
 
 | Branch | Purpose | Triggers Deploy? |
 |--------|---------|------------------|
-| `main` | Production-ready code only | **YES** — never commit directly |
-| `develop` | Integration branch for features | No |
-| `feature/*` | Individual feature work | No |
+| `main` | Production-ready code only | **YES** — never commit code directly |
+| `feature/*` | Individual feature work, branched from `main` | No |
+
+There is no `develop` branch (it was planned but never created). Docs-only and hook-only changes that ship no app code may go straight to `main` (precedent `5d5b92d`, `c28ee15`); they still trigger a build.
 
 **Rules:**
 1. **Never commit directly to `main`** — each push triggers a 3-5 minute build + deployment costs
-2. Always branch from `develop` for new work
+2. Always branch from an up-to-date `main` for new work
 3. Before starting work, always run `git status` to check another Claude Code instance isn't active
 4. Only merge to `main` when explicitly instructed ("merge to main", "deploy this", "push to production")
 
 ### Creating a Feature Branch
 ```bash
-git checkout develop
+git checkout main
 git pull
 git checkout -b feature/<short-description>
 ```
@@ -293,9 +295,9 @@ git checkout -b feature/<short-description>
 ```bash
 git checkout main
 git merge --squash feature/<branch-name>
-git commit -m "v1.x.x - <summary of changes>"
+git commit -m "<type>: <summary of changes> (vX.Y.Z)"
 git push origin main
-git branch -d feature/<branch-name>
+git branch -D feature/<branch-name>   # -d refuses after a squash; first confirm `git diff main feature/<branch-name>` is empty
 ```
 
 ### Commit Messages
@@ -429,7 +431,7 @@ firebase apphosting:secrets:grantaccess SECRET_NAME --backend prixsix
 
 1. **Never commit directly to main** - Use feature branches
 2. **Squash merges** - Combine multiple commits into one before merging to main
-3. **Manual build triggers** - For development, consider using `develop` branch
+3. **Keep work off main until it is ready** - feature branches do not trigger builds
 
 ---
 
@@ -466,12 +468,18 @@ firebase apphosting:secrets:grantaccess SECRET_NAME --backend prixsix
 **Every push to `main` triggers a Firebase App Hosting build.** You MUST verify the build succeeds AND version consistency.
 
 ```powershell
-powershell -Command "& 'C:Program Files (x86)GoogleCloud SDKgoogle-cloud-sdkingcloud.cmd' logging read 'resource.type="build"' --project=studio-6033436327-281b1 --limit=20 --freshness=15m --format='value(textPayload)'"
+# App Hosting builds run in Cloud Build region europe-west4. Run from PowerShell (Git Bash mangles the filters).
+$g = 'C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd'
+& $g builds list --project=studio-6033436327-281b1 --region=europe-west4 --limit=2 --format='value(id,status,createTime,finishTime)'
 ```
+
+`SUCCESS` on the newest build is not the end: confirm the new revision (`prixsix-build-YYYY-MM-DD-NNN`) is the one serving, then check the pages.
 
 After build completes, verify BOTH pages show identical versions:
 - **About:** https://prix6.win/about
 - **Login:** https://prix6.win/login
+
+> **prix6.win can be unreachable from the dev machine's network (found 2026-10-03).** The BT broadband connection (Hub Threat Protect; the block page is shared with EE and hosted on an EE address) intercepts the hostname and redirects to `block.ee.co.uk/ee/warn.html`, so curl fails the TLS handshake (exit 35, "wrong version number") and the browser shows an error page. That is the network, not the site: the same Cloudflare IP answers normally for any other hostname. Verify through the App Hosting default domain instead — `https://prixsix--studio-6033436327-281b1.europe-west4.hosted.app/login` — and remember that players on BT or EE broadband may be seeing the same block (BOW OPS-EE-BLOCK-001).
 
 ---
 
