@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.25.4 — 2026-10-03
+
+### BUG-SCHED-SYNC-001: the pit lane closed an hour early for the Bahrain Grand Prix
+
+On Saturday 3 October the pit lane closed at 07:00 UTC. Qualifying at Sepang started at 08:00 UTC. Players were locked out for 54 minutes until an admin forced the pit lane open by hand.
+
+**The time was a guess that was never corrected.** When the race was added in August, FOM had not published session times, so qualifying went in as a provisional 07:00 UTC, on the understanding that the daily OpenF1 sync would replace it. That sync has never written a value since it shipped in March. It matched sessions to races on a `meeting_name` field that OpenF1's sessions endpoint does not return, skipped every session, and answered "success, 0 updated" each morning. On top of that, the 05:00 UTC run on 2 and 3 October was refused outright (401), because OpenF1 rejects anonymous requests while a session is live and both runs landed inside practice.
+
+**What changed.** The sync now matches each OpenF1 race weekend to the schedule by date rather than by name — names were never going to work (OpenF1 says "Mexico City Grand Prix" and "São Paulo Grand Prix", and calls the Madrid race "Spanish Grand Prix"). It signs in to OpenF1 so a live session no longer blocks it, covers every remaining race rather than the next 30 days, and still corrects a weekend already under way so the scoring cutoff is right. Most importantly, an upcoming race it cannot place is now reported as a failure in the error log instead of a quiet zero.
+
+**Times corrected.** Bahrain qualifying moved to 08:00 UTC, so predictions made during the hand-opened window before qualifying count for scoring. Singapore sprint qualifying was 30 minutes late (now 12:30 UTC Friday) and the sprint three hours late (now 09:00 UTC Saturday). The static schedule the pages read is also corrected for the United States (an hour early), Las Vegas (a day early) and Qatar (three hours early) Grands Prix.
+
 ## v3.25.3 — 2026-09-11
 
 ### BUG-WA-SCHED-001: two silent failures in the scheduled WhatsApp reminders

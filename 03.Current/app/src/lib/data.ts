@@ -187,7 +187,7 @@ export interface Race {
   trackTimezone: string; // IANA timezone identifier e.g. "Australia/Melbourne"
 }
 
-// GUID: LIB_DATA-008-v06
+// GUID: LIB_DATA-008-v07
 // @UPDATE(v3.24.0): Bahrain GP reinstated at Sepang, Malaysia (Oct 2-4) — F1/FIA announcement
 //   2026-07-28. Calendar 22 → 23 races. Race keeps official "Bahrain Grand Prix" title; session
 //   times provisional until FOM publishes (OpenF1 daily sync will correct race_schedule).
@@ -239,16 +239,16 @@ export const RaceSchedule: Race[] = [
     { name: "Italian Grand Prix",      location: "Monza",            raceTime: "2026-09-06T13:00:00Z", qualifyingTime: "2026-09-05T14:00:00Z", hasSprint: false, results: [], trackTimezone: "Europe/Rome" },
     { name: "Spanish Grand Prix II",   location: "Madrid",           raceTime: "2026-09-13T13:00:00Z", qualifyingTime: "2026-09-12T14:00:00Z", hasSprint: false, results: [], trackTimezone: "Europe/Madrid" },
     { name: "Azerbaijan Grand Prix",   location: "Baku",             raceTime: "2026-09-26T11:00:00Z", qualifyingTime: "2026-09-25T12:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Baku" },
-    // Times below are PROVISIONAL (15:00 local, matching historic Sepang slots) — FOM has not yet
-    // published session times. The daily syncSessionTimes cron overwrites race_schedule from OpenF1
-    // once inside its 30-day window; this static copy should be re-checked against OpenF1 then.
-    { name: "Bahrain Grand Prix",      location: "Sepang",           raceTime: "2026-10-04T07:00:00Z", qualifyingTime: "2026-10-03T07:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Kuala_Lumpur" },
-    { name: "Singapore Grand Prix",    location: "Singapore",        raceTime: "2026-10-11T12:00:00Z", qualifyingTime: "2026-10-09T13:00:00Z", sprintTime: "2026-10-10T12:00:00Z", hasSprint: true,  results: [], trackTimezone: "Asia/Singapore" },
-    { name: "United States Grand Prix",location: "Austin",           raceTime: "2026-10-25T19:00:00Z", qualifyingTime: "2026-10-24T20:00:00Z", hasSprint: false, results: [], trackTimezone: "America/Chicago" },
+    // @FIX (v3.25.4, BUG-SCHED-SYNC-001): Bahrain onwards re-set to the OpenF1 session times on
+    // 2026-10-03. The provisional Sepang guess (07:00Z) was an hour early and the sync that was meant
+    // to correct it never wrote. This static copy is NOT synced — re-check it when FOM moves a session.
+    { name: "Bahrain Grand Prix",      location: "Sepang",           raceTime: "2026-10-04T07:00:00Z", qualifyingTime: "2026-10-03T08:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Kuala_Lumpur" },
+    { name: "Singapore Grand Prix",    location: "Singapore",        raceTime: "2026-10-11T12:00:00Z", qualifyingTime: "2026-10-09T12:30:00Z", sprintTime: "2026-10-10T09:00:00Z", hasSprint: true,  results: [], trackTimezone: "Asia/Singapore" },
+    { name: "United States Grand Prix",location: "Austin",           raceTime: "2026-10-25T20:00:00Z", qualifyingTime: "2026-10-24T21:00:00Z", hasSprint: false, results: [], trackTimezone: "America/Chicago" },
     { name: "Mexican Grand Prix",      location: "Mexico City",      raceTime: "2026-11-01T20:00:00Z", qualifyingTime: "2026-10-31T21:00:00Z", hasSprint: false, results: [], trackTimezone: "America/Mexico_City" },
     { name: "Brazilian Grand Prix",    location: "Sao Paulo",        raceTime: "2026-11-08T17:00:00Z", qualifyingTime: "2026-11-07T18:00:00Z", hasSprint: false, results: [], trackTimezone: "America/Sao_Paulo" },
-    { name: "Las Vegas Grand Prix",    location: "Las Vegas",        raceTime: "2026-11-21T06:00:00Z", qualifyingTime: "2026-11-20T06:00:00Z", hasSprint: false, results: [], trackTimezone: "America/Los_Angeles" },
-    { name: "Qatar Grand Prix",        location: "Lusail",           raceTime: "2026-11-29T14:00:00Z", qualifyingTime: "2026-11-28T15:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Qatar" },
+    { name: "Las Vegas Grand Prix",    location: "Las Vegas",        raceTime: "2026-11-22T04:00:00Z", qualifyingTime: "2026-11-21T04:00:00Z", hasSprint: false, results: [], trackTimezone: "America/Los_Angeles" },
+    { name: "Qatar Grand Prix",        location: "Lusail",           raceTime: "2026-11-29T16:00:00Z", qualifyingTime: "2026-11-28T18:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Qatar" },
     { name: "Abu Dhabi Grand Prix",    location: "Yas Marina",       raceTime: "2026-12-06T13:00:00Z", qualifyingTime: "2026-12-05T14:00:00Z", hasSprint: false, results: [], trackTimezone: "Asia/Dubai" },
 ];
 

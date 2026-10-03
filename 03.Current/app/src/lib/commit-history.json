@@ -1,6 +1,70 @@
 {
-  "lastUpdated": "2026-08-02",
+  "lastUpdated": "2026-10-03",
   "commits": [
+    {
+      "id": "c28ee15",
+      "date": "2026-09-19",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "docs: Global Golden Rules port - CLAUDE.md's 19-rule table is replaced by 03.Current/GGR.md, rendered from the forge registry where the Prix Six, Metropolis, AI-Rules, BIAS_GUARD, QUALITY_BAR, BAKE_IN_EARLY and cost-gate rule sets were merged into 63 versioned rules (GGR<no>v<version>), approved by Aaron 2026-09-19. GR#-to-GGR alias table for hook messages and history; .gitignore whitelists GGR.md. Docs-only, no version bump (hook-only/docs precedent 5d5b92d)",
+      "major": false
+    },
+    {
+      "id": "5d5b92d",
+      "date": "2026-09-18",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "chore: hooks v2.3 — post-compaction identity resume + context-size /compact nudge (no version bump, hook-only)",
+      "major": false
+    },
+    {
+      "id": "3b1c0a9",
+      "date": "2026-09-11",
+      "version": "3.25.3",
+      "author": "aaron garcia",
+      "message": "fix: BUG-WA-SCHED-001 — scheduled WhatsApp reminders keyed by stable race id; race-start reminder picks its own race (v3.25.3)",
+      "major": false
+    },
+    {
+      "id": "eae041e",
+      "date": "2026-09-11",
+      "version": "3.25.2, worker 2.2.6",
+      "author": "aaron garcia",
+      "message": "feat: SEC-WA-SECRET-ROT — worker accepts WHATSAPP_APP_SECRET_PREVIOUS for zero-downtime HMAC rotation (v3.25.2, worker 2.2.6)",
+      "major": true
+    },
+    {
+      "id": "3beff3f",
+      "date": "2026-09-11",
+      "version": "3.25.1, worker 2.2.5",
+      "author": "aaron garcia",
+      "message": "fix: COST-BLOB-001 — incremental WhatsApp auth sync; 2.1M PutBlob/11d → near zero (v3.25.1, worker 2.2.5)",
+      "major": false
+    },
+    {
+      "id": "26ec257",
+      "date": "2026-08-23",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "chore: code.json hygiene pass — reset 1256 fabricated callChains, merge 66 dup/stale GUIDs, normalize naming to PREFIX-### canon, backfill 48 registrations from source; sync 23 GUID comment refs (validation.ts, AdminPageClient, InvitesManager). No runtime code changes.",
+      "major": false
+    },
+    {
+      "id": "aeeca8d",
+      "date": "2026-08-02",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "docs: backup retention policy — 60d offsite rolling window, cool tier 14d, GCS 7d+Fri+monthly (statement of record for the enforced automation)",
+      "major": false
+    },
+    {
+      "id": "1a5a1a5",
+      "date": "2026-08-02",
+      "version": "3.25.0",
+      "author": "aaron garcia",
+      "message": "feat: FEAT-BACKUP-OFFSITE-001 — offsite encrypted backup mirror to Azure + restore drill (v3.25.0)",
+      "major": true
+    },
     {
       "id": "ce14a44",
       "date": "2026-08-01",

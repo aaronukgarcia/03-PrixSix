@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-08-23",
-  "total_guids": 2275,
+  "total_guids": 2280,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -36739,7 +36739,7 @@
     },
     {
       "guid": "LIB_DATA-008",
-      "version": 6,
+      "version": 7,
       "logic_category": "ORCHESTRATION",
       "description": "Master race calendar for the 2026 F1 season (24 races). Defines qualifying deadlines for client-side UX only. GEMINI-AUDIT-052 accepted risk: timing data is public (official F1 calendar) and server-side enforcement via Firestore (race-schedule-server.ts) is the authoritative deadline gate. BOW risk Cy4hqh5EXe53Ww2LkqLR: this static array can desync from the Firestore race_schedule collection — any admin calendar update requires BOTH a Firestore write AND a code deployment to keep client UX consistent. Known technical debt: components should be refactored to fetch from an authenticated API endpoint.",
       "dependencies": [
@@ -36755,7 +36755,7 @@
         "calls": []
       },
       "created": "2026-01-18T19:25:01Z",
-      "lastUpdated": "2026-02-24T00:00:00Z"
+      "lastUpdated": "2026-10-03T13:24:45.116Z"
     },
     {
       "guid": "API_ADMIN_ACK_ATTACK-000",
@@ -44638,30 +44638,31 @@
     },
     {
       "guid": "CRON_SYNC_SESSION_TIMES-002",
-      "version": 1,
+      "version": 2,
       "logic_category": "DATA_MODELS",
-      "description": "OpenF1Session interface — shape of session objects from OpenF1 /v1/sessions API used by the sync route.",
+      "description": "Best-effort OpenF1 bearer token (shared pit-wall token cache + openf1 secrets) so the sync is not refused with 401 while a session is live. v1 was the OpenF1Session interface, moved to LIB_SESSION_SYNC-001 (v3.25.4, BUG-SCHED-SYNC-001).",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/api/cron/sync-session-times/route.ts",
-        "functionName": null
+        "functionName": "getOpenF1Token"
       },
       "callChain": {
         "calledBy": [],
         "calls": []
       },
       "created": "2026-03-13T10:57:17.931Z",
-      "lastUpdated": "2026-03-13T10:57:17.931Z"
+      "lastUpdated": "2026-10-03T13:24:45.116Z"
     },
     {
       "guid": "CRON_SYNC_SESSION_TIMES-003",
-      "version": 1,
+      "version": 2,
       "logic_category": "BUSINESS_LOGIC",
-      "description": "POST handler — fetches OpenF1 sessions for next 30 days, matches to race_schedule docs, batch-writes qualifyingTime/sprintTime/raceTime/raceEndTime updates.",
+      "description": "POST handler — fetches this year's OpenF1 sessions (authenticated), plans updates via planSessionSync, batch-writes only differing qualifyingTime/sprintTime/raceTime/raceEndTime, clears the schedule cache, and returns 500 when an upcoming meeting matches no race_schedule doc (v3.25.4, BUG-SCHED-SYNC-001).",
       "dependencies": [
         "CRON_SYNC_SESSION_TIMES-001",
         "CRON_SYNC_SESSION_TIMES-002",
-        "LIB_RACE_SCHEDULE_SERVER-000"
+        "LIB_SESSION_SYNC-004",
+        "LIB_RACE_SCHEDULE_SERVER-005"
       ],
       "location": {
         "filePath": "app/src/app/api/cron/sync-session-times/route.ts",
@@ -44672,7 +44673,96 @@
         "calls": []
       },
       "created": "2026-03-13T10:57:17.931Z",
-      "lastUpdated": "2026-03-13T10:57:17.931Z"
+      "lastUpdated": "2026-10-03T13:24:45.116Z"
+    },
+    {
+      "guid": "LIB_SESSION_SYNC-000",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "Module header — pure planning logic for the daily OpenF1 → race_schedule session-time sync (v3.25.4, BUG-SCHED-SYNC-001).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/session-sync.ts",
+        "functionName": ""
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-03T13:24:45.116Z",
+      "lastUpdated": "2026-10-03T13:24:45.116Z"
+    },
+    {
+      "guid": "LIB_SESSION_SYNC-001",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "OpenF1Session interface — the /v1/sessions fields the sync reads (note: no meeting_name on this endpoint).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/session-sync.ts",
+        "functionName": "OpenF1Session"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-03T13:24:45.116Z",
+      "lastUpdated": "2026-10-03T13:24:45.116Z"
+    },
+    {
+      "guid": "LIB_SESSION_SYNC-002",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "ScheduleDocTimes / SessionSyncPlan types — the race_schedule slice the planner reads and the write plan it returns.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/session-sync.ts",
+        "functionName": "ScheduleDocTimes"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-03T13:24:45.116Z",
+      "lastUpdated": "2026-10-03T13:24:45.116Z"
+    },
+    {
+      "guid": "LIB_SESSION_SYNC-003",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "toScheduleIso / sameInstant — normalise timestamps to the seeded \"…T08:00:00Z\" form and compare instants.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/session-sync.ts",
+        "functionName": "toScheduleIso"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-03T13:24:45.116Z",
+      "lastUpdated": "2026-10-03T13:24:45.116Z"
+    },
+    {
+      "guid": "LIB_SESSION_SYNC-004",
+      "version": 1,
+      "logic_category": "BUSINESS_LOGIC",
+      "description": "planSessionSync — groups OpenF1 sessions by meeting_key, matches each unfinished race meeting to exactly one race_schedule doc by race weekend (±3 days of stored raceTime), and lists differing time fields; reports unmatched meetings.",
+      "dependencies": [
+        "LIB_SESSION_SYNC-001",
+        "LIB_SESSION_SYNC-002",
+        "LIB_SESSION_SYNC-003"
+      ],
+      "location": {
+        "filePath": "app/src/lib/session-sync.ts",
+        "functionName": "planSessionSync"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-03T13:24:45.116Z",
+      "lastUpdated": "2026-10-03T13:24:45.116Z"
     },
     {
       "guid": "API_CALCULATE_SCORES-019",

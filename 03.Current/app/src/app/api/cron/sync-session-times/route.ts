@@ -3,12 +3,14 @@
 // Auth:        CRON_SECRET bearer token (NOT Firebase Auth); timing-safe comparison
 // Reads:       OpenF1 /v1/sessions?year={year} (external API), race_schedule collection
 // Writes:      race_schedule documents (qualifyingTime, sprintTime, raceTime, raceEndTime)
-// Errors:      401 (bad/missing token), 500 (OpenF1/Firestore failure)
-// Idempotent:  YES — re-running overwrites fields with same or updated values
-// Side-effects: Updates race schedule timing in Firestore. The 1h in-memory cache in
-//               race-schedule-server.ts is NOT cleared — next scheduled fetch picks up changes.
-// Key gotcha:  OpenF1 session_name values: "Practice 1"/"Practice 2"/"Practice 3"/
-//              "Sprint Qualifying"/"Sprint"/"Qualifying"/"Race"
+// Errors:      401 (bad/missing token), 500 (OpenF1/Firestore failure, or an upcoming OpenF1
+//              race meeting that maps to no race_schedule doc)
+// Idempotent:  YES — only fields that differ from OpenF1 are written
+// Side-effects: Updates race schedule timing in Firestore and clears this instance's 1h
+//               in-memory cache (other instances pick the change up within the hour).
+// Key gotcha:  /v1/sessions has NO meeting_name — meetings are matched to docs by race weekend
+//              (lib/session-sync.ts). OpenF1 answers 401 to anonymous calls while a session is
+//              live, and 05:00 UTC falls inside Asian practice sessions — so we authenticate.
 //              Sprint weekends: qualifyingTime = Sprint Qualifying (NOT main Qualifying)
 //              Called daily at 05:00 UTC by syncSessionTimes Cloud Function (functions/index.js).
 // ──────────────────────────────────────────────────────────────────
@@ -32,6 +34,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getCachedToken, setCachedToken } from '@/lib/pit-wall-cache';
+import { getSecret } from '@/lib/secrets-manager';
+import { clearScheduleCache } from '@/lib/race-schedule-server';
+import { planSessionSync, type OpenF1Session, type ScheduleDocTimes } from '@/lib/session-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,31 +57,55 @@ function isAuthorized(request: NextRequest): boolean {
     return timingSafeEqual(provided, expected);
 }
 
-// GUID: CRON_SYNC_SESSION_TIMES-002-v01
-// [Intent] TypeScript interface for the OpenF1 /v1/sessions response shape.
-//          Only the fields needed for schedule sync are declared.
-// [Inbound Trigger] Used when parsing JSON from OpenF1 API.
-// [Downstream Impact] Field name changes in OpenF1 API would require updating this interface.
-interface OpenF1Session {
-    session_key: number;
-    session_name: string;   // "Practice 1/2/3", "Sprint Qualifying", "Sprint", "Qualifying", "Race"
-    meeting_name: string;   // e.g. "Chinese Grand Prix"
-    location: string;       // e.g. "Shanghai"
-    date_start: string;     // ISO UTC e.g. "2026-03-13T07:00:00+00:00"
-    date_end: string;       // ISO UTC
-    year: number;
+// GUID: CRON_SYNC_SESSION_TIMES-002-v02
+// @BUGFIX (v3.25.4, BUG-SCHED-SYNC-001): OpenF1 refuses anonymous requests (401) while a session
+//   is live; the 05:00 UTC run landed inside FP1 and FP3 at Sepang and failed two days running.
+//   (v01 of this GUID was the OpenF1Session interface, now in lib/session-sync.ts.)
+// [Intent] Best-effort OpenF1 bearer token, sharing the pit-wall token cache and the same
+//          openf1-username/openf1-password secrets as every other OpenF1 caller.
+// [Inbound Trigger] Called once per POST before the sessions fetch.
+// [Downstream Impact] Returns null on any failure — the caller then tries anonymously, which
+//                     works outside live sessions; a 401 there still fails the run loudly.
+const OPENF1_TOKEN_URL = 'https://api.openf1.org/token';
+
+async function getOpenF1Token(): Promise<string | null> {
+    try {
+        const cached = getCachedToken();
+        if (cached && cached.expiresAt > Date.now()) return cached.token;
+
+        const username = await getSecret('openf1-username', { envVarName: 'OPENF1_USERNAME' });
+        const password = await getSecret('openf1-password', { envVarName: 'OPENF1_PASSWORD' });
+        const res = await fetch(OPENF1_TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ username, password, grant_type: 'password' }).toString(),
+            signal: AbortSignal.timeout(10_000),
+        });
+        if (!res.ok) {
+            console.error(`[cron/sync-session-times] OpenF1 token request returned ${res.status}`);
+            return null;
+        }
+        const data = await res.json();
+        if (!data?.access_token) return null;
+        const token = data.access_token as string;
+        setCachedToken({ token, expiresAt: Date.now() + ((data.expires_in ?? 300) - 60) * 1000 });
+        return token;
+    } catch (err: any) {
+        console.error('[cron/sync-session-times] OpenF1 token request failed:', err?.message ?? err);
+        return null;
+    }
 }
 
-// GUID: CRON_SYNC_SESSION_TIMES-003-v01
-// [Intent] POST handler — fetches this year's OpenF1 sessions, filters to next 30 days,
-//          matches each session to a race_schedule document by meeting_name, and batch-writes
-//          updated timing fields (qualifyingTime, sprintTime, raceTime, raceEndTime).
-//          Sprint weekends: qualifyingTime is set from "Sprint Qualifying", not "Qualifying".
-//          Normal weekends: qualifyingTime is set from "Qualifying".
+// GUID: CRON_SYNC_SESSION_TIMES-003-v02
+// @BUGFIX (v3.25.4, BUG-SCHED-SYNC-001): matching moved to planSessionSync (race weekend, not
+//   the non-existent meeting_name); the 30-day window is gone (every unfinished meeting is in
+//   scope); and an upcoming meeting that maps to no doc now FAILS the run instead of returning
+//   200 "updated: 0" — the silent no-op that hid a dead sync from 2026-03-13 to 2026-10-03.
+// [Intent] POST handler — fetches this year's OpenF1 sessions, plans the race_schedule updates,
+//          batch-writes the fields that differ (qualifyingTime, sprintTime, raceTime, raceEndTime).
 // [Inbound Trigger] HTTP POST to /api/cron/sync-session-times from Cloud Function.
 // [Downstream Impact] Updates race_schedule docs used by deadline enforcement + scoring cutoff.
-//   - Predictions submitted before the updated qualifyingTime are scored for that race.
-//   - Stale qualifying times (wrong by 30+ min) caused the Chinese GP pit lane incident (2026-03-13).
+//   A non-2xx here is written to error_logs (PX-3204) by the syncSessionTimes Cloud Function.
 export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!isAuthorized(request)) {
         return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -83,7 +113,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const year = new Date().getFullYear();
     const now = Date.now();
-    const windowEnd = now + 30 * 24 * 60 * 60 * 1000; // 30 days ahead
 
     try {
         // ── Step 1: Fetch OpenF1 sessions for this year ────────────────
@@ -91,9 +120,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         let sessions: OpenF1Session[];
 
         try {
-            const resp = await fetch(openF1Url, { signal: AbortSignal.timeout(30_000) });
+            const token = await getOpenF1Token();
+            const resp = await fetch(openF1Url, {
+                headers: token
+                    ? { Accept: 'application/json', Authorization: `Bearer ${token}` }
+                    : { Accept: 'application/json' },
+                signal: AbortSignal.timeout(30_000),
+            });
             if (!resp.ok) {
-                console.error(`[cron/sync-session-times] OpenF1 returned ${resp.status}`);
+                console.error(`[cron/sync-session-times] OpenF1 returned ${resp.status} (authenticated: ${!!token})`);
                 return NextResponse.json(
                     { success: false, error: `OpenF1 API error: ${resp.status}` },
                     { status: 500 }
@@ -109,18 +144,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
 
         if (!Array.isArray(sessions) || sessions.length === 0) {
-            return NextResponse.json({ success: true, updated: 0, message: 'No sessions returned by OpenF1' });
-        }
-
-        // Filter to sessions starting within the next 30 days (allow 1h in the past for in-progress sessions)
-        const upcoming = sessions.filter(s => {
-            if (!s.date_start) return false;
-            const t = new Date(s.date_start).getTime();
-            return t >= now - 60 * 60 * 1000 && t <= windowEnd;
-        });
-
-        if (upcoming.length === 0) {
-            return NextResponse.json({ success: true, updated: 0, message: 'No upcoming sessions in next 30 days' });
+            console.error('[cron/sync-session-times] OpenF1 returned no sessions');
+            return NextResponse.json(
+                { success: false, error: 'OpenF1 returned no sessions' },
+                { status: 500 }
+            );
         }
 
         // ── Step 2: Load race_schedule from Firestore ──────────────────
@@ -132,78 +160,59 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ success: false, error: 'race_schedule is empty' }, { status: 500 });
         }
 
-        // Build lookup: normalised race name → { ref, hasSprint }
-        const raceByName = new Map<string, { ref: FirebaseFirestore.DocumentReference; hasSprint: boolean }>();
-        scheduleSnap.forEach(doc => {
+        const docs: ScheduleDocTimes[] = scheduleSnap.docs.map(doc => {
             const d = doc.data();
-            if (d.name) {
-                raceByName.set(d.name.toLowerCase(), { ref: doc.ref, hasSprint: !!d.hasSprint });
-            }
+            return {
+                id: doc.id,
+                name: d.name,
+                raceTime: d.raceTime,
+                qualifyingTime: d.qualifyingTime,
+                sprintTime: d.sprintTime,
+                raceEndTime: d.raceEndTime,
+            };
         });
 
-        // ── Step 3: Match sessions to races and build updates ──────────
-        // Accumulate: raceName → field updates (last write per field wins)
-        const updateMap = new Map<string, { ref: FirebaseFirestore.DocumentReference; fields: Record<string, any> }>();
+        // ── Step 3: Plan and write ─────────────────────────────────────
+        const plan = planSessionSync(sessions, docs, now);
 
-        for (const session of upcoming) {
-            const meetingKey = session.meeting_name?.toLowerCase();
-            if (!meetingKey) continue;
-
-            const raceEntry = raceByName.get(meetingKey);
-            if (!raceEntry) continue; // No matching race in our schedule
-
-            const dateStart = new Date(session.date_start).toISOString();
-            const dateEnd = session.date_end ? new Date(session.date_end).toISOString() : undefined;
-
-            if (!updateMap.has(meetingKey)) {
-                updateMap.set(meetingKey, { ref: raceEntry.ref, fields: {} });
+        if (plan.updates.length > 0) {
+            const batch = db.batch();
+            for (const update of plan.updates) {
+                batch.update(db.collection('race_schedule').doc(update.id), {
+                    ...update.fields,
+                    updatedAt: FieldValue.serverTimestamp(),
+                });
             }
-            const entry = updateMap.get(meetingKey)!;
-
-            const sn = session.session_name;
-
-            if (sn === 'Sprint Qualifying') {
-                // Sprint weekends: Sprint Qualifying is the picks deadline
-                entry.fields.qualifyingTime = dateStart;
-            } else if (sn === 'Qualifying' && !raceEntry.hasSprint) {
-                // Normal weekends only: Qualifying is the picks deadline
-                entry.fields.qualifyingTime = dateStart;
-            } else if (sn === 'Sprint') {
-                entry.fields.sprintTime = dateStart;
-            } else if (sn === 'Race') {
-                entry.fields.raceTime = dateStart;
-                if (dateEnd) entry.fields.raceEndTime = dateEnd;
-            }
+            await batch.commit();
+            clearScheduleCache();
         }
 
-        // ── Step 4: Batch-write updates ────────────────────────────────
-        if (updateMap.size === 0) {
-            return NextResponse.json({ success: true, updated: 0, message: 'No matching races to update' });
-        }
-
-        const batch = db.batch();
-        let fieldCount = 0;
-
-        for (const { ref, fields } of updateMap.values()) {
-            if (Object.keys(fields).length === 0) continue;
-            fields.updatedAt = FieldValue.serverTimestamp();
-            batch.update(ref, fields);
-            fieldCount += Object.keys(fields).length;
-        }
-
-        await batch.commit();
-
-        const summary = Object.fromEntries(
-            Array.from(updateMap.entries())
-                .filter(([, v]) => Object.keys(v.fields).length > 0)
-                .map(([name, v]) => [name, Object.keys(v.fields)])
+        const summary = Object.fromEntries(plan.updates.map(u => [u.id, u.fields]));
+        console.log(
+            `[cron/sync-session-times] meetings=${plan.meetingsConsidered} matched=${plan.meetingsMatched} ` +
+            `updated=${plan.updates.length} unmatched=${plan.unmatched.length}`,
+            JSON.stringify({ summary, unmatched: plan.unmatched })
         );
 
-        console.log(`[cron/sync-session-times] Updated ${updateMap.size} races, ${fieldCount} fields`, summary);
+        // An upcoming race weekend we could not place is a failure, not a quiet zero: the matched
+        // updates above are kept, but the run reports 500 so it lands in error_logs.
+        if (plan.unmatched.length > 0) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: `${plan.unmatched.length} upcoming OpenF1 meeting(s) matched no race_schedule doc`,
+                    unmatched: plan.unmatched,
+                    updated: plan.updates.length,
+                    races: summary,
+                },
+                { status: 500 }
+            );
+        }
 
         return NextResponse.json({
             success: true,
-            updated: updateMap.size,
+            updated: plan.updates.length,
+            meetings: plan.meetingsConsidered,
             races: summary,
         });
 
