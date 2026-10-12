@@ -1,4 +1,5 @@
-// GUID: WHATSAPP_WORKER_INDEX-000-v03
+// GUID: WHATSAPP_WORKER_INDEX-000-v04
+// v04 (2.2.7, 2026-10-12, COST-CONTAINER-001): worker runs only inside race windows — see ../scale-schedule.js.
 import 'dotenv/config';
 import crypto from 'crypto';
 import express, { Request, Response } from 'express';
@@ -11,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 
 // Worker version — bump on every worker change; surfaced on /health for post-deploy verification
 // (the container has no About page). Keep in sync with whatsapp-worker/package.json.
-const WORKER_VERSION = '2.2.6';
+const WORKER_VERSION = '2.2.7';
 
 // Add JSON body parser for webhook
 app.use(express.json());

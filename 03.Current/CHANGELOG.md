@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.25.5 — 2026-10-12 (WhatsApp worker 2.2.7; no app code change, version bumped for GR#2)
+
+### COST-BLOB-001 finally shipped, COST-CONTAINER-001: the bot now runs only around race weekends
+
+The September Microsoft invoice (G189680716, GBP 108.44) was two thirds WhatsApp plumbing. The worker container was always on (GBP 27.81) and it rewrote all 659 session files to blob storage every five minutes (6.9 million writes, GBP 29.99). The write fix had been committed on 11 September as worker 2.2.5 but the container was never rebuilt, so production stayed on 2.2.4 and the write rate kept climbing to 295k a day.
+
+**What changed.** Worker 2.2.7 is deployed and `/health` proves it. The container now carries one KEDA cron scale rule per remaining race, generated from the calendar in `app/src/lib/data.ts` by `whatsapp-worker/scale-schedule.js`: it runs from 00:00 UTC three days before race day to 00:00 UTC two days after, and sits at zero replicas otherwise. Because the bot is off between races, a queued message older than 24 hours when the worker gets to it is marked FAILED as expired instead of being sent late in a burst. The deploy script builds in the cloud, no longer touches environment variables (the old one would have rotated the HMAC secret on any machine without the local secret file), applies the schedule with its own revision suffix and fails loudly if the schedule did not stick. A GBP 20 monthly budget with alerts at 50/80/100 percent and a forecast alert now sits on the Azure subscription.
+
+**Side effect, by design.** Between race windows the WhatsApp bot is unreachable: the admin health panel shows it down and hot-news posted mid-week waits (and expires) until the next window opens.
+
 ## v3.25.4 — 2026-10-03
 
 ### BUG-SCHED-SYNC-001: the pit lane closed an hour early for the Bahrain Grand Prix

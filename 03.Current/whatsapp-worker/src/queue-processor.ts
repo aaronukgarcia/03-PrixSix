@@ -1,4 +1,9 @@
-// GUID: QUEUE_PROCESSOR-000-v05
+// GUID: QUEUE_PROCESSOR-000-v06
+// @FEATURE (v06, 2026-10-12, COST-CONTAINER-001): staleness gate. The worker now runs ONLY inside a
+// race window (cron scale rules, see ../scale-schedule.js) and is at zero replicas between races, so
+// whatsapp_queue can accumulate days-old PENDING docs (daily 07:00 hot-news, ad-hoc alerts) that
+// would all be blasted into the group the moment the container wakes. Any PENDING doc older than
+// MAX_AGE_MS at processing time is marked FAILED with error 'EXPIRED ...' and never sent.
 // @BUG_FIX (v04, cold-start false-SENT — 2026-06-20): before sending, await whatsapp.waitForStable()
 // so a message is only relayed once the socket has settled (continuously open >=15s + a successful
 // query). Without this, a message relayed on a just-opened socket resolves locally (marked SENT) but
@@ -36,6 +41,8 @@ export class QueueProcessor {
   private readonly MIN_DELAY_MS = 5000; // 5 seconds between messages
   private readonly MAX_DELAY_MS = 10000; // 10 seconds max delay
   private readonly MAX_RETRIES = 3;
+  // v06: a queued message older than this when the worker gets to it is stale and is NOT sent.
+  private readonly MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
   // Trace-suffix (v05): every message ends with "Bill#<n>". Counter seeded so the first is Bill#98765.
   private readonly MESSAGE_TAG = 'Bill';
@@ -103,6 +110,27 @@ export class QueueProcessor {
 
     this.isProcessing = true;
     const docRef = this.db.collection('whatsapp_queue').doc(message.id);
+
+    // v06 staleness gate — see header. createdAt missing/unparseable counts as fresh (fail open on
+    // the gate, never on the send) so a hand-made doc without a timestamp still goes out.
+    const createdMs = message.createdAt && typeof (message.createdAt as any).toMillis === 'function'
+      ? (message.createdAt as Timestamp).toMillis()
+      : null;
+    if (createdMs !== null && Date.now() - createdMs > this.MAX_AGE_MS) {
+      const ageH = Math.round((Date.now() - createdMs) / 3600000);
+      try {
+        await docRef.update({
+          status: 'FAILED',
+          error: `EXPIRED: queued ${ageH}h ago, older than ${this.MAX_AGE_MS / 3600000}h limit (worker dormant between race windows) — not sent`,
+          processedAt: Timestamp.now(),
+        });
+        console.warn(`⌛ Message ${message.id} expired (${ageH}h old) — marked FAILED, not sent`);
+      } catch (updErr) {
+        console.error(`❌ Failed to mark ${message.id} expired:`, updErr instanceof Error ? updErr.message : updErr);
+      }
+      this.isProcessing = false;
+      return;
+    }
 
     try {
       // Mark as processing
