@@ -60,7 +60,11 @@ Monthly outlook before VAT:
 
 November lands at the GBP 20 budget even with Front Door gone. The GBP 3.34 of Metropolis and the GBP 3.68 registry fee are the levers if that matters: a Basic registry is a flat fee, and both registries could share one.
 
-## 3. garcia.ltd (and jonnyclifton.uk) move to Cloudflare free — careful plan
+## 3. garcia.ltd (and jonnyclifton.uk) move to Cloudflare free — DONE 2026-10-13 00:xx UTC
+
+**What actually happened (differs from the plan below, which is kept for the record).** Both zones were already on Cloudflare DNS (nameservers etienne/autumn.ns.cloudflare.com) and the Azure DNS zone no longer existed, so no nameserver, registrar or mail-record work was needed. The two static sites were deployed as Cloudflare Workers with static assets (wrangler 4.149 folds Pages into Workers): `garcia-papers` (6 files) on custom domain www.garcia.ltd, and `jonnyclifton` (171 files, 404.html handling) on jonnyclifton.uk + www.jonnyclifton.uk with workers.dev and preview URLs disabled so the existing Cloudflare Access policy stays the only entrance. The three Front Door CNAMEs were deleted in the dashboard, the custom domains attached, both sites verified over HTTPS (papers byte-identical; Jonny Clifton confirmed by Aaron after Access login), then Front Door profile `garcia-cdn` was deleted. Wrangler project folders: `temp/cf-move/garcia-papers` and `temp/cf-move/jonnyclifton-site` (wrangler.jsonc + public/). Redeploy = `wrangler deploy` in that folder. Leftovers that are harmless and can be tidied later: `cdnverify.garcia.ltd` CNAME and the four `_dnsauth` TXT records (Front Door validation), the garcia.ltd apex A record 20.150.40.97, and the two Azure storage `$web` containers (now unused; the storage account still serves the WhatsApp session blobs so it stays).
+
+### Original plan (superseded)
 
 Goal: delete Front Door Standard (GBP 24.94/month). Both custom domains it serves must move, or the fee stays.
 
@@ -116,8 +120,42 @@ Each check has a date, a method and a pass condition. Record results in this tab
 | Q9 | within 48 h of any threshold | Budget alerts work | inbox for "Budget monthly-cap-gbp20" | email received at 50 % (expected mid-October because the first 12 days were old-rate) | pending |
 | Q10 | 2026-11-09 (October invoice) | October bill | Cost Management by service | Container Apps under GBP 20; Storage write ops under GBP 15 (both carry 12 old-rate days) | pending |
 | Q11 | 2026-12-09 (November invoice) | November bill | invoice total before VAT | under GBP 46 with Front Door, under GBP 21 without | pending |
-| Q12 | after section 3 step 7 | Email still works after DNS move | SPF and DKIM pass headers | pass | pending |
-| Q13 | after section 3 step 9 | Front Door gone | Cost Management, service Azure Front Door Service | 0 for the month after deletion | pending |
+| Q12 | after section 3 | Email still works after DNS move | mail records were never touched (zones already on Cloudflare) | n/a | PASS by construction |
+| Q13 | 2026-10-13 00:20Z | Front Door gone | `garcia-cdn` deleted via ARM; both sites serve from Cloudflare (CF-RAY header, no x-azure-ref) | profile absent; Nov invoice shows no Front Door line | PASS (deletion) / Nov invoice pending |
 | Q14 | each check above | error_logs noise from worker health probes while off | error_logs where route `/api/admin/whatsapp/health` | only when an admin opened the panel; no cron-driven noise | pending |
 
 Review cadence: Bill updates the Result column at Q3, Q5, Q8 and after each invoice. Anything that fails goes to the Book of Work as a P1 the same day.
+
+## 5. Cold review 2026-10-13 00:50 UTC — Microsoft forecast after the changes, and Cloudflare liabilities
+
+### Microsoft (Azure PAYG 8e1afaa3…), GBP before VAT
+
+| Line | September actual | Now |
+|---|---|---|
+| Container App prixsix-whatsapp | 27.81 always-on | 4.70 per race window, 0 between |
+| Blob write operations | 29.99 | ~0.01 per window |
+| Front Door garcia-cdn | 24.94 | 0 — profile deleted 2026-10-13 |
+| DNS zone garcia.ltd | 0.21 | 0 — zone no longer exists |
+| prixsixacr registry (Basic) | 3.68 | 3.68 fixed |
+| Metropolis (metropolisacr + container app) | 3.34 | 3.34 fixed, not Prix Six |
+| **Fixed floor per month** | | **7.02** |
+
+| Month | Windows | Forecast pre-VAT | inc. VAT | vs GBP 20 budget |
+|---|---|---|---|---|
+| October 2026 | 12 days at old rates (~36) + Austin + 3 days of Mexico (~7.5) + fixed 7 | ~50 | ~60 | over — expect the 100 % alert; carries the old-rate days |
+| November | Brazil, Las Vegas, Qatar | 21.1 | 25.3 | just over; budget measures pre-tax |
+| December | Abu Dhabi | 11.7 | 14.0 | under |
+| January to February 2027 | none | 7.0 | 8.4 | under |
+
+Levers if November must be under 20: merge the two registries into one (saves 3.68), or shorten the race window to 2 days before (saves ~0.93 per race).
+
+### Cloudflare (account Aaron.garcia.uk@gmail.com, card ending 2009 on file)
+
+| Item | Plan | Metered overage possible? |
+|---|---|---|
+| Zones garcia.ltd, jonnyclifton.uk, prix6.win | Free | No. Free zones have no usage billing. |
+| Workers (garcia-papers, jonnyclifton, and anything on prix6.win) | Workers Free | No. Hard limit 100,000 requests/day and 10 ms CPU; over the limit requests fail with an error, nothing is charged. Moving to Workers Paid (USD 5/month + usage) is a manual click only. |
+| Zero Trust (the Access login on jonnyclifton.uk) | Teams Free Base, renews 19 Oct 2026 at USD 0 | No. Free up to 50 users; more requires a manual plan change. |
+| Domain registrations (Cloudflare, wholesale pricing) | garcia.ltd expires 30 Oct 2027; jonnyclifton.uk 19 Sep 2027; prix6.win 22 Jan 2031 | Yes, by design: renewals charge the card. Last charges: USD 24.20 (18 Sep 2026, garcia.ltd transfer), USD 5.30 (19 Sep 2026, jonnyclifton.uk), USD 20.90 (22 Jan 2026, prix6.win). Roughly USD 30 a year from 2027. |
+
+**Is it capped?** Cloudflare has no spending-cap setting, but on this account nothing can bill by usage: every plan is Free and the free tiers fail closed rather than charge. The only liability is domain renewals, about USD 30 a year, which you want to keep. The only way to incur more is a deliberate plan change in the dashboard, which the cost-gate rule forbids any agent from doing. Removing the card would stop renewals too, so it stays.
