@@ -111,8 +111,8 @@ Each check has a date, a method and a pass condition. Record results in this tab
 |---|---|---|---|---|---|
 | Q1 | 2026-10-12 22:25Z | Worker version live | GET `/health` | `version` 2.2.7, `connected` true | PASS |
 | Q2 | 2026-10-12 22:30Z | Blob write storm gone | Storage metric Transactions, ApiName PutBlob, 1-min grain | 0 per minute in steady state | PASS (0 from 22:24Z) |
-| Q3 | 2026-10-13 00:05Z | Scale to zero after Singapore window | Revision `v227-sched` replicas; `/health` | replicas 0; health unreachable | pending |
-| Q4 | 2026-10-13 and 14 | No blob writes while off | Same metric, daily | PutBlob 0 for the day | pending |
+| Q3 | 2026-10-13 00:05Z | Scale to zero after Singapore window | Revision `v227-sched` replicas; `/health` | replicas 0; health unreachable | PASS 2026-10-14 (Bill): replicas 0 from 2026-10-13 06:00Z; /health times out |
+| Q4 | 2026-10-13 and 14 | No blob writes while off | Same metric, daily | PutBlob 0 for the day | PASS 2026-10-14 (Bill): 13 Oct 0, 14 Oct 0 (12 Oct 270,438; 6-11 Oct ~286k/day). 13 Oct 00-06Z still had a replica and wrote nothing, so the sync fix holds on its own |
 | Q5 | 2026-10-22 00:05Z | Wake for Austin | replicas 1; `/health` connected; log shows "Restored N auth files" | connected within 2 min, no QR needed | pending |
 | Q6 | 2026-10-22 | End-to-end send after wake | Admin WhatsAppManager manual send to prix6-test (testMode on) | message arrives with Bill#n suffix | pending |
 | Q7 | 2026-10-22 | Stale backlog expired, not sent | whatsapp_queue docs created before 2026-10-21 00:00Z | status FAILED, error starts "EXPIRED" | pending |
@@ -122,7 +122,7 @@ Each check has a date, a method and a pass condition. Record results in this tab
 | Q11 | 2026-12-09 (November invoice) | November bill | invoice total before VAT | under GBP 46 with Front Door, under GBP 21 without | pending |
 | Q12 | after section 3 | Email still works after DNS move | mail records were never touched (zones already on Cloudflare) | n/a | PASS by construction |
 | Q13 | 2026-10-13 00:20Z | Front Door gone | `garcia-cdn` deleted via ARM; both sites serve from Cloudflare (CF-RAY header, no x-azure-ref) | profile absent; Nov invoice shows no Front Door line | PASS (deletion) / Nov invoice pending |
-| Q14 | each check above | error_logs noise from worker health probes while off | error_logs where route `/api/admin/whatsapp/health` | only when an admin opened the panel; no cron-driven noise | pending |
+| Q14 | each check above | error_logs noise from worker health probes while off | error_logs where route `/api/admin/whatsapp/health` | only when an admin opened the panel; no cron-driven noise | OPEN 2026-10-14: a /health probe from a Claude session at ~16:30Z woke a replica (ingress HTTP scaling). Probes are now cost-gated (cost_gate.py, GGR16v02). InterfaceHealthMonitor auto-polls the worker while the admin page is open — BOW COST-PROBE-001 |
 
 Review cadence: Bill updates the Result column at Q3, Q5, Q8 and after each invoice. Anything that fails goes to the Book of Work as a P1 the same day.
 
