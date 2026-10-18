@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.25.6 — 2026-10-14
+
+### COST-PROBE-001: the admin health panel no longer wakes the WhatsApp worker between races
+
+Azure Container Apps ingress scales from zero on any HTTP request. The admin Interface Health panel probed the worker on load and every 30 seconds while open, so mid-week it cold-started a billed replica and kept it running — undoing part of the v3.25.5 saving. `/api/admin/whatsapp/health` now checks the race window first (new `lib/worker-window.ts`, derived from the calendar in `data.ts` with the same three-days-before / two-days-after rule as the container's KEDA cron schedule) and, outside a window, answers `state: 'scheduled_off'` without contacting the worker. The panel shows a grey "Scheduled off" badge for that state instead of amber or red. Inside a window nothing changes.
+
 ## v3.25.5 — 2026-10-12 (WhatsApp worker 2.2.7; no app code change, version bumped for GR#2)
 
 ### COST-BLOB-001 finally shipped, COST-CONTAINER-001: the bot now runs only around race weekends

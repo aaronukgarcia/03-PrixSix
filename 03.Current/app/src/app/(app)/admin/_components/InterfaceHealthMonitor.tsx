@@ -33,7 +33,8 @@ import {
 import { useAuth } from '@/firebase';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-type HealthStatus = 'healthy' | 'degraded' | 'down' | 'checking';
+// 'off' = scheduled off by design (COST-PROBE-001: the WhatsApp worker outside a race window) — grey, not an alert.
+type HealthStatus = 'healthy' | 'degraded' | 'down' | 'checking' | 'off';
 
 interface InterfaceHealth {
     name: string;
@@ -196,7 +197,9 @@ export function InterfaceHealthMonitor() {
         }
     };
 
-    // GUID: ADMIN_INTERFACE_HEALTH-003-v02
+    // GUID: ADMIN_INTERFACE_HEALTH-003-v03
+    // @COST COST-PROBE-001 (v03): state:'scheduled_off' from the route (outside a race window, worker
+    //   deliberately not probed) renders as the grey 'off' status, not degraded/down.
     // [Intent] Check WhatsApp worker interface health by calling the health endpoint.
     // [Inbound Trigger] Manual refresh button or auto-refresh timer.
     // [Downstream Impact] Updates whatsappHealth state with status, response time, and errors.
@@ -218,15 +221,18 @@ export function InterfaceHealthMonitor() {
                 const json = await res.json();
                 // @COLD_START (v3.1.19): healthy:null / state:'sleeping' means the scale-to-zero worker
                 //   is asleep (not an outage) — render amber 'degraded' with a clear, non-alarming note.
-                const isSleeping = json.healthy === null || json.state === 'sleeping';
+                const isScheduledOff = json.state === 'scheduled_off';
+                const isSleeping = !isScheduledOff && (json.healthy === null || json.state === 'sleeping');
                 setWhatsappHealth({
                     name: 'WhatsApp Worker',
-                    status: json.healthy === true ? 'healthy' : 'degraded',
+                    status: json.healthy === true ? 'healthy' : (isScheduledOff ? 'off' : 'degraded'),
                     lastChecked: new Date(),
                     responseTime,
                     error: json.healthy === true
                         ? null
-                        : (isSleeping ? 'Worker asleep (scale-to-zero) — wakes on first message' : (json.error || 'Service degraded')),
+                        : isScheduledOff
+                            ? (json.error || 'Worker scheduled off outside race windows — not probed')
+                            : (isSleeping ? 'Worker asleep (scale-to-zero) — wakes on first message' : (json.error || 'Service degraded')),
                     details: {
                         authenticated: true,
                         endpoint: '/api/admin/whatsapp/health',
@@ -548,6 +554,13 @@ export function InterfaceHealthMonitor() {
                         Checking...
                     </Badge>
                 );
+            case 'off':
+                return (
+                    <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Scheduled off
+                    </Badge>
+                );
         }
     };
 
@@ -561,6 +574,8 @@ export function InterfaceHealthMonitor() {
             case 'down':
             case 'checking':
                 return <WifiOff className="h-5 w-5 text-red-600" />;
+            case 'off':
+                return <Clock className="h-5 w-5 text-muted-foreground" />;
         }
     };
 
@@ -592,6 +607,7 @@ export function InterfaceHealthMonitor() {
                         {health.status === 'degraded' && 'Service degraded'}
                         {health.status === 'down' && 'Service unavailable'}
                         {health.status === 'checking' && 'Checking status...'}
+                        {health.status === 'off' && 'Scheduled off (outside race window)'}
                     </span>
                 </div>
 

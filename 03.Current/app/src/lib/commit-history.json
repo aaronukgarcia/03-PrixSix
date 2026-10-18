@@ -1,6 +1,54 @@
 {
-  "lastUpdated": "2026-10-03",
+  "lastUpdated": "2026-10-18",
   "commits": [
+    {
+      "id": "772ebd8",
+      "date": "2026-10-14",
+      "version": "3.25.6",
+      "author": "aaron garcia",
+      "message": "fix: COST-PROBE-001 — admin health panel no longer wakes the WhatsApp worker outside race windows (v3.25.6)",
+      "major": false
+    },
+    {
+      "id": "a4915dd",
+      "date": "2026-10-14",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "docs: Azure cost fix verified (Q3/Q4 PASS) and GGR16v02 — a probe of a scale-to-zero service is a cost-bearing action",
+      "major": false
+    },
+    {
+      "id": "2f5463f",
+      "date": "2026-10-13",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "docs: garcia.ltd and jonnyclifton.uk moved to Cloudflare Workers, Front Door deleted; Azure forecast cold review and Cloudflare liability review (docs-only, no version bump)",
+      "major": false
+    },
+    {
+      "id": "0fce9a2",
+      "date": "2026-10-12",
+      "version": "3.25.5, worker 2.2.7",
+      "author": "aaron garcia",
+      "message": "fix: COST-CONTAINER-001 — WhatsApp worker runs only inside race windows; COST-BLOB-001 fix finally deployed (v3.25.5, worker 2.2.7)",
+      "major": false
+    },
+    {
+      "id": "0372c99",
+      "date": "2026-10-03",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "docs: CLAUDE.md paths and branch strategy match reality, GGR.md re-rendered from the forge registry",
+      "major": false
+    },
+    {
+      "id": "573b65e",
+      "date": "2026-10-03",
+      "version": "3.25.4",
+      "author": "aaron garcia",
+      "message": "fix: BUG-SCHED-SYNC-001 — session-time sync never wrote; pit lane closed 1h early for Bahrain GP at Sepang (v3.25.4)",
+      "major": false
+    },
     {
       "id": "c28ee15",
       "date": "2026-09-19",

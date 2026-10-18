@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-08-23",
-  "total_guids": 2280,
+  "total_guids": 2283,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -26311,6 +26311,70 @@
       "designNote": "DESIGN NOTE (GEMINI-AUDIT-131, 2026-02-24): The -GP suffix asymmetry between storage (generateRaceId appends -GP) and lookup (normalizeRaceId strips -GP) is INTENTIONAL and CORRECT. Both sides of the scoring comparison pass through normalizeRaceId, so both arrive at the same stripped key. Changing normalizeRaceId to preserve -GP would break Sprint carry-forward scoring (calculate-scores lines 251-259 derive the GP base key by stripping -Sprint; GP predictions must be keyed without -GP for this to work). Gemini-AUDIT-131 flagged this as a critical bug — it is a false alarm. Do not apply Gemini proposed fix."
     },
     {
+      "guid": "LIB_WORKER_WINDOW-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Module-level GUID for lib/worker-window.ts (COST-PROBE-001, 2026-10-14). Answers whether the scale-to-zero WhatsApp worker (Azure Container App) is scheduled ON right now, so callers skip the probe instead of waking it. Window rule = 00:00Z three days before race day to 00:00Z two days after, derived from RaceSchedule in data.ts — MUST stay in lock-step with whatsapp-worker/scale-schedule.js (the KEDA cron rules on the container app). Verified 2026-10-14 against the deployed rules: US 10-22..10-27, Mexico 10-29..11-03, Brazil 11-05..11-10, Las Vegas 11-19..11-24, Qatar 11-26..12-01, Abu Dhabi 12-03..12-08.",
+      "dependencies": [
+        "LIB_DATA-000"
+      ],
+      "location": {
+        "filePath": "app/src/lib/worker-window.ts"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_WHATSAPP_HEALTH-001"
+        ],
+        "calls": []
+      },
+      "created": "2026-10-14T18:00:00Z",
+      "lastUpdated": "2026-10-14T18:00:00Z"
+    },
+    {
+      "guid": "LIB_WORKER_WINDOW-001",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "buildWorkerWindows(daysBefore=3, daysAfter=2): pure; one {name,start,end} per race from RaceSchedule, sorted by start; unparseable raceTime rows are skipped (never throw inside a health route).",
+      "dependencies": [
+        "LIB_DATA-000"
+      ],
+      "location": {
+        "filePath": "app/src/lib/worker-window.ts",
+        "functionName": "buildWorkerWindows"
+      },
+      "callChain": {
+        "calledBy": [
+          "LIB_WORKER_WINDOW-002"
+        ],
+        "calls": []
+      },
+      "created": "2026-10-14T18:00:00Z",
+      "lastUpdated": "2026-10-14T18:00:00Z"
+    },
+    {
+      "guid": "LIB_WORKER_WINDOW-002",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "getWorkerWindow(now=new Date()): {inWindow, current, next}. inWindow:false means 'do not contact the worker' — callers must render it as scheduled-off, not as an outage.",
+      "dependencies": [
+        "LIB_WORKER_WINDOW-001"
+      ],
+      "location": {
+        "filePath": "app/src/lib/worker-window.ts",
+        "functionName": "getWorkerWindow"
+      },
+      "callChain": {
+        "calledBy": [
+          "API_ADMIN_WHATSAPP_HEALTH-001"
+        ],
+        "calls": [
+          "LIB_WORKER_WINDOW-001"
+        ]
+      },
+      "created": "2026-10-14T18:00:00Z",
+      "lastUpdated": "2026-10-14T18:00:00Z"
+    },
+    {
       "guid": "LIB_PLACEHOLDER_IMAGES-000",
       "version": 3,
       "logic_category": "ORCHESTRATION",
@@ -37310,11 +37374,12 @@
     },
     {
       "guid": "API_ADMIN_WHATSAPP_HEALTH-000",
-      "version": 2,
+      "version": 4,
       "logic_category": "SECURITY",
-      "description": "Module-level GUID for the admin WhatsApp health-check route. Admin-only GET endpoint checking connectivity to the WhatsApp worker container. v02 added isAdmin Firestore check to prevent non-admin users from probing the internal worker URL.",
+      "description": "Module-level GUID for the admin WhatsApp health-check route. Admin-only GET endpoint checking connectivity to the WhatsApp worker container. v02 added isAdmin Firestore check to prevent non-admin users from probing the internal worker URL. v04 (COST-PROBE-001, 2026-10-14): outside a race window the route answers state:'scheduled_off' without contacting the worker — Container Apps ingress scales from zero on any request, so the panel's 30s probe was cold-starting a billed replica mid-week.",
       "dependencies": [
-        "LIB_FIREBASE_ADMIN-000"
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_WORKER_WINDOW-000"
       ],
       "location": {
         "filePath": "app/src/app/api/admin/whatsapp/health/route.ts"
@@ -37324,15 +37389,16 @@
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
-      "lastUpdated": "2026-02-24T00:00:00Z"
+      "lastUpdated": "2026-10-14T18:00:00Z"
     },
     {
       "guid": "API_ADMIN_WHATSAPP_HEALTH-001",
-      "version": 4,
+      "version": 5,
       "logic_category": "ORCHESTRATION",
-      "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates WHATSAPP_WORKER_URL env var, fetches /health on worker with 5s timeout, returns JSON with healthy flag, response time, and status code. v02 added isAdmin Firestore check. LESSON: this hits the worker /health which is PUBLIC — green here does not prove the app secret is right; check /status.",
+      "description": "GET handler — verifies Firebase Auth token, checks isAdmin in Firestore, validates WHATSAPP_WORKER_URL env var, fetches /health on worker with 5s timeout, returns JSON with healthy flag, response time, and status code. v02 added isAdmin Firestore check. LESSON: this hits the worker /health which is PUBLIC — green here does not prove the app secret is right; check /status. v05: calls getWorkerWindow() before the fetch; inWindow:false returns healthy:null/state:'scheduled_off' with nextWindow, no fetch, no error_logs write.",
       "dependencies": [
-        "LIB_FIREBASE_ADMIN-000"
+        "LIB_FIREBASE_ADMIN-000",
+        "LIB_WORKER_WINDOW-002"
       ],
       "location": {
         "filePath": "app/src/app/api/admin/whatsapp/health/route.ts",
@@ -37343,7 +37409,7 @@
         "calls": []
       },
       "created": "2026-02-24T00:00:00Z",
-      "lastUpdated": "2026-06-12T06:30:00Z"
+      "lastUpdated": "2026-10-14T18:00:00Z"
     },
     {
       "guid": "API_ADMIN_OPENF1_DRIVERS-000",
@@ -39172,9 +39238,9 @@
     },
     {
       "guid": "ADMIN_INTERFACE_HEALTH-003",
-      "version": 2,
+      "version": 3,
       "logic_category": "CONFIGURATION",
-      "description": "Check WhatsApp worker interface health by calling the health endpoint.",
+      "description": "Check WhatsApp worker interface health by calling the health endpoint. v03 (COST-PROBE-001): state:'scheduled_off' renders as the grey 'off' HealthStatus (Clock badge 'Scheduled off'), not degraded/down.",
       "dependencies": [],
       "location": {
         "filePath": "app/src/app/(app)/admin/_components/InterfaceHealthMonitor.tsx",
@@ -39185,7 +39251,7 @@
         "calls": []
       },
       "created": "2026-03-03T19:10:12.267Z",
-      "lastUpdated": "2026-06-12T03:00:00Z"
+      "lastUpdated": "2026-10-14T18:00:00Z"
     },
     {
       "guid": "ADMIN_INTERFACE_HEALTH-004",

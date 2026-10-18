@@ -1,4 +1,9 @@
-// GUID: API_ADMIN_WHATSAPP_HEALTH-000-v03
+// GUID: API_ADMIN_WHATSAPP_HEALTH-000-v04
+// @COST COST-PROBE-001 (v04, Aaron 2026-10-14): outside a race window (see lib/worker-window.ts,
+//   lock-step with whatsapp-worker/scale-schedule.js) the route returns state:'scheduled_off'
+//   WITHOUT contacting the worker. Container Apps ingress scales from zero on any request, so the
+//   panel's 30-second probe was cold-starting a billed replica mid-week (Azure Replicas metric,
+//   2026-10-14). Scheduled-off is by design and does NOT log.
 // @BUGFIX HEALTH-ERRORS-001 (v03): every UNHEALTHY probe result (healthy:false — URL not
 //   configured, worker HTTP error, worker unreachable) now writes a registry-shaped error_logs
 //   entry via logError, awaited before the response. The amber "sleeping" cold-start state
@@ -14,10 +19,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthToken, generateCorrelationId, getFirebaseAdmin, logError } from '@/lib/firebase-admin';
 import { ERRORS } from '@/lib/error-registry';
+import { getWorkerWindow } from '@/lib/worker-window';
 
 export const dynamic = 'force-dynamic';
 
-// GUID: API_ADMIN_WHATSAPP_HEALTH-001-v04
+// GUID: API_ADMIN_WHATSAPP_HEALTH-001-v05
+// @COST COST-PROBE-001 (v05): race-window gate before the worker fetch — see file header.
 // @SECURITY_FIX: Added isAdmin Firestore check after token verification (GEMINI-AUDIT-124).
 //   Previously any authenticated user could probe the internal WhatsApp worker URL.
 // [Intent] GET handler that checks WhatsApp worker connectivity by fetching the /health endpoint.
@@ -71,6 +78,26 @@ export async function GET(request: NextRequest) {
                     workerUrl: null,
                 },
                 correlationId,
+            });
+        }
+
+        // COST-PROBE-001: do not wake a scale-to-zero worker that is scheduled off. Derived from
+        // the race calendar, same rule as the KEDA cron schedule on the container app.
+        const window = getWorkerWindow();
+        if (!window.inWindow) {
+            const next = window.next;
+            return NextResponse.json({
+                healthy: null,
+                state: 'scheduled_off',
+                error: next
+                    ? `Worker scheduled off until ${next.start.toISOString().slice(0, 10)} 00:00Z (${next.name}) — not probed`
+                    : 'Worker scheduled off — no further race windows this season — not probed',
+                details: {
+                    configured: true,
+                    workerUrl,
+                    probed: false,
+                    nextWindow: next ? { name: next.name, start: next.start.toISOString(), end: next.end.toISOString() } : null,
+                },
             });
         }
 
