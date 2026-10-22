@@ -4,6 +4,27 @@
 > **Current production version:** Check `package.json` and verify at https://prix6.win/about
 > **Read this entire file at the start of every session.**
 
+## Global Golden Rules
+
+<!-- forge:tier1 -->
+## Invariants (tier 1, gated; the full text is docs/forge/KIT-INVARIANTS.md)
+I1  No money is spent without a token Aaron minted for that pattern (gate.py cost set, fail-closed).
+I2  No secret is committed, pushed or left loose (pre-push gitleaks; .gitleaksignore change needs a token; roots swept nightly).
+I3  No file is created outside a project boundary; scratch goes to %TEMP% (boundary.js).
+I4  Nothing outside the project temp or E:\SAFE\drill is deleted without a token, the SAFE quarantine included (gate.py destructive set, fail-closed).
+I5  No AI attribution reaches git: no Co-Authored-By Claude, no "Generated with Claude Code", no Claude-Session trailer (commit-msg).
+I6  Every backup stream has a passed restore drill inside its window (safe-drill.js).
+I7  The nightly ran and every archive is proven, or ALERT.md exists (safe-backup.js, safe-status).
+I8  A hook never blocks a call because it crashed, except the money, secret and deletion gates, which fail closed with a logged disable variable.
+I9  This window is <identity> and writes only to its own database (launcher, claude-db.js).
+I10 This project runs the current required kit and the kit's files do not change without a trace (forge drift, kit hash).
+I11 Nothing executes from a cloud-synced folder (safe-status path check).
+I12 Every change to the kit, the rules or the registry carries its project, session and identity (forge event, CHECK constraints).
+Practices (tier 2, per profile) and lessons (tier 3): `GGR.md` (generated, never hand-edited; labels `GGR<no>v<version>`); lessons by topic: `node vestige-pointer.js find <topic>`.
+GGR58 (practice, every project that dispatches agents): Every agent dispatch names its model by role (Haiku/Sonnet clerical, Sonnet developer, Opus hostile review/second bounce) and a BUDGET line; the dispatch guard refuses an inherited model.
+<!-- /forge:tier1 -->
+
+
 ---
 
 ## 🚀 HOW TO START A SESSION (do this before anything else)
@@ -99,7 +120,7 @@ multi-agent setup. (`$env:CLAUDE_SESSION_ID` is only for plain terminals outside
 
 **Step 4:** Announce yourself with your assigned name:
 ```
-bob> Good morning, I'm Bob on branch main. No conflicts detected.
+Prix6-Bill> Good morning, I'm Prix6-Bill on branch main. No conflicts detected.
 ```
 or
 ```
@@ -117,7 +138,7 @@ bill> Good morning, I'm Bill on branch feature/xyz. No conflicts detected.
 | If you are | Your prefix | Example |
 |------------|-------------|---------|
 | First instance (Bill) | `bill> ` | `bill> I've updated the file...``` |
-| Second instance (Bob) | `bob> ` | `bob> The build completed...``` |
+| Second instance (Bob) | `Prix6-Bob> ` | `Prix6-Bob> The build completed...``` |
 | Third instance (Ben) | `ben> ` | `ben> I've reviewed the backup system...``` |
 
 Every 5 responses, mentally verify you are still using your prefix. If you drop it: add it immediately and apologise.
@@ -156,7 +177,7 @@ node claude-sync.js checkout --session $env:CLAUDE_SESSION_ID
 
 Then respond with a graceful sign-off:
 ```
-bob> Goodnight! Bob checked out. Session ended.
+Prix6-Bill> Goodnight! Prix6-Bill checked out. Session ended.
 ```
 
 ### During the Session
@@ -446,7 +467,7 @@ firebase apphosting:secrets:grantaccess SECRET_NAME --backend prixsix
 7. ✅ Run `node claude-sync.js write "summary"` to log your work
 8. ✅ **GOLDEN RULE #1:** Verify all error handling — no unhandled exceptions
 9. ✅ **GOLDEN RULE #3:** Verify no data duplication without CC sync validation
-10. ✅ **GOLDEN RULE #4:** Prefix your commit confirmation with bob> or bill>
+10. ✅ **GOLDEN RULE #4:** Prefix your commit confirmation with the launcher identity (e.g. Prix6-Bill>)
 11. ✅ **GOLDEN RULE #5:** Use verbose confirmation
 12. ✅ **GOLDEN RULE #6:** GUID comments updated on all changed/new code, `code.json` in sync
 13. ✅ **GOLDEN RULE #7:** Errors use `ERRORS.KEY` from error-registry.ts
