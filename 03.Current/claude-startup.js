@@ -89,7 +89,7 @@ function emitSuccess(name) {
   console.log(`HOOKS: ACTIVE.`);
   console.log(``);
   console.log(`MANDATORY STARTUP SEQUENCE — DO ALL OF THESE BEFORE YOUR FIRST RESPONSE:`);
-  console.log(`1. Use the mcp__vestige__recall tool NOW with query "who am I, identity, session startup" to load memory.`);
+  console.log(`1. Call mcp__vestige__session_start NOW to load memory. Vestige 4 (Strata) has NO free-text recall: for a topic, run node vestige-pointer.js find "<topic>" --scope prix6, then mcp__vestige__recall { handle: "<id it prints>" }.`);
   console.log(`2. Read CLAUDE.md for full Golden Rules.`);
   console.log(`3. Run 'node claude-sync.js read' to check coordination state.`);
   console.log(`4. Your first response to the user must confirm: identity, hooks status, Vestige status, and current version.`);
@@ -182,7 +182,7 @@ function runCompactResume() {
   console.log(`1. Re-read CLAUDE.md in full — the Golden Rules did not survive the summary.`);
   console.log(`2. Run 'node claude-sync.js read' to check NO-TOUCH ZONES and other agents.`);
   console.log(`3. Run 'git status' — confirm branch and uncommitted work before touching files.`);
-  console.log(`4. Use mcp__vestige__recall for the task you were mid-way through if the summary is thin.`);
+  console.log(`4. If the summary is thin: node vestige-pointer.js find "<task>" --scope prix6, then mcp__vestige__recall { handle } (no free-text recall in Vestige 4).`);
   console.log(`5. Tell the user you are caught up, with identity and version (app/package.json).`);
   console.log(`Do NOT run a fresh checkin — you already hold ${name}. Do NOT change prefix.`);
   return true;
