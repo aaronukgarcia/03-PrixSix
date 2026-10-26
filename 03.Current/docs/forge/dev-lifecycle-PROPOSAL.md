@@ -1,4 +1,4 @@
-# Dev lifecycle with separated agent roles — proposal v0.3 (Aaron, 2026-09-24; v0.3 2026-10-18)
+# Dev lifecycle with separated agent roles — proposal v0.4 (Aaron, 2026-09-24; v0.3 2026-10-18; v0.4 2026-10-22: default for all non-lash-up projects, lead never codes, branch trees, section 9)
 
 v0.3 (SAFE-117..122, Aaron's go 2026-10-18): tiers decide the model before dispatch (6a), one brief shape with a token cap and a 10-12 line reply (6b), and three mechanical gates in `/lifecycle verify`: revision-bound verdict, owned-paths scope, and the trivial class (7). Token use is measured in `dispatch_usage` (8). Ideas from thebpandey/lanes (MIT), re-authored; no code copied.
 
@@ -170,3 +170,27 @@ A third table measures cost (SAFE-122): `dispatch_usage` in `schema/lifecycle.sq
 ## 11. Baseline gaps to close in the Photos plan before M0
 
 The Photos plan is the reference instance and already has sections 2 to 6 in project form. To match this lifecycle it still needs: gate zero recorded as intake answer I0; the AC freeze; the bounce cap; the role guard; a verdict state separate from T4; the roles table with models and budgets; `/lifecycle verify` as the only path to done; the unit-test and acceptance-test ownership split; and an offsite copy of `D:\photo-manager`, which is a git repo with no remote and outside the SAFE register.
+
+## 9. v0.4 additions (Aaron, 2026-10-22): default everywhere, lead never codes, branch trees
+
+**9.1 Default.** The lifecycle is the DEFAULT for every project that Aaron has not marked a lash-up (gate zero, section 1). There is no opt-in: forge stamps `lifecycle.json` mode `lifecycle` on assemble and on `upgrade`, `/new` asks only the lash-up question, and GGR65 v3 / GGR83 v2 carry the rule into every project's GGR.md. A project already running is brought in by `forge upgrade <slug> --apply --only ggr` (rule text) plus its next `/lifecycle plan`.
+
+**9.2 Vocabulary.** Epic = a BOW parent item (milestone). Requirement = a BOW item under an epic (one module or one capability). Acceptance criterion = AC-n inside the requirement, Given/When/Then, measurable, ending "Assumptions: none" only after review. The state machine in section 5 is unchanged; "rejected(assumptions)" is the loop Aaron describes: the reviewer (or a developer, "reject, assumes X") rejects with the list of assumptions, the ARCHITECT closes each by editing the requirement, editing an AC, or adding a new requirement, and re-offers it; bounce 3 goes to Aaron.
+
+**9.3 The lead never codes** (SitRep ruling 2026-09-23, now general). The lead writes requirements, ACs and answers assumption questions, directs and decides; it does not write or patch source, tests, config or docs-as-code. A defect found by the lead is bounced to a developer role as a defect comment, not fixed. A one-line change is still a developer dispatch (batch small units, 6a). The role guard (section 7) refuses a lead identity committing source in a lifecycle project.
+
+**9.4 Branch trees, concurrent roles.**
+```
+main
+ └─ lc/<code>                   integration branch of one requirement (created at CP-dev)
+     ├─ lc/<code>/dev           developer worktree: source + unit tests only
+     ├─ lc/<code>/t1 .. t4      tester worktrees: write ONLY review files (docs/reviews/<code>/tN.md) and tests marked acceptance
+     └─ lc/<code>/verdict       verdict worktree: writes only the verdict file
+```
+- One git worktree per role per requirement (`git worktree add ../wt/<code>-<role> lc/<code>/<role>`), so roles on DIFFERENT requirements, and the testers of the same requirement once dev has committed, run in parallel without touching one another's files.
+- A tester checks out the developer's exact commit read-only (detached) and its output records that REVISION (section 7 revision-bound verdict). A new developer commit invalidates every later gate (existing rule).
+- Ownership files (`lifecycle-check.js scope <base> <head> <owned-file>`) are generated per role from the requirement: dev owns its source paths, a tester owns only its review path; a role that touches anything else fails the scope gate.
+- Only `/lifecycle verify` merges `lc/<code>` to main, after every gate has a PASS row and the AC hash equals the frozen hash. Worktrees live under the project's `temp/wt/` (git-ignored); they are removed after merge.
+- Independent requirements are developed concurrently up to the dispatch ceiling in 6a; a requirement that depends on another waits for that one to reach `done`.
+
+**9.5 Model tiers unchanged** (6a): cheap models for clerical and checks, Sonnet to develop and test, Opus for AC review, security test and verdict.

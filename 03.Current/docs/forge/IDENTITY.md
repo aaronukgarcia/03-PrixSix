@@ -16,7 +16,7 @@ Before this scheme six live projects all launched as `Bev`; nothing in the windo
 | Place | What |
 |---|---|
 | `project.identity` in the `forge` registry | the source of truth; `register` writes it (explicit `--identity`, else the existing value, else the default) |
-| the launcher (`C:\Users\aarongarcia\AppData\Local\Microsoft\WindowsApps\<slug>.bat`) | generated from `launchers/template.bat.tpl` by `node forge.js launchers --apply`; sets `CLAUDE_IDENTITY`, `METRO_DB_NAME`, `FORGE_PROJECT`, `TEMP`/`TMP`, a per-window session GUID, then starts Claude with the memory add-dir and the project's own add-dirs. Never hand-edited. |
+| the launcher (`C:\bat\<slug>.bat`) | generated from `launchers/template.bat.tpl` by `node forge.js launchers --apply`; sets `CLAUDE_IDENTITY`, `METRO_DB_NAME`, `FORGE_PROJECT`, `TEMP`/`TMP`, a per-window session GUID, then starts Claude with the memory add-dir and the project's own add-dirs. Never hand-edited. |
 | the project's `CLAUDE.md` | `assemble` writes the identity line and the `<identity>> ` response prefix |
 | the statusline (`claude-statusline.js`, wired by `assemble`) | shows `<identity> [model] <folder>`; reads `CLAUDE_IDENTITY` first, the per-window `.identity-<session>` file only as a fallback (forge patch `statusline-identity`) |
 | `claude-sync.js` slot claims | **the slot name is the part after the last hyphen**: `Safe-Bev` claims `Bev`. Matching stays case-insensitive against `NAMES` (`Bill`, `Ben`, `Bev`, `Bro`). A bare name still works. Forge patch `claude-sync-identity` on the canonical asset; `claude-startup.js` strips the project part the same way (patch `claude-startup-identity`). Project copies are not touched by forge: each project applies the registry version with `node E:\git\forge\forge.js upgrade <slug> --apply`. |
@@ -28,4 +28,4 @@ Before this scheme six live projects all launched as `Bev`; nothing in the windo
 
 - `node forge.js doctor <slug>`: the launcher exists, sets the registry's identity (with a hyphen), the registry's database name and `TEMP`.
 - `node forge.js drift`: the launcher audit for every registered project, run nightly by `safe-status`.
-- `node forge.js launchers --check`: renders every launcher and dry-runs it (`FORGE_LAUNCHER_DRYRUN=1` makes the launcher print its resolved environment and exit before Claude starts, GGR62).
+- `node forge.js launchers --check`: renders every launcher and dry-runs it (`FORGE_LAUNCHER_DRYRUN=1` makes the launcher print its resolved environment and exit before Claude starts, GGR62). It also fails when a project root holds a file named like its launcher with an extension in PATHEXT (todo.js beside todo.bat): cmd searches the current folder before PATH, so typing the launcher name inside that root runs the file instead (SAFE-221). `drift` reports the same collision.

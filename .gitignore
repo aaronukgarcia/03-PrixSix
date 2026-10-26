@@ -5,6 +5,8 @@
 !03.Current/
 !03.Current/app/
 !03.Current/app/**
+!lifecycle.json
+!03.Current/.mcp.json
 !03.Current/whatsapp-worker/
 !03.Current/whatsapp-worker/**
 !03.Current/LICENSE

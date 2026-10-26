@@ -31,6 +31,15 @@
             "timeout": 2
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node E:/projects/63-SAFE/tools/nats/hooks/hook.js UserPromptSubmit",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -39,6 +48,15 @@
           {
             "type": "command",
             "command": "node claude-startup.js"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node E:/projects/63-SAFE/tools/nats/hooks/hook.js SessionStart",
+            "timeout": 3
           }
         ]
       }
@@ -76,7 +94,44 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node E:/projects/63-SAFE/tools/nats/hooks/hook.js PostToolUse",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node E:/projects/63-SAFE/tools/nats/hooks/hook.js SessionEnd",
+            "timeout": 5
+          }
+        ]
       }
     ]
-  }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(nats)",
+      "Bash(nats *)",
+      "PowerShell(nats)",
+      "PowerShell(nats *)"
+    ],
+    "deny": [
+      "Read(E:\\SAFE\\nats\\private\\**)",
+      "Read(E:\\SAFE\\nats\\consumers\\**)",
+      "Bash(*nats\\private*)",
+      "PowerShell(*nats\\private*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "safe-nats"
+  ]
 }
