@@ -2,6 +2,22 @@
   "lastUpdated": "2026-10-26",
   "commits": [
     {
+      "id": "f2bf399",
+      "date": "2026-10-26",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "chore: SAFE nats hooks read $SAFE_HOME, channel via stub, forward-slash deny rules (SAFE-452/456/463; hook-only, no version bump)",
+      "major": false
+    },
+    {
+      "id": "9a1233a",
+      "date": "2026-10-26",
+      "version": "3.26.0",
+      "author": "aaron garcia",
+      "message": "feat: admin Cheat Check panel — late-submission + shared-login-IP checks (v3.26.0)",
+      "major": true
+    },
+    {
       "id": "f1e43a1",
       "date": "2026-10-26",
       "version": "3.4.x",

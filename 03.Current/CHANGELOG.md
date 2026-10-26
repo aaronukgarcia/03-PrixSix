@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.26.1 — 2026-10-26 (WhatsApp worker 2.2.8)
+
+### SEC-DEPS-2026-10: security patch for every dependency in the stack
+
+A full audit on 26 October found 158 published advisories across the app, Cloud Functions, WhatsApp worker and tooling, plus three in the Python pub chat updater. This release patches them. No feature or behaviour changes.
+
+- **App:** Next.js 16.2.12 → 16.4.3. The remote-code-execution advisories needed the image optimiser, `next/og` or `use cache`, none of which Prix Six uses, but the release also fixes a Server Actions denial of service and cache poisoning that did apply. DOMPurify 3.4.12 → 3.4.17 closes XSS bypasses in the sanitiser that protects the admin email log and Pub Chat panel. Genkit family 1.40 → 1.43 in lockstep (handlebars 4.7.10), React 19.3, Firebase 12.19, firebase-admin 14.5 and every in-range update. Advisories went from 99 (4 critical) to 75 (0 critical); the rest need zod 4, which genkit does not support yet, or sit in dev-only tooling (BOW SEC-DEPS-RESIDUAL-001).
+- **Cloud Functions:** 13 advisories → 0. firebase-admin 14.5, firebase-functions 7.4, `@google-cloud/storage` 8.4 (checked against the backup code: page listing and folder prefixes behave as before).
+- **WhatsApp worker 2.2.8:** base image Node 20 (end of life since April 2026) → Node 22; Baileys 6.7.24, express 5.3; 16 advisories → 0.
+- **Python pub chat updater:** bleach 6.3.0 → 6.4.0 (fixes three advisories in its URL sanitising) and every requirement pinned exactly.
+- **code.json:** the third-party dependency inventory is rebuilt from what is actually installed, now covering all six packages (96 entries), and `APP_VERSION` there is corrected.
+
 ## v3.26.0 — 2026-10-26
 
 ### New admin Cheat Check panel
