@@ -25,6 +25,7 @@ import { OnlineUsersManager } from "./_components/OnlineUsersManager";
 import { EmailLogManager } from "./_components/EmailLogManager";
 import { AuditManager } from "./_components/AuditManager";
 import { AuditLogViewer } from "./_components/AuditLogViewer";
+import { CheatCheckManager } from "./_components/CheatCheckManager";
 import { ConsistencyChecker } from "./_components/ConsistencyChecker";
 import { WhatsAppManager } from "./_components/WhatsAppManager";
 import { StandingDataManager } from "./_components/StandingDataManager";
@@ -498,6 +499,7 @@ export default function AdminPageClient({ initialVerified }: AdminPageClientProp
                 </TabsContent>
                 <TabsContent value="audit" className="space-y-4">
                     <AuditManager />
+                    <CheatCheckManager />
                     <AuditLogViewer allUsers={allUsers} isUserLoading={isUserLoading} />
                 </TabsContent>
                 <TabsContent value="whatsapp">

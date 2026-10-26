@@ -1,7 +1,7 @@
 {
   "module": "Prix Six Application",
   "generated": "2026-08-23",
-  "total_guids": 2283,
+  "total_guids": 2296,
   "variables": [
     {
       "name": "ADMIN_CHALLENGE_RATE_LIMITS",
@@ -57675,6 +57675,193 @@
       },
       "created": "2026-10-12T22:30:00Z",
       "lastUpdated": "2026-10-12T22:30:00Z"
+    },
+    {
+      "guid": "LIB_CHEAT_CHECK-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "File header for the integrity-checking library for suspicious player behaviour (late submissions, shared login IPs).",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheat-check.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "LIB_CHEAT_CHECK-001",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "CHEAT_CHECK_DEFINITIONS — the fixed, user-facing description of every check, shown in the admin UI before a run.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheat-check.ts",
+        "functionName": "CHEAT_CHECK_DEFINITIONS"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "LIB_CHEAT_CHECK-002",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "Type definitions for cheat-check findings, results and summary shapes.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheat-check.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "LIB_CHEAT_CHECK-003",
+      "version": 1,
+      "logic_category": "TRANSFORMATION",
+      "description": "buildOverrideWindows — reduces pit-lane override audit events into open->close windows so late submissions can be matched against an admin-authorised reopen.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheat-check.ts",
+        "functionName": "buildOverrideWindows"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "LIB_CHEAT_CHECK-004",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "checkLateSubmissions — flags predictions submitted after the race deadline, excluding carry-forward docs and auto-explaining lates inside an admin pit-lane-reopen window.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheat-check.ts",
+        "functionName": "checkLateSubmissions"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "LIB_CHEAT_CHECK-005",
+      "version": 1,
+      "logic_category": "VALIDATION",
+      "description": "checkSharedLoginIPs — flags IPs used by 2+ distinct non-admin accounts to log in, as a weak multi-accounting/collusion signal.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheat-check.ts",
+        "functionName": "checkSharedLoginIPs"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "LIB_CHEAT_CHECK-006",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "generateCheatCheckSummary — combines all check functions' findings into the summary object the API route returns.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/lib/cheat-check.ts",
+        "functionName": "generateCheatCheckSummary"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "API_ADMIN_CHEAT_CHECK-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "Contract header for the admin-only cheat-check GET route.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/cheat-check/route.ts",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "API_ADMIN_CHEAT_CHECK-001",
+      "version": 1,
+      "logic_category": "ORCHESTRATION",
+      "description": "GET handler — auth + isAdmin gate, fetches race_schedule/predictions/audit_logs/users, runs the cheat-check lib functions, writes a last-run status marker, returns the summary.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/api/admin/cheat-check/route.ts",
+        "functionName": "GET"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "ADMIN_CHEAT_CHECK-000",
+      "version": 1,
+      "logic_category": "CONFIGURATION",
+      "description": "File header for the admin Cheat Check panel component.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/CheatCheckManager.tsx",
+        "functionName": null
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
+    },
+    {
+      "guid": "ADMIN_CHEAT_CHECK-001",
+      "version": 1,
+      "logic_category": "UI",
+      "description": "CheatCheckManager — admin panel component showing the check descriptions, a Run button calling /api/admin/cheat-check, and the results grouped by check with flag/info severity.",
+      "dependencies": [],
+      "location": {
+        "filePath": "app/src/app/(app)/admin/_components/CheatCheckManager.tsx",
+        "functionName": "CheatCheckManager"
+      },
+      "callChain": {
+        "calledBy": [],
+        "calls": []
+      },
+      "created": "2026-10-26T10:20:10.744Z",
+      "lastUpdated": "2026-10-26T10:20:10.744Z"
     }
   ],
   "firestoreCollections": {

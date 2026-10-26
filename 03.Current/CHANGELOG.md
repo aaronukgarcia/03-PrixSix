@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.26.0 — 2026-10-26
+
+### New admin Cheat Check panel
+
+The admin Audit tab now has a "Cheat Check" card: it shows exactly which checks it will run (late submissions vs. the official deadline, cross-referenced against logged admin pit-lane-reopen windows so an authorised extension never gets flagged; and login IPs shared by two or more distinct non-admin accounts) before the admin clicks anything, then runs them server-side (`/api/admin/cheat-check`, Admin SDK, read-only against game data) and shows results grouped by check with a flag/info summary. Every result is presented as a lead for a human to look at, not an automatic verdict — the UI and the check descriptions say so explicitly. Born from a manual error-log/audit review on 2026-10-26 that found the league is clean (the only "late" submissions were either system carry-forwards or a single logged, admin-authorised pit-lane reopen during the Chinese GP weekend); this turns that one-off investigation into a repeatable tool.
+
 ## v3.25.6 — 2026-10-14
 
 ### COST-PROBE-001: the admin health panel no longer wakes the WhatsApp worker between races

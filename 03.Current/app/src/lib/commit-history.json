@@ -1,6 +1,38 @@
 {
-  "lastUpdated": "2026-10-18",
+  "lastUpdated": "2026-10-26",
   "commits": [
+    {
+      "id": "f1e43a1",
+      "date": "2026-10-26",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "chore: forge drift apply — GGR90/91 rendered + marked, lifecycle docs to current pristine version",
+      "major": false
+    },
+    {
+      "id": "b7fce5c",
+      "date": "2026-10-26",
+      "version": "3.25.7",
+      "author": "aaron garcia",
+      "message": "chore: wire SAFE NATS session hooks + wake channel, commit lifecycle.json (v3.25.7)",
+      "major": false
+    },
+    {
+      "id": "94e0a22",
+      "date": "2026-10-22",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "chore: startup hook tells sessions to recall by handle — Vestige 4 has no free-text recall (hook-only, no version bump)",
+      "major": false
+    },
+    {
+      "id": "9853f77",
+      "date": "2026-10-22",
+      "version": "3.4.x",
+      "author": "aaron garcia",
+      "message": "chore: SAFE housekeeping — forge upgrade applied, GGR.md re-rendered, status line handed to the global kit (no version bump)",
+      "major": false
+    },
     {
       "id": "772ebd8",
       "date": "2026-10-14",
