@@ -28,7 +28,7 @@ CHECKS: <exact commands that must pass>
 STOP WHEN: checks pass | half the budget is spent without the minimum | a decision only Aaron can make (report it, do not guess)
 
 RULES: work only in the owned paths; read the owned files, their callers and their tests, do not survey the repo;
-stage explicit paths only; no AI trailer in commits (GGR64); never touch .env, keys or tokens; never push.
+stage explicit paths only; no AI trailer in commits (GGR64); never touch .env, keys or tokens; never push; never skip hooks (the no-verify flag or any other bypass), not even in a throwaway probe repo (a reviewer tried it on 2026-10-24; the deletion gate stopped it).
 REPORT: full evidence (commands, outputs, hashes, pass/fail totals) to <project temp>/lifecycle/<BOW>/<role>-report.md.
 Final message 10-12 lines: outcome, CHECKS with PASS/FAIL, files changed, tokens used, anything deferred.
 Testers and verdict end with the block in section 7 (TASK / REVISION / REVIEWER / SCOPE / CHECKS / FINDINGS / VERDICT),
