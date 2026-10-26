@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node E:/projects/63-SAFE/tools/nats/hooks/hook.js UserPromptSubmit",
+            "command": "[ -n \"$SAFE_HOME\" ] || { echo 'safe-nats hook: SAFE_HOME is not set; start this window from its C:\\bat launcher' >&2; exit 0; }; node \"$SAFE_HOME/tools/nats/hooks/hook.js\" UserPromptSubmit",
             "timeout": 3
           }
         ]
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node E:/projects/63-SAFE/tools/nats/hooks/hook.js SessionStart",
+            "command": "[ -n \"$SAFE_HOME\" ] || { echo 'safe-nats hook: SAFE_HOME is not set; start this window from its C:\\bat launcher' >&2; exit 0; }; node \"$SAFE_HOME/tools/nats/hooks/hook.js\" SessionStart",
             "timeout": 3
           }
         ]
@@ -99,7 +99,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node E:/projects/63-SAFE/tools/nats/hooks/hook.js PostToolUse",
+            "command": "[ -n \"$SAFE_HOME\" ] || { echo 'safe-nats hook: SAFE_HOME is not set; start this window from its C:\\bat launcher' >&2; exit 0; }; node \"$SAFE_HOME/tools/nats/hooks/hook.js\" PostToolUse",
             "timeout": 3
           }
         ]
@@ -110,7 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node E:/projects/63-SAFE/tools/nats/hooks/hook.js SessionEnd",
+            "command": "[ -n \"$SAFE_HOME\" ] || { echo 'safe-nats hook: SAFE_HOME is not set; start this window from its C:\\bat launcher' >&2; exit 0; }; node \"$SAFE_HOME/tools/nats/hooks/hook.js\" SessionEnd",
             "timeout": 5
           }
         ]
@@ -128,7 +128,11 @@
       "Read(E:\\SAFE\\nats\\private\\**)",
       "Read(E:\\SAFE\\nats\\consumers\\**)",
       "Bash(*nats\\private*)",
-      "PowerShell(*nats\\private*)"
+      "PowerShell(*nats\\private*)",
+      "Read(E:/SAFE/nats/private/**)",
+      "Read(E:/SAFE/nats/consumers/**)",
+      "Bash(*nats/private*)",
+      "PowerShell(*nats/private*)"
     ]
   },
   "enabledMcpjsonServers": [

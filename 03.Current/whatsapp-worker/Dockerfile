@@ -1,5 +1,5 @@
 # Baileys-based WhatsApp worker — no Chromium needed (WebSocket protocol)
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
 # Set working directory
 WORKDIR /app
