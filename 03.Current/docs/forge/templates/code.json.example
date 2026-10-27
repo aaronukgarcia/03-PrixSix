@@ -561,15 +561,15 @@
       "symbol": "trips/day",
       "dimension": "count",
       "definedAt": "data/traffic/scale_ladder.json:45",
-      "note": "FEAT-2326609792 inc0: one-way journeys by one person per simulated day (dailyPersonTrips, tripsByMode, trip_generation.json rates). Ladder values interpolate log-linearly in population (inc1)."
+      "note": "FEAT-NNNNNNNNNN inc0: one-way journeys by one person per simulated day (dailyPersonTrips, tripsByMode, trip_generation.json rates). Ladder values interpolate log-linearly in population (inc1)."
     },
     {
-      "key": "count.person-per-km2",
+      "key": "count.example",
       "name": "persons per square kilometre",
       "symbol": "p/km²",
       "dimension": "count",
       "definedAt": "data/traffic/scale_ladder.json:40",
-      "note": "FEAT-2326609792 inc0: residential density band key for mode_share_by_density.json (densityPersonsPerKm2)."
+      "note": "FEAT-NNNNNNNNNN inc0: residential density band key for mode_share_by_density.json (densityPersonsPerKm2)."
     },
     {
       "key": "length.vehicle-km-day",
@@ -577,7 +577,7 @@
       "symbol": "veh·km/day",
       "dimension": "length",
       "definedAt": "data/traffic/scale_ladder.json:80",
-      "note": "FEAT-2326609792 inc0: network vehicle-kilometres travelled per simulated day (networkVehicleKmPerDay); drives fuel, EV kWh and road-wear rows."
+      "note": "FEAT-NNNNNNNNNN inc0: network vehicle-kilometres travelled per simulated day (networkVehicleKmPerDay); drives fuel, EV kWh and road-wear rows."
     },
     {
       "key": "count.pcu-lane-hour",
@@ -585,7 +585,7 @@
       "symbol": "pcu/ln/h",
       "dimension": "count",
       "definedAt": "data/traffic/link_capacity.json:7",
-      "note": "FEAT-2326609792 inc0: HCM link-capacity convention keyed to data/roads.json class ids; data/traffic.json capacityPerLanePerHour is the engine.traffic BPR default in the same unit. definedAt repointed to the unitsConvention line (:7, was :6's comment field) by FEAT-2326609803. BUG-905 (inc8 r1, webconsole/src/sim/trafficDemand.ts busPriorityCapacityDeltaOf): this figure was subtracted directly from a sum of count.person-tick-tile (LineUsage.capacity / ROAD_TIER_CAPACITY) — an incommensurable-units bug the two tables' near-equal magnitudes (1800/1700 vs. 250) masked. The fix (r4 ACCEPT row 7627) made busPriority's reallocation a dimensionless fraction of BUS_LANE_SPEC's own capacity instead; this unit is registered (plus count.person-tick-tile) and both tokens are in units-lint's detector vocabulary with a UNITS-LINT-003 mixing check so the same class of arithmetic is caught mechanically, not just by round."
+      "note": "FEAT-NNNNNNNNNN inc0: HCM link-capacity convention keyed to data/roads.json class ids; data/traffic.json capacityPerLanePerHour is the engine.traffic BPR default in the same unit. definedAt repointed to the unitsConvention line (:7, was :6's comment field) by FEAT-NNNNNNNNNN. BUG-905 (inc8 r1, webconsole/src/sim/trafficDemand.ts busPriorityCapacityDeltaOf): this figure was subtracted directly from a sum of count.person-tick-tile (LineUsage.capacity / ROAD_TIER_CAPACITY) — an incommensurable-units bug the two tables' near-equal magnitudes (1800/1700 vs. 250) masked. The fix (r4 ACCEPT row 7627) made busPriority's reallocation a dimensionless fraction of BUS_LANE_SPEC's own capacity instead; this unit is registered (plus count.person-tick-tile) and both tokens are in units-lint's detector vocabulary with a UNITS-LINT-003 mixing check so the same class of arithmetic is caught mechanically, not just by round."
     },
     {
       "key": "count.person-tick-tile",
@@ -593,7 +593,7 @@
       "symbol": "ppl/tick/tile",
       "dimension": "count",
       "definedAt": "webconsole/src/sim/data.ts:436",
-      "note": "FEAT-2326609803 (BUG-905 follow-up): the webconsole traffic model's per-tile throughput unit — ROAD_TIER_CAPACITY (data.ts:436, vehicles/tick per tile by RoadTier) and LineUsage.capacity (data.ts:3125, ROAD_TIER_CAPACITY x tiles, consumed by trafficDemand.ts's busPriorityCapacityDeltaOf/InfoOf and lineUsageOf). NOT the same unit as count.pcu-lane-hour (passenger-car-units per LANE per HOUR, an HCM highway-capacity convention with a different denominator entirely) despite both being loosely called 'capacity' in code and both landing in the low hundreds-to-low-thousands range — BUG-905 was exactly this pair subtracted from each other with no conversion. No registered scale/baseUnit conversion exists between the two units (deliberately: PLACEHOLDER-balance per data.ts:420-421, Aaron's row-by-row pass pending); code MUST NOT combine a count.pcu-lane-hour figure with a count.person-tick-tile figure via +/- without first converting through a sourced factor (peak-hour factor and lanes-per-tile both exist in the inc0/inc3 tables per BUG-905's own remediation note)."
+      "note": "FEAT-NNNNNNNNNN (BUG-905 follow-up): the webconsole traffic model's per-tile throughput unit — ROAD_TIER_CAPACITY (data.ts:436, vehicles/tick per tile by RoadTier) and LineUsage.capacity (data.ts:3125, ROAD_TIER_CAPACITY x tiles, consumed by trafficDemand.ts's busPriorityCapacityDeltaOf/InfoOf and lineUsageOf). NOT the same unit as count.pcu-lane-hour (passenger-car-units per LANE per HOUR, an HCM highway-capacity convention with a different denominator entirely) despite both being loosely called 'capacity' in code and both landing in the low hundreds-to-low-thousands range — BUG-905 was exactly this pair subtracted from each other with no conversion. No registered scale/baseUnit conversion exists between the two units (deliberately: PLACEHOLDER-balance per data.ts:420-421, Aaron's row-by-row pass pending); code MUST NOT combine a count.pcu-lane-hour figure with a count.person-tick-tile figure via +/- without first converting through a sourced factor (peak-hour factor and lanes-per-tile both exist in the inc0/inc3 tables per BUG-905's own remediation note)."
     },
     {
       "key": "count.train-hour",
@@ -601,15 +601,15 @@
       "symbol": "tph",
       "dimension": "count",
       "definedAt": "data/traffic/link_capacity.json:7",
-      "note": "FEAT-2326609792 inc0: scheduled trains per hour per direction on a rail/tram/metro/HS class."
+      "note": "FEAT-NNNNNNNNNN inc0: scheduled trains per hour per direction on a rail/tram/metro/HS class."
     },
     {
-      "key": "ratio.esal-100-vehicle-km",
+      "key": "ratio.example",
       "name": "equivalent single-axle loads per 100 vehicle-km",
       "symbol": "ESAL/100veh·km",
       "dimension": "ratio",
       "definedAt": "data/traffic/road_wear.json:7",
-      "note": "FEAT-2326609792 inc0: AASHTO 4th-power axle-load law expressed as an internal wear ratio (car = 1); see traffic-assumptions.md A-12 / ASM-1491 — a ratio, not a calibrated pavement-life figure."
+      "note": "FEAT-NNNNNNNNNN inc0: AASHTO 4th-power axle-load law expressed as an internal wear ratio (car = 1); see traffic-assumptions.md A-12 / ASM-1491 — a ratio, not a calibrated pavement-life figure."
     },
     {
       "key": "count.parking-space",
@@ -617,7 +617,7 @@
       "symbol": "spaces",
       "dimension": "count",
       "definedAt": "data/traffic/parking.json:7",
-      "note": "FEAT-2326609792 inc0: kerb + off-street spaces demanded/supplied (parkingSpacesDemanded)."
+      "note": "FEAT-NNNNNNNNNN inc0: kerb + off-street spaces demanded/supplied (parkingSpacesDemanded)."
     },
     {
       "key": "count.ev-charge-point",
@@ -625,7 +625,7 @@
       "symbol": "chargers",
       "dimension": "count",
       "definedAt": "data/traffic/scale_ladder.json:98",
-      "note": "FEAT-2326609792 inc0: public charge points needed (evChargePointsNeeded); ratio per EV from data/fuel.json era curve."
+      "note": "FEAT-NNNNNNNNNN inc0: public charge points needed (evChargePointsNeeded); ratio per EV from data/fuel.json era curve."
     },
     {
       "key": "count.incident-1000-pop-day",
@@ -633,7 +633,7 @@
       "symbol": "inc/1k/day",
       "dimension": "count",
       "definedAt": "data/traffic/emergency_response.json:6",
-      "note": "FEAT-2326609792 inc0: dispatched fire/ambulance/police incidents per 1,000 residents per simulated day."
+      "note": "FEAT-NNNNNNNNNN inc0: dispatched fire/ambulance/police incidents per 1,000 residents per simulated day."
     }
   ],
   "moduleCount": 172,
@@ -11666,7 +11666,7 @@
       "priority": "P1",
       "milestone": "M3",
       "layer": "ui",
-      "specRef": "FEAT-1972079852; int.protocol inbound.pattern (versioned command/event/delta envelope)",
+      "specRef": "FEAT-NNNNNNNNNN; int.protocol inbound.pattern (versioned command/event/delta envelope)",
       "path": "webconsole/",
       "inbound": {
         "guid": "7a41c257-0979-4fab-895a-651c7e73164d",
@@ -11697,7 +11697,7 @@
       "priority": "P1",
       "milestone": "M0",
       "layer": "interface",
-      "specRef": "FEAT-1972079936 Phase 1; docs/planning/compute-offload-architecture.md",
+      "specRef": "FEAT-NNNNNNNNNN Phase 1; docs/planning/compute-offload-architecture.md",
       "path": "internal/persist/",
       "inbound": {
         "guid": "087edd5a-d6c4-427f-bc70-ce944f0d7280",
