@@ -14,7 +14,7 @@
     {
       "name": "APP_VERSION",
       "type": "constant",
-      "value": "\"3.26.1\"",
+      "value": "\"3.26.2\"",
       "description": "Single source of truth for displayed app version. Must match package.json (Golden Rule #2). Updated in both app/src/lib/version.ts and package.json on every release.",
       "definedIn": "app/src/lib/version.ts",
       "usedIn": []

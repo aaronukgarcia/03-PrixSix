@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.26.2 — 2026-10-26
+
+### v3.26.1 never went live: lockfile fixed so App Hosting can build it
+
+The v3.26.1 build failed in under a minute. App Hosting installs with `npm ci` on npm 10, and the lockfile had been written by npm 11, which resolves a genkit peer dependency (`@google-cloud/firestore` 7.x for `@genkit-ai/firebase`) differently. npm 10 refused the lockfile as out of sync. The lockfile is now regenerated with npm 10 and checked with `npm ci` under both npm 10 and npm 11. No code changes. Everything listed under v3.26.1 ships with this release.
+
 ## v3.26.1 — 2026-10-26 (WhatsApp worker 2.2.8)
 
 ### SEC-DEPS-2026-10: security patch for every dependency in the stack
