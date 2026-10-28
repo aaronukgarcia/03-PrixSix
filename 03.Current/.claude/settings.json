@@ -47,14 +47,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node claude-startup.js"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "[ -n \"$SAFE_HOME\" ] || { echo 'safe-nats hook: SAFE_HOME is not set; start this window from its C:\\bat launcher' >&2; exit 0; }; node \"$SAFE_HOME/tools/nats/hooks/hook.js\" SessionStart",
             "timeout": 3
           }
@@ -70,7 +62,7 @@
           },
           {
             "type": "command",
-            "command": "node tools/session-ledger.js auto",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/session-ledger.js\" auto",
             "timeout": 10
           }
         ]
@@ -90,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node claude-reflection.js",
+            "command": "node \"E:/git/forge/kit/claude-reflection.js\"",
             "timeout": 3
           }
         ]
