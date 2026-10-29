@@ -62,7 +62,7 @@ export const AdminChallengeRequestSchema = z.object({
    * Optional: IP address for rate limiting (extracted from headers server-side)
    * Not validated here as it's populated by the API route, not the client
    */
-  _ipAddress: z.string().ip().optional(),
+  _ipAddress: z.union([z.ipv4(), z.ipv6()]).optional(), // zod 4: .ip() removed, replaced by top-level ipv4/ipv6 validators
 });
 
 export type AdminChallengeRequest = z.infer<typeof AdminChallengeRequestSchema>;

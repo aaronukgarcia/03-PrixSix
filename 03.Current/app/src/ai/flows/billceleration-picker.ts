@@ -13,7 +13,7 @@
 //          This flow itself throws on generation failure — the caller owns the ladder.
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit'; // genkit's bundled zod 3: flow schemas must match genkit's own zod, not the app's zod 4
 
 const PickerInputSchema = z.object({
   raceName: z.string().describe('The race being predicted.'),

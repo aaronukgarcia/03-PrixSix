@@ -23,7 +23,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit'; // genkit's bundled zod 3: flow schemas must match genkit's own zod, not the app's zod 4
 import { getFirebaseAdmin, generateCorrelationId } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createTracedError, logTracedError } from '@/lib/traced-error';

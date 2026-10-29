@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.26.3 — 2026-10-29
+
+### SAFE-ADV-076: the six high dependency advisories in the app, patched or ruled out
+
+SAFE's dependency register flagged six high-severity advisories in `app/package-lock.json` on 28 October (BOW SEC-DEP-MSAL-001, -GRPC-001, -OTEL-JAEGER-001, -ADMZIP-001, -EXTRACTZIP-001, -ZOD-001). Aaron decided each one on 29 October after an interview on reach and cost. No feature or behaviour changes.
+
+- **zod 3.25.76 → 4.6.7** (SEC-DEP-ZOD-001, the only finding on a reachable path: oversized input could exhaust memory during validation of API bodies). The three AI flow files now take `z` from `genkit`, which bundles its own zod 3, because genkit 1.43 does not accept zod 4 schemas; the other nine direct users compile unchanged except `z.string().ip()`, removed in zod 4 and replaced by `z.union([z.ipv4(), z.ipv6()])` in the admin-challenge schema. `@genkit-ai/next` is removed: nothing imported it, and its hard zod 3 peer dependency made `npm ci` refuse the lockfile (the v3.26.1 failure mode, caught locally this time with `npx npm@10 ci --dry-run`). genkit's private zod 3 copy remains and still audits as high; it only validates model output, not user input, and moves when genkit accepts zod 4.
+- **@azure/msal-node 6.0.1 → 7.1.2** via an npm override (SEC-DEP-MSAL-001). The flaw is in the authorization-code flow, which Prix Six never uses (email and Key Vault use client-secret credentials), but every published `@azure/identity` still pins msal 6 so an override is the only way to move. Verified locally by minting a Graph token and a Key Vault token through identity 4.13.3 on msal 7.1.2; the same override is applied to the git-ignored `app/email` test harness so SAFE's disk scan sees one version.
+- **@opentelemetry/propagator-jaeger 1.25.1 → 2.12.0** via an npm override (SEC-DEP-OTEL-JAEGER-001). This one was not dev-only after all: genkit core's telemetry (`@opentelemetry/sdk-node` 0.52) pins sdk-trace-node 1.25, which pins the 1.25.1 propagator. The Jaeger propagator is only consulted when `OTEL_PROPAGATORS` selects it, which Prix Six never does, so the malformed-header crash was unreachable; the 2.x class has the same interface and the build and flows are unchanged.
+- **genkit-cli removed from devDependencies** with its two `genkit:*` scripts (SEC-DEP-ADMZIP-001, SEC-DEP-EXTRACTZIP-001). It was the local Genkit developer UI, unused since the app was scaffolded, and the only route for adm-zip 0.5 and extract-zip 2.0.1 (which has no fix anywhere). Removing it drops 171 packages. `npm i -D genkit-cli` brings it back if ever needed.
+- **@grpc/grpc-js: watch, not forced** (SEC-DEP-GRPC-001). The server-side copy under firebase-admin and genkit is already 1.14.6 (clean). The flagged 1.9.16 belongs to the firebase client SDK, which pins `~1.9.0` and never uses grpc in the browser; forcing it would be an untested pairing under every Firestore listener, so it stays open as "watch" until Firebase bumps its pin.
+
+Audit after this release: 0 critical, 9 high, 56 moderate, from 0 / 18 / 57. Every remaining high is one of two chains with no published fix: the firebase client SDK's grpc-js 1.9 (four entries) and genkit's private zod 3 (five entries). The moderates are genkit's OpenTelemetry 1.x chain and `uuid` under google-gax, both waiting on upstream.
+
 ## v3.26.2 — 2026-10-26
 
 ### v3.26.1 never went live: lockfile fixed so App Hosting can build it
